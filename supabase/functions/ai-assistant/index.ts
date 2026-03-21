@@ -9,12 +9,10 @@ const corsHeaders = {
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 function getTzOffset(tz: string): string {
-  // Get current UTC offset for the timezone dynamically (handles DST)
   const now = new Date();
   const formatter = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" });
   const parts = formatter.formatToParts(now);
   const tzPart = parts.find(p => p.type === "timeZoneName");
-  // e.g. "GMT-7" or "GMT-8"
   if (tzPart?.value) {
     const match = tzPart.value.match(/GMT([+-]\d+)/);
     if (match) {
@@ -23,7 +21,137 @@ function getTzOffset(tz: string): string {
       return `${sign}${String(Math.abs(hours)).padStart(2, "0")}:00`;
     }
   }
-  return "-08:00"; // fallback PST
+  return "-08:00";
+}
+
+// === CONTEXT INJECTION: Build a daily snapshot to prepend to system prompt ===
+async function buildContextSnapshot(supabase: any, locationId: string, today: string, yesterday: string, tomorrow: string, weekStart: string): Promise<string> {
+  try {
+    // Fetch today + yesterday + tomorrow sales in one query
+    const { data: salesRows } = await supabase
+      .from("sales_cache")
+      .select("sale_date, net_sales, guest_count, override_projection, initial_projection, projected_sales, living_projection")
+      .eq("location_id", locationId)
+      .in("sale_date", [yesterday, today, tomorrow])
+      .order("sale_date");
+
+    // Fetch today + yesterday labor
+    const { data: laborRows } = await supabase
+      .from("labor_cache")
+      .select("labor_date, source, labor_cost, labor_hours, regular_hours, overtime_hours")
+      .eq("location_id", locationId)
+      .in("labor_date", [yesterday, today])
+      .order("labor_date");
+
+    // Fetch today's schedule count
+    const { data: scheduleRows } = await supabase
+      .from("scheduled_shifts")
+      .select("id, schedules!inner(location_id)")
+      .eq("schedules.location_id", locationId)
+      .eq("shift_date", today)
+      .not("user_id", "is", null);
+
+    // Fetch tomorrow's schedule count
+    const { data: tomorrowSchedule } = await supabase
+      .from("scheduled_shifts")
+      .select("id, schedules!inner(location_id)")
+      .eq("schedules.location_id", locationId)
+      .eq("shift_date", tomorrow)
+      .not("user_id", "is", null);
+
+    // Fetch week-to-date sales
+    const { data: weekRows } = await supabase
+      .from("sales_cache")
+      .select("sale_date, net_sales, override_projection, initial_projection, projected_sales")
+      .eq("location_id", locationId)
+      .gte("sale_date", weekStart)
+      .lte("sale_date", today)
+      .order("sale_date");
+
+    // Fetch today's tips
+    const { data: tipsRow } = await supabase
+      .from("daily_tips")
+      .select("total_cc_tips, total_cash_tips")
+      .eq("location_id", locationId)
+      .eq("tip_date", today)
+      .maybeSingle();
+
+    // Fetch location hours for today
+    const dayOfWeek = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })).getDay();
+    const { data: hoursRow } = await supabase
+      .from("location_hours")
+      .select("open_time, close_time, is_closed")
+      .eq("location_id", locationId)
+      .eq("day_of_week", dayOfWeek)
+      .maybeSingle();
+
+    // Pending time-off requests
+    const { data: pendingPto } = await supabase
+      .from("availability_requests")
+      .select("id")
+      .eq("location_id", locationId)
+      .eq("status", "pending");
+
+    // Build snapshot
+    const lines: string[] = ["📊 LIVE CONTEXT SNAPSHOT (auto-injected, do NOT repeat raw numbers — use them to answer naturally):"];
+
+    // Yesterday
+    const yd = (salesRows || []).find((r: any) => r.sale_date === yesterday);
+    const ydLabor = (laborRows || []).find((r: any) => r.labor_date === yesterday);
+    if (yd) {
+      const goal = yd.override_projection || yd.initial_projection || yd.projected_sales || 0;
+      const vs = goal > 0 ? ((yd.net_sales / goal - 1) * 100).toFixed(1) : "N/A";
+      lines.push(`Yesterday (${yesterday}): Net Sales $${(yd.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} (${Number(vs) >= 0 ? '+' : ''}${vs}%) | Guests: ${yd.guest_count || 0}${ydLabor ? ` | Labor: $${ydLabor.labor_cost?.toLocaleString() || 0} (${yd.net_sales > 0 ? ((ydLabor.labor_cost / yd.net_sales) * 100).toFixed(1) : '0'}%) | Hours: ${ydLabor.labor_hours?.toFixed(1) || 0}` : ''}`);
+    }
+
+    // Today
+    const td = (salesRows || []).find((r: any) => r.sale_date === today);
+    const tdLabor = (laborRows || []).find((r: any) => r.labor_date === today);
+    if (td) {
+      const goal = td.override_projection || td.initial_projection || td.projected_sales || 0;
+      const pace = td.living_projection || goal;
+      lines.push(`Today (${today}): Net Sales So Far $${(td.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} | Pace $${pace.toLocaleString()} | Guests: ${td.guest_count || 0}${tdLabor ? ` | Labor So Far: $${tdLabor.labor_cost?.toLocaleString() || 0} | Hours: ${tdLabor.labor_hours?.toFixed(1) || 0}` : ''}`);
+    }
+
+    // Tomorrow
+    const tm = (salesRows || []).find((r: any) => r.sale_date === tomorrow);
+    if (tm) {
+      const goal = tm.override_projection || tm.initial_projection || tm.projected_sales || 0;
+      // SANITY CHECK: flag if projection seems absurdly low
+      const flagged = goal > 0 && goal < 500 ? " ⚠️ THIS PROJECTION LOOKS SUSPICIOUSLY LOW — it may be a stale override or data error. Tell the user the number seems off and suggest they check/update the projection." : "";
+      lines.push(`Tomorrow (${tomorrow}): Projected $${goal.toLocaleString()}${flagged}`);
+    }
+
+    // Week-to-date
+    if (weekRows && weekRows.length > 0) {
+      const wtdSales = weekRows.reduce((s: number, r: any) => s + (r.net_sales || 0), 0);
+      const wtdGoal = weekRows.reduce((s: number, r: any) => s + (r.override_projection || r.initial_projection || r.projected_sales || 0), 0);
+      lines.push(`Week-to-date (${weekStart} → ${today}): Sales $${wtdSales.toLocaleString()} | Goal $${wtdGoal.toLocaleString()} (${wtdGoal > 0 ? ((wtdSales / wtdGoal - 1) * 100).toFixed(1) : 'N/A'}%)`);
+    }
+
+    // Tips
+    if (tipsRow) {
+      lines.push(`Today's Tips: CC $${tipsRow.total_cc_tips?.toLocaleString() || 0} | Cash $${tipsRow.total_cash_tips?.toLocaleString() || 0}`);
+    }
+
+    // Schedule
+    lines.push(`Scheduled Today: ${scheduleRows?.length || 0} shifts | Tomorrow: ${tomorrowSchedule?.length || 0} shifts`);
+
+    // Hours
+    if (hoursRow) {
+      lines.push(`Store Hours Today: ${hoursRow.is_closed ? 'CLOSED' : `${hoursRow.open_time} - ${hoursRow.close_time}`}`);
+    }
+
+    // Pending PTO
+    if (pendingPto && pendingPto.length > 0) {
+      lines.push(`Pending Time-Off Requests: ${pendingPto.length}`);
+    }
+
+    return lines.join("\n");
+  } catch (e) {
+    console.error("Context snapshot error:", e);
+    return "⚠️ Context snapshot unavailable — use tools to fetch data.";
+  }
 }
 
 // Tool definitions for the AI model
@@ -202,6 +330,86 @@ const tools = [
       },
     },
   },
+  // === NEW TOOLS ===
+  {
+    type: "function",
+    function: {
+      name: "query_tips",
+      description: "Query daily tip data (credit card tips and cash tips) for a date range. Use for questions about tips, tip trends, tip totals.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          start_date: { type: "string", description: "Start date YYYY-MM-DD" },
+          end_date: { type: "string", description: "End date YYYY-MM-DD" },
+        },
+        required: ["location_id", "start_date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_certifications",
+      description: "Query employee certifications (food handler, ServSafe, etc.) including expiration dates and approval status. Use for 'whose cert is expiring', 'who has food handler', compliance questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location (used to filter employees at this location)" },
+          cert_type: { type: "string", description: "Filter by certification type (partial match)" },
+          status: { type: "string", description: "Filter by status: 'pending', 'approved', 'expired'" },
+          expiring_within_days: { type: "number", description: "Find certs expiring within this many days" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_shift_marketplace",
+      description: "Query shift offers (shift marketplace / shift swap requests). Shows who posted, who claimed, shift details. Use for shift swap and marketplace questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          start_date: { type: "string", description: "Start date YYYY-MM-DD" },
+          end_date: { type: "string", description: "End date YYYY-MM-DD" },
+          status: { type: "string", description: "Filter: 'open', 'claimed', 'approved', 'cancelled'" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_store_hours",
+      description: "Query location operating hours for each day of the week. Use for questions about when the store opens/closes, business hours.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_employee_notes",
+      description: "Query employee notes/write-ups. Use for questions about employee history, notes, write-ups, disciplinary records.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location (to filter employees)" },
+          employee_name: { type: "string", description: "Filter by employee name (partial match)" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
@@ -224,14 +432,19 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         }
 
         const results = (data || []).map((row: any) => {
+          const projection = row.override_projection || row.living_projection || row.initial_projection || row.projected_sales;
           const r: any = {
             date: row.sale_date,
             net_sales: row.net_sales,
             guest_count: row.guest_count,
             pizza_count: row.pizza_count,
             avg_ticket: row.avg_ticket,
-            projection: row.override_projection || row.living_projection || row.initial_projection || row.projected_sales,
+            projection,
           };
+          // Sanity flag for suspiciously low projections on future dates
+          if (projection > 0 && projection < 500 && row.net_sales === 0) {
+            r._warning = "This projection looks suspiciously low — may be a stale override or data error.";
+          }
           if (args.include_hourly && row.hourly_data) r.hourly = row.hourly_data;
           if (args.include_product_mix && row.product_mix) r.product_mix = row.product_mix;
           return r;
@@ -289,7 +502,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
       case "query_schedule": {
         const endDate = args.end_date || args.start_date;
-        // Query shifts with schedule join for location filtering
         const { data, error } = await supabase
           .from("scheduled_shifts")
           .select("shift_date, start_time, end_time, is_time_off, user_id, template_id, schedule_id, schedules!inner(location_id, week_start_date, week_end_date), shift_templates(position, template_name)")
@@ -309,19 +521,14 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         let profileMap: Record<string, string> = {};
 
         if (userIds.length > 0) {
-          const { data: profiles, error: profilesError } = await supabase
+          const { data: profiles } = await supabase
             .from("profiles")
             .select("id, full_name")
             .in("id", userIds);
-
-          if (profilesError) {
-            console.error("query_schedule profiles error:", profilesError);
-          } else {
-            profileMap = (profiles || []).reduce((acc: Record<string, string>, p: any) => {
-              acc[p.id] = p.full_name;
-              return acc;
-            }, {});
-          }
+          profileMap = (profiles || []).reduce((acc: Record<string, string>, p: any) => {
+            acc[p.id] = p.full_name;
+            return acc;
+          }, {});
         }
 
         let results = (data || []).map((s: any) => ({
@@ -343,7 +550,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
       case "query_checklists": {
         const startTs = `${args.date}T00:00:00${offset}`;
         const endTs = `${args.date}T23:59:59${offset}`;
-        const includeResponses = true; // Always include item-level responses
 
         const { data, error } = await supabase
           .from("checklist_submissions")
@@ -366,7 +572,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           return JSON.stringify({ error: error.message });
         }
 
-        // Get profiles for completed_by IDs
         const completedByIds = new Set<string>();
         (data || []).forEach((s: any) => {
           s.checklist_responses?.forEach((r: any) => {
@@ -391,7 +596,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             responses_count: s.checklist_responses?.length || 0,
           };
 
-          if (includeResponses && s.checklist_responses) {
+          if (s.checklist_responses) {
             let responses = s.checklist_responses.map((r: any) => ({
               question: r.checklist_items?.question,
               item_type: r.checklist_items?.item_type,
@@ -416,11 +621,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               responses = responses.filter((r: any) => {
                 const haystack = `${r.question || ""} ${r.answer || ""}`.toLowerCase();
                 if (!haystack) return false;
-
-                // First try exact phrase
                 if (rawKeyword && haystack.includes(rawKeyword)) return true;
-
-                // Fallback: phrase-to-token matching (e.g. "flip the line" -> "flip")
                 if (keywordTokens.length === 0) return false;
                 return keywordTokens.some((token) => haystack.includes(token));
               });
@@ -438,7 +639,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
       }
 
       case "query_logbook": {
-        // Fetch logbook entries with their values and category info
         let catFilter: string[] = [];
         if (args.category_name) {
           const { data: cats } = await supabase
@@ -482,7 +682,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             submitted_at: e.created_at,
           };
 
-          // Process values - parse JSON for structured entries (safe/drawer counts)
           const values: any[] = [];
           (e.logbook_entry_values || []).forEach((v: any) => {
             const fieldName = v.logbook_fields?.field_name || "value";
@@ -491,7 +690,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             if (v.value_text) {
               try {
                 const parsed = JSON.parse(v.value_text);
-                // Structured data (safe count, drawer count)
                 values.push({ field: fieldName, type: fieldType, data: parsed });
               } catch {
                 values.push({ field: fieldName, type: fieldType, text: v.value_text });
@@ -503,7 +701,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
           if (values.length > 0) entry.details = values;
 
-          // Filter by keyword if provided
           if (args.entry_keyword) {
             const kw = args.entry_keyword.toLowerCase();
             const searchText = JSON.stringify(entry).toLowerCase();
@@ -524,10 +721,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           .eq("location_id", args.location_id);
 
         if (activeOnly) query = query.eq("is_active", true);
-
-        if (args.task_title) {
-          query = query.ilike("title", `%${args.task_title}%`);
-        }
+        if (args.task_title) query = query.ilike("title", `%${args.task_title}%`);
 
         const { data: tasks, error: taskError } = await query.order("created_at", { ascending: false }).limit(50);
         if (taskError) {
@@ -542,7 +736,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         let completionMap: Record<string, any[]> = {};
 
         if (includeSubtasks && taskIds.length > 0) {
-          // Get subtasks
           const { data: subtasks } = await supabase
             .from("temporary_task_subtasks")
             .select("id, task_id, title, order_index, completed_at, completed_by, item_type, days_of_week")
@@ -554,7 +747,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             subtaskMap[st.task_id].push(st);
           });
 
-          // Get today's completions for recurring subtasks
           const targetDate = args.date || new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
           const { data: completions } = await supabase
             .from("task_subtask_completions")
@@ -567,7 +759,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             completionMap[c.task_id].push(c);
           });
 
-          // Also get alarm completions
           const { data: alarmCompletions } = await supabase
             .from("alarm_task_completions")
             .select("task_id, completed_by, completed_at, interval_key, profiles!alarm_task_completions_completed_by_fkey(full_name)")
@@ -581,7 +772,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           });
         }
 
-        // Get profile names for completed_by IDs
         const allCompletedByIds = new Set<string>();
         Object.values(subtaskMap).flat().forEach((st: any) => { if (st.completed_by) allCompletedByIds.add(st.completed_by); });
         Object.values(completionMap).flat().forEach((c: any) => { if (c.completed_by) allCompletedByIds.add(c.completed_by); });
@@ -675,7 +865,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
       }
 
       case "query_inventory": {
-        // First get count periods
         let countQuery = supabase
           .from("inventory_counts")
           .select("id, period_type, period_end_date, status, count_date, counted_at, completed_at, is_late_close, duration_seconds, notes, profiles!inventory_counts_counted_by_fkey(full_name)")
@@ -683,12 +872,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           .order("period_end_date", { ascending: false })
           .limit(10);
 
-        if (args.period_end_date) {
-          countQuery = countQuery.eq("period_end_date", args.period_end_date);
-        }
-        if (args.status) {
-          countQuery = countQuery.eq("status", args.status);
-        }
+        if (args.period_end_date) countQuery = countQuery.eq("period_end_date", args.period_end_date);
+        if (args.status) countQuery = countQuery.eq("status", args.status);
 
         const { data: counts, error: countError } = await countQuery;
         if (countError) {
@@ -714,20 +899,17 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               .select("quantity, entered_cases, entered_units, theoretical_quantity, variance, variance_cost, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity)")
               .eq("count_id", count.id);
 
-            let itemResults = (items || []).map((i: any) => {
-              const item: any = {
-                name: i.inventory_items?.common_name || i.inventory_items?.product_name,
-                category: i.inventory_items?.category,
-                quantity: i.quantity,
-                cases: i.entered_cases,
-                units: i.entered_units,
-                cost_per_case: i.inventory_items?.cost_per_case,
-                total_cost: i.quantity && i.inventory_items?.cost_per_unit ? Number((i.quantity * i.inventory_items.cost_per_unit).toFixed(2)) : null,
-                variance: i.variance,
-                variance_cost: i.variance_cost,
-              };
-              return item;
-            });
+            let itemResults = (items || []).map((i: any) => ({
+              name: i.inventory_items?.common_name || i.inventory_items?.product_name,
+              category: i.inventory_items?.category,
+              quantity: i.quantity,
+              cases: i.entered_cases,
+              units: i.entered_units,
+              cost_per_case: i.inventory_items?.cost_per_case,
+              total_cost: i.quantity && i.inventory_items?.cost_per_unit ? Number((i.quantity * i.inventory_items.cost_per_unit).toFixed(2)) : null,
+              variance: i.variance,
+              variance_cost: i.variance_cost,
+            }));
 
             if (args.item_keyword) {
               const kw = args.item_keyword.toLowerCase();
@@ -766,23 +948,20 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           return JSON.stringify({ error: error.message });
         }
 
-        let results = (data || []).map((o: any) => {
-          const order: any = {
-            customer: o.customer_name,
-            pickup_date: o.pickup_date,
-            pickup_time: o.pickup_time,
-            status: o.status,
-            headcount: o.headcount,
-            total_price: o.total_price,
-            items: o.items,
-            notes: o.notes,
-            order_number: o.order_number,
-            vendor: o.vendor,
-            contact_phone: o.contact_phone,
-            created_by: o.profiles?.full_name,
-          };
-          return order;
-        });
+        let results = (data || []).map((o: any) => ({
+          customer: o.customer_name,
+          pickup_date: o.pickup_date,
+          pickup_time: o.pickup_time,
+          status: o.status,
+          headcount: o.headcount,
+          total_price: o.total_price,
+          items: o.items,
+          notes: o.notes,
+          order_number: o.order_number,
+          vendor: o.vendor,
+          contact_phone: o.contact_phone,
+          created_by: o.profiles?.full_name,
+        }));
 
         if (args.customer_name) {
           const q = args.customer_name.toLowerCase();
@@ -832,6 +1011,148 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         }
 
         return JSON.stringify(results.length ? results : { message: "No availability/time-off requests found." });
+      }
+
+      // === NEW TOOL IMPLEMENTATIONS ===
+
+      case "query_tips": {
+        const endDate = args.end_date || args.start_date;
+        const { data, error } = await supabase
+          .from("daily_tips")
+          .select("tip_date, total_cc_tips, total_cash_tips, fetched_at")
+          .eq("location_id", args.location_id)
+          .gte("tip_date", args.start_date)
+          .lte("tip_date", endDate)
+          .order("tip_date");
+        
+        if (error) return JSON.stringify({ error: error.message });
+        
+        const results = (data || []).map((r: any) => ({
+          date: r.tip_date,
+          cc_tips: r.total_cc_tips,
+          cash_tips: r.total_cash_tips,
+          total_tips: (r.total_cc_tips || 0) + (r.total_cash_tips || 0),
+        }));
+        return JSON.stringify(results.length ? results : { message: "No tip data found for this date range." });
+      }
+
+      case "query_certifications": {
+        // Get user IDs at this location
+        const { data: locUsers } = await supabase
+          .from("user_locations")
+          .select("user_id")
+          .eq("location_id", args.location_id);
+        
+        const userIds = (locUsers || []).map((u: any) => u.user_id);
+        if (userIds.length === 0) return JSON.stringify({ message: "No employees at this location." });
+
+        let query = supabase
+          .from("certifications")
+          .select("certification_type, expiration_date, status, approved_at, created_at, profiles!certifications_user_id_fkey(full_name)")
+          .in("user_id", userIds)
+          .order("expiration_date");
+
+        if (args.cert_type) query = query.ilike("certification_type", `%${args.cert_type}%`);
+        if (args.status) query = query.eq("status", args.status);
+
+        const { data, error } = await query;
+        if (error) return JSON.stringify({ error: error.message });
+
+        let results = (data || []).map((c: any) => ({
+          employee: c.profiles?.full_name,
+          type: c.certification_type,
+          expires: c.expiration_date,
+          status: c.status,
+        }));
+
+        if (args.expiring_within_days) {
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() + args.expiring_within_days);
+          const cutoffStr = cutoff.toISOString().split("T")[0];
+          results = results.filter((c: any) => c.expires && c.expires <= cutoffStr);
+        }
+
+        return JSON.stringify(results.length ? results : { message: "No certifications found." });
+      }
+
+      case "query_shift_marketplace": {
+        let query = supabase
+          .from("shift_offers")
+          .select("id, shift_date, start_time, end_time, status, reason, croo_cash_reward, created_at, profiles!shift_offers_offered_by_fkey(full_name), claimer:profiles!shift_offers_claimed_by_fkey(full_name)")
+          .eq("location_id", args.location_id)
+          .order("shift_date");
+
+        if (args.start_date) query = query.gte("shift_date", args.start_date);
+        if (args.end_date) query = query.lte("shift_date", args.end_date);
+        if (args.status) query = query.eq("status", args.status);
+
+        const { data, error } = await query.limit(50);
+        if (error) return JSON.stringify({ error: error.message });
+
+        const results = (data || []).map((s: any) => ({
+          date: s.shift_date,
+          start: s.start_time,
+          end: s.end_time,
+          status: s.status,
+          offered_by: s.profiles?.full_name,
+          claimed_by: s.claimer?.full_name,
+          reason: s.reason,
+          croo_cash_reward: s.croo_cash_reward,
+        }));
+        return JSON.stringify(results.length ? results : { message: "No shift marketplace offers found." });
+      }
+
+      case "query_store_hours": {
+        const { data, error } = await supabase
+          .from("location_hours")
+          .select("day_of_week, open_time, close_time, is_closed")
+          .eq("location_id", args.location_id)
+          .order("day_of_week");
+        
+        if (error) return JSON.stringify({ error: error.message });
+
+        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const results = (data || []).map((h: any) => ({
+          day: dayNames[h.day_of_week] || h.day_of_week,
+          open: h.is_closed ? "CLOSED" : h.open_time,
+          close: h.is_closed ? "CLOSED" : h.close_time,
+        }));
+        return JSON.stringify(results.length ? results : { message: "No store hours configured." });
+      }
+
+      case "query_employee_notes": {
+        // Get user IDs at this location
+        const { data: locUsers } = await supabase
+          .from("user_locations")
+          .select("user_id")
+          .eq("location_id", args.location_id);
+        
+        const userIds = (locUsers || []).map((u: any) => u.user_id);
+        if (userIds.length === 0) return JSON.stringify({ message: "No employees at this location." });
+
+        let query = supabase
+          .from("employee_notes")
+          .select("note, created_at, profiles!employee_notes_user_id_fkey(full_name), creator:profiles!employee_notes_created_by_fkey(full_name)")
+          .in("user_id", userIds)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        const { data, error } = await query;
+        if (error) return JSON.stringify({ error: error.message });
+
+        let results = (data || []).map((n: any) => ({
+          employee: n.profiles?.full_name,
+          note: n.note,
+          created_by: n.creator?.full_name,
+          created_at: n.created_at,
+        }));
+
+        if (args.employee_name) {
+          const q = args.employee_name.toLowerCase();
+          results = results.filter((n: any) => n.employee?.toLowerCase().includes(q));
+        }
+
+        return JSON.stringify(results.length ? results : { message: "No employee notes found." });
       }
 
       default:
@@ -886,13 +1207,17 @@ serve(async (req) => {
     const timezone = "America/Los_Angeles";
     const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
     const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("en-CA", { timeZone: timezone });
+    const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString("en-CA", { timeZone: timezone });
 
     const nowLA = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
-    const dayOfWeek = nowLA.getDay(); // 0=Sun
+    const dayOfWeek = nowLA.getDay();
     const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = new Date(nowLA);
     monday.setDate(monday.getDate() - mondayOffset);
     const weekStart = monday.toLocaleDateString("en-CA");
+
+    // === BUILD CONTEXT SNAPSHOT ===
+    const contextSnapshot = await buildContextSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart);
 
     const systemPrompt = `You are CrooAI — the sharpest, most plugged-in ops assistant in the restaurant game. You work alongside managers at ${location_name || "this location"} like a seasoned shift lead who also happens to be a data wizard.
 
@@ -907,10 +1232,17 @@ YOUR PERSONALITY:
 
 Current date: ${today} (timezone: ${timezone})
 Yesterday: ${yesterday}
+Tomorrow: ${tomorrow}
 This week started (Monday): ${weekStart}
 Location ID: ${location_id}
 
-You have access to tools to query real-time data. ALWAYS use tools to get data before answering — never guess or say you can't access data.
+${contextSnapshot}
+
+You have access to tools to query real-time data. For simple questions about today/yesterday/tomorrow sales, labor, or schedule counts, USE THE CONTEXT SNAPSHOT ABOVE — no tool call needed. For deeper dives, specific employees, checklists, or other details, use tools.
+
+SANITY CHECKS:
+- If a projection or sales number seems absurdly low (e.g. $40 for a full day), flag it to the user: "That projection looks off — might be a stale override. Might want to update it."
+- If tomorrow shows $0 net sales, that's expected (it hasn't happened yet). Report the PROJECTION, not net sales.
 
 SELF-HEALING & RECOVERY:
 - If a tool returns empty results or an error, DO NOT give up. Think about what else might work:
@@ -922,7 +1254,7 @@ SELF-HEALING & RECOVERY:
 - NEVER mention retries, tool failures, or recovery attempts to the user. Just give them the answer.
 
 TOPIC BOUNDARIES:
-- You ONLY answer questions related to restaurant operations: sales, labor, schedules, checklists, tasks, inventory, catering, availability, logbook entries, and general restaurant management advice.
+- You ONLY answer questions related to restaurant operations: sales, labor, schedules, checklists, tasks, inventory, catering, availability, tips, certifications, shift marketplace, store hours, employee notes, logbook entries, and general restaurant management advice.
 - If someone asks about something unrelated (sports, politics, personal questions, coding, etc.), politely redirect: "I'm all about the ops — sales, labor, schedules, and keeping your store running smooth. What can I pull up for you?"
 
 CRITICAL RULES:
@@ -931,19 +1263,24 @@ CRITICAL RULES:
 - Format currency with $ and commas. Format times in 12-hour AM/PM.
 - Keep answers concise but complete.
 - When comparing dates, query both dates.
-- SCHEDULE INTELLIGENCE: Any question about "who's working", "who's scheduled", "who's on", "who should I call", "who can I call", "who's opening", "who's closing", staffing, coverage, or crew = USE query_schedule FIRST. If someone asks who to contact about a task, look up the schedule to find who's working at the relevant time. Never say you can't access employee info — you CAN look up who's scheduled.
+- SCHEDULE INTELLIGENCE: Any question about "who's working", "who's scheduled", "who's on", "who should I call", "who can I call", "who's opening", "who's closing", staffing, coverage, or crew = USE query_schedule FIRST.
 - For product mix questions (e.g. "how many Detroit style pizzas"), use query_sales with include_product_mix=true.
 - For employee punch questions (clock in/out, late arrivals), use query_labor with include_punches=true. To find late arrivals, also use query_schedule to compare scheduled start times with actual clock-in times.
 - For ANY checklist question, use query_checklists. ALWAYS set checklist_title when the user mentions a checklist name. Set item_keyword when asking about a specific item.
-- DOMAIN KNOWLEDGE: "Flip the line" or "flipping the line" means the Shift Change Line Check was completed. The submission time IS when the line was flipped. Answer with the submitter name and submitted_at time. Each response also has a completed_at timestamp and completed_by name — use these for item-level detail.
-- For task questions (e.g. "what's incomplete on CrooHQ ideas"), use query_tasks with the task title.
-- For logbook questions (drawer count, safe count, pass down, incident, maintenance, deposit), use query_logbook. Drawer counts contain denomination-level detail (coins, bills) and variance. Safe counts contain denomination counts per shift (AM/PM). Always show the specific details the user asks about.
-- For labor efficiency questions (labor grade, staffing suggestions, overstaffing), use query_labor_intelligence.
-- For inventory/food cost questions (COGS, how much chicken, stock levels, count status), use query_inventory. Set include_items=true when asking about specific items.
-- For catering order questions (upcoming orders, customer details, catering revenue), use query_catering with the date range.
-- For time-off/availability questions (who has off, pending requests, coverage), use query_availability. If no date range specified, default to the next 14 days.
-- "Today" = ${today}, "yesterday" = ${yesterday}.
-- If a tool returns empty results after retries, let the user know naturally — "Doesn't look like there's any data for that yet" not "I encountered an error."
+- DOMAIN KNOWLEDGE: "Flip the line" or "flipping the line" means the Shift Change Line Check was completed. The submission time IS when the line was flipped.
+- For task questions, use query_tasks with the task title.
+- For logbook questions (drawer count, safe count, pass down, incident, maintenance, deposit), use query_logbook.
+- For labor efficiency questions (labor grade, staffing suggestions), use query_labor_intelligence.
+- For inventory/food cost questions, use query_inventory.
+- For catering questions, use query_catering.
+- For time-off/availability, use query_availability. Default to next 14 days if no range specified.
+- For tip questions, use query_tips.
+- For certification/compliance questions, use query_certifications.
+- For shift swap/marketplace questions, use query_shift_marketplace.
+- For store hours questions, use query_store_hours.
+- For employee note/write-up questions, use query_employee_notes.
+- "Today" = ${today}, "yesterday" = ${yesterday}, "tomorrow" = ${tomorrow}.
+- If a tool returns empty results after retries, let the user know naturally.
 - Use markdown for formatting when it improves readability.`;
 
     const aiMessages = [
