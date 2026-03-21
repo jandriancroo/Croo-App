@@ -1560,8 +1560,6 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 
 .location-chase-effect {
   position: relative;
-  z-index: 0;
-  overflow: visible;
 }
 
 /* Glow layer — blurred conic gradient for the soft aura */
