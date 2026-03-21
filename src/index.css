@@ -1548,46 +1548,61 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 }
 
 /* Location chase border effect after switching */
-@keyframes location-chase {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 300% 50%;
-  }
+@keyframes location-chase-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes chase-border-fade {
+  0% { opacity: 1; }
+  70% { opacity: 0.8; }
+  100% { opacity: 0; }
 }
 
 .location-chase-effect {
   position: relative;
   z-index: 0;
+  overflow: visible;
 }
 
-.location-chase-effect::before {
+.location-chase-effect::before,
+.location-chase-effect::after {
   content: '';
   position: absolute;
   inset: -2px;
-  border-radius: 12px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    hsl(var(--primary)) 25%,
-    hsl(var(--accent)) 50%,
-    hsl(var(--primary)) 75%,
-    transparent 100%
-  );
-  background-size: 300% 100%;
-  animation: location-chase 1.5s linear forwards;
+  border-radius: 10px;
   opacity: 0;
+  pointer-events: none;
+}
+
+/* Spinning conic gradient — the "light" */
+.location-chase-effect::before {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 260deg,
+    hsl(var(--primary)) 300deg,
+    hsl(var(--accent)) 330deg,
+    hsl(var(--primary)) 345deg,
+    transparent 360deg
+  );
+  z-index: -2;
+}
+
+/* Inner mask — punches out the center so only the border ring shows */
+.location-chase-effect::after {
+  inset: 0px;
+  border-radius: 8px;
+  background: hsl(var(--primary));
   z-index: -1;
 }
 
 .location-chase-effect.chase-active::before {
   opacity: 1;
-  animation: location-chase 1.5s linear forwards, chase-fade 1.8s ease-out forwards;
+  animation: location-chase-spin 1.2s linear 2, chase-border-fade 2.4s ease-out forwards;
 }
 
-@keyframes chase-fade {
-  0% { opacity: 0.9; }
-  70% { opacity: 0.7; }
-  100% { opacity: 0; }
+.location-chase-effect.chase-active::after {
+  opacity: 1;
+  animation: chase-border-fade 2.4s ease-out forwards;
 }
