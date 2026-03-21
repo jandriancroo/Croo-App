@@ -1225,30 +1225,27 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         brandName={orgLogo?.brand_name ?? orgLogo?.name}
       />
 
-      {/* Flying text: location name minimizes from card position into header */}
+      {/* Flying text: location name minimizes from overlay card center into header */}
       <AnimatePresence>
         {flyingText && (
           <motion.div
-            className="fixed z-[10000] pointer-events-none flex items-center gap-1.5"
+            className="fixed z-[10000] pointer-events-none flex items-center gap-1.5 left-1/2"
+            style={{ translateX: "-50%" }}
             initial={{
-              left: "50%",
-              x: "-50%",
-              bottom: 180,
-              scale: 1.6,
+              top: "55vh",
+              scale: 1.5,
               opacity: 1,
             }}
             animate={{
-              left: "50%",
-              x: "-50%",
-              top: 16,
-              bottom: "auto",
+              top: 14,
               scale: 1,
               opacity: 0,
             }}
             exit={{ opacity: 0 }}
             transition={{
-              duration: 0.55,
+              duration: 0.5,
               ease: [0.32, 0.72, 0, 1],
+              opacity: { duration: 0.5, ease: "easeIn" },
             }}
           >
             <MapPin className="h-4 w-4 text-primary-foreground" />
