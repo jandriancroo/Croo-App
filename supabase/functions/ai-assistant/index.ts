@@ -133,6 +133,75 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_labor_intelligence",
+      description: "Query AI-generated labor intelligence reports with grades (A-F), findings, and staffing suggestions. Use for questions about labor efficiency, labor grade, overstaffing, understaffing, or scheduling optimization insights.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          date: { type: "string", description: "Date YYYY-MM-DD (defaults to most recent report)" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_inventory",
+      description: "Query inventory count data including period type, status, item quantities, costs, COGS, and variance. Use for questions about food cost, inventory levels, what items were counted, COGS percentage, stock on hand, and period comparisons.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          period_end_date: { type: "string", description: "Period end date YYYY-MM-DD to find a specific count period" },
+          status: { type: "string", description: "Filter by status: 'completed', 'in_progress', 'upcoming'" },
+          item_keyword: { type: "string", description: "Filter items by name keyword (e.g. 'chicken', 'cheese', 'lettuce')" },
+          include_items: { type: "boolean", description: "Include item-level detail (quantities, costs, variance). Default false for summary, true when asking about specific items." },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_catering",
+      description: "Query catering orders with customer name, pickup date/time, items, headcount, status, total price, notes. Use for questions about catering orders, upcoming pickups, order details, or catering revenue.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          start_date: { type: "string", description: "Start of date range YYYY-MM-DD" },
+          end_date: { type: "string", description: "End of date range YYYY-MM-DD" },
+          status: { type: "string", description: "Filter by status: 'pending', 'completed', 'cancelled'" },
+          customer_name: { type: "string", description: "Filter by customer name (partial match)" },
+        },
+        required: ["location_id", "start_date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_availability",
+      description: "Query time-off and availability requests. Shows who requested off, dates, status (pending/approved/denied), type (time_off/availability_change), and reviewer info. Use for questions about who has time off, pending requests, coverage gaps, or upcoming absences.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          start_date: { type: "string", description: "Start of date range YYYY-MM-DD" },
+          end_date: { type: "string", description: "End of date range YYYY-MM-DD" },
+          status: { type: "string", description: "Filter by status: 'pending', 'approved', 'denied'" },
+          employee_name: { type: "string", description: "Filter by employee name (partial match)" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
