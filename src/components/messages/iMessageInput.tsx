@@ -5,10 +5,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { GifPicker } from './GifPicker';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { getDisplayName } from '@/utils/displayName';
 
 interface Profile {
   id: string;
   full_name: string;
+  nickname?: string | null;
   profile_photo_url: string | null;
 }
 
@@ -56,7 +58,7 @@ export function IMessageInput({
         const { data: { user } } = await supabase.auth.getUser();
         const { data, error } = await supabase
           .from('chat_members')
-          .select('profiles(id, full_name, profile_photo_url, is_active, appears_on_schedule)')
+          .select('profiles(id, full_name, nickname, profile_photo_url, is_active, appears_on_schedule)')
           .eq('chat_id', chatId);
 
         if (error) throw error;
@@ -85,7 +87,7 @@ export function IMessageInput({
   }, [value, adjustHeight]);
 
   const filteredMembers = chatMembers.filter(member =>
-    member.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
+    getDisplayName(member.full_name, member.nickname)!.toLowerCase().includes(mentionQuery.toLowerCase())
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -118,7 +120,8 @@ export function IMessageInput({
     const beforeMention = value.substring(0, mentionStartIndex);
     const cursorPos = textareaRef.current?.selectionStart || (mentionStartIndex + mentionQuery.length + 1);
     const afterMention = value.substring(cursorPos);
-    const newValue = beforeMention + `@${member.full_name} ` + afterMention.replace(/^\s+/, '');
+    const displayName = getDisplayName(member.full_name, member.nickname)!;
+    const newValue = beforeMention + `@${displayName} ` + afterMention.replace(/^\s+/, '');
     
     onChange(newValue);
     setShowSuggestions(false);
@@ -128,7 +131,7 @@ export function IMessageInput({
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
-        const newCursorPos = beforeMention.length + member.full_name.length + 2;
+        const newCursorPos = beforeMention.length + displayName.length + 2;
         textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
       }
     }, 0);
@@ -173,7 +176,7 @@ export function IMessageInput({
         <div className="mb-2 mx-1 px-3 py-2 bg-muted/50 rounded-xl flex items-center justify-between backdrop-blur-sm">
           <div className="text-sm min-w-0 flex-1">
             <p className="text-xs text-muted-foreground">
-              Replying to {replyTo.profiles?.full_name || 'Unknown'}
+              Replying to {getDisplayName(replyTo.profiles?.full_name, replyTo.profiles?.nickname) || 'Unknown'}
             </p>
             <p className="truncate text-foreground/80">{replyTo.content || 'Attachment'}</p>
           </div>
@@ -207,10 +210,10 @@ export function IMessageInput({
                 {member.profile_photo_url ? (
                   <img src={member.profile_photo_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-xs font-medium">{member.full_name.charAt(0)}</span>
+                  <span className="text-xs font-medium">{getDisplayName(member.full_name, member.nickname)?.charAt(0)}</span>
                 )}
               </div>
-              <span className="text-sm font-medium">{member.full_name}</span>
+              <span className="text-sm font-medium">{getDisplayName(member.full_name, member.nickname)}</span>
             </button>
           ))}
         </div>
