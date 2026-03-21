@@ -467,19 +467,26 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             }
           }
           const aggregatedMix = Object.entries(mixMap)
-            .map(([name, quantity]) => ({ name, quantity }))
+            .map(([name, data]) => ({ name, quantity: data.quantity, net_sales: Math.round(data.sales * 100) / 100 }))
             .sort((a, b) => b.quantity - a.quantity);
           
+          const totalDays = (data || []).length;
+          const mixNote = daysWithMix < totalDays 
+            ? `Note: Product mix data is only available for ${daysWithMix} of ${totalDays} days in this range. Totals may be incomplete.` 
+            : undefined;
+
           if (aggregatedMix.length > 0) {
             return JSON.stringify({
               summary: results.length > 1 ? {
                 total_net_sales: results.reduce((s: number, r: any) => s + (r.net_sales || 0), 0),
                 total_guests: results.reduce((s: number, r: any) => s + (r.guest_count || 0), 0),
-                days: results.length,
+                days: totalDays,
+                days_with_product_mix: daysWithMix,
                 date_range: `${args.start_date} to ${endDate}`,
               } : undefined,
               daily: results.length <= 7 ? results : undefined,
               product_mix: aggregatedMix.slice(0, 50),
+              product_mix_note: mixNote,
             });
           }
         }
