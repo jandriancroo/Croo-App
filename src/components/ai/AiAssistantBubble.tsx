@@ -188,7 +188,7 @@ export function AiAssistantBubble() {
     }
   };
 
-  return (
+  return createPortal(
     <>
       {/* Floating bubble */}
       {!open && (
