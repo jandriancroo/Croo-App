@@ -85,7 +85,12 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const isBackgroundRefreshing = useRef(false);
   const lastIntegrationErrorKey = useRef<string | null>(null);
   const lastSalesDataSentKey = useRef<string>("");
-  const [lastFetchTimestamp, setLastFetchTimestamp] = useState<Date | null>(null);
+  const [lastFetchTimestamp, setLastFetchTimestamp] = useState<Date | null>(() => {
+    try {
+      const stored = localStorage.getItem('qu_last_fetch_timestamp');
+      return stored ? new Date(stored) : null;
+    } catch { return null; }
+  });
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const visibilityRefreshInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -737,6 +742,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           // Update the fetch timestamp to reflect cached data age
           if (cached.cachedAt) {
             setLastFetchTimestamp(cached.cachedAt);
+            try { localStorage.setItem('qu_last_fetch_timestamp', cached.cachedAt.toISOString()); } catch {}
           }
           return cached.data;
         }
@@ -745,7 +751,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       const data = await fetchSalesData();
       // Track when we last fetched live data
       if (isTodayQuery && data) {
-        setLastFetchTimestamp(new Date());
+        const now = new Date();
+        setLastFetchTimestamp(now);
+        try { localStorage.setItem('qu_last_fetch_timestamp', now.toISOString()); } catch {}
       }
       return data;
     },
