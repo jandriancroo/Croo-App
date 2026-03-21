@@ -1561,6 +1561,19 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   animation: crooai-glow-pulse 3s ease-in-out infinite;
 }
 
+.crooai-orb-floating {
+  position: fixed !important;
+  right: 1rem !important;
+  left: auto !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem) !important;
+}
+
+@media (min-width: 768px) {
+  .crooai-orb-floating {
+    bottom: 2rem !important;
+  }
+}
+
 .crooai-orb::before {
   content: '';
   position: absolute;
