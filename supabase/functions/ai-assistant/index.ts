@@ -133,6 +133,75 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_labor_intelligence",
+      description: "Query AI-generated labor intelligence reports with grades (A-F), findings, and staffing suggestions. Use for questions about labor efficiency, labor grade, overstaffing, understaffing, or scheduling optimization insights.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          date: { type: "string", description: "Date YYYY-MM-DD (defaults to most recent report)" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_inventory",
+      description: "Query inventory count data including period type, status, item quantities, costs, COGS, and variance. Use for questions about food cost, inventory levels, what items were counted, COGS percentage, stock on hand, and period comparisons.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          period_end_date: { type: "string", description: "Period end date YYYY-MM-DD to find a specific count period" },
+          status: { type: "string", description: "Filter by status: 'completed', 'in_progress', 'upcoming'" },
+          item_keyword: { type: "string", description: "Filter items by name keyword (e.g. 'chicken', 'cheese', 'lettuce')" },
+          include_items: { type: "boolean", description: "Include item-level detail (quantities, costs, variance). Default false for summary, true when asking about specific items." },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_catering",
+      description: "Query catering orders with customer name, pickup date/time, items, headcount, status, total price, notes. Use for questions about catering orders, upcoming pickups, order details, or catering revenue.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          start_date: { type: "string", description: "Start of date range YYYY-MM-DD" },
+          end_date: { type: "string", description: "End of date range YYYY-MM-DD" },
+          status: { type: "string", description: "Filter by status: 'pending', 'completed', 'cancelled'" },
+          customer_name: { type: "string", description: "Filter by customer name (partial match)" },
+        },
+        required: ["location_id", "start_date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_availability",
+      description: "Query time-off and availability requests. Shows who requested off, dates, status (pending/approved/denied), type (time_off/availability_change), and reviewer info. Use for questions about who has time off, pending requests, coverage gaps, or upcoming absences.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          start_date: { type: "string", description: "Start of date range YYYY-MM-DD" },
+          end_date: { type: "string", description: "End of date range YYYY-MM-DD" },
+          status: { type: "string", description: "Filter by status: 'pending', 'approved', 'denied'" },
+          employee_name: { type: "string", description: "Filter by employee name (partial match)" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
@@ -556,6 +625,197 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         return JSON.stringify(results.length ? results : { message: "No tasks found." });
       }
 
+      case "query_labor_intelligence": {
+        let query = supabase
+          .from("labor_insights")
+          .select("insight_date, analysis, created_at")
+          .eq("location_id", args.location_id)
+          .order("insight_date", { ascending: false })
+          .limit(5);
+
+        if (args.date) {
+          query = supabase
+            .from("labor_insights")
+            .select("insight_date, analysis, created_at")
+            .eq("location_id", args.location_id)
+            .eq("insight_date", args.date)
+            .limit(1);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+          console.error("query_labor_intelligence error:", error);
+          return JSON.stringify({ error: error.message });
+        }
+
+        const results = (data || []).map((r: any) => ({
+          date: r.insight_date,
+          ...r.analysis,
+          generated_at: r.created_at,
+        }));
+        return JSON.stringify(results.length ? results : { message: "No labor intelligence reports found." });
+      }
+
+      case "query_inventory": {
+        // First get count periods
+        let countQuery = supabase
+          .from("inventory_counts")
+          .select("id, period_type, period_end_date, status, count_date, counted_at, completed_at, is_late_close, duration_seconds, notes, profiles!inventory_counts_counted_by_fkey(full_name)")
+          .eq("location_id", args.location_id)
+          .order("period_end_date", { ascending: false })
+          .limit(10);
+
+        if (args.period_end_date) {
+          countQuery = countQuery.eq("period_end_date", args.period_end_date);
+        }
+        if (args.status) {
+          countQuery = countQuery.eq("status", args.status);
+        }
+
+        const { data: counts, error: countError } = await countQuery;
+        if (countError) {
+          console.error("query_inventory error:", countError);
+          return JSON.stringify({ error: countError.message });
+        }
+
+        const results = [];
+        for (const count of (counts || [])) {
+          const period: any = {
+            period_type: count.period_type,
+            period_end_date: count.period_end_date,
+            status: count.status,
+            counted_by: count.profiles?.full_name,
+            counted_at: count.counted_at,
+            is_late_close: count.is_late_close,
+            duration_minutes: count.duration_seconds ? Math.round(count.duration_seconds / 60) : null,
+          };
+
+          if (args.include_items) {
+            const { data: items } = await supabase
+              .from("inventory_count_items")
+              .select("quantity, entered_cases, entered_units, theoretical_quantity, variance, variance_cost, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity)")
+              .eq("count_id", count.id);
+
+            let itemResults = (items || []).map((i: any) => {
+              const item: any = {
+                name: i.inventory_items?.common_name || i.inventory_items?.product_name,
+                category: i.inventory_items?.category,
+                quantity: i.quantity,
+                cases: i.entered_cases,
+                units: i.entered_units,
+                cost_per_case: i.inventory_items?.cost_per_case,
+                total_cost: i.quantity && i.inventory_items?.cost_per_unit ? Number((i.quantity * i.inventory_items.cost_per_unit).toFixed(2)) : null,
+                variance: i.variance,
+                variance_cost: i.variance_cost,
+              };
+              return item;
+            });
+
+            if (args.item_keyword) {
+              const kw = args.item_keyword.toLowerCase();
+              itemResults = itemResults.filter((i: any) => 
+                (i.name || "").toLowerCase().includes(kw) || (i.category || "").toLowerCase().includes(kw)
+              );
+            }
+
+            period.items = itemResults;
+            period.total_items = itemResults.length;
+            period.total_value = Number(itemResults.reduce((sum: number, i: any) => sum + (i.total_cost || 0), 0).toFixed(2));
+          }
+
+          results.push(period);
+        }
+
+        return JSON.stringify(results.length ? results : { message: "No inventory counts found." });
+      }
+
+      case "query_catering": {
+        const endDate = args.end_date || args.start_date;
+        let query = supabase
+          .from("catering_orders")
+          .select("customer_name, pickup_date, pickup_time, status, items, headcount, total_price, notes, order_number, vendor, contact_phone, source_url, completed_at, profiles!catering_orders_created_by_fkey(full_name)")
+          .eq("location_id", args.location_id)
+          .gte("pickup_date", args.start_date)
+          .lte("pickup_date", endDate)
+          .order("pickup_date")
+          .order("pickup_time");
+
+        if (args.status) query = query.eq("status", args.status);
+
+        const { data, error } = await query;
+        if (error) {
+          console.error("query_catering error:", error);
+          return JSON.stringify({ error: error.message });
+        }
+
+        let results = (data || []).map((o: any) => {
+          const order: any = {
+            customer: o.customer_name,
+            pickup_date: o.pickup_date,
+            pickup_time: o.pickup_time,
+            status: o.status,
+            headcount: o.headcount,
+            total_price: o.total_price,
+            items: o.items,
+            notes: o.notes,
+            order_number: o.order_number,
+            vendor: o.vendor,
+            contact_phone: o.contact_phone,
+            created_by: o.profiles?.full_name,
+          };
+          return order;
+        });
+
+        if (args.customer_name) {
+          const q = args.customer_name.toLowerCase();
+          results = results.filter((o: any) => o.customer?.toLowerCase().includes(q));
+        }
+
+        return JSON.stringify(results.length ? results : { message: "No catering orders found for this date range." });
+      }
+
+      case "query_availability": {
+        let query = supabase
+          .from("availability_requests")
+          .select("request_type, time_scope, start_date, end_date, start_time, end_time, hours_requested, status, notes, denial_reason, created_at, reviewed_at, profiles!availability_requests_user_id_fkey(full_name), reviewer:profiles!availability_requests_reviewed_by_fkey(full_name)")
+          .eq("location_id", args.location_id)
+          .order("start_date", { ascending: true });
+
+        if (args.start_date) query = query.gte("start_date", args.start_date);
+        if (args.end_date) query = query.lte("start_date", args.end_date);
+        if (args.status) query = query.eq("status", args.status);
+
+        const { data, error } = await query.limit(50);
+        if (error) {
+          console.error("query_availability error:", error);
+          return JSON.stringify({ error: error.message });
+        }
+
+        let results = (data || []).map((r: any) => ({
+          employee: r.profiles?.full_name,
+          type: r.request_type,
+          scope: r.time_scope,
+          start_date: r.start_date,
+          end_date: r.end_date,
+          start_time: r.start_time,
+          end_time: r.end_time,
+          hours: r.hours_requested,
+          status: r.status,
+          notes: r.notes,
+          denial_reason: r.denial_reason,
+          requested_at: r.created_at,
+          reviewed_by: r.reviewer?.full_name,
+          reviewed_at: r.reviewed_at,
+        }));
+
+        if (args.employee_name) {
+          const q = args.employee_name.toLowerCase();
+          results = results.filter((r: any) => r.employee?.toLowerCase().includes(q));
+        }
+
+        return JSON.stringify(results.length ? results : { message: "No availability/time-off requests found." });
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
@@ -637,6 +897,10 @@ CRITICAL RULES:
 - DOMAIN KNOWLEDGE: "Flip the line" or "flipping the line" means the Shift Change Line Check was completed. The submission time IS when the line was flipped. Answer with the submitter name and submitted_at time. Each response also has a completed_at timestamp and completed_by name — use these for item-level detail.
 - For task questions (e.g. "what's incomplete on CrooHQ ideas"), use query_tasks with the task title.
 - For logbook questions (drawer count, safe count, pass down, incident, maintenance, deposit), use query_logbook. Drawer counts contain denomination-level detail (coins, bills) and variance. Safe counts contain denomination counts per shift (AM/PM). Always show the specific details the user asks about — e.g. if they ask "how many quarters in the safe count", look in the counts object for quarters.
+- For labor efficiency questions (labor grade, staffing suggestions, overstaffing), use query_labor_intelligence. It returns AI-generated grades (A-F), findings, and recommendations.
+- For inventory/food cost questions (COGS, how much chicken, stock levels, count status), use query_inventory. Set include_items=true when asking about specific items. Use item_keyword to filter.
+- For catering order questions (upcoming orders, customer details, catering revenue), use query_catering with the date range.
+- For time-off/availability questions (who has off, pending requests, coverage), use query_availability. If no date range specified, default to the next 14 days for upcoming requests.
 - "Today" = ${today}, "yesterday" = ${yesterday}.
 - If a tool returns empty results, tell the user no data was found — don't say you encountered an error.
 - Use markdown for formatting when it improves readability.`;
