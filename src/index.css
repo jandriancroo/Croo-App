@@ -1553,6 +1553,12 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   50% { box-shadow: 0 0 14px hsl(43 80% 55% / 0.5), 0 0 30px hsl(43 80% 55% / 0.2); }
 }
 
+@keyframes crooai-icon-spin {
+  0%, 80% { transform: rotate(0deg); }
+  90% { transform: rotate(360deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .crooai-orb {
   background: hsl(var(--primary));
   border: 2px solid hsl(43 72% 45%);
