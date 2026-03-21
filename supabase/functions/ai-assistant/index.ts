@@ -280,7 +280,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_inventory",
-      description: "Query inventory count data including period type, status, item quantities, costs, COGS, and variance. Use for questions about food cost, inventory levels, what items were counted, COGS percentage, stock on hand, and period comparisons.",
+      description: "Query inventory count data AND calculate food cost (COGS). Use for ANY question about food cost, COGS percentage, inventory value, what items were counted, stock on hand, or period comparisons. Set calculate_cogs=true when the user asks about food cost, COGS, or food cost percentage — this computes: Beginning Inventory + Purchases - Ending Inventory = Usage, then Usage / Net Sales = COGS%.",
       parameters: {
         type: "object",
         properties: {
@@ -289,6 +289,7 @@ const tools = [
           status: { type: "string", description: "Filter by status: 'completed', 'in_progress', 'upcoming'" },
           item_keyword: { type: "string", description: "Filter items by name keyword (e.g. 'chicken', 'cheese', 'lettuce')" },
           include_items: { type: "boolean", description: "Include item-level detail (quantities, costs, variance). Default false for summary, true when asking about specific items." },
+          calculate_cogs: { type: "boolean", description: "Calculate COGS/food cost for the most recent completed weekly period. Set true when user asks about food cost, COGS %, or cost of goods sold." },
         },
         required: ["location_id"],
       },
