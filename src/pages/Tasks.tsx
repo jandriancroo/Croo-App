@@ -40,17 +40,9 @@ export default function Tasks() {
     return Math.round(total / historyStats.length);
   }, [historyStats]);
 
-  // Only show skeleton on true initial load (no cached data yet)
+  // Track if we're in initial load (no cached data yet)
   const hasNoData = checklists.length === 0 && !submissionStats;
-  if ((checklistsLoading || statsLoading) && hasNoData) {
-    return (
-      <Layout>
-        <div className="container max-w-6xl mx-auto p-6">
-          <PageSkeleton variant="grid" />
-        </div>
-      </Layout>
-    );
-  }
+  const isInitialLoading = (checklistsLoading || statsLoading) && hasNoData;
 
   // SVG circle params
   const circleSize = 62;
