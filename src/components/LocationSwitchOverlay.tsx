@@ -11,10 +11,7 @@ interface LocationSwitchOverlayProps {
 export function LocationSwitchOverlay({ visible, locationName, storeNumber, logoUrl, brandName }: LocationSwitchOverlayProps) {
   return (
     <>
-      {/* Preload logo so it's in browser cache before overlay shows */}
-      {logoUrl && (
-        <link rel="preload" as="image" href={logoUrl} />
-      )}
+      {logoUrl && <link rel="preload" as="image" href={logoUrl} />}
 
       <AnimatePresence>
         {visible && (
@@ -57,21 +54,39 @@ export function LocationSwitchOverlay({ visible, locationName, storeNumber, logo
                 </p>
               )}
 
-              <div className="flex gap-1.5 mt-8">
-                {[0, 1, 2].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: "hsl(var(--primary))" }}
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{
-                      duration: 0.9,
-                      repeat: Infinity,
-                      delay: i * 0.15,
-                      ease: "easeInOut",
-                    }}
+              {/* Apple-style spinner — thin rotating arc */}
+              <div className="mt-8">
+                <motion.svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1, rotate: 360 }}
+                  transition={{
+                    opacity: { duration: 0.3 },
+                    rotate: { duration: 0.8, repeat: Infinity, ease: "linear" },
+                  }}
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    fill="none"
+                    stroke="hsl(var(--muted-foreground)/0.2)"
+                    strokeWidth="2.5"
                   />
-                ))}
+                  <motion.circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    fill="none"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeDasharray="62.83"
+                    strokeDashoffset="47"
+                  />
+                </motion.svg>
               </div>
             </motion.div>
           </motion.div>
