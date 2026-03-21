@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent } from '@/components/ui/card';
-import { PageSkeleton } from '@/components/ui/page-skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ChefHat, ClipboardCheck, Check, Settings2 } from 'lucide-react';
 import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
@@ -956,19 +956,29 @@ export default function Dashboard() {
             onSectionOrderChange={setDashboardSectionOrder}
           />
 
-          {checklistsLoading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
+          {checklistsLoading ? (
+            <div className="space-y-3 animate-fade-in">
+              {/* Match actual layout: vertical task cards + checklist card */}
+              <Skeleton className="h-14 rounded-xl" />
+              <Skeleton className="h-14 rounded-xl" />
+              <Skeleton className="h-14 rounded-xl" />
+              <Skeleton className="h-[200px] rounded-xl" />
+            </div>
+          ) : checklists.length === 0 ? (
+            <Card className="text-center py-12">
               <CardContent>
                 <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No checklists yet</h3>
                 <p className="text-muted-foreground mb-4">Go to Tasks to create your first checklist</p>
                 <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
               </CardContent>
-            </Card> : (
-              <div className="space-y-3">
-                {quickTasksContent}
-                {dashboardContent}
-              </div>
-            )}
+            </Card>
+          ) : (
+            <>
+              {quickTasksContent}
+              {dashboardContent}
+            </>
+          )}
         </div>
         
         {/* Welcome animation overlay */}
