@@ -625,6 +625,197 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         return JSON.stringify(results.length ? results : { message: "No tasks found." });
       }
 
+      case "query_labor_intelligence": {
+        let query = supabase
+          .from("labor_insights")
+          .select("insight_date, analysis, created_at")
+          .eq("location_id", args.location_id)
+          .order("insight_date", { ascending: false })
+          .limit(5);
+
+        if (args.date) {
+          query = supabase
+            .from("labor_insights")
+            .select("insight_date, analysis, created_at")
+            .eq("location_id", args.location_id)
+            .eq("insight_date", args.date)
+            .limit(1);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+          console.error("query_labor_intelligence error:", error);
+          return JSON.stringify({ error: error.message });
+        }
+
+        const results = (data || []).map((r: any) => ({
+          date: r.insight_date,
+          ...r.analysis,
+          generated_at: r.created_at,
+        }));
+        return JSON.stringify(results.length ? results : { message: "No labor intelligence reports found." });
+      }
+
+      case "query_inventory": {
+        // First get count periods
+        let countQuery = supabase
+          .from("inventory_counts")
+          .select("id, period_type, period_end_date, status, count_date, counted_at, completed_at, is_late_close, duration_seconds, notes, profiles!inventory_counts_counted_by_fkey(full_name)")
+          .eq("location_id", args.location_id)
+          .order("period_end_date", { ascending: false })
+          .limit(10);
+
+        if (args.period_end_date) {
+          countQuery = countQuery.eq("period_end_date", args.period_end_date);
+        }
+        if (args.status) {
+          countQuery = countQuery.eq("status", args.status);
+        }
+
+        const { data: counts, error: countError } = await countQuery;
+        if (countError) {
+          console.error("query_inventory error:", countError);
+          return JSON.stringify({ error: countError.message });
+        }
+
+        const results = [];
+        for (const count of (counts || [])) {
+          const period: any = {
+            period_type: count.period_type,
+            period_end_date: count.period_end_date,
+            status: count.status,
+            counted_by: count.profiles?.full_name,
+            counted_at: count.counted_at,
+            is_late_close: count.is_late_close,
+            duration_minutes: count.duration_seconds ? Math.round(count.duration_seconds / 60) : null,
+          };
+
+          if (args.include_items) {
+            const { data: items } = await supabase
+              .from("inventory_count_items")
+              .select("quantity, entered_cases, entered_units, theoretical_quantity, variance, variance_cost, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity)")
+              .eq("count_id", count.id);
+
+            let itemResults = (items || []).map((i: any) => {
+              const item: any = {
+                name: i.inventory_items?.common_name || i.inventory_items?.product_name,
+                category: i.inventory_items?.category,
+                quantity: i.quantity,
+                cases: i.entered_cases,
+                units: i.entered_units,
+                cost_per_case: i.inventory_items?.cost_per_case,
+                total_cost: i.quantity && i.inventory_items?.cost_per_unit ? Number((i.quantity * i.inventory_items.cost_per_unit).toFixed(2)) : null,
+                variance: i.variance,
+                variance_cost: i.variance_cost,
+              };
+              return item;
+            });
+
+            if (args.item_keyword) {
+              const kw = args.item_keyword.toLowerCase();
+              itemResults = itemResults.filter((i: any) => 
+                (i.name || "").toLowerCase().includes(kw) || (i.category || "").toLowerCase().includes(kw)
+              );
+            }
+
+            period.items = itemResults;
+            period.total_items = itemResults.length;
+            period.total_value = Number(itemResults.reduce((sum: number, i: any) => sum + (i.total_cost || 0), 0).toFixed(2));
+          }
+
+          results.push(period);
+        }
+
+        return JSON.stringify(results.length ? results : { message: "No inventory counts found." });
+      }
+
+      case "query_catering": {
+        const endDate = args.end_date || args.start_date;
+        let query = supabase
+          .from("catering_orders")
+          .select("customer_name, pickup_date, pickup_time, status, items, headcount, total_price, notes, order_number, vendor, contact_phone, source_url, completed_at, profiles!catering_orders_created_by_fkey(full_name)")
+          .eq("location_id", args.location_id)
+          .gte("pickup_date", args.start_date)
+          .lte("pickup_date", endDate)
+          .order("pickup_date")
+          .order("pickup_time");
+
+        if (args.status) query = query.eq("status", args.status);
+
+        const { data, error } = await query;
+        if (error) {
+          console.error("query_catering error:", error);
+          return JSON.stringify({ error: error.message });
+        }
+
+        let results = (data || []).map((o: any) => {
+          const order: any = {
+            customer: o.customer_name,
+            pickup_date: o.pickup_date,
+            pickup_time: o.pickup_time,
+            status: o.status,
+            headcount: o.headcount,
+            total_price: o.total_price,
+            items: o.items,
+            notes: o.notes,
+            order_number: o.order_number,
+            vendor: o.vendor,
+            contact_phone: o.contact_phone,
+            created_by: o.profiles?.full_name,
+          };
+          return order;
+        });
+
+        if (args.customer_name) {
+          const q = args.customer_name.toLowerCase();
+          results = results.filter((o: any) => o.customer?.toLowerCase().includes(q));
+        }
+
+        return JSON.stringify(results.length ? results : { message: "No catering orders found for this date range." });
+      }
+
+      case "query_availability": {
+        let query = supabase
+          .from("availability_requests")
+          .select("request_type, time_scope, start_date, end_date, start_time, end_time, hours_requested, status, notes, denial_reason, created_at, reviewed_at, profiles!availability_requests_user_id_fkey(full_name), reviewer:profiles!availability_requests_reviewed_by_fkey(full_name)")
+          .eq("location_id", args.location_id)
+          .order("start_date", { ascending: true });
+
+        if (args.start_date) query = query.gte("start_date", args.start_date);
+        if (args.end_date) query = query.lte("start_date", args.end_date);
+        if (args.status) query = query.eq("status", args.status);
+
+        const { data, error } = await query.limit(50);
+        if (error) {
+          console.error("query_availability error:", error);
+          return JSON.stringify({ error: error.message });
+        }
+
+        let results = (data || []).map((r: any) => ({
+          employee: r.profiles?.full_name,
+          type: r.request_type,
+          scope: r.time_scope,
+          start_date: r.start_date,
+          end_date: r.end_date,
+          start_time: r.start_time,
+          end_time: r.end_time,
+          hours: r.hours_requested,
+          status: r.status,
+          notes: r.notes,
+          denial_reason: r.denial_reason,
+          requested_at: r.created_at,
+          reviewed_by: r.reviewer?.full_name,
+          reviewed_at: r.reviewed_at,
+        }));
+
+        if (args.employee_name) {
+          const q = args.employee_name.toLowerCase();
+          results = results.filter((r: any) => r.employee?.toLowerCase().includes(q));
+        }
+
+        return JSON.stringify(results.length ? results : { message: "No availability/time-off requests found." });
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
