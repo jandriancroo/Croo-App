@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent } from '@/components/ui/card';
-import { PageSkeleton } from '@/components/ui/page-skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ChefHat, ClipboardCheck, Check, Settings2 } from 'lucide-react';
 import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
