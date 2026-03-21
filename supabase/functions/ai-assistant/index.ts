@@ -920,6 +920,96 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
       }
 
       case "query_inventory": {
+        // If calculate_cogs is requested, compute full COGS formula
+        if (args.calculate_cogs) {
+          // Find the two most recent completed weekly counts for this location
+          const { data: recentCounts } = await supabase
+            .from("inventory_counts")
+            .select("id, period_type, period_end_date, status, counted_at, completed_at, profiles!inventory_counts_counted_by_fkey(full_name)")
+            .eq("location_id", args.location_id)
+            .eq("status", "completed")
+            .eq("period_type", "weekly")
+            .order("period_end_date", { ascending: false })
+            .limit(2);
+
+          if (!recentCounts || recentCounts.length < 2) {
+            return JSON.stringify({ message: "Need at least 2 completed weekly inventory counts to calculate COGS. Currently have " + (recentCounts?.length || 0) + "." });
+          }
+
+          const endingCount = recentCounts[0];
+          const beginningCount = recentCounts[1];
+
+          const { data: invItems } = await supabase
+            .from("inventory_items")
+            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override")
+            .eq("location_id", args.location_id)
+            .eq("is_active", true);
+
+          const itemCostMap = new Map((invItems || []).map((i: any) => {
+            const packQty = i.pack_quantity_override ?? i.pack_quantity ?? 1;
+            const perUnit = (Number(i.cost_per_unit) || 0) / (packQty || 1);
+            return [i.id, perUnit];
+          }));
+
+          const [beginItemsRes, endItemsRes] = await Promise.all([
+            supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", beginningCount.id),
+            supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", endingCount.id),
+          ]);
+
+          let beginValue = 0;
+          for (const ci of (beginItemsRes.data || [])) {
+            beginValue += Number(ci.quantity) * (itemCostMap.get(ci.item_id) || 0);
+          }
+          let endValue = 0;
+          for (const ci of (endItemsRes.data || [])) {
+            endValue += Number(ci.quantity) * (itemCostMap.get(ci.item_id) || 0);
+          }
+
+          const weekStartDate = beginningCount.period_end_date;
+          const weekEndDate = endingCount.period_end_date;
+
+          const [pfgRes, paRes] = await Promise.all([
+            supabase.from("pfg_orders").select("total_amount, delivery_date").eq("location_id", args.location_id)
+              .gte("delivery_date", weekStartDate).lte("delivery_date", weekEndDate),
+            supabase.from("pa_orders").select("total_amount, delivery_date").eq("location_id", args.location_id)
+              .gte("delivery_date", weekStartDate).lte("delivery_date", weekEndDate),
+          ]);
+
+          const purchasesCost = [...(pfgRes.data || []), ...(paRes.data || [])].reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0);
+
+          const { data: salesRows } = await supabase
+            .from("sales_cache")
+            .select("net_sales")
+            .eq("location_id", args.location_id)
+            .gte("sale_date", weekStartDate)
+            .lte("sale_date", weekEndDate);
+
+          const totalSales = (salesRows || []).reduce((s: number, r: any) => s + (Number(r.net_sales) || 0), 0);
+
+          const actualUsage = beginValue + purchasesCost - endValue;
+          const cogsPercent = totalSales > 0 ? (actualUsage / totalSales) * 100 : 0;
+
+          return JSON.stringify({
+            cogs_report: {
+              period: `${weekStartDate} to ${weekEndDate}`,
+              beginning_inventory: Math.round(beginValue * 100) / 100,
+              beginning_count_date: beginningCount.period_end_date,
+              beginning_counted_by: beginningCount.profiles?.full_name,
+              purchases: Math.round(purchasesCost * 100) / 100,
+              pfg_orders: (pfgRes.data || []).length,
+              pa_orders: (paRes.data || []).length,
+              ending_inventory: Math.round(endValue * 100) / 100,
+              ending_count_date: endingCount.period_end_date,
+              ending_counted_by: endingCount.profiles?.full_name,
+              actual_usage: Math.round(actualUsage * 100) / 100,
+              net_sales: Math.round(totalSales * 100) / 100,
+              cogs_percent: Math.round(cogsPercent * 10) / 10,
+              target_range: "21-22%",
+            }
+          });
+        }
+
+        // Standard inventory query (non-COGS)
         let countQuery = supabase
           .from("inventory_counts")
           .select("id, period_type, period_end_date, status, count_date, counted_at, completed_at, is_late_close, duration_seconds, notes, profiles!inventory_counts_counted_by_fkey(full_name)")
