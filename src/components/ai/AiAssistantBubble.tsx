@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, Send, Loader2, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Send, Loader2, Sparkles, Mic, MicOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
@@ -15,7 +16,7 @@ interface Message {
 const SUGGESTIONS = [
   "What were net sales today?",
   "Who clocked in late today?",
-  "How many pizzas sold yesterday?",
+  "Who temped the tomatoes on AM Line Check?",
   "Who's scheduled tomorrow?",
 ];
 
@@ -28,6 +29,20 @@ export function AiAssistantBubble() {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Voice input — appends transcript to input field
+  const handleTranscript = useCallback((transcript: string) => {
+    setInput(prev => {
+      const spacer = prev && !prev.endsWith(' ') ? ' ' : '';
+      return prev + spacer + transcript;
+    });
+  }, []);
+
+  const { isListening, isSupported: voiceSupported, toggleListening } = useVoiceInput({
+    onTranscript: handleTranscript,
+    continuous: true,
+    silenceTimeoutMs: 6000,
+  });
 
   useEffect(() => {
     if (open) {
@@ -46,6 +61,9 @@ export function AiAssistantBubble() {
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !currentLocation) return;
+
+    // Stop listening when sending
+    if (isListening) toggleListening();
 
     const userMsg: Message = { role: 'user', content: text.trim() };
     const newMessages = [...messages, userMsg];
@@ -84,7 +102,6 @@ export function AiAssistantBubble() {
       scrollToBottom();
     }
   };
-
 
   return (
     <>
@@ -128,7 +145,7 @@ export function AiAssistantBubble() {
                 <div className="text-center">
                   <Sparkles className="h-8 w-8 text-primary/30 mx-auto mb-2" />
                   <p className="text-sm font-medium text-foreground">Ask me anything about your store</p>
-                  <p className="text-xs text-muted-foreground mt-1">Sales, labor, schedules, tasks — I have access to your live data</p>
+                  <p className="text-xs text-muted-foreground mt-1">Sales, labor, schedules, checklists — I have access to your live data</p>
                 </div>
                 <div className="grid grid-cols-1 gap-2 pt-2">
                   {SUGGESTIONS.map((s, i) => (
@@ -190,19 +207,35 @@ export function AiAssistantBubble() {
               onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
               className="flex items-center gap-2 bg-muted/50 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-primary/30 transition-all"
             >
+              {/* Mic button */}
+              {voiceSupported && (
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  className={cn(
+                    'p-1.5 rounded-lg transition-all shrink-0',
+                    isListening
+                      ? 'bg-destructive text-destructive-foreground animate-pulse'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )}
+                  aria-label={isListening ? 'Stop listening' : 'Start voice input'}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </button>
+              )}
               <input
                 ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about sales, labor, schedule..."
-                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                placeholder={isListening ? "Listening..." : "Ask about sales, labor, checklists..."}
+                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none min-w-0"
                 disabled={loading}
               />
               <button
                 type="submit"
                 disabled={!input.trim() || loading}
-                className="p-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-30 transition-opacity"
+                className="p-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-30 transition-opacity shrink-0"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
