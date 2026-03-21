@@ -478,9 +478,45 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         // Aggregate product mix across all days in the range
         if (args.include_product_mix) {
+          let workingData = data || [];
+          
+          // Detect days missing product mix and backfill from QU API
+          const missingMixDates = workingData
+            .filter((row: any) => !row.product_mix || !Array.isArray(row.product_mix) || (row.product_mix as any[]).length === 0)
+            .map((row: any) => row.sale_date as string);
+          
+          if (missingMixDates.length > 0 && missingMixDates.length <= 31) {
+            console.log(`[ai-assistant] Backfilling p-mix for ${missingMixDates.length} dates via sales-service`);
+            try {
+              const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+              const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
+              const syncResp = await fetch(`${supabaseUrl}/functions/v1/sales-service?action=sync-dates`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+                body: JSON.stringify({ locationId: args.location_id, dates: missingMixDates }),
+              });
+              if (syncResp.ok) {
+                console.log(`[ai-assistant] P-mix backfill complete, re-querying cache`);
+                // Re-query cache to get the freshly synced data
+                const { data: freshData } = await supabase
+                  .from("sales_cache")
+                  .select("sale_date, net_sales, guest_count, pizza_count, avg_ticket, projected_sales, living_projection, override_projection, initial_projection, hourly_data, product_mix")
+                  .eq("location_id", args.location_id)
+                  .gte("sale_date", args.start_date)
+                  .lte("sale_date", endDate)
+                  .order("sale_date");
+                if (freshData) workingData = freshData;
+              } else {
+                console.error(`[ai-assistant] P-mix backfill failed: ${syncResp.status}`);
+              }
+            } catch (backfillErr) {
+              console.error(`[ai-assistant] P-mix backfill error:`, backfillErr);
+            }
+          }
+          
           const mixMap: Record<string, { quantity: number; sales: number }> = {};
           let daysWithMix = 0;
-          for (const row of (data || [])) {
+          for (const row of workingData) {
             if (row.product_mix && Array.isArray(row.product_mix) && (row.product_mix as any[]).length > 0) daysWithMix++;
             if (row.product_mix && Array.isArray(row.product_mix)) {
               for (const item of row.product_mix as any[]) {
@@ -494,10 +530,10 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             }
           }
           const aggregatedMix = Object.entries(mixMap)
-            .map(([name, data]) => ({ name, quantity: data.quantity, net_sales: Math.round(data.sales * 100) / 100 }))
+            .map(([name, d]) => ({ name, quantity: d.quantity, net_sales: Math.round(d.sales * 100) / 100 }))
             .sort((a, b) => b.quantity - a.quantity);
           
-          const totalDays = (data || []).length;
+          const totalDays = workingData.length;
           const mixNote = daysWithMix < totalDays 
             ? `Note: Product mix data is only available for ${daysWithMix} of ${totalDays} days in this range. Totals may be incomplete.` 
             : undefined;
