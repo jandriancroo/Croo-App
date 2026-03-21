@@ -26,7 +26,7 @@ import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
-import type { PanInfo } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface LayoutProps {
   children: ReactNode;
@@ -279,19 +279,31 @@ export const Layout = ({
   } = useUserRole();
   const isMobile = useIsMobile();
   const mobileHeaderRef = useRef<HTMLElement>(null);
+  const headerLocationRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
-  const [justSwitched, setJustSwitched] = useState(false);
+  const [flyingText, setFlyingText] = useState<{ name: string } | null>(null);
   const prevSwitchingRef = useRef(false);
+  const switchingToRef = useRef<{ name: string } | null>(null);
   
-  // Detect when switching ends → trigger chase effect
+  // Capture switchingTo name while it's still set
   useEffect(() => {
-    if (prevSwitchingRef.current && !isSwitching) {
-      setJustSwitched(true);
-      const timer = setTimeout(() => setJustSwitched(false), 1800);
+    if (switchingTo) {
+      switchingToRef.current = { name: switchingTo.name };
+    }
+  }, [switchingTo]);
+  
+  // Detect when switching ends → trigger flying text animation
+  useEffect(() => {
+    if (prevSwitchingRef.current && !isSwitching && switchingToRef.current) {
+      setFlyingText(switchingToRef.current);
+      const timer = setTimeout(() => {
+        setFlyingText(null);
+        switchingToRef.current = null;
+      }, 600);
       return () => clearTimeout(timer);
     }
     prevSwitchingRef.current = isSwitching;
@@ -956,24 +968,18 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           
           {/* Mobile Location Picker - centered */}
           {(currentLocation || isOnOrgDash) && (
-            <div className="absolute left-1/2 -translate-x-1/2">
-              <div className={`relative location-chase-effect ${justSwitched ? 'chase-active' : ''}`}>
-                {/* Chase glow layers — absolutely positioned, don't affect layout */}
-                <div className="location-chase-glow"><div /></div>
-                <div className="location-chase-border"><div /></div>
-                <div className="location-chase-fill" />
-                <Button 
-                  variant="ghost" 
-                  className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground relative z-10"
-                  onClick={() => setLocationDialogOpen(true)}
-                >
-                  <MapPin className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate max-w-[160px]">
-                    {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-                </Button>
-              </div>
+            <div className="absolute left-1/2 -translate-x-1/2" ref={headerLocationRef}>
+              <Button 
+                variant="ghost" 
+                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+                onClick={() => setLocationDialogOpen(true)}
+              >
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate max-w-[160px]">
+                  {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+              </Button>
             </div>
           )}
           
@@ -1229,5 +1235,36 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         logoUrl={switchingTo?.id ? (localStorage.getItem(`brand-logo-${switchingTo.id}`) || orgLogo?.logo_url) : orgLogo?.logo_url}
         brandName={orgLogo?.brand_name ?? orgLogo?.name}
       />
+
+      {/* Flying text: location name minimizes from overlay card center into header */}
+      <AnimatePresence>
+        {flyingText && (
+          <motion.div
+            className="fixed z-[10000] pointer-events-none flex items-center gap-1.5 left-1/2"
+            style={{ translateX: "-50%" }}
+            initial={{
+              top: "55vh",
+              scale: 1.5,
+              opacity: 1,
+            }}
+            animate={{
+              top: 14,
+              scale: 1,
+              opacity: 0,
+            }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 0.5,
+              ease: [0.32, 0.72, 0, 1],
+              opacity: { duration: 0.5, ease: "easeIn" },
+            }}
+          >
+            <MapPin className="h-4 w-4 text-primary-foreground" />
+            <span className="text-base font-medium text-primary-foreground whitespace-nowrap">
+              {flyingText.name}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>;
 };
