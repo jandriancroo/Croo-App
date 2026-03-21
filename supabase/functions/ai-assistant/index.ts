@@ -459,7 +459,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const results = (entries || []).map((e: any) => {
           const entry: any = {
             category: e.logbook_categories?.name,
-            title: e.title,
             submitted_by: e.profiles?.full_name,
             submitted_at: e.created_at,
           };
