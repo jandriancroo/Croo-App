@@ -956,10 +956,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           
           {/* Mobile Location Picker - centered */}
           {(currentLocation || isOnOrgDash) && (
-            <div className="absolute left-1/2 -translate-x-1/2">
+            <div className={`absolute left-1/2 -translate-x-1/2 location-chase-effect ${justSwitched ? 'chase-active' : ''}`}>
+              {/* Chase glow layers */}
+              <div className="location-chase-glow"><div /></div>
+              <div className="location-chase-border"><div /></div>
+              <div className="location-chase-fill" />
               <Button 
                 variant="ghost" 
-                className={`gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground location-chase-effect ${justSwitched ? 'chase-active' : ''}`}
+                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground relative z-10"
                 onClick={() => setLocationDialogOpen(true)}
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
