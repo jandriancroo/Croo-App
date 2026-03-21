@@ -54,96 +54,68 @@ function isWithinBusinessHours(
   return currentMinutesTotal >= openMinutes && currentMinutesTotal <= closeMinutes;
 }
 
-async function authenticateQuBeyond(
-  username: string,
-  password: string,
-): Promise<{ tokenGw: string; expiresAt: string } | null> {
-  console.log(`[sales-service] Authenticating with QuBeyond for ${username}...`);
+// ============================================================================
+// V4 OAuth2 Authentication (replaces legacy scraping auth)
+// ============================================================================
+
+async function authenticateV4(): Promise<string | null> {
+  const clientId = Deno.env.get('QU_USERNAME');
+  const clientSecret = Deno.env.get('QU_PASSWORD');
+
+  if (!clientId || !clientSecret) {
+    console.error('[sales-service] Missing QU_USERNAME or QU_PASSWORD env vars');
+    return null;
+  }
 
   try {
-    const loginPayload = {
-      payload: { username, password, captchaToken: '' },
-    };
+    const formData = new FormData();
+    formData.append('grant_type', 'client_credentials');
+    formData.append('client_id', clientId);
+    formData.append('client_secret', clientSecret);
 
-    const loginResponse = await fetch('https://admin.qubeyond.com/api/auth/login', {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json, text/plain, */*',
-        Origin: 'https://admin.qubeyond.com',
-        Referer: 'https://admin.qubeyond.com/login',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      body: JSON.stringify(loginPayload),
+      body: formData,
     });
 
-    if (!loginResponse.ok) {
-      console.error('[sales-service] Auth failed:', loginResponse.status);
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      console.error(`[sales-service] V4 OAuth2 auth failed (${response.status}): ${text.substring(0, 200)}`);
       return null;
     }
 
-    const loginData = await loginResponse.json();
-    const token = loginData?.token;
+    const data = await response.json();
+    const token = data.access_token;
     if (!token) {
-      console.error('[sales-service] No token in login response');
+      console.error('[sales-service] No access_token in OAuth2 response');
       return null;
     }
 
-    const jwtPayload = decodeJwtPayload(token);
-    const tokenGw = jwtPayload?.tokenGw as string | undefined;
-    if (!tokenGw) {
-      console.error('[sales-service] No tokenGw found in JWT payload');
-      return null;
-    }
-
-    const exp = jwtPayload?.exp as number | undefined;
-    const expiresAt = exp 
-      ? new Date(exp * 1000).toISOString() 
-      : new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
-
-    console.log(`[sales-service] Auth OK, expires at ${expiresAt}`);
-    return { tokenGw, expiresAt };
+    console.log('[sales-service] V4 OAuth2 auth OK');
+    return token;
   } catch (error) {
-    console.error('[sales-service] Authentication error:', error);
+    console.error('[sales-service] V4 OAuth2 error:', error);
     return null;
   }
 }
 
+function getV4Headers(accessToken: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${accessToken}`,
+    'x-integration': Deno.env.get('QU_INTEGRATION_USER_ID') || '',
+  };
+}
+
+// Legacy wrapper — allows existing callers (backfill, sync-day, etc.) to work without signature changes
 async function getOrRefreshToken(
-  supabase: any,
-  integrationId: string,
-  username: string,
-  password: string
+  _supabase: any,
+  _integrationId: string,
+  _username: string,
+  _password: string
 ): Promise<string | null> {
-  const { data: row } = await supabase
-    .from('location_integrations')
-    .select('cached_token_gw, token_expires_at')
-    .eq('id', integrationId)
-    .single();
-
-  if (row?.cached_token_gw && row?.token_expires_at) {
-    const expiresAt = new Date(row.token_expires_at).getTime();
-    const bufferMs = 5 * 60 * 1000;
-    if (Date.now() < expiresAt - bufferMs) {
-      console.log(`[sales-service] Using cached token (expires ${row.token_expires_at})`);
-      return row.cached_token_gw;
-    }
-    console.log(`[sales-service] Cached token expired or expiring soon, re-authenticating`);
-  }
-
-  const auth = await authenticateQuBeyond(username, password);
-  if (!auth) return null;
-
-  supabase
-    .from('location_integrations')
-    .update({ cached_token_gw: auth.tokenGw, token_expires_at: auth.expiresAt })
-    .eq('id', integrationId)
-    .then(({ error }: any) => {
-      if (error) console.error('[sales-service] Failed to cache token:', error.message);
-      else console.log('[sales-service] Token cached successfully');
-    });
-
-  return auth.tokenGw;
+  return await authenticateV4();
 }
 
 function convertTo24Hour(time12h: string): string {
@@ -182,13 +154,7 @@ async function fetchHourlySales(
 
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': tokenGw,
-      'Origin': 'https://admin.qubeyond.com',
-      'Referer': 'https://admin.qubeyond.com/',
-    },
+    headers: getV4Headers(tokenGw),
     body: JSON.stringify(requestPayload),
   });
 
@@ -228,13 +194,7 @@ async function fetchProductMix(
   try {
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
-      },
+      headers: getV4Headers(tokenGw),
       body: JSON.stringify({
         fields: [
           { fieldName: "itemGroup" },
@@ -325,13 +285,7 @@ async function fetchPaymentsData(
   try {
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
-      },
+      headers: getV4Headers(tokenGw),
       body: JSON.stringify({
         fields: [
           { fieldName: "tenderType" },
@@ -569,6 +523,16 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 
   const results: { locationId: string; name: string; status: string; salesUpdated?: number; pizzaCount?: number }[] = [];
 
+  // V4: Get ONE global token for all locations
+  const tokenGw = await authenticateV4();
+  if (!tokenGw) {
+    console.error('[sales-service] V4 authentication failed, aborting sync');
+    return new Response(JSON.stringify({ error: 'V4 authentication failed' }), {
+      status: 502,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   for (const integration of integrations) {
     const locationId = integration.location_id;
     const locationName = (integration.locations as any)?.name || 'Unknown';
@@ -608,20 +572,7 @@ async function handleSyncLive(supabase: any): Promise<Response> {
       continue;
     }
 
-    if (!credentials?.username || !credentials?.password) {
-      console.log(`${locationName}: Missing credentials`);
-      results.push({ locationId, name: locationName, status: 'missing_credentials' });
-      continue;
-    }
-
     console.log(`${locationName}: Syncing live sales with QuBeyond location_id=${qbLocationId}...`);
-
-    const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
-    if (!tokenGw) {
-      console.error(`${locationName}: Authentication failed`);
-      results.push({ locationId, name: locationName, status: 'auth_failed' });
-      continue;
-    }
 
     const todayStr = getDateStringForTimezone(new Date(), timezone);
     const salesData = await fetchAllSalesData(supabase, tokenGw, todayStr, qbLocationId, locationId);
@@ -1117,13 +1068,7 @@ async function fetchTipsForDate(
 
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tips/sections/main', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
-      },
+      headers: getV4Headers(tokenGw),
       body: JSON.stringify(requestPayload),
     });
 
@@ -1260,6 +1205,165 @@ async function handleSyncTips(req: Request, supabase: any) {
 }
 
 // ============================================================================
+// ACTION: test-api — Hit all V4 endpoints for active stores, return results (no DB writes)
+// ============================================================================
+
+async function handleTestApi(supabase: any): Promise<Response> {
+  console.log('[sales-service] test-api: Starting V4 API test...');
+
+  const token = await authenticateV4();
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'V4 OAuth2 authentication failed' }), {
+      status: 502,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Get all active QU integrations
+  const { data: integrations } = await supabase
+    .from('location_integrations')
+    .select('id, location_id, credentials, locations!inner(id, name)')
+    .eq('integration_type', 'qubeyond')
+    .eq('is_active', true);
+
+  if (!integrations || integrations.length === 0) {
+    return new Response(JSON.stringify({ error: 'No active QU integrations found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const todayStr = getDateStringForTimezone(new Date(), 'America/Los_Angeles');
+  const headers = getV4Headers(token);
+  const locationResults: any[] = [];
+
+  for (const integration of integrations) {
+    const locationName = (integration.locations as any)?.name || 'Unknown';
+    const credentials = integration.credentials as { location_id?: string };
+    const qbLocationId = credentials?.location_id || '';
+
+    if (!qbLocationId) {
+      locationResults.push({ location: locationName, status: 'missing_qb_location_id' });
+      continue;
+    }
+
+    console.log(`[test-api] Testing ${locationName} (QB: ${qbLocationId})...`);
+
+    const endpoints = [
+      {
+        name: 'sales_summary',
+        url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales',
+        payload: {
+          fields: [{ fieldName: 'metric' }, { fieldName: 'total' }],
+          filters: { date: { from: null, to: null, values: [todayStr], type: 'custom' }, location: { operationalUnits: [parseInt(qbLocationId)] } },
+          params: { sectionId: 'overview', pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
+        }
+      },
+      {
+        name: 'hourly_sales',
+        url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main',
+        payload: {
+          fields: [{ fieldName: 'hour' }, { fieldName: 'checksCount' }, { fieldName: 'netSales' }],
+          filters: { date: { from: null, to: null, values: [todayStr], type: 'custom' }, singleLocation: parseInt(qbLocationId), location: { operationalUnits: [parseInt(qbLocationId)] } },
+          params: { sectionId: 'main', pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
+        }
+      },
+      {
+        name: 'product_mix',
+        url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main',
+        payload: {
+          fields: [{ fieldName: 'itemGroup' }, { fieldName: 'itemName' }, { fieldName: 'quantity' }, { fieldName: 'netSales' }],
+          filters: { date: { from: null, to: null, values: [todayStr], type: 'custom' }, singleLocation: parseInt(qbLocationId), location: { operationalUnits: [parseInt(qbLocationId)] } },
+          params: { sectionId: 'main', pageNumber: 1, pageSize: 50, totalRecords: null, sort: [{ field: 'netSales', dir: 'desc' }], showTotals: true }
+        }
+      },
+      {
+        name: 'payments',
+        url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main',
+        payload: {
+          fields: [{ fieldName: 'tenderType' }, { fieldName: 'amount' }, { fieldName: 'count' }],
+          filters: { date: { from: null, to: null, values: [todayStr], type: 'custom' }, singleLocation: parseInt(qbLocationId), location: { operationalUnits: [parseInt(qbLocationId)] } },
+          params: { sectionId: 'main', pageNumber: 1, pageSize: 50, totalRecords: null, sort: null, showTotals: true }
+        }
+      },
+      {
+        name: 'tips',
+        url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/tips/sections/main',
+        payload: {
+          fields: [{ fieldName: 'employee' }, { fieldName: 'tips' }, { fieldName: 'creditCardTips' }, { fieldName: 'cashTips' }],
+          filters: { date: { from: null, to: null, values: [todayStr], type: 'custom' }, location: { operationalUnits: [parseInt(qbLocationId)] } },
+          params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true }
+        }
+      },
+      {
+        name: 'labor_summary',
+        url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/labor-summary/sections/main',
+        payload: {
+          fields: [{ fieldName: 'jobTitle' }, { fieldName: 'regularHours' }, { fieldName: 'overtimeHours' }, { fieldName: 'laborCost' }],
+          filters: { date: { from: null, to: null, values: [todayStr], type: 'custom' }, singleLocation: parseInt(qbLocationId), location: { operationalUnits: [parseInt(qbLocationId)] } },
+          params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true }
+        }
+      }
+    ];
+
+    // Hit all endpoints in parallel
+    const endpointResults = await Promise.allSettled(
+      endpoints.map(async (ep) => {
+        const start = Date.now();
+        try {
+          const resp = await fetch(ep.url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(ep.payload),
+          });
+          const elapsed = Date.now() - start;
+          if (!resp.ok) {
+            const text = await resp.text().catch(() => '');
+            return { name: ep.name, status: resp.status, error: text.substring(0, 200), ms: elapsed };
+          }
+          const data = await resp.json();
+          const itemCount = Array.isArray(data.items) ? data.items.length : 0;
+          const hasTotals = !!data.totals;
+          // Extract key metrics for quick review
+          let summary: any = { itemCount, hasTotals };
+          if (ep.name === 'sales_summary' && data.items) {
+            for (const item of data.items) {
+              if (item.metricTypeId === 1 || item.metric === 'Net Sales') summary.netSales = item.total;
+              if (item.metric === 'Gross Sales') summary.grossSales = item.total;
+              if (item.metric === 'Discount') summary.discounts = item.total;
+              if (item.metricTypeId === 2 || item.metric === 'Check Count') summary.checkCount = item.total;
+            }
+          }
+          return { name: ep.name, status: 200, ms: elapsed, summary, sampleItem: data.items?.[0] || null };
+        } catch (err: any) {
+          return { name: ep.name, status: 0, error: err.message, ms: Date.now() - start };
+        }
+      })
+    );
+
+    const locResult: any = { location: locationName, qbLocationId, date: todayStr, endpoints: {} };
+    for (const r of endpointResults) {
+      if (r.status === 'fulfilled') {
+        locResult.endpoints[r.value.name] = r.value;
+      } else {
+        locResult.endpoints['unknown'] = { error: r.reason?.message || 'Promise rejected' };
+      }
+    }
+    locationResults.push(locResult);
+  }
+
+  return new Response(JSON.stringify({
+    success: true,
+    authMethod: 'V4 OAuth2 client_credentials',
+    date: todayStr,
+    locationsCount: locationResults.length,
+    results: locationResults,
+  }, null, 2), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+// ============================================================================
 // MAIN ROUTER
 // ============================================================================
 
@@ -1296,6 +1400,9 @@ serve(async (req) => {
 
       case 'sync-tips':
         return await handleSyncTips(req, supabase);
+
+      case 'test-api':
+        return await handleTestApi(supabase);
       
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {

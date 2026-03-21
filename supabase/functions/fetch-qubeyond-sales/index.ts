@@ -26,7 +26,51 @@ function decodeJwtPayload(token: string): any {
   return JSON.parse(jsonPayload);
 }
 
-function getDateStringForTimezone(date: Date, timezone: string): string {
+// V4 OAuth2 Authentication
+async function authenticateV4(): Promise<string | null> {
+  const clientId = Deno.env.get('QU_USERNAME');
+  const clientSecret = Deno.env.get('QU_PASSWORD');
+  if (!clientId || !clientSecret) {
+    console.error('[fetch-qubeyond] Missing QU_USERNAME or QU_PASSWORD env vars');
+    return null;
+  }
+  try {
+    const formData = new FormData();
+    formData.append('grant_type', 'client_credentials');
+    formData.append('client_id', clientId);
+    formData.append('client_secret', clientSecret);
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      console.error(`[fetch-qubeyond] V4 OAuth2 auth failed (${response.status}): ${text.substring(0, 200)}`);
+      return null;
+    }
+    const data = await response.json();
+    if (!data.access_token) {
+      console.error('[fetch-qubeyond] No access_token in OAuth2 response');
+      return null;
+    }
+    console.log('[fetch-qubeyond] V4 OAuth2 auth OK');
+    return data.access_token;
+  } catch (error) {
+    console.error('[fetch-qubeyond] V4 OAuth2 error:', error);
+    return null;
+  }
+}
+
+function getV4Headers(accessToken: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${accessToken}`,
+    'x-integration': Deno.env.get('QU_INTEGRATION_USER_ID') || '',
+  };
+}
+
+
   // Use Intl.DateTimeFormat with formatToParts for reliable timezone conversion
   const formatter = new Intl.DateTimeFormat('en-US', { 
     timeZone: timezone, 
@@ -331,11 +375,7 @@ async function fetchSalesForDates(
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': tokenGw,
-      'Origin': 'https://admin.qubeyond.com',
-      'Referer': 'https://admin.qubeyond.com/',
+    headers: getV4Headers(tokenGw),
     },
     body: JSON.stringify(requestPayload),
   });
@@ -390,11 +430,7 @@ async function fetchHourlySales(
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': tokenGw,
-      'Origin': 'https://admin.qubeyond.com',
-      'Referer': 'https://admin.qubeyond.com/',
+    headers: getV4Headers(tokenGw),
     },
     body: JSON.stringify(requestPayload),
   });
@@ -497,11 +533,7 @@ async function fetchTillsData(
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tills/sections/main', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
+      headers: getV4Headers(tokenGw),
       },
       body: JSON.stringify({
         fields: [
@@ -587,11 +619,7 @@ async function fetchProductMix(
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
+      headers: getV4Headers(tokenGw),
       },
       body: JSON.stringify({
         fields: [
@@ -687,13 +715,7 @@ async function fetchPaymentTypes(
 ): Promise<{ paymentType: string; amount: number }[]> {
   console.log(`[PAYMENTS] Fetching payment types for ${dateStr}`);
 
-  const commonHeaders = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Authorization': tokenGw,
-    'Origin': 'https://admin.qubeyond.com',
-    'Referer': 'https://admin.qubeyond.com/',
-  };
+  const commonHeaders = getV4Headers(tokenGw);
 
   const candidates: Array<{ name: string; url: string; payload: unknown }> = [
     {
@@ -1217,11 +1239,7 @@ async function fetchLaborData(
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/real-time-summary/sections/overview', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
+        headers: getV4Headers(tokenGw),
       },
       body: JSON.stringify({
         fields: [{ fieldName: "metric" }, { fieldName: "total" }],
@@ -1499,11 +1517,7 @@ async function fetchTipsData(
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tips/sections/main', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
+        headers: getV4Headers(tokenGw),
       },
       body: JSON.stringify(requestPayload),
     });
@@ -2507,126 +2521,32 @@ serve(async (req) => {
       };
     }
 
-    if (!credentials.username || !credentials.password) {
-      throw new Error('QuBeyond credentials not configured');
-    }
-
-    // --- Token caching: reuse cached tokenGw if still valid ---
-    const supabaseForCache = locationId 
-      ? createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-      : null;
-    const integrationId = (integration as any)?.id;
+    // V4 OAuth2 Authentication (replaces legacy scraping)
+    const v4Token = await authenticateV4();
+    if (!v4Token) throw new Error('V4 OAuth2 authentication failed');
     
-    let tokenGw: string | undefined;
-    let jwtPayload: any = {};
-    let bearerToken: string | undefined;
-
-    // Check for cached token first (only for location-based calls, not testCredentials)
-    if (!testCredentials && integrationId && integration?.cached_token_gw && integration?.token_expires_at) {
-      const expiresAt = new Date(integration.token_expires_at).getTime();
-      const bufferMs = 5 * 60 * 1000; // 5 min buffer
-      if (Date.now() < expiresAt - bufferMs) {
-        tokenGw = integration.cached_token_gw;
-        console.log(`Using cached tokenGw (expires ${integration.token_expires_at})`);
-      } else {
-        console.log('Cached token expired or expiring soon, re-authenticating');
-      }
-    }
-
-    // If no cached token, do fresh login
-    if (!tokenGw) {
-      console.log('Starting QuBeyond authentication with user:', credentials.username);
-
-      const loginPayload = {
-        payload: {
-          username: credentials.username,
-          password: credentials.password,
-          captchaToken: ''
-        }
-      };
-      
-      const loginResponse = await fetch('https://admin.qubeyond.com/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json, text/plain, */*',
-          'Origin': 'https://admin.qubeyond.com',
-          'Referer': 'https://admin.qubeyond.com/login',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        body: JSON.stringify(loginPayload),
-      });
-
-      if (!loginResponse.ok) {
-        const errorBody = await loginResponse.text();
-        console.error('Login failed with status:', loginResponse.status);
-        console.error('Login error body:', errorBody);
-        
-        if (loginResponse.status === 429 || errorBody.toLowerCase().includes('rate') || errorBody.toLowerCase().includes('limit')) {
-          throw new Error('Rate limited by QuBeyond API. Please try again in a few minutes.');
-        }
-        
-        throw new Error(`QuBeyond login failed (${loginResponse.status}): ${errorBody.substring(0, 200)}`);
-      }
-
-      const loginData = await loginResponse.json();
-      if (!loginData.token) throw new Error('No token in login response');
-
-      jwtPayload = decodeJwtPayload(loginData.token);
-      tokenGw = jwtPayload.tokenGw;
-      bearerToken = loginData.token;
-      if (!tokenGw) throw new Error('No tokenGw found in JWT payload');
-
-      console.log('JWT payload keys:', Object.keys(jwtPayload));
-
-      // Cache the token for future calls
-      if (supabaseForCache && integrationId) {
-        const exp = jwtPayload?.exp as number | undefined;
-        const expiresAt = exp 
-          ? new Date(exp * 1000).toISOString() 
-          : new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
-        
-        supabaseForCache
-          .from('location_integrations')
-          .update({ cached_token_gw: tokenGw, token_expires_at: expiresAt })
-          .eq('id', integrationId)
-          .then(({ error: cacheErr }: any) => {
-            if (cacheErr) console.error('Failed to cache token:', cacheErr.message);
-            else console.log(`Token cached, expires ${expiresAt}`);
-          });
-      }
-    }
+    let tokenGw: string = v4Token;
+    let jwtPayload: any = {}; // Empty — V4 doesn't use JWT payload
+    let bearerToken: string = v4Token; // For compatibility
 
     // Handle location_id being a number or string in credentials
     let qbLocationId = credentials.location_id?.toString() || (credentials as any)['location_id']?.toString();
     
     console.log('Raw credentials.location_id:', credentials.location_id, 'Type:', typeof credentials.location_id);
     
-    if (!qbLocationId && jwtPayload) {
-      qbLocationId = jwtPayload.locationId || jwtPayload.location_id || 
-                     jwtPayload.storeId || jwtPayload.store_id ||
-                     jwtPayload.singleLocation || jwtPayload.defaultLocation;
-      
-      if (!qbLocationId && jwtPayload.user) {
-        qbLocationId = jwtPayload.user.locationId || jwtPayload.user.storeId || jwtPayload.user.defaultLocation;
-      }
-      if (!qbLocationId && jwtPayload.locations && Array.isArray(jwtPayload.locations) && jwtPayload.locations.length > 0) {
-        qbLocationId = jwtPayload.locations[0].id || jwtPayload.locations[0];
-      }
-    }
-    
-    // Extract company ID for admin API calls (payment types)
-    const companyId = jwtPayload?.CompanyId || jwtPayload?.companyId || '';
+    // Extract company ID from env var
+    const companyId = Deno.env.get('QU_CID') || '';
     
     console.log('Using QuBeyond location ID:', qbLocationId);
     console.log('Using Company ID:', companyId);
-    console.log('Authentication successful');
+    console.log('V4 Authentication successful');
 
     if (testCredentials) {
       return new Response(JSON.stringify({ 
         authenticated: true,
-        jwtPayload: jwtPayload,
-        discoveredLocationId: qbLocationId
+        authMethod: 'V4 OAuth2',
+        discoveredLocationId: qbLocationId,
+        companyId
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
