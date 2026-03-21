@@ -451,30 +451,42 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         // Aggregate product mix across all days in the range
         if (args.include_product_mix) {
-          const mixMap: Record<string, number> = {};
+          const mixMap: Record<string, { quantity: number; sales: number }> = {};
+          let daysWithMix = 0;
           for (const row of (data || [])) {
+            if (row.product_mix && Array.isArray(row.product_mix) && (row.product_mix as any[]).length > 0) daysWithMix++;
             if (row.product_mix && Array.isArray(row.product_mix)) {
-              for (const item of row.product_mix) {
-                const name = item.name || item.item_name || 'Unknown';
+              for (const item of row.product_mix as any[]) {
+                const name = item.itemName || item.name || item.item_name || 'Unknown';
                 const qty = Number(item.quantity || item.qty || item.count || 0);
-                mixMap[name] = (mixMap[name] || 0) + qty;
+                const sales = Number(item.netSales || item.sales || item.net_sales || 0);
+                if (!mixMap[name]) mixMap[name] = { quantity: 0, sales: 0 };
+                mixMap[name].quantity += qty;
+                mixMap[name].sales += sales;
               }
             }
           }
           const aggregatedMix = Object.entries(mixMap)
-            .map(([name, quantity]) => ({ name, quantity }))
+            .map(([name, data]) => ({ name, quantity: data.quantity, net_sales: Math.round(data.sales * 100) / 100 }))
             .sort((a, b) => b.quantity - a.quantity);
           
+          const totalDays = (data || []).length;
+          const mixNote = daysWithMix < totalDays 
+            ? `Note: Product mix data is only available for ${daysWithMix} of ${totalDays} days in this range. Totals may be incomplete.` 
+            : undefined;
+
           if (aggregatedMix.length > 0) {
             return JSON.stringify({
               summary: results.length > 1 ? {
                 total_net_sales: results.reduce((s: number, r: any) => s + (r.net_sales || 0), 0),
                 total_guests: results.reduce((s: number, r: any) => s + (r.guest_count || 0), 0),
-                days: results.length,
+                days: totalDays,
+                days_with_product_mix: daysWithMix,
                 date_range: `${args.start_date} to ${endDate}`,
               } : undefined,
               daily: results.length <= 7 ? results : undefined,
               product_mix: aggregatedMix.slice(0, 50),
+              product_mix_note: mixNote,
             });
           }
         }
