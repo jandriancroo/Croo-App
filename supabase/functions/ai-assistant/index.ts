@@ -349,6 +349,86 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         return JSON.stringify(results.length ? results : { message: "No checklist submissions found for this date." });
       }
 
+      case "query_logbook": {
+        // Fetch logbook entries with their values and category info
+        let catFilter: string[] = [];
+        if (args.category_name) {
+          const { data: cats } = await supabase
+            .from("logbook_categories")
+            .select("id, name")
+            .eq("location_id", args.location_id)
+            .eq("is_active", true)
+            .ilike("name", `%${args.category_name}%`);
+          catFilter = (cats || []).map((c: any) => c.id);
+          if (catFilter.length === 0) {
+            return JSON.stringify({ message: `No logbook category matching "${args.category_name}" found.` });
+          }
+        }
+
+        let query = supabase
+          .from("logbook_entries")
+          .select(`
+            id, entry_date, created_at, title,
+            logbook_categories(name),
+            profiles(full_name),
+            logbook_entry_values(field_id, value_text, value_number, logbook_fields(field_name, field_type))
+          `)
+          .eq("location_id", args.location_id)
+          .eq("entry_date", args.date)
+          .order("created_at", { ascending: false });
+
+        if (catFilter.length > 0) {
+          query = query.in("category_id", catFilter);
+        }
+
+        const { data: entries, error: logError } = await query.limit(50);
+        if (logError) {
+          console.error("query_logbook error:", logError);
+          return JSON.stringify({ error: logError.message });
+        }
+
+        const results = (entries || []).map((e: any) => {
+          const entry: any = {
+            category: e.logbook_categories?.name,
+            title: e.title,
+            submitted_by: e.profiles?.full_name,
+            submitted_at: e.created_at,
+          };
+
+          // Process values - parse JSON for structured entries (safe/drawer counts)
+          const values: any[] = [];
+          (e.logbook_entry_values || []).forEach((v: any) => {
+            const fieldName = v.logbook_fields?.field_name || "value";
+            const fieldType = v.logbook_fields?.field_type;
+            
+            if (v.value_text) {
+              try {
+                const parsed = JSON.parse(v.value_text);
+                // Structured data (safe count, drawer count)
+                values.push({ field: fieldName, type: fieldType, data: parsed });
+              } catch {
+                values.push({ field: fieldName, type: fieldType, text: v.value_text });
+              }
+            } else if (v.value_number !== null && v.value_number !== undefined) {
+              values.push({ field: fieldName, type: fieldType, number: v.value_number });
+            }
+          });
+
+          if (values.length > 0) entry.details = values;
+
+          // Filter by keyword if provided
+          if (args.entry_keyword) {
+            const kw = args.entry_keyword.toLowerCase();
+            const searchText = JSON.stringify(entry).toLowerCase();
+            if (!searchText.includes(kw)) return null;
+          }
+
+          return entry;
+        }).filter(Boolean);
+
+        return JSON.stringify(results.length ? results : { message: "No logbook entries found for this date." });
+      }
+
       case "query_tasks": {
         const activeOnly = args.active_only !== false;
         let query = supabase
