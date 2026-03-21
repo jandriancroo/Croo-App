@@ -14,6 +14,7 @@ import { getDisplayName } from '@/utils/displayName';
 interface Profile {
   id: string;
   full_name: string;
+  nickname: string | null;
   profile_photo_url: string | null;
 }
 

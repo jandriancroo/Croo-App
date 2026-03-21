@@ -18,6 +18,7 @@ interface Member {
   user_id: string;
   profiles: {
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string | null;
   };
 }

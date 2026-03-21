@@ -28,6 +28,7 @@ interface ShiftClaim {
   profile: {
     id: string;
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string | null;
   };
 }
