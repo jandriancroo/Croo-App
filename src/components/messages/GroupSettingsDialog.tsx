@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImageIcon, X } from 'lucide-react';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
+import { getDisplayName } from '@/utils/displayName';
 
 interface Profile {
   id: string;
@@ -60,7 +61,7 @@ export function GroupSettingsDialog({
     try {
       const { data, error } = await supabase
         .from('chat_members')
-        .select('user_id, profiles(id, full_name, profile_photo_url)')
+        .select('user_id, profiles(id, full_name, nickname, profile_photo_url)')
         .eq('chat_id', chatId);
 
       if (error) throw error;
@@ -275,10 +276,10 @@ export function GroupSettingsDialog({
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={member.profiles.profile_photo_url || undefined} />
                       <AvatarFallback>
-                        {member.profiles.full_name.charAt(0)}
+                        {getDisplayName(member.profiles.full_name, member.profiles.nickname)?.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
-                    <span>{member.profiles.full_name}</span>
+                    <span>{getDisplayName(member.profiles.full_name, member.profiles.nickname)}</span>
                   </div>
                   <Button
                     variant="ghost"

@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { getDisplayName } from '@/utils/displayName';
 
 interface AnnouncementStatsProps {
   chatId: string;
@@ -62,7 +63,7 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
       const [membersRes, readsRes, messagesRes] = await Promise.all([
         supabase
           .from('chat_members')
-          .select('user_id, profiles(full_name, profile_photo_url)')
+          .select('user_id, profiles(full_name, nickname, profile_photo_url)')
           .eq('chat_id', chatId),
         supabase
           .from('announcement_reads')
@@ -162,10 +163,10 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={member.profiles.profile_photo_url || undefined} />
                     <AvatarFallback className="text-xs">
-                      {member.profiles.full_name.charAt(0)}
+                      {getDisplayName(member.profiles.full_name, member.profiles.nickname)?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{member.profiles.full_name}</span>
+                  <span className="text-sm">{getDisplayName(member.profiles.full_name, member.profiles.nickname)}</span>
                 </div>
               ))}
             </CollapsibleContent>
@@ -184,10 +185,10 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={member.profiles.profile_photo_url || undefined} />
                     <AvatarFallback className="text-xs">
-                      {member.profiles.full_name.charAt(0)}
+                      {getDisplayName(member.profiles.full_name, member.profiles.nickname)?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{member.profiles.full_name}</span>
+                  <span className="text-sm">{getDisplayName(member.profiles.full_name, member.profiles.nickname)}</span>
                 </div>
               ))}
             </CollapsibleContent>
