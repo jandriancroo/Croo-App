@@ -18,6 +18,7 @@ import { getDisplayName } from "@/utils/displayName";
 interface Employee {
   id: string;
   full_name: string;
+  nickname?: string | null;
   profile_photo_url: string | null;
   min_weekly_hours: number | null;
   max_weekly_hours: number | null;

@@ -176,7 +176,7 @@ export function IMessageInput({
         <div className="mb-2 mx-1 px-3 py-2 bg-muted/50 rounded-xl flex items-center justify-between backdrop-blur-sm">
           <div className="text-sm min-w-0 flex-1">
             <p className="text-xs text-muted-foreground">
-              Replying to {getDisplayName(replyTo.profiles?.full_name, replyTo.profiles?.nickname) || 'Unknown'}
+              Replying to {getDisplayName(replyTo.profiles?.full_name, (replyTo.profiles as any)?.nickname) || 'Unknown'}
             </p>
             <p className="truncate text-foreground/80">{replyTo.content || 'Attachment'}</p>
           </div>
