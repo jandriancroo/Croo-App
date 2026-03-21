@@ -298,8 +298,26 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             }));
 
             if (args.item_keyword) {
-              const kw = args.item_keyword.toLowerCase();
-              responses = responses.filter((r: any) => r.question?.toLowerCase().includes(kw));
+              const rawKeyword = String(args.item_keyword).toLowerCase().trim();
+              const stopWords = new Set(["the", "a", "an", "to", "for", "of", "on", "in", "at", "did", "does", "do", "is", "are", "was", "were", "who", "what", "when", "where", "how", "today", "yesterday"]);
+              const keywordTokens = Array.from(new Set(
+                rawKeyword
+                  .replace(/[^a-z0-9\s-]/g, " ")
+                  .split(/\s+/)
+                  .filter((t) => t.length >= 3 && !stopWords.has(t))
+              ));
+
+              responses = responses.filter((r: any) => {
+                const haystack = `${r.question || ""} ${r.answer || ""}`.toLowerCase();
+                if (!haystack) return false;
+
+                // First try exact phrase
+                if (rawKeyword && haystack.includes(rawKeyword)) return true;
+
+                // Fallback: phrase-to-token matching (e.g. "flip the line" -> "flip")
+                if (keywordTokens.length === 0) return false;
+                return keywordTokens.some((token) => haystack.includes(token));
+              });
             }
             base.responses = responses;
           }
