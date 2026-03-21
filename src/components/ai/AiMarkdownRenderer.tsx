@@ -101,7 +101,7 @@ interface AiMarkdownRendererProps {
 export function AiMarkdownRenderer({ content }: AiMarkdownRendererProps) {
   return (
     <div className="ai-markdown max-w-none">
-      <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{content}</ReactMarkdown>
     </div>
   );
 }
