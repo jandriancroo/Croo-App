@@ -1554,7 +1554,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 }
 
 @keyframes chase-glow-fade {
-  0%, 60% { opacity: 1; }
+  0%, 60% { opacity: 0.7; }
   100% { opacity: 0; }
 }
 
