@@ -34,6 +34,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { getDisplayName } from "@/utils/displayName";
 
 interface AutoScheduleWizardProps {
   open: boolean;
