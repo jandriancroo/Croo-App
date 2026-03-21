@@ -1548,18 +1548,13 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 }
 
 /* ===== CrooAI Floating Orb ===== */
-@keyframes crooai-border-spin {
-  0% { --crooai-angle: 0deg; }
-  100% { --crooai-angle: 360deg; }
-}
-
 @keyframes crooai-glow-pulse {
   0%, 100% { box-shadow: 0 0 8px hsl(43 80% 55% / 0.3), 0 0 20px hsl(43 80% 55% / 0.1); }
   50% { box-shadow: 0 0 14px hsl(43 80% 55% / 0.5), 0 0 30px hsl(43 80% 55% / 0.2); }
 }
 
 .crooai-orb {
-  background: hsl(30 5% 8%);
+  background: hsl(var(--primary));
   border: 2px solid hsl(43 72% 45%);
   position: relative;
   overflow: hidden;
@@ -1574,9 +1569,9 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   background: linear-gradient(
     105deg,
     transparent 30%,
-    hsl(43 80% 55% / 0.12) 45%,
-    hsl(43 80% 55% / 0.25) 50%,
-    hsl(43 80% 55% / 0.12) 55%,
+    hsl(43 80% 55% / 0.15) 45%,
+    hsl(43 80% 55% / 0.3) 50%,
+    hsl(43 80% 55% / 0.15) 55%,
     transparent 70%
   );
   background-size: 200% 100%;
@@ -1586,5 +1581,4 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 
 .crooai-orb:hover {
   border-color: hsl(43 80% 55%);
-  background: hsl(30 5% 12%);
 }
