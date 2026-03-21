@@ -284,6 +284,18 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
+  const [justSwitched, setJustSwitched] = useState(false);
+  const prevSwitchingRef = useRef(false);
+  
+  // Detect when switching ends → trigger chase effect
+  useEffect(() => {
+    if (prevSwitchingRef.current && !isSwitching) {
+      setJustSwitched(true);
+      const timer = setTimeout(() => setJustSwitched(false), 1800);
+      return () => clearTimeout(timer);
+    }
+    prevSwitchingRef.current = isSwitching;
+  }, [isSwitching]);
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
   const { hasPermission } = useRolePermissions();
