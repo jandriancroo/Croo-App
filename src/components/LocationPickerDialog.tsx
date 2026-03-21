@@ -464,7 +464,7 @@ export function LocationPickerDialog({
                 {brand?.logo_url && (
                   <img src={brand.logo_url} alt="" className="h-4 w-4 rounded object-contain" />
                 )}
-                Dashboard
+                {brand?.name ? `${brand.name} Dashboard` : 'Dashboard'}
               </button>
             );
           })()}
