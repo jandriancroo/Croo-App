@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { X, Send, Loader2, Sparkles, Mic, MicOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
@@ -7,6 +7,9 @@ import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { formatInTimeZone } from 'date-fns-tz';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -23,12 +26,15 @@ const SUGGESTIONS = [
 export function AiAssistantBubble() {
   const { isShiftManager } = useUserRole();
   const { currentLocation } = useLocation();
+  const { timezone } = useLocationTimezone();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const briefingLoadedRef = useRef(false);
 
   // Voice input — appends transcript to input field
   const handleTranscript = useCallback((transcript: string) => {
@@ -43,6 +49,84 @@ export function AiAssistantBubble() {
     continuous: true,
     silenceTimeoutMs: 6000,
   });
+
+  // Get today's date in location timezone
+  const today = useMemo(() => {
+    return formatInTimeZone(new Date(), timezone || 'America/Los_Angeles', 'yyyy-MM-dd');
+  }, [timezone]);
+
+  // Fetch today's briefing for unread dot
+  const { data: briefing } = useQuery({
+    queryKey: ['croo-ai-briefing', currentLocation?.id, today],
+    queryFn: async () => {
+      if (!currentLocation) return null;
+      const { data, error } = await supabase
+        .from('croo_ai_briefings')
+        .select('id, content, briefing_date')
+        .eq('location_id', currentLocation.id)
+        .eq('briefing_date', today)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!currentLocation && isShiftManager,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Check if current user has read today's briefing
+  const { data: hasRead } = useQuery({
+    queryKey: ['croo-ai-briefing-read', briefing?.id],
+    queryFn: async () => {
+      if (!briefing?.id) return true;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return true;
+      const { data, error } = await supabase
+        .from('croo_ai_briefing_reads')
+        .select('id')
+        .eq('briefing_id', briefing.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) return true;
+      return !!data;
+    },
+    enabled: !!briefing?.id,
+    staleTime: 30 * 1000,
+  });
+
+  // Mark briefing as read
+  const markRead = useMutation({
+    mutationFn: async (briefingId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase
+        .from('croo_ai_briefing_reads')
+        .upsert({ briefing_id: briefingId, user_id: user.id }, { onConflict: 'briefing_id,user_id' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['croo-ai-briefing-read'] });
+    },
+  });
+
+  const hasUnreadBriefing = !!briefing && !hasRead;
+
+  // When opening the chat, inject the morning briefing as the first assistant message
+  useEffect(() => {
+    if (open && briefing?.content && !briefingLoadedRef.current && messages.length === 0) {
+      briefingLoadedRef.current = true;
+      setMessages([{ role: 'assistant', content: briefing.content }]);
+      // Mark as read
+      if (briefing.id) {
+        markRead.mutate(briefing.id);
+      }
+      scrollToBottom();
+    }
+  }, [open, briefing]);
+
+  // Reset briefing loaded flag when location changes
+  useEffect(() => {
+    briefingLoadedRef.current = false;
+    setMessages([]);
+  }, [currentLocation?.id]);
 
   useEffect(() => {
     if (open) {
@@ -109,10 +193,13 @@ export function AiAssistantBubble() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-24 right-4 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center md:bottom-8"
+          className="fixed bottom-24 right-4 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center md:bottom-8 relative"
           aria-label="Open AI Assistant"
         >
           <Sparkles className="h-5 w-5" />
+          {hasUnreadBriefing && (
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-destructive border-2 border-background animate-pulse" />
+          )}
         </button>
       )}
 
