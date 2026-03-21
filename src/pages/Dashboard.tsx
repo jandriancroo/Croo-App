@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ChefHat, ClipboardCheck, ArrowUpDown, Check, Settings2, AlertTriangle, Lock } from 'lucide-react';
+import { ChefHat, ClipboardCheck, Check, Settings2 } from 'lucide-react';
 import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
 import { EditDashboardDialog, CubeConfig, SectionKey, getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
@@ -32,13 +31,11 @@ import { useAuth } from '@/lib/auth';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
 import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
-import { useCallback } from 'react';
 
 interface CateringOrder {
   id: string;
