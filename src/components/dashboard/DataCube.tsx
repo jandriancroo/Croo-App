@@ -84,7 +84,10 @@ export function DataCube({
     switch (metricType) {
       // Daily sales
       case 'sales_today': return salesData.daily;
-      case 'sales_pace': return salesData.projections?.todayPaceAdjusted;
+      case 'sales_pace': {
+        const pace = salesData.projections?.todayPaceAdjusted;
+        return pace != null ? Math.max(pace, salesData.daily || 0) : undefined;
+      }
       case 'sales_projected_today': return salesData.projections?.todayProjected;
       case 'sales_last_week':
       case 'sales_last_year': return salesData.comparison?.prevDayFullDay;
