@@ -14,9 +14,16 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, startOfWeek, isBefore } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { Check, X, Calendar, Clock } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
+
+const TZ = "America/Los_Angeles";
+/** Format a date-only string (YYYY-MM-DD) in LA timezone — safe from off-by-one bugs */
+const fmtDate = (dateStr: string, pattern: string): string => {
+  return formatInTimeZone(new Date(`${dateStr}T12:00:00Z`), TZ, pattern);
+};
 
 interface AvailabilityRequest {
   id: string;
@@ -137,18 +144,14 @@ export function AvailabilityOverview() {
   };
 
   const formatDateRange = (request: AvailabilityRequest) => {
-    const startDate = parseDateStringInTimezone(request.start_date, "America/Los_Angeles");
-    
     if (request.time_scope === "multi_day" && request.end_date) {
-      const endDate = parseDateStringInTimezone(request.end_date, "America/Los_Angeles");
-      return `${format(startDate, "EEE, MMM d")} – ${format(endDate, "EEE, MMM d")}`;
+      return `${fmtDate(request.start_date, "EEE, MMM d")} – ${fmtDate(request.end_date, "EEE, MMM d")}`;
     }
-    
-    return format(startDate, "EEE, MMM d");
+    return fmtDate(request.start_date, "EEE, MMM d");
   };
 
   const formatRequestedDate = (createdAt: string) => {
-    return format(new Date(createdAt), "MMM d");
+    return formatInTimeZone(new Date(createdAt), TZ, "MMM d");
   };
 
   // Filter past requests (before start of current week)

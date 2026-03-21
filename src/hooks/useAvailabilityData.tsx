@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, isBefore, isThisWeek, addWeeks, isSameWeek } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
@@ -10,6 +11,14 @@ import {
   formatDateTimeInTimezone,
   parseDateStringInTimezone,
 } from "@/utils/timezoneUtils";
+
+const TZ = "America/Los_Angeles";
+
+/** Format a date-only string (YYYY-MM-DD) in LA timezone — safe from off-by-one bugs */
+const fmtDate = (dateStr: string, pattern: string): string => {
+  // Use noon UTC to guarantee the date lands on the correct calendar day in any timezone
+  return formatInTimeZone(new Date(`${dateStr}T12:00:00Z`), TZ, pattern);
+};
 
 export interface AvailabilityRequest {
   id: string;
@@ -317,17 +326,17 @@ export function useAvailabilityData() {
   // Formatting helpers
   const formatTimeScope = (request: AvailabilityRequest) => {
     if (request.time_scope === "partial_day") {
-      const dateStr = format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "MMM d, yyyy");
+      const dateStr = fmtDate(request.start_date, "MMM d, yyyy");
       const timeRange = `${format(new Date(`2000-01-01T${request.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${request.end_time}`), "h:mm a")}`;
       return `${dateStr} • ${timeRange}`;
     } else if (request.time_scope === "multi_day") {
       const start = request.start_date;
       const end = request.end_date;
-      if (!end) return format(parseDateStringInTimezone(start, "America/Los_Angeles"), "MMM d, yyyy");
+      if (!end) return fmtDate(start, "MMM d, yyyy");
       const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start];
-      return `${format(parseDateStringInTimezone(rangeStart, "America/Los_Angeles"), "MMM d")} - ${format(parseDateStringInTimezone(rangeEnd, "America/Los_Angeles"), "MMM d, yyyy")}`;
+      return `${fmtDate(rangeStart, "MMM d")} - ${fmtDate(rangeEnd, "MMM d, yyyy")}`;
     } else {
-      return format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "MMM d, yyyy");
+      return fmtDate(request.start_date, "MMM d, yyyy");
     }
   };
 
@@ -335,11 +344,11 @@ export function useAvailabilityData() {
     if (request.time_scope === "multi_day") {
       const start = request.start_date;
       const end = request.end_date;
-      if (!end) return format(parseDateStringInTimezone(start, "America/Los_Angeles"), "EEE");
+      if (!end) return fmtDate(start, "EEE");
       const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start];
-      return `${format(parseDateStringInTimezone(rangeStart, "America/Los_Angeles"), "EEE")} - ${format(parseDateStringInTimezone(rangeEnd, "America/Los_Angeles"), "EEE")}`;
+      return `${fmtDate(rangeStart, "EEE")} - ${fmtDate(rangeEnd, "EEE")}`;
     }
-    return format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "EEEE");
+    return fmtDate(request.start_date, "EEEE");
   };
 
   const formatRequestedDate = (createdAt: string) => {
@@ -369,10 +378,12 @@ export function useAvailabilityData() {
   };
 
   const getWeekLabel = (weekKeyStr: string): string => {
-    const weekStart = parseDateStringInTimezone(weekKeyStr, "America/Los_Angeles");
+    const weekStart = parseDateStringInTimezone(weekKeyStr, TZ);
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
     const now = new Date();
-    const dateRange = `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`;
+    const startLabel = fmtDate(weekKeyStr, "MMM d");
+    const endLabel = formatInTimeZone(weekEnd, TZ, "MMM d, yyyy");
+    const dateRange = `${startLabel} – ${endLabel}`;
     if (isThisWeek(weekStart, { weekStartsOn: 1 })) return `This Week (${dateRange})`;
     if (isSameWeek(weekStart, addWeeks(now, 1), { weekStartsOn: 1 })) return `Next Week (${dateRange})`;
     if (isSameWeek(weekStart, addWeeks(now, -1), { weekStartsOn: 1 })) return `Last Week (${dateRange})`;
