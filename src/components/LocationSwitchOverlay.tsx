@@ -10,47 +10,22 @@ interface LocationSwitchOverlayProps {
 
 export function LocationSwitchOverlay({ visible, locationName, storeNumber, logoUrl, brandName }: LocationSwitchOverlayProps) {
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence>
       {visible && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
-          style={{ background: "hsl(var(--background))", transformOrigin: "center center" }}
-          // CRT turn-on: starts as a horizontal line (scaleY:0) then expands
-          initial={{ scaleY: 0, scaleX: 1, opacity: 1 }}
-          animate={{ 
-            scaleY: [0, 0.005, 1],
-            scaleX: [0.6, 1, 1],
-            opacity: 1,
-          }}
-          exit={{
-            // CRT turn-off: collapse to line then dot then gone
-            scaleY: [1, 0.005, 0],
-            scaleX: [1, 0.8, 0],
-            opacity: [1, 1, 0],
-          }}
-          transition={{
-            duration: 0.4,
-            ease: [0.4, 0, 0.2, 1],
-            times: [0, 0.4, 1],
-          }}
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+          style={{ background: "hsl(var(--background))" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
         >
-          {/* Scanline glow effect during transition */}
+          {/* Everything appears together — no staggered delays */}
           <motion.div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: "linear-gradient(180deg, transparent 0%, hsl(var(--primary)/0.03) 50%, transparent 100%)",
-            }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0.6, 0] }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          />
-
-          {/* Content fades in after the CRT opens */}
-          <motion.div
-            className="flex flex-col items-center justify-center text-center px-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.35, duration: 0.25, ease: "easeOut" }}
+            className="flex flex-col items-center text-center px-8"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08, duration: 0.25, ease: "easeOut" }}
           >
             {/* Logo */}
             {logoUrl && (
@@ -70,7 +45,6 @@ export function LocationSwitchOverlay({ visible, locationName, storeNumber, logo
               {locationName}
             </h1>
 
-            {/* Store number */}
             {storeNumber && (
               <p
                 className="text-sm mt-1.5"
