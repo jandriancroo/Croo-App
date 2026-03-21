@@ -7,7 +7,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import ReactMarkdown from 'react-markdown';
+import { AiMarkdownRenderer } from './AiMarkdownRenderer';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
