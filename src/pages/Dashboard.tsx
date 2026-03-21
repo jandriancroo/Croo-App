@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ChefHat, ClipboardCheck, ArrowUpDown, Check, Settings2, AlertTriangle, Lock } from 'lucide-react';
+import { ChefHat, ClipboardCheck, Check, Settings2 } from 'lucide-react';
 import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
 import { EditDashboardDialog, CubeConfig, SectionKey, getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
@@ -32,13 +31,11 @@ import { useAuth } from '@/lib/auth';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
 import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
-import { useCallback } from 'react';
 
 interface CateringOrder {
   id: string;
@@ -81,13 +78,10 @@ export default function Dashboard() {
     expected: number;
     completed: number;
   }>>({});
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditMode] = useState(false);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
-  // userName derived from auth context below
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
-  // salesOverviewOpen state moved to WidgetsSection
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -96,19 +90,17 @@ export default function Dashboard() {
   const { canSeeSales } = useTeamSalesVisibility();
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
-  const { currentLocation, isChecklistOnlyLocation, organizationId } = useAppLocation();
-  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
-  const { animationAmount } = useCrooCashAnimation();
+  const { currentLocation, organizationId } = useAppLocation();
+  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, loading: timezoneLoading } = useLocationTimezone();
   const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
-  const { isSectionVisible, refreshSections } = useDashboardSections();
+  const { isSectionVisible } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
   const [dashboardSectionOrder, setDashboardSectionOrder] = useState<SectionKey[]>(() => 
     currentLocation?.id ? getSectionOrder(currentLocation.id) : ['data-cubes', 'checklists', 'sales-chart']
   );
   const queryClient = useQueryClient();
-  const [lastSyncDisplay, setLastSyncDisplay] = useState<Date | null>(null);
   
   // Light DB reads — always refetch on pull
   const ALWAYS_REFRESH_KEYS = [
@@ -127,13 +119,11 @@ export default function Dashboard() {
     ['daily-tips'],
   ];
   
-  // Handle pull-to-refresh
-  const handleRefresh = useCallback((timestamp: Date, wasActualRefresh: boolean) => {
-    setLastSyncDisplay(timestamp);
-  }, []);
+  // Handle pull-to-refresh (no-op callback, PullToRefresh handles invalidation)
+  const handleRefresh = useCallback(() => {}, []);
   
   // Role-based cubes for TM/SM/Manager (locked by Org Admin)
-  const { shouldUseRoleCubes, roleCubes, isLoading: roleCubesLoading } = useShouldUseRoleCubes(organizationId);
+  const { shouldUseRoleCubes, roleCubes } = useShouldUseRoleCubes(organizationId);
   
   // Fetch personal pay data for personal metrics
   const { data: personalPayData } = usePersonalPayData();
@@ -273,20 +263,14 @@ export default function Dashboard() {
   const handleReorderCubes = async (orderedIds: string[]) => {
     try {
       // Two-phase update to avoid unique constraint conflicts on display_order
-      // Phase 1: Set all to temporary negative values
-      for (let i = 0; i < orderedIds.length; i++) {
-        await supabase
-          .from('user_dashboard_cubes')
-          .update({ display_order: -(1000000 + i) })
-          .eq('id', orderedIds[i]);
-      }
-      // Phase 2: Set final values
-      for (let i = 0; i < orderedIds.length; i++) {
-        await supabase
-          .from('user_dashboard_cubes')
-          .update({ display_order: i })
-          .eq('id', orderedIds[i]);
-      }
+      // Phase 1: Set all to temporary negative values (parallel)
+      await Promise.all(orderedIds.map((id, i) =>
+        supabase.from('user_dashboard_cubes').update({ display_order: -(1000000 + i) }).eq('id', id)
+      ));
+      // Phase 2: Set final values (parallel)
+      await Promise.all(orderedIds.map((id, i) =>
+        supabase.from('user_dashboard_cubes').update({ display_order: i }).eq('id', id)
+      ));
       queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
     } catch (error) {
       console.error('Error reordering cubes:', error);
@@ -364,7 +348,7 @@ export default function Dashboard() {
     enabled: !!currentLocation,
   });
   // Catering orders with React Query (cached, instant on revisit)
-  const { data: todaysCateringOrders = [] } = useQuery({
+  useQuery({
     queryKey: ['todays-catering-orders', currentLocation?.id, getTodayInTimezone()],
     staleTime: 2 * 60 * 1000, // 2 min cache
     queryFn: async () => {
@@ -501,58 +485,10 @@ export default function Dashboard() {
   });
 
   const checklists = checklistData?.checklists || [];
-  const stats = checklistData?.stats || {};
+  
 
-  // Fetch Croo Cash balance + subscribe once per user (prevents channel leaks)
-  useEffect(() => {
-    if (!user?.id) {
-      setCrooCashBalance(0);
-      return;
-    }
 
-    let cancelled = false;
 
-    const load = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('croo_cash_balance')
-          .eq('id', user.id)
-          .single();
-
-        if (error) throw error;
-        if (!cancelled) setCrooCashBalance(data?.croo_cash_balance || 0);
-      } catch (error) {
-        console.error('Error fetching Croo Cash balance:', error);
-      }
-    };
-
-    load();
-
-    const channel = supabase
-      .channel(`croo-cash-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`,
-        },
-        (payload: any) => {
-          setCrooCashBalance(payload.new.croo_cash_balance || 0);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
-
-  // User name is derived from auth context - no need for separate fetch
-  const userName = user?.user_metadata?.full_name?.split(' ')[0] || '';
   
   useEffect(() => {
     // Wait for timezone to load before calculating completion data.
@@ -589,13 +525,6 @@ export default function Dashboard() {
     // Business day runs from cutoff hour today to cutoff hour tomorrow
     const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr);
     
-    console.log('[Dashboard] loadCompletionData:', {
-      businessDateStr,
-      currentDay,
-      periodStartBusiness: periodStartBusiness.toISOString(),
-      periodEndBusiness: periodEndBusiness.toISOString(),
-      closeTime
-    });
     
     // Monthly period
     const now = new Date();
@@ -654,14 +583,7 @@ export default function Dashboard() {
     // Combine responses
     const allResponses = [...(dailyResponses || []), ...(monthlyResponses || [])];
     
-    console.log('[Dashboard] Query results:', {
-      itemCount: allChecklistItems?.length || 0,
-      dailyResponseCount: dailyResponses?.length || 0,
-      monthlyResponseCount: monthlyResponses?.length || 0,
-      totalResponseCount: allResponses.length,
-      periodStart: periodStartBusiness.toISOString(),
-      periodEnd: periodEndBusiness.toISOString()
-    });
+    
     // Group items by checklist_id
     const itemsByChecklist = new Map<string, typeof allChecklistItems>();
     allChecklistItems?.forEach(item => {
@@ -725,13 +647,6 @@ export default function Dashboard() {
     }
     setCompletionData(dataMap);
   };
-  // fetchData is now replaced by React Query above (dashboard-checklists query)
-  const toggleEditMode = () => {
-    setIsEditMode(!isEditMode);
-    if (isEditMode) {
-      toast.success('Layout saved');
-    }
-  };
   const getCompletionData = (checklistId: string) => {
     return completionData[checklistId] || {
       expected: 0,
@@ -793,74 +708,44 @@ export default function Dashboard() {
       </div>
       {/* Checklist rows */}
       <div className="divide-y divide-border/30">
-        {checklists.map(checklist => {
-          const { expected, completed } = getCompletionData(checklist.id);
-          const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
-          const isComplete = completionRate === 100;
-          const hasStarted = completed > 0;
-        
-          // Check if checklist is overdue (has due_by_time, not complete, and current time is past due)
-          // IMPORTANT: Compare using the location's timezone (not device timezone)
-          const isOverdue = (() => {
-            if (isComplete || !checklist.due_by_time) return false;
+        {(() => {
+          // Compute current time in location timezone ONCE for all rows
+          const now = new Date();
+          const timeParts = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+            hourCycle: 'h23',
+          }).formatToParts(now);
+          const nowH = Number(timeParts.find(p => p.type === 'hour')?.value ?? '0');
+          const nowM = Number(timeParts.find(p => p.type === 'minute')?.value ?? '0');
+          const nowS = Number(timeParts.find(p => p.type === 'second')?.value ?? '0');
+          const nowMinutes = nowH * 60 + nowM;
+          const nowSeconds = nowH * 3600 + nowM * 60 + nowS;
 
-            const now = new Date();
-            const parts = new Intl.DateTimeFormat('en-US', {
-              timeZone: timezone,
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-              hourCycle: 'h23',
-            }).formatToParts(now);
-
-            const nowHour = Number(parts.find(p => p.type === 'hour')?.value ?? '0');
-            const nowMinute = Number(parts.find(p => p.type === 'minute')?.value ?? '0');
-            const nowTotal = nowHour * 60 + nowMinute;
-
-            const [dueHRaw, dueMRaw] = checklist.due_by_time.split(':');
-            const dueHour = Number(dueHRaw ?? 0);
-            const dueMinute = Number(dueMRaw ?? 0);
-            const dueTotal = dueHour * 60 + dueMinute;
-
-            return nowTotal > dueTotal;
-          })();
-
-          // Check if checklist is locked (has lock_until_time and current time is before unlock)
-          // IMPORTANT: Compare using the location's timezone (not device timezone)
-          const isLocked = (() => {
-            if (!checklist.lock_until_time) return false;
-
-            const now = new Date();
-            const parts = new Intl.DateTimeFormat('en-US', {
-              timeZone: timezone,
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: false,
-              hourCycle: 'h23',
-            }).formatToParts(now);
-
-            const h = Number(parts.find(p => p.type === 'hour')?.value ?? '0');
-            const m = Number(parts.find(p => p.type === 'minute')?.value ?? '0');
-            const s = Number(parts.find(p => p.type === 'second')?.value ?? '0');
-            const nowTotal = h * 3600 + m * 60 + s;
-
-            const [lockHRaw, lockMRaw, lockSRaw] = checklist.lock_until_time.split(':');
-            const lockHour = Number(lockHRaw ?? 0);
-            const lockMinute = Number(lockMRaw ?? 0);
-            const lockSecond = Number(lockSRaw ?? 0);
-            const lockTotal = lockHour * 3600 + lockMinute * 60 + lockSecond;
-
-            return nowTotal < lockTotal;
-          })();
-        
-          // Format lock time for display
           const formatLockTime = (time: string) => {
             const [hours, minutes] = time.split(':').map(Number);
             const period = hours >= 12 ? 'PM' : 'AM';
             const displayHours = hours % 12 || 12;
             return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
           };
+
+          return checklists.map(checklist => {
+          const { expected, completed } = getCompletionData(checklist.id);
+          const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
+          const isComplete = completionRate === 100;
+
+          const isOverdue = !isComplete && !!checklist.due_by_time && (() => {
+            const [dueH, dueM] = checklist.due_by_time!.split(':').map(Number);
+            return nowMinutes > dueH * 60 + dueM;
+          })();
+
+          const isLocked = !!checklist.lock_until_time && (() => {
+            const [lH, lM, lS] = checklist.lock_until_time!.split(':').map(Number);
+            return nowSeconds < lH * 3600 + lM * 60 + (lS || 0);
+          })();
         
           return (
             <ChecklistCard
@@ -875,7 +760,8 @@ export default function Dashboard() {
               variant="row"
             />
           );
-        })}
+        });
+        })()}
       </div>
     </Card>
   );
