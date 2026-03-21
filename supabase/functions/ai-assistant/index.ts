@@ -446,9 +446,39 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             r._warning = "This projection looks suspiciously low — may be a stale override or data error.";
           }
           if (args.include_hourly && row.hourly_data) r.hourly = row.hourly_data;
-          if (args.include_product_mix && row.product_mix) r.product_mix = row.product_mix;
           return r;
         });
+
+        // Aggregate product mix across all days in the range
+        if (args.include_product_mix) {
+          const mixMap: Record<string, number> = {};
+          for (const row of (data || [])) {
+            if (row.product_mix && Array.isArray(row.product_mix)) {
+              for (const item of row.product_mix) {
+                const name = item.name || item.item_name || 'Unknown';
+                const qty = Number(item.quantity || item.qty || item.count || 0);
+                mixMap[name] = (mixMap[name] || 0) + qty;
+              }
+            }
+          }
+          const aggregatedMix = Object.entries(mixMap)
+            .map(([name, quantity]) => ({ name, quantity }))
+            .sort((a, b) => b.quantity - a.quantity);
+          
+          if (aggregatedMix.length > 0) {
+            return JSON.stringify({
+              summary: results.length > 1 ? {
+                total_net_sales: results.reduce((s: number, r: any) => s + (r.net_sales || 0), 0),
+                total_guests: results.reduce((s: number, r: any) => s + (r.guest_count || 0), 0),
+                days: results.length,
+                date_range: `${args.start_date} to ${endDate}`,
+              } : undefined,
+              daily: results.length <= 7 ? results : undefined,
+              product_mix: aggregatedMix.slice(0, 50),
+            });
+          }
+        }
+
         return JSON.stringify(results.length ? results : { message: "No sales data found for this date range." });
       }
 
