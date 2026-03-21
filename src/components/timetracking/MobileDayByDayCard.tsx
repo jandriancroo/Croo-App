@@ -3,6 +3,7 @@ import { CheckCircle2, Coffee } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { getDisplayName } from '@/utils/displayName';
 import {
   formatTimeDisplay,
   parseDateStringInTimezone,
@@ -179,9 +180,9 @@ export function MobileDayByDayCard({
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <Avatar className="h-7 w-7 flex-shrink-0">
                           <AvatarImage src={entry.profile.avatar_url} />
-                          <AvatarFallback className="text-[10px]">{entry.profile.full_name?.[0] || 'U'}</AvatarFallback>
+                          <AvatarFallback className="text-[10px]">{getDisplayName(entry.profile.full_name, entry.profile.nickname)?.[0] || 'U'}</AvatarFallback>
                         </Avatar>
-                        <span className="text-sm font-medium truncate">{entry.profile.full_name}</span>
+                        <span className="text-sm font-medium truncate">{getDisplayName(entry.profile.full_name, entry.profile.nickname)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-sm">{(entry.dayHours || 0).toFixed(1)}h</span>

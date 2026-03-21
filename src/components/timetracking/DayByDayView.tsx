@@ -3,6 +3,7 @@ import { CheckCircle2, Coffee } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { getDisplayName } from '@/utils/displayName';
 import {
   formatTimeDisplay,
   parseDateStringInTimezone,
@@ -204,9 +205,9 @@ export function DayByDayView({
                         <div className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
                             <AvatarImage src={entry.profile.avatar_url} />
-                            <AvatarFallback className="text-[10px]">{entry.profile.full_name?.[0] || 'U'}</AvatarFallback>
+                            <AvatarFallback className="text-[10px]">{getDisplayName(entry.profile.full_name, entry.profile.nickname)?.[0] || 'U'}</AvatarFallback>
                           </Avatar>
-                          <span className="text-sm font-medium truncate">{entry.profile.full_name}</span>
+                          <span className="text-sm font-medium truncate">{getDisplayName(entry.profile.full_name, entry.profile.nickname)}</span>
                         </div>
                       </TableCell>
 

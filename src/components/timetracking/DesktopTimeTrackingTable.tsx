@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { CheckCircle2, Coffee } from 'lucide-react';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { getDisplayName } from '@/utils/displayName';
 
 import {
   formatTimeDisplay,
@@ -103,7 +104,7 @@ export function DesktopTimeTrackingTable({
               {/* Employee header row */}
               <TableRow key={`employee-${card.profile.id}`} className="bg-primary/10 dark:bg-primary/20 border-t-2 border-primary/30 hover:bg-primary/15 dark:hover:bg-primary/25">
                 <TableCell className="py-2.5" colSpan={5}>
-                  <span className="font-bold text-base text-primary dark:text-primary-foreground">{card.profile.full_name}</span>
+                  <span className="font-bold text-base text-primary dark:text-primary-foreground">{getDisplayName(card.profile.full_name, card.profile.nickname)}</span>
                 </TableCell>
                 <TableCell className="py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1.5">
