@@ -451,19 +451,23 @@ export function LocationPickerDialog({
           </div>
 
           {/* Brand Dash link for super admins */}
-          {isSuperAdmin && activeBrandId && (
-            <button
-              onClick={() => {
-                navigate(`/org-dash?brand=${activeBrandId}`);
-                onOpenChange(false);
-              }}
-              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-lg py-2 transition-colors"
-            >
-              <Layers className="h-3.5 w-3.5" />
-              Brand Dashboard
-              <ExternalLink className="h-3 w-3" />
-            </button>
-          )}
+          {isSuperAdmin && activeBrandId && (() => {
+            const brand = brands.find(b => b.id === activeBrandId);
+            return (
+              <button
+                onClick={() => {
+                  navigate(`/org-dash?brand=${activeBrandId}`);
+                  onOpenChange(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-lg py-2 transition-colors"
+              >
+                {brand?.logo_url && (
+                  <img src={brand.logo_url} alt="" className="h-4 w-4 rounded object-contain" />
+                )}
+                Dashboard
+              </button>
+            );
+          })()}
 
           {/* Location list */}
           <div className="space-y-1 max-h-[50vh] overflow-y-auto p-0.5 -m-0.5">
