@@ -292,7 +292,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         // Query shifts with schedule join for location filtering
         const { data, error } = await supabase
           .from("scheduled_shifts")
-          .select("shift_date, start_time, end_time, position, is_time_off, user_id, profiles(full_name), schedule_id, schedules!inner(location_id, week_start_date, week_end_date)")
+          .select("shift_date, start_time, end_time, position, is_time_off, user_id, schedule_id, schedules!inner(location_id, week_start_date, week_end_date)")
           .eq("schedules.location_id", args.location_id)
           .gte("shift_date", args.start_date)
           .lte("shift_date", endDate)
@@ -305,9 +305,28 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           return JSON.stringify({ error: error.message });
         }
 
+        const userIds = Array.from(new Set((data || []).map((s: any) => s.user_id).filter(Boolean)));
+        let profileMap: Record<string, string> = {};
+
+        if (userIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", userIds);
+
+          if (profilesError) {
+            console.error("query_schedule profiles error:", profilesError);
+          } else {
+            profileMap = (profiles || []).reduce((acc: Record<string, string>, p: any) => {
+              acc[p.id] = p.full_name;
+              return acc;
+            }, {});
+          }
+        }
+
         let results = (data || []).map((s: any) => ({
           date: s.shift_date,
-          name: s.profiles?.full_name,
+          name: profileMap[s.user_id] || "Unknown",
           start: s.start_time,
           end: s.end_time,
           position: s.position,
