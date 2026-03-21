@@ -13,7 +13,6 @@ import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
-import { LaborIntelligenceCard } from '@/components/dashboard/LaborIntelligenceCard';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { OvationReviewsCube } from '@/components/dashboard/OvationReviewsCube';
@@ -658,9 +657,6 @@ export default function Dashboard() {
   // Quick tasks content - mounted at the top of the dashboard with scrollable area
   const quickTasksContent = (
     <div className="flex flex-col gap-2 w-full">
-      {/* Labor Intelligence - AI analysis of yesterday's labor */}
-      <LaborIntelligenceCard />
-      
       {/* Unread Announcements - High priority */}
       <UnreadAnnouncementsAlert />
       
