@@ -285,18 +285,29 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
-  const [flyingText, setFlyingText] = useState<{ name: string; storeNumber?: string | null } | null>(null);
+  const [flyingText, setFlyingText] = useState<{ name: string } | null>(null);
   const prevSwitchingRef = useRef(false);
+  const switchingToRef = useRef<{ name: string } | null>(null);
+  
+  // Capture switchingTo name while it's still set
+  useEffect(() => {
+    if (switchingTo) {
+      switchingToRef.current = { name: switchingTo.name };
+    }
+  }, [switchingTo]);
   
   // Detect when switching ends → trigger flying text animation
   useEffect(() => {
-    if (prevSwitchingRef.current && !isSwitching && switchingTo) {
-      setFlyingText({ name: switchingTo.name, storeNumber: switchingTo.store_number });
-      const timer = setTimeout(() => setFlyingText(null), 800);
+    if (prevSwitchingRef.current && !isSwitching && switchingToRef.current) {
+      setFlyingText(switchingToRef.current);
+      const timer = setTimeout(() => {
+        setFlyingText(null);
+        switchingToRef.current = null;
+      }, 600);
       return () => clearTimeout(timer);
     }
     prevSwitchingRef.current = isSwitching;
-  }, [isSwitching, switchingTo]);
+  }, [isSwitching]);
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
   const { hasPermission } = useRolePermissions();
