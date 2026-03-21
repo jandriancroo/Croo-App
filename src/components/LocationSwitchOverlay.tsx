@@ -15,81 +15,78 @@ export function LocationSwitchOverlay({ visible, locationName, storeNumber, logo
 
       <AnimatePresence>
         {visible && (
-          <motion.div
-            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-            style={{ background: "hsl(var(--background))" }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-          >
+          <>
+            {/* Dimmed backdrop */}
             <motion.div
-              className="flex flex-col items-center text-center px-8"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08, duration: 0.25, ease: "easeOut" }}
+              className="fixed inset-0 z-[9998]"
+              style={{ background: "hsl(var(--foreground)/0.4)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            />
+
+            {/* Bottom card */}
+            <motion.div
+              className="fixed bottom-0 left-0 right-0 z-[9999] rounded-t-2xl overflow-hidden"
+              style={{ background: "hsl(var(--card))" }}
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 32, stiffness: 300 }}
             >
-              {logoUrl && (
-                <div
-                  className="w-14 h-14 rounded-xl overflow-hidden mb-5"
-                  style={{ border: "1px solid hsl(var(--border))" }}
-                >
-                  <img src={logoUrl} alt="" className="w-full h-full object-contain p-1.5" />
-                </div>
-              )}
+              {/* Handle pill */}
+              <div
+                className="h-1 w-10 rounded-full mx-auto mt-3"
+                style={{ background: "hsl(var(--border))" }}
+              />
 
-              <h1
-                className="text-3xl font-bold tracking-tight"
-                style={{ color: "hsl(var(--foreground))" }}
-              >
-                {locationName}
-              </h1>
+              <div className="px-6 pt-6 pb-14 flex flex-col items-center text-center">
+                {logoUrl && (
+                  <div
+                    className="w-12 h-12 rounded-xl overflow-hidden mb-4"
+                    style={{ border: "1px solid hsl(var(--border))" }}
+                  >
+                    <img src={logoUrl} alt="" className="w-full h-full object-contain p-1.5" />
+                  </div>
+                )}
 
-              {storeNumber && (
                 <p
-                  className="text-sm mt-1.5"
+                  className="text-xs font-medium tracking-widest uppercase mb-1"
                   style={{ color: "hsl(var(--muted-foreground))" }}
                 >
-                  Store #{storeNumber}
+                  Switching to
                 </p>
-              )}
 
-              {/* Apple-style spinner — thin rotating arc */}
-              <div className="mt-8">
-                <motion.svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1, rotate: 360 }}
-                  transition={{
-                    opacity: { duration: 0.3 },
-                    rotate: { duration: 0.8, repeat: Infinity, ease: "linear" },
-                  }}
+                <h2
+                  className="text-2xl font-bold tracking-tight"
+                  style={{ color: "hsl(var(--foreground))" }}
                 >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    fill="none"
-                    stroke="hsl(var(--muted-foreground)/0.2)"
-                    strokeWidth="2.5"
+                  {locationName}
+                </h2>
+
+                {storeNumber && (
+                  <p
+                    className="text-sm mt-0.5"
+                    style={{ color: "hsl(var(--muted-foreground))" }}
+                  >
+                    Store #{storeNumber}
+                  </p>
+                )}
+
+                {/* Center line growing outwards */}
+                <div className="mt-6 w-full max-w-[200px] flex items-center justify-center">
+                  <motion.div
+                    className="h-[2px] rounded-full"
+                    style={{ background: "hsl(var(--primary))" }}
+                    initial={{ width: "0%" }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 1.4, ease: [0.25, 0.1, 0.25, 1] }}
                   />
-                  <motion.circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    fill="none"
-                    stroke="hsl(var(--muted-foreground))"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeDasharray="62.83"
-                    strokeDashoffset="47"
-                  />
-                </motion.svg>
+                </div>
               </div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </AnimatePresence>
     </>
