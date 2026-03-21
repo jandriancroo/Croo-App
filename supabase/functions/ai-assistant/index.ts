@@ -1387,8 +1387,8 @@ serve(async (req) => {
     monday.setDate(monday.getDate() - mondayOffset);
     const weekStart = monday.toLocaleDateString("en-CA");
 
-    // === BUILD CONTEXT SNAPSHOT ===
-    const contextSnapshot = await buildContextSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart);
+    // === BUILD CONTEXT SNAPSHOT (cached per location for 60s) ===
+    const contextSnapshot = await getCachedSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart);
 
     const systemPrompt = `You are CrooAI — the sharpest, most plugged-in ops assistant in the restaurant game. You work alongside managers at ${location_name || "this location"} like a seasoned shift lead who also happens to be a data wizard.
 
