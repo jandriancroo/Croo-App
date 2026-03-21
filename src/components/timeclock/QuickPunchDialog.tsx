@@ -415,9 +415,9 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
                     <div className="flex items-center gap-2">
                       <Avatar className="h-6 w-6">
                         <AvatarImage src={emp.profile_photo_url || undefined} />
-                        <AvatarFallback className="text-xs">{emp.full_name?.charAt(0)}</AvatarFallback>
+                        <AvatarFallback className="text-xs">{getDisplayName(emp.full_name, emp.nickname)?.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      {emp.full_name}
+                      {getDisplayName(emp.full_name, emp.nickname)}
                       {activePunches[emp.id] && date === todayStr && (
                         <Badge variant="secondary" className="ml-1 text-xs">
                           Clocked In
@@ -435,10 +435,10 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
             <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={selectedProfile.profile_photo_url || undefined} />
-                <AvatarFallback>{selectedProfile.full_name?.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{getDisplayName(selectedProfile.full_name, selectedProfile.nickname)?.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <span className="font-medium">{selectedProfile.full_name}</span>
+                <span className="font-medium">{getDisplayName(selectedProfile.full_name, selectedProfile.nickname)}</span>
                 {isEmployeeClockedIn && (
                   <p className="text-xs text-muted-foreground">Clocked in at {clockedInTime}</p>
                 )}
@@ -458,7 +458,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
                 />
               </div>
               <p className="text-xs text-muted-foreground text-center">
-                This will clock out {selectedProfile?.full_name} who clocked in at {clockedInTime}
+                This will clock out {getDisplayName(selectedProfile?.full_name, selectedProfile?.nickname)} who clocked in at {clockedInTime}
               </p>
             </div>
           ) : (
