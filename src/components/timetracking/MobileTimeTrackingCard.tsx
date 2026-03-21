@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { CheckCircle2, Coffee, Calendar } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { getDisplayName } from '@/utils/displayName';
 import {
   formatTimeDisplay,
   parseDateStringInTimezone,
@@ -56,7 +57,7 @@ export function MobileTimeTrackingCard({
           <Card key={card.profile.id} className="overflow-hidden">
             {/* Employee Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-primary/10 dark:bg-primary/20 border-b border-primary/30">
-              <span className="font-bold text-base">{card.profile.full_name}</span>
+              <span className="font-bold text-base">{getDisplayName(card.profile.full_name, card.profile.nickname)}</span>
               <div className="text-right">
                 <span className="font-bold text-lg">{(card.totalHours || 0).toFixed(1)}</span>
                 <span className="text-muted-foreground text-sm ml-1">hrs</span>
