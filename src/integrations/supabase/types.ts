@@ -1542,6 +1542,74 @@ export type Database = {
           },
         ]
       }
+      croo_ai_briefing_reads: {
+        Row: {
+          briefing_id: string
+          id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          briefing_id: string
+          id?: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          briefing_id?: string
+          id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "croo_ai_briefing_reads_briefing_id_fkey"
+            columns: ["briefing_id"]
+            isOneToOne: false
+            referencedRelation: "croo_ai_briefings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "croo_ai_briefing_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      croo_ai_briefings: {
+        Row: {
+          briefing_date: string
+          content: string
+          created_at: string
+          id: string
+          location_id: string
+        }
+        Insert: {
+          briefing_date: string
+          content: string
+          created_at?: string
+          id?: string
+          location_id: string
+        }
+        Update: {
+          briefing_date?: string
+          content?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "croo_ai_briefings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       croo_cash_transactions: {
         Row: {
           amount: number
