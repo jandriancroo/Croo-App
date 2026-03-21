@@ -493,15 +493,25 @@ serve(async (req) => {
     const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
     const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("en-CA", { timeZone: timezone });
 
+    const nowLA = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
+    const dayOfWeek = nowLA.getDay(); // 0=Sun
+    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(nowLA);
+    monday.setDate(monday.getDate() - mondayOffset);
+    const weekStart = monday.toLocaleDateString("en-CA");
+
     const systemPrompt = `You are CrooAI, an intelligent ops assistant for restaurant managers at ${location_name || "this location"}.
 
 Current date: ${today} (timezone: ${timezone})
 Yesterday: ${yesterday}
+This week started (Monday): ${weekStart}
 Location ID: ${location_id}
 
 You have access to tools to query real-time data. ALWAYS use tools to get data before answering - never guess or say you can't access data.
 
-Guidelines:
+CRITICAL RULES:
+- NEVER expose internal tool names, parameter names, or technical details to the user. No references to "item_keyword", "include_responses", "start_date", "tool calls", etc. Speak naturally.
+- When the user says "this week", use start_date=${weekStart} and end_date=${today}. When they say "last week", calculate the prior Monday-Sunday. When they say "this month", use the 1st of the current month to today. ALWAYS infer date ranges — never ask the user for dates unless truly ambiguous.
 - Format currency with $ and commas. Format times in 12-hour AM/PM.
 - Keep answers concise but complete.
 - When comparing dates, query both dates.
