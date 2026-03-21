@@ -331,6 +331,7 @@ export function AiAssistantBubble() {
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }
