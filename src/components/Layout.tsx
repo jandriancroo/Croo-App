@@ -26,7 +26,7 @@ import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
-import type { PanInfo } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface LayoutProps {
   children: ReactNode;
@@ -1224,5 +1224,39 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         logoUrl={switchingTo?.id ? (localStorage.getItem(`brand-logo-${switchingTo.id}`) || orgLogo?.logo_url) : orgLogo?.logo_url}
         brandName={orgLogo?.brand_name ?? orgLogo?.name}
       />
+
+      {/* Flying text: location name minimizes from card position into header */}
+      <AnimatePresence>
+        {flyingText && (
+          <motion.div
+            className="fixed z-[10000] pointer-events-none flex items-center gap-1.5"
+            initial={{
+              left: "50%",
+              x: "-50%",
+              bottom: 180,
+              scale: 1.6,
+              opacity: 1,
+            }}
+            animate={{
+              left: "50%",
+              x: "-50%",
+              top: 16,
+              bottom: "auto",
+              scale: 1,
+              opacity: 0,
+            }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 0.55,
+              ease: [0.32, 0.72, 0, 1],
+            }}
+          >
+            <MapPin className="h-4 w-4 text-primary-foreground" />
+            <span className="text-base font-medium text-primary-foreground whitespace-nowrap">
+              {flyingText.name}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>;
 };
