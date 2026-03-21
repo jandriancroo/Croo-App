@@ -78,7 +78,7 @@ export default function Dashboard() {
     expected: number;
     completed: number;
   }>>({});
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditMode] = useState(false);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
@@ -91,7 +91,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, organizationId } = useAppLocation();
-  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
+  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, loading: timezoneLoading } = useLocationTimezone();
   const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const { isSectionVisible } = useDashboardSections();
@@ -718,7 +718,7 @@ export default function Dashboard() {
           const { expected, completed } = getCompletionData(checklist.id);
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           const isComplete = completionRate === 100;
-          const hasStarted = completed > 0;
+          
         
           // Check if checklist is overdue (has due_by_time, not complete, and current time is past due)
           // IMPORTANT: Compare using the location's timezone (not device timezone)
