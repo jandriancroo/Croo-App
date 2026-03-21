@@ -315,9 +315,9 @@ export function GroupSettingsDialog({
                     />
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user.profile_photo_url || undefined} />
-                      <AvatarFallback>{user.full_name.charAt(0)}</AvatarFallback>
+                      <AvatarFallback>{getDisplayName(user.full_name, user.nickname)?.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <span>{user.full_name}</span>
+                    <span>{getDisplayName(user.full_name, user.nickname)}</span>
                   </label>
                 ))}
               </div>

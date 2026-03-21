@@ -109,11 +109,13 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           ),
           offered_by:profiles!shift_offers_offered_by_user_id_fkey (
             id,
-            full_name
+            full_name,
+            nickname
           ),
           claimed_by:profiles!shift_offers_claimed_by_user_id_fkey (
             id,
-            full_name
+            full_name,
+            nickname
           )
         `)
         .eq("id", offerId)
