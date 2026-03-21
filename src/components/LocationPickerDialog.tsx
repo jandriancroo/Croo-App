@@ -372,6 +372,41 @@ export function LocationPickerDialog({
 
   const hasTabs = tabs.length > 1 || (tabs.length === 1 && tabs[0].id === '__recents__');
 
+  const renderLocationRow = (loc: Location) => (
+    <button
+      key={loc.id}
+      onClick={() => handleSelectLocation(loc)}
+      className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-left ${
+        loc.id === currentLocationId
+          ? 'bg-primary/10 ring-2 ring-primary'
+          : 'hover:bg-muted/50'
+      }`}
+    >
+      <button
+        onClick={(e) => handleSetDefault(e, loc.id)}
+        className="p-0.5 hover:scale-110 transition-transform"
+        title={effectiveDefaultId === loc.id ? 'Remove as default' : 'Set as default'}
+      >
+        <Star 
+          className={`h-3.5 w-3.5 flex-shrink-0 ${
+            effectiveDefaultId === loc.id 
+              ? 'fill-yellow-400 text-yellow-400' 
+              : 'text-muted-foreground hover:text-yellow-400'
+          }`} 
+        />
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className={`text-sm ${loc.id === currentLocationId ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+          {formatLocationName(loc.name, loc.store_number)}
+        </div>
+        {loc.location_type === 'checklist_only' && (
+          <div className="text-[10px] text-muted-foreground">Checklist Only</div>
+        )}
+      </div>
+      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+    </button>
+  );
+
   const content = (
     <>
       {loading && !pickerData ? (
