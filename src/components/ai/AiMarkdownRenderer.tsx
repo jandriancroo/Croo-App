@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import { cn } from '@/lib/utils';
 
@@ -100,7 +101,7 @@ interface AiMarkdownRendererProps {
 export function AiMarkdownRenderer({ content }: AiMarkdownRendererProps) {
   return (
     <div className="ai-markdown max-w-none">
-      <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{content}</ReactMarkdown>
     </div>
   );
 }
