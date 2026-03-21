@@ -383,9 +383,7 @@ async function fetchSalesForDates(
   
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
     method: 'POST',
-    headers: {
     headers: getV4Headers(tokenGw),
-    },
     body: JSON.stringify(requestPayload),
   });
 
@@ -438,9 +436,7 @@ async function fetchHourlySales(
 
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main', {
     method: 'POST',
-    headers: {
     headers: getV4Headers(tokenGw),
-    },
     body: JSON.stringify(requestPayload),
   });
 
@@ -541,9 +537,7 @@ async function fetchTillsData(
   try {
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tills/sections/main', {
       method: 'POST',
-      headers: {
       headers: getV4Headers(tokenGw),
-      },
       body: JSON.stringify({
         fields: [
           { fieldName: "date" },
@@ -627,9 +621,7 @@ async function fetchProductMix(
   try {
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
       method: 'POST',
-      headers: {
       headers: getV4Headers(tokenGw),
-      },
       body: JSON.stringify({
         fields: [
           { fieldName: "itemGroup" },
@@ -1247,9 +1239,7 @@ async function fetchLaborData(
   try {
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/real-time-summary/sections/overview', {
       method: 'POST',
-      headers: {
-        headers: getV4Headers(tokenGw),
-      },
+      headers: getV4Headers(tokenGw),
       body: JSON.stringify({
         fields: [{ fieldName: "metric" }, { fieldName: "total" }],
         filters: {
@@ -1525,9 +1515,7 @@ async function fetchTipsData(
     
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tips/sections/main', {
       method: 'POST',
-      headers: {
-        headers: getV4Headers(tokenGw),
-      },
+      headers: getV4Headers(tokenGw),
       body: JSON.stringify(requestPayload),
     });
 
