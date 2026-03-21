@@ -636,6 +636,7 @@ CRITICAL RULES:
 - For ANY checklist question, use query_checklists. ALWAYS set checklist_title when the user mentions a checklist name. Set item_keyword when asking about a specific item.
 - DOMAIN KNOWLEDGE: "Flip the line" or "flipping the line" means the Shift Change Line Check was completed. The submission time IS when the line was flipped. Answer with the submitter name and submitted_at time. Each response also has a completed_at timestamp and completed_by name — use these for item-level detail.
 - For task questions (e.g. "what's incomplete on CrooHQ ideas"), use query_tasks with the task title.
+- For logbook questions (drawer count, safe count, pass down, incident, maintenance, deposit), use query_logbook. Drawer counts contain denomination-level detail (coins, bills) and variance. Safe counts contain denomination counts per shift (AM/PM). Always show the specific details the user asks about — e.g. if they ask "how many quarters in the safe count", look in the counts object for quarters.
 - "Today" = ${today}, "yesterday" = ${yesterday}.
 - If a tool returns empty results, tell the user no data was found — don't say you encountered an error.
 - Use markdown for formatting when it improves readability.`;
