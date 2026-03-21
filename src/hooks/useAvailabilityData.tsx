@@ -38,6 +38,7 @@ export interface AvailabilityRequest {
   edited_at: string | null;
   profiles: {
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string | null;
   };
   editor?: {
@@ -139,7 +140,7 @@ export function useAvailabilityData() {
           .from("availability_requests")
           .select(`
             *,
-            profiles!availability_requests_user_id_fkey(full_name, profile_photo_url),
+            profiles!availability_requests_user_id_fkey(full_name, nickname, profile_photo_url),
             editor:profiles!availability_requests_edited_by_fkey(full_name)
           `)
           .eq("location_id", currentLocation.id)
@@ -152,7 +153,7 @@ export function useAvailabilityData() {
           .from("availability_requests")
           .select(`
             *,
-            profiles!availability_requests_user_id_fkey(full_name, profile_photo_url)
+            profiles!availability_requests_user_id_fkey(full_name, nickname, profile_photo_url)
           `)
           .eq("user_id", user.id)
           .eq("location_id", currentLocation.id)
@@ -378,12 +379,16 @@ export function useAvailabilityData() {
   };
 
   const getWeekLabel = (weekKeyStr: string): string => {
-    const weekStart = parseDateStringInTimezone(weekKeyStr, TZ);
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    const now = new Date();
+    // Compute Sunday = Monday + 6 days using noon UTC to avoid timezone issues
+    const mondayNoon = new Date(`${weekKeyStr}T12:00:00Z`);
+    mondayNoon.setUTCDate(mondayNoon.getUTCDate() + 6);
+    const sundayStr = mondayNoon.toISOString().slice(0, 10);
     const startLabel = fmtDate(weekKeyStr, "MMM d");
-    const endLabel = formatInTimeZone(weekEnd, TZ, "MMM d, yyyy");
+    const endLabel = fmtDate(sundayStr, "MMM d, yyyy");
     const dateRange = `${startLabel} – ${endLabel}`;
+
+    const weekStart = parseDateStringInTimezone(weekKeyStr, TZ);
+    const now = new Date();
     if (isThisWeek(weekStart, { weekStartsOn: 1 })) return `This Week (${dateRange})`;
     if (isSameWeek(weekStart, addWeeks(now, 1), { weekStartsOn: 1 })) return `Next Week (${dateRange})`;
     if (isSameWeek(weekStart, addWeeks(now, -1), { weekStartsOn: 1 })) return `Last Week (${dateRange})`;

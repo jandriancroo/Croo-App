@@ -18,6 +18,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { Check, X, Calendar, Clock } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
+import { getDisplayName } from "@/utils/displayName";
 
 const TZ = "America/Los_Angeles";
 /** Format a date-only string (YYYY-MM-DD) in LA timezone — safe from off-by-one bugs */
@@ -41,6 +42,7 @@ interface AvailabilityRequest {
   created_at: string;
   profiles: {
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string | null;
   };
 }
@@ -65,7 +67,7 @@ export function AvailabilityOverview() {
         .from("availability_requests")
         .select(`
           *,
-          profiles!availability_requests_user_id_fkey(full_name, profile_photo_url)
+          profiles!availability_requests_user_id_fkey(full_name, nickname, profile_photo_url)
         `)
         .order("created_at", { ascending: false })
         .limit(10);
@@ -209,7 +211,7 @@ export function AvailabilityOverview() {
                 <div className="flex-1 p-3 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{request.profiles.full_name}</div>
+                      <div className="font-medium truncate">{getDisplayName(request.profiles.full_name, request.profiles.nickname)}</div>
                       <div className="flex items-center gap-1.5 mt-1.5">
                         <Calendar className="h-4 w-4 text-primary shrink-0" />
                         <span className="text-sm font-semibold text-primary">
