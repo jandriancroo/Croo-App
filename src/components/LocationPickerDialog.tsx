@@ -397,7 +397,7 @@ export function LocationPickerDialog({
           </div>
 
           {/* Location list */}
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto p-0.5 -m-0.5">
             {filteredLocations.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
                 {activeTab === '__recents__' && !search ? 'No recent locations yet' : 'No locations found'}
