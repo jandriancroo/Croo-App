@@ -18,6 +18,7 @@ import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Badge } from '@/components/ui/badge';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { AiAssistantBubble } from '@/components/ai/AiAssistantBubble';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
