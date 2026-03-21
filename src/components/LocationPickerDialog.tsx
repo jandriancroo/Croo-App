@@ -283,7 +283,10 @@ export function LocationPickerDialog({
     }
   }, [open, isMobile]);
 
-  // Filter locations based on active tab + search
+  // Get the active brand id for Brand Dash link
+  const activeBrandId = activeTab.startsWith('brand:') ? activeTab.replace('brand:', '') : null;
+
+  // Filter locations based on active tab + search, grouped by org
   const filteredLocations = useMemo(() => {
     let locs = locations;
 
@@ -315,6 +318,22 @@ export function LocationPickerDialog({
 
     return locs;
   }, [locations, organizations, activeTab, search]);
+
+  // Group locations by org when inside a brand tab with multiple orgs
+  const groupedByOrg = useMemo(() => {
+    if (!activeTab.startsWith('brand:') || search.trim()) return null;
+    const orgMap = new Map<string, { orgName: string; orgId: string; locs: Location[] }>();
+    for (const loc of filteredLocations) {
+      const orgId = loc.organization_id || '__none__';
+      if (!orgMap.has(orgId)) {
+        const org = organizations.find(o => o.id === orgId);
+        orgMap.set(orgId, { orgName: org?.name || 'Other', orgId, locs: [] });
+      }
+      orgMap.get(orgId)!.locs.push(loc);
+    }
+    if (orgMap.size <= 1) return null; // No need to group if only 1 org
+    return Array.from(orgMap.values());
+  }, [filteredLocations, organizations, activeTab, search]);
 
   const handleSelectLocation = (location: Location) => {
     pushRecentLocation(location.id);
