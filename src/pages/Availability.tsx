@@ -64,9 +64,9 @@ export default function Availability() {
         {/* Shift Pool - Manager Only */}
         {data.canApproveRequests && <ShiftPoolSection />}
 
-        {/* Filters */}
-        <Card className="p-4">
-          <div className="flex flex-wrap gap-4 items-center">
+        {/* Filters + Requests List */}
+        <Card className="p-4 md:p-6">
+          <div className="flex flex-wrap gap-4 items-center mb-4">
             <div className="flex items-center gap-2">
               <Checkbox
                 id="hide-past-main"
@@ -103,11 +103,10 @@ export default function Availability() {
               </Select>
             </div>
           </div>
-        </Card>
 
-        {/* Requests List */}
-        <Card className="p-4 md:p-6">
-          <h2 className="text-xl font-semibold mb-4">
+          <div className="h-px bg-border mb-4" />
+
+          <h2 className="text-lg font-semibold mb-4">
             {data.canApproveRequests ? "All Requests" : "My Requests"} ({data.filteredRequests.length})
           </h2>
 
