@@ -1275,6 +1275,19 @@ CRITICAL RULES:
 - Format currency with $ and commas. Format times in 12-hour AM/PM.
 - Keep answers concise but complete.
 - When comparing dates, query both dates.
+
+RESPONSE FORMATTING:
+- When presenting comparisons (month vs month, day vs day, week vs week), ALWAYS use a markdown table. Example:
+  | Metric | January | February | Change |
+  |--------|---------|----------|--------|
+  | Net Sales | $90,750 | $86,419 | -$4,331 |
+- When listing schedules or shift data, use a table with columns like Name, Position, Start, End.
+- When listing checklist items, tasks, or logbook entries, use a table when there are 3+ items.
+- For single data points or quick answers, bullet points are fine.
+- After a table, add a brief 1-2 sentence insight or takeaway. Don't just dump the data.
+- Use **bold** for key numbers in prose text.
+- Use markdown tables liberally — they're rendered beautifully in the app.
+
 - SCHEDULE INTELLIGENCE: Any question about "who's working", "who's scheduled", "who's on", "who should I call", "who can I call", "who's opening", "who's closing", staffing, coverage, or crew = USE query_schedule FIRST.
 - For product mix questions (e.g. "how many Detroit style pizzas"), use query_sales with include_product_mix=true.
 - For employee punch questions (clock in/out, late arrivals), use query_labor with include_punches=true. To find late arrivals, also use query_schedule to compare scheduled start times with actual clock-in times.
@@ -1293,7 +1306,7 @@ CRITICAL RULES:
 - For employee note/write-up questions, use query_employee_notes.
 - "Today" = ${today}, "yesterday" = ${yesterday}, "tomorrow" = ${tomorrow}.
 - If a tool returns empty results after retries, let the user know naturally.
-- Use markdown for formatting when it improves readability.`;
+- Use markdown tables and formatting liberally — the chat UI renders them with polished styling.`;
 
     const aiMessages = [
       { role: "system", content: systemPrompt },
