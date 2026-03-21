@@ -24,6 +24,32 @@ function getTzOffset(tz: string): string {
   return "-08:00";
 }
 
+// === CONTEXT SNAPSHOT CACHE ===
+// In-memory cache keyed by locationId. Survives across warm invocations in the same Deno isolate.
+// TTL: 60 seconds — multiple managers querying the same location reuse the same DB lookups.
+const snapshotCache = new Map<string, { data: string; expiry: number }>();
+const SNAPSHOT_TTL_MS = 60_000; // 60 seconds
+
+async function getCachedSnapshot(supabase: any, locationId: string, today: string, yesterday: string, tomorrow: string, weekStart: string): Promise<string> {
+  const cacheKey = `${locationId}:${today}`;
+  const cached = snapshotCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiry) {
+    console.log(`[context-cache] HIT for ${locationId} (${Math.round((cached.expiry - Date.now()) / 1000)}s remaining)`);
+    return cached.data;
+  }
+
+  console.log(`[context-cache] MISS for ${locationId} — building fresh snapshot`);
+  const snapshot = await buildContextSnapshot(supabase, locationId, today, yesterday, tomorrow, weekStart);
+  snapshotCache.set(cacheKey, { data: snapshot, expiry: Date.now() + SNAPSHOT_TTL_MS });
+
+  // Prune expired entries (keep map clean)
+  for (const [key, val] of snapshotCache) {
+    if (Date.now() >= val.expiry) snapshotCache.delete(key);
+  }
+
+  return snapshot;
+}
+
 // === CONTEXT INJECTION: Build a daily snapshot to prepend to system prompt ===
 async function buildContextSnapshot(supabase: any, locationId: string, today: string, yesterday: string, tomorrow: string, weekStart: string): Promise<string> {
   try {
@@ -1361,8 +1387,8 @@ serve(async (req) => {
     monday.setDate(monday.getDate() - mondayOffset);
     const weekStart = monday.toLocaleDateString("en-CA");
 
-    // === BUILD CONTEXT SNAPSHOT ===
-    const contextSnapshot = await buildContextSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart);
+    // === BUILD CONTEXT SNAPSHOT (cached per location for 60s) ===
+    const contextSnapshot = await getCachedSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart);
 
     const systemPrompt = `You are CrooAI — the sharpest, most plugged-in ops assistant in the restaurant game. You work alongside managers at ${location_name || "this location"} like a seasoned shift lead who also happens to be a data wizard.
 
