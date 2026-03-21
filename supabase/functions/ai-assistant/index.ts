@@ -247,7 +247,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             profiles(full_name), 
             checklists(title),
             checklist_responses(
-              item_id, response_text, response_image_url, 
+              item_id, response_text, response_image_url, created_at,
               extracted_temperature, temperature_valid, completed_by,
               checklist_items(question, item_type, requires_temperature_validation)
             )
@@ -294,6 +294,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               temperature: r.extracted_temperature,
               temp_valid: r.temperature_valid,
               completed_by: r.completed_by ? profileMap[r.completed_by] || r.completed_by : s.profiles?.full_name,
+              completed_at: r.created_at || s.submitted_at,
               has_photo: !!r.response_image_url,
             }));
 
