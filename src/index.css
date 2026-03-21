@@ -1546,3 +1546,45 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   border: none;
   box-shadow: 0 0 12px hsl(43 80% 55% / 0.4), 0 0 24px hsl(43 80% 55% / 0.15);
 }
+
+/* ===== CrooAI Floating Orb ===== */
+@keyframes crooai-border-spin {
+  0% { --crooai-angle: 0deg; }
+  100% { --crooai-angle: 360deg; }
+}
+
+@keyframes crooai-glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px hsl(43 80% 55% / 0.3), 0 0 20px hsl(43 80% 55% / 0.1); }
+  50% { box-shadow: 0 0 14px hsl(43 80% 55% / 0.5), 0 0 30px hsl(43 80% 55% / 0.2); }
+}
+
+.crooai-orb {
+  background: hsl(30 5% 8%);
+  border: 2px solid hsl(43 72% 45%);
+  position: relative;
+  overflow: hidden;
+  animation: crooai-glow-pulse 3s ease-in-out infinite;
+}
+
+.crooai-orb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    hsl(43 80% 55% / 0.12) 45%,
+    hsl(43 80% 55% / 0.25) 50%,
+    hsl(43 80% 55% / 0.12) 55%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: founder-shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.crooai-orb:hover {
+  border-color: hsl(43 80% 55%);
+  background: hsl(30 5% 12%);
+}
