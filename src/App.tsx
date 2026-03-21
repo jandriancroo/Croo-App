@@ -101,6 +101,7 @@ const TimelineStylePreview = lazyWithRetry(() => import("./pages/TimelineStylePr
 const SchedulePreview = lazyWithRetry(() => import("./pages/SchedulePreview"));
 const DashboardStylePreview = lazyWithRetry(() => import("./pages/DashboardStylePreview"));
 const CountTabPreview = lazyWithRetry(() => import("./pages/CountTabPreview"));
+const LocationPickerPreview = lazyWithRetry(() => import("./pages/LocationPickerPreview"));
 
 const queryClient = new QueryClient();
 
@@ -238,6 +239,7 @@ const AppContent = () => {
         <Route path="/schedule-preview" element={<ProtectedRoute><SchedulePreview /></ProtectedRoute>} />
         <Route path="/dashboard-style-preview" element={<ProtectedRoute><DashboardStylePreview /></ProtectedRoute>} />
         <Route path="/count-tab-preview" element={<ProtectedRoute><CountTabPreview /></ProtectedRoute>} />
+        <Route path="/location-picker-preview" element={<ProtectedRoute><LocationPickerPreview /></ProtectedRoute>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
