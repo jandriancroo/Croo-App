@@ -479,10 +479,17 @@ export function LocationPickerDialog({
               // Grouped by org within a brand
               groupedByOrg.map(group => (
                 <div key={group.orgId} className="mb-2">
-                  <div className="flex items-center gap-1.5 px-2 py-1.5">
+                  <button
+                    onClick={() => {
+                      navigate(`/org-dash?org=${group.orgId}`);
+                      onOpenChange(false);
+                    }}
+                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors group/org"
+                  >
                     <Building2 className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.orgName}</span>
-                  </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground group-hover/org:text-primary transition-colors">{group.orgName}</span>
+                    <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/0 group-hover/org:text-primary/60 transition-colors" />
+                  </button>
                   {group.locs.map(loc => renderLocationRow(loc))}
                 </div>
               ))
