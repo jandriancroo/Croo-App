@@ -451,15 +451,6 @@ export function LocationPickerDialog({
               filteredLocations.map(loc => renderLocationRow(loc))
             )}
           </div>
-                    {loc.location_type === 'checklist_only' && (
-                      <div className="text-[10px] text-muted-foreground">Checklist Only</div>
-                    )}
-                  </div>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                </button>
-              ))
-            )}
-          </div>
         </div>
       )}
     </>
