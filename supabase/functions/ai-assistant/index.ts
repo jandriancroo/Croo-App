@@ -247,7 +247,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             profiles(full_name), 
             checklists(title),
             checklist_responses(
-              item_id, response_text, response_image_url, 
+              item_id, response_text, response_image_url, created_at,
               extracted_temperature, temperature_valid, completed_by,
               checklist_items(question, item_type, requires_temperature_validation)
             )
@@ -294,6 +294,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               temperature: r.extracted_temperature,
               temp_valid: r.temperature_valid,
               completed_by: r.completed_by ? profileMap[r.completed_by] || r.completed_by : s.profiles?.full_name,
+              completed_at: r.created_at || s.submitted_at,
               has_photo: !!r.response_image_url,
             }));
 
@@ -535,7 +536,8 @@ CRITICAL RULES:
 - When comparing dates, query both dates.
 - For product mix questions (e.g. "how many Detroit style pizzas"), use query_sales with include_product_mix=true.
 - For employee punch questions (clock in/out, late arrivals), use query_labor with include_punches=true. To find late arrivals, also use query_schedule to compare scheduled start times with actual clock-in times.
-- For ANY checklist question, use query_checklists. ALWAYS set checklist_title when the user mentions a checklist name (e.g. "shift change" → checklist_title="shift change", "AM line check" → checklist_title="AM Line"). Set item_keyword when asking about a specific item (e.g. "flip the line" → item_keyword="flip", "tomato temp" → item_keyword="tomato"). The tool ALWAYS returns full item details.
+- For ANY checklist question, use query_checklists. ALWAYS set checklist_title when the user mentions a checklist name. Set item_keyword when asking about a specific item.
+- DOMAIN KNOWLEDGE: "Flip the line" or "flipping the line" means the Shift Change Line Check was completed. The submission time IS when the line was flipped. Answer with the submitter name and submitted_at time. Each response also has a completed_at timestamp and completed_by name — use these for item-level detail.
 - For task questions (e.g. "what's incomplete on CrooHQ ideas"), use query_tasks with the task title.
 - "Today" = ${today}, "yesterday" = ${yesterday}.
 - If a tool returns empty results, tell the user no data was found — don't say you encountered an error.
