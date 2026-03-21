@@ -451,8 +451,10 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         // Aggregate product mix across all days in the range
         if (args.include_product_mix) {
-          const mixMap: Record<string, number> = {};
+          const mixMap: Record<string, { quantity: number; sales: number }> = {};
+          let daysWithMix = 0;
           for (const row of (data || [])) {
+            if (row.product_mix && Array.isArray(row.product_mix) && (row.product_mix as any[]).length > 0) daysWithMix++;
             if (row.product_mix && Array.isArray(row.product_mix)) {
               for (const item of row.product_mix as any[]) {
                 const name = item.itemName || item.name || item.item_name || 'Unknown';
