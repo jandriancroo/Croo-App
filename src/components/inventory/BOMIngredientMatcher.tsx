@@ -292,7 +292,7 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
               >
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold">{label}</span>
-                  <Badge variant="outline" className="text-[10px]">{catIngredients.filter(i => !i.inventory_item_id).length}/{catIngredients.length}</Badge>
+                  <Badge variant="outline" className="text-[10px]">{catIngredients.filter(i => !!i.inventory_item_id).length}/{catIngredients.length}</Badge>
                 </div>
                 {isCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
               </button>
