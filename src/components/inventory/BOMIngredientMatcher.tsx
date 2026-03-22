@@ -56,7 +56,7 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
   const [globalFilter, setGlobalFilter] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [itemSearch, setItemSearch] = useState("");
-  const [showMatched, setShowMatched] = useState(false);
+  
   const [saving, setSaving] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
