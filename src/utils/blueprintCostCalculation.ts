@@ -1,5 +1,30 @@
 import { supabase } from "@/integrations/supabase/client";
 
+const TO_OZ: Record<string, number> = {
+  oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
+};
+
+const UNIT_ALIASES: Record<string, string> = {
+  "oz-wt": "oz", "oz-fl": "oz", "fl-oz": "oz",
+  "gram": "g", "grams": "g", "each": "ea", "count": "ea",
+  "case": "cs", "cases": "cs", "can": "cn", "cans": "cn",
+  "quart": "qt", "gallon": "gal", "gallons": "gal",
+  "lbs": "lb", "pound": "lb", "pounds": "lb",
+};
+
+function normalizeIngUnit(unit: string | null | undefined): string {
+  if (!unit) return "";
+  const cleaned = unit.trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
+  if (UNIT_ALIASES[cleaned]) return UNIT_ALIASES[cleaned];
+  if (cleaned.startsWith("case")) return "cs";
+  if (cleaned.startsWith("pack")) return "cs";
+  if (cleaned.includes("oz")) return "oz";
+  if (cleaned.includes("gram")) return "g";
+  if (cleaned.includes("gallon")) return "gal";
+  if (cleaned.includes("lb") || cleaned.includes("pound")) return "lb";
+  return cleaned;
+}
+
 interface BlueprintInfo {
   id: string;
   yield_qty: number | null;
@@ -138,7 +163,8 @@ export async function fetchBlueprintCosts(
           continue;
         }
 
-        const ingUnit = ing.unit?.toLowerCase() || "";
+        const ingUnit = normalizeIngUnit(ing.unit);
+        const nativeUnit = normalizeIngUnit(vendor.count_unit);
 
         if (ingUnit === "cs" || ingUnit === "case") {
           totalBatchCost += caseCost * ing.quantity;
@@ -152,10 +178,17 @@ export async function fetchBlueprintCosts(
             totalBatchCost += (caseCost / unitsPerCase) * ing.quantity;
           }
         } else {
-          // Sub-unit: divide case cost by units per case
+          // Sub-unit: divide case cost by units per case, with unit conversion
           const unitsPerCase = vendor.count_units_per_case || vendor.pack_quantity || 1;
-          const costPerSingleUnit = caseCost / unitsPerCase;
-          totalBatchCost += costPerSingleUnit * ing.quantity;
+          const costPerNativeUnit = caseCost / unitsPerCase;
+
+          // Convert ingredient quantity to native units if they differ
+          if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
+            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
+            totalBatchCost += costPerNativeUnit * ingInNative;
+          } else {
+            totalBatchCost += costPerNativeUnit * ing.quantity;
+          }
         }
       }
     }
