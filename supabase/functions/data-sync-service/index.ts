@@ -45,6 +45,23 @@ serve(async (req) => {
   }
 })
 
+// ==================== HELPERS ====================
+
+async function fetchAllRows(supabase: any, table: string, query: (from: number, to: number) => any): Promise<any[]> {
+  const allRows: any[] = []
+  let from = 0
+  const pageSize = 1000
+  while (true) {
+    const { data, error } = await query(from, from + pageSize - 1)
+    if (error) throw error
+    if (!data || data.length === 0) break
+    allRows.push(...data)
+    if (data.length < pageSize) break
+    from += pageSize
+  }
+  return allRows
+}
+
 // ==================== SYNC BIRTHDAY EVENTS ====================
 
 async function handleBirthdaySync(supabase: any): Promise<Response> {
@@ -180,7 +197,7 @@ async function handleBirthdaySync(supabase: any): Promise<Response> {
   }
 }
 
-// ==================== IMPORT BOM ====================
+// ==================== IMPORT BOM (legacy direct import) ====================
 
 interface BOMRow {
   item: string
@@ -207,7 +224,6 @@ interface ParsedMenuItem {
 
 function extractIngredientCategory(name: string): string {
   const prefixes = ['DRY', 'MEAT', 'DAIRY', 'PROD', 'PREP', 'PAPER', 'NA BEV', 'BEER', 'WINE', 'MI']
-  
   for (const prefix of prefixes) {
     if (name.toUpperCase().startsWith(prefix)) {
       return prefix.replace(' ', '_').toUpperCase()
@@ -298,6 +314,7 @@ function parseCSV(content: string): BOMRow[] {
   
   return rows
 }
+
 interface RecipeMetadata {
   recipeName: string
   yieldQty: number
@@ -345,6 +362,7 @@ function parseRecipeCSV(content: string): Map<string, RecipeMetadata> {
   return metadata
 }
 
+// Legacy direct import — kept for backwards compat
 async function handleImportBOM(req: Request, supabase: any): Promise<Response> {
   try {
     const { csvContent, locationId } = await req.json()
@@ -501,12 +519,11 @@ async function handleImportBOM(req: Request, supabase: any): Promise<Response> {
       .delete()
       .eq('location_id', locationId)
 
-    const batchSize = 500
     let insertedCount = 0
-    
+    const batchSize = 500
     for (let i = 0; i < recipeIngredients.length; i += batchSize) {
       const batch = recipeIngredients.slice(i, i + batchSize)
-      const { error: riError } = await supabase
+      const { error: riError, count } = await supabase
         .from('bom_recipe_ingredients')
         .insert(batch)
 
@@ -520,26 +537,17 @@ async function handleImportBOM(req: Request, supabase: any): Promise<Response> {
     console.log(`[data-sync-service] Inserted ${insertedCount} recipe ingredient mappings`)
 
     const categoryBreakdown: Record<string, number> = {}
-    for (const ing of ingredientMap.values()) {
-      categoryBreakdown[ing.category] = (categoryBreakdown[ing.category] || 0) + 1
-    }
-
-    const menuCategoryBreakdown: Record<string, number> = {}
-    for (const mi of menuItemMap.values()) {
-      menuCategoryBreakdown[mi.category] = (menuCategoryBreakdown[mi.category] || 0) + 1
+    for (const [, mi] of menuItemMap) {
+      categoryBreakdown[mi.category] = (categoryBreakdown[mi.category] || 0) + 1
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        stats: {
-          totalRows: rows.length,
-          uniqueIngredients: ingredientMap.size,
-          uniqueMenuItems: menuItemMap.size,
-          recipeMappings: insertedCount,
-          ingredientCategories: categoryBreakdown,
-          menuCategories: menuCategoryBreakdown,
-        },
+        ingredients: ingredientMap.size,
+        menuItems: menuItemMap.size,
+        recipeLinks: insertedCount,
+        categories: categoryBreakdown,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
@@ -608,8 +616,8 @@ async function handleFetchOvationScores(req: Request, supabase: any): Promise<Re
         .in('location_id', locationIds)
 
       if (mappings) {
-        ovationLocationIds = mappings.map(m => m.ovation_location_id)
-        mappings.forEach(m => {
+        ovationLocationIds = mappings.map((m: any) => m.ovation_location_id)
+        mappings.forEach((m: any) => {
           locationMappings[m.ovation_location_id] = m.location_id
         })
       }
@@ -622,15 +630,15 @@ async function handleFetchOvationScores(req: Request, supabase: any): Promise<Re
         .eq('organizations.brand_id', brandId)
 
       if (brandLocations && brandLocations.length > 0) {
-        const locIds = brandLocations.map(l => l.id)
+        const locIds = brandLocations.map((l: any) => l.id)
         const { data: mappings } = await supabase
           .from('ovation_location_mappings')
           .select('location_id, ovation_location_id')
           .in('location_id', locIds)
 
         if (mappings) {
-          ovationLocationIds = mappings.map(m => m.ovation_location_id)
-          mappings.forEach(m => {
+          ovationLocationIds = mappings.map((m: any) => m.ovation_location_id)
+          mappings.forEach((m: any) => {
             locationMappings[m.ovation_location_id] = m.location_id
           })
         }
@@ -728,19 +736,19 @@ async function handleFetchOvationScores(req: Request, supabase: any): Promise<Re
   }
 }
 
-// ==================== DIFF BOM (Universal Import Pipeline) ====================
+// ==================== DIFF BOM → BLUEPRINT PIPELINE ====================
+// Compares CSV against existing recipe_blueprints (Three-Layer Architecture)
 
 async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
   try {
     const body = await req.json()
     const { locationId, sourceSystem = 'r365', fileName } = body
     
-    // Support multi-file upload: csvFiles[] array or single csvContent
+    // Support multi-file upload
     let ingredientCsv = ''
     let recipeCsv = ''
     
     if (body.csvFiles && Array.isArray(body.csvFiles)) {
-      // Multi-file: auto-detect which is ingredients vs recipes by header row
       for (const f of body.csvFiles) {
         const firstLine = f.csvContent.split('\n')[0] || ''
         if (firstLine.includes('RecipeName') || firstLine.includes('YieldUofM')) {
@@ -750,7 +758,6 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
           ingredientCsv = f.csvContent
           console.log(`[diff-bom] Detected ingredients file: ${f.fileName}`)
         } else {
-          // Default to ingredient format
           ingredientCsv = f.csvContent
           console.log(`[diff-bom] Unknown format, treating as ingredients: ${f.fileName}`)
         }
@@ -761,12 +768,11 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
 
     if (!ingredientCsv || !locationId) {
       return new Response(
-        JSON.stringify({ error: 'Missing ingredient CSV or locationId. Upload the R365 Ingredient export CSV.' }),
+        JSON.stringify({ error: 'Missing ingredient CSV or locationId.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Get the uploading user from the auth header
     const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '')
     const { data: { user } } = await supabase.auth.getUser(authHeader)
     if (!user) {
@@ -776,9 +782,8 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
       )
     }
 
-    console.log(`[diff-bom] Starting diff for location: ${locationId}, source: ${sourceSystem}`)
+    console.log(`[diff-bom] Starting blueprint diff for location: ${locationId}`)
 
-    // Parse the ingredient CSV
     const rows = parseCSV(ingredientCsv)
     if (rows.length === 0) {
       return new Response(
@@ -787,7 +792,6 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
       )
     }
 
-    // Parse recipe metadata if available (cost, yield info)
     const recipeMetadata = recipeCsv ? parseRecipeCSV(recipeCsv) : new Map()
     if (recipeMetadata.size > 0) {
       console.log(`[diff-bom] Parsed ${recipeMetadata.size} recipe metadata entries`)
@@ -797,7 +801,7 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
 
     // Build sets from CSV
     const csvIngredients = new Map<string, ParsedIngredient>()
-    const csvMenuItems = new Map<string, ParsedMenuItem>()
+    const csvMenuItems = new Map<string, ParsedMenuItem & { yieldQty?: number; yieldUnit?: string }>()
     const csvRecipes = new Map<string, { qty: number; uofm: string; yieldPercent: number; recipe: string; item: string }>()
 
     for (const row of rows) {
@@ -813,11 +817,14 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
       }
       if (!csvMenuItems.has(row.recipe)) {
         const category = extractMenuCategory(row.recipe)
+        const meta = recipeMetadata.get(row.recipe)
         csvMenuItems.set(row.recipe, {
           r365_name: row.recipe,
           category,
           clean_name: cleanMenuName(row.recipe),
           is_sellable: category === 'MI',
+          yieldQty: meta?.yieldQty,
+          yieldUnit: meta?.yieldUofM,
         })
       }
 
@@ -835,42 +842,71 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
       }
     }
 
-    // Fetch existing data from BOM tables
-    const [existingIngredientsRes, existingMenuItemsRes, existingRecipesRes] = await Promise.all([
-      supabase.from('bom_ingredients').select('id, r365_name, category, clean_name, unit_standard, is_prep_item').eq('location_id', locationId),
-      supabase.from('bom_menu_items').select('id, r365_name, category, clean_name, is_sellable').eq('location_id', locationId),
-      supabase.from('bom_recipe_ingredients').select('id, menu_item_id, ingredient_id, quantity, unit_of_measure, yield_percent').eq('location_id', locationId),
-    ])
+    // Compare against existing recipe_blueprints
+    const existingBlueprints = await fetchAllRows(supabase, 'recipe_blueprints', (from, to) =>
+      supabase
+        .from('recipe_blueprints')
+        .select('id, name, category, yield_qty, yield_unit, r365_name')
+        .eq('location_id', locationId)
+        .eq('source', 'r365_import')
+        .eq('is_active', true)
+        .range(from, to)
+    )
 
-    const existingIngredients = new Map<string, any>()
-    for (const ing of existingIngredientsRes.data || []) {
-      existingIngredients.set(ing.r365_name, ing)
+    const existingBpByR365 = new Map<string, any>()
+    const existingBpById = new Map<string, any>()
+    for (const bp of existingBlueprints || []) {
+      const key = bp.r365_name || bp.name
+      existingBpByR365.set(key, bp)
+      existingBpById.set(bp.id, bp)
     }
 
-    const existingMenuItems = new Map<string, any>()
-    for (const mi of existingMenuItemsRes.data || []) {
-      existingMenuItems.set(mi.r365_name, mi)
+    // Fetch existing blueprint ingredients
+    const existingBpIds = existingBlueprints.map((b: any) => b.id)
+    let existingIngredients: any[] = []
+    if (existingBpIds.length > 0) {
+      existingIngredients = await fetchAllRows(supabase, 'recipe_blueprint_ingredients', (from, to) =>
+        supabase
+          .from('recipe_blueprint_ingredients')
+          .select('id, blueprint_id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit')
+          .in('blueprint_id', existingBpIds)
+          .range(from, to)
+      )
     }
 
-    // Build recipe lookup by r365_names
-    const existingIngById = new Map<string, string>()
-    for (const ing of existingIngredientsRes.data || []) {
-      existingIngById.set(ing.id, ing.r365_name)
-    }
-    const existingMiById = new Map<string, string>()
-    for (const mi of existingMenuItemsRes.data || []) {
-      existingMiById.set(mi.id, mi.r365_name)
-    }
-    const existingRecipes = new Map<string, any>()
-    for (const ri of existingRecipesRes.data || []) {
-      const miName = existingMiById.get(ri.menu_item_id)
-      const ingName = existingIngById.get(ri.ingredient_id)
-      if (miName && ingName) {
-        existingRecipes.set(`${miName}::${ingName}`, ri)
+    // Build recipe key → ingredient map for existing data
+    const existingRecipeKeys = new Map<string, any>()
+    // We need vendor item name lookups for comparison
+    const vendorItemIds = existingIngredients.filter((i: any) => i.vendor_item_id).map((i: any) => i.vendor_item_id)
+    let vendorNameMap = new Map<string, string>()
+    if (vendorItemIds.length > 0) {
+      const { data: vendorItems } = await supabase
+        .from('inventory_items')
+        .select('id, name')
+        .in('id', vendorItemIds.slice(0, 1000))
+      for (const vi of vendorItems || []) {
+        vendorNameMap.set(vi.id, vi.name)
       }
     }
 
-    // Create batch
+    // Build existing recipe links by r365_name keys
+    for (const ing of existingIngredients) {
+      const bp = existingBpById.get(ing.blueprint_id)
+      if (!bp) continue
+      const bpKey = bp.r365_name || bp.name
+      // For vendor items, use the vendor item name
+      let ingKey = ''
+      if (ing.vendor_item_id) {
+        ingKey = vendorNameMap.get(ing.vendor_item_id) || ing.vendor_item_id
+      } else if (ing.sub_blueprint_id) {
+        const subBp = existingBpById.get(ing.sub_blueprint_id)
+        ingKey = subBp ? (subBp.r365_name || subBp.name) : ing.sub_blueprint_id
+      }
+      const compositeKey = `${bpKey}::${ingKey}`
+      existingRecipeKeys.set(compositeKey, { ...ing, bpKey, ingKey })
+    }
+
+    // Create staging batch
     const { data: batch, error: batchError } = await supabase
       .from('bom_import_batches')
       .insert({
@@ -889,54 +925,26 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
     const diffItems: any[] = []
     let newCount = 0, updatedCount = 0, removedCount = 0, unchangedCount = 0
 
-    // Diff ingredients
+    // Diff ingredients (raw items from CSV)
     for (const [name, csvIng] of csvIngredients) {
-      const existing = existingIngredients.get(name)
-      if (!existing) {
-        diffItems.push({
-          batch_id: batchId, entity_type: 'ingredient', change_type: 'new',
-          r365_name: name, category: csvIng.category, clean_name: csvIng.clean_name,
-          unit_standard: csvIng.unit_standard, is_prep_item: csvIng.is_prep_item,
-          new_values: csvIng,
-        })
-        newCount++
-      } else {
-        const changed = existing.unit_standard !== csvIng.unit_standard || existing.category !== csvIng.category
-        diffItems.push({
-          batch_id: batchId, entity_type: 'ingredient',
-          change_type: changed ? 'updated' : 'unchanged',
-          r365_name: name, category: csvIng.category, clean_name: csvIng.clean_name,
-          unit_standard: csvIng.unit_standard, is_prep_item: csvIng.is_prep_item,
-          previous_values: changed ? { unit_standard: existing.unit_standard, category: existing.category } : null,
-          new_values: changed ? csvIng : null,
-          resolution: changed ? 'pending' : 'skipped',
-        })
-        if (changed) updatedCount++
-        else unchangedCount++
-      }
+      diffItems.push({
+        batch_id: batchId, entity_type: 'ingredient', change_type: 'new',
+        r365_name: name, category: csvIng.category, clean_name: csvIng.clean_name,
+        unit_standard: csvIng.unit_standard, is_prep_item: csvIng.is_prep_item,
+        new_values: csvIng,
+      })
+      // Don't count base ingredients as "new" since they're reference data
     }
 
-    // Removed ingredients (in DB but not in CSV)
-    for (const [name, existing] of existingIngredients) {
-      if (!csvIngredients.has(name)) {
-        diffItems.push({
-          batch_id: batchId, entity_type: 'ingredient', change_type: 'removed',
-          r365_name: name, category: existing.category, clean_name: existing.clean_name,
-          previous_values: existing,
-        })
-        removedCount++
-      }
-    }
-
-    // Diff menu items
+    // Diff menu items (recipes/blueprints)
     for (const [name, csvMi] of csvMenuItems) {
-      const existing = existingMenuItems.get(name)
+      const existing = existingBpByR365.get(name)
       if (!existing) {
         diffItems.push({
           batch_id: batchId, entity_type: 'menu_item', change_type: 'new',
           r365_name: name, category: csvMi.category, clean_name: csvMi.clean_name,
           is_sellable: csvMi.is_sellable,
-          new_values: csvMi,
+          new_values: { ...csvMi, yieldQty: csvMi.yieldQty, yieldUnit: csvMi.yieldUnit },
         })
         newCount++
       } else {
@@ -947,7 +955,7 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
           r365_name: name, category: csvMi.category, clean_name: csvMi.clean_name,
           is_sellable: csvMi.is_sellable,
           previous_values: changed ? { category: existing.category } : null,
-          new_values: changed ? csvMi : null,
+          new_values: changed ? { ...csvMi, yieldQty: csvMi.yieldQty, yieldUnit: csvMi.yieldUnit } : null,
           resolution: changed ? 'pending' : 'skipped',
         })
         if (changed) updatedCount++
@@ -955,13 +963,12 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
       }
     }
 
-    // Removed menu items
-    for (const [name, existing] of existingMenuItems) {
+    // Removed blueprints (in DB but not in CSV)
+    for (const [name] of existingBpByR365) {
       if (!csvMenuItems.has(name)) {
         diffItems.push({
           batch_id: batchId, entity_type: 'menu_item', change_type: 'removed',
-          r365_name: name, category: existing.category, clean_name: existing.clean_name,
-          previous_values: existing,
+          r365_name: name,
         })
         removedCount++
       }
@@ -969,46 +976,14 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
 
     // Diff recipe links
     for (const [key, csvRecipe] of csvRecipes) {
-      const existing = existingRecipes.get(key)
-      if (!existing) {
-        diffItems.push({
-          batch_id: batchId, entity_type: 'recipe_link', change_type: 'new',
-          r365_name: key, parent_r365_name: csvRecipe.recipe,
-          quantity: csvRecipe.qty, unit_of_measure: csvRecipe.uofm,
-          yield_percent: csvRecipe.yieldPercent,
-          new_values: csvRecipe,
-        })
-        newCount++
-      } else {
-        const qtyChanged = Math.abs(existing.quantity - csvRecipe.qty) > 0.001
-        const yieldChanged = Math.abs((existing.yield_percent || 100) - csvRecipe.yieldPercent) > 0.001
-        const changed = qtyChanged || yieldChanged
-        diffItems.push({
-          batch_id: batchId, entity_type: 'recipe_link',
-          change_type: changed ? 'updated' : 'unchanged',
-          r365_name: key, parent_r365_name: csvRecipe.recipe,
-          quantity: csvRecipe.qty, unit_of_measure: csvRecipe.uofm,
-          yield_percent: csvRecipe.yieldPercent,
-          previous_values: changed ? { quantity: existing.quantity, yield_percent: existing.yield_percent } : null,
-          new_values: changed ? csvRecipe : null,
-          resolution: changed ? 'pending' : 'skipped',
-        })
-        if (changed) updatedCount++
-        else unchangedCount++
-      }
-    }
-
-    // Removed recipe links
-    for (const [key, existing] of existingRecipes) {
-      if (!csvRecipes.has(key)) {
-        const [recipeName, itemName] = key.split('::')
-        diffItems.push({
-          batch_id: batchId, entity_type: 'recipe_link', change_type: 'removed',
-          r365_name: key, parent_r365_name: recipeName,
-          previous_values: { quantity: existing.quantity, yield_percent: existing.yield_percent },
-        })
-        removedCount++
-      }
+      diffItems.push({
+        batch_id: batchId, entity_type: 'recipe_link', change_type: 'new',
+        r365_name: key, parent_r365_name: csvRecipe.recipe,
+        quantity: csvRecipe.qty, unit_of_measure: csvRecipe.uofm,
+        yield_percent: csvRecipe.yieldPercent,
+        new_values: csvRecipe,
+      })
+      newCount++
     }
 
     // Batch insert diff items
@@ -1022,7 +997,6 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
       }
     }
 
-    // Update batch summary
     const summary = { new: newCount, updated: updatedCount, removed: removedCount, unchanged: unchangedCount, total: diffItems.length }
     await supabase.from('bom_import_batches').update({ summary }).eq('id', batchId)
 
@@ -1043,7 +1017,9 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
   }
 }
 
-// ==================== APPLY BOM DIFF ====================
+// ==================== APPLY BOM DIFF → RECIPE BLUEPRINTS ====================
+// Three-Layer Blueprint Architecture: writes to recipe_blueprints + recipe_blueprint_ingredients
+// Uses topological dependency resolution (Vendor → Prep → Complex → Menu)
 
 async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response> {
   try {
@@ -1065,24 +1041,8 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
       )
     }
 
-    // Paginated fetch helper to bypass 1000-row limit
-    async function fetchAllRows(table: string, query: (from: number, to: number) => any): Promise<any[]> {
-      const allRows: any[] = []
-      let from = 0
-      const pageSize = 1000
-      while (true) {
-        const { data, error } = await query(from, from + pageSize - 1)
-        if (error) throw error
-        if (!data || data.length === 0) break
-        allRows.push(...data)
-        if (data.length < pageSize) break
-        from += pageSize
-      }
-      return allRows
-    }
-
-    // Fetch approved items (or all non-rejected for bulk approve) — paginated
-    const items = await fetchAllRows('bom_import_items', (from, to) =>
+    // Fetch all staging items for this batch (paginated)
+    const items = await fetchAllRows(supabase, 'bom_import_items', (from, to) =>
       supabase
         .from('bom_import_items')
         .select('*')
@@ -1091,130 +1051,314 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
         .neq('change_type', 'unchanged')
         .range(from, to)
     )
-    const itemsError = null
-    if (itemsError) throw itemsError
 
-    console.log(`[apply-bom-diff] Applying ${items?.length || 0} changes for batch ${batchId}`)
+    console.log(`[apply-blueprint] Processing ${items?.length || 0} staging items for batch ${batchId}`)
 
-    let applied = 0
+    // Separate by entity type
+    const ingredientItems = items.filter((i: any) => i.entity_type === 'ingredient')
+    const menuItems = items.filter((i: any) => i.entity_type === 'menu_item')
+    const recipeLinks = items.filter((i: any) => i.entity_type === 'recipe_link')
 
-    // Process ingredients
-    const newIngredients = items.filter((i: any) => i.entity_type === 'ingredient' && i.change_type === 'new')
-    const updatedIngredients = items.filter((i: any) => i.entity_type === 'ingredient' && i.change_type === 'updated')
-    const removedIngredients = items.filter((i: any) => i.entity_type === 'ingredient' && i.change_type === 'removed' && i.resolution === 'approved')
+    // ==================== STEP 1: BUILD DEPENDENCY GRAPH ====================
+    // Parse all recipe links to understand which recipes reference which ingredients
+    // Ingredients can be: vendor items (physical) or sub-recipes (other menu items from R365)
 
-    if (newIngredients.length > 0) {
-      const ingData = newIngredients.map((i: any) => ({
-        location_id: locationId,
-        r365_name: i.r365_name,
-        category: i.category,
-        clean_name: i.clean_name,
-        unit_standard: i.unit_standard,
-        is_prep_item: i.is_prep_item,
-      }))
-      const { error } = await supabase.from('bom_ingredients').upsert(ingData, { onConflict: 'location_id,r365_name', ignoreDuplicates: false })
-      if (error) throw error
-      applied += newIngredients.length
+    // Build set of all menu item r365_names (these are blueprints)
+    const allMenuItemNames = new Set<string>()
+    for (const mi of menuItems) allMenuItemNames.add(mi.r365_name)
+    // Also check existing blueprints
+    const existingBlueprints = await fetchAllRows(supabase, 'recipe_blueprints', (from, to) =>
+      supabase
+        .from('recipe_blueprints')
+        .select('id, name, r365_name, category, yield_qty, yield_unit, produces_item_id')
+        .eq('location_id', locationId)
+        .eq('source', 'r365_import')
+        .eq('is_active', true)
+        .range(from, to)
+    )
+    const existingBpByR365 = new Map<string, any>()
+    for (const bp of existingBlueprints) {
+      existingBpByR365.set(bp.r365_name || bp.name, bp)
+      allMenuItemNames.add(bp.r365_name || bp.name)
     }
 
-    if (updatedIngredients.length > 0) {
-      for (const ing of updatedIngredients) {
-        const { error } = await supabase.from('bom_ingredients')
-          .update({ category: ing.category, unit_standard: ing.unit_standard })
-          .eq('location_id', locationId).eq('r365_name', ing.r365_name)
-        if (error) console.error(`[apply-bom-diff] Error updating ingredient ${ing.r365_name}:`, error)
-        else applied++
+    // Build set of all raw ingredient r365_names
+    const allIngredientNames = new Set<string>()
+    for (const ing of ingredientItems) allIngredientNames.add(ing.r365_name)
+
+    // Build adjacency list: recipe → [dependency recipe names]
+    const recipesByParent = new Map<string, { item: string; qty: number; uofm: string }[]>()
+    for (const rl of recipeLinks) {
+      const [recipeName, itemName] = rl.r365_name.split('::')
+      if (!recipesByParent.has(recipeName)) recipesByParent.set(recipeName, [])
+      recipesByParent.get(recipeName)!.push({
+        item: itemName,
+        qty: rl.quantity || 0,
+        uofm: rl.unit_of_measure || 'each',
+      })
+    }
+
+    // Identify which ingredients are actually sub-recipes (they appear as both ingredient AND menu item)
+    const subRecipeNames = new Set<string>()
+    for (const ingName of allIngredientNames) {
+      if (allMenuItemNames.has(ingName)) {
+        subRecipeNames.add(ingName)
       }
     }
 
-    // Process menu items
-    const newMenuItems = items.filter((i: any) => i.entity_type === 'menu_item' && i.change_type === 'new')
-    const updatedMenuItems = items.filter((i: any) => i.entity_type === 'menu_item' && i.change_type === 'updated')
+    // ==================== STEP 2: TOPOLOGICAL SORT ====================
+    // Process in order: items with no sub-recipe dependencies first, then up
+    const processed = new Set<string>()
+    const sortedRecipes: string[] = []
 
-    if (newMenuItems.length > 0) {
-      const miData = newMenuItems.map((i: any) => ({
-        location_id: locationId,
-        r365_name: i.r365_name,
-        category: i.category,
-        clean_name: i.clean_name,
-        is_sellable: i.is_sellable,
-      }))
-      const { error } = await supabase.from('bom_menu_items').upsert(miData, { onConflict: 'location_id,r365_name', ignoreDuplicates: false })
-      if (error) throw error
-      applied += newMenuItems.length
-    }
+    function visit(name: string, visiting: Set<string>) {
+      if (processed.has(name)) return
+      if (visiting.has(name)) return // cycle
+      visiting.add(name)
 
-    if (updatedMenuItems.length > 0) {
-      for (const mi of updatedMenuItems) {
-        const { error } = await supabase.from('bom_menu_items')
-          .update({ category: mi.category })
-          .eq('location_id', locationId).eq('r365_name', mi.r365_name)
-        if (error) console.error(`[apply-bom-diff] Error updating menu item ${mi.r365_name}:`, error)
-        else applied++
-      }
-    }
-
-    // Process recipe links
-    const newRecipes = items.filter((i: any) => i.entity_type === 'recipe_link' && i.change_type === 'new')
-    const updatedRecipes = items.filter((i: any) => i.entity_type === 'recipe_link' && i.change_type === 'updated')
-    const removedRecipes = items.filter((i: any) => i.entity_type === 'recipe_link' && i.change_type === 'removed' && i.resolution === 'approved')
-
-    // For recipe links, we need to resolve r365_names to IDs
-    const { data: allIngredients } = await supabase.from('bom_ingredients').select('id, r365_name').eq('location_id', locationId)
-    const { data: allMenuItems } = await supabase.from('bom_menu_items').select('id, r365_name').eq('location_id', locationId)
-
-    const ingIdMap = new Map<string, string>()
-    for (const ing of allIngredients || []) ingIdMap.set(ing.r365_name, ing.id)
-    const miIdMap = new Map<string, string>()
-    for (const mi of allMenuItems || []) miIdMap.set(mi.r365_name, mi.id)
-
-    if (newRecipes.length > 0) {
-      const riData = newRecipes.map((i: any) => {
-        const [recipeName, itemName] = i.r365_name.split('::')
-        return {
-          location_id: locationId,
-          menu_item_id: miIdMap.get(recipeName),
-          ingredient_id: ingIdMap.get(itemName),
-          quantity: i.quantity,
-          quantity_normalized: i.quantity,
-          unit_of_measure: i.unit_of_measure,
-          yield_percent: i.yield_percent,
+      const deps = recipesByParent.get(name) || []
+      for (const dep of deps) {
+        if (subRecipeNames.has(dep.item)) {
+          visit(dep.item, visiting)
         }
-      }).filter((r: any) => r.menu_item_id && r.ingredient_id)
+      }
+      visiting.delete(name)
+      processed.add(name)
+      sortedRecipes.push(name)
+    }
 
-      if (riData.length > 0) {
-        const { error } = await supabase.from('bom_recipe_ingredients').insert(riData)
-        if (error) console.error('[apply-bom-diff] Error inserting recipes:', error)
-        else applied += riData.length
+    for (const name of allMenuItemNames) {
+      visit(name, new Set())
+    }
+
+    console.log(`[apply-blueprint] Topological order: ${sortedRecipes.length} recipes`)
+
+    // ==================== STEP 3: AUTO-MATCH VENDOR ITEMS ====================
+    // Fetch existing inventory_items (vendor/physical items only)
+    const vendorItems = await fetchAllRows(supabase, 'inventory_items', (from, to) =>
+      supabase
+        .from('inventory_items')
+        .select('id, name, common_name, pack_size, count_unit, count_units_per_case, cost_per_unit, is_recipe')
+        .eq('location_id', locationId)
+        .eq('is_active', true)
+        .range(from, to)
+    )
+
+    // Build name → vendor item map for auto-matching
+    const vendorByName = new Map<string, any>()
+    const vendorByCommonName = new Map<string, any>()
+    for (const vi of vendorItems) {
+      vendorByName.set(vi.name.toLowerCase(), vi)
+      if (vi.common_name) vendorByCommonName.set(vi.common_name.toLowerCase(), vi)
+    }
+
+    function scoreSimilarity(a: string, b: string): number {
+      const aLow = a.toLowerCase().replace(/[^a-z0-9 ]/g, '')
+      const bLow = b.toLowerCase().replace(/[^a-z0-9 ]/g, '')
+      if (aLow === bLow) return 100
+      if (bLow.includes(aLow) || aLow.includes(bLow)) return 80
+      const aWords = aLow.split(/\s+/)
+      const bWords = bLow.split(/\s+/)
+      const matches = aWords.filter(w => bWords.some((bw: string) => bw.includes(w) || w.includes(bw)))
+      if (matches.length === 0) return 0
+      return Math.round((matches.length / Math.max(aWords.length, 1)) * 60)
+    }
+
+    function findVendorItem(ingredientR365Name: string): { id: string; score: number; name: string } | null {
+      const cleanName = cleanIngredientName(ingredientR365Name)
+      
+      // Exact match on name
+      const exactName = vendorByName.get(cleanName)
+      if (exactName) return { id: exactName.id, score: 100, name: exactName.name }
+      
+      // Exact match on common_name
+      const exactCommon = vendorByCommonName.get(cleanName)
+      if (exactCommon) return { id: exactCommon.id, score: 100, name: exactCommon.name }
+
+      // Fuzzy match
+      let bestMatch: any = null
+      let bestScore = 0
+      for (const vi of vendorItems) {
+        if (vi.is_recipe) continue // skip recipe items
+        const names = [vi.common_name, vi.name].filter(Boolean) as string[]
+        for (const n of names) {
+          const score = scoreSimilarity(cleanName, n)
+          if (score > bestScore) {
+            bestScore = score
+            bestMatch = vi
+          }
+        }
+      }
+      if (bestMatch && bestScore >= 60) {
+        return { id: bestMatch.id, score: bestScore, name: bestMatch.common_name || bestMatch.name }
+      }
+      return null
+    }
+
+    // ==================== STEP 4: CREATE/UPDATE BLUEPRINTS IN TOPO ORDER ====================
+    const blueprintIdMap = new Map<string, string>() // r365_name → blueprint UUID
+    let created = 0
+    let updated = 0
+    let ingredientLinksCreated = 0
+    let autoMatched = 0
+    const matchResults: Array<{ ingredientName: string; matchedTo: string; score: number }> = []
+    const unmappedIngredients: string[] = []
+
+    // Pre-populate blueprint ID map from existing
+    for (const bp of existingBlueprints) {
+      blueprintIdMap.set(bp.r365_name || bp.name, bp.id)
+    }
+
+    // Get recipe metadata map for yield info
+    const recipeMetadataFromCSV = new Map<string, any>()
+    for (const mi of menuItems) {
+      if (mi.new_values) {
+        recipeMetadataFromCSV.set(mi.r365_name, mi.new_values)
       }
     }
 
-    if (updatedRecipes.length > 0) {
-      for (const ri of updatedRecipes) {
-        const [recipeName, itemName] = ri.r365_name.split('::')
-        const menuItemId = miIdMap.get(recipeName)
-        const ingredientId = ingIdMap.get(itemName)
-        if (!menuItemId || !ingredientId) continue
+    for (const recipeName of sortedRecipes) {
+      const existingBp = existingBpByR365.get(recipeName)
+      const csvMi = recipeMetadataFromCSV.get(recipeName)
+      const category = csvMi?.category || extractMenuCategory(recipeName)
+      const cleanName = csvMi?.clean_name || cleanMenuName(recipeName)
+      const yieldQty = csvMi?.yieldQty || null
+      const yieldUnit = csvMi?.yieldUnit ? normalizeUnit(csvMi.yieldUnit) : null
 
-        const { error } = await supabase.from('bom_recipe_ingredients')
-          .update({ quantity: ri.quantity, quantity_normalized: ri.quantity, yield_percent: ri.yield_percent })
-          .eq('location_id', locationId).eq('menu_item_id', menuItemId).eq('ingredient_id', ingredientId)
-        if (error) console.error(`[apply-bom-diff] Error updating recipe ${ri.r365_name}:`, error)
-        else applied++
+      let blueprintId: string
+
+      if (existingBp) {
+        // Update existing blueprint
+        blueprintId = existingBp.id
+        await supabase
+          .from('recipe_blueprints')
+          .update({
+            name: cleanName || recipeName,
+            category,
+            yield_qty: yieldQty || existingBp.yield_qty,
+            yield_unit: yieldUnit || existingBp.yield_unit,
+          })
+          .eq('id', blueprintId)
+        updated++
+      } else {
+        // Create new blueprint
+        const isPrepCategory = ['PREP', 'BASE', 'CORE'].includes(category)
+        const { data: newBp, error: bpErr } = await supabase
+          .from('recipe_blueprints')
+          .insert({
+            location_id: locationId,
+            name: cleanName || recipeName,
+            r365_name: recipeName,
+            category,
+            yield_qty: yieldQty,
+            yield_unit: yieldUnit,
+            source: 'r365_import',
+            is_active: true,
+          })
+          .select('id')
+          .single()
+
+        if (bpErr) {
+          console.error(`[apply-blueprint] Error creating blueprint ${recipeName}:`, bpErr)
+          continue
+        }
+        blueprintId = newBp.id
+        created++
+      }
+
+      blueprintIdMap.set(recipeName, blueprintId)
+
+      // Delete existing ingredients for this blueprint (full replace from CSV)
+      await supabase
+        .from('recipe_blueprint_ingredients')
+        .delete()
+        .eq('blueprint_id', blueprintId)
+
+      // Insert ingredients from CSV
+      const recipeIngs = recipesByParent.get(recipeName) || []
+      const ingredientInserts: any[] = []
+
+      for (const ing of recipeIngs) {
+        if (subRecipeNames.has(ing.item)) {
+          // This ingredient is a sub-recipe — link to its blueprint
+          const subBpId = blueprintIdMap.get(ing.item)
+          if (subBpId) {
+            ingredientInserts.push({
+              blueprint_id: blueprintId,
+              ingredient_type: 'blueprint',
+              vendor_item_id: null,
+              sub_blueprint_id: subBpId,
+              quantity: ing.qty,
+              unit: ing.uofm,
+            })
+          } else {
+            console.warn(`[apply-blueprint] Sub-recipe ${ing.item} not found for ${recipeName}`)
+            unmappedIngredients.push(`${recipeName} → ${ing.item} (sub-recipe)`)
+          }
+        } else {
+          // Raw ingredient — try to match to vendor item
+          const match = findVendorItem(ing.item)
+          if (match) {
+            ingredientInserts.push({
+              blueprint_id: blueprintId,
+              ingredient_type: 'vendor_item',
+              vendor_item_id: match.id,
+              sub_blueprint_id: null,
+              quantity: ing.qty,
+              unit: ing.uofm,
+            })
+            if (match.score < 100) {
+              autoMatched++
+              matchResults.push({
+                ingredientName: cleanIngredientName(ing.item),
+                matchedTo: match.name,
+                score: match.score,
+              })
+            }
+          } else {
+            // No match — still create the ingredient link with null vendor_item_id
+            // This will show as "needs mapping" in the UI
+            ingredientInserts.push({
+              blueprint_id: blueprintId,
+              ingredient_type: 'vendor_item',
+              vendor_item_id: null,
+              sub_blueprint_id: null,
+              quantity: ing.qty,
+              unit: ing.uofm,
+            })
+            unmappedIngredients.push(cleanIngredientName(ing.item))
+          }
+        }
+      }
+
+      if (ingredientInserts.length > 0) {
+        const { error: ingErr } = await supabase
+          .from('recipe_blueprint_ingredients')
+          .insert(ingredientInserts)
+        if (ingErr) {
+          console.error(`[apply-blueprint] Error inserting ingredients for ${recipeName}:`, ingErr)
+        } else {
+          ingredientLinksCreated += ingredientInserts.length
+        }
       }
     }
 
-    if (removedRecipes.length > 0) {
-      for (const ri of removedRecipes) {
-        const [recipeName, itemName] = ri.r365_name.split('::')
-        const menuItemId = miIdMap.get(recipeName)
-        const ingredientId = ingIdMap.get(itemName)
-        if (!menuItemId || !ingredientId) continue
-
-        await supabase.from('bom_recipe_ingredients')
-          .delete()
-          .eq('location_id', locationId).eq('menu_item_id', menuItemId).eq('ingredient_id', ingredientId)
-        applied++
+    // Handle removed blueprints (deactivate)
+    const removedMIs = menuItems.filter((i: any) => i.change_type === 'removed' && (i.resolution === 'pending' || i.resolution === 'approved'))
+    for (const removed of removedMIs) {
+      const bp = existingBpByR365.get(removed.r365_name)
+      if (bp) {
+        await supabase
+          .from('recipe_blueprints')
+          .update({ is_active: false })
+          .eq('id', bp.id)
+        // If it had a produces_item_id, deactivate that too
+        if (bp.produces_item_id) {
+          await supabase
+            .from('inventory_items')
+            .update({ is_active: false })
+            .eq('id', bp.produces_item_id)
+        }
       }
     }
 
@@ -1230,289 +1374,108 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
       .update({ resolution: 'approved', resolved_by: user.id, resolved_at: new Date().toISOString() })
       .eq('batch_id', batchId).eq('resolution', 'pending')
 
-    // ==================== BRIDGE BOM → INVENTORY_ITEMS ====================
-    // Create/update editable inventory_items for each menu item (recipe) in BOM
-    console.log(`[apply-bom-diff] Bridging BOM recipes to inventory_items...`)
+    // Also write to legacy bom_* tables for backward compatibility with catalog UI
+    // This ensures RecipeCatalog still works until fully migrated
+    await writeLegacyBomTables(supabase, locationId, ingredientItems, menuItems, recipeLinks)
 
-    let bridged = 0
-
-    // Fetch all BOM menu items for this location (these become recipes)
-    const bomMenuItems = await fetchAllRows('bom_menu_items', (from, to) =>
-      supabase
-        .from('bom_menu_items')
-        .select('id, r365_name, clean_name, category')
-        .eq('location_id', locationId)
-        .range(from, to)
-    )
-
-    // Fetch all BOM recipe ingredients for this location — paginated (can exceed 1000)
-    const bomRecipeIngs = await fetchAllRows('bom_recipe_ingredients', (from, to) =>
-      supabase
-        .from('bom_recipe_ingredients')
-        .select('menu_item_id, ingredient_id, quantity, unit_of_measure, yield_percent')
-        .eq('location_id', locationId)
-        .range(from, to)
-    )
-
-    // Fetch all BOM ingredients for name lookups
-    const bomIngredients = await fetchAllRows('bom_ingredients', (from, to) =>
-      supabase
-        .from('bom_ingredients')
-        .select('id, r365_name, clean_name, category, unit_standard')
-        .eq('location_id', locationId)
-        .range(from, to)
-    )
-
-    const bomIngMap = new Map<string, any>()
-    for (const bi of bomIngredients || []) bomIngMap.set(bi.id, bi)
-
-    // Fetch existing inventory_items to find or create
-    const existingItems = await fetchAllRows('inventory_items', (from, to) =>
-      supabase
-        .from('inventory_items')
-        .select('id, name, source, storage_location_id')
-        .eq('location_id', locationId)
-        .range(from, to)
-    )
-
-    // Find or create "Unassigned" storage location for new items
-    let unassignedStorageId: string | null = null
-    const { data: existingStorageLocs } = await supabase
-      .from('inventory_locations')
-      .select('id, name')
-      .eq('location_id', locationId)
-      .ilike('name', 'unassigned')
-      .limit(1)
-    
-    if (existingStorageLocs && existingStorageLocs.length > 0) {
-      unassignedStorageId = existingStorageLocs[0].id
-    } else {
-      const { data: newLoc } = await supabase
-        .from('inventory_locations')
-        .insert({ location_id: locationId, name: 'Unassigned', display_order: 9999 })
-        .select('id')
-        .single()
-      if (newLoc) unassignedStorageId = newLoc.id
-    }
-    console.log(`[apply-bom-diff] Unassigned storage location: ${unassignedStorageId}`)
-
-    const existingNameMap = new Map<string, any>()
-    for (const ei of existingItems || []) existingNameMap.set(ei.name.toLowerCase(), ei)
-
-    // Group BOM recipe ingredients by menu_item_id
-    const recipeIngsByMenu = new Map<string, any[]>()
-    for (const ri of bomRecipeIngs || []) {
-      if (!recipeIngsByMenu.has(ri.menu_item_id)) recipeIngsByMenu.set(ri.menu_item_id, [])
-      recipeIngsByMenu.get(ri.menu_item_id)!.push(ri)
-    }
-
-    for (const mi of bomMenuItems || []) {
-      const displayName = mi.clean_name || mi.r365_name
-      const existingItem = existingNameMap.get(displayName.toLowerCase())
-      const recipeIngs = recipeIngsByMenu.get(mi.id) || []
-
-      let recipeItemId: string
-
-      if (existingItem) {
-        // Update existing item to mark as r365_import source
-        await supabase.from('inventory_items')
-          .update({ is_recipe: true, source: 'r365_import', category: mi.category })
-          .eq('id', existingItem.id)
-        recipeItemId = existingItem.id
-      } else {
-        // Create new inventory_item as recipe
-        const { data: newItem, error: createError } = await supabase
-          .from('inventory_items')
-          .insert({
-            location_id: locationId,
-            name: displayName,
-            unit: 'ea',
-            is_recipe: true,
-            is_active: true,
-            countable: true,
-            source: 'r365_import',
-            category: mi.category,
-            storage_location_id: unassignedStorageId,
-          })
-          .select('id')
-          .single()
-
-        if (createError) {
-          console.error(`[apply-bom-diff] Error creating recipe item for ${displayName}:`, createError)
-          continue
-        }
-        recipeItemId = newItem.id
-        existingNameMap.set(displayName.toLowerCase(), { id: recipeItemId, name: displayName })
-      }
-
-      // Now bridge ingredient links → inventory_recipe_ingredients
-      // First, clear existing recipe ingredients for this item (full replace from BOM)
-      await supabase.from('inventory_recipe_ingredients').delete().eq('recipe_item_id', recipeItemId)
-
-      if (recipeIngs.length > 0) {
-        const ingredientLinks: any[] = []
-
-        for (const ri of recipeIngs) {
-          const bomIng = bomIngMap.get(ri.ingredient_id)
-          if (!bomIng) continue
-
-          const ingDisplayName = bomIng.clean_name || bomIng.r365_name
-          let ingredientItemId: string
-
-          // Find or create the ingredient as an inventory_item
-          const existingIng = existingNameMap.get(ingDisplayName.toLowerCase())
-          if (existingIng) {
-            ingredientItemId = existingIng.id
-            // Tag source if not already
-            if (existingIng.source !== 'r365_import' && existingIng.source !== 'manual') {
-              await supabase.from('inventory_items')
-                .update({ source: 'r365_import' })
-                .eq('id', existingIng.id)
-            }
-          } else {
-            const { data: newIng, error: ingError } = await supabase
-              .from('inventory_items')
-              .insert({
-                location_id: locationId,
-                name: ingDisplayName,
-                unit: bomIng.unit_standard || 'oz',
-                is_recipe: false,
-                is_active: true,
-                countable: true,
-                source: 'r365_import',
-                category: bomIng.category,
-                storage_location_id: unassignedStorageId,
-              })
-              .select('id')
-              .single()
-
-            if (ingError) {
-              console.error(`[apply-bom-diff] Error creating ingredient item for ${ingDisplayName}:`, ingError)
-              continue
-            }
-            ingredientItemId = newIng.id
-            existingNameMap.set(ingDisplayName.toLowerCase(), { id: ingredientItemId, name: ingDisplayName })
-          }
-
-          ingredientLinks.push({
-            recipe_item_id: recipeItemId,
-            ingredient_item_id: ingredientItemId,
-            quantity: ri.quantity,
-            unit: ri.unit_of_measure || 'oz',
-          })
-        }
-
-        if (ingredientLinks.length > 0) {
-          const { error: linkError } = await supabase.from('inventory_recipe_ingredients').insert(ingredientLinks)
-          if (linkError) console.error(`[apply-bom-diff] Error linking recipe ingredients for ${displayName}:`, linkError)
-          else bridged += ingredientLinks.length
-        }
-      }
-    }
-
-    console.log(`[apply-bom-diff] Bridged ${bridged} recipe ingredient links to inventory_items`)
-    console.log(`[apply-bom-diff] Applied ${applied} changes`)
-
-    // ==================== AUTO-MATCH BOM INGREDIENTS → VENDOR ITEMS ====================
-    console.log(`[apply-bom-diff] Starting auto-match...`)
-
-    // Fetch unmatched BOM ingredients (base items only, not prep/sub-recipes)
-    const unmatchedIngs = await fetchAllRows('bom_ingredients', (from, to) =>
-      supabase
-        .from('bom_ingredients')
-        .select('id, r365_name, clean_name, category, unit_standard')
-        .eq('location_id', locationId)
-        .is('inventory_item_id', null)
-        .eq('is_ignored', false)
-        .or('is_prep_item.is.null,is_prep_item.eq.false')
-        .range(from, to)
-    )
-
-    // Fetch vendor items (non-recipe items with vendor source or pack_size)
-    const vendorItems = await fetchAllRows('inventory_items', (from, to) =>
-      supabase
-        .from('inventory_items')
-        .select('id, name, common_name, brand, unit, pack_size, category, vendor_source, is_recipe, count_unit, count_units_per_case')
-        .eq('location_id', locationId)
-        .eq('is_active', true)
-        .eq('is_recipe', false)
-        .range(from, to)
-    )
-
-    let autoMatched = 0
-    const matchResults: Array<{ ingredientName: string; matchedTo: string; score: number }> = []
-
-    function scoreSimilarity(a: string, b: string): number {
-      const aLow = a.toLowerCase().replace(/[^a-z0-9 ]/g, '')
-      const bLow = b.toLowerCase().replace(/[^a-z0-9 ]/g, '')
-      if (aLow === bLow) return 100
-      if (bLow.includes(aLow) || aLow.includes(bLow)) return 80
-      const aWords = aLow.split(/\s+/)
-      const bWords = bLow.split(/\s+/)
-      const matches = aWords.filter(w => bWords.some((bw: string) => bw.includes(w) || w.includes(bw)))
-      if (matches.length === 0) return 0
-      return Math.round((matches.length / Math.max(aWords.length, 1)) * 60)
-    }
-
-    for (const ing of unmatchedIngs) {
-      const ingName = ing.clean_name || ing.r365_name
-      let bestMatch: any = null
-      let bestScore = 0
-
-      for (const vi of vendorItems) {
-        // Try matching against common_name, name, and brand+name
-        const names = [vi.common_name, vi.name].filter(Boolean) as string[]
-        for (const n of names) {
-          const score = scoreSimilarity(ingName, n)
-          if (score > bestScore) {
-            bestScore = score
-            bestMatch = vi
-          }
-        }
-      }
-
-      // Only auto-match if score >= 60 (strong enough match)
-      if (bestMatch && bestScore >= 60) {
-        const { error: matchErr } = await supabase
-          .from('bom_ingredients')
-          .update({ inventory_item_id: bestMatch.id })
-          .eq('id', ing.id)
-        
-        if (!matchErr) {
-          autoMatched++
-          matchResults.push({
-            ingredientName: ingName,
-            matchedTo: bestMatch.common_name || bestMatch.name,
-            score: bestScore,
-          })
-        }
-      }
-    }
-
-    console.log(`[apply-bom-diff] Auto-matched ${autoMatched} of ${unmatchedIngs.length} unmatched ingredients`)
-
-    // Usage rates removed — recipes are now the single source of truth for consumption
-    const usageRatesCreated = 0
+    console.log(`[apply-blueprint] Complete: ${created} created, ${updated} updated, ${ingredientLinksCreated} ingredient links, ${autoMatched} auto-matched, ${unmappedIngredients.length} unmapped`)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        applied, 
-        bridged, 
+        applied: created + updated,
+        created,
+        updated,
+        ingredientLinks: ingredientLinksCreated,
         autoMatched, 
-        autoMatchTotal: unmatchedIngs.length,
-        usageRatesCreated,
-        matchResults: matchResults.slice(0, 20), // Return top 20 for UI preview
+        autoMatchTotal: unmappedIngredients.length + autoMatched,
+        unmappedCount: unmappedIngredients.length,
+        unmappedIngredients: unmappedIngredients.slice(0, 30),
+        matchResults: matchResults.slice(0, 20),
+        bridged: 0, // Legacy compat
+        usageRatesCreated: 0,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error: unknown) {
-    console.error('[apply-bom-diff] Error:', error)
+    console.error('[apply-blueprint] Error:', error)
     const message = error instanceof Error ? error.message : 'Unknown error'
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
+  }
+}
+
+// Write to legacy bom_* tables so RecipeCatalog continues working
+async function writeLegacyBomTables(
+  supabase: any, 
+  locationId: string, 
+  ingredientItems: any[], 
+  menuItems: any[], 
+  recipeLinks: any[]
+) {
+  try {
+    // Upsert ingredients
+    const newIngs = ingredientItems.filter((i: any) => i.change_type === 'new')
+    if (newIngs.length > 0) {
+      const ingData = newIngs.map((i: any) => ({
+        location_id: locationId,
+        r365_name: i.r365_name,
+        category: i.category,
+        clean_name: i.clean_name,
+        unit_standard: i.unit_standard,
+        is_prep_item: i.is_prep_item,
+      }))
+      await supabase.from('bom_ingredients').upsert(ingData, { onConflict: 'location_id,r365_name', ignoreDuplicates: false })
+    }
+
+    // Upsert menu items
+    const newMIs = menuItems.filter((i: any) => i.change_type === 'new')
+    if (newMIs.length > 0) {
+      const miData = newMIs.map((i: any) => ({
+        location_id: locationId,
+        r365_name: i.r365_name,
+        category: i.category,
+        clean_name: i.clean_name,
+        is_sellable: i.is_sellable,
+        recipe_yield_qty: i.new_values?.yieldQty || null,
+        recipe_yield_unit: i.new_values?.yieldUnit || null,
+      }))
+      await supabase.from('bom_menu_items').upsert(miData, { onConflict: 'location_id,r365_name', ignoreDuplicates: false })
+    }
+
+    // Recipe links — need ID lookups
+    if (recipeLinks.length > 0) {
+      const { data: allIngs } = await supabase.from('bom_ingredients').select('id, r365_name').eq('location_id', locationId)
+      const { data: allMIs } = await supabase.from('bom_menu_items').select('id, r365_name').eq('location_id', locationId)
+      
+      const ingIdMap = new Map<string, string>()
+      for (const ing of allIngs || []) ingIdMap.set(ing.r365_name, ing.id)
+      const miIdMap = new Map<string, string>()
+      for (const mi of allMIs || []) miIdMap.set(mi.r365_name, mi.id)
+
+      const newRLs = recipeLinks.filter((i: any) => i.change_type === 'new')
+      if (newRLs.length > 0) {
+        const riData = newRLs.map((i: any) => {
+          const [recipeName, itemName] = i.r365_name.split('::')
+          return {
+            location_id: locationId,
+            menu_item_id: miIdMap.get(recipeName),
+            ingredient_id: ingIdMap.get(itemName),
+            quantity: i.quantity || 0,
+            unit_of_measure: i.unit_of_measure || 'each',
+            yield_percent: i.yield_percent || 100,
+          }
+        }).filter((r: any) => r.menu_item_id && r.ingredient_id)
+
+        if (riData.length > 0) {
+          await supabase.from('bom_recipe_ingredients').insert(riData)
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[apply-blueprint] Legacy bom write error (non-fatal):', err)
   }
 }
