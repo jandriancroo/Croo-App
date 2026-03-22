@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, FileText, Plus, RefreshCw, Trash2, CheckCircle2, AlertTriangle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Upload, FileText, Plus, RefreshCw, Trash2, CheckCircle2, Loader2, ChevronDown, ChevronRight, Link2, Zap } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
