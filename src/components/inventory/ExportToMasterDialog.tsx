@@ -344,10 +344,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     if (item.storage_location_id && storageMap.has(item.storage_location_id)) badges.push("Storage");
     const shortcuts = shortcutMap.get(item.id);
     if (shortcuts && shortcuts.length > 0) badges.push(`${shortcuts.length} Shortcut${shortcuts.length > 1 ? 's' : ''}`);
-    const itemRates = usageMultiMap.get(item.id);
-    if (itemRates?.length) badges.push(`${itemRates.length} Rate${itemRates.length > 1 ? 's' : ''}`);
-    const hasGroup = itemRates?.some(r => r.product_group_id && groupMap.has(r.product_group_id));
-    if (hasGroup) badges.push("POS Mapping");
+    // Usage rate badges removed — recipes are source of truth
     return badges;
   };
 
