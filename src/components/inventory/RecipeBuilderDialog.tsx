@@ -534,7 +534,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       }
       setIngredients(mappedIngs);
     }
-  }, [bomRecipe, activeBomId, allBomMenuItems]);
+  }, [bomRecipe, activeBomId, allBomMenuItems, otherBlueprints]);
 
   // ========== COST CALCULATION ==========
 
