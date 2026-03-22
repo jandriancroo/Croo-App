@@ -819,6 +819,31 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       .filter(i => !search || i.name.toLowerCase().includes(search));
   }, [searchableItems, ingredientSearch, ingredients]);
 
+  // Drill into a sub-recipe
+  const drillIntoSubRecipe = (subRecipeId: string) => {
+    if (!activeBomId) return;
+    setDrillStack(prev => [...prev, { bomId: activeBomId, name: recipeName }]);
+    setActiveBomId(subRecipeId);
+  };
+
+  // Navigate back up the drill stack
+  const drillBack = (index?: number) => {
+    if (drillStack.length === 0) return;
+    if (index !== undefined) {
+      // Go back to a specific breadcrumb level
+      const entry = drillStack[index];
+      setDrillStack(prev => prev.slice(0, index));
+      setActiveBomId(entry.bomId);
+    } else {
+      // Go back one level
+      const prev = drillStack[drillStack.length - 1];
+      setDrillStack(s => s.slice(0, -1));
+      setActiveBomId(prev.bomId);
+    }
+  };
+
+  const isDrilledDown = drillStack.length > 0;
+
   // ========== RENDER ==========
 
   return (
