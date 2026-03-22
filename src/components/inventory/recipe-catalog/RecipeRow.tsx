@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronRight, Pencil, Trash2, Check, X, DollarSign } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Trash2, Check, X, DollarSign, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { MenuItem, RecipeIngredient, ResolvedCost } from "./types";
@@ -24,8 +24,8 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
 
   const displayName = item.clean_name || getCleanDisplayName(item.r365_name);
 
-  // Fetch ingredients when expanded
-  const { data: ingredients } = useQuery({
+  // Fetch raw ingredients for editing (we need the bom_recipe_ingredients IDs)
+  const { data: rawIngredients } = useQuery({
     queryKey: ["recipe-row-ingredients", item.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -39,7 +39,7 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
     enabled: isExpanded,
   });
 
-  // Fetch resolved costs when expanded
+  // Fetch resolved vendor items with costs
   const { data: resolvedCosts } = useQuery({
     queryKey: ["recipe-row-costs", item.id],
     queryFn: async () => {
@@ -55,6 +55,16 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
   });
 
   const totalCost = resolvedCosts?.reduce((sum, c) => sum + (c.total_cost || 0), 0) || 0;
+  const hasUncosted = resolvedCosts?.some(c => !c.total_cost || c.total_cost === 0);
+
+  // Build a map: r365 ingredient name → resolved vendor row(s)
+  // Also build a map: r365 ingredient name → bom_recipe_ingredient record (for editing)
+  const resolvedByIngName = new Map<string, ResolvedCost[]>();
+  resolvedCosts?.forEach(c => {
+    const list = resolvedByIngName.get(c.ingredient_name) || [];
+    list.push(c);
+    resolvedByIngName.set(c.ingredient_name, list);
+  });
 
   // Update ingredient quantity
   const updateMutation = useMutation({
@@ -97,13 +107,6 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
     updateMutation.mutate({ id, quantity: qty });
   };
 
-  // Build cost lookup by ingredient name for display
-  const costByIngredient = new Map<string, number>();
-  resolvedCosts?.forEach(c => {
-    const existing = costByIngredient.get(c.ingredient_name) || 0;
-    costByIngredient.set(c.ingredient_name, existing + (c.total_cost || 0));
-  });
-
   return (
     <div className="border-b border-border/40 last:border-0">
       <button
@@ -126,6 +129,7 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
           <span className="text-xs font-semibold text-emerald-600 flex-shrink-0 flex items-center gap-0.5">
             <DollarSign className="h-3 w-3" />
             {totalCost.toFixed(2)}
+            {hasUncosted && <AlertCircle className="h-3 w-3 text-amber-500 ml-0.5" />}
           </span>
         )}
         {item.recipe_yield_qty && item.recipe_yield_unit && (
@@ -137,21 +141,70 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
 
       {isExpanded && (
         <div className="pl-8 pr-2 pb-2 space-y-0.5">
-          {!ingredients || ingredients.length === 0 ? (
+          {!rawIngredients || rawIngredients.length === 0 ? (
             <p className="text-xs text-muted-foreground italic py-1">No ingredients linked</p>
           ) : (
-            ingredients.map(ing => {
-              const ingName = ing.ingredient?.clean_name || ing.ingredient?.r365_name || "Unknown";
-              const ingCost = costByIngredient.get(ing.ingredient?.r365_name || "") || 0;
+            rawIngredients.map(ing => {
+              const r365Name = ing.ingredient?.r365_name || "";
+              const resolved = resolvedByIngName.get(r365Name);
+              const isMatched = !!ing.ingredient?.inventory_item_id;
+              const isSubRecipe = !isMatched && resolved && resolved.length > 0;
               const isEditing = editingId === ing.id;
+
+              // Show the vendor item name if resolved, otherwise the R365 name
+              let displayIngName: string;
+              let ingCost = 0;
+
+              if (resolved && resolved.length > 0) {
+                // Use vendor item name (resolved through sub-recipes to actual vendor items)
+                displayIngName = resolved[0].vendor_item_name || ing.ingredient?.clean_name || r365Name;
+                ingCost = resolved.reduce((sum, r) => sum + (r.total_cost || 0), 0);
+              } else {
+                displayIngName = ing.ingredient?.clean_name || r365Name || "Unknown";
+              }
+
+              // For sub-recipes that resolve to multiple vendor items, show them grouped
+              if (isSubRecipe && resolved && resolved.length > 1) {
+                return (
+                  <div key={ing.id} className="space-y-0">
+                    <div className="flex items-center gap-1 text-xs py-0.5 group">
+                      <span className="truncate flex-1 text-muted-foreground italic">
+                        {ing.ingredient?.clean_name || r365Name} 
+                        <span className="text-[10px] ml-1 opacity-60">(sub-recipe)</span>
+                      </span>
+                      <span className="text-muted-foreground flex-shrink-0">
+                        {ing.quantity} {ing.unit_of_measure || ""}
+                      </span>
+                    </div>
+                    {resolved.map((r, i) => (
+                      <div key={`${ing.id}-r-${i}`} className="flex items-center gap-1 text-xs py-0.5 pl-4">
+                        <span className="truncate flex-1 text-foreground">
+                          {r.vendor_item_name || r.ingredient_name}
+                        </span>
+                        {r.total_cost > 0 && (
+                          <span className="text-[10px] text-emerald-600/70 flex-shrink-0">
+                            ${r.total_cost.toFixed(3)}
+                          </span>
+                        )}
+                        <span className="text-muted-foreground flex-shrink-0">
+                          {r.total_quantity.toFixed(2)} {r.unit_of_measure || ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
 
               return (
                 <div key={ing.id} className="flex items-center gap-1 text-xs py-0.5 group">
                   <span className={cn(
                     "truncate flex-1",
-                    ing.ingredient?.inventory_item_id ? "text-foreground" : "text-muted-foreground"
+                    isMatched || isSubRecipe ? "text-foreground" : "text-muted-foreground"
                   )}>
-                    {ingName}
+                    {displayIngName}
+                    {!isMatched && !isSubRecipe && (
+                      <span className="text-[10px] ml-1 text-amber-500">(unmatched)</span>
+                    )}
                   </span>
 
                   {ingCost > 0 && !isEditing && (
@@ -202,7 +255,7 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
                         variant="ghost"
                         className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
                         onClick={() => {
-                          if (confirm(`Remove ${ingName}?`)) {
+                          if (confirm(`Remove ${displayIngName}?`)) {
                             deleteMutation.mutate(ing.id);
                           }
                         }}
@@ -216,9 +269,9 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
             })
           )}
 
-          {totalCost > 0 && ingredients && ingredients.length > 0 && (
+          {totalCost > 0 && rawIngredients && rawIngredients.length > 0 && (
             <div className="flex items-center justify-between pt-1 mt-1 border-t border-border/30 text-xs font-semibold">
-              <span>Recipe Cost</span>
+              <span>Recipe Cost{hasUncosted && <span className="text-amber-500 font-normal ml-1">(partial)</span>}</span>
               <span className="text-emerald-600">${totalCost.toFixed(2)}</span>
             </div>
           )}
