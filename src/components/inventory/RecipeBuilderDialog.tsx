@@ -897,7 +897,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           {/* Recipe Name */}
           <div className="space-y-2">
             <Label>Recipe Name</Label>
-            <Input placeholder="e.g., Dough, Red Sauce, Pesto Blend" value={recipeName} onChange={(e) => setRecipeName(e.target.value)} autoFocus />
+            <Input placeholder="e.g., Dough, Red Sauce, Pesto Blend" value={recipeName}
+              onChange={(e) => setRecipeName(e.target.value)} autoFocus disabled={isDrilledDown} />
           </div>
 
           {/* Yield */}
