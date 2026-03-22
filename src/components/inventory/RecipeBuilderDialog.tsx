@@ -286,21 +286,34 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     enabled: open && !!editRecipeId && !bomMenuItemId && !editBlueprintId,
   });
 
-  // Fetch BOM recipe data (legacy catalog mode)
+  // Fetch BOM recipe data (legacy catalog mode) — uses activeBomId for drill-down
   const { data: bomRecipe } = useQuery({
-    queryKey: ["bom-recipe-detail", bomMenuItemId],
+    queryKey: ["bom-recipe-detail", activeBomId],
     queryFn: async () => {
-      if (!bomMenuItemId) return null;
+      if (!activeBomId) return null;
       const { data: menuItem } = await supabase
         .from("bom_menu_items")
         .select("id, r365_name, clean_name, recipe_yield_qty, recipe_yield_unit, category")
-        .eq("id", bomMenuItemId)
+        .eq("id", activeBomId)
         .single();
       const { data: bomIngs } = await supabase
         .from("bom_recipe_ingredients")
         .select("id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id)")
-        .eq("menu_item_id", bomMenuItemId);
+        .eq("menu_item_id", activeBomId);
       return { menuItem, ingredients: bomIngs || [] };
+    },
+    enabled: open && !!activeBomId,
+  });
+
+  // Fetch all BOM menu items for sub-recipe matching during drill-down
+  const { data: allBomMenuItems } = useQuery({
+    queryKey: ["all-bom-menu-items", locationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("bom_menu_items")
+        .select("id, r365_name, clean_name")
+        .eq("location_id", locationId);
+      return data || [];
     },
     enabled: open && !!bomMenuItemId,
   });
