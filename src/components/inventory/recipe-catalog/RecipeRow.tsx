@@ -200,7 +200,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
     <div className="border-b border-border/40 last:border-0">
       <button
         type="button"
-        className="w-full flex items-center gap-2 py-2 px-2 text-sm hover:bg-muted/50 transition-colors text-left"
+        className="w-full flex items-center gap-2 py-2 px-2 text-sm hover:bg-muted/50 transition-colors text-left group"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         {isExpanded ? (
