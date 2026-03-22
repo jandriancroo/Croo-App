@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { fetchBlueprintCosts } from "@/utils/blueprintCostCalculation";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -518,6 +519,19 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
   // ========== COST CALCULATION ==========
 
+  // Fetch blueprint costs for sub-recipe costing
+  const blueprintIngIds = useMemo(() => 
+    ingredients.filter(i => i.type === "blueprint").map(i => i.ref_id),
+    [ingredients]
+  );
+
+  const { data: blueprintCostsMap } = useQuery({
+    queryKey: ["blueprint-costs", locationId],
+    queryFn: () => fetchBlueprintCosts(locationId),
+    staleTime: 5 * 60 * 1000,
+    enabled: open && blueprintIngIds.length > 0,
+  });
+
   const recipeCostResult = useMemo(() => {
     if (ingredients.length === 0) return null;
     let total = 0;
@@ -526,9 +540,27 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
     for (const ing of ingredients) {
       if (ing.type === "blueprint") {
-        // TODO: calculate sub-blueprint cost inline
-        // For now, show as partial
-        allHaveCost = false;
+        // Resolve sub-blueprint cost from the global blueprint costs map
+        const subCost = blueprintCostsMap?.get(ing.ref_id);
+        const subBp = otherBlueprints?.find(b => b.id === ing.ref_id);
+        if (subCost && subCost.batchCost > 0) {
+          const subYield = subBp?.yield_qty || 1;
+          const subYieldUnit = normalizeUnit(subBp?.yield_unit) || "ea";
+          const ingUnit = normalizeUnit(ing.unit);
+          // Convert ingredient quantity to yield units if needed
+          if (TO_OZ[ingUnit] && TO_OZ[subYieldUnit] && subYieldUnit !== "ea" && ingUnit !== "ea") {
+            const ingInYieldUnits = (ing.quantity * (TO_OZ[ingUnit] ?? 1)) / (TO_OZ[subYieldUnit] ?? 1);
+            total += (ingInYieldUnits / subYield) * subCost.batchCost;
+          } else {
+            total += (ing.quantity / subYield) * subCost.batchCost;
+          }
+          if (subCost.isPartial) {
+            allHaveCost = false;
+          }
+        } else {
+          allHaveCost = false;
+          missingItems.push(ing.displayName || ing.ref_id);
+        }
         continue;
       }
 
@@ -577,7 +609,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     }
 
     return { total, allHaveCost, missingItems };
-  }, [ingredients, vendorItems]);
+  }, [ingredients, vendorItems, blueprintCostsMap, otherBlueprints]);
 
   const recipeCost = recipeCostResult?.total ?? null;
 
