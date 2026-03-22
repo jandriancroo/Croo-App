@@ -7549,6 +7549,10 @@ export type Database = {
         Returns: boolean
       }
       check_alerts_sql: { Args: never; Returns: undefined }
+      convert_recipe_unit_to_count: {
+        Args: { p_count_unit: string; p_recipe_unit: string }
+        Returns: number
+      }
       generate_location_code: { Args: never; Returns: string }
       generate_unique_pin: { Args: never; Returns: string }
       get_chat_unread_counts: {
