@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, GripVertical, Layers } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Pencil, Trash2, GripVertical, Layers, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 interface ProductGroupsManagerProps {
@@ -23,6 +24,15 @@ interface ProductGroup {
   is_active: boolean;
   pos_categories: string[] | null;
   pos_items: string[] | null;
+  bom_menu_item_id: string | null;
+}
+
+interface BomMenuItem {
+  id: string;
+  r365_name: string;
+  clean_name: string | null;
+  category: string | null;
+  is_sellable: boolean | null;
 }
 
 const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
@@ -33,7 +43,9 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
   const [description, setDescription] = useState("");
   const [selectedPosCategories, setSelectedPosCategories] = useState<string[]>([]);
   const [selectedPosItems, setSelectedPosItems] = useState<string[]>([]);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [itemSearch, setItemSearch] = useState("");
+  const [recipeSearch, setRecipeSearch] = useState("");
 
   const { data: groups, isLoading } = useQuery({
     queryKey: ["inventory-product-groups", locationId],
@@ -46,6 +58,21 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
 
       if (error) throw error;
       return data as ProductGroup[];
+    },
+  });
+
+  // Fetch recipes (bom_menu_items) for this location
+  const { data: recipes } = useQuery({
+    queryKey: ["bom-menu-items-for-mapping", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bom_menu_items")
+        .select("id, r365_name, clean_name, category, is_sellable")
+        .eq("location_id", locationId)
+        .order("r365_name", { ascending: true });
+
+      if (error) throw error;
+      return data as BomMenuItem[];
     },
   });
 
@@ -64,7 +91,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       if (error) throw error;
 
       const categories = new Set<string>();
-      const items = new Map<string, string>(); // itemName -> category
+      const items = new Map<string, string>();
       for (const row of data || []) {
         const mix = row.product_mix as any[];
         if (Array.isArray(mix)) {
@@ -86,12 +113,14 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
   const posCategories = posData?.categories || [];
   const posItems = posData?.items || [];
 
+  const recipeMap = new Map((recipes || []).map(r => [r.id, r]));
+
   const upsertMutation = useMutation({
-    mutationFn: async ({ id, name, description, posCategories, posItems }: { id?: string; name: string; description: string; posCategories: string[]; posItems: string[] }) => {
+    mutationFn: async ({ id, name, description, posCategories, posItems, bomMenuItemId }: { id?: string; name: string; description: string; posCategories: string[]; posItems: string[]; bomMenuItemId: string | null }) => {
       if (id) {
         const { error } = await supabase
           .from("inventory_product_groups")
-          .update({ name, description: description || null, pos_categories: posCategories, pos_items: posItems })
+          .update({ name, description: description || null, pos_categories: posCategories, pos_items: posItems, bom_menu_item_id: bomMenuItemId })
           .eq("id", id);
         if (error) throw error;
       } else {
@@ -105,6 +134,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
             display_order: maxOrder,
             pos_categories: posCategories,
             pos_items: posItems,
+            bom_menu_item_id: bomMenuItemId,
           });
         if (error) throw error;
       }
@@ -118,7 +148,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       if (err?.message?.includes("duplicate")) {
         toast.error("A mapping with that name already exists");
       } else {
-        toast.error("Failed to save group");
+        toast.error("Failed to save mapping");
       }
     },
   });
@@ -136,7 +166,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       toast.success("Mapping deleted");
     },
     onError: () => {
-      toast.error("Failed to delete — it may have usage rates linked");
+      toast.error("Failed to delete mapping");
     },
   });
 
@@ -146,7 +176,9 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setDescription("");
     setSelectedPosCategories([]);
     setSelectedPosItems([]);
+    setSelectedRecipeId(null);
     setItemSearch("");
+    setRecipeSearch("");
     setShowDialog(true);
   };
 
@@ -156,7 +188,9 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setDescription(group.description || "");
     setSelectedPosCategories(group.pos_categories || []);
     setSelectedPosItems(group.pos_items || []);
+    setSelectedRecipeId(group.bom_menu_item_id);
     setItemSearch("");
+    setRecipeSearch("");
     setShowDialog(true);
   };
 
@@ -167,7 +201,9 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setDescription("");
     setSelectedPosCategories([]);
     setSelectedPosItems([]);
+    setSelectedRecipeId(null);
     setItemSearch("");
+    setRecipeSearch("");
   };
 
   const handleSave = () => {
@@ -181,24 +217,36 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       description: description.trim(),
       posCategories: selectedPosCategories,
       posItems: selectedPosItems,
+      bomMenuItemId: selectedRecipeId,
     });
   };
 
   const togglePosCategory = (category: string) => {
     setSelectedPosCategories(prev =>
-      prev.includes(category)
-        ? prev.filter(c => c !== category)
-        : [...prev, category]
+      prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
     );
   };
 
   const togglePosItem = (itemName: string) => {
     setSelectedPosItems(prev =>
-      prev.includes(itemName)
-        ? prev.filter(i => i !== itemName)
-        : [...prev, itemName]
+      prev.includes(itemName) ? prev.filter(i => i !== itemName) : [...prev, itemName]
     );
   };
+
+  const handleRecipeSelect = (recipeId: string) => {
+    setSelectedRecipeId(recipeId === "none" ? null : recipeId);
+    // Auto-fill name from recipe if name is empty
+    if (!name.trim() && recipeId !== "none") {
+      const recipe = recipeMap.get(recipeId);
+      if (recipe) {
+        setName(recipe.clean_name || recipe.r365_name);
+      }
+    }
+  };
+
+  const filteredRecipes = (recipes || []).filter(r =>
+    !recipeSearch || (r.clean_name || r.r365_name).toLowerCase().includes(recipeSearch.toLowerCase())
+  );
 
   return (
     <>
@@ -215,7 +263,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Connect POS menu categories to inventory for usage tracking (e.g., Large Pizza, Specialty)
+            Link POS menu items to recipes for automatic theoretical usage calculation
           </p>
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
@@ -229,58 +277,69 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {groups.map((group) => (
-                <div
-                  key={group.id}
-                  className="flex items-center justify-between py-3 group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <GripVertical className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm">{group.name}</p>
-                        {!group.is_active && (
-                          <Badge variant="secondary" className="text-xs">Inactive</Badge>
+              {groups.map((group) => {
+                const linkedRecipe = group.bom_menu_item_id ? recipeMap.get(group.bom_menu_item_id) : null;
+                return (
+                  <div key={group.id} className="flex items-center justify-between py-3 group">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <GripVertical className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{group.name}</p>
+                          {!group.is_active && (
+                            <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                          )}
+                        </div>
+                        {linkedRecipe && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <BookOpen className="h-3 w-3 text-primary" />
+                            <span className="text-xs text-primary font-medium">
+                              {linkedRecipe.clean_name || linkedRecipe.r365_name}
+                            </span>
+                          </div>
+                        )}
+                        {!linkedRecipe && group.bom_menu_item_id && (
+                          <span className="text-xs text-destructive">Recipe not found</span>
+                        )}
+                        {group.description && (
+                          <p className="text-xs text-muted-foreground truncate">{group.description}</p>
+                        )}
+                        {group.pos_categories && group.pos_categories.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {group.pos_categories.map(cat => (
+                              <Badge key={cat} variant="outline" className="text-[10px] px-1.5 py-0">
+                                {cat}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {group.pos_items && group.pos_items.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {group.pos_items.map(item => (
+                              <Badge key={item} variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30">
+                                🍕 {item}
+                              </Badge>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      {group.description && (
-                        <p className="text-xs text-muted-foreground truncate">{group.description}</p>
-                      )}
-                      {group.pos_categories && group.pos_categories.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {group.pos_categories.map(cat => (
-                            <Badge key={cat} variant="outline" className="text-[10px] px-1.5 py-0">
-                              {cat}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                      {group.pos_items && group.pos_items.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {group.pos_items.map(item => (
-                            <Badge key={item} variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30">
-                              🍕 {item}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(group)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => deleteMutation.mutate(group.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(group)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={() => deleteMutation.mutate(group.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -292,6 +351,61 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
             <DialogTitle>{editingGroup ? "Edit POS Mapping" : "Add POS Mapping"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Recipe Link */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <BookOpen className="h-3.5 w-3.5" />
+                Linked Recipe
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Which recipe should be used to calculate ingredient consumption?
+              </p>
+              {recipes && recipes.length > 0 ? (
+                <>
+                  <Input
+                    placeholder="Search recipes..."
+                    value={recipeSearch}
+                    onChange={(e) => setRecipeSearch(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                  <div className="max-h-36 overflow-y-auto space-y-0.5 border rounded-md p-2">
+                    <label
+                      className={`flex items-center gap-2 py-1.5 px-1.5 rounded cursor-pointer text-sm ${
+                        !selectedRecipeId ? "bg-muted font-medium" : "hover:bg-muted/50"
+                      }`}
+                      onClick={() => setSelectedRecipeId(null)}
+                    >
+                      <span className="text-muted-foreground italic">No recipe linked</span>
+                    </label>
+                    {filteredRecipes.map(recipe => (
+                      <label
+                        key={recipe.id}
+                        className={`flex items-center justify-between gap-2 py-1.5 px-1.5 rounded cursor-pointer ${
+                          selectedRecipeId === recipe.id ? "bg-primary/10 font-medium" : "hover:bg-muted/50"
+                        }`}
+                        onClick={() => handleRecipeSelect(recipe.id)}
+                      >
+                        <span className="text-sm truncate">{recipe.clean_name || recipe.r365_name}</span>
+                        {recipe.category && (
+                          <span className="text-[10px] text-muted-foreground flex-shrink-0">{recipe.category}</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                  {selectedRecipeId && (
+                    <Badge variant="secondary" className="text-xs">
+                      <BookOpen className="h-3 w-3 mr-1" />
+                      {recipeMap.get(selectedRecipeId)?.clean_name || recipeMap.get(selectedRecipeId)?.r365_name}
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  No recipes found — import recipes first
+                </p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="group-name">Name</Label>
               <Input
@@ -316,7 +430,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
             <div className="space-y-2">
               <Label>POS Categories</Label>
               <p className="text-xs text-muted-foreground">
-                Which QUBeyond menu categories count toward this group's units sold?
+                Which QUBeyond menu categories count toward this mapping's units sold?
               </p>
               {posCategories && posCategories.length > 0 ? (
                 <div className="max-h-48 overflow-y-auto space-y-1 border rounded-md p-2">
@@ -341,9 +455,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
               {selectedPosCategories.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {selectedPosCategories.map(cat => (
-                    <Badge key={cat} variant="secondary" className="text-xs">
-                      {cat}
-                    </Badge>
+                    <Badge key={cat} variant="secondary" className="text-xs">{cat}</Badge>
                   ))}
                 </div>
               )}
@@ -389,9 +501,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
               {selectedPosItems.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {selectedPosItems.map(item => (
-                    <Badge key={item} variant="secondary" className="text-xs">
-                      🍕 {item}
-                    </Badge>
+                    <Badge key={item} variant="secondary" className="text-xs">🍕 {item}</Badge>
                   ))}
                 </div>
               )}
