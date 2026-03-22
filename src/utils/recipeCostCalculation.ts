@@ -11,6 +11,8 @@ interface ItemCostInfo {
   id: string;
   cost_per_unit: number | null;
   pack_quantity: number | null;
+  count_units_per_case: number | null;
+  count_unit: string | null;
   is_recipe: boolean;
   recipe_yield_qty: number | null;
   recipe_yield_unit: string | null;
@@ -27,7 +29,7 @@ interface ItemCostInfo {
 export async function fetchRecipeCosts(locationId: string): Promise<Map<string, number>> {
   const { data: recipeItems, error: recipeError } = await supabase
     .from("inventory_items")
-    .select("id, cost_per_unit, pack_quantity, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
+    .select("id, cost_per_unit, pack_quantity, count_units_per_case, count_unit, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
     .eq("location_id", locationId)
     .eq("is_active", true);
 
@@ -99,11 +101,19 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         const costPerYieldUnit = subBatchCost / subYield;
         totalBatchCost += costPerYieldUnit * ing.quantity;
       } else {
-        // Raw ingredient: cost_per_unit is per case, pack_quantity is units per case
+        // Raw ingredient: determine proper divisor based on unit
         const caseCost = ingItem.blended_price ?? ingItem.cost_per_unit ?? 0;
-        const packQty = ingItem.pack_quantity || 1;
-        const costPerSingleUnit = caseCost / packQty;
-        totalBatchCost += costPerSingleUnit * ing.quantity;
+        const ingUnit = ing.unit?.toLowerCase() || '';
+        
+        // If the recipe unit is "cs" or "case", use full case cost (no division)
+        if (ingUnit === 'cs' || ingUnit === 'case') {
+          totalBatchCost += caseCost * ing.quantity;
+        } else {
+          // Use count_units_per_case for sub-unit conversion, fallback to pack_quantity
+          const unitsPerCase = ingItem.count_units_per_case || ingItem.pack_quantity || 1;
+          const costPerSingleUnit = caseCost / unitsPerCase;
+          totalBatchCost += costPerSingleUnit * ing.quantity;
+        }
       }
     }
 
