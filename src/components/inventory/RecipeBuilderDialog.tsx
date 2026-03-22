@@ -827,26 +827,50 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       .filter(i => !search || i.name.toLowerCase().includes(search));
   }, [searchableItems, ingredientSearch, ingredients]);
 
-  // Drill into a sub-recipe
-  const drillIntoSubRecipe = (subRecipeId: string) => {
-    if (!activeBomId) return;
-    setDrillStack(prev => [...prev, { bomId: activeBomId, name: recipeName }]);
-    setActiveBomId(subRecipeId);
+  // Drill into a sub-recipe (BOM or blueprint)
+  const drillIntoSubRecipe = (subRecipeId: string, drillType: "bom" | "blueprint" = "bom") => {
+    // Save current state to stack
+    const entry: DrillStackEntry = {
+      bomId: drillType === "bom" ? activeBomId || undefined : undefined,
+      blueprintId: drillType === "blueprint" ? editBlueprintId || drillBlueprintId || undefined : undefined,
+      name: recipeName,
+      savedIngredients: [...ingredients],
+      savedName: recipeName,
+      savedYieldQty: yieldQty,
+      savedYieldUnit: yieldUnit,
+    };
+    setDrillStack(prev => [...prev, entry]);
+    if (drillType === "bom") {
+      setActiveBomId(subRecipeId);
+      setDrillBlueprintId(null);
+    } else {
+      setDrillBlueprintId(subRecipeId);
+      setActiveBomId(null);
+    }
   };
 
   // Navigate back up the drill stack
   const drillBack = (index?: number) => {
     if (drillStack.length === 0) return;
     if (index !== undefined) {
-      // Go back to a specific breadcrumb level
       const entry = drillStack[index];
       setDrillStack(prev => prev.slice(0, index));
-      setActiveBomId(entry.bomId);
+      // Restore state
+      setIngredients(entry.savedIngredients);
+      setRecipeName(entry.savedName);
+      setYieldQty(entry.savedYieldQty);
+      setYieldUnit(entry.savedYieldUnit);
+      setActiveBomId(entry.bomId || null);
+      setDrillBlueprintId(entry.blueprintId || null);
     } else {
-      // Go back one level
       const prev = drillStack[drillStack.length - 1];
       setDrillStack(s => s.slice(0, -1));
-      setActiveBomId(prev.bomId);
+      setIngredients(prev.savedIngredients);
+      setRecipeName(prev.savedName);
+      setYieldQty(prev.savedYieldQty);
+      setYieldUnit(prev.savedYieldUnit);
+      setActiveBomId(prev.bomId || null);
+      setDrillBlueprintId(prev.blueprintId || null);
     }
   };
 
