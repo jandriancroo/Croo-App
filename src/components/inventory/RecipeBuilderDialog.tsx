@@ -162,7 +162,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     enabled: open,
   });
 
-  // Fetch existing recipe data if editing
+  // Fetch existing recipe data if editing (inventory_items mode)
   const { data: existingRecipe } = useQuery({
     queryKey: ["recipe-detail", editRecipeId],
     queryFn: async () => {
@@ -180,7 +180,28 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
       return { item, ingredients: ings || [] };
     },
-    enabled: open && !!editRecipeId,
+    enabled: open && !!editRecipeId && !bomMenuItemId,
+  });
+
+  // Fetch BOM recipe data if editing a BOM menu item
+  const { data: bomRecipe } = useQuery({
+    queryKey: ["bom-recipe-detail", bomMenuItemId],
+    queryFn: async () => {
+      if (!bomMenuItemId) return null;
+      const { data: menuItem } = await supabase
+        .from("bom_menu_items")
+        .select("id, r365_name, clean_name, recipe_yield_qty, recipe_yield_unit, category")
+        .eq("id", bomMenuItemId)
+        .single();
+
+      const { data: bomIngs } = await supabase
+        .from("bom_recipe_ingredients")
+        .select("id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id)")
+        .eq("menu_item_id", bomMenuItemId);
+
+      return { menuItem, ingredients: bomIngs || [] };
+    },
+    enabled: open && !!bomMenuItemId,
   });
 
   // Auto-calculate yield from ingredients (sum in current yieldUnit)
