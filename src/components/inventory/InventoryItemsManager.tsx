@@ -1001,7 +1001,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           </Card>
         )}
       </div>
+      </>}
 
+      {(mode === "build" || isBuildMode) && <>
       {/* POS Mapping — Brand Admin+ only */}
       {canEditProductGroups && <ProductGroupsManager locationId={locationId} />}
 
