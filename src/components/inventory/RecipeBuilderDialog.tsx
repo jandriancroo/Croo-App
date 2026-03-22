@@ -434,10 +434,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
         const bpName = isBlueprint ? otherBlueprints?.find((b: any) => b.id === refId)?.name : vendorItems?.find((v: any) => v.id === refId)?.name;
         return {
           type: isBlueprint ? "blueprint" as const : "vendor_item" as const,
-          ref_id: refId,
+          ref_id: refId || i.id,
           quantity: Number(i.quantity),
           unit: normalizeUnit(i.unit) || "oz",
           displayName: bpName || i.source_name || undefined,
+          unmapped: !refId,
         };
       }));
     }
