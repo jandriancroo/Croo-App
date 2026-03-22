@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronRight, Pencil, Trash2, Check, X, DollarSign, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Trash2, Check, X, DollarSign, AlertCircle, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { MenuItem, RecipeIngredient, ResolvedCost } from "./types";
@@ -16,10 +16,20 @@ interface RecipeRowProps {
   locationId: string;
 }
 
+interface IngredientOption {
+  id: string;
+  r365_name: string;
+  clean_name: string | null;
+}
+
 const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
+  const [ingredientSearch, setIngredientSearch] = useState("");
+  const [addingIngredientId, setAddingIngredientId] = useState<string>("");
+  const [addQty, setAddQty] = useState("1");
+  const [addUnit, setAddUnit] = useState("");
   const queryClient = useQueryClient();
 
   const displayName = item.clean_name || getCleanDisplayName(item.r365_name);
@@ -30,7 +40,7 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bom_recipe_ingredients")
-        .select("id, menu_item_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id)")
+        .select("id, menu_item_id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id)")
         .eq("menu_item_id", item.id)
         .order("quantity", { ascending: false });
       if (error) throw error;
@@ -54,16 +64,45 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
     enabled: isExpanded,
   });
 
+  // Fetch available ingredients for add flow
+  const { data: availableIngredients } = useQuery({
+    queryKey: ["recipe-row-ingredient-options", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bom_ingredients")
+        .select("id, r365_name, clean_name")
+        .eq("location_id", locationId)
+        .eq("is_ignored", false)
+        .order("clean_name", { ascending: true });
+      if (error) throw error;
+      return (data || []) as IngredientOption[];
+    },
+    enabled: isExpanded,
+  });
+
   const totalCost = resolvedCosts?.reduce((sum, c) => sum + (c.total_cost || 0), 0) || 0;
   const hasUncosted = resolvedCosts?.some(c => !c.total_cost || c.total_cost === 0);
 
   // Build a map: r365 ingredient name → resolved vendor row(s)
-  // Also build a map: r365 ingredient name → bom_recipe_ingredient record (for editing)
   const resolvedByIngName = new Map<string, ResolvedCost[]>();
   resolvedCosts?.forEach(c => {
     const list = resolvedByIngName.get(c.ingredient_name) || [];
     list.push(c);
     resolvedByIngName.set(c.ingredient_name, list);
+  });
+
+  const existingIngredientIds = new Set(
+    (rawIngredients?.map(ing => ing.ingredient_id).filter(Boolean) as string[]) || []
+  );
+
+  const filteredIngredientOptions = (availableIngredients || []).filter(option => {
+    if (existingIngredientIds.has(option.id)) return false;
+    if (!ingredientSearch.trim()) return true;
+    const q = ingredientSearch.toLowerCase();
+    return (
+      (option.clean_name || "").toLowerCase().includes(q) ||
+      option.r365_name.toLowerCase().includes(q)
+    );
   });
 
   // Update ingredient quantity
@@ -101,10 +140,59 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
     onError: () => toast.error("Failed to remove"),
   });
 
+  // Add ingredient
+  const addMutation = useMutation({
+    mutationFn: async ({ ingredientId, quantity, unit }: { ingredientId: string; quantity: number; unit: string | null }) => {
+      const { error } = await supabase
+        .from("bom_recipe_ingredients")
+        .insert({
+          location_id: locationId,
+          menu_item_id: item.id,
+          ingredient_id: ingredientId,
+          quantity,
+          unit_of_measure: unit,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipe-row-ingredients", item.id] });
+      queryClient.invalidateQueries({ queryKey: ["recipe-row-costs", item.id] });
+      setIngredientSearch("");
+      setAddingIngredientId("");
+      setAddQty("1");
+      setAddUnit("");
+      toast.success("Ingredient added");
+    },
+    onError: () => toast.error("Failed to add ingredient"),
+  });
+
   const handleSaveQty = (id: string) => {
     const qty = parseFloat(editQty);
     if (isNaN(qty) || qty <= 0) return;
     updateMutation.mutate({ id, quantity: qty });
+  };
+
+  const handleAddIngredient = () => {
+    if (!addingIngredientId) {
+      toast.error("Select an ingredient first");
+      return;
+    }
+    if (existingIngredientIds.has(addingIngredientId)) {
+      toast.error("Ingredient already linked");
+      return;
+    }
+
+    const qty = parseFloat(addQty);
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Quantity must be greater than 0");
+      return;
+    }
+
+    addMutation.mutate({
+      ingredientId: addingIngredientId,
+      quantity: qty,
+      unit: addUnit.trim() || null,
+    });
   };
 
   return (
@@ -169,7 +257,7 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
                   <div key={ing.id} className="space-y-0">
                     <div className="flex items-center gap-1 text-xs py-0.5 group">
                       <span className="truncate flex-1 text-muted-foreground italic">
-                        {ing.ingredient?.clean_name || r365Name} 
+                        {ing.ingredient?.clean_name || r365Name}
                         <span className="text-[10px] ml-1 opacity-60">(sub-recipe)</span>
                       </span>
                       <span className="text-muted-foreground flex-shrink-0">
@@ -268,6 +356,53 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
               );
             })
           )}
+
+          <div className="pt-2 mt-2 border-t border-border/30 space-y-1.5">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Add ingredient</p>
+            <Input
+              value={ingredientSearch}
+              onChange={e => setIngredientSearch(e.target.value)}
+              placeholder="Search ingredients or prep recipes..."
+              className="h-7 text-xs"
+            />
+            <select
+              value={addingIngredientId}
+              onChange={e => setAddingIngredientId(e.target.value)}
+              className="w-full h-7 rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value="">Select ingredient…</option>
+              {filteredIngredientOptions.slice(0, 100).map(option => (
+                <option key={option.id} value={option.id}>
+                  {(option.clean_name || getCleanDisplayName(option.r365_name))}
+                </option>
+              ))}
+            </select>
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                value={addQty}
+                onChange={e => setAddQty(e.target.value)}
+                placeholder="Qty"
+                className="h-7 w-20 text-xs"
+              />
+              <Input
+                value={addUnit}
+                onChange={e => setAddUnit(e.target.value)}
+                placeholder="Unit (optional)"
+                className="h-7 text-xs"
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 px-2 text-xs"
+                disabled={!addingIngredientId || addMutation.isPending}
+                onClick={handleAddIngredient}
+              >
+                <Plus className="h-3 w-3" />
+                Add
+              </Button>
+            </div>
+          </div>
 
           {totalCost > 0 && rawIngredients && rawIngredients.length > 0 && (
             <div className="flex items-center justify-between pt-1 mt-1 border-t border-border/30 text-xs font-semibold">
