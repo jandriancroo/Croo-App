@@ -234,11 +234,39 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     );
   }
 
+  const handleBulkIgnore = async () => {
+    if (!unmatched.length) return;
+    const ids = unmatched.map(i => i.id);
+    if (!confirm(`Ignore all ${ids.length} unmatched ingredients? (Beverages, sub-recipes, etc.)`)) return;
+    try {
+      const { error } = await supabase
+        .from("bom_ingredients")
+        .update({ is_ignored: true })
+        .in("id", ids);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["bom-ingredients", locationId] });
+      toast.success(`${ids.length} ingredients ignored`);
+    } catch {
+      toast.error("Failed to bulk ignore");
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Recipe Ingredient Matching</h3>
         <div className="flex items-center gap-1.5">
+          {unmatched.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[10px] gap-1 text-amber-600 border-amber-300"
+              onClick={handleBulkIgnore}
+            >
+              <EyeOff className="h-3 w-3" />
+              Ignore All ({unmatched.length})
+            </Button>
+          )}
           <Badge variant={unmatched.length > 0 ? "destructive" : "secondary"} className="text-[10px]">
             {unmatched.length} unmatched
           </Badge>
