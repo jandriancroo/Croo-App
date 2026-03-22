@@ -163,8 +163,8 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
                       <span className="text-[10px] ml-1 text-amber-500">(unmatched)</span>
                     )}
                   </span>
-                  {ingCost > 0 && (
-                    <span className="text-[10px] text-emerald-600/70 flex-shrink-0">
+                  {resolved && resolved.length > 0 && (
+                    <span className={cn("text-[10px] flex-shrink-0", ingCost > 0 ? "text-emerald-600/70" : "text-muted-foreground")}>
                       ${ingCost.toFixed(3)}
                     </span>
                   )}
