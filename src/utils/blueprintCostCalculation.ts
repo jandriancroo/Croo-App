@@ -147,8 +147,19 @@ export async function fetchBlueprintCosts(
         const subResult = calculateBatchCost(ing.sub_blueprint_id, new Set(visited));
         if (subResult.missingItems.length > 0) missingItems.push(...subResult.missingItems);
         const subYield = subBp.yield_qty || 1;
+        const subYieldUnit = normalizeIngUnit(subBp.yield_unit);
+        const ingUnit = normalizeIngUnit(ing.unit);
         const costPerYieldUnit = subResult.batchCost / subYield;
-        totalBatchCost += costPerYieldUnit * ing.quantity;
+
+        // Convert ingredient quantity to yield units if they differ
+        if (ingUnit && subYieldUnit && ingUnit !== subYieldUnit
+            && ingUnit !== "ea" && subYieldUnit !== "ea"
+            && TO_OZ[ingUnit] && TO_OZ[subYieldUnit]) {
+          const ingInYieldUnits = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[subYieldUnit];
+          totalBatchCost += costPerYieldUnit * ingInYieldUnits;
+        } else {
+          totalBatchCost += costPerYieldUnit * ing.quantity;
+        }
       } else if (ing.vendor_item_id) {
         // Vendor item: resolve cost from live pricing
         const vendor = vendorMap.get(ing.vendor_item_id);
