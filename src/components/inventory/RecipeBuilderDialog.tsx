@@ -242,9 +242,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     }
   }
 
-  // Populate form when editing
+  // Populate form when editing (inventory_items mode)
   useEffect(() => {
-    if (existingRecipe?.item) {
+    if (existingRecipe?.item && !bomMenuItemId) {
       setRecipeName(existingRecipe.item.name);
       setYieldQty(existingRecipe.item.recipe_yield_qty?.toString() || "");
       setYieldUnit(normalizeUnit(existingRecipe.item.recipe_yield_unit) || "oz");
@@ -257,7 +257,33 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
         unit: normalizeUnit(i.unit) || "oz",
       })));
     }
-  }, [existingRecipe]);
+  }, [existingRecipe, bomMenuItemId]);
+
+  // Populate form when editing BOM recipe
+  useEffect(() => {
+    if (bomRecipe?.menuItem && bomMenuItemId) {
+      const mi = bomRecipe.menuItem;
+      setRecipeName(mi.clean_name || mi.r365_name || "");
+      setYieldQty(mi.recipe_yield_qty?.toString() || "");
+      setYieldUnit(normalizeUnit(mi.recipe_yield_unit) || "oz");
+      setYieldManuallyEdited(!!mi.recipe_yield_qty);
+      setCountable(false); // BOM recipes aren't countable
+      setPanSizesConfig(null);
+      // Map BOM ingredients to inventory_items via bom_ingredients.inventory_item_id
+      const mappedIngs: RecipeIngredient[] = [];
+      for (const bomIng of bomRecipe.ingredients) {
+        const ing = bomIng.ingredient as any;
+        if (ing?.inventory_item_id) {
+          mappedIngs.push({
+            ingredient_item_id: ing.inventory_item_id,
+            quantity: Number(bomIng.quantity),
+            unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
+          });
+        }
+      }
+      setIngredients(mappedIngs);
+    }
+  }, [bomRecipe, bomMenuItemId]);
 
   // Calculate total recipe cost from ingredients
   const recipeCostResult = useMemo(() => {
