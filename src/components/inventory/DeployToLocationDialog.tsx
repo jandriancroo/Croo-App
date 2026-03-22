@@ -96,7 +96,7 @@ interface MatchResult {
   autoCreate: boolean;
 }
 
-type DeployFeature = 'pan_sizes' | 'common_names' | 'categories' | 'storage_locations' | 'shortcuts' | 'usage_rates' | 'product_groups' | 'recipes';
+type DeployFeature = 'pan_sizes' | 'common_names' | 'categories' | 'storage_locations' | 'shortcuts' | 'product_groups' | 'recipes';
 
 const FEATURE_LABELS: Record<DeployFeature, string> = {
   pan_sizes: "Pan Sizes",
@@ -104,7 +104,6 @@ const FEATURE_LABELS: Record<DeployFeature, string> = {
   categories: "Categories",
   storage_locations: "Storage Locations",
   shortcuts: "Shortcuts",
-  usage_rates: "Usage Rates",
   product_groups: "POS Mapping",
   recipes: "Recipes",
 };
@@ -115,13 +114,12 @@ const FEATURE_DESCRIPTIONS: Record<DeployFeature, string> = {
   categories: "Item categories (Produce, Dairy, etc.)",
   storage_locations: "Where items are stored (auto-creates missing)",
   shortcuts: "All shortcuts placed in a 'Shortcuts (Review)' location for you to sort or delete",
-  usage_rates: "Consumption rates per POS mapping",
   product_groups: "POS category & menu item mappings",
   recipes: "Recipe definitions with ingredients & yields",
 };
 
-const DEFAULT_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'usage_rates', 'product_groups', 'recipes'];
-const ALL_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'shortcuts', 'usage_rates', 'product_groups', 'recipes'];
+const DEFAULT_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'product_groups', 'recipes'];
+const ALL_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'shortcuts', 'product_groups', 'recipes'];
 
 /** Parse per-unit weight from pack_size */
 function parsePerUnitWeight(packSize: string | null): number | null {
@@ -464,8 +462,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
           } as any).in("id", recipeIds);
         }
 
-        // Delete usage rates and product groups
-        await supabase.from("inventory_usage_rates").delete().eq("location_id", targetLocationId);
+        // Delete product groups (usage rates removed — recipes are source of truth)
         await supabase.from("inventory_product_groups").delete().eq("location_id", targetLocationId);
 
         // Ensure "Unassigned" storage location exists
@@ -712,33 +709,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
           }
         }
 
-        // Usage rates — deploy ALL mappings (multi-group support)
-        if (selectedFeatures.has('usage_rates')) {
-          const mappings = tmpl.usage_rate_mappings || [];
-          // If we have usage_rate_mappings, use them; otherwise fall back to legacy single rate
-          const ratesToDeploy = mappings.length > 0
-            ? mappings
-            : (tmpl.usage_rate != null && tmpl.product_group_name
-              ? [{ group_name: tmpl.product_group_name, usage_rate: tmpl.usage_rate, rate_unit: tmpl.usage_rate_unit, manual_override: tmpl.usage_rate_manual_override ?? false, pos_categories: null, pos_items: null }]
-              : []);
-
-          for (const rate of ratesToDeploy) {
-            if (!rate.group_name) continue;
-            const groupId = targetGroupMap.get(rate.group_name.toLowerCase());
-            if (groupId && groupId !== '__pending__') {
-              await supabase
-                .from("inventory_usage_rates")
-                .upsert({
-                  inventory_item_id: targetItemId,
-                  location_id: targetLocationId,
-                  product_group_id: groupId,
-                  usage_rate: rate.usage_rate,
-                  rate_unit: rate.rate_unit,
-                  manual_override: rate.manual_override ?? false,
-                } as any, { onConflict: "inventory_item_id,product_group_id" });
-            }
-          }
-        }
+        // Usage rates removed — recipes are now the single source of truth for consumption
 
         deploymentRecords.push({
           template_id: tmpl.id,
