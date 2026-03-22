@@ -1677,13 +1677,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         </DialogContent>
       </Dialog>
 
-      {/* Recipe Builder Dialog */}
-      <RecipeBuilderDialog
-        open={showRecipeDialog}
-        onOpenChange={setShowRecipeDialog}
-        locationId={locationId}
-        editRecipeId={editRecipeId}
-      />
+      {/* Recipe Builder Dialog — moved to RecipeCatalog/PrepRecipesSection */}
 
       {/* Remap Item Dialog */}
       <RemapItemDialog
