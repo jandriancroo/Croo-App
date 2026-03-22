@@ -389,7 +389,7 @@ const Inventory = () => {
 
       {/* Settings Slide-over */}
       <Sheet open={showSettings} onOpenChange={setShowSettings}>
-        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
+        <SheetContent side="right" className="w-full sm:max-w-2xl p-0 overflow-y-auto">
           <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3 flex items-center gap-3">
             <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShowSettings(false)}>
               <ArrowLeft className="h-5 w-5" />
