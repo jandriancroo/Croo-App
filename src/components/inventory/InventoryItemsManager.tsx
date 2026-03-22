@@ -53,7 +53,7 @@ import { SortableInventoryItem, ItemDragOverlay } from "./SortableInventoryItem"
 
 interface InventoryItemsManagerProps {
   locationId: string;
-  mode?: "items" | "setup";
+  mode?: "items" | "setup" | "build";
 }
 
 interface EditingItem {
@@ -82,6 +82,7 @@ interface SyncProgress {
 
 
 const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsManagerProps) => {
+  const isBuildMode = mode === "build";
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { canEditRecipes, canEditProductGroups, canEditUsageRates, canEditCategories, canEditCommonNames, canEditPanBaselines, canTriggerSync } = useInventoryPermissions();
