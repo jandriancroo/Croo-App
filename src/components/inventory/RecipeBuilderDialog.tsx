@@ -36,8 +36,13 @@ interface BuilderIngredient {
 }
 
 interface DrillStackEntry {
-  bomId: string;
+  bomId?: string;
+  blueprintId?: string;
   name: string;
+  savedIngredients: BuilderIngredient[];
+  savedName: string;
+  savedYieldQty: string;
+  savedYieldUnit: string;
 }
 
 /** Combined item for the ingredient search list */
@@ -144,11 +149,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
   const [suggestedPrice, setSuggestedPrice] = useState("");
   const [drillStack, setDrillStack] = useState<DrillStackEntry[]>([]);
   const [activeBomId, setActiveBomId] = useState<string | null>(bomMenuItemId || null);
+  const [drillBlueprintId, setDrillBlueprintId] = useState<string | null>(null);
 
   // Reset activeBomId when bomMenuItemId prop changes
   useEffect(() => {
     setActiveBomId(bomMenuItemId || null);
     setDrillStack([]);
+    setDrillBlueprintId(null);
   }, [bomMenuItemId]);
 
   const isBlueprint = !!editBlueprintId || (!editRecipeId && !bomMenuItemId);
@@ -317,6 +324,55 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     },
     enabled: open && !!bomMenuItemId,
   });
+
+  // Fetch drilled-into blueprint data
+  const { data: drilledBlueprint } = useQuery({
+    queryKey: ["drilled-blueprint-detail", drillBlueprintId],
+    queryFn: async () => {
+      if (!drillBlueprintId) return null;
+      const { data: bp, error: bpErr } = await supabase
+        .from("recipe_blueprints" as any)
+        .select("id, name, category, yield_qty, yield_unit")
+        .eq("id", drillBlueprintId)
+        .single();
+      if (bpErr) throw bpErr;
+
+      const { data: ings, error: ingErr } = await supabase
+        .from("recipe_blueprint_ingredients" as any)
+        .select("id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
+        .eq("blueprint_id", drillBlueprintId);
+      if (ingErr) throw ingErr;
+
+      return { blueprint: bp as any, ingredients: (ings || []) as any[] };
+    },
+    enabled: open && !!drillBlueprintId,
+  });
+
+  // Populate form when drilling into a blueprint sub-recipe
+  useEffect(() => {
+    if (drilledBlueprint?.blueprint && drillBlueprintId) {
+      const bp = drilledBlueprint.blueprint;
+      setRecipeName(bp.name || "");
+      setYieldQty(bp.yield_qty?.toString() || "");
+      setYieldUnit(normalizeUnit(bp.yield_unit) || "oz");
+      setYieldManuallyEdited(true);
+      setIngredients(drilledBlueprint.ingredients.map((i: any) => {
+        const isBp = i.ingredient_type === "blueprint";
+        const refId = isBp ? i.sub_blueprint_id : i.vendor_item_id;
+        const name = isBp
+          ? otherBlueprints?.find((b: any) => b.id === refId)?.name
+          : vendorItems?.find((v: any) => v.id === refId)?.name;
+        return {
+          type: isBp ? "blueprint" as const : "vendor_item" as const,
+          ref_id: refId || i.id,
+          quantity: Number(i.quantity),
+          unit: normalizeUnit(i.unit) || "oz",
+          displayName: name || undefined,
+          unmapped: !refId,
+        };
+      }));
+    }
+  }, [drilledBlueprint, drillBlueprintId]);
 
   // ========== AUTO-YIELD CALCULATION ==========
 
@@ -781,6 +837,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     setSuggestedPrice("");
     setDrillStack([]);
     setActiveBomId(bomMenuItemId || null);
+    setDrillBlueprintId(null);
   };
 
   const addIngredient = () => {
@@ -822,26 +879,50 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       .filter(i => !search || i.name.toLowerCase().includes(search));
   }, [searchableItems, ingredientSearch, ingredients]);
 
-  // Drill into a sub-recipe
-  const drillIntoSubRecipe = (subRecipeId: string) => {
-    if (!activeBomId) return;
-    setDrillStack(prev => [...prev, { bomId: activeBomId, name: recipeName }]);
-    setActiveBomId(subRecipeId);
+  // Drill into a sub-recipe (BOM or blueprint)
+  const drillIntoSubRecipe = (subRecipeId: string, drillType: "bom" | "blueprint" = "bom") => {
+    // Save current state to stack
+    const entry: DrillStackEntry = {
+      bomId: drillType === "bom" ? activeBomId || undefined : undefined,
+      blueprintId: drillType === "blueprint" ? editBlueprintId || drillBlueprintId || undefined : undefined,
+      name: recipeName,
+      savedIngredients: [...ingredients],
+      savedName: recipeName,
+      savedYieldQty: yieldQty,
+      savedYieldUnit: yieldUnit,
+    };
+    setDrillStack(prev => [...prev, entry]);
+    if (drillType === "bom") {
+      setActiveBomId(subRecipeId);
+      setDrillBlueprintId(null);
+    } else {
+      setDrillBlueprintId(subRecipeId);
+      setActiveBomId(null);
+    }
   };
 
   // Navigate back up the drill stack
   const drillBack = (index?: number) => {
     if (drillStack.length === 0) return;
     if (index !== undefined) {
-      // Go back to a specific breadcrumb level
       const entry = drillStack[index];
       setDrillStack(prev => prev.slice(0, index));
-      setActiveBomId(entry.bomId);
+      // Restore state
+      setIngredients(entry.savedIngredients);
+      setRecipeName(entry.savedName);
+      setYieldQty(entry.savedYieldQty);
+      setYieldUnit(entry.savedYieldUnit);
+      setActiveBomId(entry.bomId || null);
+      setDrillBlueprintId(entry.blueprintId || null);
     } else {
-      // Go back one level
       const prev = drillStack[drillStack.length - 1];
       setDrillStack(s => s.slice(0, -1));
-      setActiveBomId(prev.bomId);
+      setIngredients(prev.savedIngredients);
+      setRecipeName(prev.savedName);
+      setYieldQty(prev.savedYieldQty);
+      setYieldUnit(prev.savedYieldUnit);
+      setActiveBomId(prev.bomId || null);
+      setDrillBlueprintId(prev.blueprintId || null);
     }
   };
 
@@ -981,18 +1062,36 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                             type="button"
                             className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
                             title="Drill into sub-recipe"
-                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!)}
+                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")}
                           >
                             <FlaskConical className="h-3 w-3 text-primary" />
                           </button>
                         )}
-                        {!ing.bomSubRecipeId && ing.type === "blueprint" && <FlaskConical className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
-                        {ing.unmapped && !ing.bomSubRecipeId && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                        {!ing.bomSubRecipeId && ing.type === "blueprint" && (
+                          <button
+                            type="button"
+                            className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
+                            title="Drill into sub-recipe"
+                            onClick={() => drillIntoSubRecipe(ing.ref_id, "blueprint")}
+                          >
+                            <FlaskConical className="h-3 w-3 text-primary" />
+                          </button>
+                        )}
+                        {ing.unmapped && !ing.bomSubRecipeId && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                         {ing.bomSubRecipeId ? (
                           <button
                             type="button"
                             className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
-                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!)}
+                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")}
+                          >
+                            {displayName}
+                            <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
+                          </button>
+                        ) : ing.type === "blueprint" ? (
+                          <button
+                            type="button"
+                            className="font-medium truncate text-left text-primary hover:underline"
+                            onClick={() => drillIntoSubRecipe(ing.ref_id, "blueprint")}
                           >
                             {displayName}
                             <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
