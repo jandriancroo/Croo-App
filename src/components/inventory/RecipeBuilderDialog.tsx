@@ -528,7 +528,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
   const { data: blueprintCostsMap } = useQuery({
     queryKey: ["blueprint-costs", locationId],
     queryFn: () => fetchBlueprintCosts(locationId),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     enabled: open && blueprintIngIds.length > 0,
   });
 
