@@ -391,6 +391,7 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="build" className="mt-4 space-y-4">
+            <RecipeCatalog locationId={locationId!} />
             {isBrandLevel && (
               <BOMIngredientMatcher locationId={locationId!} />
             )}
