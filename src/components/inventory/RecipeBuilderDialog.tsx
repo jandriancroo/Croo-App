@@ -717,7 +717,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           {ingredients.length > 0 && (
             <div className="border rounded-md p-3 bg-muted/30 space-y-2">
               <p className="text-xs font-medium">Recipe Cost</p>
-               {recipeCost !== null ? (
+               {recipeCost !== null && recipeCost > 0 ? (
                 <>
                   <p className="text-sm font-mono">
                     {costPerYieldUnit !== null && costPerYieldUnit !== recipeCost ? (
@@ -729,6 +729,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                   {costPerYieldUnit !== null && costPerYieldUnit !== recipeCost && (
                     <p className="text-xs text-muted-foreground font-mono">
                       = ${costPerYieldUnit.toFixed(4)}/{yieldUnit}
+                    </p>
+                  )}
+                  {recipeCostResult && !recipeCostResult.allHaveCost && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 italic">
+                      ⚠ Partial — {recipeCostResult.missingItems.length} ingredient{recipeCostResult.missingItems.length > 1 ? 's' : ''} missing cost data
                     </p>
                   )}
 
@@ -767,7 +772,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground italic">
-                  Some ingredients not found in inventory
+                  No ingredient cost data available
                 </p>
               )}
             </div>
