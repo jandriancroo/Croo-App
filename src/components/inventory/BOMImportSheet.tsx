@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, FileText, Plus, RefreshCw, Trash2, CheckCircle2, AlertTriangle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Upload, FileText, Plus, RefreshCw, Trash2, CheckCircle2, Loader2, ChevronDown, ChevronRight, Link2, Zap } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -159,6 +159,15 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
     }
   }, [locationId, queryClient]);
 
+  const [applyResults, setApplyResults] = useState<{
+    applied: number;
+    bridged: number;
+    autoMatched: number;
+    autoMatchTotal: number;
+    usageRatesCreated: number;
+    matchResults: { ingredientName: string; matchedTo: string; score: number }[];
+  } | null>(null);
+
   const applyMutation = useMutation({
     mutationFn: async (batchId: string) => {
       const { data: session } = await supabase.auth.getSession();
@@ -179,11 +188,17 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
       return result;
     },
     onSuccess: (data) => {
-      const bridgedMsg = data.bridged ? ` · ${data.bridged} recipes synced to builder` : '';
-      toast.success(`Applied ${data.applied} changes to BOM${bridgedMsg}`);
+      const parts = [`Applied ${data.applied} changes to BOM`];
+      if (data.bridged) parts.push(`${data.bridged} recipes synced`);
+      if (data.autoMatched) parts.push(`${data.autoMatched}/${data.autoMatchTotal} ingredients auto-matched`);
+      if (data.usageRatesCreated) parts.push(`${data.usageRatesCreated} usage rate mappings created`);
+      toast.success(parts.join(' · '));
+      setApplyResults(data);
       queryClient.invalidateQueries({ queryKey: ["bom-import-batches", locationId] });
       queryClient.invalidateQueries({ queryKey: ["bom-import-items", selectedBatchId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["bom-ingredients", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-usage-rates", locationId] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to apply changes");
@@ -356,10 +371,67 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
                     />
                   )}
 
-                  {diffItems?.length === 0 && (
+                  {diffItems?.length === 0 && !applyResults && (
                     <div className="text-center py-8">
                       <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground">No changes detected — BOM is up to date</p>
+                    </div>
+                  )}
+
+                  {/* Apply Results Summary */}
+                  {applyResults && (
+                    <div className="space-y-3 border border-primary/20 bg-primary/5 rounded-lg p-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
+                        <span className="font-medium text-sm">Import Complete</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">BOM Changes</span>
+                          <span className="font-mono">{applyResults.applied}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Recipes Synced</span>
+                          <span className="font-mono">{applyResults.bridged}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Auto-Matched</span>
+                          <span className="font-mono">
+                            {applyResults.autoMatched}/{applyResults.autoMatchTotal}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Usage Rates</span>
+                          <span className="font-mono">{applyResults.usageRatesCreated}</span>
+                        </div>
+                      </div>
+
+                      {applyResults.autoMatched > 0 && applyResults.matchResults.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">Top Auto-Matches (review in Matching tab)</p>
+                          <div className="max-h-32 overflow-y-auto space-y-0.5">
+                            {applyResults.matchResults.map((m, i) => (
+                              <div key={i} className="flex items-center gap-2 text-xs bg-background/50 rounded px-2 py-1">
+                                <Link2 className="h-3 w-3 text-primary shrink-0" />
+                                <span className="truncate">{m.ingredientName}</span>
+                                <span className="text-muted-foreground">→</span>
+                                <span className="truncate font-medium">{m.matchedTo}</span>
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 ml-auto shrink-0">
+                                  {m.score}%
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {applyResults.autoMatchTotal - applyResults.autoMatched > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          <Zap className="h-3 w-3 inline mr-1" />
+                          {applyResults.autoMatchTotal - applyResults.autoMatched} ingredients still need manual matching
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
