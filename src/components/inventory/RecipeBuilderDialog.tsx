@@ -418,7 +418,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       const mappedIngs: BuilderIngredient[] = [];
       for (const bomIng of bomRecipe.ingredients) {
         const ing = bomIng.ingredient as any;
-        const ingName = ing?.clean_name || ing?.r365_name || "Unknown ingredient";
+        const ingName = ing?.clean_name || ing?.r365_name || "(unnamed ingredient)";
 
         // Check if this ingredient matches another bom_menu_items entry (sub-recipe)
         let subRecipeId: string | undefined;
@@ -559,9 +559,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
             bomIngredientId = existing.id;
           } else {
             const item = vendorItems?.find(i => i.id === ing.ref_id);
+            const itemName = item?.name || ing.displayName || `Ingredient (${ing.ref_id.slice(0, 8)})`;
             const { data: newBomIng, error: createErr } = await supabase
               .from("bom_ingredients")
-              .insert({ location_id: locationId, r365_name: item?.name || "Unknown", clean_name: item?.name || "Unknown", inventory_item_id: ing.ref_id, is_ignored: false })
+              .insert({ location_id: locationId, r365_name: itemName, clean_name: itemName, inventory_item_id: ing.ref_id, is_ignored: false })
               .select("id").single();
             if (createErr || !newBomIng) throw createErr || new Error("Failed to create ingredient link");
             bomIngredientId = newBomIng.id;
@@ -809,9 +810,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
   const getItemName = (ing: BuilderIngredient) => {
     if (ing.type === "blueprint") {
-      return otherBlueprints?.find(b => b.id === ing.ref_id)?.name || ing.displayName || "Unknown Blueprint";
+      return otherBlueprints?.find(b => b.id === ing.ref_id)?.name || ing.displayName || "(unnamed blueprint)";
     }
-    return vendorItems?.find(i => i.id === ing.ref_id)?.name || ing.displayName || "Unknown";
+    return vendorItems?.find(i => i.id === ing.ref_id)?.name || ing.displayName || "(unnamed item)";
   };
 
   const filteredItems = useMemo(() => {

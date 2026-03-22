@@ -508,7 +508,7 @@ function DiffSection({
 
   // Group recipe links by parent menu item
   const menuItemGroups = recipeLinks.reduce((acc, item) => {
-    const parent = item.parent_r365_name || "Unknown";
+    const parent = item.parent_r365_name || "(no parent)";
     if (!acc[parent]) acc[parent] = [];
     acc[parent].push(item);
     return acc;
