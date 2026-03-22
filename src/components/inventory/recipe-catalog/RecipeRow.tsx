@@ -124,7 +124,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
                 displayIngName = resolved[0].vendor_item_name || ing.ingredient?.clean_name || r365Name;
                 ingCost = resolved.reduce((sum, r) => sum + (r.total_cost || 0), 0);
               } else {
-                displayIngName = ing.ingredient?.clean_name || r365Name || "Unknown";
+                displayIngName = ing.ingredient?.clean_name || r365Name || "(unnamed ingredient)";
               }
 
               if (isSubRecipe && resolved && resolved.length > 1) {
