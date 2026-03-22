@@ -554,6 +554,8 @@ export type Database = {
           location_id: string | null
           qubeyond_item_id: string | null
           r365_name: string
+          recipe_yield_qty: number | null
+          recipe_yield_unit: string | null
           updated_at: string | null
         }
         Insert: {
@@ -565,6 +567,8 @@ export type Database = {
           location_id?: string | null
           qubeyond_item_id?: string | null
           r365_name: string
+          recipe_yield_qty?: number | null
+          recipe_yield_unit?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -576,6 +580,8 @@ export type Database = {
           location_id?: string | null
           qubeyond_item_id?: string | null
           r365_name?: string
+          recipe_yield_qty?: number | null
+          recipe_yield_unit?: string | null
           updated_at?: string | null
         }
         Relationships: [
