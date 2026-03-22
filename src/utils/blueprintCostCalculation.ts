@@ -1,5 +1,30 @@
 import { supabase } from "@/integrations/supabase/client";
 
+const TO_OZ: Record<string, number> = {
+  oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
+};
+
+const UNIT_ALIASES: Record<string, string> = {
+  "oz-wt": "oz", "oz-fl": "oz", "fl-oz": "oz",
+  "gram": "g", "grams": "g", "each": "ea", "count": "ea",
+  "case": "cs", "cases": "cs", "can": "cn", "cans": "cn",
+  "quart": "qt", "gallon": "gal", "gallons": "gal",
+  "lbs": "lb", "pound": "lb", "pounds": "lb",
+};
+
+function normalizeIngUnit(unit: string | null | undefined): string {
+  if (!unit) return "";
+  const cleaned = unit.trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
+  if (UNIT_ALIASES[cleaned]) return UNIT_ALIASES[cleaned];
+  if (cleaned.startsWith("case")) return "cs";
+  if (cleaned.startsWith("pack")) return "cs";
+  if (cleaned.includes("oz")) return "oz";
+  if (cleaned.includes("gram")) return "g";
+  if (cleaned.includes("gallon")) return "gal";
+  if (cleaned.includes("lb") || cleaned.includes("pound")) return "lb";
+  return cleaned;
+}
+
 interface BlueprintInfo {
   id: string;
   yield_qty: number | null;
