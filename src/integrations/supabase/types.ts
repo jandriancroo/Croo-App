@@ -7550,6 +7550,24 @@ export type Database = {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
       }
+      calculate_theoretical_usage: {
+        Args: {
+          p_end_date: string
+          p_location_id: string
+          p_start_date: string
+        }
+        Returns: {
+          ingredient_name: string
+          pos_mapping_name: string
+          resolution_path: string
+          total_cost: number
+          total_quantity: number
+          unit_of_measure: string
+          units_sold: number
+          vendor_item_id: string
+          vendor_item_name: string
+        }[]
+      }
       can_manage_org_applications: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
