@@ -427,11 +427,6 @@ const Inventory = () => {
                 Recipe Import Pipeline
               </Button>
             )}
-            {isBrandLevel && (
-              <div className="border-t border-border pt-3">
-                <BOMIngredientMatcher locationId={locationId!} />
-              </div>
-            )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
           </div>
         </SheetContent>
