@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, RefreshCw } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
@@ -30,6 +30,8 @@ interface BuilderIngredient {
   ref_id: string; // inventory_items.id or recipe_blueprints.id
   quantity: number;
   unit: string;
+  displayName?: string; // fallback name from BOM/R365 data
+  unmapped?: boolean; // BOM ingredient not yet linked to a vendor item
 }
 
 /** Combined item for the ingredient search list */
@@ -343,12 +345,18 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       setYieldManuallyEdited(true);
       setCountable(!!existingBlueprint.producedItem);
       setPanSizesConfig(existingBlueprint.producedItem?.pan_sizes || null);
-      setIngredients(existingBlueprint.ingredients.map((i: any) => ({
-        type: i.ingredient_type === "blueprint" ? "blueprint" : "vendor_item",
-        ref_id: i.ingredient_type === "blueprint" ? i.sub_blueprint_id : i.vendor_item_id,
-        quantity: Number(i.quantity),
-        unit: normalizeUnit(i.unit) || "oz",
-      })));
+      setIngredients(existingBlueprint.ingredients.map((i: any) => {
+        const isBlueprint = i.ingredient_type === "blueprint";
+        const refId = isBlueprint ? i.sub_blueprint_id : i.vendor_item_id;
+        const bpName = isBlueprint ? otherBlueprints?.find((b: any) => b.id === refId)?.name : vendorItems?.find((v: any) => v.id === refId)?.name;
+        return {
+          type: isBlueprint ? "blueprint" as const : "vendor_item" as const,
+          ref_id: refId,
+          quantity: Number(i.quantity),
+          unit: normalizeUnit(i.unit) || "oz",
+          displayName: bpName || undefined,
+        };
+      }));
     }
   }, [existingBlueprint]);
 
@@ -383,12 +391,24 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       const mappedIngs: BuilderIngredient[] = [];
       for (const bomIng of bomRecipe.ingredients) {
         const ing = bomIng.ingredient as any;
+        const ingName = ing?.clean_name || ing?.r365_name || "Unknown ingredient";
         if (ing?.inventory_item_id) {
           mappedIngs.push({
             type: "vendor_item",
             ref_id: ing.inventory_item_id,
             quantity: Number(bomIng.quantity),
             unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
+            displayName: ingName,
+          });
+        } else {
+          // Include unmapped BOM ingredients so user can see them
+          mappedIngs.push({
+            type: "vendor_item",
+            ref_id: ing?.id || bomIng.id,
+            quantity: Number(bomIng.quantity),
+            unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
+            displayName: ingName,
+            unmapped: true,
           });
         }
       }
@@ -489,7 +509,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
         await supabase.from("bom_recipe_ingredients").delete().eq("menu_item_id", bomMenuItemId);
 
         for (const ing of ingredients) {
-          if (ing.type !== "vendor_item") continue;
+          if (ing.type !== "vendor_item" || ing.unmapped) continue;
           const { data: existing } = await supabase
             .from("bom_ingredients").select("id")
             .eq("location_id", locationId).eq("inventory_item_id", ing.ref_id)
@@ -748,9 +768,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
   const getItemName = (ing: BuilderIngredient) => {
     if (ing.type === "blueprint") {
-      return otherBlueprints?.find(b => b.id === ing.ref_id)?.name || "Unknown Blueprint";
+      return otherBlueprints?.find(b => b.id === ing.ref_id)?.name || ing.displayName || "Unknown Blueprint";
     }
-    return vendorItems?.find(i => i.id === ing.ref_id)?.name || "Unknown";
+    return vendorItems?.find(i => i.id === ing.ref_id)?.name || ing.displayName || "Unknown";
   };
 
   const filteredItems = useMemo(() => {
@@ -867,16 +887,20 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                   }
 
                   return (
-                    <div key={ing.ref_id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm">
-                      <div className="flex items-center gap-2">
+                    <div key={ing.ref_id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
+                      <div className="flex items-center gap-2 min-w-0">
                         {ing.type === "blueprint" && <FlaskConical className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
-                        <span className="font-medium">{displayName}</span>
-                        <span className="text-muted-foreground font-mono text-xs">
+                        {ing.unmapped && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                        <span className={`font-medium truncate ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}>
+                          {displayName}
+                          {ing.unmapped && <span className="text-[10px] ml-1 font-normal opacity-70">(needs mapping)</span>}
+                        </span>
+                        <span className="text-muted-foreground font-mono text-xs flex-shrink-0">
                           {ing.quantity} {ing.unit}
                           {ingCost !== null && <span className="ml-1">· ${ingCost.toFixed(2)}</span>}
                         </span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
                         onClick={() => removeIngredient(ing.ref_id)}>
                         <X className="h-3 w-3" />
                       </Button>
