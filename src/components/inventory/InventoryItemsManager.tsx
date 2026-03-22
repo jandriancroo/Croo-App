@@ -126,6 +126,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
   const [isPlacingMode, setIsPlacingMode] = useState(false);
   const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
+  const [recipePurgeMode, setRecipePurgeMode] = useState(false);
+  const [recipePurgeSelection, setRecipePurgeSelection] = useState<Set<string>>(new Set());
+  const [isPurging, setIsPurging] = useState(false);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
