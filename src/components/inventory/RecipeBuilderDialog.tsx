@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
@@ -32,6 +32,12 @@ interface BuilderIngredient {
   unit: string;
   displayName?: string; // fallback name from BOM/R365 data
   unmapped?: boolean; // BOM ingredient not yet linked to a vendor item
+  bomSubRecipeId?: string; // if this ingredient is a sub-recipe, its bom_menu_items.id
+}
+
+interface DrillStackEntry {
+  bomId: string;
+  name: string;
 }
 
 /** Combined item for the ingredient search list */
