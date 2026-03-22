@@ -1141,15 +1141,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                             {displayName}
                             <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
                           </button>
-                        ) : ing.type === "blueprint" ? (
-                          <button
-                            type="button"
-                            className="font-medium truncate text-left text-primary hover:underline"
-                            onClick={() => drillIntoSubRecipe(ing.ref_id, "blueprint")}
-                          >
-                            {displayName}
-                            <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
-                          </button>
                         ) : (
                           <span className={`font-medium truncate ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}>
                             {displayName}
