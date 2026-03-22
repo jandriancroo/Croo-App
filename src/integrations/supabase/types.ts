@@ -3069,6 +3069,7 @@ export type Database = {
       }
       inventory_product_groups: {
         Row: {
+          bom_menu_item_id: string | null
           created_at: string
           description: string | null
           display_order: number | null
@@ -3081,6 +3082,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bom_menu_item_id?: string | null
           created_at?: string
           description?: string | null
           display_order?: number | null
@@ -3093,6 +3095,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bom_menu_item_id?: string | null
           created_at?: string
           description?: string | null
           display_order?: number | null
@@ -3105,6 +3108,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_product_groups_bom_menu_item_id_fkey"
+            columns: ["bom_menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "bom_menu_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inventory_product_groups_location_id_fkey"
             columns: ["location_id"]
