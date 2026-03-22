@@ -25,7 +25,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bom_recipe_ingredients")
-        .select("id, menu_item_id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id)")
+        .select("id, menu_item_id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id, is_prep_item)")
         .eq("menu_item_id", item.id)
         .order("quantity", { ascending: false });
       if (error) throw error;
