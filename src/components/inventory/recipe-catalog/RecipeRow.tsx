@@ -82,7 +82,10 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
           </Button>
         )}
         {tagLabel && (
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0 flex-shrink-0 uppercase tracking-wider">
+          <Badge variant="outline" className={cn(
+            "text-[9px] px-1.5 py-0 flex-shrink-0 uppercase tracking-wider",
+            tagLabel === "R365" && "bg-blue-500/10 text-blue-600 border-blue-500/30"
+          )}>
             {tagLabel}
           </Badge>
         )}
@@ -92,6 +95,9 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
             {totalCost.toFixed(2)}
             {hasUncosted && <AlertCircle className="h-3 w-3 text-amber-500 ml-0.5" />}
           </span>
+        )}
+        {!isExpanded && totalCost > 0 && (
+          <span className="text-[10px] text-emerald-600/70 flex-shrink-0">${totalCost.toFixed(2)}</span>
         )}
         {item.recipe_yield_qty && item.recipe_yield_unit && (
           <span className="text-xs text-muted-foreground flex-shrink-0">
