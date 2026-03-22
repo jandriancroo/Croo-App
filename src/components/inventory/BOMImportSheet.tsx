@@ -159,6 +159,15 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
     }
   }, [locationId, queryClient]);
 
+  const [applyResults, setApplyResults] = useState<{
+    applied: number;
+    bridged: number;
+    autoMatched: number;
+    autoMatchTotal: number;
+    usageRatesCreated: number;
+    matchResults: { ingredientName: string; matchedTo: string; score: number }[];
+  } | null>(null);
+
   const applyMutation = useMutation({
     mutationFn: async (batchId: string) => {
       const { data: session } = await supabase.auth.getSession();
@@ -179,11 +188,17 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
       return result;
     },
     onSuccess: (data) => {
-      const bridgedMsg = data.bridged ? ` · ${data.bridged} recipes synced to builder` : '';
-      toast.success(`Applied ${data.applied} changes to BOM${bridgedMsg}`);
+      const parts = [`Applied ${data.applied} changes to BOM`];
+      if (data.bridged) parts.push(`${data.bridged} recipes synced`);
+      if (data.autoMatched) parts.push(`${data.autoMatched}/${data.autoMatchTotal} ingredients auto-matched`);
+      if (data.usageRatesCreated) parts.push(`${data.usageRatesCreated} usage rate mappings created`);
+      toast.success(parts.join(' · '));
+      setApplyResults(data);
       queryClient.invalidateQueries({ queryKey: ["bom-import-batches", locationId] });
       queryClient.invalidateQueries({ queryKey: ["bom-import-items", selectedBatchId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["bom-ingredients", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-usage-rates", locationId] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to apply changes");
