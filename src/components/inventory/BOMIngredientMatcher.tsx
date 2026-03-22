@@ -93,17 +93,34 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     return m;
   }, [items]);
 
-  const { unmatched, matched } = useMemo(() => {
-    if (!ingredients) return { unmatched: [], matched: [] };
+  const { unmatched, matched, groupedUnmatched } = useMemo(() => {
+    if (!ingredients) return { unmatched: [], matched: [], groupedUnmatched: new Map<string, BOMIngredient[]>() };
     const filtered = globalFilter
       ? ingredients.filter(i =>
           (i.clean_name || i.r365_name).toLowerCase().includes(globalFilter.toLowerCase())
         )
       : ingredients;
-    return {
-      unmatched: filtered.filter(i => !i.inventory_item_id),
-      matched: filtered.filter(i => i.inventory_item_id),
-    };
+    const um = filtered.filter(i => !i.inventory_item_id);
+    const m = filtered.filter(i => i.inventory_item_id);
+    
+    // Group unmatched by category
+    const grouped = new Map<string, BOMIngredient[]>();
+    um.forEach(ing => {
+      const cat = ing.category || "OTHER";
+      if (!grouped.has(cat)) grouped.set(cat, []);
+      grouped.get(cat)!.push(ing);
+    });
+    // Sort by CATEGORY_ORDER
+    const sorted = new Map<string, BOMIngredient[]>();
+    CATEGORY_ORDER.forEach(cat => {
+      if (grouped.has(cat)) sorted.set(cat, grouped.get(cat)!);
+    });
+    // Any remaining categories not in order
+    grouped.forEach((v, k) => {
+      if (!sorted.has(k)) sorted.set(k, v);
+    });
+    
+    return { unmatched: um, matched: m, groupedUnmatched: sorted };
   }, [ingredients, globalFilter]);
 
   const getSuggestions = (ingredient: BOMIngredient): (InventoryItem & { score: number })[] => {
