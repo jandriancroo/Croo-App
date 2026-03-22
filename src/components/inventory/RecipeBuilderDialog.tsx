@@ -18,6 +18,7 @@ interface RecipeBuilderDialogProps {
   onOpenChange: (open: boolean) => void;
   locationId: string;
   editRecipeId?: string | null;
+  bomMenuItemId?: string | null;
 }
 
 interface RecipeIngredient {
