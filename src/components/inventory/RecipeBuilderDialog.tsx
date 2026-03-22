@@ -81,9 +81,13 @@ const normalizeUnit = (unit: string | null | undefined): string => {
   if (!unit) return "";
   const cleaned = unit.trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
   if (UNIT_ALIASES[cleaned]) return UNIT_ALIASES[cleaned];
+  if (cleaned.startsWith("case")) return "cs";
+  if (cleaned.startsWith("pack")) return "cs";
   if (cleaned.includes("ml")) return "ml";
   if (cleaned.includes("oz")) return "oz";
   if (cleaned.includes("gram")) return "g";
+  if (cleaned.includes("gallon")) return "gal";
+  if (cleaned.includes("lb") || cleaned.includes("pound")) return "lb";
   return cleaned;
 };
 
