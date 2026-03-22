@@ -867,8 +867,27 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
               </Badge>
             )}
           </DialogTitle>
-          {bomMenuItemId && (
+          {bomMenuItemId && !isDrilledDown && (
             <p className="text-xs text-muted-foreground">Editing BOM recipe. Changes save to the recipe catalog.</p>
+          )}
+          {/* Breadcrumb navigation for drilled-down sub-recipes */}
+          {isDrilledDown && (
+            <div className="flex items-center gap-1 flex-wrap text-xs mt-1">
+              {drillStack.map((entry, i) => (
+                <span key={entry.bomId} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="text-primary hover:underline font-medium"
+                    onClick={() => drillBack(i)}
+                  >
+                    {entry.name}
+                  </button>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                </span>
+              ))}
+              <span className="font-semibold text-foreground">{recipeName}</span>
+              <span className="text-muted-foreground ml-1">(read-only view)</span>
+            </div>
           )}
         </DialogHeader>
 
