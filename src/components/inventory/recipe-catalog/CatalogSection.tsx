@@ -8,9 +8,10 @@ interface CatalogSectionProps {
   section: CatalogSectionType;
   defaultOpen?: boolean;
   locationId: string;
+  onEditRecipe?: (bomMenuItemId: string) => void;
 }
 
-const CatalogSectionComponent = ({ section, defaultOpen = false, locationId }: CatalogSectionProps) => {
+const CatalogSectionComponent = ({ section, defaultOpen = false, locationId, onEditRecipe }: CatalogSectionProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const itemCount = section.bases.length + section.cores.length + section.menuItems.length;
 
@@ -39,7 +40,7 @@ const CatalogSectionComponent = ({ section, defaultOpen = false, locationId }: C
             <div className="mb-1">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Base</p>
               {section.bases.map(item => (
-                <RecipeRow key={item.id} item={item} tagLabel="base" locationId={locationId} />
+                <RecipeRow key={item.id} item={item} tagLabel="base" locationId={locationId} onEditRecipe={onEditRecipe} />
               ))}
             </div>
           )}
@@ -48,7 +49,7 @@ const CatalogSectionComponent = ({ section, defaultOpen = false, locationId }: C
             <div className="mb-1">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Core Recipes</p>
               {section.cores.map(item => (
-                <RecipeRow key={item.id} item={item} tagLabel="core" locationId={locationId} />
+                <RecipeRow key={item.id} item={item} tagLabel="core" locationId={locationId} onEditRecipe={onEditRecipe} />
               ))}
             </div>
           )}
@@ -57,7 +58,7 @@ const CatalogSectionComponent = ({ section, defaultOpen = false, locationId }: C
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Menu Items</p>
               {section.menuItems.map(item => (
-                <RecipeRow key={item.id} item={item} tagLabel="mi" locationId={locationId} />
+                <RecipeRow key={item.id} item={item} tagLabel="mi" locationId={locationId} onEditRecipe={onEditRecipe} />
               ))}
             </div>
           )}

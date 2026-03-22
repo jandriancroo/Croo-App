@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,12 +8,16 @@ import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
 import PrepRecipesSection from "./recipe-catalog/PrepRecipesSection";
+import RecipeBuilderDialog from "./RecipeBuilderDialog";
 
 interface RecipeCatalogProps {
   locationId: string;
 }
 
 const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
+  const [editBomId, setEditBomId] = useState<string | null>(null);
+  const [showBomDialog, setShowBomDialog] = useState(false);
+
   const { data: menuItems } = useQuery({
     queryKey: ["recipe-catalog-items", locationId],
     queryFn: async () => {
@@ -26,6 +30,11 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
       return data as MenuItem[];
     },
   });
+
+  const handleEditBomRecipe = (bomMenuItemId: string) => {
+    setEditBomId(bomMenuItemId);
+    setShowBomDialog(true);
+  };
 
   const sections = useMemo(() => {
     if (!menuItems) return [];
@@ -112,31 +121,44 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
   }
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-          <Layers className="h-4 w-4" />
-          <h3 className="font-semibold text-sm">Recipe Catalog</h3>
-          <Badge variant="secondary" className="ml-auto text-xs">
-            {menuItems.length} recipes
-          </Badge>
-        </div>
+    <>
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+            <Layers className="h-4 w-4" />
+            <h3 className="font-semibold text-sm">Recipe Catalog</h3>
+            <Badge variant="secondary" className="ml-auto text-xs">
+              {menuItems.length} recipes
+            </Badge>
+          </div>
 
-        <div className="divide-y divide-border">
-          {sections.map((section, i) => (
-            <CatalogSectionComponent
-              key={section.key}
-              section={section}
-              defaultOpen={i === 0}
-              locationId={locationId}
-            />
-          ))}
+          <div className="divide-y divide-border">
+            {sections.map((section, i) => (
+              <CatalogSectionComponent
+                key={section.key}
+                section={section}
+                defaultOpen={i === 0}
+                locationId={locationId}
+                onEditRecipe={handleEditBomRecipe}
+              />
+            ))}
 
-          {/* Prep Recipes — house-made intermediate items */}
-          <PrepRecipesSection locationId={locationId} />
-        </div>
-      </CardContent>
-    </Card>
+            {/* Prep Recipes — house-made intermediate items */}
+            <PrepRecipesSection locationId={locationId} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <RecipeBuilderDialog
+        open={showBomDialog}
+        onOpenChange={(open) => {
+          setShowBomDialog(open);
+          if (!open) setEditBomId(null);
+        }}
+        locationId={locationId}
+        bomMenuItemId={editBomId}
+      />
+    </>
   );
 };
 

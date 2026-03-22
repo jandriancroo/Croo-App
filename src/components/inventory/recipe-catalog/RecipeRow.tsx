@@ -14,6 +14,7 @@ interface RecipeRowProps {
   item: MenuItem;
   tagLabel?: string;
   locationId: string;
+  onEditRecipe?: (bomMenuItemId: string) => void;
 }
 
 interface IngredientOption {
@@ -22,7 +23,7 @@ interface IngredientOption {
   clean_name: string | null;
 }
 
-const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
+const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
@@ -199,7 +200,7 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
     <div className="border-b border-border/40 last:border-0">
       <button
         type="button"
-        className="w-full flex items-center gap-2 py-2 px-2 text-sm hover:bg-muted/50 transition-colors text-left"
+        className="w-full flex items-center gap-2 py-2 px-2 text-sm hover:bg-muted/50 transition-colors text-left group"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         {isExpanded ? (
@@ -208,6 +209,16 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
         )}
         <span className="truncate flex-1 font-medium">{displayName}</span>
+        {onEditRecipe && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => { e.stopPropagation(); onEditRecipe(item.id); }}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        )}
         {tagLabel && (
           <Badge variant="outline" className="text-[9px] px-1.5 py-0 flex-shrink-0 uppercase tracking-wider">
             {tagLabel}

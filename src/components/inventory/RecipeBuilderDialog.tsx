@@ -18,6 +18,7 @@ interface RecipeBuilderDialogProps {
   onOpenChange: (open: boolean) => void;
   locationId: string;
   editRecipeId?: string | null;
+  bomMenuItemId?: string | null;
 }
 
 interface RecipeIngredient {
@@ -122,7 +123,7 @@ const convertYield = (qty: number, fromUnit: string, toUnit: string): number => 
   return (qty * fromFactor) / toFactor;
 };
 
-const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: RecipeBuilderDialogProps) => {
+const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bomMenuItemId }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
   const [yieldQty, setYieldQty] = useState("");
@@ -161,7 +162,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     enabled: open,
   });
 
-  // Fetch existing recipe data if editing
+  // Fetch existing recipe data if editing (inventory_items mode)
   const { data: existingRecipe } = useQuery({
     queryKey: ["recipe-detail", editRecipeId],
     queryFn: async () => {
@@ -179,7 +180,28 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
 
       return { item, ingredients: ings || [] };
     },
-    enabled: open && !!editRecipeId,
+    enabled: open && !!editRecipeId && !bomMenuItemId,
+  });
+
+  // Fetch BOM recipe data if editing a BOM menu item
+  const { data: bomRecipe } = useQuery({
+    queryKey: ["bom-recipe-detail", bomMenuItemId],
+    queryFn: async () => {
+      if (!bomMenuItemId) return null;
+      const { data: menuItem } = await supabase
+        .from("bom_menu_items")
+        .select("id, r365_name, clean_name, recipe_yield_qty, recipe_yield_unit, category")
+        .eq("id", bomMenuItemId)
+        .single();
+
+      const { data: bomIngs } = await supabase
+        .from("bom_recipe_ingredients")
+        .select("id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id)")
+        .eq("menu_item_id", bomMenuItemId);
+
+      return { menuItem, ingredients: bomIngs || [] };
+    },
+    enabled: open && !!bomMenuItemId,
   });
 
   // Auto-calculate yield from ingredients (sum in current yieldUnit)
@@ -220,9 +242,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     }
   }
 
-  // Populate form when editing
+  // Populate form when editing (inventory_items mode)
   useEffect(() => {
-    if (existingRecipe?.item) {
+    if (existingRecipe?.item && !bomMenuItemId) {
       setRecipeName(existingRecipe.item.name);
       setYieldQty(existingRecipe.item.recipe_yield_qty?.toString() || "");
       setYieldUnit(normalizeUnit(existingRecipe.item.recipe_yield_unit) || "oz");
@@ -235,7 +257,33 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
         unit: normalizeUnit(i.unit) || "oz",
       })));
     }
-  }, [existingRecipe]);
+  }, [existingRecipe, bomMenuItemId]);
+
+  // Populate form when editing BOM recipe
+  useEffect(() => {
+    if (bomRecipe?.menuItem && bomMenuItemId) {
+      const mi = bomRecipe.menuItem;
+      setRecipeName(mi.clean_name || mi.r365_name || "");
+      setYieldQty(mi.recipe_yield_qty?.toString() || "");
+      setYieldUnit(normalizeUnit(mi.recipe_yield_unit) || "oz");
+      setYieldManuallyEdited(!!mi.recipe_yield_qty);
+      setCountable(false); // BOM recipes aren't countable
+      setPanSizesConfig(null);
+      // Map BOM ingredients to inventory_items via bom_ingredients.inventory_item_id
+      const mappedIngs: RecipeIngredient[] = [];
+      for (const bomIng of bomRecipe.ingredients) {
+        const ing = bomIng.ingredient as any;
+        if (ing?.inventory_item_id) {
+          mappedIngs.push({
+            ingredient_item_id: ing.inventory_item_id,
+            quantity: Number(bomIng.quantity),
+            unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
+          });
+        }
+      }
+      setIngredients(mappedIngs);
+    }
+  }, [bomRecipe, bomMenuItemId]);
 
   // Calculate total recipe cost from ingredients
   const recipeCostResult = useMemo(() => {
@@ -326,11 +374,76 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
       if (!yieldQty || parseFloat(yieldQty) <= 0) throw new Error("Yield required");
       if (ingredients.length === 0) throw new Error("Add at least one ingredient");
 
-      // Calculate cost_per_unit as total recipe cost (cost of one batch = one "case")
       const costPerCase = recipeCost;
 
+      // === BOM MODE: save back to bom_menu_items / bom_recipe_ingredients ===
+      if (bomMenuItemId) {
+        // Update the BOM menu item
+        const { error: miErr } = await supabase
+          .from("bom_menu_items")
+          .update({
+            clean_name: recipeName.trim(),
+            recipe_yield_qty: parseFloat(yieldQty),
+            recipe_yield_unit: yieldUnit,
+          })
+          .eq("id", bomMenuItemId);
+        if (miErr) throw miErr;
+
+        // Delete existing recipe ingredients
+        await supabase
+          .from("bom_recipe_ingredients")
+          .delete()
+          .eq("menu_item_id", bomMenuItemId);
+
+        // For each ingredient, find or create a bom_ingredient linked to the inventory_item
+        for (const ing of ingredients) {
+          // Check if a bom_ingredient already exists for this inventory_item
+          const { data: existing } = await supabase
+            .from("bom_ingredients")
+            .select("id")
+            .eq("location_id", locationId)
+            .eq("inventory_item_id", ing.ingredient_item_id)
+            .limit(1)
+            .single();
+
+          let bomIngredientId: string;
+          if (existing) {
+            bomIngredientId = existing.id;
+          } else {
+            // Create a new bom_ingredient linked to the inventory item
+            const item = availableItems?.find(i => i.id === ing.ingredient_item_id);
+            const { data: newBomIng, error: createErr } = await supabase
+              .from("bom_ingredients")
+              .insert({
+                location_id: locationId,
+                r365_name: item?.name || "Unknown",
+                clean_name: item?.name || "Unknown",
+                inventory_item_id: ing.ingredient_item_id,
+                is_ignored: false,
+              })
+              .select("id")
+              .single();
+            if (createErr || !newBomIng) throw createErr || new Error("Failed to create ingredient link");
+            bomIngredientId = newBomIng.id;
+          }
+
+          // Insert the recipe ingredient
+          const { error: riErr } = await supabase
+            .from("bom_recipe_ingredients")
+            .insert({
+              menu_item_id: bomMenuItemId,
+              ingredient_id: bomIngredientId,
+              quantity: ing.quantity,
+              unit_of_measure: normalizeUnit(ing.unit) || ing.unit,
+              location_id: locationId,
+            });
+          if (riErr) throw riErr;
+        }
+        return;
+      }
+
+      // === STANDARD MODE: save to inventory_items / inventory_recipe_ingredients ===
       if (editRecipeId) {
-        // Update existing recipe item
         const { error: itemErr } = await supabase
           .from("inventory_items")
           .update({
@@ -346,7 +459,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           .eq("id", editRecipeId);
         if (itemErr) throw itemErr;
 
-        // Delete old ingredients and re-insert
         await supabase
           .from("inventory_recipe_ingredients")
           .delete()
@@ -362,7 +474,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           })));
         if (ingErr) throw ingErr;
       } else {
-        // Create new recipe item
         const { data: newItem, error: itemErr } = await supabase
           .from("inventory_items")
           .insert({
@@ -399,7 +510,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items-usage", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items-for-recipe", locationId] });
-      toast.success(editRecipeId ? "Recipe updated" : "Recipe created");
+      if (bomMenuItemId) {
+        queryClient.invalidateQueries({ queryKey: ["recipe-catalog-items", locationId] });
+        queryClient.invalidateQueries({ queryKey: ["recipe-row-ingredients"] });
+        queryClient.invalidateQueries({ queryKey: ["recipe-row-costs"] });
+        queryClient.invalidateQueries({ queryKey: ["bom-recipe-detail", bomMenuItemId] });
+      }
+      toast.success(bomMenuItemId ? "Recipe updated" : editRecipeId ? "Recipe updated" : "Recipe created");
       resetForm();
       onOpenChange(false);
     },
@@ -464,15 +581,25 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5" />
-            {editRecipeId ? "Edit Recipe" : "Create Prep Recipe"}
-            {existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
+            {bomMenuItemId ? "Edit Recipe" : editRecipeId ? "Edit Recipe" : "Create Prep Recipe"}
+            {bomMenuItemId && bomRecipe?.menuItem?.category && (
+              <Badge variant="outline" className="text-[10px] ml-auto uppercase">
+                {bomRecipe.menuItem.category}
+              </Badge>
+            )}
+            {!bomMenuItemId && existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
               <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px] ml-auto">
                 <RefreshCw className="h-3 w-3 mr-1" />
                 R365 Synced
               </Badge>
             )}
           </DialogTitle>
-          {existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
+          {bomMenuItemId && (
+            <p className="text-xs text-muted-foreground">
+              Editing BOM recipe. Changes save to the recipe catalog.
+            </p>
+          )}
+          {!bomMenuItemId && existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
             <p className="text-xs text-muted-foreground">
               This recipe was imported from R365. Manual edits may be flagged on the next import.
             </p>
@@ -814,19 +941,21 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
             </div>
           )}
 
-          {/* Countable toggle */}
-          <div className="flex items-center justify-between py-2">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Show in inventory count</Label>
-              <p className="text-xs text-muted-foreground">
-                {countable ? "This recipe will appear as a countable item" : "Hidden from counting (used as ingredient only)"}
-              </p>
+          {/* Countable toggle (not for BOM recipes) */}
+          {!bomMenuItemId && (
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Show in inventory count</Label>
+                <p className="text-xs text-muted-foreground">
+                  {countable ? "This recipe will appear as a countable item" : "Hidden from counting (used as ingredient only)"}
+                </p>
+              </div>
+              <Switch checked={countable} onCheckedChange={setCountable} />
             </div>
-            <Switch checked={countable} onCheckedChange={setCountable} />
-          </div>
+          )}
 
-          {/* Pan Sizes */}
-          {countable && (
+          {/* Pan Sizes (not for BOM recipes) */}
+          {!bomMenuItemId && countable && (
             <PanSizesSection
               value={panSizesConfig}
               onChange={setPanSizesConfig}
@@ -846,7 +975,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
               {saveMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                editRecipeId ? "Update Recipe" : "Create Recipe"
+                (bomMenuItemId || editRecipeId) ? "Update Recipe" : "Create Recipe"
               )}
             </Button>
           </div>
