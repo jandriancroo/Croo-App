@@ -418,7 +418,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       const mappedIngs: BuilderIngredient[] = [];
       for (const bomIng of bomRecipe.ingredients) {
         const ing = bomIng.ingredient as any;
-        const ingName = ing?.clean_name || ing?.r365_name || "Unknown ingredient";
+        const ingName = ing?.clean_name || ing?.r365_name || "(unnamed ingredient)";
 
         // Check if this ingredient matches another bom_menu_items entry (sub-recipe)
         let subRecipeId: string | undefined;
