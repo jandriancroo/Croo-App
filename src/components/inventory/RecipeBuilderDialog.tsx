@@ -1021,8 +1021,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
               <p className="text-xs text-muted-foreground italic py-2">No ingredients added yet</p>
             )}
 
-            {/* Add ingredient form */}
-            {addingIngredient ? (
+            {/* Add ingredient form — hidden when viewing sub-recipe */}
+            {!isDrilledDown && addingIngredient ? (
               <div className="border rounded-md p-3 space-y-2 bg-muted/30">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1114,11 +1114,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                   );
                 })()}
               </div>
-            ) : (
+            ) : !isDrilledDown ? (
               <Button variant="outline" size="sm" className="text-xs" onClick={() => setAddingIngredient(true)}>
                 <Plus className="h-3 w-3 mr-1" />Add Ingredient
               </Button>
-            )}
+            ) : null}
           </div>
 
           {/* Cost Summary */}
