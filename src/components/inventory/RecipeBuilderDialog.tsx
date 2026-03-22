@@ -405,9 +405,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     }
   }, [existingRecipe, bomMenuItemId, editBlueprintId]);
 
-  // BOM recipe edit
+  // BOM recipe edit — also handles drill-down via activeBomId
   useEffect(() => {
-    if (bomRecipe?.menuItem && bomMenuItemId) {
+    if (bomRecipe?.menuItem && activeBomId) {
       const mi = bomRecipe.menuItem;
       setRecipeName(mi.clean_name || mi.r365_name || "");
       setYieldQty(mi.recipe_yield_qty?.toString() || "");
@@ -419,6 +419,16 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       for (const bomIng of bomRecipe.ingredients) {
         const ing = bomIng.ingredient as any;
         const ingName = ing?.clean_name || ing?.r365_name || "Unknown ingredient";
+
+        // Check if this ingredient matches another bom_menu_items entry (sub-recipe)
+        let subRecipeId: string | undefined;
+        if (allBomMenuItems && ing?.r365_name) {
+          const match = allBomMenuItems.find(
+            m => m.id !== activeBomId && (m.r365_name === ing.r365_name || m.clean_name === ing.clean_name)
+          );
+          if (match) subRecipeId = match.id;
+        }
+
         if (ing?.inventory_item_id) {
           mappedIngs.push({
             type: "vendor_item",
@@ -426,6 +436,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
             quantity: Number(bomIng.quantity),
             unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
             displayName: ingName,
+            bomSubRecipeId: subRecipeId,
           });
         } else {
           // Include unmapped BOM ingredients so user can see them
@@ -436,12 +447,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
             unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
             displayName: ingName,
             unmapped: true,
+            bomSubRecipeId: subRecipeId,
           });
         }
       }
       setIngredients(mappedIngs);
     }
-  }, [bomRecipe, bomMenuItemId]);
+  }, [bomRecipe, activeBomId, allBomMenuItems]);
 
   // ========== COST CALCULATION ==========
 
