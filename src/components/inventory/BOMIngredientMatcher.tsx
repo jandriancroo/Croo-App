@@ -238,7 +238,7 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
 
       {/* Unmatched list grouped by category */}
       <div className="space-y-2">
-        {Array.from(groupedUnmatched.entries()).map(([cat, catIngredients]) => {
+        {Array.from(groupedAll.entries()).map(([cat, catIngredients]) => {
           const isCollapsed = collapsedCategories.has(cat);
           const label = CATEGORY_LABELS[cat] || cat;
           
@@ -257,7 +257,7 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
               >
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold">{label}</span>
-                  <Badge variant="outline" className="text-[10px]">{catIngredients.length}</Badge>
+                  <Badge variant="outline" className="text-[10px]">{catIngredients.filter(i => !i.inventory_item_id).length}/{catIngredients.length}</Badge>
                 </div>
                 {isCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
               </button>
@@ -265,30 +265,60 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
               {!isCollapsed && (
                 <div className="space-y-0.5 p-1">
                   {catIngredients.map(ing => {
+                    const isMatched = !!ing.inventory_item_id;
+                    const linkedItem = isMatched ? itemMap.get(ing.inventory_item_id!) : null;
                     const isExpanded = expandedId === ing.id;
                     const suggestions = isExpanded ? getSuggestions(ing) : [];
 
                     return (
-                      <div key={ing.id} className="border border-border/50 rounded overflow-hidden">
+                      <div key={ing.id} className={cn(
+                        "border rounded overflow-hidden",
+                        isMatched ? "border-primary/30 bg-primary/5" : "border-border/50"
+                      )}>
                         <button
                           onClick={() => {
-                            setExpandedId(isExpanded ? null : ing.id);
-                            setItemSearch("");
+                            if (!isMatched) {
+                              setExpandedId(isExpanded ? null : ing.id);
+                              setItemSearch("");
+                            }
                           }}
-                          className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                          className={cn(
+                            "w-full flex items-center justify-between px-3 py-2 text-left transition-colors",
+                            isMatched ? "cursor-default" : "hover:bg-muted/50"
+                          )}
                         >
                           <div className="min-w-0">
-                            <p className="text-xs font-medium truncate">{ing.clean_name || ing.r365_name}</p>
-                            {ing.clean_name && ing.clean_name !== ing.r365_name && (
-                              <p className="text-[10px] text-muted-foreground truncate">{ing.r365_name}</p>
+                            <p className={cn("text-xs font-medium truncate", isMatched && "text-muted-foreground")}>{ing.clean_name || ing.r365_name}</p>
+                            {isMatched && linkedItem ? (
+                              <p className="text-[10px] text-primary truncate">→ {linkedItem.name}</p>
+                            ) : (
+                              ing.clean_name && ing.clean_name !== ing.r365_name && (
+                                <p className="text-[10px] text-muted-foreground truncate">{ing.r365_name}</p>
+                              )
                             )}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {ing.unit_standard && (
                               <Badge variant="outline" className="text-[10px]">{ing.unit_standard}</Badge>
                             )}
-                            <Link2 className="h-3.5 w-3.5 text-destructive" />
-                            {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                            {isMatched ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => { e.stopPropagation(); handleUnlink(ing.id); }}
+                                disabled={saving === ing.id}
+                              >
+                                <Unlink className="h-3 w-3 text-destructive" />
+                              </Button>
+                            ) : (
+                              <>
+                                <Link2 className="h-3.5 w-3.5 text-destructive" />
+                                {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                              </>
+                            )}
+                          </div>
+                        </button>
                           </div>
                         </button>
 
