@@ -131,6 +131,9 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
               locationId={locationId}
             />
           ))}
+
+          {/* Prep Recipes — house-made intermediate items */}
+          <PrepRecipesSection locationId={locationId} />
         </div>
       </CardContent>
     </Card>
