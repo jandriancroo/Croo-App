@@ -81,15 +81,19 @@ export async function fetchBlueprintCosts(
   const bpMap = new Map<string, BlueprintInfo>(bpList.map(b => [b.id, b]));
   const blueprintIds = bpList.map(b => b.id);
 
-  // 2. Fetch all ingredients for these blueprints
-  const { data: allIngredients, error: ingErr } = await supabase
-    .from("recipe_blueprint_ingredients" as any)
-    .select("blueprint_id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
-    .in("blueprint_id", blueprintIds);
-
-  if (ingErr) throw ingErr;
-
-  const ingList = (allIngredients || []) as unknown as BlueprintIngredientRow[];
+  // 2. Fetch all ingredients for these blueprints (paginated to avoid 1000-row default limit)
+  const ingList: BlueprintIngredientRow[] = [];
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < blueprintIds.length; i += BATCH_SIZE) {
+    const batch = blueprintIds.slice(i, i + BATCH_SIZE);
+    const { data: batchData, error: ingErr } = await supabase
+      .from("recipe_blueprint_ingredients" as any)
+      .select("blueprint_id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
+      .in("blueprint_id", batch)
+      .limit(5000);
+    if (ingErr) throw ingErr;
+    ingList.push(...((batchData || []) as unknown as BlueprintIngredientRow[]));
+  }
 
   // 3. Fetch vendor items for pricing
   const vendorItemIds = [
