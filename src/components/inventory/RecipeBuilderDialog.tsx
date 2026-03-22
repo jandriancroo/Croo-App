@@ -36,8 +36,13 @@ interface BuilderIngredient {
 }
 
 interface DrillStackEntry {
-  bomId: string;
+  bomId?: string;
+  blueprintId?: string;
   name: string;
+  savedIngredients: BuilderIngredient[];
+  savedName: string;
+  savedYieldQty: string;
+  savedYieldUnit: string;
 }
 
 /** Combined item for the ingredient search list */
