@@ -1169,7 +1169,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           )}
 
           {/* Countable toggle */}
-          {!bomMenuItemId && (
+          {!bomMenuItemId && !isDrilledDown && (
             <div className="flex items-center justify-between py-2">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Show in inventory count</Label>
@@ -1182,7 +1182,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           )}
 
           {/* Pan Sizes */}
-          {!bomMenuItemId && countable && (
+          {!bomMenuItemId && !isDrilledDown && countable && (
             <PanSizesSection value={panSizesConfig} onChange={setPanSizesConfig} />
           )}
 
