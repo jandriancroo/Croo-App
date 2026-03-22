@@ -319,8 +319,6 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
                             )}
                           </div>
                         </button>
-                          </div>
-                        </button>
 
                         {isExpanded && (
                           <div className="border-t border-border bg-muted/30 px-3 py-2 space-y-2">
@@ -384,45 +382,6 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
         })}
       </div>
 
-      {/* Matched section */}
-      {matched.length > 0 && (
-        <div>
-          <button
-            onClick={() => setShowMatched(!showMatched)}
-            className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors py-1"
-          >
-            {showMatched ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            {matched.length} matched ingredients
-          </button>
-
-          {showMatched && (
-            <div className="space-y-1 mt-1">
-              {matched.map(ing => {
-                const linkedItem = ing.inventory_item_id ? itemMap.get(ing.inventory_item_id) : null;
-                return (
-                  <div key={ing.id} className="flex items-center justify-between px-3 py-2 border border-border rounded-md bg-muted/20">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium truncate">{ing.clean_name || ing.r365_name}</p>
-                      {linkedItem && (
-                        <p className="text-[10px] text-primary truncate">→ {linkedItem.name}</p>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 shrink-0"
-                      onClick={() => handleUnlink(ing.id)}
-                      disabled={saving === ing.id}
-                    >
-                      <Unlink className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };
