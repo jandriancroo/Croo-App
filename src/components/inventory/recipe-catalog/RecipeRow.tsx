@@ -115,7 +115,8 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
               const r365Name = ing.ingredient?.r365_name || "";
               const resolved = resolvedByIngName.get(r365Name);
               const isMatched = !!ing.ingredient?.inventory_item_id;
-              const isSubRecipe = !isMatched && resolved && resolved.length > 0;
+              const isPrepItem = !!(ing.ingredient as any)?.is_prep_item;
+              const isSubRecipe = isPrepItem || (!isMatched && resolved && resolved.length > 0);
 
               let displayIngName: string;
               let ingCost = 0;
