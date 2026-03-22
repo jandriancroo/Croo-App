@@ -401,10 +401,6 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
                             {applyResults.autoMatched}/{applyResults.autoMatchTotal}
                           </span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Usage Rates</span>
-                          <span className="font-mono">{applyResults.usageRatesCreated}</span>
-                        </div>
                       </div>
 
                       {applyResults.autoMatched > 0 && applyResults.matchResults.length > 0 && (

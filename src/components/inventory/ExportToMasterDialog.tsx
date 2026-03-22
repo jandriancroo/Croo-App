@@ -135,19 +135,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     enabled: open,
   });
 
-  // Fetch ALL usage rates for this location (items can have multiple)
-  const { data: usageRates } = useQuery({
-    queryKey: ["usage-rates-export", locationId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_usage_rates")
-        .select("inventory_item_id, usage_rate, rate_unit, manual_override, product_group_id")
-        .eq("location_id", locationId);
-      if (error) throw error;
-      return data;
-    },
-    enabled: open,
-  });
+  // Usage rates removed — recipes are now the source of truth
 
   // Fetch product groups for this location
   const { data: productGroups } = useQuery({
@@ -197,15 +185,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
 
   const existingSourceIds = new Set(existingTemplates?.map(t => t.source_item_id).filter(Boolean) ?? []);
   const storageMap = new Map(storageLocations?.map(l => [l.id, l.name]) ?? []);
-  // Build multi-rate map: item_id → array of all usage rates
-  const usageMultiMap = new Map<string, typeof usageRates>();
-  if (usageRates) {
-    for (const r of usageRates) {
-      const existing = usageMultiMap.get(r.inventory_item_id) || [];
-      existing.push(r);
-      usageMultiMap.set(r.inventory_item_id, existing);
-    }
-  }
+  // Usage rate multi-map removed — recipes are source of truth
   const groupMap = new Map(productGroups?.map(g => [g.id, g]) ?? []);
 
   // Build shortcut map: item_id → array of storage location names (excluding primary)
@@ -258,23 +238,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
           ? storageMap.get(item.storage_location_id) || null
           : null;
 
-        // Build ALL usage rate mappings for this item (supports multi-group)
-        const itemRates = usageMultiMap.get(item.id) || [];
-        const usageRateMappings = itemRates.map(r => {
-          const group = r.product_group_id ? groupMap.get(r.product_group_id) : null;
-          return {
-            group_name: group?.name ?? null,
-            pos_categories: group?.pos_categories ?? null,
-            pos_items: group?.pos_items ?? null,
-            usage_rate: r.usage_rate,
-            rate_unit: r.rate_unit,
-            manual_override: r.manual_override ?? false,
-          };
-        });
-
-        // Legacy single-rate fields (first rate only, for backward compat)
-        const firstRate = itemRates[0];
-        const firstGroup = firstRate?.product_group_id ? groupMap.get(firstRate.product_group_id) : null;
+         // Usage rate mappings removed — recipes are source of truth
 
         // Shortcut locations (secondary storage)
         const shortcutLocationNames = shortcutMap.get(item.id) || [];
@@ -310,15 +274,14 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
           match_keywords: keywords,
           storage_location_name: storageLocationName,
           shortcut_location_names: shortcutLocationNames,
-          // Legacy single-rate (backward compat)
-          usage_rate: firstRate?.usage_rate ?? null,
-          usage_rate_unit: firstRate?.rate_unit ?? null,
-          usage_rate_manual_override: firstRate?.manual_override ?? false,
-          product_group_name: firstGroup?.name ?? null,
-          product_group_pos_categories: firstGroup?.pos_categories ?? null,
-          product_group_pos_items: firstGroup?.pos_items ?? null,
-          // NEW: Full multi-group mappings
-          usage_rate_mappings: usageRateMappings,
+          // Usage rates removed — recipes are source of truth
+          usage_rate: null,
+          usage_rate_unit: null,
+          usage_rate_manual_override: false,
+          product_group_name: null,
+          product_group_pos_categories: null,
+          product_group_pos_items: null,
+          usage_rate_mappings: [],
           source_item_id: item.id,
           source_location_id: locationId,
           created_by: user.id,
@@ -381,10 +344,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     if (item.storage_location_id && storageMap.has(item.storage_location_id)) badges.push("Storage");
     const shortcuts = shortcutMap.get(item.id);
     if (shortcuts && shortcuts.length > 0) badges.push(`${shortcuts.length} Shortcut${shortcuts.length > 1 ? 's' : ''}`);
-    const itemRates = usageMultiMap.get(item.id);
-    if (itemRates?.length) badges.push(`${itemRates.length} Rate${itemRates.length > 1 ? 's' : ''}`);
-    const hasGroup = itemRates?.some(r => r.product_group_id && groupMap.has(r.product_group_id));
-    if (hasGroup) badges.push("POS Mapping");
+    // Usage rate badges removed — recipes are source of truth
     return badges;
   };
 

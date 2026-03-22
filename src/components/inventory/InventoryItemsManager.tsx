@@ -19,7 +19,7 @@ import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
 import ProductGroupsManager from "./ProductGroupsManager";
-import UsageRateMapping from "./UsageRateMapping";
+
 import RecipeBuilderDialog from "./RecipeBuilderDialog";
 import RemapItemDialog from "./RemapItemDialog";
 import PanSizesSection from "./PanSizesSection";
@@ -85,7 +85,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const isBuildMode = mode === "build";
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { canEditRecipes, canEditProductGroups, canEditUsageRates, canEditCategories, canEditCommonNames, canEditPanBaselines, canTriggerSync } = useInventoryPermissions();
+  const { canEditRecipes, canEditProductGroups, canEditCategories, canEditCommonNames, canEditPanBaselines, canTriggerSync } = useInventoryPermissions();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPaSyncing, setIsPaSyncing] = useState(false);
   const [isDailyTracked, setIsDailyTracked] = useState(false);
@@ -1010,8 +1010,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       {/* POS Mapping — Brand Admin+ only */}
       {canEditProductGroups && <ProductGroupsManager locationId={locationId} />}
 
-      {/* Usage Rate Mappings — Brand Admin+ only */}
-      {canEditUsageRates && <UsageRateMapping locationId={locationId} />}
+      {/* Usage Rates removed — recipes are now the single source of truth */}
 
       {/* Prep Recipes moved to RecipeCatalog */}
       </>}
