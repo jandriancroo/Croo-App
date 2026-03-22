@@ -250,7 +250,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
       const { data: ings, error: ingErr } = await supabase
         .from("recipe_blueprint_ingredients" as any)
-        .select("id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
+        .select("id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit, source_name")
         .eq("blueprint_id", editBlueprintId);
       if (ingErr) throw ingErr;
 
@@ -339,7 +339,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
       const { data: ings, error: ingErr } = await supabase
         .from("recipe_blueprint_ingredients" as any)
-        .select("id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
+        .select("id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit, source_name")
         .eq("blueprint_id", drillBlueprintId);
       if (ingErr) throw ingErr;
 
@@ -367,7 +367,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           ref_id: refId || i.id,
           quantity: Number(i.quantity),
           unit: normalizeUnit(i.unit) || "oz",
-          displayName: name || undefined,
+          displayName: name || i.source_name || undefined,
           unmapped: !refId,
         };
       }));
@@ -437,7 +437,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           ref_id: refId,
           quantity: Number(i.quantity),
           unit: normalizeUnit(i.unit) || "oz",
-          displayName: bpName || undefined,
+          displayName: bpName || i.source_name || undefined,
         };
       }));
     }
@@ -867,9 +867,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
   const getItemName = (ing: BuilderIngredient) => {
     if (ing.type === "blueprint") {
-      return otherBlueprints?.find(b => b.id === ing.ref_id)?.name || ing.displayName || "(unnamed blueprint)";
+      const name = otherBlueprints?.find(b => b.id === ing.ref_id)?.name || ing.displayName;
+      return name || `ingredient-${ing.ref_id.slice(0, 6)}`;
     }
-    return vendorItems?.find(i => i.id === ing.ref_id)?.name || ing.displayName || "(unnamed item)";
+    const name = vendorItems?.find(i => i.id === ing.ref_id)?.name || ing.displayName;
+    return name || `ingredient-${ing.ref_id.slice(0, 6)}`;
   };
 
   const filteredItems = useMemo(() => {
