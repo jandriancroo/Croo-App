@@ -318,10 +318,7 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
                                 </Button>
                               </>
                             ) : (
-                              <>
-                                <Link2 className="h-3.5 w-3.5 text-destructive" />
-                                {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                              </>
+                              <>{isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}</>
                             )}
                           </div>
                         </button>
