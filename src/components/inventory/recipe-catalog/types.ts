@@ -11,6 +11,7 @@ export interface MenuItem {
 export interface RecipeIngredient {
   id: string;
   menu_item_id: string;
+  ingredient_id: string | null;
   quantity: number;
   unit_of_measure: string | null;
   ingredient: {
