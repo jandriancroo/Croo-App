@@ -581,15 +581,25 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5" />
-            {editRecipeId ? "Edit Recipe" : "Create Prep Recipe"}
-            {existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
+            {bomMenuItemId ? "Edit Recipe" : editRecipeId ? "Edit Recipe" : "Create Prep Recipe"}
+            {bomMenuItemId && bomRecipe?.menuItem?.category && (
+              <Badge variant="outline" className="text-[10px] ml-auto uppercase">
+                {bomRecipe.menuItem.category}
+              </Badge>
+            )}
+            {!bomMenuItemId && existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
               <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px] ml-auto">
                 <RefreshCw className="h-3 w-3 mr-1" />
                 R365 Synced
               </Badge>
             )}
           </DialogTitle>
-          {existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
+          {bomMenuItemId && (
+            <p className="text-xs text-muted-foreground">
+              Editing BOM recipe. Changes save to the recipe catalog.
+            </p>
+          )}
+          {!bomMenuItemId && existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
             <p className="text-xs text-muted-foreground">
               This recipe was imported from R365. Manual edits may be flagged on the next import.
             </p>
