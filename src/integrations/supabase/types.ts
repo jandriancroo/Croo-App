@@ -5777,6 +5777,121 @@ export type Database = {
           },
         ]
       }
+      recipe_blueprint_ingredients: {
+        Row: {
+          blueprint_id: string
+          created_at: string
+          id: string
+          ingredient_type: string
+          quantity: number
+          sub_blueprint_id: string | null
+          unit: string | null
+          vendor_item_id: string | null
+        }
+        Insert: {
+          blueprint_id: string
+          created_at?: string
+          id?: string
+          ingredient_type?: string
+          quantity: number
+          sub_blueprint_id?: string | null
+          unit?: string | null
+          vendor_item_id?: string | null
+        }
+        Update: {
+          blueprint_id?: string
+          created_at?: string
+          id?: string
+          ingredient_type?: string
+          quantity?: number
+          sub_blueprint_id?: string | null
+          unit?: string | null
+          vendor_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_blueprint_ingredients_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_blueprint_ingredients_sub_blueprint_id_fkey"
+            columns: ["sub_blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_blueprint_ingredients_vendor_item_id_fkey"
+            columns: ["vendor_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_blueprints: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          location_id: string
+          name: string
+          produces_item_id: string | null
+          r365_name: string | null
+          source: string | null
+          updated_at: string
+          yield_qty: number | null
+          yield_unit: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id: string
+          name: string
+          produces_item_id?: string | null
+          r365_name?: string | null
+          source?: string | null
+          updated_at?: string
+          yield_qty?: number | null
+          yield_unit?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location_id?: string
+          name?: string
+          produces_item_id?: string | null
+          r365_name?: string | null
+          source?: string | null
+          updated_at?: string
+          yield_qty?: number | null
+          yield_unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_blueprints_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_blueprints_produces_item_id_fkey"
+            columns: ["produces_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rejection_email_templates: {
         Row: {
           body: string
