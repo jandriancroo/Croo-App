@@ -479,7 +479,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                   Theoretical Usage
                 </CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  Based on POS sales × usage rates for this period
+                  Based on POS sales × recipe ingredients for this period
                 </p>
               </CardHeader>
               <CardContent>
@@ -514,8 +514,8 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                                 <div>
                                   <p className="font-medium text-sm">{t.itemName}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {t.unitsSold} sold × {Number((t.usageRate * (t.packQuantity || 1)).toFixed(2))} {t.unit}/sold
-                                    <span className="ml-1 text-muted-foreground/70">({t.productGroupName})</span>
+                                    {t.unitsSold} sold via {t.productGroupName}
+                                    {t.totalCost > 0 && <span className="ml-1">• ${t.totalCost.toFixed(2)}</span>}
                                   </p>
                                 </div>
                                 <Badge variant="secondary" className="font-mono">
@@ -628,7 +628,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                     <p className="font-medium">QuBeyond Integration Active</p>
                     <p className="text-sm text-muted-foreground">
                       {salesData.length} days of sales data available for theoretical usage calculations.
-                      {!theoreticalData?.length && " Set up POS Mapping and Usage Rates to enable automatic theoretical tracking."}
+                      {!theoreticalData?.length && " Set up POS Mapping with linked recipes to enable automatic theoretical tracking."}
                     </p>
                   </div>
                 </div>
