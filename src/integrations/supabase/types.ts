@@ -494,6 +494,7 @@ export type Database = {
           created_at: string | null
           id: string
           inventory_item_id: string | null
+          is_ignored: boolean
           is_prep_item: boolean | null
           location_id: string | null
           r365_name: string
@@ -506,6 +507,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           inventory_item_id?: string | null
+          is_ignored?: boolean
           is_prep_item?: boolean | null
           location_id?: string | null
           r365_name: string
@@ -518,6 +520,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           inventory_item_id?: string | null
+          is_ignored?: boolean
           is_prep_item?: boolean | null
           location_id?: string | null
           r365_name?: string
