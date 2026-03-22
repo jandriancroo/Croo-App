@@ -30,6 +30,8 @@ interface BuilderIngredient {
   ref_id: string; // inventory_items.id or recipe_blueprints.id
   quantity: number;
   unit: string;
+  displayName?: string; // fallback name from BOM/R365 data
+  unmapped?: boolean; // BOM ingredient not yet linked to a vendor item
 }
 
 /** Combined item for the ingredient search list */
@@ -343,12 +345,18 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       setYieldManuallyEdited(true);
       setCountable(!!existingBlueprint.producedItem);
       setPanSizesConfig(existingBlueprint.producedItem?.pan_sizes || null);
-      setIngredients(existingBlueprint.ingredients.map((i: any) => ({
-        type: i.ingredient_type === "blueprint" ? "blueprint" : "vendor_item",
-        ref_id: i.ingredient_type === "blueprint" ? i.sub_blueprint_id : i.vendor_item_id,
-        quantity: Number(i.quantity),
-        unit: normalizeUnit(i.unit) || "oz",
-      })));
+      setIngredients(existingBlueprint.ingredients.map((i: any) => {
+        const isBlueprint = i.ingredient_type === "blueprint";
+        const refId = isBlueprint ? i.sub_blueprint_id : i.vendor_item_id;
+        const bpName = isBlueprint ? otherBlueprints?.find((b: any) => b.id === refId)?.name : vendorItems?.find((v: any) => v.id === refId)?.name;
+        return {
+          type: isBlueprint ? "blueprint" as const : "vendor_item" as const,
+          ref_id: refId,
+          quantity: Number(i.quantity),
+          unit: normalizeUnit(i.unit) || "oz",
+          displayName: bpName || undefined,
+        };
+      }));
     }
   }, [existingBlueprint]);
 
@@ -383,12 +391,24 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       const mappedIngs: BuilderIngredient[] = [];
       for (const bomIng of bomRecipe.ingredients) {
         const ing = bomIng.ingredient as any;
+        const ingName = ing?.clean_name || ing?.r365_name || "Unknown ingredient";
         if (ing?.inventory_item_id) {
           mappedIngs.push({
             type: "vendor_item",
             ref_id: ing.inventory_item_id,
             quantity: Number(bomIng.quantity),
             unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
+            displayName: ingName,
+          });
+        } else {
+          // Include unmapped BOM ingredients so user can see them
+          mappedIngs.push({
+            type: "vendor_item",
+            ref_id: ing?.id || bomIng.id,
+            quantity: Number(bomIng.quantity),
+            unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
+            displayName: ingName,
+            unmapped: true,
           });
         }
       }
@@ -489,7 +509,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
         await supabase.from("bom_recipe_ingredients").delete().eq("menu_item_id", bomMenuItemId);
 
         for (const ing of ingredients) {
-          if (ing.type !== "vendor_item") continue;
+          if (ing.type !== "vendor_item" || ing.unmapped) continue;
           const { data: existing } = await supabase
             .from("bom_ingredients").select("id")
             .eq("location_id", locationId).eq("inventory_item_id", ing.ref_id)
@@ -748,9 +768,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
   const getItemName = (ing: BuilderIngredient) => {
     if (ing.type === "blueprint") {
-      return otherBlueprints?.find(b => b.id === ing.ref_id)?.name || "Unknown Blueprint";
+      return otherBlueprints?.find(b => b.id === ing.ref_id)?.name || ing.displayName || "Unknown Blueprint";
     }
-    return vendorItems?.find(i => i.id === ing.ref_id)?.name || "Unknown";
+    return vendorItems?.find(i => i.id === ing.ref_id)?.name || ing.displayName || "Unknown";
   };
 
   const filteredItems = useMemo(() => {
