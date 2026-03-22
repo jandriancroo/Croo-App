@@ -138,7 +138,8 @@ export async function fetchBlueprintCosts(
           continue;
         }
 
-        const ingUnit = ing.unit?.toLowerCase() || "";
+        const ingUnit = normalizeIngUnit(ing.unit);
+        const nativeUnit = normalizeIngUnit(vendor.count_unit);
 
         if (ingUnit === "cs" || ingUnit === "case") {
           totalBatchCost += caseCost * ing.quantity;
@@ -152,10 +153,17 @@ export async function fetchBlueprintCosts(
             totalBatchCost += (caseCost / unitsPerCase) * ing.quantity;
           }
         } else {
-          // Sub-unit: divide case cost by units per case
+          // Sub-unit: divide case cost by units per case, with unit conversion
           const unitsPerCase = vendor.count_units_per_case || vendor.pack_quantity || 1;
-          const costPerSingleUnit = caseCost / unitsPerCase;
-          totalBatchCost += costPerSingleUnit * ing.quantity;
+          const costPerNativeUnit = caseCost / unitsPerCase;
+
+          // Convert ingredient quantity to native units if they differ
+          if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
+            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
+            totalBatchCost += costPerNativeUnit * ingInNative;
+          } else {
+            totalBatchCost += costPerNativeUnit * ing.quantity;
+          }
         }
       }
     }
