@@ -14,6 +14,7 @@ interface RecipeRowProps {
   item: MenuItem;
   tagLabel?: string;
   locationId: string;
+  onEditRecipe?: (bomMenuItemId: string) => void;
 }
 
 interface IngredientOption {
