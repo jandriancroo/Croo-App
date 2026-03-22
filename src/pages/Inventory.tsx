@@ -355,7 +355,7 @@ const Inventory = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span>Count</span>
@@ -363,6 +363,10 @@ const Inventory = () => {
             <TabsTrigger value="items" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               <span>Items</span>
+            </TabsTrigger>
+            <TabsTrigger value="build" className="flex items-center gap-2">
+              <Hammer className="h-4 w-4" />
+              <span>Build</span>
             </TabsTrigger>
           </TabsList>
 
@@ -383,6 +387,13 @@ const Inventory = () => {
 
           <TabsContent value="items" className="mt-4">
             <InventoryItemsManager locationId={locationId!} mode="items" />
+          </TabsContent>
+
+          <TabsContent value="build" className="mt-4 space-y-4">
+            {isBrandLevel && (
+              <BOMIngredientMatcher locationId={locationId!} />
+            )}
+            <InventoryItemsManager locationId={locationId!} mode="build" />
           </TabsContent>
         </Tabs>
       </div>
