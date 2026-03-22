@@ -188,17 +188,19 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
       return result;
     },
     onSuccess: (data) => {
-      const parts = [`Applied ${data.applied} changes to BOM`];
-      if (data.bridged) parts.push(`${data.bridged} recipes synced`);
-      if (data.autoMatched) parts.push(`${data.autoMatched}/${data.autoMatchTotal} ingredients auto-matched`);
-      if (data.usageRatesCreated) parts.push(`${data.usageRatesCreated} usage rate mappings created`);
-      toast.success(parts.join(' · '));
+      const parts = [];
+      if (data.created) parts.push(`${data.created} blueprints created`);
+      if (data.updated) parts.push(`${data.updated} updated`);
+      if (data.autoMatched) parts.push(`${data.autoMatched} auto-matched`);
+      if (data.unmappedCount) parts.push(`${data.unmappedCount} need mapping`);
+      toast.success(parts.join(' · ') || `Applied ${data.applied} changes`);
       setApplyResults(data);
       queryClient.invalidateQueries({ queryKey: ["bom-import-batches", locationId] });
       queryClient.invalidateQueries({ queryKey: ["bom-import-items", selectedBatchId] });
+      queryClient.invalidateQueries({ queryKey: ["blueprint-recipes", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["blueprint-costs", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["recipe-catalog-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
-      queryClient.invalidateQueries({ queryKey: ["bom-ingredients", locationId] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-usage-rates", locationId] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to apply changes");
