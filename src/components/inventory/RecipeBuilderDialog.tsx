@@ -1188,12 +1188,20 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
           {/* Actions */}
           <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
-            <Button className="flex-1" onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending || !recipeName.trim() || ingredients.length === 0}>
-              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                (editBlueprintId || editRecipeId || bomMenuItemId) ? "Update Recipe" : "Create Recipe"}
-            </Button>
+            {isDrilledDown ? (
+              <Button variant="outline" className="flex-1" onClick={() => drillBack()}>
+                ← Back to {drillStack[drillStack.length - 1]?.name || "parent"}
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
+                <Button className="flex-1" onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending || !recipeName.trim() || ingredients.length === 0}>
+                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> :
+                    (editBlueprintId || editRecipeId || bomMenuItemId) ? "Update Recipe" : "Create Recipe"}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </DialogContent>
