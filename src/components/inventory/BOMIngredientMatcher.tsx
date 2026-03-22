@@ -56,8 +56,9 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bom_ingredients")
-        .select("id, r365_name, clean_name, category, unit_standard, inventory_item_id")
+        .select("id, r365_name, clean_name, category, unit_standard, inventory_item_id, is_prep_item")
         .eq("location_id", locationId)
+        .or("is_prep_item.is.null,is_prep_item.eq.false")
         .order("clean_name");
       if (error) throw error;
       return (data || []) as BOMIngredient[];
