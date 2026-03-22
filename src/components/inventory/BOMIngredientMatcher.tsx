@@ -222,78 +222,109 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
         />
       </div>
 
-      {/* Unmatched list */}
-      <div className="space-y-1">
-        {unmatched.map(ing => {
-          const isExpanded = expandedId === ing.id;
-          const suggestions = isExpanded ? getSuggestions(ing) : [];
-
+      {/* Unmatched list grouped by category */}
+      <div className="space-y-2">
+        {Array.from(groupedUnmatched.entries()).map(([cat, catIngredients]) => {
+          const isCollapsed = collapsedCategories.has(cat);
+          const label = CATEGORY_LABELS[cat] || cat;
+          
           return (
-            <div key={ing.id} className="border border-border rounded-md overflow-hidden">
+            <div key={cat} className="border border-border rounded-lg overflow-hidden">
               <button
                 onClick={() => {
-                  setExpandedId(isExpanded ? null : ing.id);
-                  setItemSearch("");
+                  setCollapsedCategories(prev => {
+                    const next = new Set(prev);
+                    if (next.has(cat)) next.delete(cat);
+                    else next.add(cat);
+                    return next;
+                  });
                 }}
-                className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2 bg-muted/50 text-left"
               >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{ing.clean_name || ing.r365_name}</p>
-                  {ing.clean_name && ing.clean_name !== ing.r365_name && (
-                    <p className="text-[10px] text-muted-foreground truncate">{ing.r365_name}</p>
-                  )}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold">{label}</span>
+                  <Badge variant="outline" className="text-[10px]">{catIngredients.length}</Badge>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {ing.unit_standard && (
-                    <Badge variant="outline" className="text-[10px]">{ing.unit_standard}</Badge>
-                  )}
-                  <Link2 className="h-3.5 w-3.5 text-destructive" />
-                  {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                </div>
+                {isCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
               </button>
+              
+              {!isCollapsed && (
+                <div className="space-y-0.5 p-1">
+                  {catIngredients.map(ing => {
+                    const isExpanded = expandedId === ing.id;
+                    const suggestions = isExpanded ? getSuggestions(ing) : [];
 
-              {isExpanded && (
-                <div className="border-t border-border bg-muted/30 px-3 py-2 space-y-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      placeholder="Search inventory items…"
-                      value={itemSearch}
-                      onChange={e => setItemSearch(e.target.value)}
-                      className="pl-7 h-8 text-xs"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-48 overflow-y-auto space-y-1">
-                    {suggestions.length === 0 && (
-                      <p className="text-xs text-muted-foreground py-2 text-center">No items found</p>
-                    )}
-                    {suggestions.map(item => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleLink(ing.id, item.id)}
-                        disabled={saving === ing.id}
-                        className={cn(
-                          "w-full flex items-center justify-between px-2 py-1.5 rounded text-left hover:bg-primary/10 transition-colors text-xs",
-                          item.score >= 60 && "bg-primary/5 border border-primary/20"
-                        )}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium truncate">{item.name}</p>
-                          <div className="flex gap-1.5 mt-0.5">
-                            {item.brand && <span className="text-muted-foreground">{item.brand}</span>}
-                            {item.pack_size && <span className="text-muted-foreground">• {item.pack_size}</span>}
+                    return (
+                      <div key={ing.id} className="border border-border/50 rounded overflow-hidden">
+                        <button
+                          onClick={() => {
+                            setExpandedId(isExpanded ? null : ing.id);
+                            setItemSearch("");
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium truncate">{ing.clean_name || ing.r365_name}</p>
+                            {ing.clean_name && ing.clean_name !== ing.r365_name && (
+                              <p className="text-[10px] text-muted-foreground truncate">{ing.r365_name}</p>
+                            )}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                          {item.score >= 60 && (
-                            <Badge variant="secondary" className="text-[9px] px-1">suggested</Badge>
-                          )}
-                          <Check className="h-3.5 w-3.5 text-primary" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {ing.unit_standard && (
+                              <Badge variant="outline" className="text-[10px]">{ing.unit_standard}</Badge>
+                            )}
+                            <Link2 className="h-3.5 w-3.5 text-destructive" />
+                            {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="border-t border-border bg-muted/30 px-3 py-2 space-y-2">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                placeholder="Search inventory items…"
+                                value={itemSearch}
+                                onChange={e => setItemSearch(e.target.value)}
+                                className="pl-7 h-8 text-xs"
+                                autoFocus
+                              />
+                            </div>
+                            <div className="max-h-48 overflow-y-auto space-y-1">
+                              {suggestions.length === 0 && (
+                                <p className="text-xs text-muted-foreground py-2 text-center">No items found</p>
+                              )}
+                              {suggestions.map(item => (
+                                <button
+                                  key={item.id}
+                                  onClick={() => handleLink(ing.id, item.id)}
+                                  disabled={saving === ing.id}
+                                  className={cn(
+                                    "w-full flex items-center justify-between px-2 py-1.5 rounded text-left hover:bg-primary/10 transition-colors text-xs",
+                                    item.score >= 60 && "bg-primary/5 border border-primary/20"
+                                  )}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-medium truncate">{item.name}</p>
+                                    <div className="flex gap-1.5 mt-0.5">
+                                      {item.brand && <span className="text-muted-foreground">{item.brand}</span>}
+                                      {item.pack_size && <span className="text-muted-foreground">• {item.pack_size}</span>}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                    {item.score >= 60 && (
+                                      <Badge variant="secondary" className="text-[9px] px-1">suggested</Badge>
+                                    )}
+                                    <Check className="h-3.5 w-3.5 text-primary" />
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
