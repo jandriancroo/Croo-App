@@ -1413,8 +1413,211 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
     console.log(`[apply-bom-diff] Bridged ${bridged} recipe ingredient links to inventory_items`)
     console.log(`[apply-bom-diff] Applied ${applied} changes`)
 
+    // ==================== AUTO-MATCH BOM INGREDIENTS → VENDOR ITEMS ====================
+    console.log(`[apply-bom-diff] Starting auto-match...`)
+
+    // Fetch unmatched BOM ingredients (base items only, not prep/sub-recipes)
+    const unmatchedIngs = await fetchAllRows('bom_ingredients', (from, to) =>
+      supabase
+        .from('bom_ingredients')
+        .select('id, r365_name, clean_name, category, unit_standard')
+        .eq('location_id', locationId)
+        .is('inventory_item_id', null)
+        .eq('is_ignored', false)
+        .or('is_prep_item.is.null,is_prep_item.eq.false')
+        .range(from, to)
+    )
+
+    // Fetch vendor items (non-recipe items with vendor source or pack_size)
+    const vendorItems = await fetchAllRows('inventory_items', (from, to) =>
+      supabase
+        .from('inventory_items')
+        .select('id, name, common_name, brand, unit, pack_size, category, vendor_source, is_recipe, count_unit, count_units_per_case')
+        .eq('location_id', locationId)
+        .eq('is_active', true)
+        .eq('is_recipe', false)
+        .range(from, to)
+    )
+
+    let autoMatched = 0
+    const matchResults: Array<{ ingredientName: string; matchedTo: string; score: number }> = []
+
+    function scoreSimilarity(a: string, b: string): number {
+      const aLow = a.toLowerCase().replace(/[^a-z0-9 ]/g, '')
+      const bLow = b.toLowerCase().replace(/[^a-z0-9 ]/g, '')
+      if (aLow === bLow) return 100
+      if (bLow.includes(aLow) || aLow.includes(bLow)) return 80
+      const aWords = aLow.split(/\s+/)
+      const bWords = bLow.split(/\s+/)
+      const matches = aWords.filter(w => bWords.some((bw: string) => bw.includes(w) || w.includes(bw)))
+      if (matches.length === 0) return 0
+      return Math.round((matches.length / Math.max(aWords.length, 1)) * 60)
+    }
+
+    for (const ing of unmatchedIngs) {
+      const ingName = ing.clean_name || ing.r365_name
+      let bestMatch: any = null
+      let bestScore = 0
+
+      for (const vi of vendorItems) {
+        // Try matching against common_name, name, and brand+name
+        const names = [vi.common_name, vi.name].filter(Boolean) as string[]
+        for (const n of names) {
+          const score = scoreSimilarity(ingName, n)
+          if (score > bestScore) {
+            bestScore = score
+            bestMatch = vi
+          }
+        }
+      }
+
+      // Only auto-match if score >= 60 (strong enough match)
+      if (bestMatch && bestScore >= 60) {
+        const { error: matchErr } = await supabase
+          .from('bom_ingredients')
+          .update({ inventory_item_id: bestMatch.id })
+          .eq('id', ing.id)
+        
+        if (!matchErr) {
+          autoMatched++
+          matchResults.push({
+            ingredientName: ingName,
+            matchedTo: bestMatch.common_name || bestMatch.name,
+            score: bestScore,
+          })
+        }
+      }
+    }
+
+    console.log(`[apply-bom-diff] Auto-matched ${autoMatched} of ${unmatchedIngs.length} unmatched ingredients`)
+
+    // ==================== AUTO-CALCULATE USAGE RATES ====================
+    // For each sellable MI that has recipe ingredients matched to vendor items,
+    // create usage_rate entries based on recipe quantities
+    console.log(`[apply-bom-diff] Calculating usage rates from recipes...`)
+
+    let usageRatesCreated = 0
+
+    // Get all sellable menu items
+    const sellableItems = (bomMenuItems || []).filter((mi: any) => mi.category === 'MI')
+    
+    // Get all matched bom_ingredients (now including auto-matched)
+    const matchedBomIngs = await fetchAllRows('bom_ingredients', (from, to) =>
+      supabase
+        .from('bom_ingredients')
+        .select('id, r365_name, inventory_item_id')
+        .eq('location_id', locationId)
+        .not('inventory_item_id', 'is', null)
+        .range(from, to)
+    )
+    const bomIngToVendor = new Map<string, string>()
+    for (const bi of matchedBomIngs) {
+      bomIngToVendor.set(bi.id, bi.inventory_item_id)
+    }
+
+    // Get existing product groups for this location
+    const { data: existingGroups } = await supabase
+      .from('inventory_product_groups')
+      .select('id, name')
+      .eq('location_id', locationId)
+
+    // Create a default "All Sales" product group if none exists
+    let defaultGroupId: string | null = null
+    if (!existingGroups || existingGroups.length === 0) {
+      const { data: newGroup } = await supabase
+        .from('inventory_product_groups')
+        .insert({ location_id: locationId, name: 'All Sales' })
+        .select('id')
+        .single()
+      if (newGroup) defaultGroupId = newGroup.id
+    } else {
+      defaultGroupId = existingGroups[0].id
+    }
+
+    if (defaultGroupId) {
+      // Get existing usage rates to avoid duplicates
+      const existingRates = await fetchAllRows('inventory_usage_rates', (from, to) =>
+        supabase
+          .from('inventory_usage_rates')
+          .select('inventory_item_id, product_group_id')
+          .eq('location_id', locationId)
+          .range(from, to)
+      )
+      const existingRateKeys = new Set<string>()
+      for (const r of existingRates) {
+        existingRateKeys.add(`${r.inventory_item_id}::${r.product_group_id}`)
+      }
+
+      // For each vendor item that's used in recipes, calculate total usage per MI sold
+      // Usage rate = how much of this vendor item is consumed per sale
+      // We aggregate across all MIs that use this ingredient
+      const vendorUsageMap = new Map<string, number>() // vendorItemId → total qty across all MIs
+
+      for (const mi of sellableItems) {
+        const recipeIngs = recipeIngsByMenu.get(mi.id) || []
+        for (const ri of recipeIngs) {
+          const vendorItemId = bomIngToVendor.get(ri.ingredient_id)
+          if (!vendorItemId) continue
+          
+          // This ingredient maps to a vendor item
+          // The recipe quantity IS the usage rate per sale of this MI
+          // We store it as cases (qty / count_units_per_case) but for now store raw
+          const existing = vendorUsageMap.get(vendorItemId) || 0
+          vendorUsageMap.set(vendorItemId, existing + (ri.quantity || 0))
+        }
+      }
+
+      // Insert usage rates
+      const ratesToInsert: any[] = []
+      for (const [vendorItemId, _totalQty] of vendorUsageMap) {
+        const rateKey = `${vendorItemId}::${defaultGroupId}`
+        if (existingRateKeys.has(rateKey)) continue
+
+        // Find the vendor item to get count_units_per_case for conversion
+        const vendorItem = vendorItems.find((vi: any) => vi.id === vendorItemId)
+        const unitsPerCase = vendorItem?.count_units_per_case || 1
+
+        // Usage rate is stored as cases consumed per sale
+        // Recipe qty is in recipe units (oz, ea, etc) — divide by units_per_case to get cases
+        // But we need per-MI rate, not aggregate. Use average across MIs.
+        // Actually, usage rates are per product group sale, so we keep the aggregate approach
+        // Each MI that uses this item gets its own recipe qty as the rate
+        
+        ratesToInsert.push({
+          location_id: locationId,
+          inventory_item_id: vendorItemId,
+          product_group_id: defaultGroupId,
+          usage_rate: null, // Will be calculated from actual sales data later
+          rate_unit: vendorItem?.count_unit || 'oz',
+          manual_override: false,
+        })
+      }
+
+      if (ratesToInsert.length > 0) {
+        for (let i = 0; i < ratesToInsert.length; i += 500) {
+          const batch = ratesToInsert.slice(i, i + 500)
+          const { error: rateErr } = await supabase.from('inventory_usage_rates').insert(batch)
+          if (rateErr) {
+            console.error('[apply-bom-diff] Error inserting usage rates:', rateErr)
+          } else {
+            usageRatesCreated += batch.length
+          }
+        }
+      }
+    }
+
+    console.log(`[apply-bom-diff] Created ${usageRatesCreated} usage rate mappings`)
+
     return new Response(
-      JSON.stringify({ success: true, applied, bridged }),
+      JSON.stringify({ 
+        success: true, 
+        applied, 
+        bridged, 
+        autoMatched, 
+        autoMatchTotal: unmatchedIngs.length,
+        usageRatesCreated,
+        matchResults: matchResults.slice(0, 20), // Return top 20 for UI preview
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
