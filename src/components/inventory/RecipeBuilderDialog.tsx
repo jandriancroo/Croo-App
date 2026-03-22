@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
@@ -31,6 +31,39 @@ const UNIT_OPTIONS = ["oz", "qt", "gal", "lb", "kg", "g", "ea", "tbsp", "tsp", "
 // Conversion factors to oz (base unit for auto-calc)
 const TO_OZ: Record<string, number> = {
   oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, bags: 1, ct: 1, kg: 35.274, g: 0.03527,
+};
+
+const UNIT_ALIASES: Record<string, string> = {
+  "oz-wt": "oz",
+  "oz-fl": "oz",
+  "fl-oz": "oz",
+  "fl_oz": "oz",
+  "oz_fl": "oz",
+  "gram": "g",
+  "grams": "g",
+  "each": "ea",
+  "count": "ea",
+  "case": "cs",
+  "cases": "cs",
+  "can": "cn",
+  "cans": "cn",
+  "quart": "qt",
+  "quarts": "qt",
+  "gallon": "gal",
+  "gallons": "gal",
+  "lbs": "lb",
+  "pound": "lb",
+  "pounds": "lb",
+};
+
+const normalizeUnit = (unit: string | null | undefined): string => {
+  if (!unit) return "";
+  const cleaned = unit.trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
+  if (UNIT_ALIASES[cleaned]) return UNIT_ALIASES[cleaned];
+  if (cleaned.includes("ml")) return "ml";
+  if (cleaned.includes("oz")) return "oz";
+  if (cleaned.includes("gram")) return "g";
+  return cleaned;
 };
 
 const PACK_UNIT_MAP: Record<string, string> = {
@@ -154,21 +187,22 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     if (ingredients.length === 0) return 0;
     let totalOz = 0;
     for (const ing of ingredients) {
-      if (ing.unit === "cn") {
+      const ingUnit = normalizeUnit(ing.unit);
+      if (ingUnit === "cn") {
         // Resolve can to oz using the item's pack_size
         const item = availableItems?.find(i => i.id === ing.ingredient_item_id);
         const canMatch = item?.pack_size?.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]+)$/);
         const ozPerCan = canMatch ? (CAN_SIZES[canMatch[2]] || 1) : 1;
         totalOz += ing.quantity * ozPerCan;
-      } else if (ing.unit === "cs") {
+      } else if (ingUnit === "cs") {
         // Resolve case to oz using pack_size
         const item = availableItems?.find(i => i.id === ing.ingredient_item_id);
         const parsed = item?.pack_size ? parsePackSize(item.pack_size) : null;
         const upc = item?.count_units_per_case || parsed?.count || 1;
-        const nativeUnit = item?.count_unit || parsed?.unit || "oz";
+        const nativeUnit = normalizeUnit(item?.count_unit || parsed?.unit || "oz") || "oz";
         totalOz += upc * (TO_OZ[nativeUnit] ?? 1);
       } else {
-        const factor = TO_OZ[ing.unit] ?? 1;
+        const factor = TO_OZ[ingUnit] ?? 1;
         totalOz += ing.quantity * factor;
       }
     }
@@ -191,14 +225,14 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     if (existingRecipe?.item) {
       setRecipeName(existingRecipe.item.name);
       setYieldQty(existingRecipe.item.recipe_yield_qty?.toString() || "");
-      setYieldUnit(existingRecipe.item.recipe_yield_unit || "oz");
+      setYieldUnit(normalizeUnit(existingRecipe.item.recipe_yield_unit) || "oz");
       setYieldManuallyEdited(true);
       setCountable((existingRecipe.item as any).countable !== false);
       setPanSizesConfig(existingRecipe.item.pan_sizes ? (existingRecipe.item.pan_sizes as unknown as PanSizesConfig) : null);
       setIngredients(existingRecipe.ingredients.map(i => ({
         ingredient_item_id: i.ingredient_item_id,
         quantity: Number(i.quantity),
-        unit: i.unit,
+        unit: normalizeUnit(i.unit) || "oz",
       })));
     }
   }, [existingRecipe]);
@@ -212,6 +246,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
 
     for (const ing of ingredients) {
       const item = availableItems.find(i => i.id === ing.ingredient_item_id);
+      const ingUnit = normalizeUnit(ing.unit);
       if (!item) {
         allHaveCost = false;
         missingItems.push(ing.ingredient_item_id);
@@ -224,11 +259,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
 
       if (item.is_recipe) {
         // Recipe ingredient: cost = (qty_in_oz / yield_in_oz) * batch_cost
-        const yieldUnit = item.recipe_yield_unit || "oz";
+        const recipeYieldUnit = normalizeUnit(item.recipe_yield_unit) || "oz";
         const yieldQtyVal = item.recipe_yield_qty || 0;
         if (yieldQtyVal > 0) {
-          const ingOz = ing.quantity * (TO_OZ[ing.unit] ?? 1);
-          const yieldOz = yieldQtyVal * (TO_OZ[yieldUnit] ?? 1);
+          const ingOz = ing.quantity * (TO_OZ[ingUnit] ?? 1);
+          const yieldOz = yieldQtyVal * (TO_OZ[recipeYieldUnit] ?? 1);
           total += (ingOz / yieldOz) * item.cost_per_unit;
         } else {
           allHaveCost = false;
@@ -239,19 +274,19 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
 
       // Get unit info — use structured fields, fallback to parsing pack_size
       let upc = item.count_units_per_case;
-      let nativeUnit = item.count_unit;
+      let nativeUnit = normalizeUnit(item.count_unit);
       if ((!upc || !nativeUnit) && item.pack_size) {
         const parsed = parsePackSize(item.pack_size);
         if (parsed) {
           if (!upc) upc = parsed.count;
-          if (!nativeUnit) nativeUnit = parsed.unit;
+          if (!nativeUnit) nativeUnit = normalizeUnit(parsed.unit);
         }
       }
       nativeUnit = nativeUnit || "ea";
 
-      if (ing.unit === "cs") {
+      if (ingUnit === "cs") {
         total += ing.quantity * item.cost_per_unit;
-      } else if (ing.unit === "cn") {
+      } else if (ingUnit === "cn") {
         const cansPerCase = parseCansPerCase(item.pack_size);
         if (cansPerCase && cansPerCase > 0) {
           total += (ing.quantity / cansPerCase) * item.cost_per_unit;
@@ -259,11 +294,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           allHaveCost = false;
           missingItems.push(item.name);
         }
-      } else if (ing.unit === nativeUnit && upc && upc > 0) {
+      } else if (ingUnit === nativeUnit && upc && upc > 0) {
         const casesUsed = ing.quantity / upc;
         total += casesUsed * item.cost_per_unit;
-      } else if (upc && upc > 0 && TO_OZ[ing.unit] && TO_OZ[nativeUnit]) {
-        const ingInOz = ing.quantity * TO_OZ[ing.unit];
+      } else if (upc && upc > 0 && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
+        const ingInOz = ing.quantity * TO_OZ[ingUnit];
         const nativeInOz = TO_OZ[nativeUnit];
         const ingInNativeUnits = ingInOz / nativeInOz;
         const casesUsed = ingInNativeUnits / upc;
@@ -323,7 +358,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
             recipe_item_id: editRecipeId,
             ingredient_item_id: ing.ingredient_item_id,
             quantity: ing.quantity,
-            unit: ing.unit,
+            unit: normalizeUnit(ing.unit) || ing.unit,
           })));
         if (ingErr) throw ingErr;
       } else {
@@ -355,7 +390,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
             recipe_item_id: newItem.id,
             ingredient_item_id: ing.ingredient_item_id,
             quantity: ing.quantity,
-            unit: ing.unit,
+            unit: normalizeUnit(ing.unit) || ing.unit,
           })));
         if (ingErr) throw ingErr;
       }
@@ -400,7 +435,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     setIngredients(prev => [...prev, {
       ingredient_item_id: selectedIngredientId,
       quantity: parseFloat(ingredientQty),
-      unit: ingredientUnit,
+      unit: normalizeUnit(ingredientUnit) || ingredientUnit,
     }]);
     setSelectedIngredientId("");
     setIngredientQty("");
@@ -511,32 +546,33 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                   const item = availableItems?.find(i => i.id === ing.ingredient_item_id);
                   let ingCost: number | null = null;
                   if (item?.cost_per_unit != null) {
+                    const ingUnit = normalizeUnit(ing.unit);
                     if (item.is_recipe) {
                       // Recipe ingredient: cost = (qty_in_oz / yield_in_oz) * batch_cost
-                      const yieldUnit = item.recipe_yield_unit || "oz";
+                      const recipeYieldUnit = normalizeUnit(item.recipe_yield_unit) || "oz";
                       const yieldQtyVal = item.recipe_yield_qty || 0;
                       if (yieldQtyVal > 0) {
-                        const ingOz = ing.quantity * (TO_OZ[ing.unit] ?? 1);
-                        const yieldOz = yieldQtyVal * (TO_OZ[yieldUnit] ?? 1);
+                        const ingOz = ing.quantity * (TO_OZ[ingUnit] ?? 1);
+                        const yieldOz = yieldQtyVal * (TO_OZ[recipeYieldUnit] ?? 1);
                         ingCost = (ingOz / yieldOz) * item.cost_per_unit;
                       }
                     } else {
                       let upc = item.count_units_per_case;
-                      let nativeUnit = item.count_unit;
+                      let nativeUnit = normalizeUnit(item.count_unit);
                       if ((!upc || !nativeUnit) && item.pack_size) {
                         const parsed = parsePackSize(item.pack_size);
-                        if (parsed) { if (!upc) upc = parsed.count; if (!nativeUnit) nativeUnit = parsed.unit; }
+                        if (parsed) { if (!upc) upc = parsed.count; if (!nativeUnit) nativeUnit = normalizeUnit(parsed.unit); }
                       }
                       nativeUnit = nativeUnit || "ea";
-                      if (ing.unit === "cs") {
+                      if (ingUnit === "cs") {
                         ingCost = ing.quantity * item.cost_per_unit;
-                      } else if (ing.unit === "cn") {
+                      } else if (ingUnit === "cn") {
                         const cpc = parseCansPerCase(item.pack_size);
                         if (cpc && cpc > 0) ingCost = (ing.quantity / cpc) * item.cost_per_unit;
-                      } else if (ing.unit === nativeUnit && upc && upc > 0) {
+                      } else if (ingUnit === nativeUnit && upc && upc > 0) {
                         ingCost = (ing.quantity / upc) * item.cost_per_unit;
-                      } else if (upc && upc > 0 && TO_OZ[ing.unit] && TO_OZ[nativeUnit]) {
-                        const ingInNative = (ing.quantity * TO_OZ[ing.unit]) / TO_OZ[nativeUnit];
+                      } else if (upc && upc > 0 && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
+                        const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
                         ingCost = (ingInNative / upc) * item.cost_per_unit;
                       }
                     }
@@ -595,10 +631,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                           setSelectedIngredientId(item.id);
                           if (item.is_recipe) {
                             // For recipe ingredients, default to yield unit
-                            setIngredientUnit(item.recipe_yield_unit || item.count_unit || "oz");
+                            setIngredientUnit(normalizeUnit(item.recipe_yield_unit || item.count_unit || "oz") || "oz");
                           } else {
                             const parsed = parsePackSize(item.pack_size);
-                            const unit = item.count_unit || parsed?.unit || "ea";
+                            const unit = normalizeUnit(item.count_unit || parsed?.unit || "ea") || "ea";
                             const isCan = parseCansPerCase(item.pack_size) !== null;
                             setIngredientUnit(isCan ? "cn" : unit);
                           }
@@ -637,29 +673,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                   const selectedItem = availableItems?.find(i => i.id === selectedIngredientId);
                   if (selectedItem?.is_recipe) {
                     // For recipe ingredients: yield unit, oz (deduplicated)
-                    const yieldUnit = selectedItem.recipe_yield_unit || "oz";
+                    const yieldUnit = normalizeUnit(selectedItem.recipe_yield_unit) || "oz";
                     const unitOptions = Array.from(new Set([yieldUnit, "oz", "qt", "gal"]));
                     return (
                     <div className="flex items-center gap-2">
-                      <Input type="number" step="0.1" placeholder="Qty" value={ingredientQty}
-                        onChange={(e) => setIngredientQty(e.target.value)} className="h-8 w-20 text-xs" autoFocus />
-                      <Select value={ingredientUnit} onValueChange={setIngredientUnit}>
-                        <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {unitOptions.map(u => (
-                            <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button size="sm" className="h-8 text-xs" onClick={addIngredient}>Add</Button>
-                      <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => {
-                        setAddingIngredient(false); setSelectedIngredientId(""); setIngredientSearch("");
-                      }}>Cancel</Button>
-                    </div>
-                    );
-                  }
+...
                   const parsed = selectedItem?.pack_size ? parsePackSize(selectedItem.pack_size) : null;
-                  const nativeUnit = selectedItem?.count_unit || parsed?.unit || "ea";
+                  const nativeUnit = normalizeUnit(selectedItem?.count_unit || parsed?.unit || "ea") || "ea";
                   const isCan = parseCansPerCase(selectedItem?.pack_size ?? null) !== null;
                   // Build contextual unit options: cn for can items, native unit, cs, oz, tbsp, tsp (deduplicated)
                   const unitOptions = Array.from(new Set([...(isCan ? ["cn"] : []), nativeUnit, "cs", "oz", "tbsp", "tsp"]));
@@ -732,7 +752,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                     </p>
                   )}
                   {recipeCostResult && !recipeCostResult.allHaveCost && (
-                    <p className="text-xs text-yellow-600 dark:text-yellow-400 italic">
+                    <p className="text-xs text-muted-foreground italic">
                       ⚠ Partial — {recipeCostResult.missingItems.length} ingredient{recipeCostResult.missingItems.length > 1 ? 's' : ''} missing cost data
                     </p>
                   )}
