@@ -45,7 +45,7 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
         .eq("location_id", locationId)
         .order("display_order");
       if (error) throw error;
-      return (data || []) as { id: string; name: string; display_order: number }[];
+      return (data || []) as unknown as { id: string; name: string; display_order: number }[];
     },
   });
 
