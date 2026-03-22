@@ -1,0 +1,1 @@
+DELETE FROM bom_recipe_ingredients WHERE id = '5e013e4c-e15f-452b-9c28-a66b53ef85fa';
