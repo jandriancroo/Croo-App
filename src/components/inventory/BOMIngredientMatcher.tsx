@@ -94,8 +94,8 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     return m;
   }, [items]);
 
-  const { unmatched, matched, groupedUnmatched } = useMemo(() => {
-    if (!ingredients) return { unmatched: [], matched: [], groupedUnmatched: new Map<string, BOMIngredient[]>() };
+  const { unmatched, matched, groupedAll } = useMemo(() => {
+    if (!ingredients) return { unmatched: [], matched: [], groupedAll: new Map<string, BOMIngredient[]>() };
     const filtered = globalFilter
       ? ingredients.filter(i =>
           (i.clean_name || i.r365_name).toLowerCase().includes(globalFilter.toLowerCase())
@@ -104,24 +104,31 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     const um = filtered.filter(i => !i.inventory_item_id);
     const m = filtered.filter(i => i.inventory_item_id);
     
-    // Group unmatched by category
+    // Group ALL by category (unmatched first within each group)
     const grouped = new Map<string, BOMIngredient[]>();
-    um.forEach(ing => {
+    filtered.forEach(ing => {
       const cat = ing.category || "OTHER";
       if (!grouped.has(cat)) grouped.set(cat, []);
       grouped.get(cat)!.push(ing);
+    });
+    // Sort items within each group: unmatched first
+    grouped.forEach((items, cat) => {
+      grouped.set(cat, items.sort((a, b) => {
+        if (!a.inventory_item_id && b.inventory_item_id) return -1;
+        if (a.inventory_item_id && !b.inventory_item_id) return 1;
+        return (a.clean_name || a.r365_name).localeCompare(b.clean_name || b.r365_name);
+      }));
     });
     // Sort by CATEGORY_ORDER
     const sorted = new Map<string, BOMIngredient[]>();
     CATEGORY_ORDER.forEach(cat => {
       if (grouped.has(cat)) sorted.set(cat, grouped.get(cat)!);
     });
-    // Any remaining categories not in order
     grouped.forEach((v, k) => {
       if (!sorted.has(k)) sorted.set(k, v);
     });
     
-    return { unmatched: um, matched: m, groupedUnmatched: sorted };
+    return { unmatched: um, matched: m, groupedAll: sorted };
   }, [ingredients, globalFilter]);
 
   const getSuggestions = (ingredient: BOMIngredient): (InventoryItem & { score: number })[] => {
