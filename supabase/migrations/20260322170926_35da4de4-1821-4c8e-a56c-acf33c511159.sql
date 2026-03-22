@@ -1,0 +1,2 @@
+ALTER TABLE public.recipe_blueprints ADD COLUMN IF NOT EXISTS r365_name text;
+CREATE INDEX IF NOT EXISTS idx_recipe_blueprints_r365_name ON public.recipe_blueprints(location_id, r365_name) WHERE r365_name IS NOT NULL;
