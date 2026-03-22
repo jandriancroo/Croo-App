@@ -1,0 +1,1 @@
+ALTER TABLE public.bom_ingredients ADD COLUMN is_ignored boolean NOT NULL DEFAULT false;
