@@ -11,6 +11,8 @@ interface ItemCostInfo {
   id: string;
   cost_per_unit: number | null;
   pack_quantity: number | null;
+  count_units_per_case: number | null;
+  count_unit: string | null;
   is_recipe: boolean;
   recipe_yield_qty: number | null;
   recipe_yield_unit: string | null;
