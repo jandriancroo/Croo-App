@@ -941,19 +941,21 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
             </div>
           )}
 
-          {/* Countable toggle */}
-          <div className="flex items-center justify-between py-2">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Show in inventory count</Label>
-              <p className="text-xs text-muted-foreground">
-                {countable ? "This recipe will appear as a countable item" : "Hidden from counting (used as ingredient only)"}
-              </p>
+          {/* Countable toggle (not for BOM recipes) */}
+          {!bomMenuItemId && (
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Show in inventory count</Label>
+                <p className="text-xs text-muted-foreground">
+                  {countable ? "This recipe will appear as a countable item" : "Hidden from counting (used as ingredient only)"}
+                </p>
+              </div>
+              <Switch checked={countable} onCheckedChange={setCountable} />
             </div>
-            <Switch checked={countable} onCheckedChange={setCountable} />
-          </div>
+          )}
 
-          {/* Pan Sizes */}
-          {countable && (
+          {/* Pan Sizes (not for BOM recipes) */}
+          {!bomMenuItemId && countable && (
             <PanSizesSection
               value={panSizesConfig}
               onChange={setPanSizesConfig}
@@ -973,7 +975,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
               {saveMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                editRecipeId ? "Update Recipe" : "Create Recipe"
+                (bomMenuItemId || editRecipeId) ? "Update Recipe" : "Create Recipe"
               )}
             </Button>
           </div>
