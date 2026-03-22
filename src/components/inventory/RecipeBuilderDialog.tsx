@@ -325,6 +325,55 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     enabled: open && !!bomMenuItemId,
   });
 
+  // Fetch drilled-into blueprint data
+  const { data: drilledBlueprint } = useQuery({
+    queryKey: ["drilled-blueprint-detail", drillBlueprintId],
+    queryFn: async () => {
+      if (!drillBlueprintId) return null;
+      const { data: bp, error: bpErr } = await supabase
+        .from("recipe_blueprints" as any)
+        .select("id, name, category, yield_qty, yield_unit")
+        .eq("id", drillBlueprintId)
+        .single();
+      if (bpErr) throw bpErr;
+
+      const { data: ings, error: ingErr } = await supabase
+        .from("recipe_blueprint_ingredients" as any)
+        .select("id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
+        .eq("blueprint_id", drillBlueprintId);
+      if (ingErr) throw ingErr;
+
+      return { blueprint: bp as any, ingredients: (ings || []) as any[] };
+    },
+    enabled: open && !!drillBlueprintId,
+  });
+
+  // Populate form when drilling into a blueprint sub-recipe
+  useEffect(() => {
+    if (drilledBlueprint?.blueprint && drillBlueprintId) {
+      const bp = drilledBlueprint.blueprint;
+      setRecipeName(bp.name || "");
+      setYieldQty(bp.yield_qty?.toString() || "");
+      setYieldUnit(normalizeUnit(bp.yield_unit) || "oz");
+      setYieldManuallyEdited(true);
+      setIngredients(drilledBlueprint.ingredients.map((i: any) => {
+        const isBp = i.ingredient_type === "blueprint";
+        const refId = isBp ? i.sub_blueprint_id : i.vendor_item_id;
+        const name = isBp
+          ? otherBlueprints?.find((b: any) => b.id === refId)?.name
+          : vendorItems?.find((v: any) => v.id === refId)?.name;
+        return {
+          type: isBp ? "blueprint" as const : "vendor_item" as const,
+          ref_id: refId || i.id,
+          quantity: Number(i.quantity),
+          unit: normalizeUnit(i.unit) || "oz",
+          displayName: name || undefined,
+          unmapped: !refId,
+        };
+      }));
+    }
+  }, [drilledBlueprint, drillBlueprintId]);
+
   // ========== AUTO-YIELD CALCULATION ==========
 
   const autoYield = useMemo(() => {
