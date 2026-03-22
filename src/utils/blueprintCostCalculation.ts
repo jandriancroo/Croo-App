@@ -1,0 +1,195 @@
+import { supabase } from "@/integrations/supabase/client";
+
+interface BlueprintInfo {
+  id: string;
+  yield_qty: number | null;
+  yield_unit: string | null;
+  produces_item_id: string | null;
+}
+
+interface BlueprintIngredientRow {
+  blueprint_id: string;
+  ingredient_type: string;
+  vendor_item_id: string | null;
+  sub_blueprint_id: string | null;
+  quantity: number;
+  unit: string | null;
+}
+
+interface VendorItemInfo {
+  id: string;
+  cost_per_unit: number | null;
+  blended_price: number | null;
+  pack_size: string | null;
+  count_unit: string | null;
+  count_units_per_case: number | null;
+  pack_quantity: number | null;
+}
+
+export interface BlueprintCostResult {
+  batchCost: number;
+  missingItems: string[];
+  isPartial: boolean;
+}
+
+/**
+ * Fetches all recipe blueprints and their ingredients for a location,
+ * then calculates the batch cost for each blueprint by walking the tree
+ * down to vendor items and using live pricing.
+ *
+ * Returns Map<blueprint_id, BlueprintCostResult>
+ */
+export async function fetchBlueprintCosts(
+  locationId: string
+): Promise<Map<string, BlueprintCostResult>> {
+  // 1. Fetch all active blueprints
+  const { data: blueprints, error: bpErr } = await supabase
+    .from("recipe_blueprints" as any)
+    .select("id, yield_qty, yield_unit, produces_item_id")
+    .eq("location_id", locationId)
+    .eq("is_active", true);
+
+  if (bpErr) throw bpErr;
+  if (!blueprints?.length) return new Map();
+
+  const bpList = blueprints as unknown as BlueprintInfo[];
+  const bpMap = new Map<string, BlueprintInfo>(bpList.map(b => [b.id, b]));
+  const blueprintIds = bpList.map(b => b.id);
+
+  // 2. Fetch all ingredients for these blueprints
+  const { data: allIngredients, error: ingErr } = await supabase
+    .from("recipe_blueprint_ingredients" as any)
+    .select("blueprint_id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
+    .in("blueprint_id", blueprintIds);
+
+  if (ingErr) throw ingErr;
+
+  const ingList = (allIngredients || []) as unknown as BlueprintIngredientRow[];
+
+  // 3. Fetch vendor items for pricing
+  const vendorItemIds = [
+    ...new Set(ingList.filter(i => i.vendor_item_id).map(i => i.vendor_item_id!)),
+  ];
+
+  let vendorMap = new Map<string, VendorItemInfo>();
+  if (vendorItemIds.length > 0) {
+    const { data: vendorItems, error: vErr } = await supabase
+      .from("inventory_items")
+      .select("id, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, pack_quantity")
+      .in("id", vendorItemIds);
+    if (vErr) throw vErr;
+    vendorMap = new Map((vendorItems || []).map(v => [v.id, v as VendorItemInfo]));
+  }
+
+  // 4. Group ingredients by blueprint
+  const ingredientsByBp = new Map<string, BlueprintIngredientRow[]>();
+  for (const ing of ingList) {
+    const list = ingredientsByBp.get(ing.blueprint_id) || [];
+    list.push(ing);
+    ingredientsByBp.set(ing.blueprint_id, list);
+  }
+
+  // 5. Recursive cost calculation with cycle detection
+  const costCache = new Map<string, BlueprintCostResult>();
+
+  function calculateBatchCost(
+    blueprintId: string,
+    visited: Set<string> = new Set()
+  ): BlueprintCostResult {
+    if (costCache.has(blueprintId)) return costCache.get(blueprintId)!;
+    if (visited.has(blueprintId))
+      return { batchCost: 0, missingItems: [], isPartial: false };
+    visited.add(blueprintId);
+
+    const ingredients = ingredientsByBp.get(blueprintId) || [];
+    if (ingredients.length === 0) {
+      const result: BlueprintCostResult = { batchCost: 0, missingItems: [], isPartial: false };
+      costCache.set(blueprintId, result);
+      return result;
+    }
+
+    let totalBatchCost = 0;
+    const missingItems: string[] = [];
+
+    for (const ing of ingredients) {
+      if (ing.ingredient_type === "blueprint" && ing.sub_blueprint_id) {
+        // Sub-recipe: get batch cost, divide by yield, multiply by quantity
+        const subBp = bpMap.get(ing.sub_blueprint_id);
+        if (!subBp) {
+          missingItems.push(ing.sub_blueprint_id);
+          continue;
+        }
+        const subResult = calculateBatchCost(ing.sub_blueprint_id, new Set(visited));
+        if (subResult.missingItems.length > 0) missingItems.push(...subResult.missingItems);
+        const subYield = subBp.yield_qty || 1;
+        const costPerYieldUnit = subResult.batchCost / subYield;
+        totalBatchCost += costPerYieldUnit * ing.quantity;
+      } else if (ing.vendor_item_id) {
+        // Vendor item: resolve cost from live pricing
+        const vendor = vendorMap.get(ing.vendor_item_id);
+        if (!vendor) {
+          missingItems.push(ing.vendor_item_id);
+          continue;
+        }
+
+        const caseCost = vendor.blended_price ?? vendor.cost_per_unit ?? 0;
+        if (caseCost === 0) {
+          // No pricing data — item exists but has no cost
+          continue;
+        }
+
+        const ingUnit = ing.unit?.toLowerCase() || "";
+
+        if (ingUnit === "cs" || ingUnit === "case") {
+          totalBatchCost += caseCost * ing.quantity;
+        } else if (ingUnit === "cn" || ingUnit === "can") {
+          // Can-based: parse cans per case from pack_size
+          const cansPerCase = parseCansPerCase(vendor.pack_size);
+          if (cansPerCase && cansPerCase > 0) {
+            totalBatchCost += (ing.quantity / cansPerCase) * caseCost;
+          } else {
+            const unitsPerCase = vendor.count_units_per_case || vendor.pack_quantity || 1;
+            totalBatchCost += (caseCost / unitsPerCase) * ing.quantity;
+          }
+        } else {
+          // Sub-unit: divide case cost by units per case
+          const unitsPerCase = vendor.count_units_per_case || vendor.pack_quantity || 1;
+          const costPerSingleUnit = caseCost / unitsPerCase;
+          totalBatchCost += costPerSingleUnit * ing.quantity;
+        }
+      }
+    }
+
+    const result: BlueprintCostResult = {
+      batchCost: totalBatchCost,
+      missingItems,
+      isPartial: missingItems.length > 0,
+    };
+    costCache.set(blueprintId, result);
+    return result;
+  }
+
+  // 6. Calculate costs for all blueprints
+  const results = new Map<string, BlueprintCostResult>();
+  for (const bp of bpList) {
+    results.set(bp.id, calculateBatchCost(bp.id));
+  }
+
+  return results;
+}
+
+/**
+ * Given a blueprint's batch cost and yield quantity, returns the cost per single output unit.
+ */
+export function getBlueprintUnitCost(batchCost: number, yieldQty: number | null): number {
+  if (!yieldQty || yieldQty === 0) return batchCost;
+  return batchCost / yieldQty;
+}
+
+// Helper: parse cans per case from pack_size like "6/#10 CN"
+function parseCansPerCase(packSize: string | null): number | null {
+  if (!packSize) return null;
+  const match = packSize.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]+)$/);
+  if (match) return parseInt(match[1]);
+  return null;
+}
