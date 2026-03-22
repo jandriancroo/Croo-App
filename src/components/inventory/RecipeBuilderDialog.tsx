@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
@@ -32,6 +32,12 @@ interface BuilderIngredient {
   unit: string;
   displayName?: string; // fallback name from BOM/R365 data
   unmapped?: boolean; // BOM ingredient not yet linked to a vendor item
+  bomSubRecipeId?: string; // if this ingredient is a sub-recipe, its bom_menu_items.id
+}
+
+interface DrillStackEntry {
+  bomId: string;
+  name: string;
 }
 
 /** Combined item for the ingredient search list */
@@ -136,6 +142,14 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
   const [countable, setCountable] = useState(true);
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   const [suggestedPrice, setSuggestedPrice] = useState("");
+  const [drillStack, setDrillStack] = useState<DrillStackEntry[]>([]);
+  const [activeBomId, setActiveBomId] = useState<string | null>(bomMenuItemId || null);
+
+  // Reset activeBomId when bomMenuItemId prop changes
+  useEffect(() => {
+    setActiveBomId(bomMenuItemId || null);
+    setDrillStack([]);
+  }, [bomMenuItemId]);
 
   const isBlueprint = !!editBlueprintId || (!editRecipeId && !bomMenuItemId);
 
@@ -272,21 +286,34 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     enabled: open && !!editRecipeId && !bomMenuItemId && !editBlueprintId,
   });
 
-  // Fetch BOM recipe data (legacy catalog mode)
+  // Fetch BOM recipe data (legacy catalog mode) — uses activeBomId for drill-down
   const { data: bomRecipe } = useQuery({
-    queryKey: ["bom-recipe-detail", bomMenuItemId],
+    queryKey: ["bom-recipe-detail", activeBomId],
     queryFn: async () => {
-      if (!bomMenuItemId) return null;
+      if (!activeBomId) return null;
       const { data: menuItem } = await supabase
         .from("bom_menu_items")
         .select("id, r365_name, clean_name, recipe_yield_qty, recipe_yield_unit, category")
-        .eq("id", bomMenuItemId)
+        .eq("id", activeBomId)
         .single();
       const { data: bomIngs } = await supabase
         .from("bom_recipe_ingredients")
         .select("id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id)")
-        .eq("menu_item_id", bomMenuItemId);
+        .eq("menu_item_id", activeBomId);
       return { menuItem, ingredients: bomIngs || [] };
+    },
+    enabled: open && !!activeBomId,
+  });
+
+  // Fetch all BOM menu items for sub-recipe matching during drill-down
+  const { data: allBomMenuItems } = useQuery({
+    queryKey: ["all-bom-menu-items", locationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("bom_menu_items")
+        .select("id, r365_name, clean_name")
+        .eq("location_id", locationId);
+      return data || [];
     },
     enabled: open && !!bomMenuItemId,
   });
@@ -378,9 +405,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     }
   }, [existingRecipe, bomMenuItemId, editBlueprintId]);
 
-  // BOM recipe edit
+  // BOM recipe edit — also handles drill-down via activeBomId
   useEffect(() => {
-    if (bomRecipe?.menuItem && bomMenuItemId) {
+    if (bomRecipe?.menuItem && activeBomId) {
       const mi = bomRecipe.menuItem;
       setRecipeName(mi.clean_name || mi.r365_name || "");
       setYieldQty(mi.recipe_yield_qty?.toString() || "");
@@ -392,6 +419,16 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       for (const bomIng of bomRecipe.ingredients) {
         const ing = bomIng.ingredient as any;
         const ingName = ing?.clean_name || ing?.r365_name || "Unknown ingredient";
+
+        // Check if this ingredient matches another bom_menu_items entry (sub-recipe)
+        let subRecipeId: string | undefined;
+        if (allBomMenuItems && ing?.r365_name) {
+          const match = allBomMenuItems.find(
+            m => m.id !== activeBomId && (m.r365_name === ing.r365_name || m.clean_name === ing.clean_name)
+          );
+          if (match) subRecipeId = match.id;
+        }
+
         if (ing?.inventory_item_id) {
           mappedIngs.push({
             type: "vendor_item",
@@ -399,6 +436,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
             quantity: Number(bomIng.quantity),
             unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
             displayName: ingName,
+            bomSubRecipeId: subRecipeId,
           });
         } else {
           // Include unmapped BOM ingredients so user can see them
@@ -409,12 +447,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
             unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
             displayName: ingName,
             unmapped: true,
+            bomSubRecipeId: subRecipeId,
           });
         }
       }
       setIngredients(mappedIngs);
     }
-  }, [bomRecipe, bomMenuItemId]);
+  }, [bomRecipe, activeBomId, allBomMenuItems]);
 
   // ========== COST CALCULATION ==========
 
@@ -739,6 +778,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     setCountable(true);
     setPanSizesConfig(null);
     setSuggestedPrice("");
+    setDrillStack([]);
+    setActiveBomId(bomMenuItemId || null);
   };
 
   const addIngredient = () => {
@@ -780,6 +821,31 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       .filter(i => !search || i.name.toLowerCase().includes(search));
   }, [searchableItems, ingredientSearch, ingredients]);
 
+  // Drill into a sub-recipe
+  const drillIntoSubRecipe = (subRecipeId: string) => {
+    if (!activeBomId) return;
+    setDrillStack(prev => [...prev, { bomId: activeBomId, name: recipeName }]);
+    setActiveBomId(subRecipeId);
+  };
+
+  // Navigate back up the drill stack
+  const drillBack = (index?: number) => {
+    if (drillStack.length === 0) return;
+    if (index !== undefined) {
+      // Go back to a specific breadcrumb level
+      const entry = drillStack[index];
+      setDrillStack(prev => prev.slice(0, index));
+      setActiveBomId(entry.bomId);
+    } else {
+      // Go back one level
+      const prev = drillStack[drillStack.length - 1];
+      setDrillStack(s => s.slice(0, -1));
+      setActiveBomId(prev.bomId);
+    }
+  };
+
+  const isDrilledDown = drillStack.length > 0;
+
   // ========== RENDER ==========
 
   return (
@@ -803,8 +869,27 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
               </Badge>
             )}
           </DialogTitle>
-          {bomMenuItemId && (
+          {bomMenuItemId && !isDrilledDown && (
             <p className="text-xs text-muted-foreground">Editing BOM recipe. Changes save to the recipe catalog.</p>
+          )}
+          {/* Breadcrumb navigation for drilled-down sub-recipes */}
+          {isDrilledDown && (
+            <div className="flex items-center gap-1 flex-wrap text-xs mt-1">
+              {drillStack.map((entry, i) => (
+                <span key={entry.bomId} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="text-primary hover:underline font-medium"
+                    onClick={() => drillBack(i)}
+                  >
+                    {entry.name}
+                  </button>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                </span>
+              ))}
+              <span className="font-semibold text-foreground">{recipeName}</span>
+              <span className="text-muted-foreground ml-1">(read-only view)</span>
+            </div>
           )}
         </DialogHeader>
 
@@ -812,7 +897,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           {/* Recipe Name */}
           <div className="space-y-2">
             <Label>Recipe Name</Label>
-            <Input placeholder="e.g., Dough, Red Sauce, Pesto Blend" value={recipeName} onChange={(e) => setRecipeName(e.target.value)} autoFocus />
+            <Input placeholder="e.g., Dough, Red Sauce, Pesto Blend" value={recipeName}
+              onChange={(e) => setRecipeName(e.target.value)} autoFocus disabled={isDrilledDown} />
           </div>
 
           {/* Yield */}
@@ -888,22 +974,45 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
                   return (
                     <div key={ing.ref_id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
-                      <div className="flex items-center gap-2 min-w-0">
-                        {ing.type === "blueprint" && <FlaskConical className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
-                        {ing.unmapped && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
-                        <span className={`font-medium truncate ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}>
-                          {displayName}
-                          {ing.unmapped && <span className="text-[10px] ml-1 font-normal opacity-70">(needs mapping)</span>}
-                        </span>
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {ing.bomSubRecipeId && (
+                          <button
+                            type="button"
+                            className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
+                            title="Drill into sub-recipe"
+                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!)}
+                          >
+                            <FlaskConical className="h-3 w-3 text-primary" />
+                          </button>
+                        )}
+                        {!ing.bomSubRecipeId && ing.type === "blueprint" && <FlaskConical className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
+                        {ing.unmapped && !ing.bomSubRecipeId && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                        {ing.bomSubRecipeId ? (
+                          <button
+                            type="button"
+                            className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
+                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!)}
+                          >
+                            {displayName}
+                            <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
+                          </button>
+                        ) : (
+                          <span className={`font-medium truncate ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}>
+                            {displayName}
+                            {ing.unmapped && <span className="text-[10px] ml-1 font-normal opacity-70">(needs mapping)</span>}
+                          </span>
+                        )}
                         <span className="text-muted-foreground font-mono text-xs flex-shrink-0">
                           {ing.quantity} {ing.unit}
                           {ingCost !== null && <span className="ml-1">· ${ingCost.toFixed(2)}</span>}
                         </span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
-                        onClick={() => removeIngredient(ing.ref_id)}>
-                        <X className="h-3 w-3" />
-                      </Button>
+                      {!isDrilledDown && (
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
+                          onClick={() => removeIngredient(ing.ref_id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                   );
                 })}
@@ -912,8 +1021,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
               <p className="text-xs text-muted-foreground italic py-2">No ingredients added yet</p>
             )}
 
-            {/* Add ingredient form */}
-            {addingIngredient ? (
+            {/* Add ingredient form — hidden when viewing sub-recipe */}
+            {!isDrilledDown && addingIngredient ? (
               <div className="border rounded-md p-3 space-y-2 bg-muted/30">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1005,11 +1114,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                   );
                 })()}
               </div>
-            ) : (
+            ) : !isDrilledDown ? (
               <Button variant="outline" size="sm" className="text-xs" onClick={() => setAddingIngredient(true)}>
                 <Plus className="h-3 w-3 mr-1" />Add Ingredient
               </Button>
-            )}
+            ) : null}
           </div>
 
           {/* Cost Summary */}
@@ -1060,7 +1169,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           )}
 
           {/* Countable toggle */}
-          {!bomMenuItemId && (
+          {!bomMenuItemId && !isDrilledDown && (
             <div className="flex items-center justify-between py-2">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Show in inventory count</Label>
@@ -1073,18 +1182,26 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           )}
 
           {/* Pan Sizes */}
-          {!bomMenuItemId && countable && (
+          {!bomMenuItemId && !isDrilledDown && countable && (
             <PanSizesSection value={panSizesConfig} onChange={setPanSizesConfig} />
           )}
 
           {/* Actions */}
           <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
-            <Button className="flex-1" onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending || !recipeName.trim() || ingredients.length === 0}>
-              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                (editBlueprintId || editRecipeId || bomMenuItemId) ? "Update Recipe" : "Create Recipe"}
-            </Button>
+            {isDrilledDown ? (
+              <Button variant="outline" className="flex-1" onClick={() => drillBack()}>
+                ← Back to {drillStack[drillStack.length - 1]?.name || "parent"}
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
+                <Button className="flex-1" onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending || !recipeName.trim() || ingredients.length === 0}>
+                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> :
+                    (editBlueprintId || editRecipeId || bomMenuItemId) ? "Update Recipe" : "Create Recipe"}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </DialogContent>
