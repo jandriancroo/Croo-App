@@ -81,18 +81,33 @@ export async function fetchBlueprintCosts(
   const bpMap = new Map<string, BlueprintInfo>(bpList.map(b => [b.id, b]));
   const blueprintIds = bpList.map(b => b.id);
 
-  // 2. Fetch all ingredients for these blueprints (paginated to avoid 1000-row default limit)
+  // 2. Fetch all ingredients for these blueprints with true pagination.
+  // Supabase API row caps (often 1000) still apply even when .limit() is higher,
+  // so we page by range to guarantee we collect all rows.
   const ingList: BlueprintIngredientRow[] = [];
-  const BATCH_SIZE = 500;
-  for (let i = 0; i < blueprintIds.length; i += BATCH_SIZE) {
-    const batch = blueprintIds.slice(i, i + BATCH_SIZE);
-    const { data: batchData, error: ingErr } = await supabase
-      .from("recipe_blueprint_ingredients" as any)
-      .select("blueprint_id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
-      .in("blueprint_id", batch)
-      .limit(5000);
-    if (ingErr) throw ingErr;
-    ingList.push(...((batchData || []) as unknown as BlueprintIngredientRow[]));
+  const ID_BATCH_SIZE = 200;
+  const PAGE_SIZE = 500;
+
+  for (let i = 0; i < blueprintIds.length; i += ID_BATCH_SIZE) {
+    const idBatch = blueprintIds.slice(i, i + ID_BATCH_SIZE);
+    let offset = 0;
+
+    while (true) {
+      const { data: pageData, error: ingErr } = await supabase
+        .from("recipe_blueprint_ingredients" as any)
+        .select("id, blueprint_id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
+        .in("blueprint_id", idBatch)
+        .order("id", { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (ingErr) throw ingErr;
+
+      const rows = (pageData || []) as unknown as BlueprintIngredientRow[];
+      ingList.push(...rows);
+
+      if (rows.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
   }
 
   // 3. Fetch vendor items for pricing
