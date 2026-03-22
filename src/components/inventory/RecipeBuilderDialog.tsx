@@ -200,7 +200,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       if (error) throw error;
       return (data || []) as unknown as { id: string; name: string; yield_qty: number | null; yield_unit: string | null; category: string | null }[];
     },
-    enabled: open && isBlueprint,
+    enabled: open,
   });
 
   // Build combined searchable items list
@@ -491,7 +491,26 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           if (match) subRecipeId = match.id;
         }
 
-        if (ing?.inventory_item_id) {
+        // Check if a blueprint exists for this sub-recipe (preferred over BOM)
+        let matchingBlueprintId: string | undefined;
+        if (otherBlueprints && ing?.r365_name) {
+          const bpMatch = otherBlueprints.find(
+            bp => bp.name?.toLowerCase() === (ing.clean_name || ing.r365_name)?.toLowerCase()
+          );
+          if (bpMatch) matchingBlueprintId = bpMatch.id;
+        }
+
+        if (matchingBlueprintId) {
+          // Blueprint exists for this sub-recipe — use it instead of BOM
+          mappedIngs.push({
+            type: "blueprint",
+            ref_id: matchingBlueprintId,
+            quantity: Number(bomIng.quantity),
+            unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
+            displayName: ingName,
+            bomSubRecipeId: subRecipeId,
+          });
+        } else if (ing?.inventory_item_id) {
           mappedIngs.push({
             type: "vendor_item",
             ref_id: ing.inventory_item_id,
