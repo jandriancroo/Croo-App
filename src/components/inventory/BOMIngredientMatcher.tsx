@@ -29,6 +29,7 @@ interface InventoryItem {
   unit: string | null;
   pack_size: string | null;
   category: string | null;
+  vendor_source: string | null;
 }
 
 function scoreSimilarity(a: string, b: string): number {
@@ -78,7 +79,7 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, brand, unit, pack_size, category")
+        .select("id, name, common_name, brand, unit, pack_size, category, vendor_source")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -305,11 +306,19 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
                                   )}
                                 >
                                   <div className="min-w-0 flex-1">
-                                    <p className="font-medium truncate">{item.name}</p>
-                                    <div className="flex gap-1.5 mt-0.5">
-                                      {item.brand && <span className="text-muted-foreground">{item.brand}</span>}
-                                      {item.pack_size && <span className="text-muted-foreground">• {item.pack_size}</span>}
-                                    </div>
+                                     <div className="flex items-center gap-1.5">
+                                       <p className="font-medium truncate">{item.name}</p>
+                                       {item.vendor_source === 'pfg' && (
+                                         <Badge variant="outline" className="text-[9px] px-1 shrink-0 border-blue-500/30 text-blue-600">PFG</Badge>
+                                       )}
+                                       {item.vendor_source === 'produce_alliance' && (
+                                         <Badge variant="outline" className="text-[9px] px-1 shrink-0 border-green-500/30 text-green-600">PA</Badge>
+                                       )}
+                                     </div>
+                                     <div className="flex gap-1.5 mt-0.5">
+                                       {item.brand && <span className="text-muted-foreground">{item.brand}</span>}
+                                       {item.pack_size && <span className="text-muted-foreground">• {item.pack_size}</span>}
+                                     </div>
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                     {item.score >= 60 && (
