@@ -232,7 +232,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           total += (ingOz / yieldOz) * item.cost_per_unit;
         } else {
           allHaveCost = false;
-          missingItems.push(item.common_name || item.name);
+          missingItems.push(item.name);
         }
         continue;
       }
@@ -257,7 +257,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           total += (ing.quantity / cansPerCase) * item.cost_per_unit;
         } else {
           allHaveCost = false;
-          missingItems.push(item.common_name || item.name);
+          missingItems.push(item.name);
         }
       } else if (ing.unit === nativeUnit && upc && upc > 0) {
         const casesUsed = ing.quantity / upc;
@@ -270,7 +270,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
         total += casesUsed * item.cost_per_unit;
       } else {
         allHaveCost = false;
-        missingItems.push(item.common_name || item.name);
+        missingItems.push(item.name);
       }
     }
 
