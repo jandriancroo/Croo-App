@@ -111,12 +111,12 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
-      toast.success(editingGroup ? "Group updated" : "Group added");
+      toast.success(editingGroup ? "Mapping updated" : "Mapping added");
       closeDialog();
     },
     onError: (err: any) => {
       if (err?.message?.includes("duplicate")) {
-        toast.error("A group with that name already exists");
+        toast.error("A mapping with that name already exists");
       } else {
         toast.error("Failed to save group");
       }
@@ -133,10 +133,10 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
-      toast.success("Group deleted");
+      toast.success("Mapping deleted");
     },
     onError: () => {
-      toast.error("Failed to delete group — it may have usage rates linked");
+      toast.error("Failed to delete — it may have usage rates linked");
     },
   });
 
@@ -207,7 +207,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 font-semibold text-sm">
               <Layers className="h-4 w-4" />
-              Product Groups
+              POS Mapping
             </div>
             <Button size="sm" variant="outline" onClick={openAdd}>
               <Plus className="h-4 w-4 mr-1" />
@@ -215,16 +215,16 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Define pizza size/type categories for usage rate tracking (e.g., Large, Regular, Specialty)
+            Connect POS menu categories to inventory for usage tracking (e.g., Large Pizza, Specialty)
           </p>
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
           ) : !groups || groups.length === 0 ? (
             <div className="text-center py-6 space-y-2">
-              <p className="text-sm text-muted-foreground">No product groups yet</p>
+              <p className="text-sm text-muted-foreground">No POS mappings yet</p>
               <Button size="sm" onClick={openAdd}>
                 <Plus className="h-4 w-4 mr-1" />
-                Add First Group
+                Add First Mapping
               </Button>
             </div>
           ) : (
@@ -289,7 +289,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       <Dialog open={showDialog} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingGroup ? "Edit Group" : "Add Product Group"}</DialogTitle>
+            <DialogTitle>{editingGroup ? "Edit POS Mapping" : "Add POS Mapping"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

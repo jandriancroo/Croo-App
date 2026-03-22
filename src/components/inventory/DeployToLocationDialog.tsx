@@ -105,7 +105,7 @@ const FEATURE_LABELS: Record<DeployFeature, string> = {
   storage_locations: "Storage Locations",
   shortcuts: "Shortcuts",
   usage_rates: "Usage Rates",
-  product_groups: "Product Groups",
+  product_groups: "POS Mapping",
   recipes: "Recipes",
 };
 
@@ -115,8 +115,8 @@ const FEATURE_DESCRIPTIONS: Record<DeployFeature, string> = {
   categories: "Item categories (Produce, Dairy, etc.)",
   storage_locations: "Where items are stored (auto-creates missing)",
   shortcuts: "All shortcuts placed in a 'Shortcuts (Review)' location for you to sort or delete",
-  usage_rates: "Consumption rates per product group",
-  product_groups: "Product groupings & POS category mappings",
+  usage_rates: "Consumption rates per POS mapping",
+  product_groups: "POS category & menu item mappings",
   recipes: "Recipe definitions with ingredients & yields",
 };
 
