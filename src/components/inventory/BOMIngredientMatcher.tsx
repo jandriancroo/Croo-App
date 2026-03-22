@@ -146,8 +146,14 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
         return { ...item, score };
       })
       .filter(i => i.score >= 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 15);
+      .sort((a, b) => {
+        // Vendor items (PFG/PA) first
+        const aVendor = a.vendor_source === 'pfg' || a.vendor_source === 'produce_alliance' ? 1 : 0;
+        const bVendor = b.vendor_source === 'pfg' || b.vendor_source === 'produce_alliance' ? 1 : 0;
+        if (bVendor !== aVendor) return bVendor - aVendor;
+        return b.score - a.score;
+      })
+      .slice(0, 5);
   };
 
   const handleLink = async (ingredientId: string, inventoryItemId: string) => {
