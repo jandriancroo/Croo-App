@@ -302,6 +302,10 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
                               <Badge variant="outline" className="text-[10px]">{ing.unit_standard}</Badge>
                             )}
                             {isMatched ? (
+                              <Badge variant="outline" className="text-[10px] px-1.5 border-primary/40 text-primary bg-primary/10 gap-1">
+                                <Link2 className="h-3 w-3" />
+                                matched
+                              </Badge>
                               <Button
                                 variant="ghost"
                                 size="icon"
