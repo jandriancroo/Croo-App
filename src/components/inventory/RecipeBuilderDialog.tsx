@@ -123,7 +123,7 @@ const convertYield = (qty: number, fromUnit: string, toUnit: string): number => 
   return (qty * fromFactor) / toFactor;
 };
 
-const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: RecipeBuilderDialogProps) => {
+const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bomMenuItemId }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
   const [yieldQty, setYieldQty] = useState("");
