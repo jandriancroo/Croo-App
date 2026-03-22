@@ -628,7 +628,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                     <p className="font-medium">QuBeyond Integration Active</p>
                     <p className="text-sm text-muted-foreground">
                       {salesData.length} days of sales data available for theoretical usage calculations.
-                      {!theoreticalData?.length && " Link inventory items to product groups and map POS categories to enable automatic theoretical tracking."}
+                      {!theoreticalData?.length && " Set up POS Mapping and Usage Rates to enable automatic theoretical tracking."}
                     </p>
                   </div>
                 </div>

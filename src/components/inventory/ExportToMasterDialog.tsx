@@ -1,6 +1,6 @@
 /**
  * ExportToMasterDialog — exports current location's configured items
- * (with pan sizes, common names, storage locations, usage rates, product groups, categories)
+ * (with pan sizes, common names, storage locations, usage rates, POS mappings, categories)
  * to brand-level master templates.
  * Stores weight-based conversions so they adapt to different pack sizes at other locations.
  */
@@ -384,7 +384,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     const itemRates = usageMultiMap.get(item.id);
     if (itemRates?.length) badges.push(`${itemRates.length} Rate${itemRates.length > 1 ? 's' : ''}`);
     const hasGroup = itemRates?.some(r => r.product_group_id && groupMap.has(r.product_group_id));
-    if (hasGroup) badges.push("Product Group");
+    if (hasGroup) badges.push("POS Mapping");
     return badges;
   };
 
@@ -400,7 +400,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
 
         <p className="text-xs text-muted-foreground">
           Export items with their full configuration (pan sizes, common names, storage locations, 
-          usage rates, product groups, categories) to the brand-level master catalog.
+          usage rates, POS mappings, categories) to the brand-level master catalog.
         </p>
 
         {isLoading ? (

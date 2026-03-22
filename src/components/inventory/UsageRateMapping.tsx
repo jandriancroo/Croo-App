@@ -329,7 +329,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
       <Card>
         <CardContent className="py-6">
           <p className="text-sm text-muted-foreground text-center">
-            Add product groups first (above) before mapping items
+            Add POS mappings first (above) before linking items
           </p>
         </CardContent>
       </Card>
@@ -363,7 +363,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
             Usage Rate Mappings
           </div>
           <p className="text-xs text-muted-foreground">
-            Link items to product groups and enter how much of each item goes into one unit sold (e.g., 8 oz of mozz per large pizza).
+            Link items to POS mappings and enter how much of each item goes into one unit sold (e.g., 8 oz of mozz per large pizza).
           </p>
         </div>
         {/* Search bar */}

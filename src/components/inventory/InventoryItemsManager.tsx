@@ -1001,7 +1001,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         )}
       </div>
 
-      {/* Product Groups — Brand Admin+ only */}
+      {/* POS Mapping — Brand Admin+ only */}
       {canEditProductGroups && <ProductGroupsManager locationId={locationId} />}
 
       {/* Usage Rate Mappings — Brand Admin+ only */}
