@@ -289,7 +289,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
       if (selectedFeatures.has('categories') && tmpl.category) return true;
       if (selectedFeatures.has('storage_locations') && tmpl.storage_location_name) return true;
       if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) return true;
-      if (selectedFeatures.has('usage_rates') && (tmpl.usage_rate_mappings?.length > 0 || tmpl.usage_rate != null)) return true;
+      
       if (selectedFeatures.has('product_groups') && (tmpl.usage_rate_mappings?.some(m => m.group_name) || tmpl.product_group_name)) return true;
       if (selectedFeatures.has('recipes') && tmpl.is_recipe) return true;
       return false;
@@ -393,7 +393,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     if (selectedFeatures.has('storage_locations') && tmpl.storage_location_name) indicators.push("Stor");
     if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) indicators.push(`${tmpl.shortcut_location_names.length} SC`);
     const mappings = tmpl.usage_rate_mappings || [];
-    if (selectedFeatures.has('usage_rates') && mappings.length > 0) indicators.push(`${mappings.length} Rate${mappings.length > 1 ? 's' : ''}`);
     if (selectedFeatures.has('product_groups') && mappings.some(m => m.group_name)) indicators.push("Grp");
     if (selectedFeatures.has('recipes') && tmpl.is_recipe) indicators.push("Recipe");
     return indicators;
@@ -563,7 +562,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
 
       // Create/find product groups at target (collect from ALL usage_rate_mappings)
       let targetGroupMap = new Map<string, string>();
-      if (selectedFeatures.has('product_groups') || selectedFeatures.has('usage_rates')) {
+      if (selectedFeatures.has('product_groups')) {
         const { data: existingGroups } = await supabase
           .from("inventory_product_groups")
           .select("id, name")
@@ -941,7 +940,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                   if (f === 'categories') return !!t.category;
                   if (f === 'storage_locations') return !!t.storage_location_name;
                   if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);
-                  if (f === 'usage_rates') return t.usage_rate != null;
                   if (f === 'product_groups') return !!t.product_group_name;
                   if (f === 'recipes') return t.is_recipe;
                   return false;
@@ -952,7 +950,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                   if (f === 'categories') return !!t.category;
                   if (f === 'storage_locations') return !!t.storage_location_name;
                   if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);
-                  if (f === 'usage_rates') return t.usage_rate != null;
+                  
                   if (f === 'product_groups') return !!t.product_group_name;
                   if (f === 'recipes') return t.is_recipe;
                   return false;
