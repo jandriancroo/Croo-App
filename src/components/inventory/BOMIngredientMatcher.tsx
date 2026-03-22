@@ -43,6 +43,13 @@ function scoreSimilarity(a: string, b: string): number {
   return Math.round((matches.length / Math.max(aWords.length, 1)) * 60);
 }
 
+const CATEGORY_ORDER = ["MEAT", "DAIRY", "PROD", "DRY", "OTHER", "PAPER", "MI", "NA_BEV", "BEER", "WINE"];
+const CATEGORY_LABELS: Record<string, string> = {
+  MEAT: "Meat", DAIRY: "Dairy", PROD: "Produce", DRY: "Dry Goods",
+  OTHER: "Other / Bases", PAPER: "Paper / Supplies", MI: "Menu Items",
+  NA_BEV: "Non-Alc Beverages", BEER: "Beer", WINE: "Wine",
+};
+
 const BOMIngredientMatcher = ({ locationId }: Props) => {
   const queryClient = useQueryClient();
   const [globalFilter, setGlobalFilter] = useState("");
@@ -50,6 +57,7 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
   const [itemSearch, setItemSearch] = useState("");
   const [showMatched, setShowMatched] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   const { data: ingredients, isLoading: loadingIng } = useQuery({
     queryKey: ["bom-ingredients", locationId],
