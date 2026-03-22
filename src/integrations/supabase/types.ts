@@ -5784,6 +5784,7 @@ export type Database = {
           id: string
           ingredient_type: string
           quantity: number
+          source_name: string | null
           sub_blueprint_id: string | null
           unit: string | null
           vendor_item_id: string | null
@@ -5794,6 +5795,7 @@ export type Database = {
           id?: string
           ingredient_type?: string
           quantity: number
+          source_name?: string | null
           sub_blueprint_id?: string | null
           unit?: string | null
           vendor_item_id?: string | null
@@ -5804,6 +5806,7 @@ export type Database = {
           id?: string
           ingredient_type?: string
           quantity?: number
+          source_name?: string | null
           sub_blueprint_id?: string | null
           unit?: string | null
           vendor_item_id?: string | null
