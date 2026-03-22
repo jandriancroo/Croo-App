@@ -204,15 +204,17 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
   }, [existingRecipe]);
 
   // Calculate total recipe cost from ingredients
-  const recipeCost = useMemo(() => {
+  const recipeCostResult = useMemo(() => {
     if (!availableItems || ingredients.length === 0) return null;
     let total = 0;
     let allHaveCost = true;
+    const missingItems: string[] = [];
 
     for (const ing of ingredients) {
       const item = availableItems.find(i => i.id === ing.ingredient_item_id);
       if (!item) {
         allHaveCost = false;
+        missingItems.push(ing.ingredient_item_id);
         continue;
       }
       // Items with no cost (e.g. Water) are treated as $0, not "missing"
@@ -230,6 +232,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           total += (ingOz / yieldOz) * item.cost_per_unit;
         } else {
           allHaveCost = false;
+          missingItems.push(item.name);
         }
         continue;
       }
@@ -254,6 +257,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           total += (ing.quantity / cansPerCase) * item.cost_per_unit;
         } else {
           allHaveCost = false;
+          missingItems.push(item.name);
         }
       } else if (ing.unit === nativeUnit && upc && upc > 0) {
         const casesUsed = ing.quantity / upc;
@@ -266,11 +270,14 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
         total += casesUsed * item.cost_per_unit;
       } else {
         allHaveCost = false;
+        missingItems.push(item.name);
       }
     }
 
-    return allHaveCost ? total : null;
+    return { total, allHaveCost, missingItems };
   }, [ingredients, availableItems]);
+
+  const recipeCost = recipeCostResult?.total ?? null;
 
   // Cost per yield unit
   const costPerYieldUnit = useMemo(() => {
@@ -710,7 +717,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           {ingredients.length > 0 && (
             <div className="border rounded-md p-3 bg-muted/30 space-y-2">
               <p className="text-xs font-medium">Recipe Cost</p>
-               {recipeCost !== null ? (
+               {recipeCost !== null && recipeCost > 0 ? (
                 <>
                   <p className="text-sm font-mono">
                     {costPerYieldUnit !== null && costPerYieldUnit !== recipeCost ? (
@@ -722,6 +729,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                   {costPerYieldUnit !== null && costPerYieldUnit !== recipeCost && (
                     <p className="text-xs text-muted-foreground font-mono">
                       = ${costPerYieldUnit.toFixed(4)}/{yieldUnit}
+                    </p>
+                  )}
+                  {recipeCostResult && !recipeCostResult.allHaveCost && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 italic">
+                      ⚠ Partial — {recipeCostResult.missingItems.length} ingredient{recipeCostResult.missingItems.length > 1 ? 's' : ''} missing cost data
                     </p>
                   )}
 
@@ -760,7 +772,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground italic">
-                  Some ingredients not found in inventory
+                  No ingredient cost data available
                 </p>
               )}
             </div>
