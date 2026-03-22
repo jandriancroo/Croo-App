@@ -29,6 +29,7 @@ interface InventoryItem {
   unit: string | null;
   pack_size: string | null;
   category: string | null;
+  vendor_source: string | null;
 }
 
 function scoreSimilarity(a: string, b: string): number {
@@ -78,7 +79,7 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, brand, unit, pack_size, category")
+        .select("id, name, common_name, brand, unit, pack_size, category, vendor_source")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
