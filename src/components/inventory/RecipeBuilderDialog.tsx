@@ -204,15 +204,17 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
   }, [existingRecipe]);
 
   // Calculate total recipe cost from ingredients
-  const recipeCost = useMemo(() => {
+  const recipeCostResult = useMemo(() => {
     if (!availableItems || ingredients.length === 0) return null;
     let total = 0;
     let allHaveCost = true;
+    const missingItems: string[] = [];
 
     for (const ing of ingredients) {
       const item = availableItems.find(i => i.id === ing.ingredient_item_id);
       if (!item) {
         allHaveCost = false;
+        missingItems.push(ing.ingredient_item_id);
         continue;
       }
       // Items with no cost (e.g. Water) are treated as $0, not "missing"
@@ -230,6 +232,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           total += (ingOz / yieldOz) * item.cost_per_unit;
         } else {
           allHaveCost = false;
+          missingItems.push(item.common_name || item.name);
         }
         continue;
       }
@@ -254,6 +257,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           total += (ing.quantity / cansPerCase) * item.cost_per_unit;
         } else {
           allHaveCost = false;
+          missingItems.push(item.common_name || item.name);
         }
       } else if (ing.unit === nativeUnit && upc && upc > 0) {
         const casesUsed = ing.quantity / upc;
@@ -266,11 +270,14 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
         total += casesUsed * item.cost_per_unit;
       } else {
         allHaveCost = false;
+        missingItems.push(item.common_name || item.name);
       }
     }
 
-    return allHaveCost ? total : null;
+    return { total, allHaveCost, missingItems };
   }, [ingredients, availableItems]);
+
+  const recipeCost = recipeCostResult?.total ?? null;
 
   // Cost per yield unit
   const costPerYieldUnit = useMemo(() => {
