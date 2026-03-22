@@ -374,11 +374,76 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       if (!yieldQty || parseFloat(yieldQty) <= 0) throw new Error("Yield required");
       if (ingredients.length === 0) throw new Error("Add at least one ingredient");
 
-      // Calculate cost_per_unit as total recipe cost (cost of one batch = one "case")
       const costPerCase = recipeCost;
 
+      // === BOM MODE: save back to bom_menu_items / bom_recipe_ingredients ===
+      if (bomMenuItemId) {
+        // Update the BOM menu item
+        const { error: miErr } = await supabase
+          .from("bom_menu_items")
+          .update({
+            clean_name: recipeName.trim(),
+            recipe_yield_qty: parseFloat(yieldQty),
+            recipe_yield_unit: yieldUnit,
+          })
+          .eq("id", bomMenuItemId);
+        if (miErr) throw miErr;
+
+        // Delete existing recipe ingredients
+        await supabase
+          .from("bom_recipe_ingredients")
+          .delete()
+          .eq("menu_item_id", bomMenuItemId);
+
+        // For each ingredient, find or create a bom_ingredient linked to the inventory_item
+        for (const ing of ingredients) {
+          // Check if a bom_ingredient already exists for this inventory_item
+          const { data: existing } = await supabase
+            .from("bom_ingredients")
+            .select("id")
+            .eq("location_id", locationId)
+            .eq("inventory_item_id", ing.ingredient_item_id)
+            .limit(1)
+            .single();
+
+          let bomIngredientId: string;
+          if (existing) {
+            bomIngredientId = existing.id;
+          } else {
+            // Create a new bom_ingredient linked to the inventory item
+            const item = availableItems?.find(i => i.id === ing.ingredient_item_id);
+            const { data: newBomIng, error: createErr } = await supabase
+              .from("bom_ingredients")
+              .insert({
+                location_id: locationId,
+                r365_name: item?.name || "Unknown",
+                clean_name: item?.name || "Unknown",
+                inventory_item_id: ing.ingredient_item_id,
+                is_ignored: false,
+              })
+              .select("id")
+              .single();
+            if (createErr || !newBomIng) throw createErr || new Error("Failed to create ingredient link");
+            bomIngredientId = newBomIng.id;
+          }
+
+          // Insert the recipe ingredient
+          const { error: riErr } = await supabase
+            .from("bom_recipe_ingredients")
+            .insert({
+              menu_item_id: bomMenuItemId,
+              ingredient_id: bomIngredientId,
+              quantity: ing.quantity,
+              unit_of_measure: normalizeUnit(ing.unit) || ing.unit,
+              location_id: locationId,
+            });
+          if (riErr) throw riErr;
+        }
+        return;
+      }
+
+      // === STANDARD MODE: save to inventory_items / inventory_recipe_ingredients ===
       if (editRecipeId) {
-        // Update existing recipe item
         const { error: itemErr } = await supabase
           .from("inventory_items")
           .update({
@@ -394,7 +459,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           .eq("id", editRecipeId);
         if (itemErr) throw itemErr;
 
-        // Delete old ingredients and re-insert
         await supabase
           .from("inventory_recipe_ingredients")
           .delete()
@@ -410,7 +474,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           })));
         if (ingErr) throw ingErr;
       } else {
-        // Create new recipe item
         const { data: newItem, error: itemErr } = await supabase
           .from("inventory_items")
           .insert({
@@ -447,7 +510,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items-usage", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items-for-recipe", locationId] });
-      toast.success(editRecipeId ? "Recipe updated" : "Recipe created");
+      if (bomMenuItemId) {
+        queryClient.invalidateQueries({ queryKey: ["recipe-catalog-items", locationId] });
+        queryClient.invalidateQueries({ queryKey: ["recipe-row-ingredients"] });
+        queryClient.invalidateQueries({ queryKey: ["recipe-row-costs"] });
+        queryClient.invalidateQueries({ queryKey: ["bom-recipe-detail", bomMenuItemId] });
+      }
+      toast.success(bomMenuItemId ? "Recipe updated" : editRecipeId ? "Recipe updated" : "Recipe created");
       resetForm();
       onOpenChange(false);
     },
