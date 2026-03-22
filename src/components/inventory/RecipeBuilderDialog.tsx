@@ -1115,32 +1115,28 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                   return (
                     <div key={ing.ref_id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {ing.bomSubRecipeId && (
+                        {(ing.bomSubRecipeId || ing.type === "blueprint") && (
                           <button
                             type="button"
                             className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
                             title="Drill into sub-recipe"
-                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")}
-                          >
-                            <FlaskConical className="h-3 w-3 text-primary" />
-                          </button>
-                        )}
-                        {!ing.bomSubRecipeId && ing.type === "blueprint" && (
-                          <button
-                            type="button"
-                            className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
-                            title="Drill into sub-recipe"
-                            onClick={() => drillIntoSubRecipe(ing.ref_id, "blueprint")}
+                            onClick={() => ing.type === "blueprint"
+                              ? drillIntoSubRecipe(ing.ref_id, "blueprint")
+                              : drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")
+                            }
                           >
                             <FlaskConical className="h-3 w-3 text-primary" />
                           </button>
                         )}
                         {ing.unmapped && !ing.bomSubRecipeId && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
-                        {ing.bomSubRecipeId ? (
+                        {(ing.bomSubRecipeId || ing.type === "blueprint") ? (
                           <button
                             type="button"
                             className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
-                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")}
+                            onClick={() => ing.type === "blueprint"
+                              ? drillIntoSubRecipe(ing.ref_id, "blueprint")
+                              : drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")
+                            }
                           >
                             {displayName}
                             <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
