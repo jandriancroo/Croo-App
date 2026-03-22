@@ -1324,6 +1324,7 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
               sub_blueprint_id: subBpId,
               quantity: ing.qty,
               unit: ing.uofm,
+              source_name: cleanIngredientName(ing.item),
             })
           } else {
             console.warn(`[apply-blueprint] Sub-recipe ${ing.item} not found for ${recipeName}`)
