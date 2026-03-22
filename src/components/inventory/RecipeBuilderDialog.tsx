@@ -1061,18 +1061,36 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                             type="button"
                             className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
                             title="Drill into sub-recipe"
-                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!)}
+                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")}
                           >
                             <FlaskConical className="h-3 w-3 text-primary" />
                           </button>
                         )}
-                        {!ing.bomSubRecipeId && ing.type === "blueprint" && <FlaskConical className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
-                        {ing.unmapped && !ing.bomSubRecipeId && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                        {!ing.bomSubRecipeId && ing.type === "blueprint" && (
+                          <button
+                            type="button"
+                            className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
+                            title="Drill into sub-recipe"
+                            onClick={() => drillIntoSubRecipe(ing.ref_id, "blueprint")}
+                          >
+                            <FlaskConical className="h-3 w-3 text-primary" />
+                          </button>
+                        )}
+                        {ing.unmapped && !ing.bomSubRecipeId && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                         {ing.bomSubRecipeId ? (
                           <button
                             type="button"
                             className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
-                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!)}
+                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")}
+                          >
+                            {displayName}
+                            <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
+                          </button>
+                        ) : ing.type === "blueprint" ? (
+                          <button
+                            type="button"
+                            className="font-medium truncate text-left text-primary hover:underline"
+                            onClick={() => drillIntoSubRecipe(ing.ref_id, "blueprint")}
                           >
                             {displayName}
                             <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
