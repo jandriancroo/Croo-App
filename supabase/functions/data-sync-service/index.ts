@@ -1144,6 +1144,24 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
         .range(from, to)
     )
 
+    // Fetch existing BOM ingredient mappings (user-confirmed mappings from Ingredient Matcher)
+    const bomIngredients = await fetchAllRows(supabase, 'bom_ingredients', (from, to) =>
+      supabase
+        .from('bom_ingredients')
+        .select('id, r365_name, clean_name, inventory_item_id')
+        .eq('location_id', locationId)
+        .not('inventory_item_id', 'is', null)
+        .range(from, to)
+    )
+
+    // Build BOM mapping lookup: r365_name → inventory_item_id (highest priority)
+    const bomMappingByR365 = new Map<string, string>()
+    const bomMappingByClean = new Map<string, string>()
+    for (const bi of bomIngredients) {
+      if (bi.r365_name) bomMappingByR365.set(bi.r365_name.toLowerCase(), bi.inventory_item_id)
+      if (bi.clean_name) bomMappingByClean.set(bi.clean_name.toLowerCase(), bi.inventory_item_id)
+    }
+
     // Build name → vendor item map for auto-matching
     const vendorByName = new Map<string, any>()
     const vendorByCommonName = new Map<string, any>()
@@ -1151,6 +1169,10 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
       vendorByName.set(vi.name.toLowerCase(), vi)
       if (vi.common_name) vendorByCommonName.set(vi.common_name.toLowerCase(), vi)
     }
+
+    // Build id → vendor item for quick lookups
+    const vendorById = new Map<string, any>()
+    for (const vi of vendorItems) vendorById.set(vi.id, vi)
 
     function scoreSimilarity(a: string, b: string): number {
       const aLow = a.toLowerCase().replace(/[^a-z0-9 ]/g, '')
@@ -1166,16 +1188,28 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
 
     function findVendorItem(ingredientR365Name: string): { id: string; score: number; name: string } | null {
       const cleanName = cleanIngredientName(ingredientR365Name)
+
+      // Priority 1: BOM ingredient mapping (user-confirmed in Ingredient Matcher)
+      const bomMatchR365 = bomMappingByR365.get(ingredientR365Name.toLowerCase())
+      if (bomMatchR365) {
+        const vi = vendorById.get(bomMatchR365)
+        return { id: bomMatchR365, score: 100, name: vi?.name || cleanName }
+      }
+      const bomMatchClean = bomMappingByClean.get(cleanName)
+      if (bomMatchClean) {
+        const vi = vendorById.get(bomMatchClean)
+        return { id: bomMatchClean, score: 100, name: vi?.name || cleanName }
+      }
       
-      // Exact match on name
+      // Priority 2: Exact match on inventory_items name
       const exactName = vendorByName.get(cleanName)
       if (exactName) return { id: exactName.id, score: 100, name: exactName.name }
       
-      // Exact match on common_name
+      // Priority 3: Exact match on common_name
       const exactCommon = vendorByCommonName.get(cleanName)
       if (exactCommon) return { id: exactCommon.id, score: 100, name: exactCommon.name }
 
-      // Fuzzy match
+      // Priority 4: Fuzzy match
       let bestMatch: any = null
       let bestScore = 0
       for (const vi of vendorItems) {
@@ -1290,6 +1324,7 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
               sub_blueprint_id: subBpId,
               quantity: ing.qty,
               unit: ing.uofm,
+              source_name: cleanIngredientName(ing.item),
             })
           } else {
             console.warn(`[apply-blueprint] Sub-recipe ${ing.item} not found for ${recipeName}`)
@@ -1306,6 +1341,7 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
               sub_blueprint_id: null,
               quantity: ing.qty,
               unit: ing.uofm,
+              source_name: cleanIngredientName(ing.item),
             })
             if (match.score < 100) {
               autoMatched++
@@ -1325,6 +1361,7 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
               sub_blueprint_id: null,
               quantity: ing.qty,
               unit: ing.uofm,
+              source_name: cleanIngredientName(ing.item),
             })
             unmappedIngredients.push(cleanIngredientName(ing.item))
           }
