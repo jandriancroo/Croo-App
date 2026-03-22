@@ -1053,13 +1053,37 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         const renderRecipeRow = (item: any) => (
           <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm group">
             <div className="flex items-center gap-2 truncate flex-1">
+              {recipePurgeMode && (
+                <button
+                  type="button"
+                  className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                    recipePurgeSelection.has(item.id)
+                      ? "bg-destructive border-destructive text-destructive-foreground"
+                      : "border-border hover:border-destructive/50"
+                  }`}
+                  onClick={() => {
+                    setRecipePurgeSelection(prev => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id);
+                      else next.add(item.id);
+                      return next;
+                    });
+                  }}
+                >
+                  {recipePurgeSelection.has(item.id) && <X className="h-3 w-3" />}
+                </button>
+              )}
               <span className="truncate">{item.common_name || item.name}</span>
+              {(item as any).source === 'r365_import' && (
+                <Badge variant="outline" className="text-[9px] px-1 py-0 flex-shrink-0 opacity-60">R365</Badge>
+              )}
               {(item as any).countable === false && (
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex-shrink-0">
                   Not counted
                 </Badge>
               )}
             </div>
+            {!recipePurgeMode && (
             <div className="flex items-center gap-2 text-muted-foreground">
               {item.recipe_yield_qty && item.recipe_yield_unit && (
                 <span className="text-xs">
@@ -1112,8 +1136,33 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 <Pencil className="h-3 w-3" />
               </Button>
             </div>
+            )}
           </div>
         );
+
+        const handlePurgeSelected = async () => {
+          if (recipePurgeSelection.size === 0) return;
+          setIsPurging(true);
+          try {
+            // Delete recipe ingredients first
+            const ids = Array.from(recipePurgeSelection);
+            await supabase.from("inventory_recipe_ingredients").delete().in("recipe_item_id", ids);
+            // Deactivate the items (soft delete)
+            const { error } = await supabase
+              .from("inventory_items")
+              .update({ is_active: false, is_recipe: false } as any)
+              .in("id", ids);
+            if (error) throw error;
+            toast.success(`Removed ${ids.length} recipe${ids.length > 1 ? 's' : ''}`);
+            setRecipePurgeSelection(new Set());
+            setRecipePurgeMode(false);
+            queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+          } catch (err: any) {
+            toast.error(err.message || "Failed to remove recipes");
+          } finally {
+            setIsPurging(false);
+          }
+        };
 
         return (
           <Card>
@@ -1122,14 +1171,50 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 <FlaskConical className="h-4 w-4" />
                 Prep Recipes
                 <Badge variant="secondary" className="text-xs">{recipeItems.length}</Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 ml-auto"
-                  onClick={() => { setEditRecipeId(null); setShowRecipeDialog(true); }}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+                <div className="ml-auto flex items-center gap-1">
+                  {recipePurgeMode ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          // Select all R365 imports
+                          const r365Ids = recipeItems.filter((r: any) => r.source === 'r365_import').map(r => r.id);
+                          setRecipePurgeSelection(new Set(r365Ids));
+                        }}
+                      >
+                        Select R365
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => { setRecipePurgeMode(false); setRecipePurgeSelection(new Set()); }}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setRecipePurgeMode(true)}
+                      title="Bulk remove recipes"
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => { setEditRecipeId(null); setShowRecipeDialog(true); }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               {/* Recipes in storage locations */}
               {storageLocations?.map(loc => {
