@@ -180,13 +180,13 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-usage-rates", locationId] });
-      toast.success("Item linked to group");
+      toast.success("Item linked to POS mapping");
       setAddingForItem(null);
       setSelectedGroup("");
     },
     onError: (err: any) => {
       if (err?.message?.includes("duplicate")) {
-        toast.error("This item is already linked to that group");
+        toast.error("This item is already linked to that POS mapping");
       } else {
         toast.error("Failed to add mapping");
       }

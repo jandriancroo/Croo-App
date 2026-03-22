@@ -111,12 +111,12 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
-      toast.success(editingGroup ? "Group updated" : "Group added");
+      toast.success(editingGroup ? "Mapping updated" : "Mapping added");
       closeDialog();
     },
     onError: (err: any) => {
       if (err?.message?.includes("duplicate")) {
-        toast.error("A group with that name already exists");
+        toast.error("A mapping with that name already exists");
       } else {
         toast.error("Failed to save group");
       }
@@ -133,10 +133,10 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
-      toast.success("Group deleted");
+      toast.success("Mapping deleted");
     },
     onError: () => {
-      toast.error("Failed to delete group — it may have usage rates linked");
+      toast.error("Failed to delete — it may have usage rates linked");
     },
   });
 
