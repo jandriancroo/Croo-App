@@ -17,7 +17,7 @@ export const useInventoryPermissions = () => {
     canEditCategories: isBrandLevel,
     canEditRecipes: isBrandLevel,
     canEditProductGroups: isBrandLevel,
-    canEditUsageRates: isBrandLevel,
+    // canEditUsageRates removed — recipes are source of truth
     canEditCommonNames: isBrandLevel,
     canEditVendorSettings: isBrandLevel,
     canEditPanBaselines: isBrandLevel,
