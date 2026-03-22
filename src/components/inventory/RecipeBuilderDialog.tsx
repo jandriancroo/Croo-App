@@ -673,11 +673,27 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                   const selectedItem = availableItems?.find(i => i.id === selectedIngredientId);
                   if (selectedItem?.is_recipe) {
                     // For recipe ingredients: yield unit, oz (deduplicated)
-                    const yieldUnit = normalizeUnit(selectedItem.recipe_yield_unit) || "oz";
-                    const unitOptions = Array.from(new Set([yieldUnit, "oz", "qt", "gal"]));
+                    const recipeYieldUnit = normalizeUnit(selectedItem.recipe_yield_unit) || "oz";
+                    const unitOptions = Array.from(new Set([recipeYieldUnit, "oz", "qt", "gal"]));
                     return (
                     <div className="flex items-center gap-2">
-...
+                      <Input type="number" step="0.1" placeholder="Qty" value={ingredientQty}
+                        onChange={(e) => setIngredientQty(e.target.value)} className="h-8 w-20 text-xs" autoFocus />
+                      <Select value={ingredientUnit} onValueChange={setIngredientUnit}>
+                        <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {unitOptions.map(u => (
+                            <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button size="sm" className="h-8 text-xs" onClick={addIngredient}>Add</Button>
+                      <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => {
+                        setAddingIngredient(false); setSelectedIngredientId(""); setIngredientSearch("");
+                      }}>Cancel</Button>
+                    </div>
+                    );
+                  }
                   const parsed = selectedItem?.pack_size ? parsePackSize(selectedItem.pack_size) : null;
                   const nativeUnit = normalizeUnit(selectedItem?.count_unit || parsed?.unit || "ea") || "ea";
                   const isCan = parseCansPerCase(selectedItem?.pack_size ?? null) !== null;
