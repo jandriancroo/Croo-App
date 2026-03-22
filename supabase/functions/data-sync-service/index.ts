@@ -1341,6 +1341,7 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
               sub_blueprint_id: null,
               quantity: ing.qty,
               unit: ing.uofm,
+              source_name: cleanIngredientName(ing.item),
             })
             if (match.score < 100) {
               autoMatched++
@@ -1360,6 +1361,7 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
               sub_blueprint_id: null,
               quantity: ing.qty,
               unit: ing.uofm,
+              source_name: cleanIngredientName(ing.item),
             })
             unmappedIngredients.push(cleanIngredientName(ing.item))
           }
