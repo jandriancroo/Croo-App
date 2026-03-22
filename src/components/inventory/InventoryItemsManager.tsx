@@ -1247,6 +1247,24 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                   </div>
                 </div>
               )}
+              {/* Purge action bar */}
+              {recipePurgeMode && recipePurgeSelection.size > 0 && (
+                <div className="flex items-center justify-between p-2 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <span className="text-xs font-medium text-destructive">
+                    {recipePurgeSelection.size} selected for removal
+                  </span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={handlePurgeSelected}
+                    disabled={isPurging}
+                  >
+                    {isPurging ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Remove
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         );
