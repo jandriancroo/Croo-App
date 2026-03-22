@@ -96,8 +96,8 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     return m;
   }, [items]);
 
-  const { unmatched, matched, groupedAll } = useMemo(() => {
-    if (!ingredients) return { unmatched: [], matched: [], groupedAll: new Map<string, BOMIngredient[]>() };
+  const { unmatched, matched, groupedAll, ignoredCount } = useMemo(() => {
+    if (!ingredients) return { unmatched: [], matched: [], groupedAll: new Map<string, BOMIngredient[]>(), ignoredCount: 0 };
     const afterIgnoreFilter = showIgnored ? ingredients : ingredients.filter(i => !i.is_ignored);
     const filtered = globalFilter
       ? afterIgnoreFilter.filter(i =>
