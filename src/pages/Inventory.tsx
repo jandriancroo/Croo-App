@@ -27,6 +27,7 @@ import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialo
 import BOMImportSheet from "@/components/inventory/BOMImportSheet";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 import BOMIngredientMatcher from "@/components/inventory/BOMIngredientMatcher";
+import RecipeCatalog from "@/components/inventory/RecipeCatalog";
 
 const Inventory = () => {
   const { locationId } = useParams();
@@ -390,6 +391,7 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="build" className="mt-4 space-y-4">
+            <RecipeCatalog locationId={locationId!} />
             {isBrandLevel && (
               <BOMIngredientMatcher locationId={locationId!} />
             )}
