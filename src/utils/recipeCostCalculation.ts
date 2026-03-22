@@ -101,11 +101,19 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         const costPerYieldUnit = subBatchCost / subYield;
         totalBatchCost += costPerYieldUnit * ing.quantity;
       } else {
-        // Raw ingredient: cost_per_unit is per case, pack_quantity is units per case
+        // Raw ingredient: determine proper divisor based on unit
         const caseCost = ingItem.blended_price ?? ingItem.cost_per_unit ?? 0;
-        const packQty = ingItem.pack_quantity || 1;
-        const costPerSingleUnit = caseCost / packQty;
-        totalBatchCost += costPerSingleUnit * ing.quantity;
+        const ingUnit = ing.unit?.toLowerCase() || '';
+        
+        // If the recipe unit is "cs" or "case", use full case cost (no division)
+        if (ingUnit === 'cs' || ingUnit === 'case') {
+          totalBatchCost += caseCost * ing.quantity;
+        } else {
+          // Use count_units_per_case for sub-unit conversion, fallback to pack_quantity
+          const unitsPerCase = ingItem.count_units_per_case || ingItem.pack_quantity || 1;
+          const costPerSingleUnit = caseCost / unitsPerCase;
+          totalBatchCost += costPerSingleUnit * ing.quantity;
+        }
       }
     }
 
