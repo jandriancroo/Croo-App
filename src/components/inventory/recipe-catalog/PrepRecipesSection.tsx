@@ -40,12 +40,12 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
     queryKey: ["inventory-storage-locations", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("inventory_storage_locations")
+        .from("inventory_storage_locations" as any)
         .select("id, name, display_order")
         .eq("location_id", locationId)
         .order("display_order");
       if (error) throw error;
-      return data || [];
+      return (data || []) as { id: string; name: string; display_order: number }[];
     },
   });
 
