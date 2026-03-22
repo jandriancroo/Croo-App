@@ -23,7 +23,7 @@ interface IngredientOption {
   clean_name: string | null;
 }
 
-const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
+const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
@@ -209,6 +209,16 @@ const RecipeRow = ({ item, tagLabel, locationId }: RecipeRowProps) => {
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
         )}
         <span className="truncate flex-1 font-medium">{displayName}</span>
+        {onEditRecipe && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => { e.stopPropagation(); onEditRecipe(item.id); }}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        )}
         {tagLabel && (
           <Badge variant="outline" className="text-[9px] px-1.5 py-0 flex-shrink-0 uppercase tracking-wider">
             {tagLabel}
