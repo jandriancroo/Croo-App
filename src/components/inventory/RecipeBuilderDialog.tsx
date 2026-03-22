@@ -136,6 +136,12 @@ const convertYield = (qty: number, fromUnit: string, toUnit: string): number => 
   return (qty * fromFactor) / toFactor;
 };
 
+const formatIngredientCost = (cost: number): string => {
+  if (!Number.isFinite(cost)) return "$0.00";
+  if (cost > 0 && cost < 0.01) return `$${cost.toFixed(3)}`;
+  return `$${cost.toFixed(2)}`;
+};
+
 const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bomMenuItemId, editBlueprintId }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
@@ -1149,7 +1155,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                         )}
                         <span className="text-muted-foreground font-mono text-xs flex-shrink-0">
                           {ing.quantity} {ing.unit}
-                          {ingCost !== null && <span className="ml-1">· ${ingCost.toFixed(2)}</span>}
+                          {ingCost !== null && <span className="ml-1">· {formatIngredientCost(ingCost)}</span>}
                         </span>
                       </div>
                       {!isDrilledDown && (
