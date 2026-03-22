@@ -25,7 +25,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bom_recipe_ingredients")
-        .select("id, menu_item_id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id)")
+        .select("id, menu_item_id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id, is_prep_item)")
         .eq("menu_item_id", item.id)
         .order("quantity", { ascending: false });
       if (error) throw error;
@@ -115,7 +115,8 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
               const r365Name = ing.ingredient?.r365_name || "";
               const resolved = resolvedByIngName.get(r365Name);
               const isMatched = !!ing.ingredient?.inventory_item_id;
-              const isSubRecipe = !isMatched && resolved && resolved.length > 0;
+              const isPrepItem = !!(ing.ingredient as any)?.is_prep_item;
+              const isSubRecipe = isPrepItem || (!isMatched && resolved && resolved.length > 0);
 
               let displayIngName: string;
               let ingCost = 0;
