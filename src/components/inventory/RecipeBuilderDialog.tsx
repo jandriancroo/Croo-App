@@ -200,7 +200,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       if (error) throw error;
       return (data || []) as unknown as { id: string; name: string; yield_qty: number | null; yield_unit: string | null; category: string | null }[];
     },
-    enabled: open && isBlueprint,
+    enabled: open,
   });
 
   // Build combined searchable items list
@@ -491,7 +491,26 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           if (match) subRecipeId = match.id;
         }
 
-        if (ing?.inventory_item_id) {
+        // Check if a blueprint exists for this sub-recipe (preferred over BOM)
+        let matchingBlueprintId: string | undefined;
+        if (otherBlueprints && ing?.r365_name) {
+          const bpMatch = otherBlueprints.find(
+            bp => bp.name?.toLowerCase() === (ing.clean_name || ing.r365_name)?.toLowerCase()
+          );
+          if (bpMatch) matchingBlueprintId = bpMatch.id;
+        }
+
+        if (matchingBlueprintId) {
+          // Blueprint exists for this sub-recipe — use it instead of BOM
+          mappedIngs.push({
+            type: "blueprint",
+            ref_id: matchingBlueprintId,
+            quantity: Number(bomIng.quantity),
+            unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
+            displayName: ingName,
+            bomSubRecipeId: subRecipeId,
+          });
+        } else if (ing?.inventory_item_id) {
           mappedIngs.push({
             type: "vendor_item",
             ref_id: ing.inventory_item_id,
@@ -515,7 +534,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       }
       setIngredients(mappedIngs);
     }
-  }, [bomRecipe, activeBomId, allBomMenuItems]);
+  }, [bomRecipe, activeBomId, allBomMenuItems, otherBlueprints]);
 
   // ========== COST CALCULATION ==========
 
@@ -1096,41 +1115,28 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                   return (
                     <div key={ing.ref_id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {ing.bomSubRecipeId && (
+                        {(ing.bomSubRecipeId || ing.type === "blueprint") && (
                           <button
                             type="button"
                             className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
                             title="Drill into sub-recipe"
-                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")}
-                          >
-                            <FlaskConical className="h-3 w-3 text-primary" />
-                          </button>
-                        )}
-                        {!ing.bomSubRecipeId && ing.type === "blueprint" && (
-                          <button
-                            type="button"
-                            className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
-                            title="Drill into sub-recipe"
-                            onClick={() => drillIntoSubRecipe(ing.ref_id, "blueprint")}
+                            onClick={() => ing.type === "blueprint"
+                              ? drillIntoSubRecipe(ing.ref_id, "blueprint")
+                              : drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")
+                            }
                           >
                             <FlaskConical className="h-3 w-3 text-primary" />
                           </button>
                         )}
                         {ing.unmapped && !ing.bomSubRecipeId && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
-                        {ing.bomSubRecipeId ? (
+                        {(ing.bomSubRecipeId || ing.type === "blueprint") ? (
                           <button
                             type="button"
                             className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
-                            onClick={() => drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")}
-                          >
-                            {displayName}
-                            <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
-                          </button>
-                        ) : ing.type === "blueprint" ? (
-                          <button
-                            type="button"
-                            className="font-medium truncate text-left text-primary hover:underline"
-                            onClick={() => drillIntoSubRecipe(ing.ref_id, "blueprint")}
+                            onClick={() => ing.type === "blueprint"
+                              ? drillIntoSubRecipe(ing.ref_id, "blueprint")
+                              : drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")
+                            }
                           >
                             {displayName}
                             <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
