@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Check, X, Link2, Unlink, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Check, X, Link2, Unlink, ChevronDown, ChevronUp, EyeOff, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,7 @@ interface BOMIngredient {
   category: string | null;
   unit_standard: string | null;
   inventory_item_id: string | null;
+  is_ignored: boolean;
 }
 
 interface InventoryItem {
@@ -59,13 +60,14 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
   
   const [saving, setSaving] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [showIgnored, setShowIgnored] = useState(false);
 
   const { data: ingredients, isLoading: loadingIng } = useQuery({
     queryKey: ["bom-ingredients", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bom_ingredients")
-        .select("id, r365_name, clean_name, category, unit_standard, inventory_item_id, is_prep_item")
+        .select("id, r365_name, clean_name, category, unit_standard, inventory_item_id, is_prep_item, is_ignored")
         .eq("location_id", locationId)
         .or("is_prep_item.is.null,is_prep_item.eq.false")
         .order("clean_name");
@@ -96,12 +98,14 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
 
   const { unmatched, matched, groupedAll } = useMemo(() => {
     if (!ingredients) return { unmatched: [], matched: [], groupedAll: new Map<string, BOMIngredient[]>() };
+    const afterIgnoreFilter = showIgnored ? ingredients : ingredients.filter(i => !i.is_ignored);
     const filtered = globalFilter
-      ? ingredients.filter(i =>
+      ? afterIgnoreFilter.filter(i =>
           (i.clean_name || i.r365_name).toLowerCase().includes(globalFilter.toLowerCase())
         )
-      : ingredients;
-    const um = filtered.filter(i => !i.inventory_item_id);
+      : afterIgnoreFilter;
+    const um = filtered.filter(i => !i.inventory_item_id && !i.is_ignored);
+    const ignoredCount = ingredients.filter(i => i.is_ignored).length;
     const m = filtered.filter(i => i.inventory_item_id);
     
     // Group ALL by category (unmatched first within each group)
@@ -128,8 +132,8 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
       if (!sorted.has(k)) sorted.set(k, v);
     });
     
-    return { unmatched: um, matched: m, groupedAll: sorted };
-  }, [ingredients, globalFilter]);
+    return { unmatched: um, matched: m, groupedAll: sorted, ignoredCount };
+  }, [ingredients, globalFilter, showIgnored]);
 
   const getSuggestions = (ingredient: BOMIngredient): (InventoryItem & { score: number })[] => {
     if (!items) return [];
@@ -200,6 +204,24 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     }
   };
 
+  const handleIgnore = async (ingredientId: string, ignore: boolean) => {
+    setSaving(ingredientId);
+    try {
+      const { error } = await supabase
+        .from("bom_ingredients")
+        .update({ is_ignored: ignore })
+        .eq("id", ingredientId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["bom-ingredients", locationId] });
+      toast.success(ignore ? "Ingredient ignored" : "Ingredient restored");
+      setExpandedId(null);
+    } catch (err) {
+      toast.error("Failed to update");
+    } finally {
+      setSaving(null);
+    }
+  };
+
   if (loadingIng || loadingItems) {
     return <div className="text-sm text-muted-foreground py-4 text-center">Loading ingredients…</div>;
   }
@@ -216,9 +238,22 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Recipe Ingredient Matching</h3>
-        <Badge variant={unmatched.length > 0 ? "destructive" : "secondary"} className="text-[10px]">
-          {unmatched.length} unmatched
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge variant={unmatched.length > 0 ? "destructive" : "secondary"} className="text-[10px]">
+            {unmatched.length} unmatched
+          </Badge>
+          {ignoredCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-[10px] gap-1 text-muted-foreground"
+              onClick={() => setShowIgnored(!showIgnored)}
+            >
+              {showIgnored ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+              {ignoredCount} ignored
+            </Button>
+          )}
+        </div>
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -270,21 +305,23 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
                     const isExpanded = expandedId === ing.id;
                     const suggestions = isExpanded ? getSuggestions(ing) : [];
 
+                    const isIgnored = !!ing.is_ignored;
+
                     return (
                       <div key={ing.id} className={cn(
                         "border rounded overflow-hidden",
-                        isMatched ? "border-primary/30 bg-primary/5" : "border-border/50"
+                        isIgnored ? "border-border/30 bg-muted/30 opacity-60" : isMatched ? "border-primary/30 bg-primary/5" : "border-border/50"
                       )}>
-                        <button
+                          <button
                           onClick={() => {
-                            if (!isMatched) {
+                            if (!isMatched && !isIgnored) {
                               setExpandedId(isExpanded ? null : ing.id);
                               setItemSearch("");
                             }
                           }}
                           className={cn(
                             "w-full flex items-center justify-between px-3 py-2 text-left transition-colors",
-                            isMatched ? "cursor-default" : "hover:bg-muted/50"
+                            (isMatched || isIgnored) ? "cursor-default" : "hover:bg-muted/50"
                           )}
                         >
                           <div className="min-w-0">
@@ -301,7 +338,17 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
                             {ing.unit_standard && (
                               <Badge variant="outline" className="text-[10px]">{ing.unit_standard}</Badge>
                             )}
-                            {isMatched ? (
+                            {isIgnored ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[10px] gap-1"
+                                onClick={(e) => { e.stopPropagation(); handleIgnore(ing.id, false); }}
+                                disabled={saving === ing.id}
+                              >
+                                <Eye className="h-3 w-3" /> restore
+                              </Button>
+                            ) : isMatched ? (
                               <>
                                 <Badge variant="outline" className="text-[10px] px-1.5 border-primary/40 text-primary bg-primary/10 gap-1">
                                   <Link2 className="h-3 w-3" />
@@ -318,7 +365,19 @@ const BOMIngredientMatcher = ({ locationId }: Props) => {
                                 </Button>
                               </>
                             ) : (
-                              <>{isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}</>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => { e.stopPropagation(); handleIgnore(ing.id, true); }}
+                                  disabled={saving === ing.id}
+                                  title="Ignore this ingredient"
+                                >
+                                  <EyeOff className="h-3 w-3 text-muted-foreground" />
+                                </Button>
+                                {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                              </div>
                             )}
                           </div>
                         </button>
