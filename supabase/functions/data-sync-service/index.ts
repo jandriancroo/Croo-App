@@ -1548,46 +1548,43 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
         existingRateKeys.add(`${r.inventory_item_id}::${r.product_group_id}`)
       }
 
-      // For each vendor item that's used in recipes, calculate total usage per MI sold
-      // Usage rate = how much of this vendor item is consumed per sale
-      // We aggregate across all MIs that use this ingredient
-      const vendorUsageMap = new Map<string, number>() // vendorItemId → total qty across all MIs
+      // For each vendor item used in recipes, calculate average usage per MI sold
+      // vendorUsageMap: vendorItemId → { totalQty, miCount }
+      const vendorUsageMap = new Map<string, { totalQty: number; miCount: number }>()
 
       for (const mi of sellableItems) {
         const recipeIngs = recipeIngsByMenu.get(mi.id) || []
+        const vendorsSeen = new Set<string>()
         for (const ri of recipeIngs) {
           const vendorItemId = bomIngToVendor.get(ri.ingredient_id)
           if (!vendorItemId) continue
           
-          // This ingredient maps to a vendor item
-          // The recipe quantity IS the usage rate per sale of this MI
-          // We store it as cases (qty / count_units_per_case) but for now store raw
-          const existing = vendorUsageMap.get(vendorItemId) || 0
-          vendorUsageMap.set(vendorItemId, existing + (ri.quantity || 0))
+          const existing = vendorUsageMap.get(vendorItemId) || { totalQty: 0, miCount: 0 }
+          existing.totalQty += (ri.quantity || 0)
+          if (!vendorsSeen.has(vendorItemId)) {
+            existing.miCount++
+            vendorsSeen.add(vendorItemId)
+          }
+          vendorUsageMap.set(vendorItemId, existing)
         }
       }
 
-      // Insert usage rates
+      // Insert usage rates with calculated values from recipes
       const ratesToInsert: any[] = []
-      for (const [vendorItemId, _totalQty] of vendorUsageMap) {
+      for (const [vendorItemId, usage] of vendorUsageMap) {
         const rateKey = `${vendorItemId}::${defaultGroupId}`
         if (existingRateKeys.has(rateKey)) continue
 
-        // Find the vendor item to get count_units_per_case for conversion
         const vendorItem = vendorItems.find((vi: any) => vi.id === vendorItemId)
-        const unitsPerCase = vendorItem?.count_units_per_case || 1
-
-        // Usage rate is stored as cases consumed per sale
-        // Recipe qty is in recipe units (oz, ea, etc) — divide by units_per_case to get cases
-        // But we need per-MI rate, not aggregate. Use average across MIs.
-        // Actually, usage rates are per product group sale, so we keep the aggregate approach
-        // Each MI that uses this item gets its own recipe qty as the rate
+        
+        // Average usage per MI sale (total recipe qty / number of MIs using it)
+        const avgRate = usage.miCount > 0 ? usage.totalQty / usage.miCount : usage.totalQty
         
         ratesToInsert.push({
           location_id: locationId,
           inventory_item_id: vendorItemId,
           product_group_id: defaultGroupId,
-          usage_rate: null, // Will be calculated from actual sales data later
+          usage_rate: Math.round(avgRate * 10000) / 10000, // 4 decimal precision
           rate_unit: vendorItem?.count_unit || 'oz',
           manual_override: false,
         })
