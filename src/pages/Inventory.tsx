@@ -26,6 +26,7 @@ import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
 import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialog";
 import BOMImportSheet from "@/components/inventory/BOMImportSheet";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
+import BOMIngredientMatcher from "@/components/inventory/BOMIngredientMatcher";
 
 const Inventory = () => {
   const { locationId } = useParams();
