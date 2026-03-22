@@ -887,16 +887,20 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                   }
 
                   return (
-                    <div key={ing.ref_id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm">
-                      <div className="flex items-center gap-2">
+                    <div key={ing.ref_id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
+                      <div className="flex items-center gap-2 min-w-0">
                         {ing.type === "blueprint" && <FlaskConical className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
-                        <span className="font-medium">{displayName}</span>
-                        <span className="text-muted-foreground font-mono text-xs">
+                        {ing.unmapped && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                        <span className={`font-medium truncate ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}>
+                          {displayName}
+                          {ing.unmapped && <span className="text-[10px] ml-1 font-normal opacity-70">(needs mapping)</span>}
+                        </span>
+                        <span className="text-muted-foreground font-mono text-xs flex-shrink-0">
                           {ing.quantity} {ing.unit}
                           {ingCost !== null && <span className="ml-1">· ${ingCost.toFixed(2)}</span>}
                         </span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
                         onClick={() => removeIngredient(ing.ref_id)}>
                         <X className="h-3 w-3" />
                       </Button>
