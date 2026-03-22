@@ -7,6 +7,7 @@ import { Pizza, Salad, UtensilsCrossed, Package, Layers } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
+import PrepRecipesSection from "./recipe-catalog/PrepRecipesSection";
 
 interface RecipeCatalogProps {
   locationId: string;
@@ -130,6 +131,9 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
               locationId={locationId}
             />
           ))}
+
+          {/* Prep Recipes — house-made intermediate items */}
+          <PrepRecipesSection locationId={locationId} />
         </div>
       </CardContent>
     </Card>
