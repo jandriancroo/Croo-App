@@ -142,6 +142,14 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
   const [countable, setCountable] = useState(true);
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   const [suggestedPrice, setSuggestedPrice] = useState("");
+  const [drillStack, setDrillStack] = useState<DrillStackEntry[]>([]);
+  const [activeBomId, setActiveBomId] = useState<string | null>(bomMenuItemId || null);
+
+  // Reset activeBomId when bomMenuItemId prop changes
+  useEffect(() => {
+    setActiveBomId(bomMenuItemId || null);
+    setDrillStack([]);
+  }, [bomMenuItemId]);
 
   const isBlueprint = !!editBlueprintId || (!editRecipeId && !bomMenuItemId);
 
