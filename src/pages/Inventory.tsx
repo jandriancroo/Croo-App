@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, FileText, ArrowLeft } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, FileText, ArrowLeft, Hammer } from "lucide-react";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -355,7 +355,7 @@ const Inventory = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span>Count</span>
@@ -363,6 +363,10 @@ const Inventory = () => {
             <TabsTrigger value="items" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               <span>Items</span>
+            </TabsTrigger>
+            <TabsTrigger value="build" className="flex items-center gap-2">
+              <Hammer className="h-4 w-4" />
+              <span>Build</span>
             </TabsTrigger>
           </TabsList>
 
@@ -383,6 +387,13 @@ const Inventory = () => {
 
           <TabsContent value="items" className="mt-4">
             <InventoryItemsManager locationId={locationId!} mode="items" />
+          </TabsContent>
+
+          <TabsContent value="build" className="mt-4 space-y-4">
+            {isBrandLevel && (
+              <BOMIngredientMatcher locationId={locationId!} />
+            )}
+            <InventoryItemsManager locationId={locationId!} mode="build" />
           </TabsContent>
         </Tabs>
       </div>
@@ -415,11 +426,6 @@ const Inventory = () => {
                 <FileText className="h-4 w-4 mr-2" />
                 Recipe Import Pipeline
               </Button>
-            )}
-            {isBrandLevel && (
-              <div className="border-t border-border pt-3">
-                <BOMIngredientMatcher locationId={locationId!} />
-              </div>
             )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
           </div>
