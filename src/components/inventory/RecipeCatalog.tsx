@@ -25,6 +25,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
   const [showBuilderDialog, setShowBuilderDialog] = useState(false);
   const [reassignMode, setReassignMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const posMap = usePosMapping(locationId);
 
   const { data: blueprints } = useQuery({
     queryKey: ["recipe-catalog-blueprints", locationId],
