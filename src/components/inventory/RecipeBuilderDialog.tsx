@@ -8,11 +8,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight, Pizza, Layers, UtensilsCrossed, Package, Leaf } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
+
+
+type BlueprintType = "MI" | "CORE" | "BASE" | "PREP" | "INGREDIENT";
+
+const BLUEPRINT_TYPE_OPTIONS: { value: BlueprintType; label: string; description: string; icon: React.ReactNode }[] = [
+  { value: "MI", label: "Menu Item", description: "A sellable product (e.g., MD Pepperoni Pizza). Gets mapped to POS items.", icon: <Pizza className="h-5 w-5" /> },
+  { value: "CORE", label: "Core Recipe", description: "Toppings + sauce combo that sits on a base (e.g., Pepperoni toppings).", icon: <Layers className="h-5 w-5" /> },
+  { value: "BASE", label: "Base Recipe", description: "Dough + packaging foundation (e.g., Base - LG Pizza). Links to physical items.", icon: <Package className="h-5 w-5" /> },
+  { value: "PREP", label: "Prep Recipe", description: "Staff-prepped items (e.g., Dough Batch, Red Sauce). Can be counted.", icon: <UtensilsCrossed className="h-5 w-5" /> },
+  { value: "INGREDIENT", label: "Ingredient", description: "Raw vendor item reference (e.g., Flour, Pepperoni). No sub-recipes.", icon: <Leaf className="h-5 w-5" /> },
+];
+
+const CATALOG_SECTION_OPTIONS = [
+  { value: "md_pizza", label: '11" Pizzas (MD)' },
+  { value: "lg_pizza", label: '14" Pizzas (LG)' },
+  { value: "half_pizza", label: "Half Pizzas" },
+  { value: "salads", label: "Salads" },
+  { value: "sides", label: "Sides & Extras" },
+  { value: "catering", label: "Catering" },
+  { value: "drinks", label: "Drinks" },
+  { value: "other", label: "Other" },
+];
 
 interface RecipeBuilderDialogProps {
   open: boolean;
@@ -154,7 +176,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
   const [suggestedPrice, setSuggestedPrice] = useState("");
   const [drillStack, setDrillStack] = useState<DrillStackEntry[]>([]);
   const [drillBlueprintId, setDrillBlueprintId] = useState<string | null>(null);
+  const [blueprintType, setBlueprintType] = useState<BlueprintType | null>(null);
+  const [catalogSection, setCatalogSection] = useState("");
 
+  const isCreating = !editBlueprintId && !editRecipeId;
   const isBlueprint = !!editBlueprintId || !editRecipeId;
 
   // ========== DATA FETCHING ==========
@@ -531,7 +556,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     mutationFn: async () => {
       if (!recipeName.trim()) throw new Error("Name required");
       if (!yieldQty || parseFloat(yieldQty) <= 0) throw new Error("Yield required");
-      if (ingredients.length === 0) throw new Error("Add at least one ingredient");
+      if (ingredients.length === 0 && blueprintType !== "INGREDIENT") throw new Error("Add at least one ingredient");
 
       // === LEGACY RECIPE MODE (inventory_items) ===
       if (editRecipeId && !editBlueprintId) {
@@ -636,15 +661,17 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         }
       } else {
         // Create new blueprint
+        const effectiveCategory = blueprintType || category || "PREP";
         const { data: newBp, error: bpErr } = await supabase
           .from("recipe_blueprints" as any)
           .insert({
             location_id: locationId,
             name: recipeName.trim(),
-            category: category || "PREP",
+            category: effectiveCategory,
             yield_qty: parseFloat(yieldQty),
             yield_unit: yieldUnit,
             source: "manual",
+            ...(catalogSection ? { catalog_section: catalogSection } : {}),
           } as any)
           .select("id").single();
         if (bpErr || !newBp) throw bpErr || new Error("Failed to create blueprint");
@@ -727,6 +754,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     setSuggestedPrice("");
     setDrillStack([]);
     setDrillBlueprintId(null);
+    setBlueprintType(null);
+    setCatalogSection("");
+    
   };
 
   const addIngredient = () => {
@@ -816,7 +846,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5" />
-            {editBlueprintId || editRecipeId ? "Edit Recipe" : "Create Prep Recipe"}
+            {editBlueprintId || editRecipeId
+              ? "Edit Recipe"
+              : blueprintType
+                ? `New ${BLUEPRINT_TYPE_OPTIONS.find(o => o.value === blueprintType)?.label || "Recipe"}`
+                : "New Product"}
             {editBlueprintId && existingBlueprint?.blueprint?.source === "r365_import" && (
               <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px] ml-auto">
                 <RefreshCw className="h-3 w-3 mr-1" />R365 Synced
@@ -849,11 +883,78 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           )}
         </DialogHeader>
 
+        {/* ========== TYPE SELECTION STEP ========== */}
+        {isCreating && !blueprintType ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">What are you creating?</p>
+            {BLUEPRINT_TYPE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                className="w-full flex items-start gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-all text-left"
+                onClick={() => {
+                  setBlueprintType(opt.value);
+                  setCategory(opt.value);
+                  // Set smart defaults per type
+                  if (opt.value === "MI" || opt.value === "CORE") {
+                    setCountable(false); // MIs and COREs aren't counted physically
+                  } else if (opt.value === "BASE") {
+                    setCountable(true); // BASEs produce countable items (dough)
+                  } else if (opt.value === "PREP") {
+                    setCountable(true);
+                  } else {
+                    setCountable(false);
+                  }
+                }}
+              >
+                <div className="p-2 rounded-md bg-muted text-muted-foreground">
+                  {opt.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{opt.label}</p>
+                  <p className="text-xs text-muted-foreground">{opt.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
         <div className="space-y-4">
+          {/* Back to type selection when creating */}
+          {isCreating && blueprintType && (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+              onClick={() => { setBlueprintType(null); resetForm(); }}
+            >
+              ← Change type
+            </button>
+          )}
+
+          {/* Catalog Section for MI */}
+          {blueprintType === "MI" && (
+            <div className="space-y-2">
+              <Label>Catalog Section</Label>
+              <Select value={catalogSection} onValueChange={setCatalogSection}>
+                <SelectTrigger><SelectValue placeholder="Where does this appear?" /></SelectTrigger>
+                <SelectContent>
+                  {CATALOG_SECTION_OPTIONS.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Recipe Name */}
           <div className="space-y-2">
             <Label>Recipe Name</Label>
-            <Input placeholder="e.g., Dough, Red Sauce, Pesto Blend" value={recipeName}
+            <Input placeholder={
+              blueprintType === "MI" ? "e.g., MD Pepperoni Pizza" :
+              blueprintType === "CORE" ? "e.g., MD Pepperoni" :
+              blueprintType === "BASE" ? "e.g., Base - LG Pizza" :
+              blueprintType === "INGREDIENT" ? "e.g., Pepperoni (vendor item ref)" :
+              "e.g., Dough Batch, Red Sauce"
+            } value={recipeName}
               onChange={(e) => setRecipeName(e.target.value)} autoFocus disabled={isDrilledDown} />
           </div>
 
@@ -1169,14 +1270,15 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
               <>
                 <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
                 <Button className="flex-1" onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending || !recipeName.trim() || ingredients.length === 0}>
+                  disabled={saveMutation.isPending || !recipeName.trim() || (ingredients.length === 0 && blueprintType !== "INGREDIENT")}>
                   {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                    (editBlueprintId || editRecipeId) ? "Update Recipe" : "Create Recipe"}
+                    (editBlueprintId || editRecipeId) ? "Update Recipe" : `Create ${blueprintType === "MI" ? "Menu Item" : blueprintType === "INGREDIENT" ? "Ingredient" : "Recipe"}`}
                 </Button>
               </>
             )}
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

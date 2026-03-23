@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck, Link2 } from "lucide-react";
+import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck, Link2, Plus } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
@@ -171,6 +171,18 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 {mappedMIs}/{totalMIs} POS
               </Badge>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => {
+                setEditBlueprintId(null);
+                setShowBuilderDialog(true);
+              }}
+            >
+              <Plus className="h-3 w-3" />
+              New
+            </Button>
             <Button
               size="sm"
               variant="outline"
