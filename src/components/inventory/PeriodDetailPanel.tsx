@@ -13,8 +13,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Eye, BarChart3, ClipboardCheck,
-  Crosshair, TrendingDown, TrendingUp, Loader2,
+  Eye, ClipboardCheck,
+  Crosshair, Loader2,
   Settings2, UtensilsCrossed, Carrot, ChevronDown,
   Play, Plus, CheckCircle2,
 } from "lucide-react";
@@ -26,6 +26,7 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
+import VarianceReport from "./VarianceReport";
 
 interface PeriodDetailPanelProps {
   count: any;
@@ -340,63 +341,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch variance data
-  const { data: varianceData } = useQuery({
-    queryKey: ["period-variance", locationId, count.id, periodRange?.startStr],
-    queryFn: async () => {
-      if (!periodRange) return [];
-
-      const { data: prevCounts } = await supabase
-        .from("inventory_counts")
-        .select("id")
-        .eq("location_id", locationId)
-        .eq("status", "completed")
-        .lt("period_end_date", periodRange.startStr)
-        .order("period_end_date", { ascending: false })
-        .limit(1);
-
-      if (!prevCounts?.[0]) return [];
-
-      const [prevItems, currItems, itemDetails] = await Promise.all([
-        supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", prevCounts[0].id),
-        supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", count.id),
-        supabase.from("inventory_items").select("id, name, cost_per_unit, pack_quantity, pack_quantity_override").eq("location_id", locationId).eq("is_active", true),
-      ]);
-
-      const prevMap = new Map<string, number>();
-      for (const ci of (prevItems.data || [])) prevMap.set(ci.item_id, Number(ci.quantity));
-
-      const nameMap = new Map<string, string>();
-      const costMap = new Map<string, number>();
-      for (const i of (itemDetails.data || [])) {
-        nameMap.set(i.id, i.name);
-        const pq = (i as any).pack_quantity_override ?? (i.pack_quantity || 1);
-        costMap.set(i.id, (Number(i.cost_per_unit) || 0) / Math.max(pq, 1));
-      }
-
-      const variances: { name: string; expected: number; actual: number; diff: number; cost: number }[] = [];
-      for (const ci of (currItems.data || [])) {
-        const prev = prevMap.get(ci.item_id);
-        if (prev === undefined) continue;
-        const diff = Number(ci.quantity) - prev;
-        if (Math.abs(diff) < 1) continue;
-        const unitCost = costMap.get(ci.item_id) || 0;
-        variances.push({
-          name: nameMap.get(ci.item_id) || "Unknown",
-          expected: prev,
-          actual: Number(ci.quantity),
-          diff,
-          cost: diff * unitCost,
-        });
-      }
-
-      variances.sort((a, b) => Math.abs(b.cost) - Math.abs(a.cost));
-      return variances.slice(0, 20);
-    },
-    enabled: !!periodRange && count.status === "completed",
-    staleTime: 5 * 60 * 1000,
-  });
-
   // Fetch spot checks
   const { data: spotChecks } = useQuery({
     queryKey: ["period-spot-checks", locationId, periodRange?.startStr, periodRange?.endStr],
@@ -701,43 +645,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         </Card>
       )}
 
-      {/* Standalone Variance Section */}
-      {!isUpcoming && varianceData && varianceData.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Variance</p>
-            </div>
-            <div className="space-y-0 divide-y divide-border/40">
-              {varianceData.map((v, i) => (
-                <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                      v.diff < 0 ? "bg-destructive/10" : "bg-accent/60"
-                    }`}>
-                      {v.diff < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> : <TrendingUp className="h-4 w-4 text-primary" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{v.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Previous {v.expected} → Current {v.actual}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-semibold ${v.diff < 0 ? "text-destructive" : "text-primary"}`}>
-                      {v.diff > 0 ? "+" : ""}{v.diff} units
-                    </p>
-                    <p className={`text-xs ${v.cost < 0 ? "text-destructive" : "text-primary"}`}>
-                      {v.cost < 0 ? "−" : "+"}${Math.abs(v.cost).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Actual vs Theoretical Section */}
+      {!isUpcoming && count.status === "completed" && count.period_end_date && (
+        <VarianceReport
+          countId={count.id}
+          locationId={locationId}
+          periodEndDate={count.period_end_date}
+        />
       )}
 
 
