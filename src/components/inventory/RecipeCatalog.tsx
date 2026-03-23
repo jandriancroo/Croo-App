@@ -162,6 +162,15 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
             <Badge variant="secondary" className="ml-auto text-xs">
               {blueprints.length} recipes
             </Badge>
+            {totalMIs > 0 && (
+              <Badge
+                variant={mappedMIs === totalMIs ? "default" : "outline"}
+                className="text-[10px] gap-1"
+              >
+                <Link2 className="h-3 w-3" />
+                {mappedMIs}/{totalMIs} POS
+              </Badge>
+            )}
             <Button
               size="sm"
               variant="outline"
