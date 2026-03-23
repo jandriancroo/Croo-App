@@ -19,8 +19,6 @@ interface RecipeBuilderDialogProps {
   onOpenChange: (open: boolean) => void;
   locationId: string;
   editRecipeId?: string | null;
-  /** @deprecated BOM mode — kept for backward compat */
-  bomMenuItemId?: string | null;
   editBlueprintId?: string | null;
 }
 
@@ -31,11 +29,9 @@ interface BuilderIngredient {
   unit: string;
   displayName?: string;
   unmapped?: boolean;
-  bomSubRecipeId?: string;
 }
 
 interface DrillStackEntry {
-  bomId?: string;
   blueprintId?: string;
   name: string;
   savedIngredients: BuilderIngredient[];
@@ -140,7 +136,7 @@ const formatIngredientCost = (cost: number): string => {
   return `$${cost.toFixed(2)}`;
 };
 
-const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bomMenuItemId, editBlueprintId }: RecipeBuilderDialogProps) => {
+const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, editBlueprintId }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
   const [category, setCategory] = useState("");
@@ -157,10 +153,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   const [suggestedPrice, setSuggestedPrice] = useState("");
   const [drillStack, setDrillStack] = useState<DrillStackEntry[]>([]);
-  const [activeBomId, setActiveBomId] = useState<string | null>(bomMenuItemId || null);
   const [drillBlueprintId, setDrillBlueprintId] = useState<string | null>(null);
 
-  const isBlueprint = !!editBlueprintId || (!editRecipeId && !bomMenuItemId);
+  const isBlueprint = !!editBlueprintId || !editRecipeId;
 
   // ========== DATA FETCHING ==========
 
@@ -292,39 +287,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
         .eq("recipe_item_id", editRecipeId);
       return { item, ingredients: ings || [] };
     },
-    enabled: open && !!editRecipeId && !bomMenuItemId && !editBlueprintId,
-  });
-
-  // Fetch BOM recipe data (legacy catalog mode) — uses activeBomId for drill-down
-  const { data: bomRecipe } = useQuery({
-    queryKey: ["bom-recipe-detail", activeBomId],
-    queryFn: async () => {
-      if (!activeBomId) return null;
-      const { data: menuItem } = await supabase
-        .from("bom_menu_items")
-        .select("id, r365_name, clean_name, recipe_yield_qty, recipe_yield_unit, category")
-        .eq("id", activeBomId)
-        .single();
-      const { data: bomIngs } = await supabase
-        .from("bom_recipe_ingredients")
-        .select("id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id)")
-        .eq("menu_item_id", activeBomId);
-      return { menuItem, ingredients: bomIngs || [] };
-    },
-    enabled: open && !!activeBomId,
-  });
-
-  // Fetch all BOM menu items for sub-recipe matching during drill-down
-  const { data: allBomMenuItems } = useQuery({
-    queryKey: ["all-bom-menu-items", locationId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("bom_menu_items")
-        .select("id, r365_name, clean_name")
-        .eq("location_id", locationId);
-      return data || [];
-    },
-    enabled: open && !!bomMenuItemId,
+    enabled: open && !!editRecipeId && !editBlueprintId,
   });
 
   // Fetch drilled-into blueprint data
@@ -384,7 +347,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     for (const ing of ingredients) {
       const ingUnit = normalizeUnit(ing.unit);
       if (ing.type === "blueprint") {
-        // Blueprint sub-recipe: use its yield unit
         const bp = otherBlueprints?.find(b => b.id === ing.ref_id);
         const bpYieldUnit = normalizeUnit(bp?.yield_unit) || "oz";
         totalOz += ing.quantity * (TO_OZ[bpYieldUnit] ?? 1);
@@ -431,11 +393,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       setCountable(!!existingBlueprint.producedItem);
       setPanSizesConfig(existingBlueprint.producedItem?.pan_sizes || null);
       setIngredients(existingBlueprint.ingredients.map((i: any) => {
-        const isBlueprint = i.ingredient_type === "blueprint";
-        const refId = isBlueprint ? i.sub_blueprint_id : i.vendor_item_id;
-        const bpName = isBlueprint ? otherBlueprints?.find((b: any) => b.id === refId)?.name : vendorItems?.find((v: any) => v.id === refId)?.name;
+        const isBlueprintIng = i.ingredient_type === "blueprint";
+        const refId = isBlueprintIng ? i.sub_blueprint_id : i.vendor_item_id;
+        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : vendorItems?.find((v: any) => v.id === refId)?.name;
         return {
-          type: isBlueprint ? "blueprint" as const : "vendor_item" as const,
+          type: isBlueprintIng ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
           quantity: Number(i.quantity),
           unit: normalizeUnit(i.unit) || "oz",
@@ -448,7 +410,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
   // Legacy recipe edit (inventory_items)
   useEffect(() => {
-    if (existingRecipe?.item && !bomMenuItemId && !editBlueprintId) {
+    if (existingRecipe?.item && !editBlueprintId) {
       setRecipeName(existingRecipe.item.name);
       setYieldQty(existingRecipe.item.recipe_yield_qty?.toString() || "");
       setYieldUnit(normalizeUnit(existingRecipe.item.recipe_yield_unit) || "oz");
@@ -462,76 +424,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
         unit: normalizeUnit(i.unit) || "oz",
       })));
     }
-  }, [existingRecipe, bomMenuItemId, editBlueprintId]);
-
-  // BOM recipe edit — also handles drill-down via activeBomId
-  useEffect(() => {
-    if (bomRecipe?.menuItem && activeBomId) {
-      const mi = bomRecipe.menuItem;
-      setRecipeName(mi.clean_name || mi.r365_name || "");
-      setYieldQty(mi.recipe_yield_qty?.toString() || "");
-      setYieldUnit(normalizeUnit(mi.recipe_yield_unit) || "oz");
-      setYieldManuallyEdited(!!mi.recipe_yield_qty);
-      setCountable(false);
-      setPanSizesConfig(null);
-      const mappedIngs: BuilderIngredient[] = [];
-      for (const bomIng of bomRecipe.ingredients) {
-        const ing = bomIng.ingredient as any;
-        const ingName = ing?.clean_name || ing?.r365_name || "(unnamed ingredient)";
-
-        // Check if this ingredient matches another bom_menu_items entry (sub-recipe)
-        let subRecipeId: string | undefined;
-        if (allBomMenuItems && ing?.r365_name) {
-          const match = allBomMenuItems.find(
-            m => m.id !== activeBomId && (m.r365_name === ing.r365_name || m.clean_name === ing.clean_name)
-          );
-          if (match) subRecipeId = match.id;
-        }
-
-        // Check if a blueprint exists for this sub-recipe (preferred over BOM)
-        let matchingBlueprintId: string | undefined;
-        if (otherBlueprints && ing?.r365_name) {
-          const bpMatch = otherBlueprints.find(
-            bp => bp.name?.toLowerCase() === (ing.clean_name || ing.r365_name)?.toLowerCase()
-          );
-          if (bpMatch) matchingBlueprintId = bpMatch.id;
-        }
-
-        if (matchingBlueprintId) {
-          // Blueprint exists for this sub-recipe — use it instead of BOM
-          mappedIngs.push({
-            type: "blueprint",
-            ref_id: matchingBlueprintId,
-            quantity: Number(bomIng.quantity),
-            unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
-            displayName: ingName,
-            bomSubRecipeId: subRecipeId,
-          });
-        } else if (ing?.inventory_item_id) {
-          mappedIngs.push({
-            type: "vendor_item",
-            ref_id: ing.inventory_item_id,
-            quantity: Number(bomIng.quantity),
-            unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
-            displayName: ingName,
-            bomSubRecipeId: subRecipeId,
-          });
-        } else {
-          // Include unmapped BOM ingredients so user can see them
-          mappedIngs.push({
-            type: "vendor_item",
-            ref_id: ing?.id || bomIng.id,
-            quantity: Number(bomIng.quantity),
-            unit: normalizeUnit(bomIng.unit_of_measure) || "oz",
-            displayName: ingName,
-            unmapped: true,
-            bomSubRecipeId: subRecipeId,
-          });
-        }
-      }
-      setIngredients(mappedIngs);
-    }
-  }, [bomRecipe, activeBomId, allBomMenuItems, otherBlueprints]);
+  }, [existingRecipe, editBlueprintId]);
 
   // ========== COST CALCULATION ==========
 
@@ -556,14 +449,12 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
     for (const ing of ingredients) {
       if (ing.type === "blueprint") {
-        // Resolve sub-blueprint cost from the global blueprint costs map
         const subCost = blueprintCostsMap?.get(ing.ref_id);
         const subBp = otherBlueprints?.find(b => b.id === ing.ref_id);
         if (subCost && subCost.batchCost > 0) {
           const subYield = subBp?.yield_qty || 1;
           const subYieldUnit = normalizeUnit(subBp?.yield_unit) || "ea";
           const ingUnit = normalizeUnit(ing.unit);
-          // Convert ingredient quantity to yield units if needed
           if (TO_OZ[ingUnit] && TO_OZ[subYieldUnit] && subYieldUnit !== "ea" && ingUnit !== "ea") {
             const ingInYieldUnits = (ing.quantity * (TO_OZ[ingUnit] ?? 1)) / (TO_OZ[subYieldUnit] ?? 1);
             total += (ingInYieldUnits / subYield) * subCost.batchCost;
@@ -642,49 +533,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       if (!yieldQty || parseFloat(yieldQty) <= 0) throw new Error("Yield required");
       if (ingredients.length === 0) throw new Error("Add at least one ingredient");
 
-      // === BOM MODE (legacy catalog) ===
-      if (bomMenuItemId) {
-        const { error: miErr } = await supabase
-          .from("bom_menu_items")
-          .update({
-            clean_name: recipeName.trim(),
-            recipe_yield_qty: parseFloat(yieldQty),
-            recipe_yield_unit: yieldUnit,
-          })
-          .eq("id", bomMenuItemId);
-        if (miErr) throw miErr;
-
-        await supabase.from("bom_recipe_ingredients").delete().eq("menu_item_id", bomMenuItemId);
-
-        for (const ing of ingredients) {
-          if (ing.type !== "vendor_item" || ing.unmapped) continue;
-          const { data: existing } = await supabase
-            .from("bom_ingredients").select("id")
-            .eq("location_id", locationId).eq("inventory_item_id", ing.ref_id)
-            .limit(1).single();
-
-          let bomIngredientId: string;
-          if (existing) {
-            bomIngredientId = existing.id;
-          } else {
-            const item = vendorItems?.find(i => i.id === ing.ref_id);
-            const itemName = item?.name || ing.displayName || `Ingredient (${ing.ref_id.slice(0, 8)})`;
-            const { data: newBomIng, error: createErr } = await supabase
-              .from("bom_ingredients")
-              .insert({ location_id: locationId, r365_name: itemName, clean_name: itemName, inventory_item_id: ing.ref_id, is_ignored: false })
-              .select("id").single();
-            if (createErr || !newBomIng) throw createErr || new Error("Failed to create ingredient link");
-            bomIngredientId = newBomIng.id;
-          }
-
-          await supabase.from("bom_recipe_ingredients").insert({
-            menu_item_id: bomMenuItemId, ingredient_id: bomIngredientId,
-            quantity: ing.quantity, unit_of_measure: normalizeUnit(ing.unit) || ing.unit, location_id: locationId,
-          });
-        }
-        return;
-      }
-
       // === LEGACY RECIPE MODE (inventory_items) ===
       if (editRecipeId && !editBlueprintId) {
         const costPerCase = recipeCost;
@@ -751,7 +599,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
         const existingProducesId = existingBlueprint?.blueprint?.produces_item_id;
         if (countable) {
           if (existingProducesId) {
-            // Update existing produced item
             await supabase.from("inventory_items").update({
               name: recipeName.trim(),
               recipe_yield_qty: parseFloat(yieldQty),
@@ -762,7 +609,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
               pan_sizes: panSizesConfig as any,
             } as any).eq("id", existingProducesId);
           } else {
-            // Create new countable item
             const { data: newItem, error: itemErr } = await supabase
               .from("inventory_items")
               .insert({
@@ -782,11 +628,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
               } as any)
               .select("id").single();
             if (itemErr || !newItem) throw itemErr || new Error("Failed to create countable item");
-            // Link blueprint to produced item
             await supabase.from("recipe_blueprints" as any).update({ produces_item_id: newItem.id } as any).eq("id", editBlueprintId);
           }
         } else if (existingProducesId) {
-          // Was countable, now not — deactivate the produced item
           await supabase.from("inventory_items").update({ is_active: false } as any).eq("id", existingProducesId);
           await supabase.from("recipe_blueprints" as any).update({ produces_item_id: null } as any).eq("id", editBlueprintId);
         }
@@ -807,7 +651,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
 
         const blueprintId = (newBp as any).id;
 
-        // Insert ingredients
         const ingInserts = ingredients.map(ing => ({
           blueprint_id: blueprintId,
           ingredient_type: ing.type,
@@ -821,7 +664,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           if (ingErr) throw ingErr;
         }
 
-        // Create countable item if needed
         if (countable) {
           const { data: newItem, error: itemErr } = await supabase
             .from("inventory_items")
@@ -853,16 +695,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       queryClient.invalidateQueries({ queryKey: ["blueprints-for-recipe", locationId] });
       queryClient.invalidateQueries({ queryKey: ["blueprint-recipes", locationId] });
       queryClient.invalidateQueries({ queryKey: ["blueprint-costs", locationId] });
-      if (bomMenuItemId) {
-        queryClient.invalidateQueries({ queryKey: ["recipe-catalog-items", locationId] });
-        queryClient.invalidateQueries({ queryKey: ["recipe-row-ingredients"] });
-        queryClient.invalidateQueries({ queryKey: ["recipe-row-costs"] });
-        queryClient.invalidateQueries({ queryKey: ["bom-recipe-detail", bomMenuItemId] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["recipe-catalog-blueprints", locationId] });
       if (editBlueprintId) {
         queryClient.invalidateQueries({ queryKey: ["blueprint-detail", editBlueprintId] });
       }
-      toast.success(editBlueprintId || editRecipeId || bomMenuItemId ? "Recipe updated" : "Recipe created");
+      toast.success(editBlueprintId || editRecipeId ? "Recipe updated" : "Recipe created");
       resetForm();
       onOpenChange(false);
     },
@@ -889,7 +726,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     setPanSizesConfig(null);
     setSuggestedPrice("");
     setDrillStack([]);
-    setActiveBomId(bomMenuItemId || null);
     setDrillBlueprintId(null);
   };
 
@@ -934,12 +770,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       .filter(i => !search || i.name.toLowerCase().includes(search));
   }, [searchableItems, ingredientSearch, ingredients]);
 
-  // Drill into a sub-recipe (BOM or blueprint)
-  const drillIntoSubRecipe = (subRecipeId: string, drillType: "bom" | "blueprint" = "bom") => {
-    // Save current state to stack
+  // Drill into a blueprint sub-recipe
+  const drillIntoSubRecipe = (subRecipeId: string) => {
     const entry: DrillStackEntry = {
-      bomId: drillType === "bom" ? activeBomId || undefined : undefined,
-      blueprintId: drillType === "blueprint" ? editBlueprintId || drillBlueprintId || undefined : undefined,
+      blueprintId: editBlueprintId || drillBlueprintId || undefined,
       name: recipeName,
       savedIngredients: [...ingredients],
       savedName: recipeName,
@@ -947,13 +781,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       savedYieldUnit: yieldUnit,
     };
     setDrillStack(prev => [...prev, entry]);
-    if (drillType === "bom") {
-      setActiveBomId(subRecipeId);
-      setDrillBlueprintId(null);
-    } else {
-      setDrillBlueprintId(subRecipeId);
-      setActiveBomId(null);
-    }
+    setDrillBlueprintId(subRecipeId);
   };
 
   // Navigate back up the drill stack
@@ -962,12 +790,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
     if (index !== undefined) {
       const entry = drillStack[index];
       setDrillStack(prev => prev.slice(0, index));
-      // Restore state
       setIngredients(entry.savedIngredients);
       setRecipeName(entry.savedName);
       setYieldQty(entry.savedYieldQty);
       setYieldUnit(entry.savedYieldUnit);
-      setActiveBomId(entry.bomId || null);
       setDrillBlueprintId(entry.blueprintId || null);
     } else {
       const prev = drillStack[drillStack.length - 1];
@@ -976,7 +802,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
       setRecipeName(prev.savedName);
       setYieldQty(prev.savedYieldQty);
       setYieldUnit(prev.savedYieldUnit);
-      setActiveBomId(prev.bomId || null);
       setDrillBlueprintId(prev.blueprintId || null);
     }
   };
@@ -991,29 +816,23 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5" />
-            {editBlueprintId || editRecipeId || bomMenuItemId ? "Edit Recipe" : "Create Prep Recipe"}
-            {bomMenuItemId && bomRecipe?.menuItem?.category && (
-              <Badge variant="outline" className="text-[10px] ml-auto uppercase">{bomRecipe.menuItem.category}</Badge>
-            )}
+            {editBlueprintId || editRecipeId ? "Edit Recipe" : "Create Prep Recipe"}
             {editBlueprintId && existingBlueprint?.blueprint?.source === "r365_import" && (
               <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px] ml-auto">
                 <RefreshCw className="h-3 w-3 mr-1" />R365 Synced
               </Badge>
             )}
-            {!bomMenuItemId && !editBlueprintId && existingRecipe?.item && (existingRecipe.item as any).source === "r365_import" && (
+            {!editBlueprintId && existingRecipe?.item && (existingRecipe.item as any).source === "r365_import" && (
               <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px] ml-auto">
                 <RefreshCw className="h-3 w-3 mr-1" />R365 Synced
               </Badge>
             )}
           </DialogTitle>
-          {bomMenuItemId && !isDrilledDown && (
-            <p className="text-xs text-muted-foreground">Editing BOM recipe. Changes save to the recipe catalog.</p>
-          )}
           {/* Breadcrumb navigation for drilled-down sub-recipes */}
           {isDrilledDown && (
             <div className="flex items-center gap-1 flex-wrap text-xs mt-1">
               {drillStack.map((entry, i) => (
-                <span key={entry.bomId} className="flex items-center gap-1">
+                <span key={entry.blueprintId || i} className="flex items-center gap-1">
                   <button
                     type="button"
                     className="text-primary hover:underline font-medium"
@@ -1112,28 +931,22 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                   return (
                     <div key={ing.ref_id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {(ing.bomSubRecipeId || ing.type === "blueprint") && (
+                        {ing.type === "blueprint" && (
                           <button
                             type="button"
                             className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
                             title="Drill into sub-recipe"
-                            onClick={() => ing.type === "blueprint"
-                              ? drillIntoSubRecipe(ing.ref_id, "blueprint")
-                              : drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")
-                            }
+                            onClick={() => drillIntoSubRecipe(ing.ref_id)}
                           >
                             <FlaskConical className="h-3 w-3 text-primary" />
                           </button>
                         )}
-                        {ing.unmapped && !ing.bomSubRecipeId && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
-                        {(ing.bomSubRecipeId || ing.type === "blueprint") ? (
+                        {ing.unmapped && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                        {ing.type === "blueprint" ? (
                           <button
                             type="button"
                             className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
-                            onClick={() => ing.type === "blueprint"
-                              ? drillIntoSubRecipe(ing.ref_id, "blueprint")
-                              : drillIntoSubRecipe(ing.bomSubRecipeId!, "bom")
-                            }
+                            onClick={() => drillIntoSubRecipe(ing.ref_id)}
                           >
                             {displayName}
                             <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
@@ -1311,7 +1124,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           )}
 
           {/* Countable toggle */}
-          {!bomMenuItemId && !isDrilledDown && (
+          {!isDrilledDown && (
             <div className="flex items-center justify-between py-2">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Show in inventory count</Label>
@@ -1324,7 +1137,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
           )}
 
           {/* Pan Sizes */}
-          {!bomMenuItemId && !isDrilledDown && countable && (
+          {!isDrilledDown && countable && (
             <PanSizesSection value={panSizesConfig} onChange={setPanSizesConfig} />
           )}
 
@@ -1340,7 +1153,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
                 <Button className="flex-1" onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending || !recipeName.trim() || ingredients.length === 0}>
                   {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                    (editBlueprintId || editRecipeId || bomMenuItemId) ? "Update Recipe" : "Create Recipe"}
+                    (editBlueprintId || editRecipeId) ? "Update Recipe" : "Create Recipe"}
                 </Button>
               </>
             )}
