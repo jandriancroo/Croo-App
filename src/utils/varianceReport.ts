@@ -409,10 +409,10 @@ async function fetchBlueprints(locationId: string) {
     .eq("location_id", locationId)
     .eq("is_active", true);
   if (error) throw error;
-  return (data || []) as Array<{ id: string; yield_qty: number | null; yield_unit: string | null; produces_item_id: string | null }>;
+  return (data || []) as unknown as Array<{ id: string; yield_qty: number | null; yield_unit: string | null; produces_item_id: string | null }>;
 }
 
-async function fetchAllIngredients(locationId: string) {
+async function fetchAllIngredients(_locationId: string) {
   // Paginate to handle >1000 ingredients
   const all: Array<{ blueprint_id: string; ingredient_type: string; vendor_item_id: string | null; sub_blueprint_id: string | null; quantity: number; unit: string | null }> = [];
   let offset = 0;
