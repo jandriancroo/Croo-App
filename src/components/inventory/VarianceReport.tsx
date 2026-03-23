@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { calculateVarianceReport, type VarianceCategoryRow } from "@/utils/varianceReport";
+import { calculateVarianceReport, type VarianceCategoryRow, type VarianceItemRow } from "@/utils/varianceReport";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info } from "lucide-react";
+import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info, ChevronDown, ChevronRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { addDays, format } from "date-fns";
 
@@ -20,6 +21,8 @@ const formatCurrency = (v: number) =>
 const formatPct = (v: number) => `${v.toFixed(2)}%`;
 
 const VarianceReport = ({ countId, locationId, periodEndDate }: VarianceReportProps) => {
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
   // Find previous completed count
   const { data: previousCount } = useQuery({
     queryKey: ["previous-completed-count", locationId, countId],
@@ -50,6 +53,15 @@ const VarianceReport = ({ countId, locationId, periodEndDate }: VarianceReportPr
     enabled: !!previousCount?.id && !!periodStartDate,
     staleTime: 5 * 60 * 1000,
   });
+
+  const toggleCategory = (cat: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
 
   if (!previousCount) {
     return (
@@ -138,7 +150,7 @@ const VarianceReport = ({ countId, locationId, periodEndDate }: VarianceReportPr
             <Table>
               <TableHeader>
                 <TableRow className="text-xs">
-                  <TableHead className="pl-4 min-w-[120px]">Category</TableHead>
+                  <TableHead className="pl-4 min-w-[140px]">Category</TableHead>
                   <TableHead className="text-right">
                     <TooltipProvider>
                       <Tooltip>
@@ -167,7 +179,13 @@ const VarianceReport = ({ countId, locationId, periodEndDate }: VarianceReportPr
               </TableHeader>
               <TableBody>
                 {report.rows.map((row) => (
-                  <VarianceRow key={row.category} row={row} />
+                  <CategoryRowWithDrillDown
+                    key={row.category}
+                    row={row}
+                    expanded={expandedCategories.has(row.category)}
+                    onToggle={() => toggleCategory(row.category)}
+                    netSales={report.netSales}
+                  />
                 ))}
                 {/* Totals row */}
                 <TableRow className="border-t-2 font-bold bg-muted/30">
@@ -215,22 +233,83 @@ const VarianceReport = ({ countId, locationId, periodEndDate }: VarianceReportPr
   );
 };
 
-function VarianceRow({ row }: { row: VarianceCategoryRow }) {
-  const isNegativeVariance = row.varianceValue < 0;
+function CategoryRowWithDrillDown({
+  row, expanded, onToggle, netSales,
+}: {
+  row: VarianceCategoryRow;
+  expanded: boolean;
+  onToggle: () => void;
+  netSales: number;
+}) {
   const isHighVariance = Math.abs(row.variancePct) > 1;
+  const hasItems = row.items.length > 0;
 
   return (
-    <TableRow className={isHighVariance ? "bg-red-50/50 dark:bg-red-950/10" : ""}>
-      <TableCell className="pl-4 font-medium text-sm">{row.category}</TableCell>
-      <TableCell className="text-right text-sm tabular-nums">{formatCurrency(row.actualUsage)}</TableCell>
-      <TableCell className="text-right text-sm text-muted-foreground tabular-nums">{formatPct(row.actualPct)}</TableCell>
-      <TableCell className="text-right text-sm tabular-nums">{formatCurrency(row.theoreticalValue)}</TableCell>
-      <TableCell className="text-right text-sm text-muted-foreground tabular-nums">{formatPct(row.theoreticalPct)}</TableCell>
-      <TableCell className={`text-right text-sm tabular-nums font-medium ${row.varianceValue > 0 ? "text-red-600" : isNegativeVariance ? "text-green-600" : ""}`}>
-        {formatCurrency(row.varianceValue)}
+    <>
+      <TableRow
+        className={`${isHighVariance ? "bg-red-50/50 dark:bg-red-950/10" : ""} ${hasItems ? "cursor-pointer hover:bg-muted/50" : ""}`}
+        onClick={hasItems ? onToggle : undefined}
+      >
+        <TableCell className="pl-4 font-medium text-sm">
+          <div className="flex items-center gap-1.5">
+            {hasItems && (
+              expanded
+                ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            )}
+            <span>{row.category}</span>
+            <Badge variant="outline" className="text-[10px] px-1 py-0 font-normal ml-1">
+              {row.items.length}
+            </Badge>
+          </div>
+        </TableCell>
+        <TableCell className="text-right text-sm tabular-nums">{formatCurrency(row.actualUsage)}</TableCell>
+        <TableCell className="text-right text-sm text-muted-foreground tabular-nums">{formatPct(row.actualPct)}</TableCell>
+        <TableCell className="text-right text-sm tabular-nums">{formatCurrency(row.theoreticalValue)}</TableCell>
+        <TableCell className="text-right text-sm text-muted-foreground tabular-nums">{formatPct(row.theoreticalPct)}</TableCell>
+        <TableCell className={`text-right text-sm tabular-nums font-medium ${row.varianceValue > 0 ? "text-red-600" : row.varianceValue < 0 ? "text-green-600" : ""}`}>
+          {formatCurrency(row.varianceValue)}
+        </TableCell>
+        <TableCell className={`text-right pr-4 text-sm tabular-nums ${row.variancePct > 0 ? "text-red-600" : row.variancePct < 0 ? "text-green-600" : ""}`}>
+          {formatPct(row.variancePct)}
+        </TableCell>
+      </TableRow>
+
+      {expanded && row.items.map((item) => (
+        <ItemRow key={item.itemId} item={item} netSales={netSales} />
+      ))}
+    </>
+  );
+}
+
+function ItemRow({ item, netSales }: { item: VarianceItemRow; netSales: number }) {
+  const variancePct = netSales > 0 ? (item.varianceValue / netSales) * 100 : 0;
+  const isHighVariance = Math.abs(item.varianceValue) > 50;
+
+  return (
+    <TableRow className={`bg-muted/20 ${isHighVariance && item.varianceValue > 0 ? "bg-red-50/30 dark:bg-red-950/5" : ""}`}>
+      <TableCell className="pl-8 text-xs text-muted-foreground">
+        <div>
+          <span className="text-foreground font-medium">{item.itemName}</span>
+          <div className="text-[10px] text-muted-foreground mt-0.5">
+            Begin: {item.beginningQty} → End: {item.endingQty}
+            {item.purchaseValue > 0 && ` · +${formatCurrency(item.purchaseValue)} purchased`}
+          </div>
+        </div>
       </TableCell>
-      <TableCell className={`text-right pr-4 text-sm tabular-nums ${row.variancePct > 0 ? "text-red-600" : isNegativeVariance ? "text-green-600" : ""}`}>
-        {formatPct(row.variancePct)}
+      <TableCell className="text-right text-xs tabular-nums">{formatCurrency(item.actualUsage)}</TableCell>
+      <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+        {netSales > 0 ? formatPct((item.actualUsage / netSales) * 100) : "—"}
+      </TableCell>
+      <TableCell className="text-right text-xs tabular-nums">{formatCurrency(item.theoreticalValue)}</TableCell>
+      <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+        {netSales > 0 ? formatPct((item.theoreticalValue / netSales) * 100) : "—"}
+      </TableCell>
+      <TableCell className={`text-right text-xs tabular-nums font-medium ${item.varianceValue > 0 ? "text-red-600" : item.varianceValue < 0 ? "text-green-600" : ""}`}>
+        {formatCurrency(item.varianceValue)}
+      </TableCell>
+      <TableCell className={`text-right pr-4 text-xs tabular-nums ${variancePct > 0 ? "text-red-600" : variancePct < 0 ? "text-green-600" : ""}`}>
+        {formatPct(variancePct)}
       </TableCell>
     </TableRow>
   );
