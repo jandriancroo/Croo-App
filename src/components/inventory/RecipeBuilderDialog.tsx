@@ -927,6 +927,24 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                       }
                     }
                   }
+                  } else if (ing.type === "blueprint") {
+                    // Sub-recipe: use blueprint costs map
+                    const subCost = blueprintCostsMap?.get(ing.ref_id);
+                    const subBp = otherBlueprints?.find(b => b.id === ing.ref_id);
+                    if (subCost && subCost.batchCost > 0) {
+                      const subYield = subBp?.yield_qty || 1;
+                      const subYieldUnit = normalizeUnit(subBp?.yield_unit) || "oz";
+                      const ingUnit = normalizeUnit(ing.unit);
+                      const costPerYieldUnit = subCost.batchCost / subYield;
+                      if (ingUnit && subYieldUnit && ingUnit !== subYieldUnit
+                          && ingUnit !== "ea" && subYieldUnit !== "ea"
+                          && TO_OZ[ingUnit] && TO_OZ[subYieldUnit]) {
+                        const ingInYieldUnits = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[subYieldUnit];
+                        ingCost = costPerYieldUnit * ingInYieldUnits;
+                      } else {
+                        ingCost = costPerYieldUnit * ing.quantity;
+                      }
+                    }
 
                   return (
                     <div key={ing.ref_id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
