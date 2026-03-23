@@ -55,6 +55,12 @@ export interface VarianceCategoryRow {
   items: VarianceItemRow[];
 }
 
+export interface UnmappedPosItem {
+  itemName: string;
+  category: string;
+  unitsSold: number;
+}
+
 export interface VarianceReportData {
   rows: VarianceCategoryRow[];
   totals: {
@@ -70,6 +76,7 @@ export interface VarianceReportData {
   };
   netSales: number;
   mappingCoverage: { mapped: number; total: number };
+  unmappedPosItems: UnmappedPosItem[];
 }
 
 // ─── Main calculation ───
