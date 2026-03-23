@@ -26,6 +26,7 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
+import VarianceReport from "./VarianceReport";
 
 interface PeriodDetailPanelProps {
   count: any;
