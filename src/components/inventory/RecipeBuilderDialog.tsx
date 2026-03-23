@@ -29,13 +29,11 @@ interface BuilderIngredient {
   ref_id: string; // inventory_items.id or recipe_blueprints.id
   quantity: number;
   unit: string;
-  displayName?: string; // fallback name from BOM/R365 data
-  unmapped?: boolean; // BOM ingredient not yet linked to a vendor item
-  bomSubRecipeId?: string; // if this ingredient is a sub-recipe, its bom_menu_items.id
+  displayName?: string;
+  unmapped?: boolean;
 }
 
 interface DrillStackEntry {
-  bomId?: string;
   blueprintId?: string;
   name: string;
   savedIngredients: BuilderIngredient[];
