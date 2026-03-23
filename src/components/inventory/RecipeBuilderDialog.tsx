@@ -176,8 +176,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
   const [suggestedPrice, setSuggestedPrice] = useState("");
   const [drillStack, setDrillStack] = useState<DrillStackEntry[]>([]);
   const [drillBlueprintId, setDrillBlueprintId] = useState<string | null>(null);
+  const [blueprintType, setBlueprintType] = useState<BlueprintType | null>(null);
+  const [catalogSection, setCatalogSection] = useState("");
+  const [producesItemId, setProducesItemId] = useState<string | null>(null);
 
+  const isCreating = !editBlueprintId && !editRecipeId;
   const isBlueprint = !!editBlueprintId || !editRecipeId;
+  const showTypeStep = isCreating && !blueprintType;
 
   // ========== DATA FETCHING ==========
 
