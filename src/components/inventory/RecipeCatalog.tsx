@@ -19,6 +19,7 @@ interface RecipeCatalogProps {
 }
 
 const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
+  const navigate = useNavigate();
   const [editBlueprintId, setEditBlueprintId] = useState<string | null>(null);
   const [showBuilderDialog, setShowBuilderDialog] = useState(false);
   const [reassignMode, setReassignMode] = useState(false);
@@ -157,6 +158,15 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
             </Badge>
             <Button
               size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => navigate(`/inventory/${locationId}/triage`)}
+            >
+              <ClipboardCheck className="h-3 w-3" />
+              Triage
+            </Button>
+            <Button
+              size="sm"
               variant={reassignMode ? "default" : "ghost"}
               className="h-7 text-xs gap-1"
               onClick={() => {
@@ -183,7 +193,12 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
               />
             ))}
 
-            {!reassignMode && <PrepRecipesSection locationId={locationId} />}
+            {!reassignMode && (
+              <>
+                <PrepRecipesSection locationId={locationId} />
+                <IngredientsSection locationId={locationId} />
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
