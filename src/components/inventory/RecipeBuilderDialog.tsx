@@ -140,7 +140,7 @@ const formatIngredientCost = (cost: number): string => {
   return `$${cost.toFixed(2)}`;
 };
 
-const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, editBlueprintId }: RecipeBuilderDialogProps) => {
+const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bomMenuItemId, editBlueprintId }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
   const [category, setCategory] = useState("");
@@ -157,9 +157,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   const [suggestedPrice, setSuggestedPrice] = useState("");
   const [drillStack, setDrillStack] = useState<DrillStackEntry[]>([]);
+  const [activeBomId, setActiveBomId] = useState<string | null>(bomMenuItemId || null);
   const [drillBlueprintId, setDrillBlueprintId] = useState<string | null>(null);
 
-  const isBlueprint = !!editBlueprintId || !editRecipeId;
+  const isBlueprint = !!editBlueprintId || (!editRecipeId && !bomMenuItemId);
 
   // ========== DATA FETCHING ==========
 
