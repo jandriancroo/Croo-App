@@ -556,7 +556,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     mutationFn: async () => {
       if (!recipeName.trim()) throw new Error("Name required");
       if (!yieldQty || parseFloat(yieldQty) <= 0) throw new Error("Yield required");
-      if (ingredients.length === 0) throw new Error("Add at least one ingredient");
+      if (ingredients.length === 0 && blueprintType !== "INGREDIENT") throw new Error("Add at least one ingredient");
 
       // === LEGACY RECIPE MODE (inventory_items) ===
       if (editRecipeId && !editBlueprintId) {
@@ -1270,9 +1270,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
               <>
                 <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
                 <Button className="flex-1" onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending || !recipeName.trim() || ingredients.length === 0}>
+                  disabled={saveMutation.isPending || !recipeName.trim() || (ingredients.length === 0 && blueprintType !== "INGREDIENT")}>
                   {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                    (editBlueprintId || editRecipeId) ? "Update Recipe" : "Create Recipe"}
+                    (editBlueprintId || editRecipeId) ? "Update Recipe" : `Create ${blueprintType === "MI" ? "Menu Item" : blueprintType === "INGREDIENT" ? "Ingredient" : "Recipe"}`}
                 </Button>
               </>
             )}
