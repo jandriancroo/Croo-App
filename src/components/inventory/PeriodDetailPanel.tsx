@@ -13,8 +13,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Eye, BarChart3, ClipboardCheck,
-  Crosshair, TrendingDown, TrendingUp, Loader2,
+  Eye, ClipboardCheck,
+  Crosshair, Loader2,
   Settings2, UtensilsCrossed, Carrot, ChevronDown,
   Play, Plus, CheckCircle2,
 } from "lucide-react";
