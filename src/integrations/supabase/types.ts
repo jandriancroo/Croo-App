@@ -5521,6 +5521,7 @@ export type Database = {
       }
       recipe_blueprints: {
         Row: {
+          catalog_section: string | null
           category: string | null
           created_at: string
           id: string
@@ -5535,6 +5536,7 @@ export type Database = {
           yield_unit: string | null
         }
         Insert: {
+          catalog_section?: string | null
           category?: string | null
           created_at?: string
           id?: string
@@ -5549,6 +5551,7 @@ export type Database = {
           yield_unit?: string | null
         }
         Update: {
+          catalog_section?: string | null
           category?: string | null
           created_at?: string
           id?: string
