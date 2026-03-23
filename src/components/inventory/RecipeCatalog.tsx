@@ -24,7 +24,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipe_blueprints" as any)
-        .select("id, name, r365_name, category, yield_qty, yield_unit, source")
+        .select("id, name, r365_name, category, yield_qty, yield_unit, source, catalog_section")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");

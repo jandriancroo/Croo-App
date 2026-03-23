@@ -6,6 +6,7 @@ export interface MenuItem {
   yield_qty: number | null;
   yield_unit: string | null;
   source: string | null;
+  catalog_section: string | null;
 }
 
 export interface BlueprintIngredient {
