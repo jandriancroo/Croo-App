@@ -36,7 +36,7 @@ export function usePosMapping(locationId: string): PosMappingState {
     },
   });
 
-  // Fetch distinct POS items from last 14 days of sales
+  // Fetch distinct POS items from last 60 days of sales for full coverage
   const { data: posData } = useQuery({
     queryKey: ["pos-items-for-mapping", locationId],
     queryFn: async () => {
@@ -46,7 +46,7 @@ export function usePosMapping(locationId: string): PosMappingState {
         .eq("location_id", locationId)
         .not("product_mix", "is", null)
         .order("sale_date", { ascending: false })
-        .limit(14);
+        .limit(60);
       if (error) throw error;
 
       const items = new Map<string, string>();
