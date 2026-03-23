@@ -20,8 +20,6 @@ interface RecipeBuilderDialogProps {
   locationId: string;
   /** Edit legacy recipe in inventory_items */
   editRecipeId?: string | null;
-  /** Edit BOM recipe (legacy catalog) */
-  bomMenuItemId?: string | null;
   /** Edit a recipe_blueprint */
   editBlueprintId?: string | null;
 }
