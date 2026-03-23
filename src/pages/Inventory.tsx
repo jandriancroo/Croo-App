@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, FileText, ArrowLeft, Hammer } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, ArrowLeft, Hammer } from "lucide-react";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -24,9 +24,7 @@ import StartCountDialog from "@/components/inventory/StartCountDialog";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
 import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialog";
-import BOMImportSheet from "@/components/inventory/BOMImportSheet";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
-import BOMIngredientMatcher from "@/components/inventory/BOMIngredientMatcher";
 import RecipeCatalog from "@/components/inventory/RecipeCatalog";
 
 const Inventory = () => {
@@ -46,7 +44,7 @@ const Inventory = () => {
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
   const [showExportMaster, setShowExportMaster] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
-  const [showBOMImport, setShowBOMImport] = useState(false);
+  
   const [showDailyCount, setShowDailyCount] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -392,9 +390,6 @@ const Inventory = () => {
 
           <TabsContent value="build" className="mt-4 space-y-4">
             <RecipeCatalog locationId={locationId!} />
-            {isBrandLevel && (
-              <BOMIngredientMatcher locationId={locationId!} />
-            )}
             <InventoryItemsManager locationId={locationId!} mode="build" />
           </TabsContent>
         </Tabs>
@@ -422,12 +417,6 @@ const Inventory = () => {
                   Deploy to Location
                 </Button>
               </div>
-            )}
-            {isBrandLevel && (
-              <Button variant="outline" size="sm" onClick={() => { setShowSettings(false); setShowBOMImport(true); }} className="w-full justify-start">
-                <FileText className="h-4 w-4 mr-2" />
-                Recipe Import Pipeline
-              </Button>
             )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
           </div>
@@ -473,11 +462,6 @@ const Inventory = () => {
         </>
       )}
 
-      <BOMImportSheet
-        open={showBOMImport}
-        onOpenChange={setShowBOMImport}
-        locationId={locationId!}
-      />
 
       <Sheet open={showDailyCount} onOpenChange={setShowDailyCount}>
         <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl pb-safe overflow-y-auto">
