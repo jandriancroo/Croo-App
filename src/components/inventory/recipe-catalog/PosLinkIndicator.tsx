@@ -57,14 +57,28 @@ const PosLinkIndicator = ({
       ...p,
       score: matchScore(p.name, blueprintName),
     }));
-    
-    let filtered = scored;
-    if (search) {
-      const s = search.toLowerCase();
-      filtered = scored.filter(p => p.name.toLowerCase().includes(s) || p.category.toLowerCase().includes(s));
+
+    const searchValue = search.trim().toLowerCase();
+    if (!searchValue) {
+      return scored.sort((a, b) => b.score - a.score);
     }
-    
-    return filtered.sort((a, b) => b.score - a.score);
+
+    return scored
+      .map(p => ({
+        ...p,
+        searchScore: Math.max(
+          matchScore(p.name, searchValue),
+          matchScore(`${p.name} ${p.category}`, searchValue)
+        ),
+      }))
+      .filter(p => {
+        const combined = `${p.name} ${p.category}`.toLowerCase();
+        return combined.includes(searchValue) || p.searchScore >= 50;
+      })
+      .sort((a, b) => {
+        if (b.searchScore !== a.searchScore) return b.searchScore - a.searchScore;
+        return b.score - a.score;
+      });
   }, [posItems, blueprintName, search]);
 
   const handleSelect = (posItemName: string) => {
@@ -98,7 +112,7 @@ const PosLinkIndicator = ({
           {sortedPosItems.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-2">No POS items found</p>
           )}
-          {sortedPosItems.slice(0, 20).map(p => (
+          {sortedPosItems.slice(0, 40).map(p => (
             <button
               key={p.name}
               type="button"
