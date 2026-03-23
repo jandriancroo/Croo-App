@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight, Pizza, Layers, UtensilsCrossed, Package, Leaf } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight, Pizza, Layers, UtensilsCrossed, Package, Leaf, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
@@ -29,6 +29,7 @@ const CATALOG_SECTION_OPTIONS = [
   { value: "md_pizza", label: '11" Pizzas (MD)' },
   { value: "lg_pizza", label: '14" Pizzas (LG)' },
   { value: "half_pizza", label: "Half Pizzas" },
+  { value: "detroit", label: "Detroit Pizzas" },
   { value: "salads", label: "Salads" },
   { value: "sides", label: "Sides & Extras" },
   { value: "catering", label: "Catering" },
