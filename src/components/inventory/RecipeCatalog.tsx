@@ -15,29 +15,31 @@ interface RecipeCatalogProps {
 }
 
 const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
-  const [editBomId, setEditBomId] = useState<string | null>(null);
-  const [showBomDialog, setShowBomDialog] = useState(false);
+  const [editBlueprintId, setEditBlueprintId] = useState<string | null>(null);
+  const [showBuilderDialog, setShowBuilderDialog] = useState(false);
 
-  const { data: menuItems } = useQuery({
-    queryKey: ["recipe-catalog-items", locationId],
+  // Query recipe_blueprints instead of legacy bom_menu_items
+  const { data: blueprints } = useQuery({
+    queryKey: ["recipe-catalog-blueprints", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("bom_menu_items")
-        .select("id, r365_name, category, is_sellable, recipe_yield_qty, recipe_yield_unit, clean_name")
+        .from("recipe_blueprints" as any)
+        .select("id, name, r365_name, category, yield_qty, yield_unit, source")
         .eq("location_id", locationId)
-        .order("r365_name");
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
-      return data as MenuItem[];
+      return (data || []) as unknown as MenuItem[];
     },
   });
 
-  const handleEditBomRecipe = (bomMenuItemId: string) => {
-    setEditBomId(bomMenuItemId);
-    setShowBomDialog(true);
+  const handleEditRecipe = (blueprintId: string) => {
+    setEditBlueprintId(blueprintId);
+    setShowBuilderDialog(true);
   };
 
   const sections = useMemo(() => {
-    if (!menuItems) return [];
+    if (!blueprints) return [];
 
     const result: CatalogSection[] = [
       { key: "md_pizza", label: '11" Pizzas (MD)', icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
@@ -52,8 +54,8 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
 
     const sectionMap = new Map(result.map(s => [s.key, s]));
 
-    for (const item of menuItems) {
-      const name = item.r365_name;
+    for (const item of blueprints) {
+      const name = item.name;
       const lower = name.toLowerCase();
       const cat = item.category?.toUpperCase() || "";
 
@@ -104,13 +106,13 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
     }
 
     for (const s of result) {
-      s.cores.sort((a, b) => getCoreSortPriority(a.r365_name) - getCoreSortPriority(b.r365_name));
+      s.cores.sort((a, b) => getCoreSortPriority(a.name) - getCoreSortPriority(b.name));
     }
 
     return result.filter(s => s.bases.length > 0 || s.cores.length > 0 || s.menuItems.length > 0);
-  }, [menuItems]);
+  }, [blueprints]);
 
-  if (!menuItems) {
+  if (!blueprints) {
     return (
       <Card>
         <CardContent className="p-4">
@@ -128,7 +130,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
             <Layers className="h-4 w-4" />
             <h3 className="font-semibold text-sm">Recipe Catalog</h3>
             <Badge variant="secondary" className="ml-auto text-xs">
-              {menuItems.length} recipes
+              {blueprints.length} recipes
             </Badge>
           </div>
 
@@ -139,7 +141,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 section={section}
                 defaultOpen={i === 0}
                 locationId={locationId}
-                onEditRecipe={handleEditBomRecipe}
+                onEditRecipe={handleEditRecipe}
               />
             ))}
 
@@ -150,13 +152,13 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
       </Card>
 
       <RecipeBuilderDialog
-        open={showBomDialog}
+        open={showBuilderDialog}
         onOpenChange={(open) => {
-          setShowBomDialog(open);
-          if (!open) setEditBomId(null);
+          setShowBuilderDialog(open);
+          if (!open) setEditBlueprintId(null);
         }}
         locationId={locationId}
-        bomMenuItemId={editBomId}
+        editBlueprintId={editBlueprintId}
       />
     </>
   );
