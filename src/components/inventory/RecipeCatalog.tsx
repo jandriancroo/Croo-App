@@ -62,6 +62,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
       { key: "md_pizza", label: '11" Pizzas (MD)', icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
       { key: "lg_pizza", label: '14" Pizzas (LG)', icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
       { key: "half_pizza", label: "Half Pizzas", icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
+      { key: "detroit", label: "Detroit Pizzas", icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
       { key: "salads", label: "Salads", icon: <Salad className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
       { key: "sides", label: "Sides & Extras", icon: <UtensilsCrossed className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
       { key: "catering", label: "Catering", icon: <Package className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
@@ -88,7 +89,8 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
       let section: CatalogSection | undefined;
 
       if (cat === "BASE") {
-        if (lower.includes("md pizza")) section = sectionMap.get("md_pizza");
+        if (lower.includes("detroit")) section = sectionMap.get("detroit");
+        else if (lower.includes("md pizza")) section = sectionMap.get("md_pizza");
         else if (lower.includes("lg pizza")) section = sectionMap.get("lg_pizza");
         else if (lower.includes("half pizza")) section = sectionMap.get("half_pizza");
         else if (lower.includes("salad")) section = sectionMap.get("salads");
@@ -99,7 +101,9 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
       }
 
       if (cat === "CORE") {
-        if (lower.includes("salad")) {
+        if (lower.includes("detroit")) {
+          section = sectionMap.get("detroit");
+        } else if (lower.includes("salad")) {
           section = sectionMap.get("salads");
         } else {
           const size = getSizeFromName(name);
@@ -117,7 +121,8 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
       }
 
       if (cat === "MI") {
-        if (lower.includes("salad")) section = sectionMap.get("salads");
+        if (lower.includes("detroit")) section = sectionMap.get("detroit");
+        else if (lower.includes("salad")) section = sectionMap.get("salads");
         else if (lower.includes("half ")) section = sectionMap.get("half_pizza");
         else if (lower.includes("large") || lower.includes("lg ") || lower.includes("14")) section = sectionMap.get("lg_pizza");
         else if (lower.includes("drink") || lower.includes("juice") || lower.includes("water") || lower.includes("lemonade") || lower.includes("tea") || lower.includes("beer") || lower.includes("wine") || lower.includes("bubbles") || lower.includes("orchard") || lower.includes("aranciata") || lower.includes("limonata") || lower.includes("pellegrino") || lower.includes("fountain") || lower.includes("izze")) section = sectionMap.get("drinks");
