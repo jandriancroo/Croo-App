@@ -341,63 +341,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch variance data
-  const { data: varianceData } = useQuery({
-    queryKey: ["period-variance", locationId, count.id, periodRange?.startStr],
-    queryFn: async () => {
-      if (!periodRange) return [];
-
-      const { data: prevCounts } = await supabase
-        .from("inventory_counts")
-        .select("id")
-        .eq("location_id", locationId)
-        .eq("status", "completed")
-        .lt("period_end_date", periodRange.startStr)
-        .order("period_end_date", { ascending: false })
-        .limit(1);
-
-      if (!prevCounts?.[0]) return [];
-
-      const [prevItems, currItems, itemDetails] = await Promise.all([
-        supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", prevCounts[0].id),
-        supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", count.id),
-        supabase.from("inventory_items").select("id, name, cost_per_unit, pack_quantity, pack_quantity_override").eq("location_id", locationId).eq("is_active", true),
-      ]);
-
-      const prevMap = new Map<string, number>();
-      for (const ci of (prevItems.data || [])) prevMap.set(ci.item_id, Number(ci.quantity));
-
-      const nameMap = new Map<string, string>();
-      const costMap = new Map<string, number>();
-      for (const i of (itemDetails.data || [])) {
-        nameMap.set(i.id, i.name);
-        const pq = (i as any).pack_quantity_override ?? (i.pack_quantity || 1);
-        costMap.set(i.id, (Number(i.cost_per_unit) || 0) / Math.max(pq, 1));
-      }
-
-      const variances: { name: string; expected: number; actual: number; diff: number; cost: number }[] = [];
-      for (const ci of (currItems.data || [])) {
-        const prev = prevMap.get(ci.item_id);
-        if (prev === undefined) continue;
-        const diff = Number(ci.quantity) - prev;
-        if (Math.abs(diff) < 1) continue;
-        const unitCost = costMap.get(ci.item_id) || 0;
-        variances.push({
-          name: nameMap.get(ci.item_id) || "Unknown",
-          expected: prev,
-          actual: Number(ci.quantity),
-          diff,
-          cost: diff * unitCost,
-        });
-      }
-
-      variances.sort((a, b) => Math.abs(b.cost) - Math.abs(a.cost));
-      return variances.slice(0, 20);
-    },
-    enabled: !!periodRange && count.status === "completed",
-    staleTime: 5 * 60 * 1000,
-  });
-
   // Fetch spot checks
   const { data: spotChecks } = useQuery({
     queryKey: ["period-spot-checks", locationId, periodRange?.startStr, periodRange?.endStr],
