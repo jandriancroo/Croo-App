@@ -15,6 +15,7 @@ import VarianceReport from "./VarianceReport";
 interface InventoryCountViewProps {
   countId: string;
   locationId: string;
+  periodEndDate?: string;
 }
 
 interface CountItem {
