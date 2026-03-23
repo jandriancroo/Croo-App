@@ -1280,6 +1280,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
             )}
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );
