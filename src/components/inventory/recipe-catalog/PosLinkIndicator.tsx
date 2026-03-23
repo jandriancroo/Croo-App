@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link2, Link2Off, Check, X, Search } from "lucide-react";
+import { Link2, Link2Off, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PosItem } from "./usePosMapping";
 

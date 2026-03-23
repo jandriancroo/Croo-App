@@ -8,12 +8,19 @@ import { cn } from "@/lib/utils";
 import type { MenuItem, BlueprintIngredient } from "./types";
 import { getCleanDisplayName } from "./utils";
 import { fetchBlueprintCosts, type BlueprintCostResult } from "@/utils/blueprintCostCalculation";
+import PosLinkIndicator from "./PosLinkIndicator";
+import type { PosItem } from "./usePosMapping";
 
 interface RecipeRowProps {
   item: MenuItem;
   tagLabel?: string;
   locationId: string;
   onEditRecipe?: (blueprintId: string) => void;
+  posMapping?: { groupId: string; posItems: string[] };
+  posItems?: PosItem[];
+  onPosLink?: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  onPosUnlink?: (blueprintId: string) => void;
+  isPosLinking?: boolean;
 }
 
 const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps) => {
