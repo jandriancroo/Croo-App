@@ -1,0 +1,1 @@
+ALTER TABLE public.recipe_blueprints ADD COLUMN catalog_section text DEFAULT NULL;
