@@ -838,8 +838,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     setAddingIngredient(false);
   };
 
-  const removeIngredient = (refId: string) => {
-    setIngredients(prev => prev.filter(i => i.ref_id !== refId));
+  const removeIngredient = (index: number) => {
+    setIngredients(prev => prev.filter((_, i) => i !== index));
   };
 
   const getItemName = (ing: BuilderIngredient) => {
@@ -1064,7 +1064,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
             <Label>Ingredients</Label>
             {ingredients.length > 0 ? (
               <div className="space-y-1 border rounded-md p-2">
-                {ingredients.map(ing => {
+                {ingredients.map((ing, ingIdx) => {
                   const displayName = getItemName(ing);
                   let ingCost: number | null = null;
 
@@ -1118,7 +1118,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                   }
 
                   return (
-                    <div key={ing.ref_id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
+                    <div key={`${ing.ref_id}-${ingIdx}`} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         {ing.type === "blueprint" && (
                           <button
@@ -1153,7 +1153,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                       </div>
                       {!isDrilledDown && (
                         <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
-                          onClick={() => removeIngredient(ing.ref_id)}>
+                          onClick={() => removeIngredient(ingIdx)}>
                           <X className="h-3 w-3" />
                         </Button>
                       )}
