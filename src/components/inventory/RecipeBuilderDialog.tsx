@@ -663,15 +663,17 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         }
       } else {
         // Create new blueprint
+        const effectiveCategory = blueprintType || category || "PREP";
         const { data: newBp, error: bpErr } = await supabase
           .from("recipe_blueprints" as any)
           .insert({
             location_id: locationId,
             name: recipeName.trim(),
-            category: category || "PREP",
+            category: effectiveCategory,
             yield_qty: parseFloat(yieldQty),
             yield_unit: yieldUnit,
             source: "manual",
+            ...(catalogSection ? { catalog_section: catalogSection } : {}),
           } as any)
           .select("id").single();
         if (bpErr || !newBp) throw bpErr || new Error("Failed to create blueprint");
