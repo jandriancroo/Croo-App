@@ -198,8 +198,26 @@ export async function calculateVarianceReport(
     ingByBp.set(ing.blueprint_id, list);
   }
 
-  // Get units sold per POS mapping from product_mix
+  // Get units sold per POS mapping from product_mix & track ALL POS items
   const unitsSoldByMapping = new Map<string, number>();
+  const allPosItemsSold = new Map<string, { category: string; quantity: number }>();
+  const matchedPosItemNames = new Set<string>();
+
+  // First pass: aggregate all POS items sold
+  for (const day of salesData.dailyMix) {
+    for (const mixItem of day) {
+      const key = mixItem.itemName;
+      if (!key) continue;
+      const existing = allPosItemsSold.get(key);
+      if (existing) {
+        existing.quantity += mixItem.quantity;
+      } else {
+        allPosItemsSold.set(key, { category: mixItem.category, quantity: mixItem.quantity });
+      }
+    }
+  }
+
+  // Second pass: match against POS mappings
   for (const mapping of posMappings) {
     if (!mapping.blueprint_id) continue;
     let sold = 0;
@@ -212,6 +230,7 @@ export async function calculateVarianceReport(
         const matchesItem = posItems.length > 0 && posItems.includes(mixItem.itemName);
         if (matchesCat || matchesItem) {
           sold += mixItem.quantity;
+          if (mixItem.itemName) matchedPosItemNames.add(mixItem.itemName);
         }
       }
     }
