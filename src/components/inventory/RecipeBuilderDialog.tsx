@@ -18,22 +18,24 @@ interface RecipeBuilderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locationId: string;
-  /** Edit legacy recipe in inventory_items */
   editRecipeId?: string | null;
-  /** Edit a recipe_blueprint */
+  /** @deprecated BOM mode — kept for backward compat */
+  bomMenuItemId?: string | null;
   editBlueprintId?: string | null;
 }
 
 interface BuilderIngredient {
   type: "vendor_item" | "blueprint";
-  ref_id: string; // inventory_items.id or recipe_blueprints.id
+  ref_id: string;
   quantity: number;
   unit: string;
   displayName?: string;
   unmapped?: boolean;
+  bomSubRecipeId?: string;
 }
 
 interface DrillStackEntry {
+  bomId?: string;
   blueprintId?: string;
   name: string;
   savedIngredients: BuilderIngredient[];
