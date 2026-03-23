@@ -5,14 +5,23 @@ import { calculateVarianceReport, type VarianceCategoryRow, type VarianceItemRow
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info, ChevronDown, ChevronRight } from "lucide-react";
+import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { addDays, format } from "date-fns";
+
+interface ProvenCogs {
+  beginningValue: number;
+  purchaseValue: number;
+  endingValue: number;
+  cogsTotal: number;
+  netSales: number;
+}
 
 interface VarianceReportProps {
   countId: string;
   locationId: string;
   periodEndDate: string;
+  provenCogs?: ProvenCogs;
 }
 
 const formatCurrency = (v: number) =>
@@ -20,8 +29,9 @@ const formatCurrency = (v: number) =>
 
 const formatPct = (v: number) => `${v.toFixed(2)}%`;
 
-const VarianceReport = ({ countId, locationId, periodEndDate }: VarianceReportProps) => {
+const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: VarianceReportProps) => {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [showUnmatchedDetail, setShowUnmatchedDetail] = useState(false);
 
   // Find previous completed count
   const { data: previousCount } = useQuery({
@@ -95,34 +105,75 @@ const VarianceReport = ({ countId, locationId, periodEndDate }: VarianceReportPr
     );
   }
 
+  // ─── Single Source of Truth ───
+  // Use proven COGS from the period panel (Beginning + Purchases - Ending)
+  // The per-item breakdown is only for category attribution
+  const actualCogs = provenCogs?.cogsTotal ?? report.totals.actualUsage;
+  const netSales = provenCogs?.netSales ?? report.netSales;
+  const actualPct = netSales > 0 ? (actualCogs / netSales) * 100 : 0;
+
+  // Sum of matched categories from per-item detail
+  const matchedCategoryTotal = report.rows.reduce((sum, r) => sum + r.actualUsage, 0);
+
+  // Unmatched = proven COGS - sum(matched categories)
+  const unmatchedAmount = Math.round((actualCogs - matchedCategoryTotal) * 100) / 100;
+  const unmatchedPct = netSales > 0 ? (unmatchedAmount / netSales) * 100 : 0;
+  const unmatchedIsLarge = Math.abs(unmatchedAmount) > actualCogs * 0.05;
+
+  // Theoretical stays from the engine
+  const theoreticalTotal = report.totals.theoreticalValue;
+  const theoreticalPct = netSales > 0 ? (theoreticalTotal / netSales) * 100 : 0;
+
+  // Variance = proven actual - theoretical
+  const varianceTotal = Math.round((actualCogs - theoreticalTotal) * 100) / 100;
+  const variancePct = netSales > 0 ? (varianceTotal / netSales) * 100 : 0;
+
+  // Reconciliation status
+  const isReconciled = Math.abs(unmatchedAmount) <= 1;
+
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard
           label="Net Sales"
-          value={formatCurrency(report.netSales)}
+          value={formatCurrency(netSales)}
           icon={<DollarSign className="h-4 w-4" />}
         />
         <SummaryCard
           label="Actual COGS"
-          value={formatCurrency(report.totals.actualUsage)}
-          sub={formatPct(report.totals.actualPct)}
+          value={formatCurrency(actualCogs)}
+          sub={formatPct(actualPct)}
           icon={<TrendingDown className="h-4 w-4" />}
         />
         <SummaryCard
           label="Theoretical COGS"
-          value={formatCurrency(report.totals.theoreticalValue)}
-          sub={formatPct(report.totals.theoreticalPct)}
+          value={formatCurrency(theoreticalTotal)}
+          sub={formatPct(theoreticalPct)}
           icon={<TrendingUp className="h-4 w-4" />}
         />
         <SummaryCard
           label="Variance"
-          value={formatCurrency(report.totals.varianceValue)}
-          sub={formatPct(report.totals.variancePct)}
-          variant={report.totals.varianceValue > 0 ? "destructive" : "success"}
+          value={formatCurrency(varianceTotal)}
+          sub={formatPct(variancePct)}
+          variant={varianceTotal > 0 ? "destructive" : "success"}
           icon={<AlertTriangle className="h-4 w-4" />}
         />
+      </div>
+
+      {/* Reconciliation indicator */}
+      <div className={`flex items-center gap-2 text-xs px-1 ${isReconciled ? "text-green-600" : "text-amber-600"}`}>
+        {isReconciled ? (
+          <>
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Totals reconciled ✓</span>
+          </>
+        ) : (
+          <>
+            <AlertTriangle className="h-3.5 w-3.5" />
+            <span>Unmatched amount: {formatCurrency(Math.abs(unmatchedAmount))} (see Unmatched row below)</span>
+          </>
+        )}
       </div>
 
       {/* Mapping coverage */}
@@ -184,48 +235,76 @@ const VarianceReport = ({ countId, locationId, periodEndDate }: VarianceReportPr
                     row={row}
                     expanded={expandedCategories.has(row.category)}
                     onToggle={() => toggleCategory(row.category)}
-                    netSales={report.netSales}
+                    netSales={netSales}
                   />
                 ))}
-                {/* Totals row */}
+
+                {/* Unmatched row — only show if > $0.01 */}
+                {Math.abs(unmatchedAmount) > 0.01 && (
+                  <TableRow
+                    className={`cursor-pointer ${
+                      unmatchedIsLarge
+                        ? "bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/30"
+                        : "bg-amber-50/50 dark:bg-amber-950/10 hover:bg-amber-100/50 dark:hover:bg-amber-950/20"
+                    }`}
+                    onClick={() => setShowUnmatchedDetail(!showUnmatchedDetail)}
+                  >
+                    <TableCell className="pl-4 font-medium text-sm">
+                      <div className="flex items-center gap-1.5">
+                        {showUnmatchedDetail
+                          ? <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        }
+                        <span>Unmatched / Adjustments</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">{formatCurrency(unmatchedAmount)}</TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground tabular-nums">{formatPct(unmatchedPct)}</TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">—</TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground tabular-nums">—</TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">{formatCurrency(unmatchedAmount)}</TableCell>
+                    <TableCell className="text-right pr-4 text-sm tabular-nums">{formatPct(unmatchedPct)}</TableCell>
+                  </TableRow>
+                )}
+
+                {/* Unmatched detail expansion */}
+                {showUnmatchedDetail && Math.abs(unmatchedAmount) > 0.01 && (
+                  <TableRow className="bg-muted/20">
+                    <TableCell colSpan={7} className="px-6 py-3">
+                      <div className="space-y-2 text-xs">
+                        <p className="text-muted-foreground">
+                          This amount represents the difference between the proven COGS total and the sum of per-item category breakdowns.
+                          Common causes:
+                        </p>
+                        <ul className="list-disc pl-4 text-muted-foreground space-y-1">
+                          <li>PFG invoice line items not matched to an inventory item (missing item numbers)</li>
+                          <li>Price differences between count-time valuation and current vendor pricing</li>
+                          <li>Items counted but not categorized in the system</li>
+                        </ul>
+                        <p className="text-muted-foreground font-medium mt-2">
+                          To reduce this amount: ensure all PFG item numbers are linked to inventory items in the Items tab.
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {/* Totals row — uses proven COGS */}
                 <TableRow className="border-t-2 font-bold bg-muted/30">
                   <TableCell className="pl-4">Total COGS</TableCell>
-                  <TableCell className="text-right">{formatCurrency(report.totals.actualUsage)}</TableCell>
-                  <TableCell className="text-right">{formatPct(report.totals.actualPct)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(report.totals.theoreticalValue)}</TableCell>
-                  <TableCell className="text-right">{formatPct(report.totals.theoreticalPct)}</TableCell>
-                  <TableCell className={`text-right ${report.totals.varianceValue > 0 ? "text-red-600" : "text-green-600"}`}>
-                    {formatCurrency(report.totals.varianceValue)}
+                  <TableCell className="text-right">{formatCurrency(actualCogs)}</TableCell>
+                  <TableCell className="text-right">{formatPct(actualPct)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(theoreticalTotal)}</TableCell>
+                  <TableCell className="text-right">{formatPct(theoreticalPct)}</TableCell>
+                  <TableCell className={`text-right ${varianceTotal > 0 ? "text-red-600" : "text-green-600"}`}>
+                    {formatCurrency(varianceTotal)}
                   </TableCell>
-                  <TableCell className={`text-right pr-4 ${report.totals.variancePct > 0 ? "text-red-600" : "text-green-600"}`}>
-                    {formatPct(report.totals.variancePct)}
+                  <TableCell className={`text-right pr-4 ${variancePct > 0 ? "text-red-600" : "text-green-600"}`}>
+                    {formatPct(variancePct)}
                   </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Breakdown details */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground">Period Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground text-xs">Beginning Inventory</p>
-              <p className="font-medium">{formatCurrency(report.totals.beginningValue)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">+ Purchases</p>
-              <p className="font-medium">{formatCurrency(report.totals.purchaseValue)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">− Ending Inventory</p>
-              <p className="font-medium">{formatCurrency(report.totals.endingValue)}</p>
-            </div>
           </div>
         </CardContent>
       </Card>
