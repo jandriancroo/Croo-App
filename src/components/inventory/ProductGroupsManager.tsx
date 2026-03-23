@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, GripVertical, Layers, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,15 +23,13 @@ interface ProductGroup {
   is_active: boolean;
   pos_categories: string[] | null;
   pos_items: string[] | null;
-  bom_menu_item_id: string | null;
+  blueprint_id: string | null;
 }
 
-interface BomMenuItem {
+interface BlueprintItem {
   id: string;
-  r365_name: string;
-  clean_name: string | null;
+  name: string;
   category: string | null;
-  is_sellable: boolean | null;
 }
 
 const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
@@ -52,27 +49,28 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_product_groups")
-        .select("*")
+        .select("id, name, description, display_order, is_active, pos_categories, pos_items, blueprint_id")
         .eq("location_id", locationId)
         .order("display_order", { ascending: true });
 
       if (error) throw error;
-      return data as ProductGroup[];
+      return data as unknown as ProductGroup[];
     },
   });
 
-  // Fetch recipes (bom_menu_items) for this location
+  // Fetch blueprints for recipe linking
   const { data: recipes } = useQuery({
-    queryKey: ["bom-menu-items-for-mapping", locationId],
+    queryKey: ["blueprints-for-product-groups", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("bom_menu_items")
-        .select("id, r365_name, clean_name, category, is_sellable")
+        .from("recipe_blueprints" as any)
+        .select("id, name, category")
         .eq("location_id", locationId)
-        .order("r365_name", { ascending: true });
+        .eq("is_active", true)
+        .order("name");
 
       if (error) throw error;
-      return data as BomMenuItem[];
+      return (data || []) as unknown as BlueprintItem[];
     },
   });
 
@@ -116,11 +114,11 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
   const recipeMap = new Map((recipes || []).map(r => [r.id, r]));
 
   const upsertMutation = useMutation({
-    mutationFn: async ({ id, name, description, posCategories, posItems, bomMenuItemId }: { id?: string; name: string; description: string; posCategories: string[]; posItems: string[]; bomMenuItemId: string | null }) => {
+    mutationFn: async ({ id, name, description, posCategories, posItems, blueprintId }: { id?: string; name: string; description: string; posCategories: string[]; posItems: string[]; blueprintId: string | null }) => {
       if (id) {
         const { error } = await supabase
           .from("inventory_product_groups")
-          .update({ name, description: description || null, pos_categories: posCategories, pos_items: posItems, bom_menu_item_id: bomMenuItemId })
+          .update({ name, description: description || null, pos_categories: posCategories, pos_items: posItems, blueprint_id: blueprintId } as any)
           .eq("id", id);
         if (error) throw error;
       } else {
@@ -134,8 +132,8 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
             display_order: maxOrder,
             pos_categories: posCategories,
             pos_items: posItems,
-            bom_menu_item_id: bomMenuItemId,
-          });
+            blueprint_id: blueprintId,
+          } as any);
         if (error) throw error;
       }
     },
@@ -188,7 +186,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setDescription(group.description || "");
     setSelectedPosCategories(group.pos_categories || []);
     setSelectedPosItems(group.pos_items || []);
-    setSelectedRecipeId(group.bom_menu_item_id);
+    setSelectedRecipeId(group.blueprint_id);
     setItemSearch("");
     setRecipeSearch("");
     setShowDialog(true);
@@ -217,7 +215,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       description: description.trim(),
       posCategories: selectedPosCategories,
       posItems: selectedPosItems,
-      bomMenuItemId: selectedRecipeId,
+      blueprintId: selectedRecipeId,
     });
   };
 
@@ -235,17 +233,16 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
 
   const handleRecipeSelect = (recipeId: string) => {
     setSelectedRecipeId(recipeId === "none" ? null : recipeId);
-    // Auto-fill name from recipe if name is empty
     if (!name.trim() && recipeId !== "none") {
       const recipe = recipeMap.get(recipeId);
       if (recipe) {
-        setName(recipe.clean_name || recipe.r365_name);
+        setName(recipe.name);
       }
     }
   };
 
   const filteredRecipes = (recipes || []).filter(r =>
-    !recipeSearch || (r.clean_name || r.r365_name).toLowerCase().includes(recipeSearch.toLowerCase())
+    !recipeSearch || r.name.toLowerCase().includes(recipeSearch.toLowerCase())
   );
 
   return (
@@ -278,7 +275,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
           ) : (
             <div className="divide-y divide-border">
               {groups.map((group) => {
-                const linkedRecipe = group.bom_menu_item_id ? recipeMap.get(group.bom_menu_item_id) : null;
+                const linkedRecipe = group.blueprint_id ? recipeMap.get(group.blueprint_id) : null;
                 return (
                   <div key={group.id} className="flex items-center justify-between py-3 group">
                     <div className="flex items-center gap-3 min-w-0">
@@ -294,11 +291,11 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
                           <div className="flex items-center gap-1 mt-0.5">
                             <BookOpen className="h-3 w-3 text-primary" />
                             <span className="text-xs text-primary font-medium">
-                              {linkedRecipe.clean_name || linkedRecipe.r365_name}
+                              {linkedRecipe.name}
                             </span>
                           </div>
                         )}
-                        {!linkedRecipe && group.bom_menu_item_id && (
+                        {!linkedRecipe && group.blueprint_id && (
                           <span className="text-xs text-destructive">Recipe not found</span>
                         )}
                         {group.description && (
@@ -385,7 +382,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
                         }`}
                         onClick={() => handleRecipeSelect(recipe.id)}
                       >
-                        <span className="text-sm truncate">{recipe.clean_name || recipe.r365_name}</span>
+                        <span className="text-sm truncate">{recipe.name}</span>
                         {recipe.category && (
                           <span className="text-[10px] text-muted-foreground flex-shrink-0">{recipe.category}</span>
                         )}
@@ -395,13 +392,13 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
                   {selectedRecipeId && (
                     <Badge variant="secondary" className="text-xs">
                       <BookOpen className="h-3 w-3 mr-1" />
-                      {recipeMap.get(selectedRecipeId)?.clean_name || recipeMap.get(selectedRecipeId)?.r365_name}
+                      {recipeMap.get(selectedRecipeId)?.name}
                     </Badge>
                   )}
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground italic">
-                  No recipes found — import recipes first
+                  No recipes found — create recipes first
                 </p>
               )}
             </div>

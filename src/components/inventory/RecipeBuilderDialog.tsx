@@ -18,22 +18,20 @@ interface RecipeBuilderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locationId: string;
-  /** Edit legacy recipe in inventory_items */
   editRecipeId?: string | null;
-  /** Edit BOM recipe (legacy catalog) */
+  /** @deprecated BOM mode — kept for backward compat */
   bomMenuItemId?: string | null;
-  /** Edit a recipe_blueprint */
   editBlueprintId?: string | null;
 }
 
 interface BuilderIngredient {
   type: "vendor_item" | "blueprint";
-  ref_id: string; // inventory_items.id or recipe_blueprints.id
+  ref_id: string;
   quantity: number;
   unit: string;
-  displayName?: string; // fallback name from BOM/R365 data
-  unmapped?: boolean; // BOM ingredient not yet linked to a vendor item
-  bomSubRecipeId?: string; // if this ingredient is a sub-recipe, its bom_menu_items.id
+  displayName?: string;
+  unmapped?: boolean;
+  bomSubRecipeId?: string;
 }
 
 interface DrillStackEntry {
@@ -161,13 +159,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, bom
   const [drillStack, setDrillStack] = useState<DrillStackEntry[]>([]);
   const [activeBomId, setActiveBomId] = useState<string | null>(bomMenuItemId || null);
   const [drillBlueprintId, setDrillBlueprintId] = useState<string | null>(null);
-
-  // Reset activeBomId when bomMenuItemId prop changes
-  useEffect(() => {
-    setActiveBomId(bomMenuItemId || null);
-    setDrillStack([]);
-    setDrillBlueprintId(null);
-  }, [bomMenuItemId]);
 
   const isBlueprint = !!editBlueprintId || (!editRecipeId && !bomMenuItemId);
 
