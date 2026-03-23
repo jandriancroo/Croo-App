@@ -205,6 +205,11 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 reassignMode={reassignMode}
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelect}
+                posMappings={posMap.mappedBlueprints}
+                posItems={posMap.posItems}
+                onPosLink={posMap.linkBlueprint}
+                onPosUnlink={posMap.unlinkBlueprint}
+                isPosLinking={posMap.isLinking}
               />
             ))}
 
