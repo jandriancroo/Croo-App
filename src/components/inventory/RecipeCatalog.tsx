@@ -138,6 +138,10 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
     return result.filter(s => s.bases.length > 0 || s.cores.length > 0 || s.menuItems.length > 0);
   }, [blueprints]);
 
+  // POS mapping progress
+  const totalMIs = useMemo(() => sections.reduce((sum, s) => sum + s.menuItems.length, 0), [sections]);
+  const mappedMIs = useMemo(() => sections.reduce((sum, s) => sum + s.menuItems.filter(mi => posMap.mappedBlueprints.has(mi.id)).length, 0), [sections, posMap.mappedBlueprints]);
+
   if (!blueprints) {
     return (
       <Card>
