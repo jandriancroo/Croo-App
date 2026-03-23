@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { CatalogSection as CatalogSectionType, MenuItem } from "./types";
+import type { PosItem } from "./usePosMapping";
 import RecipeRow from "./RecipeRow";
 
 interface CatalogSectionProps {
@@ -13,6 +14,12 @@ interface CatalogSectionProps {
   reassignMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
+  // POS mapping props
+  posMappings?: Map<string, { groupId: string; posItems: string[] }>;
+  posItems?: PosItem[];
+  onPosLink?: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  onPosUnlink?: (blueprintId: string) => void;
+  isPosLinking?: boolean;
 }
 
 const SelectableRow = ({ item, selected, onToggle }: { item: MenuItem; selected: boolean; onToggle: (id: string) => void }) => {
@@ -32,11 +39,20 @@ const SelectableRow = ({ item, selected, onToggle }: { item: MenuItem; selected:
   );
 };
 
-const CatalogSectionComponent = ({ section, defaultOpen = false, locationId, onEditRecipe, reassignMode, selectedIds, onToggleSelect }: CatalogSectionProps) => {
+const CatalogSectionComponent = ({
+  section, defaultOpen = false, locationId, onEditRecipe,
+  reassignMode, selectedIds, onToggleSelect,
+  posMappings, posItems, onPosLink, onPosUnlink, isPosLinking,
+}: CatalogSectionProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const itemCount = section.bases.length + section.cores.length + section.menuItems.length;
-
   const allItems = [...section.bases, ...section.cores, ...section.menuItems];
+
+  // Count mapped MIs in this section
+  const miMappedCount = posMappings
+    ? section.menuItems.filter(mi => posMappings.has(mi.id)).length
+    : 0;
+  const miTotal = section.menuItems.length;
 
   return (
     <div>
@@ -52,6 +68,14 @@ const CatalogSectionComponent = ({ section, defaultOpen = false, locationId, onE
         )}
         {section.icon}
         <span className="font-semibold text-sm">{section.label}</span>
+        {posMappings && miTotal > 0 && (
+          <Badge
+            variant={miMappedCount === miTotal ? "default" : "outline"}
+            className="text-[10px] px-1.5 py-0"
+          >
+            {miMappedCount}/{miTotal} POS
+          </Badge>
+        )}
         <Badge variant="outline" className="ml-auto text-xs">
           {itemCount}
         </Badge>
@@ -60,7 +84,6 @@ const CatalogSectionComponent = ({ section, defaultOpen = false, locationId, onE
       {isOpen && (
         <div className="px-2 pb-2">
           {reassignMode && onToggleSelect && selectedIds ? (
-            // Reassign mode: flat list with checkboxes
             allItems.map(item => (
               <SelectableRow
                 key={item.id}
@@ -70,7 +93,6 @@ const CatalogSectionComponent = ({ section, defaultOpen = false, locationId, onE
               />
             ))
           ) : (
-            // Normal mode
             <>
               {section.bases.length > 0 && (
                 <div className="mb-1">
@@ -92,7 +114,18 @@ const CatalogSectionComponent = ({ section, defaultOpen = false, locationId, onE
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Menu Items</p>
                   {section.menuItems.map(item => (
-                    <RecipeRow key={item.id} item={item} tagLabel="mi" locationId={locationId} onEditRecipe={onEditRecipe} />
+                    <RecipeRow
+                      key={item.id}
+                      item={item}
+                      tagLabel="mi"
+                      locationId={locationId}
+                      onEditRecipe={onEditRecipe}
+                      posMapping={posMappings?.get(item.id)}
+                      posItems={posItems}
+                      onPosLink={onPosLink}
+                      onPosUnlink={onPosUnlink}
+                      isPosLinking={isPosLinking}
+                    />
                   ))}
                 </div>
               )}
