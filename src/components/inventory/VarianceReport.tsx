@@ -268,22 +268,61 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
                 )}
 
                 {/* Unmatched detail expansion */}
-                {showUnmatchedDetail && Math.abs(unmatchedAmount) > 0.01 && (
+                {showUnmatchedDetail && (Math.abs(unmatchedAmount) > 0.01 || report.unmappedPosItems.length > 0) && (
                   <TableRow className="bg-muted/20">
-                    <TableCell colSpan={7} className="px-6 py-3">
-                      <div className="space-y-2 text-xs">
-                        <p className="text-muted-foreground">
-                          This amount represents the difference between the proven COGS total and the sum of per-item category breakdowns.
-                          Common causes:
-                        </p>
-                        <ul className="list-disc pl-4 text-muted-foreground space-y-1">
-                          <li>PFG invoice line items not matched to an inventory item (missing item numbers)</li>
-                          <li>Price differences between count-time valuation and current vendor pricing</li>
-                          <li>Items counted but not categorized in the system</li>
-                        </ul>
-                        <p className="text-muted-foreground font-medium mt-2">
-                          To reduce this amount: ensure all PFG item numbers are linked to inventory items in the Items tab.
-                        </p>
+                    <TableCell colSpan={7} className="px-4 py-3">
+                      <div className="space-y-3 text-xs">
+                        {/* Unmapped POS Items */}
+                        {report.unmappedPosItems.length > 0 && (
+                          <div>
+                            <p className="font-medium text-foreground mb-2">
+                              Unmapped POS Items ({report.unmappedPosItems.length} items with no recipe)
+                            </p>
+                            <div className="rounded-lg border border-border/50 overflow-hidden">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="bg-muted/50 text-muted-foreground">
+                                    <th className="text-left px-3 py-1.5 font-medium">POS Item</th>
+                                    <th className="text-left px-3 py-1.5 font-medium">Category</th>
+                                    <th className="text-right px-3 py-1.5 font-medium">Units Sold</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {report.unmappedPosItems.slice(0, 20).map((item, idx) => (
+                                    <tr key={idx} className="border-t border-border/30">
+                                      <td className="px-3 py-1.5 text-foreground">{item.itemName}</td>
+                                      <td className="px-3 py-1.5 text-muted-foreground">{item.category}</td>
+                                      <td className="px-3 py-1.5 text-right tabular-nums">{item.unitsSold}</td>
+                                    </tr>
+                                  ))}
+                                  {report.unmappedPosItems.length > 20 && (
+                                    <tr className="border-t border-border/30">
+                                      <td colSpan={3} className="px-3 py-1.5 text-muted-foreground text-center">
+                                        ...and {report.unmappedPosItems.length - 20} more
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                            <p className="text-muted-foreground mt-2">
+                              → Map these in <span className="font-medium">Build tab</span> to close the theoretical gap.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Price/count mismatch explanation */}
+                        {Math.abs(unmatchedAmount) > 0.01 && (
+                          <div>
+                            <p className="font-medium text-foreground mb-1">
+                              Actual COGS gap: {formatCurrency(Math.abs(unmatchedAmount))}
+                            </p>
+                            <p className="text-muted-foreground">
+                              Difference between proven top-line COGS and sum of per-item breakdowns. Typically caused by
+                              price differences between count valuation and vendor pricing, or unlinked vendor item numbers.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
