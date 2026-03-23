@@ -1,33 +1,22 @@
 export interface MenuItem {
   id: string;
-  r365_name: string;
+  name: string;
+  r365_name: string | null;
   category: string | null;
-  is_sellable: boolean | null;
-  recipe_yield_qty: number | null;
-  recipe_yield_unit: string | null;
-  clean_name: string | null;
+  yield_qty: number | null;
+  yield_unit: string | null;
+  source: string | null;
 }
 
-export interface RecipeIngredient {
+export interface BlueprintIngredient {
   id: string;
-  menu_item_id: string;
-  ingredient_id: string | null;
+  blueprint_id: string;
+  ingredient_type: string;
+  vendor_item_id: string | null;
+  sub_blueprint_id: string | null;
   quantity: number;
-  unit_of_measure: string | null;
-  ingredient: {
-    id: string;
-    r365_name: string;
-    clean_name: string | null;
-    inventory_item_id: string | null;
-  } | null;
-}
-
-export interface ResolvedCost {
-  vendor_item_name: string | null;
-  ingredient_name: string;
-  total_quantity: number;
-  unit_of_measure: string | null;
-  total_cost: number;
+  unit: string | null;
+  source_name: string | null;
 }
 
 export type SectionType = "md_pizza" | "lg_pizza" | "half_pizza" | "salads" | "sides" | "drinks" | "catering" | "other";

@@ -5,58 +5,82 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Pencil, DollarSign, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { MenuItem, RecipeIngredient, ResolvedCost } from "./types";
+import type { MenuItem, BlueprintIngredient } from "./types";
 import { getCleanDisplayName } from "./utils";
+import { fetchBlueprintCosts, type BlueprintCostResult } from "@/utils/blueprintCostCalculation";
 
 interface RecipeRowProps {
   item: MenuItem;
   tagLabel?: string;
   locationId: string;
-  onEditRecipe?: (bomMenuItemId: string) => void;
+  onEditRecipe?: (blueprintId: string) => void;
 }
 
 const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const displayName = item.clean_name || getCleanDisplayName(item.r365_name);
+  const displayName = item.name || getCleanDisplayName(item.r365_name || "");
 
-  const { data: rawIngredients } = useQuery({
-    queryKey: ["recipe-row-ingredients", item.id],
+  // Fetch ingredients from blueprint system
+  const { data: ingredients } = useQuery({
+    queryKey: ["blueprint-row-ingredients", item.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("bom_recipe_ingredients")
-        .select("id, menu_item_id, ingredient_id, quantity, unit_of_measure, ingredient:bom_ingredients(id, r365_name, clean_name, inventory_item_id, is_prep_item)")
-        .eq("menu_item_id", item.id)
+        .from("recipe_blueprint_ingredients" as any)
+        .select("id, blueprint_id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit, source_name")
+        .eq("blueprint_id", item.id)
         .order("quantity", { ascending: false });
       if (error) throw error;
-      return data as unknown as RecipeIngredient[];
+      return (data || []) as unknown as BlueprintIngredient[];
     },
     enabled: isExpanded,
   });
 
-  const { data: resolvedCosts } = useQuery({
-    queryKey: ["recipe-row-costs", item.id],
+  // Fetch vendor item names for display
+  const vendorItemIds = ingredients?.filter(i => i.vendor_item_id).map(i => i.vendor_item_id!) || [];
+  const { data: vendorItems } = useQuery({
+    queryKey: ["blueprint-row-vendor-names", vendorItemIds.sort().join(",")],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("resolve_recipe_ingredients", {
-        p_menu_item_id: item.id,
-        p_quantity_multiplier: 1.0,
-        p_location_id: locationId,
-      });
+      if (vendorItemIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("id, name, common_name")
+        .in("id", vendorItemIds);
       if (error) throw error;
-      return (data || []) as ResolvedCost[];
+      return data || [];
     },
-    enabled: isExpanded,
+    enabled: vendorItemIds.length > 0,
   });
 
-  const totalCost = resolvedCosts?.reduce((sum, c) => sum + (c.total_cost || 0), 0) || 0;
-  const hasUncosted = resolvedCosts?.some(c => !c.total_cost || c.total_cost === 0);
-
-  const resolvedByIngName = new Map<string, ResolvedCost[]>();
-  resolvedCosts?.forEach(c => {
-    const list = resolvedByIngName.get(c.ingredient_name) || [];
-    list.push(c);
-    resolvedByIngName.set(c.ingredient_name, list);
+  // Fetch sub-blueprint names for display
+  const subBpIds = ingredients?.filter(i => i.sub_blueprint_id).map(i => i.sub_blueprint_id!) || [];
+  const { data: subBlueprints } = useQuery({
+    queryKey: ["blueprint-row-sub-names", subBpIds.sort().join(",")],
+    queryFn: async () => {
+      if (subBpIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("recipe_blueprints" as any)
+        .select("id, name")
+        .in("id", subBpIds);
+      if (error) throw error;
+      return (data || []) as unknown as { id: string; name: string }[];
+    },
+    enabled: subBpIds.length > 0,
   });
+
+  // Use blueprint costing engine for total cost
+  const { data: costResult } = useQuery({
+    queryKey: ["blueprint-costs-for-catalog", locationId],
+    queryFn: () => fetchBlueprintCosts(locationId),
+    staleTime: 0,
+  });
+
+  const bpCost: BlueprintCostResult | undefined = costResult?.get(item.id);
+  const totalCost = bpCost?.batchCost || 0;
+  const isPartial = bpCost?.isPartial || false;
+
+  const vendorNameMap = new Map(vendorItems?.map(v => [v.id, v.common_name || v.name]) || []);
+  const subBpNameMap = new Map(subBlueprints?.map(b => [b.id, b.name]) || []);
 
   return (
     <div className="border-b border-border/40 last:border-0">
@@ -89,103 +113,68 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
             {tagLabel}
           </Badge>
         )}
-        {isExpanded && totalCost > 0 && (
-          <span className="text-xs font-semibold text-emerald-600 flex-shrink-0 flex items-center gap-0.5">
-            <DollarSign className="h-3 w-3" />
-            {totalCost.toFixed(2)}
-            {hasUncosted && <AlertCircle className="h-3 w-3 text-amber-500 ml-0.5" />}
+        {totalCost > 0 && (
+          <span className={cn(
+            "text-xs flex-shrink-0 flex items-center gap-0.5",
+            isExpanded ? "font-semibold text-emerald-600" : "text-emerald-600/70"
+          )}>
+            {isExpanded && <DollarSign className="h-3 w-3" />}
+            ${totalCost.toFixed(2)}
+            {isPartial && <AlertCircle className="h-3 w-3 text-amber-500 ml-0.5" />}
           </span>
         )}
-        {!isExpanded && totalCost > 0 && (
-          <span className="text-[10px] text-emerald-600/70 flex-shrink-0">${totalCost.toFixed(2)}</span>
-        )}
-        {item.recipe_yield_qty && item.recipe_yield_unit && (
+        {item.yield_qty && item.yield_unit && (
           <span className="text-xs text-muted-foreground flex-shrink-0">
-            yields {item.recipe_yield_qty} {item.recipe_yield_unit}
+            yields {item.yield_qty} {item.yield_unit}
           </span>
         )}
       </button>
 
       {isExpanded && (
         <div className="pl-8 pr-2 pb-2 space-y-0.5">
-          {!rawIngredients || rawIngredients.length === 0 ? (
+          {!ingredients || ingredients.length === 0 ? (
             <p className="text-xs text-muted-foreground italic py-1">No ingredients linked</p>
           ) : (
-            rawIngredients.map(ing => {
-              const r365Name = ing.ingredient?.r365_name || "";
-              const resolved = resolvedByIngName.get(r365Name);
-              const isMatched = !!ing.ingredient?.inventory_item_id;
-              const isPrepItem = !!(ing.ingredient as any)?.is_prep_item;
-              const isSubRecipe = isPrepItem || (!isMatched && resolved && resolved.length > 0);
+            ingredients.map(ing => {
+              let ingName: string;
+              let isSubRecipe = false;
 
-              let displayIngName: string;
-              let ingCost = 0;
-
-              if (resolved && resolved.length > 0) {
-                displayIngName = resolved[0].vendor_item_name || ing.ingredient?.clean_name || r365Name;
-                ingCost = resolved.reduce((sum, r) => sum + (r.total_cost || 0), 0);
+              if (ing.ingredient_type === "blueprint" && ing.sub_blueprint_id) {
+                ingName = subBpNameMap.get(ing.sub_blueprint_id) || ing.source_name || "(sub-recipe)";
+                isSubRecipe = true;
+              } else if (ing.vendor_item_id) {
+                ingName = vendorNameMap.get(ing.vendor_item_id) || ing.source_name || "(unnamed)";
               } else {
-                displayIngName = ing.ingredient?.clean_name || r365Name || "(unnamed ingredient)";
+                ingName = ing.source_name || "(unmapped)";
               }
 
-              if (isSubRecipe && resolved && resolved.length > 1) {
-                return (
-                  <div key={ing.id} className="space-y-0">
-                    <div className="flex items-center gap-1 text-xs py-0.5">
-                      <span className="truncate flex-1 text-muted-foreground italic">
-                        {ing.ingredient?.clean_name || r365Name}
-                        <span className="text-[10px] ml-1 opacity-60">(sub-recipe)</span>
-                      </span>
-                      <span className="text-muted-foreground flex-shrink-0">
-                        {ing.quantity} {ing.unit_of_measure || ""}
-                      </span>
-                    </div>
-                    {resolved.map((r, i) => (
-                      <div key={`${ing.id}-r-${i}`} className="flex items-center gap-1 text-xs py-0.5 pl-4">
-                        <span className="truncate flex-1 text-foreground">
-                          {r.vendor_item_name || r.ingredient_name}
-                        </span>
-                        {r.total_cost > 0 && (
-                          <span className="text-[10px] text-emerald-600/70 flex-shrink-0">
-                            ${r.total_cost.toFixed(3)}
-                          </span>
-                        )}
-                        <span className="text-muted-foreground flex-shrink-0">
-                          {r.total_quantity.toFixed(2)} {r.unit_of_measure || ""}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
+              const isMapped = !!(ing.vendor_item_id || ing.sub_blueprint_id);
 
               return (
                 <div key={ing.id} className="flex items-center gap-1 text-xs py-0.5">
                   <span className={cn(
                     "truncate flex-1",
-                    isMatched || isSubRecipe ? "text-foreground" : "text-muted-foreground"
+                    isMapped ? "text-foreground" : "text-muted-foreground"
                   )}>
-                    {displayIngName}
-                    {!isMatched && !isSubRecipe && (
-                      <span className="text-[10px] ml-1 text-amber-500">(unmatched)</span>
+                    {ingName}
+                    {isSubRecipe && (
+                      <span className="text-[10px] ml-1 opacity-60">(sub-recipe)</span>
+                    )}
+                    {!isMapped && (
+                      <span className="text-[10px] ml-1 text-amber-500">(unmapped)</span>
                     )}
                   </span>
-                  {resolved && resolved.length > 0 && (
-                    <span className={cn("text-[10px] flex-shrink-0", ingCost > 0 ? "text-emerald-600/70" : "text-muted-foreground")}>
-                      ${ingCost.toFixed(3)}
-                    </span>
-                  )}
                   <span className="text-muted-foreground flex-shrink-0">
-                    {ing.quantity} {ing.unit_of_measure || ""}
+                    {ing.quantity} {ing.unit || ""}
                   </span>
                 </div>
               );
             })
           )}
 
-          {totalCost > 0 && rawIngredients && rawIngredients.length > 0 && (
+          {totalCost > 0 && ingredients && ingredients.length > 0 && (
             <div className="flex items-center justify-between pt-1 mt-1 border-t border-border/30 text-xs font-semibold">
-              <span>Recipe Cost{hasUncosted && <span className="text-amber-500 font-normal ml-1">(partial)</span>}</span>
+              <span>Recipe Cost{isPartial && <span className="text-amber-500 font-normal ml-1">(partial)</span>}</span>
               <span className="text-emerald-600">${totalCost.toFixed(2)}</span>
             </div>
           )}
