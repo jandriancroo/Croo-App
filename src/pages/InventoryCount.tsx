@@ -305,6 +305,7 @@ const InventoryCount = () => {
             <InventoryCountView 
               countId={countId!} 
               locationId={locationId!}
+              periodEndDate={countData?.period_end_date}
             />
           </>
         ) : isReviewMode ? (
@@ -331,6 +332,7 @@ const InventoryCount = () => {
             <InventoryCountView 
               countId={countId!} 
               locationId={locationId!}
+              periodEndDate={countData?.period_end_date}
             />
           </>
         ) : needsReconciliation ? (
