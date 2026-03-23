@@ -1,14 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Pizza, Salad, UtensilsCrossed, Package, Layers } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
 import PrepRecipesSection from "./recipe-catalog/PrepRecipesSection";
 import RecipeBuilderDialog from "./RecipeBuilderDialog";
+import BulkReassignBar from "./recipe-catalog/BulkReassignBar";
 
 interface RecipeCatalogProps {
   locationId: string;
@@ -17,8 +19,9 @@ interface RecipeCatalogProps {
 const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
   const [editBlueprintId, setEditBlueprintId] = useState<string | null>(null);
   const [showBuilderDialog, setShowBuilderDialog] = useState(false);
+  const [reassignMode, setReassignMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Query recipe_blueprints instead of legacy bom_menu_items
   const { data: blueprints } = useQuery({
     queryKey: ["recipe-catalog-blueprints", locationId],
     queryFn: async () => {
@@ -37,6 +40,15 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
     setEditBlueprintId(blueprintId);
     setShowBuilderDialog(true);
   };
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const sections = useMemo(() => {
     if (!blueprints) return [];
@@ -141,6 +153,18 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
             <Badge variant="secondary" className="ml-auto text-xs">
               {blueprints.length} recipes
             </Badge>
+            <Button
+              size="sm"
+              variant={reassignMode ? "default" : "ghost"}
+              className="h-7 text-xs gap-1"
+              onClick={() => {
+                setReassignMode(!reassignMode);
+                if (reassignMode) setSelectedIds(new Set());
+              }}
+            >
+              <ArrowRightLeft className="h-3 w-3" />
+              {reassignMode ? "Cancel" : "Reassign"}
+            </Button>
           </div>
 
           <div className="divide-y divide-border">
@@ -150,15 +174,29 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 section={section}
                 defaultOpen={i === 0}
                 locationId={locationId}
-                onEditRecipe={handleEditRecipe}
+                onEditRecipe={reassignMode ? undefined : handleEditRecipe}
+                reassignMode={reassignMode}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
               />
             ))}
 
-            {/* Prep Recipes — house-made intermediate items */}
-            <PrepRecipesSection locationId={locationId} />
+            {!reassignMode && <PrepRecipesSection locationId={locationId} />}
           </div>
         </CardContent>
       </Card>
+
+      {reassignMode && selectedIds.size > 0 && (
+        <BulkReassignBar
+          selectedIds={selectedIds}
+          locationId={locationId}
+          onClear={() => setSelectedIds(new Set())}
+          onDone={() => {
+            setSelectedIds(new Set());
+            setReassignMode(false);
+          }}
+        />
+      )}
 
       <RecipeBuilderDialog
         open={showBuilderDialog}
