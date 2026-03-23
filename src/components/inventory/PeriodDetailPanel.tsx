@@ -646,11 +646,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       )}
 
       {/* Actual vs Theoretical Section */}
-      {!isUpcoming && count.status === "completed" && count.period_end_date && (
+      {!isUpcoming && count.status === "completed" && count.period_end_date && cogsData && !cogsData.isUpcoming && (
         <VarianceReport
           countId={count.id}
           locationId={locationId}
           periodEndDate={count.period_end_date}
+          provenCogs={{
+            beginningValue: cogsData.beginValue,
+            purchaseValue: cogsData.purchasesTotal,
+            endingValue: cogsData.endValue,
+            cogsTotal: cogsData.cogsTotal,
+            netSales: cogsData.netSales,
+          }}
         />
       )}
 
