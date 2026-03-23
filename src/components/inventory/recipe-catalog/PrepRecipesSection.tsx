@@ -116,8 +116,13 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
 
   const allRecipes: RecipeRow[] = [];
 
-  // Add blueprints
+  // Only show PREP category blueprints (filter out MI, BASE, CORE, INGREDIENT, CATERING)
+  const CATALOG_CATEGORIES = new Set(["MI", "BASE", "CORE", "INGREDIENT", "CATERING"]);
+  
   blueprints?.forEach(bp => {
+    const cat = bp.category?.toUpperCase() || "";
+    if (CATALOG_CATEGORIES.has(cat)) return; // Skip — these belong in the catalog sections
+    
     const produced = producedItems?.find(p => p.id === bp.produces_item_id);
     const costResult = blueprintCosts?.get(bp.id);
     allRecipes.push({
