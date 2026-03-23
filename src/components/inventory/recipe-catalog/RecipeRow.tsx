@@ -122,6 +122,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
             onLink={onPosLink}
             onUnlink={onPosUnlink || (() => {})}
             isLinking={isPosLinking || false}
+            locationId={locationId}
           />
         )}
         {tagLabel && (
