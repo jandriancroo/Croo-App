@@ -2,8 +2,9 @@ import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link2, Link2Off, X, Search } from "lucide-react";
+import { Link2, Link2Off, X, Search, Wifi, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import type { PosItem } from "./usePosMapping";
 
 interface PosLinkIndicatorProps {
@@ -14,6 +15,7 @@ interface PosLinkIndicatorProps {
   onLink: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
   onUnlink: (blueprintId: string) => void;
   isLinking: boolean;
+  locationId?: string;
 }
 
 /** Fuzzy score: how well does a POS item name match the blueprint name */
@@ -21,13 +23,9 @@ function matchScore(posName: string, blueprintName: string): number {
   const pos = posName.toLowerCase();
   const bp = blueprintName.toLowerCase();
   
-  // Exact match
   if (pos === bp) return 100;
-  
-  // One contains the other
   if (pos.includes(bp) || bp.includes(pos)) return 80;
   
-  // Word overlap
   const posWords = pos.split(/[\s\-–]+/).filter(w => w.length > 1);
   const bpWords = bp.split(/[\s\-–]+/).filter(w => w.length > 1);
   const commonWords = posWords.filter(w => bpWords.some(bw => bw.includes(w) || w.includes(bw)));
@@ -46,9 +44,14 @@ const PosLinkIndicator = ({
   onLink,
   onUnlink,
   isLinking,
+  locationId,
 }: PosLinkIndicatorProps) => {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [quSearchMode, setQuSearchMode] = useState(false);
+  const [quItems, setQuItems] = useState<{ name: string; category: string; quantity: number }[]>([]);
+  const [quLoading, setQuLoading] = useState(false);
+  const [quError, setQuError] = useState<string | null>(null);
 
   const isMapped = !!mapping && mapping.posItems.length > 0;
 
@@ -81,19 +84,63 @@ const PosLinkIndicator = ({
       });
   }, [posItems, blueprintName, search]);
 
+  const filteredQuItems = useMemo(() => {
+    if (!quSearchMode || quItems.length === 0) return [];
+    const searchValue = search.trim().toLowerCase();
+    if (!searchValue) return quItems;
+    return quItems.filter(
+      (i) => i.name.toLowerCase().includes(searchValue) || i.category.toLowerCase().includes(searchValue)
+    );
+  }, [quItems, search, quSearchMode]);
+
+  const handleSearchQU = async () => {
+    if (!locationId) return;
+    setQuLoading(true);
+    setQuError(null);
+    setQuSearchMode(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("pos-search", {
+        body: { locationId, search: search.trim() || undefined, daysBack: 90 },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setQuItems(data?.items || []);
+    } catch (err: any) {
+      console.error("QU search error:", err);
+      setQuError(err.message || "Search failed");
+    } finally {
+      setQuLoading(false);
+    }
+  };
+
   const handleSelect = (posItemName: string) => {
     onLink(blueprintId, blueprintName, [posItemName]);
     setIsPickerOpen(false);
     setSearch("");
+    setQuSearchMode(false);
+    setQuItems([]);
+    setQuError(null);
+  };
+
+  const handleClose = () => {
+    setIsPickerOpen(false);
+    setSearch("");
+    setQuSearchMode(false);
+    setQuItems([]);
+    setQuError(null);
   };
 
   if (isPickerOpen) {
+    const displayItems = quSearchMode ? filteredQuItems : sortedPosItems;
+
     return (
       <div className="w-full bg-muted/30 border border-border rounded-md p-2 mt-1 mb-1" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-1 mb-2">
           <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
           <Input
-            placeholder="Search POS items..."
+            placeholder={quSearchMode ? "Filter QU results..." : "Search POS items..."}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="h-7 text-xs"
@@ -103,28 +150,59 @@ const PosLinkIndicator = ({
             size="icon"
             variant="ghost"
             className="h-7 w-7 flex-shrink-0"
-            onClick={() => { setIsPickerOpen(false); setSearch(""); }}
+            onClick={handleClose}
           >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
+
+        {/* Mode toggle */}
+        {quSearchMode && (
+          <button
+            type="button"
+            className="text-[10px] text-primary underline mb-1.5 block"
+            onClick={() => { setQuSearchMode(false); setQuItems([]); setQuError(null); }}
+          >
+            ← Back to local list
+          </button>
+        )}
+
         <div className="max-h-[200px] overflow-y-auto space-y-0.5">
-          {sortedPosItems.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-2">No POS items found</p>
+          {quLoading && (
+            <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Searching QU...
+            </div>
           )}
-          {sortedPosItems.slice(0, 40).map(p => (
+
+          {quError && (
+            <p className="text-xs text-destructive text-center py-2">{quError}</p>
+          )}
+
+          {!quLoading && !quError && displayItems.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-2">
+              {quSearchMode ? "No items found in QU" : "No POS items found"}
+            </p>
+          )}
+
+          {!quLoading && !quError && displayItems.map((p: any) => (
             <button
               key={p.name}
               type="button"
               className={cn(
                 "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-primary/10 transition-colors text-left",
-                p.score >= 60 && "bg-emerald-500/5 border border-emerald-500/20"
+                !quSearchMode && p.score >= 60 && "bg-emerald-500/5 border border-emerald-500/20"
               )}
               onClick={() => handleSelect(p.name)}
             >
               <span className="truncate flex-1">{p.name}</span>
               <span className="text-[10px] text-muted-foreground flex-shrink-0">{p.category}</span>
-              {p.score >= 60 && (
+              {quSearchMode && p.quantity != null && (
+                <span className="text-[9px] text-muted-foreground flex-shrink-0">
+                  {Math.round(p.quantity)} sold
+                </span>
+              )}
+              {!quSearchMode && p.score >= 60 && (
                 <Badge variant="outline" className="text-[9px] px-1 py-0 text-emerald-600 border-emerald-500/30 flex-shrink-0">
                   match
                 </Badge>
@@ -132,6 +210,19 @@ const PosLinkIndicator = ({
             </button>
           ))}
         </div>
+
+        {/* Search QU button — only show when in local mode */}
+        {!quSearchMode && locationId && (
+          <button
+            type="button"
+            className="w-full flex items-center justify-center gap-1.5 mt-2 py-1.5 text-[11px] text-primary hover:bg-primary/5 rounded border border-dashed border-primary/30 transition-colors"
+            onClick={handleSearchQU}
+            disabled={quLoading}
+          >
+            <Wifi className="h-3 w-3" />
+            Search QU Live
+          </button>
+        )}
       </div>
     );
   }
@@ -148,7 +239,6 @@ const PosLinkIndicator = ({
       onClick={(e) => {
         e.stopPropagation();
         if (isMapped) {
-          // Show current mapping, allow unlink
           if (confirm(`Unlink "${mapping.posItems[0]}" from this recipe?`)) {
             onUnlink(blueprintId);
           }
