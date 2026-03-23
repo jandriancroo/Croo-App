@@ -239,8 +239,8 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
                   />
                 ))}
 
-                {/* Unmatched row — only show if > $0.01 */}
-                {Math.abs(unmatchedAmount) > 0.01 && (
+                {/* Unmatched row — show if $ gap or unmapped POS items */}
+                {(Math.abs(unmatchedAmount) > 0.01 || report.unmappedPosItems.length > 0) && (
                   <TableRow
                     className={`cursor-pointer ${
                       unmatchedIsLarge
@@ -256,6 +256,11 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
                           : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         }
                         <span>Unmatched / Adjustments</span>
+                        {report.unmappedPosItems.length > 0 && (
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 font-normal ml-1 text-amber-600 border-amber-300">
+                            {report.unmappedPosItems.length} unmapped
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right text-sm tabular-nums">{formatCurrency(unmatchedAmount)}</TableCell>
