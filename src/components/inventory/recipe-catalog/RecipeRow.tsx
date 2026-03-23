@@ -112,6 +112,18 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
             <Pencil className="h-3 w-3" />
           </Button>
         )}
+        {/* POS mapping indicator for MI items */}
+        {tagLabel === "mi" && onPosLink && posItems && (
+          <PosLinkIndicator
+            blueprintId={item.id}
+            blueprintName={displayName}
+            mapping={posMapping}
+            posItems={posItems}
+            onLink={onPosLink}
+            onUnlink={onPosUnlink || (() => {})}
+            isLinking={isPosLinking || false}
+          />
+        )}
         {tagLabel && (
           <Badge variant="outline" className={cn(
             "text-[9px] px-1.5 py-0 flex-shrink-0 uppercase tracking-wider",
