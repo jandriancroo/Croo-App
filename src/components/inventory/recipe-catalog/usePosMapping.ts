@@ -90,16 +90,33 @@ export function usePosMapping(locationId: string): PosMappingState {
           .eq("id", existing.groupId);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        // Check if a group with this name already exists at this location
+        const { data: existingByName } = await supabase
           .from("inventory_product_groups")
-          .insert({
-            location_id: locationId,
-            name: blueprintName,
-            blueprint_id: blueprintId,
-            pos_items: posItemNames,
-            display_order: (groups?.length || 0),
-          } as any);
-        if (error) throw error;
+          .select("id")
+          .eq("location_id", locationId)
+          .eq("name", blueprintName)
+          .maybeSingle();
+
+        if (existingByName) {
+          // Update existing group to link this blueprint
+          const { error } = await supabase
+            .from("inventory_product_groups")
+            .update({ blueprint_id: blueprintId, pos_items: posItemNames } as any)
+            .eq("id", existingByName.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("inventory_product_groups")
+            .insert({
+              location_id: locationId,
+              name: blueprintName,
+              blueprint_id: blueprintId,
+              pos_items: posItemNames,
+              display_order: (groups?.length || 0),
+            } as any);
+          if (error) throw error;
+        }
       }
     },
     onSuccess: () => {
