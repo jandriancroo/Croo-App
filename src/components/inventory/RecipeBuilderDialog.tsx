@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 
 type BlueprintType = "MI" | "CORE" | "BASE" | "PREP" | "INGREDIENT";
 
@@ -178,11 +178,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
   const [drillBlueprintId, setDrillBlueprintId] = useState<string | null>(null);
   const [blueprintType, setBlueprintType] = useState<BlueprintType | null>(null);
   const [catalogSection, setCatalogSection] = useState("");
-  const [producesItemId, setProducesItemId] = useState<string | null>(null);
 
   const isCreating = !editBlueprintId && !editRecipeId;
   const isBlueprint = !!editBlueprintId || !editRecipeId;
-  const showTypeStep = isCreating && !blueprintType;
 
   // ========== DATA FETCHING ==========
 
