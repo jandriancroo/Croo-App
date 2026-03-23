@@ -926,7 +926,6 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                         }
                       }
                     }
-                  }
                   } else if (ing.type === "blueprint") {
                     // Sub-recipe: use blueprint costs map
                     const subCost = blueprintCostsMap?.get(ing.ref_id);
@@ -945,6 +944,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                         ingCost = costPerYieldUnit * ing.quantity;
                       }
                     }
+                  }
 
                   return (
                     <div key={ing.ref_id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
