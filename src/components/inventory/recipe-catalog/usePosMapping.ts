@@ -1,0 +1,138 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+export interface PosItem {
+  name: string;
+  category: string;
+}
+
+export interface PosMappingState {
+  /** blueprint_id → product_group row */
+  mappedBlueprints: Map<string, { groupId: string; posItems: string[] }>;
+  /** All distinct POS items from recent sales */
+  posItems: PosItem[];
+  /** Map a blueprint to a POS item (creates/updates product_group) */
+  linkBlueprint: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  /** Unlink a blueprint */
+  unlinkBlueprint: (blueprintId: string) => void;
+  isLinking: boolean;
+}
+
+export function usePosMapping(locationId: string): PosMappingState {
+  const qc = useQueryClient();
+
+  // Fetch existing product_group → blueprint mappings
+  const { data: groups } = useQuery({
+    queryKey: ["pos-mapping-groups", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_product_groups")
+        .select("id, name, blueprint_id, pos_items")
+        .eq("location_id", locationId)
+        .not("blueprint_id", "is", null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch distinct POS items from last 14 days of sales
+  const { data: posData } = useQuery({
+    queryKey: ["pos-items-for-mapping", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales_cache")
+        .select("product_mix")
+        .eq("location_id", locationId)
+        .not("product_mix", "is", null)
+        .order("sale_date", { ascending: false })
+        .limit(14);
+      if (error) throw error;
+
+      const items = new Map<string, string>();
+      for (const row of data || []) {
+        const mix = row.product_mix as any[];
+        if (Array.isArray(mix)) {
+          for (const item of mix) {
+            if (item.itemName && item.category) {
+              items.set(item.itemName, item.category);
+            }
+          }
+        }
+      }
+      return Array.from(items.entries())
+        .map(([name, category]) => ({ name, category }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    },
+  });
+
+  const mappedBlueprints = new Map<string, { groupId: string; posItems: string[] }>();
+  for (const g of groups || []) {
+    if (g.blueprint_id) {
+      mappedBlueprints.set(g.blueprint_id, {
+        groupId: g.id,
+        posItems: (g.pos_items as string[]) || [],
+      });
+    }
+  }
+
+  const linkMutation = useMutation({
+    mutationFn: async ({ blueprintId, blueprintName, posItemNames }: {
+      blueprintId: string;
+      blueprintName: string;
+      posItemNames: string[];
+    }) => {
+      const existing = mappedBlueprints.get(blueprintId);
+      if (existing) {
+        const { error } = await supabase
+          .from("inventory_product_groups")
+          .update({ pos_items: posItemNames, name: blueprintName } as any)
+          .eq("id", existing.groupId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("inventory_product_groups")
+          .insert({
+            location_id: locationId,
+            name: blueprintName,
+            blueprint_id: blueprintId,
+            pos_items: posItemNames,
+            display_order: (groups?.length || 0),
+          } as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", locationId] });
+      qc.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
+      toast.success("POS mapping saved");
+    },
+    onError: (err: any) => toast.error("Failed to save: " + err.message),
+  });
+
+  const unlinkMutation = useMutation({
+    mutationFn: async (blueprintId: string) => {
+      const existing = mappedBlueprints.get(blueprintId);
+      if (!existing) return;
+      const { error } = await supabase
+        .from("inventory_product_groups")
+        .delete()
+        .eq("id", existing.groupId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", locationId] });
+      qc.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
+      toast.success("POS mapping removed");
+    },
+  });
+
+  return {
+    mappedBlueprints,
+    posItems: posData || [],
+    linkBlueprint: (blueprintId, blueprintName, posItemNames) =>
+      linkMutation.mutate({ blueprintId, blueprintName, posItemNames }),
+    unlinkBlueprint: (blueprintId) => unlinkMutation.mutate(blueprintId),
+    isLinking: linkMutation.isPending,
+  };
+}

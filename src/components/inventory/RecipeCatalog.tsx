@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck } from "lucide-react";
+import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck, Link2 } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
@@ -13,6 +13,7 @@ import PrepRecipesSection from "./recipe-catalog/PrepRecipesSection";
 import IngredientsSection from "./recipe-catalog/IngredientsSection";
 import RecipeBuilderDialog from "./RecipeBuilderDialog";
 import BulkReassignBar from "./recipe-catalog/BulkReassignBar";
+import { usePosMapping } from "./recipe-catalog/usePosMapping";
 
 interface RecipeCatalogProps {
   locationId: string;
@@ -24,6 +25,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
   const [showBuilderDialog, setShowBuilderDialog] = useState(false);
   const [reassignMode, setReassignMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const posMap = usePosMapping(locationId);
 
   const { data: blueprints } = useQuery({
     queryKey: ["recipe-catalog-blueprints", locationId],
@@ -136,6 +138,10 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
     return result.filter(s => s.bases.length > 0 || s.cores.length > 0 || s.menuItems.length > 0);
   }, [blueprints]);
 
+  // POS mapping progress
+  const totalMIs = useMemo(() => sections.reduce((sum, s) => sum + s.menuItems.length, 0), [sections]);
+  const mappedMIs = useMemo(() => sections.reduce((sum, s) => sum + s.menuItems.filter(mi => posMap.mappedBlueprints.has(mi.id)).length, 0), [sections, posMap.mappedBlueprints]);
+
   if (!blueprints) {
     return (
       <Card>
@@ -156,6 +162,15 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
             <Badge variant="secondary" className="ml-auto text-xs">
               {blueprints.length} recipes
             </Badge>
+            {totalMIs > 0 && (
+              <Badge
+                variant={mappedMIs === totalMIs ? "default" : "outline"}
+                className="text-[10px] gap-1"
+              >
+                <Link2 className="h-3 w-3" />
+                {mappedMIs}/{totalMIs} POS
+              </Badge>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -190,6 +205,11 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 reassignMode={reassignMode}
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelect}
+                posMappings={posMap.mappedBlueprints}
+                posItems={posMap.posItems}
+                onPosLink={posMap.linkBlueprint}
+                onPosUnlink={posMap.unlinkBlueprint}
+                isPosLinking={posMap.isLinking}
               />
             ))}
 

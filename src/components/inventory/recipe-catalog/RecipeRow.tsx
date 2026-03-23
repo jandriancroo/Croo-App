@@ -8,15 +8,22 @@ import { cn } from "@/lib/utils";
 import type { MenuItem, BlueprintIngredient } from "./types";
 import { getCleanDisplayName } from "./utils";
 import { fetchBlueprintCosts, type BlueprintCostResult } from "@/utils/blueprintCostCalculation";
+import PosLinkIndicator from "./PosLinkIndicator";
+import type { PosItem } from "./usePosMapping";
 
 interface RecipeRowProps {
   item: MenuItem;
   tagLabel?: string;
   locationId: string;
   onEditRecipe?: (blueprintId: string) => void;
+  posMapping?: { groupId: string; posItems: string[] };
+  posItems?: PosItem[];
+  onPosLink?: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  onPosUnlink?: (blueprintId: string) => void;
+  isPosLinking?: boolean;
 }
 
-const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps) => {
+const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posItems, onPosLink, onPosUnlink, isPosLinking }: RecipeRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const displayName = getCleanDisplayName(item.name || item.r365_name || "");
@@ -104,6 +111,18 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps)
           >
             <Pencil className="h-3 w-3" />
           </Button>
+        )}
+        {/* POS mapping indicator for MI items */}
+        {tagLabel === "mi" && onPosLink && posItems && (
+          <PosLinkIndicator
+            blueprintId={item.id}
+            blueprintName={displayName}
+            mapping={posMapping}
+            posItems={posItems}
+            onLink={onPosLink}
+            onUnlink={onPosUnlink || (() => {})}
+            isLinking={isPosLinking || false}
+          />
         )}
         {tagLabel && (
           <Badge variant="outline" className={cn(
