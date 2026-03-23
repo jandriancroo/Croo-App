@@ -59,6 +59,15 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
       const lower = name.toLowerCase();
       const cat = item.category?.toUpperCase() || "";
 
+      // Manual override takes priority
+      if (item.catalog_section && sectionMap.has(item.catalog_section as any)) {
+        const section = sectionMap.get(item.catalog_section as any)!;
+        if (cat === "BASE") section.bases.push(item);
+        else if (cat === "CORE") section.cores.push(item);
+        else section.menuItems.push(item);
+        continue;
+      }
+
       let section: CatalogSection | undefined;
 
       if (cat === "BASE") {
