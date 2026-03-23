@@ -775,7 +775,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
 
       return newId;
     },
-    onSuccess: (newId: string) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipe-catalog-blueprints", locationId] });
       queryClient.invalidateQueries({ queryKey: ["blueprints-for-recipe", locationId] });
       toast.success("Recipe duplicated — now editing the copy");
