@@ -848,7 +848,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5" />
-            {editBlueprintId || editRecipeId ? "Edit Recipe" : "Create Prep Recipe"}
+            {editBlueprintId || editRecipeId
+              ? "Edit Recipe"
+              : blueprintType
+                ? `New ${BLUEPRINT_TYPE_OPTIONS.find(o => o.value === blueprintType)?.label || "Recipe"}`
+                : "New Product"}
             {editBlueprintId && existingBlueprint?.blueprint?.source === "r365_import" && (
               <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px] ml-auto">
                 <RefreshCw className="h-3 w-3 mr-1" />R365 Synced
@@ -881,11 +885,78 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           )}
         </DialogHeader>
 
+        {/* ========== TYPE SELECTION STEP ========== */}
+        {isCreating && !blueprintType ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">What are you creating?</p>
+            {BLUEPRINT_TYPE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                className="w-full flex items-start gap-3 p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-all text-left"
+                onClick={() => {
+                  setBlueprintType(opt.value);
+                  setCategory(opt.value);
+                  // Set smart defaults per type
+                  if (opt.value === "MI" || opt.value === "CORE") {
+                    setCountable(false); // MIs and COREs aren't counted physically
+                  } else if (opt.value === "BASE") {
+                    setCountable(true); // BASEs produce countable items (dough)
+                  } else if (opt.value === "PREP") {
+                    setCountable(true);
+                  } else {
+                    setCountable(false);
+                  }
+                }}
+              >
+                <div className="p-2 rounded-md bg-muted text-muted-foreground">
+                  {opt.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{opt.label}</p>
+                  <p className="text-xs text-muted-foreground">{opt.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
         <div className="space-y-4">
+          {/* Back to type selection when creating */}
+          {isCreating && blueprintType && (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+              onClick={() => { setBlueprintType(null); resetForm(); }}
+            >
+              ← Change type
+            </button>
+          )}
+
+          {/* Catalog Section for MI */}
+          {blueprintType === "MI" && (
+            <div className="space-y-2">
+              <Label>Catalog Section</Label>
+              <Select value={catalogSection} onValueChange={setCatalogSection}>
+                <SelectTrigger><SelectValue placeholder="Where does this appear?" /></SelectTrigger>
+                <SelectContent>
+                  {CATALOG_SECTION_OPTIONS.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Recipe Name */}
           <div className="space-y-2">
             <Label>Recipe Name</Label>
-            <Input placeholder="e.g., Dough, Red Sauce, Pesto Blend" value={recipeName}
+            <Input placeholder={
+              blueprintType === "MI" ? "e.g., MD Pepperoni Pizza" :
+              blueprintType === "CORE" ? "e.g., MD Pepperoni" :
+              blueprintType === "BASE" ? "e.g., Base - LG Pizza" :
+              blueprintType === "INGREDIENT" ? "e.g., Pepperoni (vendor item ref)" :
+              "e.g., Dough Batch, Red Sauce"
+            } value={recipeName}
               onChange={(e) => setRecipeName(e.target.value)} autoFocus disabled={isDrilledDown} />
           </div>
 
