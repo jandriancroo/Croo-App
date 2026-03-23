@@ -74,7 +74,7 @@ const IngredientsSection = ({ locationId }: IngredientsSectionProps) => {
   const allIngredients = Array.from(seen.values());
   const unmapped = allIngredients.filter(i => !i.vendor_item_id);
   const mapped = allIngredients.filter(i => i.vendor_item_id);
-  const sorted = [...unmapped, ...mapped];
+  
 
   return (
     <div className="border-t-2 border-dashed border-amber-500/30">
