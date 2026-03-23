@@ -44,7 +44,7 @@ interface EditRecord {
   item_name?: string;
 }
 
-const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) => {
+const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCountViewProps) => {
   // Fetch storage locations in order
   const { data: storageLocations } = useQuery({
     queryKey: ["inventory-storage-locations-view", locationId],
@@ -205,183 +205,208 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
   }
 
   return (
-    <div className="space-y-4">
-      {/* Summary Card */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm mb-1">
-                <Package className="h-4 w-4" />
-                Items
-              </div>
-              <p className="text-2xl font-bold">{countedItems}/{totalItems}</p>
-            </div>
-            <div>
-              <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm mb-1">
-                <DollarSign className="h-4 w-4" />
-                Total Value
-              </div>
-              <p className="text-2xl font-bold text-primary">{formatCurrency(totalValue)}</p>
-            </div>
-            <div>
-              <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm mb-1">
-                <History className="h-4 w-4" />
-                Edits
-              </div>
-              <p className="text-2xl font-bold">{editHistory ? Array.from(editHistory.values()).reduce((sum, edits) => sum + edits.length, 0) : 0}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <Tabs defaultValue="items" className="space-y-4">
+      <TabsList className="w-full">
+        <TabsTrigger value="items" className="flex-1 gap-1.5">
+          <Package className="h-4 w-4" />
+          Count
+        </TabsTrigger>
+        <TabsTrigger value="variance" className="flex-1 gap-1.5">
+          <BarChart3 className="h-4 w-4" />
+          Actual vs Theo
+        </TabsTrigger>
+      </TabsList>
 
+      <TabsContent value="items" className="space-y-4">
+        {/* Summary Card */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm mb-1">
+                  <Package className="h-4 w-4" />
+                  Items
+                </div>
+                <p className="text-2xl font-bold">{countedItems}/{totalItems}</p>
+              </div>
+              <div>
+                <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm mb-1">
+                  <DollarSign className="h-4 w-4" />
+                  Total Value
+                </div>
+                <p className="text-2xl font-bold text-primary">{formatCurrency(totalValue)}</p>
+              </div>
+              <div>
+                <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm mb-1">
+                  <History className="h-4 w-4" />
+                  Edits
+                </div>
+                <p className="text-2xl font-bold">{editHistory ? Array.from(editHistory.values()).reduce((sum, edits) => sum + edits.length, 0) : 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Items Table by Location */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Counted Items</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Accordion type="multiple" defaultValue={sortedLocations.map(l => l.name)} className="w-full">
-            {sortedLocations.map(({ name: locationName, items }) => {
-              const locationTotal = items.reduce((sum, item) => {
-                return sum + getItemValue(item);
-              }, 0);
-              
-              return (
-                <AccordionItem value={locationName} key={locationName}>
-                  <AccordionTrigger className="px-4 hover:no-underline">
-                    <div className="flex items-center justify-between w-full pr-4">
-                      <span className="font-medium">{locationName}</span>
-                      <div className="flex items-center gap-3">
-                        <Badge variant="secondary">{items.length} items</Badge>
-                        <span className="text-sm text-primary font-medium">{formatCurrency(locationTotal)}</span>
+        {/* Items Table by Location */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Counted Items</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Accordion type="multiple" defaultValue={sortedLocations.map(l => l.name)} className="w-full">
+              {sortedLocations.map(({ name: locationName, items }) => {
+                const locationTotal = items.reduce((sum, item) => {
+                  return sum + getItemValue(item);
+                }, 0);
+                
+                return (
+                  <AccordionItem value={locationName} key={locationName}>
+                    <AccordionTrigger className="px-4 hover:no-underline">
+                      <div className="flex items-center justify-between w-full pr-4">
+                        <span className="font-medium">{locationName}</span>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="secondary">{items.length} items</Badge>
+                          <span className="text-sm text-primary font-medium">{formatCurrency(locationTotal)}</span>
+                        </div>
                       </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-0">
-                    <div className="w-full overflow-hidden">
-                      <Table className="table-fixed w-full">
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="pl-3 w-[40%]">Item</TableHead>
-                            <TableHead className="text-right w-[22%] px-1">Counted</TableHead>
-                            <TableHead className="text-right w-[13%] px-1">Qty</TableHead>
-                            <TableHead className="text-right pr-4 w-[25%]">Value</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {items.map((item) => {
-                            // Use entered values if available (exact user input), otherwise decompose
-                            const hasEnteredValues = (item as any).entered_cases != null || (item as any).entered_units != null;
-                            let cases: number;
-                            let units: number;
-                            if (hasEnteredValues) {
-                              cases = (item as any).entered_cases ?? 0;
-                              units = (item as any).entered_units ?? 0;
-                            } else {
-                              const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || null);
-                              const hasPackQty = packQty != null && packQty > 1;
-                              cases = hasPackQty ? Math.floor(item.quantity / packQty) : 0;
-                              units = hasPackQty ? Math.round((item.quantity % packQty) * 100) / 100 : item.quantity;
-                            }
-                            const value = getItemValue(item);
-                            const itemEdits = editHistory?.get(item.id) || [];
-                            const hasEdits = itemEdits.length > 0;
-                            
-                            // Smart summary: show only what was actually counted
-                            const smartParts: string[] = [];
-                            if (cases > 0) smartParts.push(`${cases} cs`);
-                            if (units > 0) smartParts.push(`${units % 1 === 0 ? units : units.toFixed(1)} ea`);
-                            if (smartParts.length === 0 && item.quantity === 0) smartParts.push("0");
-                            if (smartParts.length === 0) smartParts.push(`${item.quantity} ea`);
-                            const smartSummary = smartParts.join(", ");
-                            
-                            return (
-                              <Collapsible key={item.id} asChild>
-                                <>
-                                  <TableRow className={hasEdits ? "cursor-pointer hover:bg-muted/50" : ""}>
-                                    <TableCell className="pl-3">
-                                      <div className="flex items-center gap-2">
-                                        {hasEdits && (
-                                          <CollapsibleTrigger asChild>
-                                            <button className="p-0.5 hover:bg-muted rounded">
-                                              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
-                                            </button>
-                                          </CollapsibleTrigger>
-                                        )}
-                                        <div className="min-w-0">
-                                          <div className="flex items-center gap-1">
-                                            <p className="font-medium truncate text-sm">{(item.item as any)?.common_name || item.item?.name}</p>
-                                            {hasEdits && (
-                                              <Badge variant="outline" className="text-xs py-0 px-1 flex-shrink-0">
-                                                <History className="h-3 w-3" />
-                                                {itemEdits.length}
-                                              </Badge>
-                                            )}
-                                          </div>
-                                          <p className="text-xs text-muted-foreground truncate">
-                                            {item.item?.item_number && `#${item.item.item_number} · `}
-                                            {item.item?.pack_size}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono text-sm px-1">{smartSummary}</TableCell>
-                                    <TableCell className="text-right font-mono text-sm px-1">{item.quantity}</TableCell>
-                                    <TableCell className="text-right pr-4 font-medium text-primary text-sm truncate">
-                                      {formatCurrency(value)}
-                                    </TableCell>
-                                  </TableRow>
-                                  {hasEdits && (
-                                    <CollapsibleContent asChild>
-                                      <TableRow className="bg-muted/30">
-                                        <TableCell colSpan={5} className="p-0">
-                                          <div className="py-2 px-4 space-y-2">
-                                            {itemEdits.map((edit) => (
-                                              <div key={edit.id} className="flex items-center justify-between text-sm border-l-2 border-primary/50 pl-3 py-1">
-                                                <div className="flex items-center gap-3 text-muted-foreground">
-                                                  <span className="flex items-center gap-1">
-                                                    <User className="h-3 w-3" />
-                                                    {edit.edited_by_profile?.full_name || "Unknown"}
-                                                  </span>
-                                                  <span className="flex items-center gap-1">
-                                                    <Clock className="h-3 w-3" />
-                                                    {format(new Date(edit.edited_at), "MMM d 'at' h:mm a")}
-                                                  </span>
-                                                  {edit.reason && (
-                                                    <span className="flex items-center gap-1 italic">
-                                                      <FileText className="h-3 w-3" />
-                                                      {edit.reason}
-                                                    </span>
-                                                  )}
-                                                </div>
-                                                <Badge variant="outline" className="font-mono text-xs">
-                                                  {edit.previous_quantity} → {edit.new_quantity}
+                    </AccordionTrigger>
+                    <AccordionContent className="px-0">
+                      <div className="w-full overflow-hidden">
+                        <Table className="table-fixed w-full">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="pl-3 w-[40%]">Item</TableHead>
+                              <TableHead className="text-right w-[22%] px-1">Counted</TableHead>
+                              <TableHead className="text-right w-[13%] px-1">Qty</TableHead>
+                              <TableHead className="text-right pr-4 w-[25%]">Value</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {items.map((item) => {
+                              const hasEnteredValues = (item as any).entered_cases != null || (item as any).entered_units != null;
+                              let cases: number;
+                              let units: number;
+                              if (hasEnteredValues) {
+                                cases = (item as any).entered_cases ?? 0;
+                                units = (item as any).entered_units ?? 0;
+                              } else {
+                                const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || null);
+                                const hasPackQty = packQty != null && packQty > 1;
+                                cases = hasPackQty ? Math.floor(item.quantity / packQty) : 0;
+                                units = hasPackQty ? Math.round((item.quantity % packQty) * 100) / 100 : item.quantity;
+                              }
+                              const value = getItemValue(item);
+                              const itemEdits = editHistory?.get(item.id) || [];
+                              const hasEdits = itemEdits.length > 0;
+                              
+                              const smartParts: string[] = [];
+                              if (cases > 0) smartParts.push(`${cases} cs`);
+                              if (units > 0) smartParts.push(`${units % 1 === 0 ? units : units.toFixed(1)} ea`);
+                              if (smartParts.length === 0 && item.quantity === 0) smartParts.push("0");
+                              if (smartParts.length === 0) smartParts.push(`${item.quantity} ea`);
+                              const smartSummary = smartParts.join(", ");
+                              
+                              return (
+                                <Collapsible key={item.id} asChild>
+                                  <>
+                                    <TableRow className={hasEdits ? "cursor-pointer hover:bg-muted/50" : ""}>
+                                      <TableCell className="pl-3">
+                                        <div className="flex items-center gap-2">
+                                          {hasEdits && (
+                                            <CollapsibleTrigger asChild>
+                                              <button className="p-0.5 hover:bg-muted rounded">
+                                                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                                              </button>
+                                            </CollapsibleTrigger>
+                                          )}
+                                          <div className="min-w-0">
+                                            <div className="flex items-center gap-1">
+                                              <p className="font-medium truncate text-sm">{(item.item as any)?.common_name || item.item?.name}</p>
+                                              {hasEdits && (
+                                                <Badge variant="outline" className="text-xs py-0 px-1 flex-shrink-0">
+                                                  <History className="h-3 w-3" />
+                                                  {itemEdits.length}
                                                 </Badge>
-                                              </div>
-                                            ))}
+                                              )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground truncate">
+                                              {item.item?.item_number && `#${item.item.item_number} · `}
+                                              {item.item?.pack_size}
+                                            </p>
                                           </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    </CollapsibleContent>
-                                  )}
-                                </>
-                              </Collapsible>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
-        </CardContent>
-      </Card>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-right font-mono text-sm px-1">{smartSummary}</TableCell>
+                                      <TableCell className="text-right font-mono text-sm px-1">{item.quantity}</TableCell>
+                                      <TableCell className="text-right pr-4 font-medium text-primary text-sm truncate">
+                                        {formatCurrency(value)}
+                                      </TableCell>
+                                    </TableRow>
+                                    {hasEdits && (
+                                      <CollapsibleContent asChild>
+                                        <TableRow className="bg-muted/30">
+                                          <TableCell colSpan={5} className="p-0">
+                                            <div className="py-2 px-4 space-y-2">
+                                              {itemEdits.map((edit) => (
+                                                <div key={edit.id} className="flex items-center justify-between text-sm border-l-2 border-primary/50 pl-3 py-1">
+                                                  <div className="flex items-center gap-3 text-muted-foreground">
+                                                    <span className="flex items-center gap-1">
+                                                      <User className="h-3 w-3" />
+                                                      {edit.edited_by_profile?.full_name || "Unknown"}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                      <Clock className="h-3 w-3" />
+                                                      {format(new Date(edit.edited_at), "MMM d 'at' h:mm a")}
+                                                    </span>
+                                                    {edit.reason && (
+                                                      <span className="flex items-center gap-1 italic">
+                                                        <FileText className="h-3 w-3" />
+                                                        {edit.reason}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  <Badge variant="outline" className="font-mono text-xs">
+                                                    {edit.previous_quantity} → {edit.new_quantity}
+                                                  </Badge>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
+                                      </CollapsibleContent>
+                                    )}
+                                  </>
+                                </Collapsible>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          </CardContent>
+        </Card>
+      </TabsContent>
 
-    </div>
+      <TabsContent value="variance">
+        {periodEndDate ? (
+          <VarianceReport
+            countId={countId}
+            locationId={locationId}
+            periodEndDate={periodEndDate}
+          />
+        ) : (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground text-sm">
+              Period end date not available for this count.
+            </CardContent>
+          </Card>
+        )}
+      </TabsContent>
+    </Tabs>
   );
 };
 
