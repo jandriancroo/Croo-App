@@ -23,7 +23,7 @@ interface RecipeRowProps {
   isPosLinking?: boolean;
 }
 
-const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps) => {
+const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posItems, onPosLink, onPosUnlink, isPosLinking }: RecipeRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const displayName = getCleanDisplayName(item.name || item.r365_name || "");
