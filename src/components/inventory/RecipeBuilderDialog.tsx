@@ -754,6 +754,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     setSuggestedPrice("");
     setDrillStack([]);
     setDrillBlueprintId(null);
+    setBlueprintType(null);
+    setCatalogSection("");
+    setProducesItemId(null);
   };
 
   const addIngredient = () => {
