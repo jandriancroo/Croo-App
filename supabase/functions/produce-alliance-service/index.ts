@@ -1073,7 +1073,8 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
     }));
 
     const orderDate = detail.summaryOrderDate || new Date().toISOString().split('T')[0];
-    const deliveryDate = nextDay(orderDate);
+    // Use the actual delivery date from the detail scrape/API; only fall back to nextDay if missing
+    const deliveryDate = detail.deliveryDate || nextDay(orderDate);
 
     const { error } = await supabase
       .from('pa_orders')
@@ -1799,7 +1800,7 @@ async function handleSaveScrapedOrder(supabase: any, body: any): Promise<Respons
     d.setDate(d.getDate() + 1);
     return d.toISOString().split('T')[0];
   };
-  const deliveryDateFinal = nextDay(orderDateFinal);
+  const deliveryDateFinal = deliveryDate || nextDay(orderDateFinal);
 
   const { error } = await supabase
     .from('pa_orders')
