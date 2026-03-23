@@ -8,11 +8,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight, Pizza, Layers, UtensilsCrossed, Package, Leaf } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+type BlueprintType = "MI" | "CORE" | "BASE" | "PREP" | "INGREDIENT";
+
+const BLUEPRINT_TYPE_OPTIONS: { value: BlueprintType; label: string; description: string; icon: React.ReactNode }[] = [
+  { value: "MI", label: "Menu Item", description: "A sellable product (e.g., MD Pepperoni Pizza). Gets mapped to POS items.", icon: <Pizza className="h-5 w-5" /> },
+  { value: "CORE", label: "Core Recipe", description: "Toppings + sauce combo that sits on a base (e.g., Pepperoni toppings).", icon: <Layers className="h-5 w-5" /> },
+  { value: "BASE", label: "Base Recipe", description: "Dough + packaging foundation (e.g., Base - LG Pizza). Links to physical items.", icon: <Package className="h-5 w-5" /> },
+  { value: "PREP", label: "Prep Recipe", description: "Staff-prepped items (e.g., Dough Batch, Red Sauce). Can be counted.", icon: <UtensilsCrossed className="h-5 w-5" /> },
+  { value: "INGREDIENT", label: "Ingredient", description: "Raw vendor item reference (e.g., Flour, Pepperoni). No sub-recipes.", icon: <Leaf className="h-5 w-5" /> },
+];
+
+const CATALOG_SECTION_OPTIONS = [
+  { value: "md_pizza", label: '11" Pizzas (MD)' },
+  { value: "lg_pizza", label: '14" Pizzas (LG)' },
+  { value: "half_pizza", label: "Half Pizzas" },
+  { value: "salads", label: "Salads" },
+  { value: "sides", label: "Sides & Extras" },
+  { value: "catering", label: "Catering" },
+  { value: "drinks", label: "Drinks" },
+  { value: "other", label: "Other" },
+];
 
 interface RecipeBuilderDialogProps {
   open: boolean;
