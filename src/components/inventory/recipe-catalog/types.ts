@@ -20,7 +20,7 @@ export interface BlueprintIngredient {
   source_name: string | null;
 }
 
-export type SectionType = "md_pizza" | "lg_pizza" | "half_pizza" | "salads" | "sides" | "drinks" | "catering" | "other";
+export type SectionType = "md_pizza" | "lg_pizza" | "half_pizza" | "detroit" | "salads" | "sides" | "drinks" | "catering" | "other";
 
 export interface CatalogSection {
   key: SectionType;
