@@ -1,0 +1,197 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+async function authenticateV4(): Promise<string | null> {
+  const clientId = Deno.env.get("QU_USERNAME");
+  const clientSecret = Deno.env.get("QU_PASSWORD");
+  if (!clientId || !clientSecret) return null;
+
+  const formData = new FormData();
+  formData.append("grant_type", "client_credentials");
+  formData.append("client_id", clientId);
+  formData.append("client_secret", clientSecret);
+
+  const response = await fetch(
+    "https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token",
+    { method: "POST", body: formData }
+  );
+  if (!response.ok) return null;
+  const data = await response.json();
+  return data.access_token || null;
+}
+
+function getV4Headers(token: string): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+    "x-integration": Deno.env.get("QU_INTEGRATION_USER_ID") || "",
+  };
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { locationId, search, daysBack } = await req.json();
+    if (!locationId) {
+      return new Response(JSON.stringify({ error: "locationId required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Look up QU location_id from location_integrations
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { data: integration } = await supabase
+      .from("location_integrations")
+      .select("credentials")
+      .eq("location_id", locationId)
+      .eq("integration_type", "qubeyond")
+      .eq("is_active", true)
+      .single();
+
+    if (!integration) {
+      return new Response(
+        JSON.stringify({ error: "No QU integration for this location" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const creds = integration.credentials as any;
+    const qbLocationId = creds?.location_id;
+    if (!qbLocationId) {
+      return new Response(
+        JSON.stringify({ error: "No QU location_id in credentials" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const token = await authenticateV4();
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "QU authentication failed" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Build date range — default 90 days back
+    const days = Math.min(daysBack || 90, 180);
+    const today = new Date();
+    const fromDate = new Date(today);
+    fromDate.setDate(fromDate.getDate() - days);
+    const toStr = today.toISOString().split("T")[0];
+    const fromStr = fromDate.toISOString().split("T")[0];
+
+    console.log(`[pos-search] Fetching product mix ${fromStr} to ${toStr} for QU ${qbLocationId}`);
+
+    const response = await fetch(
+      "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
+      {
+        method: "POST",
+        headers: getV4Headers(token),
+        body: JSON.stringify({
+          fields: [
+            { fieldName: "itemGroup" },
+            { fieldName: "itemName" },
+            { fieldName: "quantity" },
+            { fieldName: "netSales" },
+          ],
+          filters: {
+            date: { from: fromStr, to: toStr, type: "custom" },
+            singleLocation: parseInt(qbLocationId),
+            location: { operationalUnits: [parseInt(qbLocationId)] },
+          },
+          params: {
+            sectionId: "main",
+            pageNumber: 1,
+            pageSize: 500,
+            totalRecords: null,
+            sort: [{ field: "netSales", dir: "desc" }],
+            showTotals: true,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error(`[pos-search] QU API error: ${response.status} ${errorText.substring(0, 200)}`);
+      return new Response(
+        JSON.stringify({ error: `QU API returned ${response.status}` }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const data = await response.json();
+    const items: { name: string; category: string; quantity: number }[] = [];
+
+    const processRow = (row: any, fallbackCategory?: string) => {
+      const name = row.itemName || row.productName || row.name || "";
+      if (!name || name === "Totals") return;
+      const category =
+        row.itemGroupName || row.itemGroup || row.categoryName || row.category || fallbackCategory || "";
+      const quantity = parseFloat(String(row.quantity || "0").replace(/,/g, "")) || 0;
+      items.push({ name, category, quantity });
+    };
+
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        if (item.items && Array.isArray(item.items)) {
+          const groupName =
+            item.itemGroupName || item.itemGroup || item.categoryName || item.category || "";
+          for (const child of item.items) {
+            processRow(child, groupName);
+          }
+        } else {
+          processRow(item);
+        }
+      }
+    }
+
+    // If search term provided, filter
+    let filtered = items;
+    if (search && typeof search === "string" && search.trim()) {
+      const q = search.trim().toLowerCase();
+      filtered = items.filter(
+        (i) => i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q)
+      );
+    }
+
+    // Deduplicate by name (aggregate quantity)
+    const deduped = new Map<string, { name: string; category: string; quantity: number }>();
+    for (const item of filtered) {
+      const existing = deduped.get(item.name);
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        deduped.set(item.name, { ...item });
+      }
+    }
+
+    const result = Array.from(deduped.values()).sort((a, b) => b.quantity - a.quantity);
+
+    console.log(`[pos-search] Found ${items.length} total items, ${result.length} after filter/dedup`);
+
+    return new Response(JSON.stringify({ items: result }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("[pos-search] Error:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
