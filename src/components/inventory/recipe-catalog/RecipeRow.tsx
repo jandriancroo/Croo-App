@@ -19,7 +19,7 @@ interface RecipeRowProps {
 const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe }: RecipeRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const displayName = item.name || getCleanDisplayName(item.r365_name || "");
+  const displayName = getCleanDisplayName(item.name || item.r365_name || "");
 
   // Fetch ingredients from blueprint system
   const { data: ingredients } = useQuery({
