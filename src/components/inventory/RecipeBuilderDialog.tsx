@@ -909,8 +909,20 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
               : blueprintType
                 ? `New ${BLUEPRINT_TYPE_OPTIONS.find(o => o.value === blueprintType)?.label || "Recipe"}`
                 : "New Product"}
+            {editBlueprintId && !isDrilledDown && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs gap-1 ml-auto"
+                disabled={duplicateMutation.isPending}
+                onClick={() => duplicateMutation.mutate()}
+              >
+                <Copy className="h-3 w-3" />
+                {duplicateMutation.isPending ? "Duplicating..." : "Duplicate"}
+              </Button>
+            )}
             {editBlueprintId && existingBlueprint?.blueprint?.source === "r365_import" && (
-              <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px] ml-auto">
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px]">
                 <RefreshCw className="h-3 w-3 mr-1" />R365 Synced
               </Badge>
             )}
