@@ -14,6 +14,7 @@ type Classification = "MI" | "BASE" | "CORE" | "PREP" | "INGREDIENT" | "EXCLUDE"
 interface BlueprintRow {
   id: string;
   name: string;
+  r365_name: string | null;
   category: string | null;
   source: string | null;
   yield_qty: number | null;
@@ -45,7 +46,7 @@ const InventoryTriage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recipe_blueprints" as any)
-        .select("id, name, category, source, yield_qty, yield_unit")
+        .select("id, name, r365_name, category, source, yield_qty, yield_unit")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -207,13 +208,18 @@ const InventoryTriage = () => {
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{item.name}</p>
+                {item.r365_name && item.r365_name !== item.name && (
+                  <p className="text-[10px] text-muted-foreground truncate mt-0.5 italic">
+                    R365: {item.r365_name}
+                  </p>
+                )}
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {item.category && (
                     <Badge variant="outline" className="text-[9px] px-1 py-0 uppercase">
                       {item.category}
                     </Badge>
                   )}
-                  {item.source === "r365_import" && (
+                  {item.source === "r365_import" && !item.r365_name && (
                     <Badge variant="outline" className="text-[9px] px-1 py-0 opacity-50">R365</Badge>
                   )}
                   {item.yield_qty && item.yield_unit && (
