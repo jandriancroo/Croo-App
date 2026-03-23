@@ -157,23 +157,38 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     enabled: !!locationId,
   });
 
-  // Fetch BOM data for theoretical usage
+  // Fetch blueprint data for theoretical usage
   const { data: bomData } = useQuery({
-    queryKey: ["cogs-bom", locationId],
+    queryKey: ["cogs-blueprints", locationId],
     queryFn: async () => {
-      if (!locationId) return { menuItems: [], recipes: [], ingredients: [] };
+      if (!locationId) return { menuItems: [] as any[], recipes: [] as any[], ingredients: [] as any[] };
       
-      const [menuRes, recipeRes, ingredientRes] = await Promise.all([
-        supabase.from("bom_menu_items").select("id, clean_name, r365_name").eq("location_id", locationId),
-        supabase.from("bom_recipe_ingredients").select("menu_item_id, ingredient_id, quantity_normalized, quantity, unit_of_measure").eq("location_id", locationId),
-        supabase.from("bom_ingredients").select("id, clean_name, r365_name, inventory_item_id").eq("location_id", locationId),
+      const [bpRes, ingRes] = await Promise.all([
+        supabase.from("recipe_blueprints" as any).select("id, name, r365_name").eq("location_id", locationId).eq("is_active", true),
+        supabase.from("recipe_blueprint_ingredients" as any).select("id, blueprint_id, vendor_item_id, sub_blueprint_id, quantity, unit").eq("location_id" as any, locationId),
       ]);
 
-      return {
-        menuItems: menuRes.data || [],
-        recipes: recipeRes.data || [],
-        ingredients: ingredientRes.data || [],
-      };
+      const menuItems = ((bpRes.data || []) as any[]).map((bp: any) => ({
+        id: bp.id,
+        clean_name: bp.name,
+        r365_name: bp.r365_name,
+      }));
+
+      const recipes = ((ingRes.data || []) as any[]).map((ing: any) => ({
+        menu_item_id: ing.blueprint_id,
+        ingredient_id: ing.vendor_item_id,
+        quantity_normalized: null,
+        quantity: ing.quantity,
+      }));
+
+      // Build ingredients list from vendor_item_ids
+      const vendorIds = [...new Set(recipes.map((r: any) => r.ingredient_id).filter(Boolean))];
+      const ingredients = vendorIds.map(id => ({
+        id,
+        inventory_item_id: id,
+      }));
+
+      return { menuItems, recipes, ingredients };
     },
     enabled: !!locationId,
   });
