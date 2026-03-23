@@ -438,6 +438,20 @@ export async function calculateVarianceReport(
 
   const totalVariance = totalActual - totalTheoretical;
 
+  // Build unmapped POS items list
+  const unmappedPosItems: UnmappedPosItem[] = [];
+  for (const [itemName, info] of allPosItemsSold) {
+    if (!matchedPosItemNames.has(itemName) && info.quantity > 0) {
+      unmappedPosItems.push({
+        itemName,
+        category: info.category || "Uncategorized",
+        unitsSold: info.quantity,
+      });
+    }
+  }
+  // Sort by units sold descending
+  unmappedPosItems.sort((a, b) => b.unitsSold - a.unitsSold);
+
   return {
     rows,
     totals: {
@@ -453,6 +467,7 @@ export async function calculateVarianceReport(
     },
     netSales: round2(netSales),
     mappingCoverage: { mapped: mappedCount, total: posMappings.filter(m => m.blueprint_id).length },
+    unmappedPosItems,
   };
 }
 
