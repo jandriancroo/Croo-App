@@ -163,10 +163,8 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     queryFn: async () => {
       if (!locationId) return { menuItems: [] as any[], recipes: [] as any[], ingredients: [] as any[] };
       
-      const [bpRes, ingRes] = await Promise.all([
-        supabase.from("recipe_blueprints" as any).select("id, name, r365_name").eq("location_id", locationId).eq("is_active", true),
-        supabase.from("recipe_blueprint_ingredients" as any).select("id, blueprint_id, vendor_item_id, sub_blueprint_id, quantity, unit").eq("location_id" as any, locationId),
-      ]);
+      const bpRes = await supabase.from("recipe_blueprints" as any).select("id, name, r365_name").eq("location_id", locationId).eq("is_active", true);
+      const ingRes = await supabase.from("recipe_blueprint_ingredients" as any).select("id, blueprint_id, vendor_item_id, sub_blueprint_id, quantity, unit");
 
       const menuItems = ((bpRes.data || []) as any[]).map((bp: any) => ({
         id: bp.id,
