@@ -76,6 +76,7 @@ const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
 const Inventory = lazyWithRetry(() => import("./pages/Inventory"));
 const InventoryCount = lazyWithRetry(() => import("./pages/InventoryCount"));
 const COGSReport = lazyWithRetry(() => import("./pages/COGSReport"));
+const InventoryTriage = lazyWithRetry(() => import("./pages/InventoryTriage"));
 const QRCodeGenerator = lazyWithRetry(() => import("./pages/QRCodeGenerator"));
 const QRQuickTaskReport = lazyWithRetry(() => import("./pages/QRQuickTaskReport"));
 const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
@@ -213,6 +214,7 @@ const AppContent = () => {
         <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/count/:countId" element={<ProtectedRoute><InventoryCount /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/cogs" element={<ProtectedRoute><COGSReport /></ProtectedRoute>} />
+        <Route path="/inventory/:locationId/triage" element={<ProtectedRoute><InventoryTriage /></ProtectedRoute>} />
         <Route path="/qr-generator" element={<QRCodeGenerator />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />

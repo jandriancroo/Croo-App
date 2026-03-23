@@ -1,14 +1,16 @@
 import { useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft } from "lucide-react";
+import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
 import PrepRecipesSection from "./recipe-catalog/PrepRecipesSection";
+import IngredientsSection from "./recipe-catalog/IngredientsSection";
 import RecipeBuilderDialog from "./RecipeBuilderDialog";
 import BulkReassignBar from "./recipe-catalog/BulkReassignBar";
 
@@ -17,6 +19,7 @@ interface RecipeCatalogProps {
 }
 
 const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
+  const navigate = useNavigate();
   const [editBlueprintId, setEditBlueprintId] = useState<string | null>(null);
   const [showBuilderDialog, setShowBuilderDialog] = useState(false);
   const [reassignMode, setReassignMode] = useState(false);
@@ -155,6 +158,15 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
             </Badge>
             <Button
               size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => navigate(`/inventory/${locationId}/triage`)}
+            >
+              <ClipboardCheck className="h-3 w-3" />
+              Triage
+            </Button>
+            <Button
+              size="sm"
               variant={reassignMode ? "default" : "ghost"}
               className="h-7 text-xs gap-1"
               onClick={() => {
@@ -181,7 +193,12 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
               />
             ))}
 
-            {!reassignMode && <PrepRecipesSection locationId={locationId} />}
+            {!reassignMode && (
+              <>
+                <PrepRecipesSection locationId={locationId} />
+                <IngredientsSection locationId={locationId} />
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
