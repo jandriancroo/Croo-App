@@ -55,6 +55,12 @@ export interface VarianceCategoryRow {
   items: VarianceItemRow[];
 }
 
+export interface UnmappedPosItem {
+  itemName: string;
+  category: string;
+  unitsSold: number;
+}
+
 export interface VarianceReportData {
   rows: VarianceCategoryRow[];
   totals: {
@@ -70,6 +76,7 @@ export interface VarianceReportData {
   };
   netSales: number;
   mappingCoverage: { mapped: number; total: number };
+  unmappedPosItems: UnmappedPosItem[];
 }
 
 // ─── Main calculation ───
@@ -191,8 +198,26 @@ export async function calculateVarianceReport(
     ingByBp.set(ing.blueprint_id, list);
   }
 
-  // Get units sold per POS mapping from product_mix
+  // Get units sold per POS mapping from product_mix & track ALL POS items
   const unitsSoldByMapping = new Map<string, number>();
+  const allPosItemsSold = new Map<string, { category: string; quantity: number }>();
+  const matchedPosItemNames = new Set<string>();
+
+  // First pass: aggregate all POS items sold
+  for (const day of salesData.dailyMix) {
+    for (const mixItem of day) {
+      const key = mixItem.itemName;
+      if (!key) continue;
+      const existing = allPosItemsSold.get(key);
+      if (existing) {
+        existing.quantity += mixItem.quantity;
+      } else {
+        allPosItemsSold.set(key, { category: mixItem.category, quantity: mixItem.quantity });
+      }
+    }
+  }
+
+  // Second pass: match against POS mappings
   for (const mapping of posMappings) {
     if (!mapping.blueprint_id) continue;
     let sold = 0;
@@ -205,6 +230,7 @@ export async function calculateVarianceReport(
         const matchesItem = posItems.length > 0 && posItems.includes(mixItem.itemName);
         if (matchesCat || matchesItem) {
           sold += mixItem.quantity;
+          if (mixItem.itemName) matchedPosItemNames.add(mixItem.itemName);
         }
       }
     }
@@ -412,6 +438,20 @@ export async function calculateVarianceReport(
 
   const totalVariance = totalActual - totalTheoretical;
 
+  // Build unmapped POS items list
+  const unmappedPosItems: UnmappedPosItem[] = [];
+  for (const [itemName, info] of allPosItemsSold) {
+    if (!matchedPosItemNames.has(itemName) && info.quantity > 0) {
+      unmappedPosItems.push({
+        itemName,
+        category: info.category || "Uncategorized",
+        unitsSold: info.quantity,
+      });
+    }
+  }
+  // Sort by units sold descending
+  unmappedPosItems.sort((a, b) => b.unitsSold - a.unitsSold);
+
   return {
     rows,
     totals: {
@@ -427,6 +467,7 @@ export async function calculateVarianceReport(
     },
     netSales: round2(netSales),
     mappingCoverage: { mapped: mappedCount, total: posMappings.filter(m => m.blueprint_id).length },
+    unmappedPosItems,
   };
 }
 
