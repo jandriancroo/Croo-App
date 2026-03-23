@@ -28,6 +28,19 @@ function parseCansPerCase(ps: string | null): number | null {
 }
 
 // ─── Types ───
+export interface VarianceItemRow {
+  itemId: string;
+  itemName: string;
+  beginningQty: number;
+  endingQty: number;
+  beginningValue: number;
+  purchaseValue: number;
+  endingValue: number;
+  actualUsage: number;
+  theoreticalValue: number;
+  varianceValue: number;
+}
+
 export interface VarianceCategoryRow {
   category: string;
   beginningValue: number;
@@ -39,6 +52,7 @@ export interface VarianceCategoryRow {
   theoreticalPct: number;
   varianceValue: number;
   variancePct: number;
+  items: VarianceItemRow[];
 }
 
 export interface VarianceReportData {
@@ -96,34 +110,45 @@ export async function calculateVarianceReport(
   const itemByNumber = new Map(inventoryItems.filter(i => i.item_number).map(i => [i.item_number!, i.id]));
   const itemByPaId = new Map(inventoryItems.filter(i => i.pa_item_id).map(i => [i.pa_item_id!, i.id]));
 
-  // ─── 1. ACTUAL USAGE by category ───
-  const catActual = new Map<string, { beginning: number; purchases: number; ending: number }>();
-  const getOrCreate = (cat: string) => {
-    if (!catActual.has(cat)) catActual.set(cat, { beginning: 0, purchases: 0, ending: 0 });
-    return catActual.get(cat)!;
+  // ─── Per-item tracking ───
+  const itemActual = new Map<string, { beginning: number; purchases: number; ending: number; beginningQty: number; endingQty: number }>();
+  const getOrCreateItem = (itemId: string) => {
+    if (!itemActual.has(itemId)) itemActual.set(itemId, { beginning: 0, purchases: 0, ending: 0, beginningQty: 0, endingQty: 0 });
+    return itemActual.get(itemId)!;
   };
 
-  const getItemValue = (itemId: string, qty: number) => {
+  const getItemUnitValue = (itemId: string) => {
     const item = itemMap.get(itemId);
     if (!item) return 0;
     const packQty = item.pack_quantity_override ?? item.pack_quantity ?? 1;
-    return qty * ((item.cost_per_unit || 0) / Math.max(packQty, 1));
+    return (item.cost_per_unit || 0) / Math.max(packQty, 1);
   };
 
   const getItemCategory = (itemId: string) => {
-    return itemMap.get(itemId)?.category || "Other";
+    const cat = itemMap.get(itemId)?.category || "Other";
+    // Roll "MI" into "Other" — MI is a recipe/menu-item designation, not a real inventory category
+    if (cat === "MI") return "Other";
+    return cat;
   };
 
-  // Beginning count values
+  const isRecipeItem = (itemId: string) => {
+    return itemMap.get(itemId)?.is_recipe === true;
+  };
+
+  // Beginning count values — aggregate duplicate item_id rows (multiple storage locations)
   for (const ci of beginningItems) {
-    const cat = getItemCategory(ci.item_id);
-    getOrCreate(cat).beginning += getItemValue(ci.item_id, ci.quantity);
+    if (isRecipeItem(ci.item_id)) continue;
+    const entry = getOrCreateItem(ci.item_id);
+    entry.beginningQty += ci.quantity;
+    entry.beginning += ci.quantity * getItemUnitValue(ci.item_id);
   }
 
   // Ending count values
   for (const ci of endingItems) {
-    const cat = getItemCategory(ci.item_id);
-    getOrCreate(cat).ending += getItemValue(ci.item_id, ci.quantity);
+    if (isRecipeItem(ci.item_id)) continue;
+    const entry = getOrCreateItem(ci.item_id);
+    entry.endingQty += ci.quantity;
+    entry.ending += ci.quantity * getItemUnitValue(ci.item_id);
   }
 
   // Purchases - match PFG items by item_number
@@ -132,8 +157,16 @@ export async function calculateVarianceReport(
     const items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
     for (const li of items) {
       const invItemId = itemByNumber.get(String(li.itemNumber || li.productId));
-      const cat = invItemId ? getItemCategory(invItemId) : "Other";
-      getOrCreate(cat).purchases += Number(li.total) || 0;
+      if (invItemId) {
+        getOrCreateItem(invItemId).purchases += Number(li.total) || 0;
+      } else {
+        // Unmatched PFG item — add to a generic "Other" bucket
+        const key = `__pfg_unmatched_${li.itemNumber || li.productId}`;
+        if (!itemActual.has(key)) {
+          itemActual.set(key, { beginning: 0, purchases: 0, ending: 0, beginningQty: 0, endingQty: 0 });
+        }
+        itemActual.get(key)!.purchases += Number(li.total) || 0;
+      }
     }
   }
 
@@ -143,12 +176,13 @@ export async function calculateVarianceReport(
     const items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
     for (const li of items) {
       const invItemId = itemByPaId.get(String(li.pa_product_id || li.item_code));
-      const cat = invItemId ? getItemCategory(invItemId) : "Produce";
-      getOrCreate(cat).purchases += Number(li.total) || 0;
+      if (invItemId) {
+        getOrCreateItem(invItemId).purchases += Number(li.total) || 0;
+      }
     }
   }
 
-  // ─── 2. THEORETICAL USAGE by category (blueprint tree-walk) ───
+  // ─── 2. THEORETICAL USAGE by item (blueprint tree-walk) ───
   const bpMap = new Map(blueprints.map(b => [b.id, b]));
   const ingByBp = new Map<string, typeof allIngredients>();
   for (const ing of allIngredients) {
@@ -246,8 +280,8 @@ export async function calculateVarianceReport(
     return breakdown;
   }
 
-  // Aggregate theoretical cost by category
-  const catTheoretical = new Map<string, number>();
+  // Aggregate theoretical cost per item
+  const itemTheoretical = new Map<string, number>();
   let mappedCount = 0;
 
   for (const mapping of posMappings) {
@@ -262,39 +296,114 @@ export async function calculateVarianceReport(
     const breakdown = resolveBreakdown(mapping.blueprint_id);
 
     for (const [itemId, batchCost] of breakdown) {
-      const cat = getItemCategory(itemId);
       const theoreticalCost = (batchCost / yieldQty) * unitsSold;
-      catTheoretical.set(cat, (catTheoretical.get(cat) || 0) + theoreticalCost);
+      itemTheoretical.set(itemId, (itemTheoretical.get(itemId) || 0) + theoreticalCost);
     }
   }
 
-  // ─── 3. Build rows ───
-  const allCategories = new Set([...catActual.keys(), ...catTheoretical.keys()]);
+  // ─── 3. Build rows by category with item detail ───
+  const catMap = new Map<string, { items: Map<string, VarianceItemRow> }>();
+
+  // Process all items that have any actual data
+  for (const [itemId, actual] of itemActual) {
+    // Skip unmatched purchase placeholders for now
+    if (itemId.startsWith("__pfg_unmatched_")) continue;
+
+    const cat = getItemCategory(itemId);
+    const item = itemMap.get(itemId);
+    const itemName = item?.common_name || item?.name || itemId;
+    const theo = itemTheoretical.get(itemId) || 0;
+    const actualUsage = actual.beginning + actual.purchases - actual.ending;
+
+    if (!catMap.has(cat)) catMap.set(cat, { items: new Map() });
+    const catEntry = catMap.get(cat)!;
+
+    if (catEntry.items.has(itemId)) {
+      const existing = catEntry.items.get(itemId)!;
+      existing.beginningQty += actual.beginningQty;
+      existing.endingQty += actual.endingQty;
+      existing.beginningValue += actual.beginning;
+      existing.purchaseValue += actual.purchases;
+      existing.endingValue += actual.ending;
+      existing.actualUsage += actualUsage;
+      existing.theoreticalValue += theo;
+      existing.varianceValue += actualUsage - theo;
+    } else {
+      catEntry.items.set(itemId, {
+        itemId,
+        itemName,
+        beginningQty: actual.beginningQty,
+        endingQty: actual.endingQty,
+        beginningValue: round2(actual.beginning),
+        purchaseValue: round2(actual.purchases),
+        endingValue: round2(actual.ending),
+        actualUsage: round2(actualUsage),
+        theoreticalValue: round2(theo),
+        varianceValue: round2(actualUsage - theo),
+      });
+    }
+  }
+
+  // Also add items that only have theoretical usage (mapped via POS but not in actual counts)
+  for (const [itemId, theo] of itemTheoretical) {
+    if (isRecipeItem(itemId)) continue;
+    if (itemActual.has(itemId)) continue; // already handled above
+    const cat = getItemCategory(itemId);
+    const item = itemMap.get(itemId);
+    const itemName = item?.common_name || item?.name || itemId;
+
+    if (!catMap.has(cat)) catMap.set(cat, { items: new Map() });
+    catMap.get(cat)!.items.set(itemId, {
+      itemId,
+      itemName,
+      beginningQty: 0,
+      endingQty: 0,
+      beginningValue: 0,
+      purchaseValue: 0,
+      endingValue: 0,
+      actualUsage: 0,
+      theoreticalValue: round2(theo),
+      varianceValue: round2(-theo),
+    });
+  }
+
   const rows: VarianceCategoryRow[] = [];
   let totalBeginning = 0, totalPurchases = 0, totalEnding = 0, totalActual = 0, totalTheoretical = 0;
 
-  for (const cat of allCategories) {
-    const actual = catActual.get(cat) || { beginning: 0, purchases: 0, ending: 0 };
-    const theoretical = catTheoretical.get(cat) || 0;
-    const actualUsage = actual.beginning + actual.purchases - actual.ending;
+  for (const [cat, catData] of catMap) {
+    const itemRows = Array.from(catData.items.values());
+    // Sort items by absolute variance descending
+    itemRows.sort((a, b) => Math.abs(b.varianceValue) - Math.abs(a.varianceValue));
 
-    totalBeginning += actual.beginning;
-    totalPurchases += actual.purchases;
-    totalEnding += actual.ending;
-    totalActual += actualUsage;
-    totalTheoretical += theoretical;
+    let catBeginning = 0, catPurchases = 0, catEnding = 0, catActualUsage = 0, catTheo = 0;
+    for (const item of itemRows) {
+      catBeginning += item.beginningValue;
+      catPurchases += item.purchaseValue;
+      catEnding += item.endingValue;
+      catActualUsage += item.actualUsage;
+      catTheo += item.theoreticalValue;
+    }
+
+    totalBeginning += catBeginning;
+    totalPurchases += catPurchases;
+    totalEnding += catEnding;
+    totalActual += catActualUsage;
+    totalTheoretical += catTheo;
+
+    const variance = catActualUsage - catTheo;
 
     rows.push({
       category: cat,
-      beginningValue: round2(actual.beginning),
-      purchaseValue: round2(actual.purchases),
-      endingValue: round2(actual.ending),
-      actualUsage: round2(actualUsage),
-      actualPct: netSales > 0 ? round2((actualUsage / netSales) * 100) : 0,
-      theoreticalValue: round2(theoretical),
-      theoreticalPct: netSales > 0 ? round2((theoretical / netSales) * 100) : 0,
-      varianceValue: round2(actualUsage - theoretical),
-      variancePct: netSales > 0 ? round2(((actualUsage - theoretical) / netSales) * 100) : 0,
+      beginningValue: round2(catBeginning),
+      purchaseValue: round2(catPurchases),
+      endingValue: round2(catEnding),
+      actualUsage: round2(catActualUsage),
+      actualPct: netSales > 0 ? round2((catActualUsage / netSales) * 100) : 0,
+      theoreticalValue: round2(catTheo),
+      theoreticalPct: netSales > 0 ? round2((catTheo / netSales) * 100) : 0,
+      varianceValue: round2(variance),
+      variancePct: netSales > 0 ? round2((variance / netSales) * 100) : 0,
+      items: itemRows,
     });
   }
 
@@ -386,7 +495,7 @@ async function fetchPaOrders(locationId: string, start: string, end: string) {
 async function fetchAllInventoryItems(locationId: string) {
   const { data, error } = await supabase
     .from("inventory_items")
-    .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case")
+    .select("id, name, common_name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe")
     .eq("location_id", locationId);
   if (error) throw error;
   return data || [];
