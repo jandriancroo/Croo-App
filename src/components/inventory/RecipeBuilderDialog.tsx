@@ -1205,9 +1205,20 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                         {item.item_type === "blueprint" && <FlaskConical className="h-3 w-3 inline mr-1 text-primary" />}
                         {item.is_recipe && item.item_type === "vendor_item" && <FlaskConical className="h-3 w-3 inline mr-1 text-muted-foreground" />}
                         {item.name}
+                        {item.item_type === "blueprint" && item.category && (
+                          (() => {
+                            const cat = item.category.toUpperCase();
+                            const colors = CATEGORY_COLORS[cat];
+                            return colors ? (
+                              <span className={`ml-1.5 px-1 py-0.5 rounded text-[9px] font-semibold ${colors.bg} ${colors.text}`}>
+                                {cat}
+                              </span>
+                            ) : null;
+                          })()
+                        )}
                         {item.item_type === "blueprint" && (
-                          <span className="text-muted-foreground ml-2">
-                            {item.yield_qty} {item.yield_unit || "oz"}/batch
+                          <span className="text-muted-foreground ml-1.5 text-[10px]">
+                            {item.yield_qty} {item.yield_unit || "ea"}
                           </span>
                         )}
                         {item.item_type === "vendor_item" && !item.is_recipe && (
