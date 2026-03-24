@@ -510,7 +510,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       const item = vendorItems?.find(i => i.id === ing.ref_id);
       const ingUnit = normalizeUnit(ing.unit);
       if (!item) { allHaveCost = false; missingItems.push(ing.ref_id); continue; }
-      if (item.cost_per_unit == null) continue;
+      const caseCost = item.blended_price ?? item.cost_per_unit ?? null;
+      if (caseCost == null || caseCost <= 0) continue;
 
       if (item.is_recipe) {
         const recipeYieldUnit = normalizeUnit(item.recipe_yield_unit) || "oz";
@@ -518,7 +519,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         if (yieldQtyVal > 0) {
           const ingOz = ing.quantity * (TO_OZ[ingUnit] ?? 1);
           const yieldOz = yieldQtyVal * (TO_OZ[recipeYieldUnit] ?? 1);
-          total += (ingOz / yieldOz) * item.cost_per_unit;
+          total += (ingOz / yieldOz) * caseCost;
         } else {
           allHaveCost = false;
           missingItems.push(item.name);
@@ -535,16 +536,16 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       nativeUnit = nativeUnit || "ea";
 
       if (ingUnit === "cs") {
-        total += ing.quantity * item.cost_per_unit;
+        total += ing.quantity * caseCost;
       } else if (ingUnit === "cn") {
         const cpc = parseCansPerCase(item.pack_size);
-        if (cpc && cpc > 0) { total += (ing.quantity / cpc) * item.cost_per_unit; }
+        if (cpc && cpc > 0) { total += (ing.quantity / cpc) * caseCost; }
         else { allHaveCost = false; missingItems.push(item.name); }
       } else if (ingUnit === nativeUnit && upc && upc > 0) {
-        total += (ing.quantity / upc) * item.cost_per_unit;
+        total += (ing.quantity / upc) * caseCost;
       } else if (upc && upc > 0 && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
         const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
-        total += (ingInNative / upc) * item.cost_per_unit;
+        total += (ingInNative / upc) * caseCost;
       } else {
         allHaveCost = false;
         missingItems.push(item.name);
