@@ -160,12 +160,35 @@ export function usePosMapping(locationId: string): PosMappingState {
       toast.success("POS mapping removed");
     },
   });
+  const updateMetaMutation = useMutation({
+    mutationFn: async ({ blueprintId, mappingType, reconciliationGroup }: {
+      blueprintId: string;
+      mappingType: string;
+      reconciliationGroup: string | null;
+    }) => {
+      const existing = mappedBlueprints.get(blueprintId);
+      if (!existing) return;
+      const { error } = await supabase
+        .from("inventory_product_groups")
+        .update({ mapping_type: mappingType, reconciliation_group: reconciliationGroup } as any)
+        .eq("id", existing.groupId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", locationId] });
+      qc.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
+      toast.success("Mapping updated");
+    },
+    onError: (err: any) => toast.error("Failed to update: " + err.message),
+  });
 
   return {
     mappedBlueprints,
     posItems: posData || [],
-    linkBlueprint: (blueprintId, blueprintName, posItemNames) =>
-      linkMutation.mutate({ blueprintId, blueprintName, posItemNames }),
+    linkBlueprint: (blueprintId, blueprintName, posItemNames, mappingType?, reconciliationGroup?) =>
+      linkMutation.mutate({ blueprintId, blueprintName, posItemNames, mappingType, reconciliationGroup }),
+    updateMappingMeta: (blueprintId, mappingType, reconciliationGroup) =>
+      updateMetaMutation.mutate({ blueprintId, mappingType, reconciliationGroup }),
     unlinkBlueprint: (blueprintId) => unlinkMutation.mutate(blueprintId),
     isLinking: linkMutation.isPending,
   };
