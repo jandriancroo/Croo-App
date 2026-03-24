@@ -7,13 +7,22 @@ export interface PosItem {
   category: string;
 }
 
+export interface PosMappingEntry {
+  groupId: string;
+  posItems: string[];
+  mappingType: string;
+  reconciliationGroup: string | null;
+}
+
 export interface PosMappingState {
   /** blueprint_id → product_group row */
-  mappedBlueprints: Map<string, { groupId: string; posItems: string[] }>;
+  mappedBlueprints: Map<string, PosMappingEntry>;
   /** All distinct POS items from recent sales */
   posItems: PosItem[];
   /** Map a blueprint to a POS item (creates/updates product_group) */
-  linkBlueprint: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  linkBlueprint: (blueprintId: string, blueprintName: string, posItemNames: string[], mappingType?: string, reconciliationGroup?: string | null) => void;
+  /** Update mapping type / reconciliation group on existing mapping */
+  updateMappingMeta: (blueprintId: string, mappingType: string, reconciliationGroup: string | null) => void;
   /** Unlink a blueprint */
   unlinkBlueprint: (blueprintId: string) => void;
   isLinking: boolean;
@@ -28,7 +37,7 @@ export function usePosMapping(locationId: string): PosMappingState {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_product_groups")
-        .select("id, name, blueprint_id, pos_items")
+        .select("id, name, blueprint_id, pos_items, mapping_type, reconciliation_group")
         .eq("location_id", locationId)
         .not("blueprint_id", "is", null);
       if (error) throw error;
@@ -66,27 +75,33 @@ export function usePosMapping(locationId: string): PosMappingState {
     },
   });
 
-  const mappedBlueprints = new Map<string, { groupId: string; posItems: string[] }>();
+  const mappedBlueprints = new Map<string, PosMappingEntry>();
   for (const g of groups || []) {
     if (g.blueprint_id) {
       mappedBlueprints.set(g.blueprint_id, {
         groupId: g.id,
         posItems: (g.pos_items as string[]) || [],
+        mappingType: (g as any).mapping_type || "direct",
+        reconciliationGroup: (g as any).reconciliation_group || null,
       });
     }
   }
 
   const linkMutation = useMutation({
-    mutationFn: async ({ blueprintId, blueprintName, posItemNames }: {
+    mutationFn: async ({ blueprintId, blueprintName, posItemNames, mappingType, reconciliationGroup }: {
       blueprintId: string;
       blueprintName: string;
       posItemNames: string[];
+      mappingType?: string;
+      reconciliationGroup?: string | null;
     }) => {
+      const mt = mappingType || "direct";
+      const rg = reconciliationGroup ?? null;
       const existing = mappedBlueprints.get(blueprintId);
       if (existing) {
         const { error } = await supabase
           .from("inventory_product_groups")
-          .update({ pos_items: posItemNames, name: blueprintName } as any)
+          .update({ pos_items: posItemNames, name: blueprintName, mapping_type: mt, reconciliation_group: rg } as any)
           .eq("id", existing.groupId);
         if (error) throw error;
       } else {
@@ -102,7 +117,7 @@ export function usePosMapping(locationId: string): PosMappingState {
           // Update existing group to link this blueprint
           const { error } = await supabase
             .from("inventory_product_groups")
-            .update({ blueprint_id: blueprintId, pos_items: posItemNames } as any)
+            .update({ blueprint_id: blueprintId, pos_items: posItemNames, mapping_type: mt, reconciliation_group: rg } as any)
             .eq("id", existingByName.id);
           if (error) throw error;
         } else {
@@ -113,6 +128,8 @@ export function usePosMapping(locationId: string): PosMappingState {
               name: blueprintName,
               blueprint_id: blueprintId,
               pos_items: posItemNames,
+              mapping_type: mt,
+              reconciliation_group: rg,
               display_order: (groups?.length || 0),
             } as any);
           if (error) throw error;
@@ -143,12 +160,35 @@ export function usePosMapping(locationId: string): PosMappingState {
       toast.success("POS mapping removed");
     },
   });
+  const updateMetaMutation = useMutation({
+    mutationFn: async ({ blueprintId, mappingType, reconciliationGroup }: {
+      blueprintId: string;
+      mappingType: string;
+      reconciliationGroup: string | null;
+    }) => {
+      const existing = mappedBlueprints.get(blueprintId);
+      if (!existing) return;
+      const { error } = await supabase
+        .from("inventory_product_groups")
+        .update({ mapping_type: mappingType, reconciliation_group: reconciliationGroup } as any)
+        .eq("id", existing.groupId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pos-mapping-groups", locationId] });
+      qc.invalidateQueries({ queryKey: ["inventory-product-groups", locationId] });
+      toast.success("Mapping updated");
+    },
+    onError: (err: any) => toast.error("Failed to update: " + err.message),
+  });
 
   return {
     mappedBlueprints,
     posItems: posData || [],
-    linkBlueprint: (blueprintId, blueprintName, posItemNames) =>
-      linkMutation.mutate({ blueprintId, blueprintName, posItemNames }),
+    linkBlueprint: (blueprintId, blueprintName, posItemNames, mappingType, reconciliationGroup) =>
+      linkMutation.mutate({ blueprintId, blueprintName, posItemNames, mappingType, reconciliationGroup }),
+    updateMappingMeta: (blueprintId, mappingType, reconciliationGroup) =>
+      updateMetaMutation.mutate({ blueprintId, mappingType, reconciliationGroup }),
     unlinkBlueprint: (blueprintId) => unlinkMutation.mutate(blueprintId),
     isLinking: linkMutation.isPending,
   };

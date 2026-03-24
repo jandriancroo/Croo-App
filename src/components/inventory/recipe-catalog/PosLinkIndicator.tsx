@@ -10,12 +10,21 @@ import type { PosItem } from "./usePosMapping";
 interface PosLinkIndicatorProps {
   blueprintId: string;
   blueprintName: string;
-  mapping: { groupId: string; posItems: string[] } | undefined;
+  blueprintCategory?: string; // "mi" | "core" | "base"
+  mapping: { groupId: string; posItems: string[]; mappingType?: string; reconciliationGroup?: string | null } | undefined;
   posItems: PosItem[];
-  onLink: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  onLink: (blueprintId: string, blueprintName: string, posItemNames: string[], mappingType?: string, reconciliationGroup?: string | null) => void;
   onUnlink: (blueprintId: string) => void;
+  onUpdateMeta?: (blueprintId: string, mappingType: string, reconciliationGroup: string | null) => void;
   isLinking: boolean;
   locationId?: string;
+}
+
+/** Auto-detect mapping type based on blueprint category */
+function inferMappingType(category?: string): string {
+  if (category === "core") return "variety_mod";
+  if (category === "base") return "generic_parent";
+  return "direct"; // MI defaults to direct, user can change to named_parent
 }
 
 /** Fuzzy score: how well does a POS item name match the blueprint name */
@@ -39,11 +48,13 @@ function matchScore(posName: string, blueprintName: string): number {
 const PosLinkIndicator = ({
   blueprintId,
   blueprintName,
+  blueprintCategory,
   mapping,
   posItems,
   onLink,
   onUnlink,
-  isLinking,
+  onUpdateMeta,
+  isLinking: _isLinking,
   locationId,
 }: PosLinkIndicatorProps) => {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -116,7 +127,8 @@ const PosLinkIndicator = ({
   };
 
   const handleSelect = (posItemName: string) => {
-    onLink(blueprintId, blueprintName, [posItemName]);
+    const mt = inferMappingType(blueprintCategory);
+    onLink(blueprintId, blueprintName, [posItemName], mt, null);
     setIsPickerOpen(false);
     setSearch("");
     setQuSearchMode(false);
@@ -228,38 +240,65 @@ const PosLinkIndicator = ({
   }
 
   return (
-    <button
-      type="button"
-      className={cn(
-        "flex-shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors",
-        isMapped
-          ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
-          : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+    <div className="flex-shrink-0 flex items-center gap-0.5">
+      {/* Reconciliation group badge */}
+      {isMapped && mapping.reconciliationGroup && (
+        <span className="text-[9px] px-1 py-0 rounded bg-purple-500/10 text-purple-600 mr-0.5">
+          {mapping.reconciliationGroup}
+        </span>
       )}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (isMapped) {
-          if (confirm(`Unlink "${mapping.posItems[0]}" from this recipe?`)) {
-            onUnlink(blueprintId);
+      <button
+        type="button"
+        className={cn(
+          "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors",
+          isMapped
+            ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+            : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+        )}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isMapped) {
+            if (confirm(`Unlink "${mapping.posItems[0]}" from this recipe?`)) {
+              onUnlink(blueprintId);
+            }
+          } else {
+            setIsPickerOpen(true);
           }
-        } else {
-          setIsPickerOpen(true);
-        }
-      }}
-      title={isMapped ? `POS: ${mapping.posItems.join(", ")}` : "No POS mapping — tap to link"}
-    >
-      {isMapped ? (
-        <>
-          <Link2 className="h-3 w-3" />
-          <span className="max-w-[80px] truncate">{mapping.posItems[0]}</span>
-        </>
-      ) : (
-        <>
-          <Link2Off className="h-3 w-3" />
-          <span>POS</span>
-        </>
+        }}
+        title={isMapped 
+          ? `POS: ${mapping.posItems.join(", ")} (${mapping.mappingType || "direct"})` 
+          : "No POS mapping — tap to link"}
+      >
+        {isMapped ? (
+          <>
+            <Link2 className="h-3 w-3" />
+            <span className="max-w-[80px] truncate">{mapping.posItems[0]}</span>
+          </>
+        ) : (
+          <>
+            <Link2Off className="h-3 w-3" />
+            <span>POS</span>
+          </>
+        )}
+      </button>
+      {/* Reconciliation group setter — show on mapped items without a group */}
+      {isMapped && !mapping.reconciliationGroup && onUpdateMeta && (
+        <button
+          type="button"
+          className="text-[9px] px-1 py-0.5 rounded border border-dashed border-muted-foreground/30 text-muted-foreground hover:bg-muted/50 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            const group = prompt("Reconciliation group name (e.g., 'salads'):");
+            if (group && group.trim()) {
+              onUpdateMeta(blueprintId, mapping.mappingType || inferMappingType(blueprintCategory), group.trim().toLowerCase());
+            }
+          }}
+          title="Set reconciliation group"
+        >
+          + group
+        </button>
       )}
-    </button>
+    </div>
   );
 };
 

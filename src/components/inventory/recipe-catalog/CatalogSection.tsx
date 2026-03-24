@@ -15,10 +15,11 @@ interface CatalogSectionProps {
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
   // POS mapping props
-  posMappings?: Map<string, { groupId: string; posItems: string[] }>;
+  posMappings?: Map<string, { groupId: string; posItems: string[]; mappingType?: string; reconciliationGroup?: string | null }>;
   posItems?: PosItem[];
-  onPosLink?: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  onPosLink?: (blueprintId: string, blueprintName: string, posItemNames: string[], mappingType?: string, reconciliationGroup?: string | null) => void;
   onPosUnlink?: (blueprintId: string) => void;
+  onUpdateMappingMeta?: (blueprintId: string, mappingType: string, reconciliationGroup: string | null) => void;
   isPosLinking?: boolean;
 }
 
@@ -42,17 +43,18 @@ const SelectableRow = ({ item, selected, onToggle }: { item: MenuItem; selected:
 const CatalogSectionComponent = ({
   section, defaultOpen = false, locationId, onEditRecipe,
   reassignMode, selectedIds, onToggleSelect,
-  posMappings, posItems, onPosLink, onPosUnlink, isPosLinking,
+  posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking,
 }: CatalogSectionProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const itemCount = section.bases.length + section.cores.length + section.menuItems.length;
   const allItems = [...section.bases, ...section.cores, ...section.menuItems];
 
-  // Count mapped MIs in this section
-  const miMappedCount = posMappings
-    ? section.menuItems.filter(mi => posMappings.has(mi.id)).length
+  // Count mapped items (MI + CORE + BASE) in this section
+  const allMappableItems = [...section.menuItems, ...section.cores, ...section.bases];
+  const mappedCount = posMappings
+    ? allMappableItems.filter(item => posMappings.has(item.id)).length
     : 0;
-  const miTotal = section.menuItems.length;
+  const mappableTotal = allMappableItems.length;
 
   return (
     <div>
@@ -68,12 +70,12 @@ const CatalogSectionComponent = ({
         )}
         {section.icon}
         <span className="font-semibold text-sm">{section.label}</span>
-        {posMappings && miTotal > 0 && (
+        {posMappings && mappableTotal > 0 && (
           <Badge
-            variant={miMappedCount === miTotal ? "default" : "outline"}
+            variant={mappedCount === mappableTotal ? "default" : "outline"}
             className="text-[10px] px-1.5 py-0"
           >
-            {miMappedCount}/{miTotal} POS
+            {mappedCount}/{mappableTotal} POS
           </Badge>
         )}
         <Badge variant="outline" className="ml-auto text-xs">
@@ -98,7 +100,19 @@ const CatalogSectionComponent = ({
                 <div className="mb-1">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Base</p>
                   {section.bases.map(item => (
-                    <RecipeRow key={item.id} item={item} tagLabel="base" locationId={locationId} onEditRecipe={onEditRecipe} />
+                    <RecipeRow
+                      key={item.id}
+                      item={item}
+                      tagLabel="base"
+                      locationId={locationId}
+                      onEditRecipe={onEditRecipe}
+                      posMapping={posMappings?.get(item.id)}
+                      posItems={posItems}
+                      onPosLink={onPosLink}
+                      onPosUnlink={onPosUnlink}
+                      onUpdateMappingMeta={onUpdateMappingMeta}
+                      isPosLinking={isPosLinking}
+                    />
                   ))}
                 </div>
               )}
@@ -106,7 +120,19 @@ const CatalogSectionComponent = ({
                 <div className="mb-1">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Core Recipes</p>
                   {section.cores.map(item => (
-                    <RecipeRow key={item.id} item={item} tagLabel="core" locationId={locationId} onEditRecipe={onEditRecipe} />
+                    <RecipeRow
+                      key={item.id}
+                      item={item}
+                      tagLabel="core"
+                      locationId={locationId}
+                      onEditRecipe={onEditRecipe}
+                      posMapping={posMappings?.get(item.id)}
+                      posItems={posItems}
+                      onPosLink={onPosLink}
+                      onPosUnlink={onPosUnlink}
+                      onUpdateMappingMeta={onUpdateMappingMeta}
+                      isPosLinking={isPosLinking}
+                    />
                   ))}
                 </div>
               )}
@@ -124,6 +150,7 @@ const CatalogSectionComponent = ({
                       posItems={posItems}
                       onPosLink={onPosLink}
                       onPosUnlink={onPosUnlink}
+                      onUpdateMappingMeta={onUpdateMappingMeta}
                       isPosLinking={isPosLinking}
                     />
                   ))}
