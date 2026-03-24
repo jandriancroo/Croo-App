@@ -2760,9 +2760,11 @@ export type Database = {
           id: string
           is_active: boolean | null
           location_id: string
+          mapping_type: string
           name: string
           pos_categories: string[] | null
           pos_items: string[] | null
+          reconciliation_group: string | null
           updated_at: string
         }
         Insert: {
@@ -2773,9 +2775,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           location_id: string
+          mapping_type?: string
           name: string
           pos_categories?: string[] | null
           pos_items?: string[] | null
+          reconciliation_group?: string | null
           updated_at?: string
         }
         Update: {
@@ -2786,9 +2790,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           location_id?: string
+          mapping_type?: string
           name?: string
           pos_categories?: string[] | null
           pos_items?: string[] | null
+          reconciliation_group?: string | null
           updated_at?: string
         }
         Relationships: [
