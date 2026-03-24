@@ -16,14 +16,15 @@ interface RecipeRowProps {
   tagLabel?: string;
   locationId: string;
   onEditRecipe?: (blueprintId: string) => void;
-  posMapping?: { groupId: string; posItems: string[] };
+  posMapping?: { groupId: string; posItems: string[]; mappingType?: string; reconciliationGroup?: string | null };
   posItems?: PosItem[];
-  onPosLink?: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  onPosLink?: (blueprintId: string, blueprintName: string, posItemNames: string[], mappingType?: string, reconciliationGroup?: string | null) => void;
   onPosUnlink?: (blueprintId: string) => void;
+  onUpdateMappingMeta?: (blueprintId: string, mappingType: string, reconciliationGroup: string | null) => void;
   isPosLinking?: boolean;
 }
 
-const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posItems, onPosLink, onPosUnlink, isPosLinking }: RecipeRowProps) => {
+const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking }: RecipeRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const displayName = getCleanDisplayName(item.name || item.r365_name || "");
@@ -112,15 +113,17 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
             <Pencil className="h-3 w-3" />
           </Button>
         )}
-        {/* POS mapping indicator for MI items */}
-        {tagLabel === "mi" && onPosLink && posItems && (
+        {/* POS mapping indicator for MI, CORE, and BASE items */}
+        {(tagLabel === "mi" || tagLabel === "core" || tagLabel === "base") && onPosLink && posItems && (
           <PosLinkIndicator
             blueprintId={item.id}
             blueprintName={displayName}
+            blueprintCategory={tagLabel}
             mapping={posMapping}
             posItems={posItems}
             onLink={onPosLink}
             onUnlink={onPosUnlink || (() => {})}
+            onUpdateMeta={onUpdateMappingMeta}
             isLinking={isPosLinking || false}
             locationId={locationId}
           />
