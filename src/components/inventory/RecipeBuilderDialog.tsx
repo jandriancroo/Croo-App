@@ -261,6 +261,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           item_type: "blueprint",
           yield_qty: bp.yield_qty,
           yield_unit: bp.yield_unit,
+          category: bp.category,
         });
       });
     }
