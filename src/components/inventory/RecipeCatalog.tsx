@@ -226,6 +226,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 posItems={posMap.posItems}
                 onPosLink={posMap.linkBlueprint}
                 onPosUnlink={posMap.unlinkBlueprint}
+                onUpdateMappingMeta={posMap.updateMappingMeta}
                 isPosLinking={posMap.isLinking}
               />
             ))}
