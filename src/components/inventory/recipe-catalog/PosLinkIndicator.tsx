@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link2, Link2Off, X, Search, Wifi, Loader2 } from "lucide-react";
+import { Link2, Link2Off, X, Search, Wifi, Loader2, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import type { PosItem } from "./usePosMapping";
@@ -10,12 +10,21 @@ import type { PosItem } from "./usePosMapping";
 interface PosLinkIndicatorProps {
   blueprintId: string;
   blueprintName: string;
-  mapping: { groupId: string; posItems: string[] } | undefined;
+  blueprintCategory?: string; // "mi" | "core" | "base"
+  mapping: { groupId: string; posItems: string[]; mappingType?: string; reconciliationGroup?: string | null } | undefined;
   posItems: PosItem[];
-  onLink: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  onLink: (blueprintId: string, blueprintName: string, posItemNames: string[], mappingType?: string, reconciliationGroup?: string | null) => void;
   onUnlink: (blueprintId: string) => void;
+  onUpdateMeta?: (blueprintId: string, mappingType: string, reconciliationGroup: string | null) => void;
   isLinking: boolean;
   locationId?: string;
+}
+
+/** Auto-detect mapping type based on blueprint category */
+function inferMappingType(category?: string): string {
+  if (category === "core") return "variety_mod";
+  if (category === "base") return "generic_parent";
+  return "direct"; // MI defaults to direct, user can change to named_parent
 }
 
 /** Fuzzy score: how well does a POS item name match the blueprint name */
