@@ -370,18 +370,18 @@ export async function calculateVarianceReport(
   }
 
   // Process reconciliation depletions (salad engine output)
-  for (const [bpId, unitsSold] of reconciliationDepletions) {
+  reconciliationDepletions.forEach((unitsSold, bpId) => {
     mappedCount++;
     const bp = bpMap.get(bpId);
-    if (!bp) continue;
+    if (!bp) return;
     const yieldQty = bp.yield_qty || 1;
     const breakdown = resolveBreakdown(bpId);
 
-    for (const [itemId, batchCost] of breakdown) {
+    breakdown.forEach((batchCost, itemId) => {
       const theoreticalCost = (batchCost / yieldQty) * unitsSold;
       itemTheoretical.set(itemId, (itemTheoretical.get(itemId) || 0) + theoreticalCost);
-    }
-  }
+    });
+  });
 
   // ─── 3. Build rows by category with item detail ───
   const catMap = new Map<string, { items: Map<string, VarianceItemRow> }>();
