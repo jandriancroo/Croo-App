@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { format, parseISO } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { Clock, DollarSign, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePersonalPayData } from "@/hooks/usePersonalPayData";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 
 export default function MyTimecard() {
   const [periodOffset, setPeriodOffset] = useState(0);
