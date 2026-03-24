@@ -1142,14 +1142,26 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                         )}
                         {ing.unmapped && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                         {ing.type === "blueprint" ? (
-                          <button
-                            type="button"
-                            className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
-                            onClick={() => drillIntoSubRecipe(ing.ref_id)}
-                          >
-                            {displayName}
-                            <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
+                              onClick={() => drillIntoSubRecipe(ing.ref_id)}
+                            >
+                              {displayName}
+                              <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
+                            </button>
+                            {(() => {
+                              const bp = otherBlueprints?.find(b => b.id === ing.ref_id);
+                              const cat = bp?.category?.toUpperCase();
+                              const colors = cat ? CATEGORY_COLORS[cat] : null;
+                              return colors ? (
+                                <span className={`px-1 py-0.5 rounded text-[9px] font-semibold flex-shrink-0 ${colors.bg} ${colors.text}`}>
+                                  {cat}
+                                </span>
+                              ) : null;
+                            })()}
+                          </>
                         ) : (
                           <span className={`font-medium truncate ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}>
                             {displayName}
