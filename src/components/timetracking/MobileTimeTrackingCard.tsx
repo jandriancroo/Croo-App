@@ -76,7 +76,7 @@ export function MobileTimeTrackingCard({
                     <div className="px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3 w-3" />
-                        Week of {format(weekData.start, 'MMM d')} - {format(weekData.end, 'MMM d')}
+                        Week of {formatInTimeZone(weekData.start, timezone, 'MMM d')} - {formatInTimeZone(weekData.end, timezone, 'MMM d')}
                       </div>
                       <div className="font-semibold text-foreground">
                         {weekTotalHours.toFixed(1)} hrs
@@ -132,8 +132,8 @@ export function MobileTimeTrackingCard({
                               {/* Row 1: Day + Hours + Approve */}
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-sm">{format(dayDate, 'EEE')}</span>
-                                  <span className="text-sm text-muted-foreground">{format(dayDate, 'MMM d')}</span>
+                                  <span className="font-semibold text-sm">{formatInTimeZone(dayDate, timezone, 'EEE')}</span>
+                                  <span className="text-sm text-muted-foreground">{formatInTimeZone(dayDate, timezone, 'MMM d')}</span>
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <span className="font-bold text-sm">{dayHours.toFixed(1)} hrs</span>

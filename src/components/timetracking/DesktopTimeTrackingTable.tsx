@@ -122,7 +122,7 @@ export function DesktopTimeTrackingTable({
                   <TableRow key={`week-${card.profile.id}-${week.weekKey}`} className="border-t border-border/60">
                     <TableCell colSpan={5} className="py-1.5 bg-muted/20">
                       <span className="text-xs text-muted-foreground font-medium">
-                        Week of {format(week.weekStart, 'MMM d')} – {format(week.weekEnd, 'MMM d')}
+                        Week of {formatInTimeZone(week.weekStart, timezone, 'MMM d')} – {formatInTimeZone(week.weekEnd, timezone, 'MMM d')}
                       </span>
                     </TableCell>
                     <TableCell className="py-1.5 text-right bg-muted/20">
@@ -189,8 +189,8 @@ export function DesktopTimeTrackingTable({
                       >
                         {/* Day column */}
                         <TableCell className="py-1 pl-8 whitespace-nowrap w-[12%]">
-                          <span className="text-xs text-muted-foreground">{format(dayDate, 'EEE')}</span>
-                          <span className="font-medium text-sm ml-1">{format(dayDate, 'M/d')}</span>
+                          <span className="text-xs text-muted-foreground">{formatInTimeZone(dayDate, timezone, 'EEE')}</span>
+                          <span className="font-medium text-sm ml-1">{formatInTimeZone(dayDate, timezone, 'M/d')}</span>
                         </TableCell>
 
                         {/* Scheduled Times - tag style */}
