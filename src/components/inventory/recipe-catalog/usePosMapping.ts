@@ -185,7 +185,7 @@ export function usePosMapping(locationId: string): PosMappingState {
   return {
     mappedBlueprints,
     posItems: posData || [],
-    linkBlueprint: (blueprintId, blueprintName, posItemNames, mappingType?, reconciliationGroup?) =>
+    linkBlueprint: (blueprintId, blueprintName, posItemNames, mappingType, reconciliationGroup) =>
       linkMutation.mutate({ blueprintId, blueprintName, posItemNames, mappingType, reconciliationGroup }),
     updateMappingMeta: (blueprintId, mappingType, reconciliationGroup) =>
       updateMetaMutation.mutate({ blueprintId, mappingType, reconciliationGroup }),
