@@ -15,6 +15,7 @@ export default function MyTimecard() {
   const [periodOffset, setPeriodOffset] = useState(0);
   const { hasPermission } = useRolePermissions();
   const { isShiftManager } = useUserRole();
+  const { timezone } = useLocationTimezone();
 
   // Permission checks — shift managers+ always see everything
   const canViewTimecard = isShiftManager || hasPermission('view_own_timecard');
@@ -49,7 +50,7 @@ export default function MyTimecard() {
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground">
               {payData && (
-                <>Pay Period: {format(parseISO(payData.payPeriodStart), "MMM d")} - {format(parseISO(payData.payPeriodEnd), "MMM d, yyyy")}</>
+                <>Pay Period: {formatInTimeZone(parseDateStringInTimezone(payData.payPeriodStart, timezone), timezone, "MMM d")} - {formatInTimeZone(parseDateStringInTimezone(payData.payPeriodEnd, timezone), timezone, "MMM d, yyyy")}</>
               )}
             </p>
             <div className="flex items-center gap-1">
@@ -154,7 +155,7 @@ export default function MyTimecard() {
                             <div className="flex items-center gap-3">
                               <Clock className="h-4 w-4 text-muted-foreground" />
                               <p className="font-medium">
-                                {format(parseISO(date), "EEE, MMM d")}
+                                {formatInTimeZone(parseDateStringInTimezone(date, timezone), timezone, "EEE, MMM d")}
                               </p>
                             </div>
                             <div className="text-right">
@@ -170,7 +171,7 @@ export default function MyTimecard() {
                               .map((shift, idx) => (
                                 <div key={idx} className="flex items-center justify-between text-sm text-muted-foreground">
                                   <span>
-                                    {format(shift.clockIn, "h:mm a")} - {shift.clockOut ? format(shift.clockOut, "h:mm a") : "In Progress"}
+                                    {formatInTimeZone(shift.clockIn, timezone, "h:mm a")} - {shift.clockOut ? formatInTimeZone(shift.clockOut, timezone, "h:mm a") : "In Progress"}
                                   </span>
                                   <span>{shift.hours.toFixed(1)} hrs</span>
                                 </div>
