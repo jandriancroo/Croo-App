@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link2, Link2Off, X, Search, Wifi, Loader2, Tag } from "lucide-react";
+import { Link2, Link2Off, X, Search, Wifi, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import type { PosItem } from "./usePosMapping";
