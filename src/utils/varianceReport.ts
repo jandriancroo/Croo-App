@@ -230,15 +230,15 @@ export async function calculateVarianceReport(
     const result = reconcileSaladGroup(posMappings, salesData.dailyMix, groupName);
 
     // Merge consumed POS items
-    for (const posItem of result.consumedPosItems) {
+    result.consumedPosItems.forEach(posItem => {
       reconciledPosItems.add(posItem);
       matchedPosItemNames.add(posItem);
-    }
+    });
 
     // Merge depletions (blueprint_id → units)
-    for (const [bpId, qty] of result.depletions) {
+    result.depletions.forEach((qty, bpId) => {
       reconciliationDepletions.set(bpId, (reconciliationDepletions.get(bpId) || 0) + qty);
-    }
+    });
 
     // Log reconciliation debug info
     if (result.debug.namedParentSales.length > 0 || result.debug.genericAllocations.length > 0) {
