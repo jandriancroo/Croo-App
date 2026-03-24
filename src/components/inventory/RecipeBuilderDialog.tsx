@@ -79,7 +79,16 @@ interface SearchableItem {
   is_recipe?: boolean;
   recipe_yield_qty?: number | null;
   recipe_yield_unit?: string | null;
+  category?: string | null;
 }
+
+const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  MI: { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-300" },
+  CORE: { bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-700 dark:text-purple-300" },
+  BASE: { bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-300" },
+  PREP: { bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-300" },
+  INGREDIENT: { bg: "bg-gray-100 dark:bg-gray-800/50", text: "text-gray-600 dark:text-gray-400" },
+};
 
 const UNIT_OPTIONS = ["oz", "qt", "gal", "lb", "kg", "g", "ea", "tbsp", "tsp", "ml", "cups", "bags", "ct"];
 
@@ -252,6 +261,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           item_type: "blueprint",
           yield_qty: bp.yield_qty,
           yield_unit: bp.yield_unit,
+          category: bp.category,
         });
       });
     }
@@ -1132,14 +1142,26 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                         )}
                         {ing.unmapped && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                         {ing.type === "blueprint" ? (
-                          <button
-                            type="button"
-                            className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
-                            onClick={() => drillIntoSubRecipe(ing.ref_id)}
-                          >
-                            {displayName}
-                            <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
+                              onClick={() => drillIntoSubRecipe(ing.ref_id)}
+                            >
+                              {displayName}
+                              <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
+                            </button>
+                            {(() => {
+                              const bp = otherBlueprints?.find(b => b.id === ing.ref_id);
+                              const cat = bp?.category?.toUpperCase();
+                              const colors = cat ? CATEGORY_COLORS[cat] : null;
+                              return colors ? (
+                                <span className={`px-1 py-0.5 rounded text-[9px] font-semibold flex-shrink-0 ${colors.bg} ${colors.text}`}>
+                                  {cat}
+                                </span>
+                              ) : null;
+                            })()}
+                          </>
                         ) : (
                           <span className={`font-medium truncate ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}>
                             {displayName}
@@ -1195,9 +1217,20 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                         {item.item_type === "blueprint" && <FlaskConical className="h-3 w-3 inline mr-1 text-primary" />}
                         {item.is_recipe && item.item_type === "vendor_item" && <FlaskConical className="h-3 w-3 inline mr-1 text-muted-foreground" />}
                         {item.name}
+                        {item.item_type === "blueprint" && item.category && (
+                          (() => {
+                            const cat = item.category.toUpperCase();
+                            const colors = CATEGORY_COLORS[cat];
+                            return colors ? (
+                              <span className={`ml-1.5 px-1 py-0.5 rounded text-[9px] font-semibold ${colors.bg} ${colors.text}`}>
+                                {cat}
+                              </span>
+                            ) : null;
+                          })()
+                        )}
                         {item.item_type === "blueprint" && (
-                          <span className="text-muted-foreground ml-2">
-                            {item.yield_qty} {item.yield_unit || "oz"}/batch
+                          <span className="text-muted-foreground ml-1.5 text-[10px]">
+                            {item.yield_qty} {item.yield_unit || "ea"}
                           </span>
                         )}
                         {item.item_type === "vendor_item" && !item.is_recipe && (
