@@ -616,7 +616,7 @@ export function useScheduleData() {
         const { error: copyError } = await supabase.from("scheduled_shifts").insert(shiftsToCopy);
         if (copyError) throw copyError;
       }
-      toast.success(`Schedule copied to week of ${format(targetWeekStart, "MMM d, yyyy")}`);
+      toast.success(`Schedule copied to week of ${formatInTimeZone(targetWeekStart, timezone, "MMM d, yyyy")}`);
     } catch (error: any) {
       console.error("Error copying schedule:", error);
       toast.error("Failed to copy schedule");
@@ -694,7 +694,7 @@ export function useScheduleData() {
 
       const usersWithShifts = [...new Set((currentShifts || []).filter(s => s.user_id).map(s => s.user_id))];
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-      const dateRange = `${format(currentWeekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
+      const dateRange = `${formatInTimeZone(currentWeekStart, timezone, "MMM d")} - ${formatInTimeZone(weekEnd, timezone, "MMM d, yyyy")}`;
 
       if (usersWithShifts.length > 0) {
         await supabase.functions.invoke('send-push-notification', {
@@ -736,7 +736,7 @@ export function useScheduleData() {
       if (shiftsError) throw shiftsError;
 
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-      const dateRange = `${format(currentWeekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
+      const dateRange = `${formatInTimeZone(currentWeekStart, timezone, "MMM d")} - ${formatInTimeZone(weekEnd, timezone, "MMM d, yyyy")}`;
       const changes = detectScheduleChanges(publishedSnapshot, currentShifts || []);
 
       if (changes.length > 0) {
