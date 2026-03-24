@@ -184,8 +184,12 @@ export function usePayrollData() {
       return `${startLabel} - ${endLabel}`;
     };
 
+    // Dynamically calculate how many periods exist between base date and today
+    const daysSinceBase = Math.max(0, Math.floor((today.getTime() - baseStart.getTime()) / 86400000));
+
     if (payPeriodType === 'weekly') {
-      for (let i = 0; i <= 12; i++) {
+      const maxPeriods = Math.floor(daysSinceBase / 7) + 1;
+      for (let i = 0; i <= maxPeriods; i++) {
         const startDateStr = addCalendarDays(baseStartDateStr, i * 7);
         const endDateStr = addCalendarDays(startDateStr, 6);
         const start = parseDateStringInTimezone(startDateStr, timezone);
@@ -199,7 +203,8 @@ export function usePayrollData() {
         }
       }
     } else if (payPeriodType === 'biweekly') {
-      for (let i = 0; i <= 9; i++) {
+      const maxPeriods = Math.floor(daysSinceBase / 14) + 1;
+      for (let i = 0; i <= maxPeriods; i++) {
         const startDateStr = addCalendarDays(baseStartDateStr, i * 14);
         const endDateStr = addCalendarDays(startDateStr, 13);
         const start = parseDateStringInTimezone(startDateStr, timezone);
