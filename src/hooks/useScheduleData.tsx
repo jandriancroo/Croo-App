@@ -8,6 +8,7 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays, isSameWeek } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
 
