@@ -218,15 +218,54 @@ export async function calculateVarianceReport(
     }
   }
 
-  // Second pass: match against POS mappings
+  // ─── RECONCILIATION ENGINE ───
+  // Run salad (and any future) reconciliation groups BEFORE the standard mapping loop.
+  // This produces blueprint-level depletions and marks POS items as consumed so they
+  // aren't double-counted by the standard 1:1 mapping logic below.
+  const reconciliationGroups = getReconciliationGroups(posMappings);
+  const reconciledPosItems = new Set<string>();
+  const reconciliationDepletions = new Map<string, number>();
+
+  for (const groupName of reconciliationGroups) {
+    const result = reconcileSaladGroup(posMappings, salesData.dailyMix, groupName);
+
+    // Merge consumed POS items
+    for (const posItem of result.consumedPosItems) {
+      reconciledPosItems.add(posItem);
+      matchedPosItemNames.add(posItem);
+    }
+
+    // Merge depletions (blueprint_id → units)
+    for (const [bpId, qty] of result.depletions) {
+      reconciliationDepletions.set(bpId, (reconciliationDepletions.get(bpId) || 0) + qty);
+    }
+
+    // Log reconciliation debug info
+    if (result.debug.namedParentSales.length > 0 || result.debug.genericAllocations.length > 0) {
+      console.log(`[variance] Reconciliation group "${groupName}":`, {
+        namedParents: result.debug.namedParentSales,
+        modSubtractions: result.debug.modSubtractions,
+        pmix: result.debug.pmix,
+        genericAllocations: result.debug.genericAllocations,
+      });
+    }
+  }
+
+  // Second pass: match against POS mappings (standard 1:1 direct mappings only)
   for (const mapping of posMappings) {
     if (!mapping.blueprint_id) continue;
+    // Skip reconciliation-managed mappings — they were handled above
+    if (mapping.mapping_type !== "direct") continue;
+
     let sold = 0;
     const posCats = mapping.pos_categories || [];
     const posItems = mapping.pos_items || [];
 
     for (const day of salesData.dailyMix) {
       for (const mixItem of day) {
+        // Skip POS items already consumed by reconciliation
+        if (reconciledPosItems.has(mixItem.itemName)) continue;
+
         const matchesCat = posCats.length > 0 && posCats.includes(mixItem.category);
         const matchesItem = posItems.length > 0 && posItems.includes(mixItem.itemName);
         if (matchesCat || matchesItem) {
@@ -311,8 +350,10 @@ export async function calculateVarianceReport(
   const itemTheoretical = new Map<string, number>();
   let mappedCount = 0;
 
+  // Process standard 1:1 direct mappings
   for (const mapping of posMappings) {
     if (!mapping.blueprint_id) continue;
+    if (mapping.mapping_type !== "direct") continue;
     const unitsSold = unitsSoldByMapping.get(mapping.id);
     if (!unitsSold) continue;
 
@@ -321,6 +362,20 @@ export async function calculateVarianceReport(
     if (!bp) continue;
     const yieldQty = bp.yield_qty || 1;
     const breakdown = resolveBreakdown(mapping.blueprint_id);
+
+    for (const [itemId, batchCost] of breakdown) {
+      const theoreticalCost = (batchCost / yieldQty) * unitsSold;
+      itemTheoretical.set(itemId, (itemTheoretical.get(itemId) || 0) + theoreticalCost);
+    }
+  }
+
+  // Process reconciliation depletions (salad engine output)
+  for (const [bpId, unitsSold] of reconciliationDepletions) {
+    mappedCount++;
+    const bp = bpMap.get(bpId);
+    if (!bp) continue;
+    const yieldQty = bp.yield_qty || 1;
+    const breakdown = resolveBreakdown(bpId);
 
     for (const [itemId, batchCost] of breakdown) {
       const theoreticalCost = (batchCost / yieldQty) * unitsSold;
