@@ -132,7 +132,8 @@ export function reconcileSaladGroup(
     // Convention: variety mod name should relate to named parent name
     // e.g., variety mod "Classic Caesar" ↔ named parent "Entree Caesar" or "Caesar"
     let subtracted = 0;
-    for (const [npName, npData] of namedParentByVariety) {
+    const npEntries = Array.from(namedParentByVariety.entries());
+    for (const [npName, npData] of npEntries) {
       if (isVarietyMatch(vm.name, npName)) {
         subtracted += npData.totalSold;
       }
@@ -159,11 +160,12 @@ export function reconcileSaladGroup(
   // ──────────────────────────────────────────────
   // STEP 3: Build variety PMIX from remaining mod counts
   // ──────────────────────────────────────────────
-  const totalRemaining = Array.from(modRemaining.values()).reduce((sum, m) => sum + m.remaining, 0);
+  const modEntries = Array.from(modRemaining.values());
+  const totalRemaining = modEntries.reduce((sum, m) => sum + m.remaining, 0);
   const pmix = new Map<string, { pct: number; blueprintId: string }>();
 
   if (totalRemaining > 0) {
-    for (const [name, data] of modRemaining) {
+    for (const [name, data] of Array.from(modRemaining.entries())) {
       const pct = data.remaining / totalRemaining;
       pmix.set(name, { pct, blueprintId: data.blueprintId });
       result.debug.pmix.push({ variety: name, pct: Math.round(pct * 1000) / 10 });
@@ -198,15 +200,15 @@ export function reconcileSaladGroup(
     // Each variety mod's blueprint_id points to the MI that contains the CORE sub-recipe
     // The MI's CORE multiplier (1× for side, 2× for entree) is already baked into the MI blueprint
     if (pmix.size > 0) {
-      for (const [variety, { pct, blueprintId }] of pmix) {
-        const allocatedQty = genericSold * pct;
+      for (const [variety, pmixEntry] of Array.from(pmix.entries())) {
+        const allocatedQty = genericSold * pmixEntry.pct;
         if (allocatedQty > 0) {
-          addDepletion(result.depletions, blueprintId, allocatedQty);
+          addDepletion(result.depletions, pmixEntry.blueprintId, allocatedQty);
           result.debug.genericAllocations.push({
             genericParent: gp.name,
             variety,
             qty: Math.round(allocatedQty * 100) / 100,
-            blueprintId,
+            blueprintId: pmixEntry.blueprintId,
           });
         }
       }
