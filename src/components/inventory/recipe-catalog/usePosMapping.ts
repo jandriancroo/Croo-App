@@ -7,13 +7,22 @@ export interface PosItem {
   category: string;
 }
 
+export interface PosMappingEntry {
+  groupId: string;
+  posItems: string[];
+  mappingType: string;
+  reconciliationGroup: string | null;
+}
+
 export interface PosMappingState {
   /** blueprint_id → product_group row */
-  mappedBlueprints: Map<string, { groupId: string; posItems: string[] }>;
+  mappedBlueprints: Map<string, PosMappingEntry>;
   /** All distinct POS items from recent sales */
   posItems: PosItem[];
   /** Map a blueprint to a POS item (creates/updates product_group) */
-  linkBlueprint: (blueprintId: string, blueprintName: string, posItemNames: string[]) => void;
+  linkBlueprint: (blueprintId: string, blueprintName: string, posItemNames: string[], mappingType?: string, reconciliationGroup?: string | null) => void;
+  /** Update mapping type / reconciliation group on existing mapping */
+  updateMappingMeta: (blueprintId: string, mappingType: string, reconciliationGroup: string | null) => void;
   /** Unlink a blueprint */
   unlinkBlueprint: (blueprintId: string) => void;
   isLinking: boolean;
