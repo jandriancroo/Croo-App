@@ -176,8 +176,8 @@ export function DayByDayView({
                 <TableRow key={`day-header-${day}`} className="bg-primary/10 dark:bg-primary/20 hover:bg-primary/15 dark:hover:bg-primary/25 border-t-2 border-primary/30">
                   <TableCell colSpan={5} className="py-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold">{format(dayDate, 'EEEE')}</span>
-                      <span className="text-sm text-muted-foreground">{format(dayDate, 'MMM d, yyyy')}</span>
+                      <span className="text-sm font-bold">{formatInTimeZone(dayDate, timezone, 'EEEE')}</span>
+                      <span className="text-sm text-muted-foreground">{formatInTimeZone(dayDate, timezone, 'MMM d, yyyy')}</span>
                     </div>
                   </TableCell>
                   <TableCell className="py-2 text-right">

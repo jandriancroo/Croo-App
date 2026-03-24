@@ -153,8 +153,8 @@ export function MobileDayByDayCard({
             {/* Day Header */}
             <div className="flex items-center justify-between px-3 py-2 bg-primary/10 dark:bg-primary/20 rounded-lg border border-primary/30">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold">{format(dayDate, 'EEE')}</span>
-                <span className="text-sm text-muted-foreground">{format(dayDate, 'MMM d')}</span>
+                <span className="text-sm font-bold">{formatInTimeZone(dayDate, timezone, 'EEE')}</span>
+                <span className="text-sm text-muted-foreground">{formatInTimeZone(dayDate, timezone, 'MMM d')}</span>
               </div>
               <div>
                 <span className="font-bold text-sm">{dayTotal.toFixed(1)}</span>
