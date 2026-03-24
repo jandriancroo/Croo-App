@@ -546,11 +546,15 @@ async function fetchAllInventoryItems(locationId: string) {
 async function fetchPosMappings(locationId: string) {
   const { data, error } = await supabase
     .from("inventory_product_groups")
-    .select("id, name, blueprint_id, pos_categories, pos_items")
+    .select("id, name, blueprint_id, pos_categories, pos_items, mapping_type, reconciliation_group")
     .eq("location_id", locationId)
     .eq("is_active", true);
   if (error) throw error;
-  return data || [];
+  return (data || []).map(d => ({
+    ...d,
+    mapping_type: (d as any).mapping_type || "direct",
+    reconciliation_group: (d as any).reconciliation_group || null,
+  }));
 }
 
 async function fetchBlueprints(locationId: string) {
