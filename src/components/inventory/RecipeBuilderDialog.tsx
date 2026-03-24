@@ -200,7 +200,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, unit, cost_per_unit, pack_size, count_unit, count_units_per_case, is_recipe, recipe_yield_qty, recipe_yield_unit")
+        .select("id, name, unit, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, is_recipe, recipe_yield_qty, recipe_yield_unit")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -510,7 +510,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       const item = vendorItems?.find(i => i.id === ing.ref_id);
       const ingUnit = normalizeUnit(ing.unit);
       if (!item) { allHaveCost = false; missingItems.push(ing.ref_id); continue; }
-      if (item.cost_per_unit == null) continue;
+      const caseCost = item.blended_price ?? item.cost_per_unit ?? null;
+      if (caseCost == null || caseCost <= 0) continue;
 
       if (item.is_recipe) {
         const recipeYieldUnit = normalizeUnit(item.recipe_yield_unit) || "oz";
@@ -518,7 +519,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         if (yieldQtyVal > 0) {
           const ingOz = ing.quantity * (TO_OZ[ingUnit] ?? 1);
           const yieldOz = yieldQtyVal * (TO_OZ[recipeYieldUnit] ?? 1);
-          total += (ingOz / yieldOz) * item.cost_per_unit;
+          total += (ingOz / yieldOz) * caseCost;
         } else {
           allHaveCost = false;
           missingItems.push(item.name);
@@ -535,16 +536,16 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       nativeUnit = nativeUnit || "ea";
 
       if (ingUnit === "cs") {
-        total += ing.quantity * item.cost_per_unit;
+        total += ing.quantity * caseCost;
       } else if (ingUnit === "cn") {
         const cpc = parseCansPerCase(item.pack_size);
-        if (cpc && cpc > 0) { total += (ing.quantity / cpc) * item.cost_per_unit; }
+        if (cpc && cpc > 0) { total += (ing.quantity / cpc) * caseCost; }
         else { allHaveCost = false; missingItems.push(item.name); }
       } else if (ingUnit === nativeUnit && upc && upc > 0) {
-        total += (ing.quantity / upc) * item.cost_per_unit;
+        total += (ing.quantity / upc) * caseCost;
       } else if (upc && upc > 0 && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
         const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
-        total += (ingInNative / upc) * item.cost_per_unit;
+        total += (ingInNative / upc) * caseCost;
       } else {
         allHaveCost = false;
         missingItems.push(item.name);
@@ -1080,30 +1081,31 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
 
                   if (ing.type === "vendor_item") {
                     const item = vendorItems?.find(i => i.id === ing.ref_id);
-                    if (item?.cost_per_unit != null) {
+                    const caseCost = item?.blended_price ?? item?.cost_per_unit ?? null;
+                    if (caseCost != null && caseCost > 0) {
                       const ingUnit = normalizeUnit(ing.unit);
-                      if (item.is_recipe) {
-                        const ryu = normalizeUnit(item.recipe_yield_unit) || "oz";
-                        const yqv = item.recipe_yield_qty || 0;
+                      if (item!.is_recipe) {
+                        const ryu = normalizeUnit(item!.recipe_yield_unit) || "oz";
+                        const yqv = item!.recipe_yield_qty || 0;
                         if (yqv > 0) {
-                          ingCost = ((ing.quantity * (TO_OZ[ingUnit] ?? 1)) / (yqv * (TO_OZ[ryu] ?? 1))) * item.cost_per_unit;
+                          ingCost = ((ing.quantity * (TO_OZ[ingUnit] ?? 1)) / (yqv * (TO_OZ[ryu] ?? 1))) * caseCost;
                         }
                       } else {
-                        let upc = item.count_units_per_case;
-                        let nu = normalizeUnit(item.count_unit);
-                        if ((!upc || !nu) && item.pack_size) {
-                          const p = parsePackSize(item.pack_size);
+                        let upc = item!.count_units_per_case;
+                        let nu = normalizeUnit(item!.count_unit);
+                        if ((!upc || !nu) && item!.pack_size) {
+                          const p = parsePackSize(item!.pack_size);
                           if (p) { if (!upc) upc = p.count; if (!nu) nu = normalizeUnit(p.unit); }
                         }
                         nu = nu || "ea";
-                        if (ingUnit === "cs") ingCost = ing.quantity * item.cost_per_unit;
+                        if (ingUnit === "cs") ingCost = ing.quantity * caseCost;
                         else if (ingUnit === "cn") {
-                          const cpc = parseCansPerCase(item.pack_size);
-                          if (cpc && cpc > 0) ingCost = (ing.quantity / cpc) * item.cost_per_unit;
+                          const cpc = parseCansPerCase(item!.pack_size);
+                          if (cpc && cpc > 0) ingCost = (ing.quantity / cpc) * caseCost;
                         } else if (ingUnit === nu && upc && upc > 0) {
-                          ingCost = (ing.quantity / upc) * item.cost_per_unit;
+                          ingCost = (ing.quantity / upc) * caseCost;
                         } else if (upc && upc > 0 && TO_OZ[ingUnit] && TO_OZ[nu]) {
-                          ingCost = ((ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nu] / upc) * item.cost_per_unit;
+                          ingCost = ((ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nu] / upc) * caseCost;
                         }
                       }
                     }
