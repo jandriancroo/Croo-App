@@ -413,9 +413,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setIngredients(dedupeAndSortIngredients(drilledBlueprint.ingredients.map((i: any) => {
         const isBp = i.ingredient_type === "blueprint";
         const refId = isBp ? i.sub_blueprint_id : i.vendor_item_id;
+        const vItem = !isBp ? vendorItems?.find((v: any) => v.id === refId) : null;
         const name = isBp
           ? otherBlueprints?.find((b: any) => b.id === refId)?.name
-          : vendorItems?.find((v: any) => v.id === refId)?.name;
+          : (vItem?.common_name || vItem?.name);
         return {
           type: isBp ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
