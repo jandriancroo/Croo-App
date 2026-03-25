@@ -1,0 +1,1 @@
+UPDATE public.inventory_items SET blended_price = NULL WHERE id = 'a1dd4512-ff0f-4e1b-b377-346beea70118';
