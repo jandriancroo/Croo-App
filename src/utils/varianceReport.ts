@@ -516,7 +516,7 @@ export async function calculateVarianceReport(
   unmappedPosItems.sort((a, b) => b.unitsSold - a.unitsSold);
 
   return {
-    rows,
+    rows: filteredRows,
     totals: {
       beginningValue: round2(totalBeginning),
       purchaseValue: round2(totalPurchases),
