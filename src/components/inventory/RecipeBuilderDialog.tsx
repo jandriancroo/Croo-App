@@ -168,6 +168,36 @@ const formatIngredientCost = (cost: number): string => {
   return `$${cost.toFixed(2)}`;
 };
 
+/** Merge duplicate ingredients (sum quantities) and sort alphabetically by display name */
+const dedupeAndSortIngredients = (
+  ings: BuilderIngredient[],
+  vendorItems: any[] | undefined,
+  blueprints: any[] | undefined,
+): BuilderIngredient[] => {
+  // Merge duplicates by ref_id + type
+  const merged = new Map<string, BuilderIngredient>();
+  for (const ing of ings) {
+    const key = `${ing.type}:${ing.ref_id}`;
+    const existing = merged.get(key);
+    if (existing) {
+      existing.quantity += ing.quantity;
+    } else {
+      merged.set(key, { ...ing });
+    }
+  }
+
+  // Sort alphabetically by resolved name
+  const getName = (ing: BuilderIngredient): string => {
+    if (ing.displayName) return ing.displayName.toLowerCase();
+    if (ing.type === "blueprint") {
+      return (blueprints?.find((b: any) => b.id === ing.ref_id)?.name || "").toLowerCase();
+    }
+    return (vendorItems?.find((v: any) => v.id === ing.ref_id)?.name || "").toLowerCase();
+  };
+
+  return Array.from(merged.values()).sort((a, b) => getName(a).localeCompare(getName(b)));
+};
+
 const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, editBlueprintId }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
@@ -357,7 +387,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setYieldQty(bp.yield_qty?.toString() || "");
       setYieldUnit(normalizeUnit(bp.yield_unit) || "oz");
       setYieldManuallyEdited(true);
-      setIngredients(drilledBlueprint.ingredients.map((i: any) => {
+      setIngredients(dedupeAndSortIngredients(drilledBlueprint.ingredients.map((i: any) => {
         const isBp = i.ingredient_type === "blueprint";
         const refId = isBp ? i.sub_blueprint_id : i.vendor_item_id;
         const name = isBp
@@ -371,7 +401,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           displayName: name || i.source_name || undefined,
           unmapped: !refId,
         };
-      }));
+      }), vendorItems, otherBlueprints));
     }
   }, [drilledBlueprint, drillBlueprintId]);
 
@@ -428,7 +458,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setYieldManuallyEdited(true);
       setCountable(!!existingBlueprint.producedItem);
       setPanSizesConfig(existingBlueprint.producedItem?.pan_sizes || null);
-      setIngredients(existingBlueprint.ingredients.map((i: any) => {
+      setIngredients(dedupeAndSortIngredients(existingBlueprint.ingredients.map((i: any) => {
         const isBlueprintIng = i.ingredient_type === "blueprint";
         const refId = isBlueprintIng ? i.sub_blueprint_id : i.vendor_item_id;
         const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : vendorItems?.find((v: any) => v.id === refId)?.name;
@@ -440,7 +470,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           displayName: bpName || i.source_name || undefined,
           unmapped: !refId,
         };
-      }));
+      }), vendorItems, otherBlueprints));
     }
   }, [existingBlueprint]);
 
@@ -453,12 +483,12 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setYieldManuallyEdited(true);
       setCountable((existingRecipe.item as any).countable !== false);
       setPanSizesConfig(existingRecipe.item.pan_sizes ? (existingRecipe.item.pan_sizes as unknown as PanSizesConfig) : null);
-      setIngredients(existingRecipe.ingredients.map(i => ({
+      setIngredients(dedupeAndSortIngredients(existingRecipe.ingredients.map(i => ({
         type: "vendor_item" as const,
         ref_id: i.ingredient_item_id,
         quantity: Number(i.quantity),
         unit: normalizeUnit(i.unit) || "oz",
-      })));
+      })), vendorItems, otherBlueprints));
     }
   }, [existingRecipe, editBlueprintId]);
 
