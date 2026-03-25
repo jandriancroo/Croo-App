@@ -310,6 +310,8 @@ export async function calculateVarianceReport(
       } else if (ing.vendor_item_id) {
         const vendor = itemMap.get(ing.vendor_item_id);
         if (!vendor || !vendor.cost_per_unit) continue;
+        // Skip inactive items (e.g. old R365 imports) — they shouldn't contribute to theoretical
+        if (vendor.is_active === false) continue;
 
         const caseCost = vendor.blended_price ?? vendor.cost_per_unit ?? 0;
         if (caseCost === 0) continue;
@@ -489,8 +491,13 @@ export async function calculateVarianceReport(
     });
   }
 
+  // Filter out categories where everything is zero (e.g. inactive R365 import categories)
+  const filteredRows = rows.filter(r =>
+    Math.abs(r.actualUsage) > 0.01 || Math.abs(r.theoreticalValue) > 0.01
+  );
+
   // Sort by actual usage descending
-  rows.sort((a, b) => Math.abs(b.actualUsage) - Math.abs(a.actualUsage));
+  filteredRows.sort((a, b) => Math.abs(b.actualUsage) - Math.abs(a.actualUsage));
 
   const totalVariance = totalActual - totalTheoretical;
 
@@ -592,7 +599,7 @@ async function fetchPaOrders(locationId: string, start: string, end: string) {
 async function fetchAllInventoryItems(locationId: string) {
   const { data, error } = await supabase
     .from("inventory_items")
-    .select("id, name, common_name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe")
+    .select("id, name, common_name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active")
     .eq("location_id", locationId);
   if (error) throw error;
   return data || [];
