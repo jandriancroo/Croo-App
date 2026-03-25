@@ -168,13 +168,29 @@ const formatIngredientCost = (cost: number): string => {
   return `$${cost.toFixed(2)}`;
 };
 
-/** Merge duplicate ingredients (sum quantities) and sort alphabetically by display name */
+/** Classify an ingredient name into a pizza-build sort group */
+const getIngredientSortGroup = (name: string): number => {
+  const n = name.toLowerCase();
+  // 0 = Dough
+  if (n.includes("dough") || n.includes("flour") || n.includes("yeast") || n.includes("pizza base") || n.includes("md pizza") || n.includes("lg pizza") || n.includes("detroit pizza")) return 0;
+  // 1 = Sauce
+  if (n.includes("sauce") || n.includes("pesto") || n.includes("drizzle") || n.includes("white sauce") || n.includes("balsamic") || n.includes("bbq") || n.includes("buffalo") || n.includes("ranch") || n.includes("oil") && (n.includes("olive") || n.includes("canola"))) return 1;
+  // 2 = Cheese
+  if (n.includes("cheese") || n.includes("mozzarella") || n.includes("parmesan") || n.includes("ricotta") || n.includes("feta") || n.includes("gorgonzola") || n.includes("vegan cheese") || n.includes("goat cheese") || n.includes("cheddar")) return 2;
+  // 3 = Meats
+  if (n.includes("pepperoni") || n.includes("sausage") || n.includes("bacon") || n.includes("ham") || n.includes("chicken") || n.includes("meatball") || n.includes("salami") || n.includes("turkey") || n.includes("chorizo") || n.includes("anchov") || n.includes("hot link") || n.includes("steak")) return 3;
+  // 4 = Veggies
+  if (n.includes("pepper") || n.includes("onion") || n.includes("mushroom") || n.includes("olive") || n.includes("tomato") || n.includes("spinach") || n.includes("artichoke") || n.includes("arugula") || n.includes("basil") || n.includes("garlic") || n.includes("jalap") || n.includes("pineapple") || n.includes("corn") || n.includes("lettuce") || n.includes("romaine") || n.includes("squash") || n.includes("zucchini") || n.includes("roasted red") || n.includes("banana pepper") || n.includes("oregano") || n.includes("cilantro") || n.includes("green chile")) return 4;
+  // 5 = Others
+  return 5;
+};
+
+/** Merge duplicate ingredients (sum quantities) and sort by pizza-build order then alphabetically */
 const dedupeAndSortIngredients = (
   ings: BuilderIngredient[],
   vendorItems: any[] | undefined,
   blueprints: any[] | undefined,
 ): BuilderIngredient[] => {
-  // Merge duplicates by ref_id + type
   const merged = new Map<string, BuilderIngredient>();
   for (const ing of ings) {
     const key = `${ing.type}:${ing.ref_id}`;
@@ -186,7 +202,6 @@ const dedupeAndSortIngredients = (
     }
   }
 
-  // Sort alphabetically by resolved name
   const getName = (ing: BuilderIngredient): string => {
     if (ing.displayName) return ing.displayName.toLowerCase();
     if (ing.type === "blueprint") {
@@ -195,7 +210,14 @@ const dedupeAndSortIngredients = (
     return (vendorItems?.find((v: any) => v.id === ing.ref_id)?.name || "").toLowerCase();
   };
 
-  return Array.from(merged.values()).sort((a, b) => getName(a).localeCompare(getName(b)));
+  return Array.from(merged.values()).sort((a, b) => {
+    const nameA = getName(a);
+    const nameB = getName(b);
+    const groupA = getIngredientSortGroup(nameA);
+    const groupB = getIngredientSortGroup(nameB);
+    if (groupA !== groupB) return groupA - groupB;
+    return nameA.localeCompare(nameB);
+  });
 };
 
 const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, editBlueprintId }: RecipeBuilderDialogProps) => {
