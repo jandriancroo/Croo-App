@@ -387,7 +387,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setYieldQty(bp.yield_qty?.toString() || "");
       setYieldUnit(normalizeUnit(bp.yield_unit) || "oz");
       setYieldManuallyEdited(true);
-      setIngredients(drilledBlueprint.ingredients.map((i: any) => {
+      setIngredients(dedupeAndSortIngredients(drilledBlueprint.ingredients.map((i: any) => {
         const isBp = i.ingredient_type === "blueprint";
         const refId = isBp ? i.sub_blueprint_id : i.vendor_item_id;
         const name = isBp
@@ -401,7 +401,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           displayName: name || i.source_name || undefined,
           unmapped: !refId,
         };
-      }));
+      }), vendorItems, otherBlueprints));
     }
   }, [drilledBlueprint, drillBlueprintId]);
 
