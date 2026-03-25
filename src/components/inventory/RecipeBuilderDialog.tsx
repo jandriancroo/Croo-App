@@ -485,7 +485,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setIngredients(dedupeAndSortIngredients(existingBlueprint.ingredients.map((i: any) => {
         const isBlueprintIng = i.ingredient_type === "blueprint";
         const refId = isBlueprintIng ? i.sub_blueprint_id : i.vendor_item_id;
-        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : vendorItems?.find((v: any) => v.id === refId)?.name;
+        const vItem2 = !isBlueprintIng ? vendorItems?.find((v: any) => v.id === refId) : null;
+        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : (vItem2?.common_name || vItem2?.name);
         return {
           type: isBlueprintIng ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
