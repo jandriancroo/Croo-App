@@ -168,6 +168,36 @@ const formatIngredientCost = (cost: number): string => {
   return `$${cost.toFixed(2)}`;
 };
 
+/** Merge duplicate ingredients (sum quantities) and sort alphabetically by display name */
+const dedupeAndSortIngredients = (
+  ings: BuilderIngredient[],
+  vendorItems: SearchableItem[] | undefined,
+  blueprints: any[] | undefined,
+): BuilderIngredient[] => {
+  // Merge duplicates by ref_id + type
+  const merged = new Map<string, BuilderIngredient>();
+  for (const ing of ings) {
+    const key = `${ing.type}:${ing.ref_id}`;
+    const existing = merged.get(key);
+    if (existing) {
+      existing.quantity += ing.quantity;
+    } else {
+      merged.set(key, { ...ing });
+    }
+  }
+
+  // Sort alphabetically by resolved name
+  const getName = (ing: BuilderIngredient): string => {
+    if (ing.displayName) return ing.displayName.toLowerCase();
+    if (ing.type === "blueprint") {
+      return (blueprints?.find((b: any) => b.id === ing.ref_id)?.name || "").toLowerCase();
+    }
+    return (vendorItems?.find((v: any) => v.id === ing.ref_id)?.name || "").toLowerCase();
+  };
+
+  return Array.from(merged.values()).sort((a, b) => getName(a).localeCompare(getName(b)));
+};
+
 const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, editBlueprintId }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
