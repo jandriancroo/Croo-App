@@ -207,7 +207,8 @@ const dedupeAndSortIngredients = (
     if (ing.type === "blueprint") {
       return (blueprints?.find((b: any) => b.id === ing.ref_id)?.name || "").toLowerCase();
     }
-    return (vendorItems?.find((v: any) => v.id === ing.ref_id)?.name || "").toLowerCase();
+    const v = vendorItems?.find((v: any) => v.id === ing.ref_id);
+    return (v?.common_name || v?.name || "").toLowerCase();
   };
 
   return Array.from(merged.values()).sort((a, b) => {
@@ -252,7 +253,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, unit, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, is_recipe, recipe_yield_qty, recipe_yield_unit")
+        .select("id, name, common_name, unit, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, is_recipe, recipe_yield_qty, recipe_yield_unit")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -292,7 +293,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       if (editRecipeId && v.id === editRecipeId) return;
       items.push({
         id: v.id,
-        name: v.name,
+        name: (v as any).common_name || v.name,
         item_type: "vendor_item",
         cost_per_unit: v.cost_per_unit,
         pack_size: v.pack_size,
@@ -412,9 +413,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setIngredients(dedupeAndSortIngredients(drilledBlueprint.ingredients.map((i: any) => {
         const isBp = i.ingredient_type === "blueprint";
         const refId = isBp ? i.sub_blueprint_id : i.vendor_item_id;
+        const vItem = !isBp ? vendorItems?.find((v: any) => v.id === refId) : null;
         const name = isBp
           ? otherBlueprints?.find((b: any) => b.id === refId)?.name
-          : vendorItems?.find((v: any) => v.id === refId)?.name;
+          : (vItem?.common_name || vItem?.name);
         return {
           type: isBp ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
@@ -483,7 +485,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setIngredients(dedupeAndSortIngredients(existingBlueprint.ingredients.map((i: any) => {
         const isBlueprintIng = i.ingredient_type === "blueprint";
         const refId = isBlueprintIng ? i.sub_blueprint_id : i.vendor_item_id;
-        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : vendorItems?.find((v: any) => v.id === refId)?.name;
+        const vItem2 = !isBlueprintIng ? vendorItems?.find((v: any) => v.id === refId) : null;
+        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : (vItem2?.common_name || vItem2?.name);
         return {
           type: isBlueprintIng ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
@@ -910,7 +913,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       const name = otherBlueprints?.find(b => b.id === ing.ref_id)?.name || ing.displayName;
       return name || `ingredient-${ing.ref_id.slice(0, 6)}`;
     }
-    const name = vendorItems?.find(i => i.id === ing.ref_id)?.name || ing.displayName;
+    const item = vendorItems?.find(i => i.id === ing.ref_id);
+    const name = (item as any)?.common_name || item?.name || ing.displayName;
     return name || `ingredient-${ing.ref_id.slice(0, 6)}`;
   };
 
