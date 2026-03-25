@@ -171,7 +171,7 @@ const formatIngredientCost = (cost: number): string => {
 /** Merge duplicate ingredients (sum quantities) and sort alphabetically by display name */
 const dedupeAndSortIngredients = (
   ings: BuilderIngredient[],
-  vendorItems: SearchableItem[] | undefined,
+  vendorItems: any[] | undefined,
   blueprints: any[] | undefined,
 ): BuilderIngredient[] => {
   // Merge duplicates by ref_id + type
@@ -458,7 +458,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setYieldManuallyEdited(true);
       setCountable(!!existingBlueprint.producedItem);
       setPanSizesConfig(existingBlueprint.producedItem?.pan_sizes || null);
-      setIngredients(existingBlueprint.ingredients.map((i: any) => {
+      setIngredients(dedupeAndSortIngredients(existingBlueprint.ingredients.map((i: any) => {
         const isBlueprintIng = i.ingredient_type === "blueprint";
         const refId = isBlueprintIng ? i.sub_blueprint_id : i.vendor_item_id;
         const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : vendorItems?.find((v: any) => v.id === refId)?.name;
@@ -470,7 +470,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           displayName: bpName || i.source_name || undefined,
           unmapped: !refId,
         };
-      }));
+      }), vendorItems, otherBlueprints));
     }
   }, [existingBlueprint]);
 
@@ -483,12 +483,12 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setYieldManuallyEdited(true);
       setCountable((existingRecipe.item as any).countable !== false);
       setPanSizesConfig(existingRecipe.item.pan_sizes ? (existingRecipe.item.pan_sizes as unknown as PanSizesConfig) : null);
-      setIngredients(existingRecipe.ingredients.map(i => ({
+      setIngredients(dedupeAndSortIngredients(existingRecipe.ingredients.map(i => ({
         type: "vendor_item" as const,
         ref_id: i.ingredient_item_id,
         quantity: Number(i.quantity),
         unit: normalizeUnit(i.unit) || "oz",
-      })));
+      })), vendorItems, otherBlueprints));
     }
   }, [existingRecipe, editBlueprintId]);
 
