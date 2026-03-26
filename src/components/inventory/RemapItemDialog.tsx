@@ -82,32 +82,37 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
     try {
       const syncTimestamp = new Date().toISOString();
 
-      if (mode === "update") {
-        // If sync already created the target SKU, archive that duplicate first so we can preserve this item's history.
-        const { data: conflictingItems, error: conflictLookupError } = await supabase
+      // Prevent unique key collisions when target SKU already exists at this location.
+      const targetConflictFilters = [`qubeyond_item_id.eq.${newProduct.id}`];
+      if (newProduct.itemNumber) {
+        targetConflictFilters.push(`item_number.eq.${newProduct.itemNumber}`);
+      }
+
+      const { data: conflictingItems, error: conflictLookupError } = await supabase
+        .from("inventory_items")
+        .select("id")
+        .eq("location_id", locationId)
+        .neq("id", item.id)
+        .or(targetConflictFilters.join(","));
+
+      if (conflictLookupError) throw conflictLookupError;
+
+      if ((conflictingItems || []).length > 0) {
+        const conflictIds = (conflictingItems || []).map((row) => row.id);
+        const { error: conflictArchiveError } = await supabase
           .from("inventory_items")
-          .select("id")
-          .eq("location_id", locationId)
-          .eq("is_active", true)
-          .eq("qubeyond_item_id", newProduct.id)
-          .neq("id", item.id);
+          .update({
+            is_active: false,
+            remap_status: "merged_duplicate",
+            item_number: null,
+            last_synced_at: syncTimestamp,
+          } as any)
+          .in("id", conflictIds);
 
-        if (conflictLookupError) throw conflictLookupError;
+        if (conflictArchiveError) throw conflictArchiveError;
+      }
 
-        if ((conflictingItems || []).length > 0) {
-          const conflictIds = (conflictingItems || []).map((row) => row.id);
-          const { error: conflictArchiveError } = await supabase
-            .from("inventory_items")
-            .update({
-              is_active: false,
-              remap_status: "merged_duplicate",
-              last_synced_at: syncTimestamp,
-            } as any)
-            .in("id", conflictIds);
-
-          if (conflictArchiveError) throw conflictArchiveError;
-        }
-
+      if (mode === "update") {
         // Update in place — swap PFG link, keep history
         const { data: updatedItem, error: updateError } = await supabase
           .from("inventory_items")
@@ -176,8 +181,13 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
       resetState();
     } catch (err) {
       console.error("Remap error:", err);
-      const message = err instanceof Error ? err.message : "Unknown error";
-      console.error("Remap error details:", JSON.stringify(err));
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err && typeof (err as { message?: unknown }).message === "string"
+            ? ((err as { message: string }).message || "Unknown error")
+            : "Unknown error";
+      console.error("Remap error details:", err);
       toast.error(`Failed to remap item: ${message}`);
     } finally {
       setIsRemapping(false);
