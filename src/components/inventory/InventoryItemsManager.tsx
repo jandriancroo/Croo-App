@@ -1376,14 +1376,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
       {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto overflow-x-hidden">
            <DialogHeader>
              <DialogTitle className="sr-only">Edit Item</DialogTitle>
            </DialogHeader>
            {editingItem && (
              <div className="space-y-4">
                <div className="space-y-1">
-                 <div className="flex items-center gap-2 pr-6">
+                 <div className="flex items-center gap-2 pr-6 min-w-0 max-w-full">
                    {editingCommonName ? (
                      <Input
                        autoFocus
@@ -1435,7 +1435,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                    </Select>
                  </div>
                  {commonNameValue ? (
-                   <p className="text-[10px] text-muted-foreground truncate">{editingItem.name}</p>
+                   <p className="text-[10px] text-muted-foreground break-words">{editingItem.name}</p>
                  ) : null}
               </div>
 
