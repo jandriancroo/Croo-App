@@ -1403,7 +1403,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                      />
                    ) : (
                      <>
-                       <p className="text-sm font-medium truncate min-w-0 flex-1">
+                       <p className="text-sm font-medium min-w-0 flex-1 break-all line-clamp-2">
                          {commonNameValue || editingItem.name}
                        </p>
                        {canEditCommonNames && (
