@@ -787,7 +787,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
       let flaggedCount = 0;
       for (const item of (allPfgItems || [])) {
-        if (item.qubeyond_item_id && !syncedProductIds.has(String(item.qubeyond_item_id)) && (item as any).remap_status !== 'needs_remap') {
+        if (item.qubeyond_item_id && !syncedProductIds.has(String(item.qubeyond_item_id)) && (item as any).remap_status !== 'needs_remap' && (item as any).remap_status !== 'remapped') {
           await supabase
             .from("inventory_items")
             .update({ remap_status: "needs_remap" } as any)
