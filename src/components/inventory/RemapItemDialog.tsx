@@ -176,7 +176,9 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
       resetState();
     } catch (err) {
       console.error("Remap error:", err);
-      toast.error("Failed to remap item");
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("Remap error details:", JSON.stringify(err));
+      toast.error(`Failed to remap item: ${message}`);
     } finally {
       setIsRemapping(false);
     }
