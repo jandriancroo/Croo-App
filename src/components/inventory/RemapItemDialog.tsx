@@ -80,9 +80,36 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
     setIsRemapping(true);
 
     try {
+      const syncTimestamp = new Date().toISOString();
+
       if (mode === "update") {
+        // If sync already created the target SKU, archive that duplicate first so we can preserve this item's history.
+        const { data: conflictingItems, error: conflictLookupError } = await supabase
+          .from("inventory_items")
+          .select("id")
+          .eq("location_id", locationId)
+          .eq("is_active", true)
+          .eq("qubeyond_item_id", newProduct.id)
+          .neq("id", item.id);
+
+        if (conflictLookupError) throw conflictLookupError;
+
+        if ((conflictingItems || []).length > 0) {
+          const conflictIds = (conflictingItems || []).map((row) => row.id);
+          const { error: conflictArchiveError } = await supabase
+            .from("inventory_items")
+            .update({
+              is_active: false,
+              remap_status: "merged_duplicate",
+              last_synced_at: syncTimestamp,
+            } as any)
+            .in("id", conflictIds);
+
+          if (conflictArchiveError) throw conflictArchiveError;
+        }
+
         // Update in place — swap PFG link, keep history
-        await supabase
+        const { data: updatedItem, error: updateError } = await supabase
           .from("inventory_items")
           .update({
             qubeyond_item_id: newProduct.id,
@@ -94,19 +121,29 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
             cost_per_unit: newProduct.price,
             image_url: newProduct.imageUrl,
             remap_status: "remapped",
-            last_synced_at: new Date().toISOString(),
+            last_synced_at: syncTimestamp,
           } as any)
-          .eq("id", item.id);
+          .eq("id", item.id)
+          .select("id")
+          .maybeSingle();
+
+        if (updateError) throw updateError;
+        if (!updatedItem) throw new Error("Update in place could not be applied to this item.");
 
         toast.success(`Remapped "${item.common_name || item.name}" → "${newProduct.name}"`);
       } else {
         // Deactivate old + create new
-        await supabase
+        const { data: deactivatedItem, error: deactivateError } = await supabase
           .from("inventory_items")
           .update({ is_active: false, remap_status: "remapped" } as any)
-          .eq("id", item.id);
+          .eq("id", item.id)
+          .select("id")
+          .maybeSingle();
 
-        await supabase
+        if (deactivateError) throw deactivateError;
+        if (!deactivatedItem) throw new Error("Could not archive the old item before replacement.");
+
+        const { error: insertError } = await supabase
           .from("inventory_items")
           .insert({
             location_id: locationId,
@@ -125,13 +162,16 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
             is_active: true,
             vendor_source: "pfg",
             remap_status: null,
-            last_synced_at: new Date().toISOString(),
+            last_synced_at: syncTimestamp,
           } as any);
+
+        if (insertError) throw insertError;
 
         toast.success(`Replaced "${item.common_name || item.name}" with "${newProduct.name}"`);
       }
 
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-items-hidden", locationId] });
       onOpenChange(false);
       resetState();
     } catch (err) {
