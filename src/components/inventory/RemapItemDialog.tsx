@@ -177,6 +177,8 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
 
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items-hidden", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["vendor-items-for-recipe", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["blueprint-costs", locationId] });
       onOpenChange(false);
       resetState();
     } catch (err) {
