@@ -1435,7 +1435,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                    </Select>
                  </div>
                  {commonNameValue ? (
-                   <p className="text-[10px] text-muted-foreground truncate">{editingItem.name}</p>
+                   <p className="text-[10px] text-muted-foreground break-words">{editingItem.name}</p>
                  ) : null}
               </div>
 
