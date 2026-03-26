@@ -214,10 +214,6 @@ const dedupeAndSortIngredients = (
   return Array.from(merged.values()).sort((a, b) => {
     const nameA = getName(a);
     const nameB = getName(b);
-    // Push items missing cost to the bottom
-    const aCostMissing = a._hasCost === false ? 1 : 0;
-    const bCostMissing = b._hasCost === false ? 1 : 0;
-    if (aCostMissing !== bCostMissing) return aCostMissing - bCostMissing;
     const groupA = getIngredientSortGroup(nameA);
     const groupB = getIngredientSortGroup(nameB);
     if (groupA !== groupB) return groupA - groupB;
