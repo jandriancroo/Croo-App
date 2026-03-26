@@ -1131,115 +1131,132 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
             <Label>Ingredients</Label>
             {ingredients.length > 0 ? (
               <div className="space-y-1 border rounded-md p-2">
-                {ingredients.map((ing, ingIdx) => {
-                  const displayName = getItemName(ing);
-                  let ingCost: number | null = null;
-
-                  if (ing.type === "vendor_item") {
-                    const item = vendorItems?.find(i => i.id === ing.ref_id);
-                    const caseCost = item?.blended_price ?? item?.cost_per_unit ?? null;
-                    if (caseCost != null && caseCost > 0) {
-                      const ingUnit = normalizeUnit(ing.unit);
-                      if (item!.is_recipe) {
-                        const ryu = normalizeUnit(item!.recipe_yield_unit) || "oz";
-                        const yqv = item!.recipe_yield_qty || 0;
-                        if (yqv > 0) {
-                          ingCost = ((ing.quantity * (TO_OZ[ingUnit] ?? 1)) / (yqv * (TO_OZ[ryu] ?? 1))) * caseCost;
+                {(() => {
+                  // Pre-compute costs for sorting
+                  const computeIngCost = (ing: BuilderIngredient): number | null => {
+                    let ingCost: number | null = null;
+                    if (ing.type === "vendor_item") {
+                      const item = vendorItems?.find(i => i.id === ing.ref_id);
+                      const caseCost = item?.blended_price ?? item?.cost_per_unit ?? null;
+                      if (caseCost != null && caseCost > 0) {
+                        const ingUnit = normalizeUnit(ing.unit);
+                        if (item!.is_recipe) {
+                          const ryu = normalizeUnit(item!.recipe_yield_unit) || "oz";
+                          const yqv = item!.recipe_yield_qty || 0;
+                          if (yqv > 0) {
+                            ingCost = ((ing.quantity * (TO_OZ[ingUnit] ?? 1)) / (yqv * (TO_OZ[ryu] ?? 1))) * caseCost;
+                          }
+                        } else {
+                          let upc = item!.count_units_per_case;
+                          let nu = normalizeUnit(item!.count_unit);
+                          if ((!upc || !nu) && item!.pack_size) {
+                            const p = parsePackSize(item!.pack_size);
+                            if (p) { if (!upc) upc = p.count; if (!nu) nu = normalizeUnit(p.unit); }
+                          }
+                          nu = nu || "ea";
+                          if (ingUnit === "cs") ingCost = ing.quantity * caseCost;
+                          else if (ingUnit === "cn") {
+                            const cpc = parseCansPerCase(item!.pack_size);
+                            if (cpc && cpc > 0) ingCost = (ing.quantity / cpc) * caseCost;
+                          } else if (ingUnit === nu && upc && upc > 0) {
+                            ingCost = (ing.quantity / upc) * caseCost;
+                          } else if (upc && upc > 0 && TO_OZ[ingUnit] && TO_OZ[nu]) {
+                            ingCost = ((ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nu] / upc) * caseCost;
+                          }
                         }
-                      } else {
-                        let upc = item!.count_units_per_case;
-                        let nu = normalizeUnit(item!.count_unit);
-                        if ((!upc || !nu) && item!.pack_size) {
-                          const p = parsePackSize(item!.pack_size);
-                          if (p) { if (!upc) upc = p.count; if (!nu) nu = normalizeUnit(p.unit); }
-                        }
-                        nu = nu || "ea";
-                        if (ingUnit === "cs") ingCost = ing.quantity * caseCost;
-                        else if (ingUnit === "cn") {
-                          const cpc = parseCansPerCase(item!.pack_size);
-                          if (cpc && cpc > 0) ingCost = (ing.quantity / cpc) * caseCost;
-                        } else if (ingUnit === nu && upc && upc > 0) {
-                          ingCost = (ing.quantity / upc) * caseCost;
-                        } else if (upc && upc > 0 && TO_OZ[ingUnit] && TO_OZ[nu]) {
-                          ingCost = ((ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nu] / upc) * caseCost;
+                      }
+                    } else if (ing.type === "blueprint") {
+                      const subCost = blueprintCostsMap?.get(ing.ref_id);
+                      const subBp = otherBlueprints?.find(b => b.id === ing.ref_id);
+                      if (subCost && subCost.batchCost > 0) {
+                        const subYield = subBp?.yield_qty || 1;
+                        const subYieldUnit = normalizeUnit(subBp?.yield_unit) || "oz";
+                        const ingUnit = normalizeUnit(ing.unit);
+                        const costPerYieldUnit = subCost.batchCost / subYield;
+                        if (ingUnit && subYieldUnit && ingUnit !== subYieldUnit
+                            && ingUnit !== "ea" && subYieldUnit !== "ea"
+                            && TO_OZ[ingUnit] && TO_OZ[subYieldUnit]) {
+                          const ingInYieldUnits = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[subYieldUnit];
+                          ingCost = costPerYieldUnit * ingInYieldUnits;
+                        } else {
+                          ingCost = costPerYieldUnit * ing.quantity;
                         }
                       }
                     }
-                  } else if (ing.type === "blueprint") {
-                    // Sub-recipe: use blueprint costs map
-                    const subCost = blueprintCostsMap?.get(ing.ref_id);
-                    const subBp = otherBlueprints?.find(b => b.id === ing.ref_id);
-                    if (subCost && subCost.batchCost > 0) {
-                      const subYield = subBp?.yield_qty || 1;
-                      const subYieldUnit = normalizeUnit(subBp?.yield_unit) || "oz";
-                      const ingUnit = normalizeUnit(ing.unit);
-                      const costPerYieldUnit = subCost.batchCost / subYield;
-                      if (ingUnit && subYieldUnit && ingUnit !== subYieldUnit
-                          && ingUnit !== "ea" && subYieldUnit !== "ea"
-                          && TO_OZ[ingUnit] && TO_OZ[subYieldUnit]) {
-                        const ingInYieldUnits = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[subYieldUnit];
-                        ingCost = costPerYieldUnit * ingInYieldUnits;
-                      } else {
-                        ingCost = costPerYieldUnit * ing.quantity;
-                      }
-                    }
-                  }
+                    return ingCost;
+                  };
 
-                  return (
-                    <div key={`${ing.ref_id}-${ingIdx}`} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {ing.type === "blueprint" && (
-                          <button
-                            type="button"
-                            className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
-                            title="Drill into sub-recipe"
-                            onClick={() => drillIntoSubRecipe(ing.ref_id)}
-                          >
-                            <FlaskConical className="h-3 w-3 text-primary" />
-                          </button>
-                        )}
-                        {ing.unmapped && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
-                        {ing.type === "blueprint" ? (
-                          <>
+                  // Build indexed list with costs for sorting
+                  const indexed = ingredients.map((ing, idx) => ({ ing, idx, cost: computeIngCost(ing) }));
+                  const hasCost = indexed.filter(i => i.cost !== null && i.cost > 0);
+                  const noCost = indexed.filter(i => i.cost === null || i.cost === 0);
+
+                  return [...hasCost, ...noCost].map(({ ing, idx: ingIdx, cost: ingCost }) => {
+                    const displayName = getItemName(ing);
+                    const isMissingCost = ingCost === null || ingCost === 0;
+
+                    return (
+                      <div key={`${ing.ref_id}-${ingIdx}`} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                        ing.unmapped ? "bg-amber-500/10 border border-amber-500/20" 
+                        : isMissingCost ? "bg-destructive/5 border border-destructive/20" 
+                        : "bg-muted/50"
+                      }`}>
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {ing.type === "blueprint" && (
                             <button
                               type="button"
-                              className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
+                              className="flex-shrink-0 p-0.5 rounded hover:bg-primary/10 transition-colors"
+                              title="Drill into sub-recipe"
                               onClick={() => drillIntoSubRecipe(ing.ref_id)}
                             >
-                              {displayName}
-                              <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
+                              <FlaskConical className="h-3 w-3 text-primary" />
                             </button>
-                            {(() => {
-                              const bp = otherBlueprints?.find(b => b.id === ing.ref_id);
-                              const cat = bp?.category?.toUpperCase();
-                              const colors = cat ? CATEGORY_COLORS[cat] : null;
-                              return colors ? (
-                                <span className={`px-1 py-0.5 rounded text-[9px] font-semibold flex-shrink-0 ${colors.bg} ${colors.text}`}>
-                                  {cat}
-                                </span>
-                              ) : null;
-                            })()}
-                          </>
-                        ) : (
-                          <span className={`font-medium truncate ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}>
-                            {displayName}
-                            {ing.unmapped && <span className="text-[10px] ml-1 font-normal opacity-70">(needs mapping)</span>}
+                          )}
+                          {ing.unmapped && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                          {isMissingCost && !ing.unmapped && ing.type !== "blueprint" && <AlertCircle className="h-3 w-3 text-destructive flex-shrink-0" />}
+                          {ing.type === "blueprint" ? (
+                            <>
+                              <button
+                                type="button"
+                                className={`font-medium truncate text-left text-primary hover:underline ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : ""}`}
+                                onClick={() => drillIntoSubRecipe(ing.ref_id)}
+                              >
+                                {displayName}
+                                <ChevronRight className="h-3 w-3 inline ml-0.5 opacity-50" />
+                              </button>
+                              {(() => {
+                                const bp = otherBlueprints?.find(b => b.id === ing.ref_id);
+                                const cat = bp?.category?.toUpperCase();
+                                const colors = cat ? CATEGORY_COLORS[cat] : null;
+                                return colors ? (
+                                  <span className={`px-1 py-0.5 rounded text-[9px] font-semibold flex-shrink-0 ${colors.bg} ${colors.text}`}>
+                                    {cat}
+                                  </span>
+                                ) : null;
+                              })()}
+                            </>
+                          ) : (
+                            <span className={`font-medium truncate ${ing.unmapped ? "text-amber-700 dark:text-amber-400" : isMissingCost ? "text-destructive" : ""}`}>
+                              {displayName}
+                              {ing.unmapped && <span className="text-[10px] ml-1 font-normal opacity-70">(needs mapping)</span>}
+                              {isMissingCost && !ing.unmapped && <span className="text-[10px] ml-1 font-normal opacity-70">(no cost)</span>}
+                            </span>
+                          )}
+                          <span className="text-muted-foreground font-mono text-xs flex-shrink-0">
+                            {ing.quantity} {ing.unit}
+                            {ingCost !== null && ingCost > 0 && <span className="ml-1">· {formatIngredientCost(ingCost)}</span>}
                           </span>
+                        </div>
+                        {!isDrilledDown && (
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
+                            onClick={() => removeIngredient(ingIdx)}>
+                            <X className="h-3 w-3" />
+                          </Button>
                         )}
-                        <span className="text-muted-foreground font-mono text-xs flex-shrink-0">
-                          {ing.quantity} {ing.unit}
-                          {ingCost !== null && <span className="ml-1">· {formatIngredientCost(ingCost)}</span>}
-                        </span>
                       </div>
-                      {!isDrilledDown && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
-                          onClick={() => removeIngredient(ingIdx)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             ) : (
               <p className="text-xs text-muted-foreground italic py-2">No ingredients added yet</p>
