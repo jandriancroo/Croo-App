@@ -43,6 +43,7 @@
       // Force-reload once to fetch fresh assets. Guard prevents infinite loops.
       (function() {
         var key = 'main_chunk_reload';
+        var maxRetries = 2;
         function isChunkError(msg) {
           return msg && (
             msg.indexOf('module script failed') !== -1 ||
@@ -53,14 +54,13 @@
           );
         }
         function tryReload() {
-          if (!sessionStorage.getItem(key)) {
-            sessionStorage.setItem(key, Date.now().toString());
+          var count = parseInt(sessionStorage.getItem(key) || '0', 10);
+          if (count < maxRetries) {
+            sessionStorage.setItem(key, String(count + 1));
             window.location.reload();
           }
         }
-        // Capture phase catches module script errors that don't bubble
         window.addEventListener('error', function(e) {
-          // For script load failures, e.target may be a <script> or <link> with no message
           if (e.target && e.target.tagName === 'SCRIPT' && e.target.type === 'module') {
             tryReload();
             return;
@@ -68,15 +68,16 @@
           var msg = (e.message || '') + ' ' + ((e.error && e.error.message) || '');
           if (isChunkError(msg)) tryReload();
         }, true);
-        // Dynamic imports reject as unhandled promises
         window.addEventListener('unhandledrejection', function(e) {
           var msg = (e.reason && (e.reason.message || String(e.reason))) || '';
           if (isChunkError(msg)) tryReload();
         });
-        // Clear flag after successful load so next deploy can retry
-        window.addEventListener('load', function() {
-          sessionStorage.removeItem(key);
-        });
+        // Clear counter after app renders successfully (delayed to ensure JS modules loaded)
+        setTimeout(function() {
+          if (document.getElementById('root') && document.getElementById('root').children.length > 0) {
+            sessionStorage.removeItem(key);
+          }
+        }, 5000);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
