@@ -76,10 +76,13 @@ export default function ScheduleTemplates() {
   const [editingPositionName, setEditingPositionName] = useState<string | null>(null);
   const [editPositionValue, setEditPositionValue] = useState('');
 
+  // Event categories state
+  const [eventCategories, setEventCategories] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [copyCategoriesDialogOpen, setCopyCategoriesDialogOpen] = useState(false);
   useEffect(() => {
     if (roleLoading) return;
     if (!canManageTemplates) { navigate("/schedule"); return; }
-    if (currentLocation?.id) { fetchTemplates(); fetchPositions(); }
+    if (currentLocation?.id) { fetchTemplates(); fetchPositions(); fetchEventCategories(); }
   }, [canManageTemplates, roleLoading, navigate, currentLocation?.id]);
 
   const fetchTemplates = async () => {
