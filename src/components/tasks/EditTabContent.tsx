@@ -135,6 +135,22 @@ export default function EditTabContent({
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold">Checklist Templates</h3>
               <div className="flex gap-2">
+                {isAdmin && checklists.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => {
+                      setCopyChecklistIds(checklists.map((c: any) => c.id));
+                      setCopyChecklistTitles(checklists.map((c: any) => c.title));
+                      setCopyDialogOpen(true);
+                    }}
+                    title="Copy all checklists to another location"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Copy All</span>
+                  </Button>
+                )}
                 {isAdmin && (
                   <Button
                     size="icon"
