@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Plus, Calendar, Clock, MoreVertical, Pencil, Copy, Trash2, Briefcase, X, Check } from "lucide-react";
+import { Plus, Calendar, Clock, MoreVertical, Pencil, Copy, Trash2, Briefcase, X, Check, Tag } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
+import { CopyEventCategoriesDialog } from "@/components/schedule/CopyEventCategoriesDialog";
 
 interface ShiftTemplate {
   id: string;
