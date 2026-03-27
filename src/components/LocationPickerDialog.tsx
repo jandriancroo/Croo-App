@@ -376,7 +376,7 @@ export function LocationPickerDialog({
     <button
       key={loc.id}
       onClick={() => handleSelectLocation(loc)}
-      className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-left ${
+      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all text-left ${
         loc.id === currentLocationId
           ? 'bg-primary/10 ring-2 ring-primary'
           : 'hover:bg-muted/50'
