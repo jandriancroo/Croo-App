@@ -1,0 +1,442 @@
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { supabase } from '@/integrations/supabase/client';
+import { useLocation } from '@/hooks/useLocation';
+import { toast } from 'sonner';
+import { Loader2, MapPin, Clock, CheckCircle2, Building2, Rocket } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const TIMEZONES = [
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
+  { value: 'America/Phoenix', label: 'Arizona (no DST)' },
+];
+
+const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday', short: 'Sun' },
+  { value: 1, label: 'Monday', short: 'Mon' },
+  { value: 2, label: 'Tuesday', short: 'Tue' },
+  { value: 3, label: 'Wednesday', short: 'Wed' },
+  { value: 4, label: 'Thursday', short: 'Thu' },
+  { value: 5, label: 'Friday', short: 'Fri' },
+  { value: 6, label: 'Saturday', short: 'Sat' },
+];
+
+interface DayHours {
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_closed: boolean;
+}
+
+interface DeployLocationWizardProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}
+
+const STEPS = [
+  { id: 'basics', label: 'Basics', icon: MapPin },
+  { id: 'hours', label: 'Hours', icon: Clock },
+  { id: 'review', label: 'Deploy', icon: Rocket },
+];
+
+export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLocationWizardProps) {
+  const { refetchLocations } = useLocation();
+  const [step, setStep] = useState(0);
+  const [deploying, setDeploying] = useState(false);
+  const [deployComplete, setDeployComplete] = useState(false);
+
+  // Step 1: Basics
+  const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  const [storeNumber, setStoreNumber] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
+  const [orgId, setOrgId] = useState('');
+  const [timezone, setTimezone] = useState('America/Los_Angeles');
+
+  // Step 2: Hours
+  const [hours, setHours] = useState<DayHours[]>(
+    DAYS_OF_WEEK.map(d => ({
+      day_of_week: d.value,
+      open_time: '10:00',
+      close_time: '22:00',
+      is_closed: false,
+    }))
+  );
+
+  // Fetch organizations
+  const { data: organizations } = useQuery({
+    queryKey: ['all-organizations'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Reset on open
+  useEffect(() => {
+    if (open) {
+      setStep(0);
+      setDeploying(false);
+      setDeployComplete(false);
+      setName('');
+      setAddress('');
+      setStoreNumber('');
+      setLat('');
+      setLng('');
+      setOrgId('');
+      setTimezone('America/Los_Angeles');
+      setHours(DAYS_OF_WEEK.map(d => ({
+        day_of_week: d.value,
+        open_time: '10:00',
+        close_time: '22:00',
+        is_closed: false,
+      })));
+    }
+  }, [open]);
+
+  const updateDayHours = (dayIndex: number, field: keyof DayHours, value: any) => {
+    setHours(prev => prev.map((h, i) => i === dayIndex ? { ...h, [field]: value } : h));
+  };
+
+  const canProceed = () => {
+    if (step === 0) return name.trim().length > 0 && orgId.length > 0;
+    return true;
+  };
+
+  const handleDeploy = async () => {
+    setDeploying(true);
+    try {
+      // 1. Create the location
+      const { data: location, error: locError } = await supabase
+        .from('locations')
+        .insert({
+          name: name.trim(),
+          address: address.trim() || null,
+          latitude: lat ? parseFloat(lat) : null,
+          longitude: lng ? parseFloat(lng) : null,
+          organization_id: orgId || null,
+          store_number: storeNumber.trim() || null,
+        })
+        .select('id')
+        .single();
+
+      if (locError) throw locError;
+      const locationId = location.id;
+
+      // 2. Create location settings (timezone)
+      const { error: settingsError } = await supabase
+        .from('location_settings')
+        .insert({
+          location_id: locationId,
+          timezone,
+          hours_open: hours.find(h => !h.is_closed)?.open_time || '10:00',
+          hours_close: hours.find(h => !h.is_closed)?.close_time || '22:00',
+        });
+
+      if (settingsError) console.error('Settings error:', settingsError);
+
+      // 3. Create business hours
+      for (const dayHours of hours) {
+        const { error: hoursError } = await supabase
+          .from('location_hours')
+          .upsert({
+            location_id: locationId,
+            day_of_week: dayHours.day_of_week,
+            open_time: dayHours.open_time,
+            close_time: dayHours.close_time,
+            is_closed: dayHours.is_closed,
+          });
+        if (hoursError) console.error('Hours error:', hoursError);
+      }
+
+      setDeployComplete(true);
+      refetchLocations();
+      toast.success(`${name} deployed successfully!`);
+    } catch (error: any) {
+      console.error('Deploy error:', error);
+      toast.error(error.message || 'Failed to deploy location');
+    } finally {
+      setDeploying(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (deployComplete) onSuccess();
+    onOpenChange(false);
+  };
+
+  const orgName = organizations?.find(o => o.id === orgId)?.name;
+  const tzLabel = TIMEZONES.find(t => t.value === timezone)?.label;
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Rocket className="h-5 w-5 text-primary" />
+            Deploy New Location
+          </DialogTitle>
+          <DialogDescription>
+            Set up everything your new location needs to go live
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Step indicator */}
+        {!deployComplete && (
+          <div className="flex items-center gap-1 px-1">
+            {STEPS.map((s, i) => {
+              const Icon = s.icon;
+              const isActive = i === step;
+              const isDone = i < step;
+              return (
+                <div key={s.id} className="flex items-center flex-1">
+                  <button
+                    onClick={() => i < step && setStep(i)}
+                    disabled={i > step}
+                    className={cn(
+                      'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all w-full justify-center',
+                      isActive && 'bg-primary text-primary-foreground',
+                      isDone && 'bg-primary/10 text-primary cursor-pointer',
+                      !isActive && !isDone && 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+                    <span className="hidden sm:inline">{s.label}</span>
+                  </button>
+                  {i < STEPS.length - 1 && (
+                    <div className={cn('h-px w-4 mx-1', i < step ? 'bg-primary' : 'bg-border')} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <AnimatePresence mode="wait">
+          {deployComplete ? (
+            <motion.div
+              key="complete"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center gap-4 py-8"
+            >
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-primary" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold">{name} is live!</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Switch to this location to start configuring checklists, inventory, and invite your team.
+                </p>
+              </div>
+              <Button onClick={handleClose} className="mt-2">Done</Button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key={`step-${step}`}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.15 }}
+            >
+              {/* Step 1: Basics */}
+              {step === 0 && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Organization *</Label>
+                    <Select value={orgId} onValueChange={setOrgId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select organization" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {organizations?.map(org => (
+                          <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Location Name *</Label>
+                    <Input
+                      placeholder="e.g., Downtown Store"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Store Number</Label>
+                    <Input
+                      placeholder="e.g., #1234"
+                      value={storeNumber}
+                      onChange={e => setStoreNumber(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Address</Label>
+                    <Textarea
+                      placeholder="123 Main St, City, State ZIP"
+                      value={address}
+                      onChange={e => setAddress(e.target.value)}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Timezone</Label>
+                    <Select value={timezone} onValueChange={setTimezone}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIMEZONES.map(tz => (
+                          <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Latitude</Label>
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        placeholder="33.7294"
+                        value={lat}
+                        onChange={e => setLat(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Longitude</Label>
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        placeholder="-116.9719"
+                        value={lng}
+                        onChange={e => setLng(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Business Hours */}
+              {step === 1 && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">Set operating hours for each day. Toggle off for closed days.</p>
+                  {hours.map((h, i) => (
+                    <div key={h.day_of_week} className="flex items-center gap-2">
+                      <div className="w-12 text-sm font-medium">{DAYS_OF_WEEK[i].short}</div>
+                      <Switch
+                        checked={!h.is_closed}
+                        onCheckedChange={checked => updateDayHours(i, 'is_closed', !checked)}
+                      />
+                      {!h.is_closed ? (
+                        <div className="flex items-center gap-1.5 flex-1">
+                          <Input
+                            type="time"
+                            value={h.open_time}
+                            onChange={e => updateDayHours(i, 'open_time', e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                          <span className="text-xs text-muted-foreground">to</span>
+                          <Input
+                            type="time"
+                            value={h.close_time}
+                            onChange={e => updateDayHours(i, 'close_time', e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground flex-1">Closed</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Step 3: Review & Deploy */}
+              {step === 2 && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{orgName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <span className="text-sm font-medium">{name}</span>
+                        {storeNumber && <span className="text-xs text-muted-foreground ml-1.5">({storeNumber})</span>}
+                        {address && <p className="text-xs text-muted-foreground">{address}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{tzLabel}</span>
+                    </div>
+                    <div className="border-t pt-3">
+                      <p className="text-xs font-medium mb-1.5">Business Hours</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                        {hours.map((h, i) => (
+                          <div key={h.day_of_week} className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{DAYS_OF_WEEK[i].short}</span>
+                            <span>{h.is_closed ? 'Closed' : `${h.open_time}–${h.close_time}`}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>What happens next:</strong> Only your Super Admin account will be assigned to this location. 
+                      Switch to the new location to invite team members, set up checklists, configure inventory, and connect integrations.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Footer */}
+        {!deployComplete && (
+          <DialogFooter className="flex-row justify-between sm:justify-between">
+            <Button variant="outline" onClick={() => step === 0 ? handleClose() : setStep(s => s - 1)}>
+              {step === 0 ? 'Cancel' : 'Back'}
+            </Button>
+            {step < STEPS.length - 1 ? (
+              <Button onClick={() => setStep(s => s + 1)} disabled={!canProceed()}>
+                Next
+              </Button>
+            ) : (
+              <Button onClick={handleDeploy} disabled={deploying}>
+                {deploying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Deploy Location
+              </Button>
+            )}
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
