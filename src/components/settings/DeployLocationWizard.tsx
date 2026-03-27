@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { toast } from 'sonner';
-import { Loader2, MapPin, Clock, Users, CheckCircle2, Building2, Rocket } from 'lucide-react';
+import { Loader2, MapPin, Clock, CheckCircle2, Building2, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -241,8 +241,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
               animate={{ opacity: 1, scale: 1 }}
               className="flex flex-col items-center gap-4 py-8"
             >
-              <div className="h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-green-500" />
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-primary" />
               </div>
               <div className="text-center">
                 <h3 className="text-lg font-semibold">{name} is live!</h3>
