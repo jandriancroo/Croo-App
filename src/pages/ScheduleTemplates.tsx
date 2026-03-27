@@ -469,6 +469,34 @@ export default function ScheduleTemplates() {
                 </div>
               )}
             </Card>
+
+            {/* Event Categories section */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="font-semibold text-base">Event Categories</h2>
+                </div>
+                {eventCategories.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => setCopyCategoriesDialogOpen(true)}>
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy All
+                  </Button>
+                )}
+              </div>
+              {eventCategories.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No event categories yet — create them from the schedule event form.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {eventCategories.map(cat => (
+                    <div key={cat.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: cat.color + '20', color: cat.color }}>
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                      {cat.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
           </TabsContent>
 
           <TabsContent value="weeks" className="space-y-4 mt-4">
@@ -617,6 +645,14 @@ export default function ScheduleTemplates() {
           templateIds={copyTemplateId ? [copyTemplateId] : shiftTemplates.map(t => t.id)}
           templateNames={copyTemplateId ? shiftTemplates.filter(t => t.id === copyTemplateId).map(t => t.template_name) : shiftTemplates.map(t => t.template_name)}
           onSuccess={() => { setCopyTemplateId(null); fetchTemplates(); }}
+        />
+
+        <CopyEventCategoriesDialog
+          open={copyCategoriesDialogOpen}
+          onOpenChange={setCopyCategoriesDialogOpen}
+          categoryIds={eventCategories.map(c => c.id)}
+          categoryNames={eventCategories.map(c => c.name)}
+          onSuccess={fetchEventCategories}
         />
       </div>
     </Layout>
