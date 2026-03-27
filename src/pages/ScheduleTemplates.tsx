@@ -313,10 +313,21 @@ export default function ScheduleTemplates() {
           <TabsContent value="shifts" className="space-y-4 mt-4">
             <div className="flex justify-between items-center">
               <p className="text-muted-foreground">Create reusable shift templates for quick scheduling</p>
-              <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                New Shift Template
-              </Button>
+              <div className="flex items-center gap-2">
+                {shiftTemplates.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setCopyTemplateId(null);
+                    setCopyDialogOpen(true);
+                  }}>
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy All
+                  </Button>
+                )}
+                <Button onClick={openCreateDialog}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Shift Template
+                </Button>
+              </div>
             </div>
 
             {shiftTemplates.length > 0 ? (
@@ -590,8 +601,8 @@ export default function ScheduleTemplates() {
         <CopyShiftTemplatesDialog
           open={copyDialogOpen}
           onOpenChange={(open) => { setCopyDialogOpen(open); if (!open) setCopyTemplateId(null); }}
-          templateIds={copyTemplateId ? [copyTemplateId] : []}
-          templateNames={shiftTemplates.filter(t => t.id === copyTemplateId).map(t => t.template_name)}
+          templateIds={copyTemplateId ? [copyTemplateId] : shiftTemplates.map(t => t.id)}
+          templateNames={copyTemplateId ? shiftTemplates.filter(t => t.id === copyTemplateId).map(t => t.template_name) : shiftTemplates.map(t => t.template_name)}
           onSuccess={() => { setCopyTemplateId(null); fetchTemplates(); }}
         />
       </div>
