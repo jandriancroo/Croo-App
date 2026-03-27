@@ -131,7 +131,8 @@ export function CopyChecklistDialog({
             .maybeSingle();
 
           if (existing) {
-            await supabase.from('checklists').delete().eq('id', existing.id);
+            // Deactivate old checklist instead of deleting to preserve history
+            await supabase.from('checklists').update({ is_active: false }).eq('id', existing.id);
           }
 
           // Create new checklist at target
