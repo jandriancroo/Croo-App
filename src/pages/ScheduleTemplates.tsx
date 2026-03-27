@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Plus, Calendar, Clock, MoreVertical, Pencil, Copy, Trash2, Briefcase, X, Check } from "lucide-react";
+import { Plus, Calendar, Clock, MoreVertical, Pencil, Copy, Trash2, Briefcase, X, Check, Tag } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
+import { CopyEventCategoriesDialog } from "@/components/schedule/CopyEventCategoriesDialog";
 
 interface ShiftTemplate {
   id: string;
@@ -75,10 +76,13 @@ export default function ScheduleTemplates() {
   const [editingPositionName, setEditingPositionName] = useState<string | null>(null);
   const [editPositionValue, setEditPositionValue] = useState('');
 
+  // Event categories state
+  const [eventCategories, setEventCategories] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [copyCategoriesDialogOpen, setCopyCategoriesDialogOpen] = useState(false);
   useEffect(() => {
     if (roleLoading) return;
     if (!canManageTemplates) { navigate("/schedule"); return; }
-    if (currentLocation?.id) { fetchTemplates(); fetchPositions(); }
+    if (currentLocation?.id) { fetchTemplates(); fetchPositions(); fetchEventCategories(); }
   }, [canManageTemplates, roleLoading, navigate, currentLocation?.id]);
 
   const fetchTemplates = async () => {
@@ -121,9 +125,18 @@ export default function ScheduleTemplates() {
       console.error("Error fetching positions:", error);
     }
   };
+  const fetchEventCategories = async () => {
+    if (!currentLocation?.id) return;
+    const { data, error } = await supabase
+      .from('event_categories')
+      .select('id, name, color')
+      .eq('location_id', currentLocation.id)
+      .order('name');
+    if (!error && data) setEventCategories(data);
+  };
 
-  const resetForm = () => {
-    setFormData({ start_time: "09:00", end_time: "17:00", color: "#ef4444", position: "", days_of_week: [0,1,2,3,4,5,6], allowed_roles: ["team_member"] });
+
+    const resetForm = () => {
     setEditingTemplate(null);
   };
 
@@ -313,10 +326,21 @@ export default function ScheduleTemplates() {
           <TabsContent value="shifts" className="space-y-4 mt-4">
             <div className="flex justify-between items-center">
               <p className="text-muted-foreground">Create reusable shift templates for quick scheduling</p>
-              <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                New Shift Template
-              </Button>
+              <div className="flex items-center gap-2">
+                {shiftTemplates.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setCopyTemplateId(null);
+                    setCopyDialogOpen(true);
+                  }}>
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy All
+                  </Button>
+                )}
+                <Button onClick={openCreateDialog}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Shift Template
+                </Button>
+              </div>
             </div>
 
             {shiftTemplates.length > 0 ? (
@@ -442,6 +466,34 @@ export default function ScheduleTemplates() {
                   <Button size="sm" onClick={handleAddPosition} disabled={!newPositionValue.trim()}>
                     <Check className="h-4 w-4" />
                   </Button>
+                </div>
+              )}
+            </Card>
+
+            {/* Event Categories section */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="font-semibold text-base">Event Categories</h2>
+                </div>
+                {eventCategories.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => setCopyCategoriesDialogOpen(true)}>
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy All
+                  </Button>
+                )}
+              </div>
+              {eventCategories.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No event categories yet — create them from the schedule event form.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {eventCategories.map(cat => (
+                    <div key={cat.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm" style={{ backgroundColor: cat.color + '20', color: cat.color }}>
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                      {cat.name}
+                    </div>
+                  ))}
                 </div>
               )}
             </Card>
@@ -590,9 +642,17 @@ export default function ScheduleTemplates() {
         <CopyShiftTemplatesDialog
           open={copyDialogOpen}
           onOpenChange={(open) => { setCopyDialogOpen(open); if (!open) setCopyTemplateId(null); }}
-          templateIds={copyTemplateId ? [copyTemplateId] : []}
-          templateNames={shiftTemplates.filter(t => t.id === copyTemplateId).map(t => t.template_name)}
+          templateIds={copyTemplateId ? [copyTemplateId] : shiftTemplates.map(t => t.id)}
+          templateNames={copyTemplateId ? shiftTemplates.filter(t => t.id === copyTemplateId).map(t => t.template_name) : shiftTemplates.map(t => t.template_name)}
           onSuccess={() => { setCopyTemplateId(null); fetchTemplates(); }}
+        />
+
+        <CopyEventCategoriesDialog
+          open={copyCategoriesDialogOpen}
+          onOpenChange={setCopyCategoriesDialogOpen}
+          categoryIds={eventCategories.map(c => c.id)}
+          categoryNames={eventCategories.map(c => c.name)}
+          onSuccess={fetchEventCategories}
         />
       </div>
     </Layout>
