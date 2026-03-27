@@ -14,13 +14,9 @@ import { DeployLocationWizard } from './DeployLocationWizard';
 
 export const LocationsSection = () => {
   const [locations, setLocations] = useState<any[]>([]);
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [deployWizardOpen, setDeployWizardOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
-  const [newLocationName, setNewLocationName] = useState('');
-  const [newLocationAddress, setNewLocationAddress] = useState('');
-  const [newLocationLat, setNewLocationLat] = useState('');
-  const [newLocationLng, setNewLocationLng] = useState('');
   const [loading, setLoading] = useState(false);
   const { refetchLocations } = useLocation();
 
