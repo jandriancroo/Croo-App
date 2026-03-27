@@ -125,8 +125,17 @@ export default function ScheduleTemplates() {
       console.error("Error fetching positions:", error);
     }
   };
+  const fetchEventCategories = async () => {
+    if (!currentLocation?.id) return;
+    const { data, error } = await supabase
+      .from('event_categories')
+      .select('id, name, color')
+      .eq('location_id', currentLocation.id)
+      .order('name');
+    if (!error && data) setEventCategories(data);
+  };
 
-  const resetForm = () => {
+
     setFormData({ start_time: "09:00", end_time: "17:00", color: "#ef4444", position: "", days_of_week: [0,1,2,3,4,5,6], allowed_roles: ["team_member"] });
     setEditingTemplate(null);
   };
