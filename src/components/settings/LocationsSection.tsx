@@ -2,14 +2,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, Plus, Trash2, Edit, Copy, RefreshCw } from 'lucide-react';
+import { MapPin, Plus, Trash2, Edit, Copy, RefreshCw, Rocket } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { LocationMap } from './LocationMap';
+import { DeployLocationWizard } from './DeployLocationWizard';
 
 export const LocationsSection = () => {
   const [locations, setLocations] = useState<any[]>([]);
