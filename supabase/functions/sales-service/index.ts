@@ -58,20 +58,21 @@ function isWithinBusinessHours(
 // V4 OAuth2 Authentication (replaces legacy scraping auth)
 // ============================================================================
 
-async function authenticateV4(): Promise<string | null> {
-  const clientId = Deno.env.get('QU_USERNAME');
-  const clientSecret = Deno.env.get('QU_PASSWORD');
+async function authenticateV4(clientId?: string, clientSecret?: string): Promise<string | null> {
+  // Use per-location creds if provided, fall back to global env vars
+  const cid = clientId || Deno.env.get('QU_USERNAME');
+  const csec = clientSecret || Deno.env.get('QU_PASSWORD');
 
-  if (!clientId || !clientSecret) {
-    console.error('[sales-service] Missing QU_USERNAME or QU_PASSWORD env vars');
+  if (!cid || !csec) {
+    console.error('[sales-service] Missing QU credentials (no per-location or global env vars)');
     return null;
   }
 
   try {
     const formData = new FormData();
     formData.append('grant_type', 'client_credentials');
-    formData.append('client_id', clientId);
-    formData.append('client_secret', clientSecret);
+    formData.append('client_id', cid);
+    formData.append('client_secret', csec);
 
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token', {
       method: 'POST',
@@ -109,13 +110,15 @@ function getV4Headers(accessToken: string): Record<string, string> {
 }
 
 // Legacy wrapper — allows existing callers (backfill, sync-day, etc.) to work without signature changes
+// Now supports per-location credentials from the credentials JSON
 async function getOrRefreshToken(
   _supabase: any,
   _integrationId: string,
   _username: string,
-  _password: string
+  _password: string,
+  credentials?: any
 ): Promise<string | null> {
-  return await authenticateV4();
+  return await authenticateV4(credentials?.client_id, credentials?.client_secret);
 }
 
 function convertTo24Hour(time12h: string): string {
@@ -523,20 +526,21 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 
   const results: { locationId: string; name: string; status: string; salesUpdated?: number; pizzaCount?: number }[] = [];
 
-  // V4: Get ONE global token for all locations
-  const tokenGw = await authenticateV4();
-  if (!tokenGw) {
-    console.error('[sales-service] V4 authentication failed, aborting sync');
-    return new Response(JSON.stringify({ error: 'V4 authentication failed' }), {
-      status: 502,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+  // Token cache: keyed by credential pair so each org authenticates once
+  const tokenCache = new Map<string, string | null>();
+
+  async function getTokenForCredentials(creds: any): Promise<string | null> {
+    const cacheKey = creds?.client_id || '__global__';
+    if (tokenCache.has(cacheKey)) return tokenCache.get(cacheKey)!;
+    const token = await authenticateV4(creds?.client_id, creds?.client_secret);
+    tokenCache.set(cacheKey, token);
+    return token;
   }
 
   for (const integration of integrations) {
     const locationId = integration.location_id;
     const locationName = (integration.locations as any)?.name || 'Unknown';
-    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string; client_id?: string; client_secret?: string };
     const settings = settingsByLocation[locationId];
     const timezone = settings?.timezone || 'America/Los_Angeles';
 
@@ -569,6 +573,14 @@ async function handleSyncLive(supabase: any): Promise<Response> {
     if (!isWithinBusinessHours(currentTime.hours, currentTime.minutes, openTime, closeTime)) {
       console.log(`${locationName}: Outside business hours (${openTime}-${closeTime}+10min), current: ${currentTime.hours}:${currentTime.minutes}`);
       results.push({ locationId, name: locationName, status: 'outside_hours' });
+      continue;
+    }
+
+    // Get token for this location's credential set
+    const tokenGw = await getTokenForCredentials(credentials);
+    if (!tokenGw) {
+      console.error(`${locationName}: V4 authentication failed, skipping`);
+      results.push({ locationId, name: locationName, status: 'auth_failed' });
       continue;
     }
 
@@ -684,7 +696,7 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] backfill: ${locationId}, daysBack=${daysBack}`);
 
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password, credentials);
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
@@ -814,7 +826,7 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] sync-day: ${locationId} ${date}, QB location=${qbLocationId}`);
 
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password, credentials);
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
@@ -907,7 +919,7 @@ async function handleSyncYesterday(supabase: any): Promise<Response> {
     console.log(`[sales-service] sync-yesterday: ${locationName} syncing ${yesterdayStr}`);
 
     try {
-      const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+      const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password, credentials);
       if (!tokenGw) {
         results.push({ locationId, name: locationName, status: 'auth_failed' });
         continue;
@@ -981,17 +993,17 @@ async function handleSyncDates(req: Request, supabase: any): Promise<Response> {
   }
 
   const locationName = (integration.locations as any)?.name || 'Unknown';
-  const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+  const credentials = integration.credentials as any;
   const qbLocationId = credentials?.location_id || '';
 
-  if (!qbLocationId || !credentials?.username || !credentials?.password) {
-    return new Response(JSON.stringify({ error: 'Missing credentials' }), {
+  if (!qbLocationId) {
+    return new Response(JSON.stringify({ error: 'Missing QU location_id in credentials' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password, credentials);
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
@@ -1132,7 +1144,7 @@ async function handleSyncTips(req: Request, supabase: any) {
   }
 
   const creds = integration.credentials as any;
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, creds.username, creds.password);
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, creds.username, creds.password, creds);
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'Authentication failed' }), {
       status: 500,
@@ -1211,12 +1223,14 @@ async function handleSyncTips(req: Request, supabase: any) {
 async function handleTestApi(supabase: any): Promise<Response> {
   console.log('[sales-service] test-api: Starting V4 API test...');
 
-  const token = await authenticateV4();
-  if (!token) {
-    return new Response(JSON.stringify({ error: 'V4 OAuth2 authentication failed' }), {
-      status: 502,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+  // Token cache for test-api
+  const tokenCache = new Map<string, string | null>();
+  async function getTestToken(creds: any): Promise<string | null> {
+    const key = creds?.client_id || '__global__';
+    if (tokenCache.has(key)) return tokenCache.get(key)!;
+    const t = await authenticateV4(creds?.client_id, creds?.client_secret);
+    tokenCache.set(key, t);
+    return t;
   }
 
   // Get all active QU integrations
@@ -1234,18 +1248,25 @@ async function handleTestApi(supabase: any): Promise<Response> {
   }
 
   const todayStr = getDateStringForTimezone(new Date(), 'America/Los_Angeles');
-  const headers = getV4Headers(token);
   const locationResults: any[] = [];
 
   for (const integration of integrations) {
     const locationName = (integration.locations as any)?.name || 'Unknown';
-    const credentials = integration.credentials as { location_id?: string };
+    const credentials = integration.credentials as { location_id?: string; client_id?: string; client_secret?: string };
     const qbLocationId = credentials?.location_id || '';
 
     if (!qbLocationId) {
       locationResults.push({ location: locationName, status: 'missing_qb_location_id' });
       continue;
     }
+
+    const token = await getTestToken(credentials);
+    if (!token) {
+      locationResults.push({ location: locationName, status: 'auth_failed' });
+      continue;
+    }
+
+    const headers = getV4Headers(token);
 
     console.log(`[test-api] Testing ${locationName} (QB: ${qbLocationId})...`);
 
