@@ -164,20 +164,19 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
             <Layers className="h-4 w-4" />
             <h3 className="font-semibold text-sm">Recipe Catalog</h3>
-           <div className="ml-auto flex items-center rounded-lg border border-border bg-muted/50 p-0.5 gap-0">
-              <span className="px-2 py-1 text-[10px] font-medium text-muted-foreground tabular-nums">
-                {blueprints.length}
-              </span>
-              {totalMIs > 0 && (
-                <button
-                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
-                  disabled
-                >
-                  <Link2 className="h-3 w-3" />
-                  {mappedMIs}/{totalMIs}
-                </button>
-              )}
-              <div className="w-px h-4 bg-border" />
+            <Badge variant="secondary" className="ml-auto text-xs tabular-nums">
+              {blueprints.length} recipes
+            </Badge>
+            {totalMIs > 0 && (
+              <Badge
+                variant={mappedMIs === totalMIs ? "default" : "outline"}
+                className="text-[10px] gap-1 tabular-nums"
+              >
+                <Link2 className="h-3 w-3" />
+                {mappedMIs}/{totalMIs} POS
+              </Badge>
+            )}
+            <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
               <button
                 className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
                 onClick={() => {
