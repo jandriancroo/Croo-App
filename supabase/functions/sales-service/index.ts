@@ -109,8 +109,7 @@ function getV4Headers(accessToken: string): Record<string, string> {
   };
 }
 
-// Legacy wrapper — allows existing callers (backfill, sync-day, etc.) to work without signature changes
-// Now supports per-location credentials from the credentials JSON
+// Legacy wrapper — passes full credentials object to authenticateV4
 async function getOrRefreshToken(
   _supabase: any,
   _integrationId: string,
@@ -118,7 +117,7 @@ async function getOrRefreshToken(
   _password: string,
   credentials?: any
 ): Promise<string | null> {
-  return await authenticateV4(credentials?.client_id, credentials?.client_secret);
+  return await authenticateV4(credentials);
 }
 
 function convertTo24Hour(time12h: string): string {
