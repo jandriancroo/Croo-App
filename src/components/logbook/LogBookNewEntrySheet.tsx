@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { CalendarIcon, Paperclip, Plus, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
 import { Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { DrawerCountForm } from "@/components/logbook/DrawerCountForm";
+import { DrawerCountForm, type PriorPull } from "@/components/logbook/DrawerCountForm";
 import { SafeCountForm } from "@/components/logbook/SafeCountForm";
 import { BankDepositForm } from "@/components/logbook/BankDepositForm";
 import { EmployeeWriteUpForm } from "@/components/logbook/EmployeeWriteUpForm";
@@ -365,6 +365,16 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
             existingData={entry?.logbook_entry_values?.[0]?.value_text ? JSON.parse(entry.logbook_entry_values[0].value_text) : null}
             entryCount={drawerCountEntries.length}
             drawerBank={locationSettings?.drawer_bank ?? 200}
+            priorPulls={drawerCountEntries.map((e: any) => {
+              try {
+                const parsed = JSON.parse(e.logbook_entry_values?.[0]?.value_text || '{}');
+                return {
+                  amount: parsed.actualDeposit || 0,
+                  time: e.created_at,
+                  createdBy: e.profiles?.full_name,
+                } as PriorPull;
+              } catch { return null; }
+            }).filter(Boolean) as PriorPull[]}
           />
         </div>
       );
