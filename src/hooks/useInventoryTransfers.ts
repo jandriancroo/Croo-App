@@ -205,7 +205,7 @@ export function getTransferTotalsForPeriod(
 
   const sumValue = (list: Transfer[]) =>
     list.reduce((total, t) => {
-      const items = t.inventory_transfer_items || t.items || [];
+      const items = (t as any).inventory_transfer_items || t.items || [];
       return total + (items as any[]).reduce((s: number, item: any) => {
         return s + (Number(item.quantity) * Number(item.cost_per_unit || 0));
       }, 0);

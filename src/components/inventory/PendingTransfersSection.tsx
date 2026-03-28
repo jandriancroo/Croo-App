@@ -59,7 +59,7 @@ export default function PendingTransfersSection({ locationId }: PendingTransfers
 
               {/* Items list */}
               <div className="space-y-1">
-                {(transfer.inventory_transfer_items || []).map((item: any) => (
+                {((transfer as any).inventory_transfer_items || []).map((item: any) => (
                   <div key={item.id} className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{item.item_id.slice(0, 8)}...</span>
                     <span className="font-medium">

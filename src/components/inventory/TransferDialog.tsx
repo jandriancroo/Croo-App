@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useInventoryTransfers, TransferItem } from "@/hooks/useInventoryTransfers";
-import { useLocationContext } from "@/hooks/useLocation";
+import { useLocation } from "@/hooks/useLocation";
 import { Textarea } from "@/components/ui/textarea";
 
 interface TransferDialogProps {
