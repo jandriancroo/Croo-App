@@ -160,7 +160,6 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
   return (
     <>
       <Card>
-        <CardContent className="p-0">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
             <Layers className="h-4 w-4" />
             <h3 className="font-semibold text-sm">Recipe Catalog</h3>
