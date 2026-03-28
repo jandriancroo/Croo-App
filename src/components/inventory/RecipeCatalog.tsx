@@ -232,14 +232,13 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
             ))}
 
             {!reassignMode && (
-              <>
-                <PrepRecipesSection locationId={locationId} />
-                <IngredientsSection locationId={locationId} />
-              </>
+              <IngredientsSection locationId={locationId} />
             )}
           </div>
         </CardContent>
       </Card>
+
+      {!reassignMode && <PrepRecipesSection locationId={locationId} />}
 
       {reassignMode && selectedIds.size > 0 && (
         <BulkReassignBar

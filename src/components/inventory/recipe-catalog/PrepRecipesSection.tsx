@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { FlaskConical, Plus, Trash2, Pencil, X, MapPin, Package, Loader2 } from "lucide-react";
+import { FlaskConical, Plus, Trash2, Pencil, X, MapPin, Package, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { fetchBlueprintCosts } from "@/utils/blueprintCostCalculation";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
@@ -271,79 +273,88 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
 
   return (
     <>
-      <div className="px-2 pb-2 space-y-3">
-        <div className="flex items-center gap-2 font-semibold text-sm px-2 pt-3">
-          <FlaskConical className="h-4 w-4" />
-          Prep Recipes
-          <Badge variant="secondary" className="text-xs">{allRecipes.length}</Badge>
-          <div className="ml-auto flex items-center gap-1">
-            {purgeMode ? (
-              <>
-                <Button variant="ghost" size="sm" className="h-7 text-xs"
-                  onClick={() => {
-                    const r365Ids = allRecipes.filter(r => r.source === "r365_import").map(r => r.id);
-                    setPurgeSelection(new Set(r365Ids));
-                  }}>Select R365</Button>
-                <Button variant="ghost" size="sm" className="h-7 text-xs"
-                  onClick={() => { setPurgeMode(false); setPurgeSelection(new Set()); }}>Cancel</Button>
-              </>
-            ) : (
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPurgeMode(true)} title="Bulk remove recipes">
-                <Trash2 className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-6 w-6"
-              onClick={() => { setEditRecipeId(null); setEditBlueprintId(null); setShowRecipeDialog(true); }}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {allRecipes.length === 0 ? (
-          <p className="text-sm text-muted-foreground px-2">No prep recipes yet. Tap + to create one.</p>
-        ) : (
-          <>
-            {storageLocations?.map(loc => {
-              const locRecipes = byLocation.get(loc.id);
-              if (!locRecipes || locRecipes.length === 0) return null;
-              return (
-                <div key={loc.id}>
-                  <h4 className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5 px-2">
-                    <MapPin className="h-3 w-3" />{loc.name}
-                    <span className="text-muted-foreground/60">({locRecipes.length})</span>
-                  </h4>
-                  <div className="grid gap-1">{locRecipes.map(renderRecipeRow)}</div>
-                </div>
-              );
-            })}
-            {unassigned.length > 0 && (
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5 px-2">
-                  <Package className="h-3 w-3" />Unassigned
-                  <span className="text-muted-foreground/60">({unassigned.length})</span>
-                </h4>
-                <div className="grid gap-1">{unassigned.map(renderRecipeRow)}</div>
-              </div>
-            )}
-            {purgeMode && purgeSelection.size > 0 && (
-              <div className="flex items-center justify-between p-2 bg-destructive/10 border border-destructive/20 rounded-md">
-                <span className="text-xs font-medium text-destructive">{purgeSelection.size} selected for removal</span>
-                <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={handlePurgeSelected} disabled={isPurging}>
-                  {isPurging ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}Remove
+    <Card>
+      <Collapsible defaultOpen={false}>
+        <CollapsibleTrigger asChild>
+          <button className="flex items-center gap-2 w-full px-4 py-3 text-left border-b border-border hover:bg-muted/30 transition-colors">
+            <FlaskConical className="h-4 w-4" />
+            <span className="font-semibold text-sm">Prep Recipes</span>
+            <Badge variant="secondary" className="text-xs">{allRecipes.length}</Badge>
+            <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="p-2 space-y-3">
+            <div className="flex items-center justify-end gap-1 px-2 pt-1">
+              {purgeMode ? (
+                <>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs"
+                    onClick={() => {
+                      const r365Ids = allRecipes.filter(r => r.source === "r365_import").map(r => r.id);
+                      setPurgeSelection(new Set(r365Ids));
+                    }}>Select R365</Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs"
+                    onClick={() => { setPurgeMode(false); setPurgeSelection(new Set()); }}>Cancel</Button>
+                </>
+              ) : (
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPurgeMode(true)} title="Bulk remove recipes">
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
                 </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              )}
+              <Button variant="ghost" size="icon" className="h-6 w-6"
+                onClick={() => { setEditRecipeId(null); setEditBlueprintId(null); setShowRecipeDialog(true); }}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
 
-      <RecipeBuilderDialog
-        open={showRecipeDialog}
-        onOpenChange={setShowRecipeDialog}
-        locationId={locationId}
-        editRecipeId={editRecipeId}
-        editBlueprintId={editBlueprintId}
-      />
+            {allRecipes.length === 0 ? (
+              <p className="text-sm text-muted-foreground px-2">No prep recipes yet. Tap + to create one.</p>
+            ) : (
+              <>
+                {storageLocations?.map(loc => {
+                  const locRecipes = byLocation.get(loc.id);
+                  if (!locRecipes || locRecipes.length === 0) return null;
+                  return (
+                    <div key={loc.id}>
+                      <h4 className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5 px-2">
+                        <MapPin className="h-3 w-3" />{loc.name}
+                        <span className="text-muted-foreground/60">({locRecipes.length})</span>
+                      </h4>
+                      <div className="grid gap-1">{locRecipes.map(renderRecipeRow)}</div>
+                    </div>
+                  );
+                })}
+                {unassigned.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5 px-2">
+                      <Package className="h-3 w-3" />Unassigned
+                      <span className="text-muted-foreground/60">({unassigned.length})</span>
+                    </h4>
+                    <div className="grid gap-1">{unassigned.map(renderRecipeRow)}</div>
+                  </div>
+                )}
+                {purgeMode && purgeSelection.size > 0 && (
+                  <div className="flex items-center justify-between p-2 bg-destructive/10 border border-destructive/20 rounded-md">
+                    <span className="text-xs font-medium text-destructive">{purgeSelection.size} selected for removal</span>
+                    <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={handlePurgeSelected} disabled={isPurging}>
+                      {isPurging ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}Remove
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+
+    <RecipeBuilderDialog
+      open={showRecipeDialog}
+      onOpenChange={setShowRecipeDialog}
+      locationId={locationId}
+      editRecipeId={editRecipeId}
+      editBlueprintId={editBlueprintId}
+    />
     </>
   );
 };
