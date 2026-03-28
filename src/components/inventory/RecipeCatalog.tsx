@@ -2,10 +2,11 @@ import { useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck, Link2, Plus } from "lucide-react";
+import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck, Link2, Plus, ChevronDown } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
@@ -160,80 +161,88 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
   return (
     <>
       <Card>
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-          <Layers className="h-4 w-4" />
-          <h3 className="font-semibold text-sm">Recipe Catalog</h3>
-          <Badge variant="secondary" className="text-xs tabular-nums">
-            {blueprints.length} recipes
-          </Badge>
-          {totalMIs > 0 && (
-            <Badge
-              variant={mappedMIs === totalMIs ? "default" : "outline"}
-              className="text-[10px] gap-1 tabular-nums"
-            >
-              <Link2 className="h-3 w-3" />
-              {mappedMIs}/{totalMIs} POS
-            </Badge>
-          )}
-          <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5 ml-auto">
-            <button
-              className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-              onClick={() => {
-                setEditBlueprintId(null);
-                setShowBuilderDialog(true);
-              }}
-            >
-              <Plus className="h-3 w-3" />
-              New
-            </button>
-            <button
-              className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-              onClick={() => navigate(`/inventory/${locationId}/triage`)}
-            >
-              <ClipboardCheck className="h-3 w-3" />
-              Triage
-            </button>
-            <button
-              className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
-                reassignMode
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/80"
-              }`}
-              onClick={() => {
-                setReassignMode(!reassignMode);
-                if (reassignMode) setSelectedIds(new Set());
-              }}
-            >
-              <ArrowRightLeft className="h-3 w-3" />
-              {reassignMode ? "Cancel" : "Reassign"}
-            </button>
+        <Collapsible defaultOpen={true}>
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+            <CollapsibleTrigger asChild>
+              <button className="flex items-center gap-2 text-left hover:bg-muted/30 transition-colors flex-1">
+                <Layers className="h-4 w-4" />
+                <span className="font-semibold text-sm">Recipe Catalog</span>
+                <Badge variant="secondary" className="text-xs tabular-nums">
+                  {blueprints.length} recipes
+                </Badge>
+                {totalMIs > 0 && (
+                  <Badge
+                    variant={mappedMIs === totalMIs ? "default" : "outline"}
+                    className="text-[10px] gap-1 tabular-nums"
+                  >
+                    <Link2 className="h-3 w-3" />
+                    {mappedMIs}/{totalMIs} POS
+                  </Badge>
+                )}
+                <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+              </button>
+            </CollapsibleTrigger>
+            <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5">
+              <button
+                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                onClick={() => {
+                  setEditBlueprintId(null);
+                  setShowBuilderDialog(true);
+                }}
+              >
+                <Plus className="h-3 w-3" />
+                New
+              </button>
+              <button
+                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                onClick={() => navigate(`/inventory/${locationId}/triage`)}
+              >
+                <ClipboardCheck className="h-3 w-3" />
+                Triage
+              </button>
+              <button
+                className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
+                  reassignMode
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/80"
+                }`}
+                onClick={() => {
+                  setReassignMode(!reassignMode);
+                  if (reassignMode) setSelectedIds(new Set());
+                }}
+              >
+                <ArrowRightLeft className="h-3 w-3" />
+                {reassignMode ? "Cancel" : "Reassign"}
+              </button>
+            </div>
           </div>
-        </div>
+          <CollapsibleContent>
+            <div className="divide-y divide-border">
+              {sections.map((section, i) => (
+                <CatalogSectionComponent
+                  key={section.key}
+                  section={section}
+                  defaultOpen={i === 0}
+                  locationId={locationId}
+                  onEditRecipe={reassignMode ? undefined : handleEditRecipe}
+                  reassignMode={reassignMode}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  posMappings={posMap.mappedBlueprints}
+                  posItems={posMap.posItems}
+                  onPosLink={posMap.linkBlueprint}
+                  onPosUnlink={posMap.unlinkBlueprint}
+                  onUpdateMappingMeta={posMap.updateMappingMeta}
+                  isPosLinking={posMap.isLinking}
+                />
+              ))}
 
-        <div className="divide-y divide-border">
-          {sections.map((section, i) => (
-            <CatalogSectionComponent
-              key={section.key}
-              section={section}
-              defaultOpen={i === 0}
-              locationId={locationId}
-              onEditRecipe={reassignMode ? undefined : handleEditRecipe}
-              reassignMode={reassignMode}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelect}
-              posMappings={posMap.mappedBlueprints}
-              posItems={posMap.posItems}
-              onPosLink={posMap.linkBlueprint}
-              onPosUnlink={posMap.unlinkBlueprint}
-              onUpdateMappingMeta={posMap.updateMappingMeta}
-              isPosLinking={posMap.isLinking}
-            />
-          ))}
-
-          {!reassignMode && (
-            <IngredientsSection locationId={locationId} />
-          )}
-        </div>
+              {!reassignMode && (
+                <IngredientsSection locationId={locationId} />
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {!reassignMode && <PrepRecipesSection locationId={locationId} />}
