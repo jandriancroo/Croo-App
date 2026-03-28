@@ -58,10 +58,10 @@ function isWithinBusinessHours(
 // V4 OAuth2 Authentication (replaces legacy scraping auth)
 // ============================================================================
 
-async function authenticateV4(clientId?: string, clientSecret?: string): Promise<string | null> {
-  // Use per-location creds if provided, fall back to global env vars
-  const cid = clientId || Deno.env.get('QU_USERNAME');
-  const csec = clientSecret || Deno.env.get('QU_PASSWORD');
+async function authenticateV4(credentials?: { client_id?: string; client_secret?: string; username?: string; password?: string }): Promise<string | null> {
+  // Priority: per-location client_id/secret → per-location username/password → global env vars
+  const cid = credentials?.client_id || credentials?.username || Deno.env.get('QU_USERNAME');
+  const csec = credentials?.client_secret || credentials?.password || Deno.env.get('QU_PASSWORD');
 
   if (!cid || !csec) {
     console.error('[sales-service] Missing QU credentials (no per-location or global env vars)');
@@ -92,7 +92,7 @@ async function authenticateV4(clientId?: string, clientSecret?: string): Promise
       return null;
     }
 
-    console.log('[sales-service] V4 OAuth2 auth OK');
+    console.log(`[sales-service] V4 OAuth2 auth OK (user: ${cid})`);
     return token;
   } catch (error) {
     console.error('[sales-service] V4 OAuth2 error:', error);
