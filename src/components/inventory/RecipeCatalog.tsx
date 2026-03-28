@@ -176,8 +176,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 {mappedMIs}/{totalMIs} POS
               </Badge>
             )}
-            <div className="ml-auto" />
-            <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5">
+            <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5 ml-auto">
               <button
                 className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
                 onClick={() => {
