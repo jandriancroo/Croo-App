@@ -51,17 +51,26 @@ export const useInventoryTransfers = (locationId: string | undefined) => {
 
       const locationIds = [...new Set(data.flatMap(t => [t.from_location_id, t.to_location_id]))];
       const profileIds = [...new Set(data.map(t => t.transferred_by).filter(Boolean))];
+      const itemIds = [...new Set(data.flatMap(t => (t.inventory_transfer_items || []).map((i: any) => i.item_id)))];
 
-      const [locResult, profileResult] = await Promise.all([
+      const [locResult, profileResult, itemResult] = await Promise.all([
         supabase.from("locations").select("id, name").in("id", locationIds),
         supabase.from("profiles").select("id, full_name").in("id", profileIds),
+        itemIds.length > 0
+          ? supabase.from("inventory_items").select("id, name, common_name").in("id", itemIds)
+          : { data: [] },
       ]);
 
       const locMap = new Map((locResult.data || []).map(l => [l.id, l.name]));
       const profileMap = new Map((profileResult.data || []).map(p => [p.id, p.full_name]));
+      const itemMap = new Map(((itemResult as any).data || []).map((i: any) => [i.id, i.common_name || i.name]));
 
       return data.map(t => ({
         ...t,
+        inventory_transfer_items: (t.inventory_transfer_items || []).map((ti: any) => ({
+          ...ti,
+          item_name: itemMap.get(ti.item_id) || "Unknown Item",
+        })),
         from_location: { name: locMap.get(t.from_location_id) || "Unknown" },
         to_location: { name: locMap.get(t.to_location_id) || "Unknown" },
         transferred_by_profile: { full_name: profileMap.get(t.transferred_by) || "Unknown" },
