@@ -214,6 +214,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
   const [isCopying, setIsCopying] = useState(false);
   const [targetExistingCategories, setTargetExistingCategories] = useState<string[]>([]);
   const [copyCategoryDialogOpen, setCopyCategoryDialogOpen] = useState(false);
+  const [copyAllMode, setCopyAllMode] = useState(false);
   const [categoryToCopy, setCategoryToCopy] = useState<any>(null);
   const [safeTarget, setSafeTarget] = useState<number>(300);
   const [drawerBank, setDrawerBank] = useState<number>(200);
@@ -942,7 +943,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
               </div>
             )}
 
-            {/* Create New Category */}
+            {/* Create New Category + Copy All */}
             <div className="flex gap-2">
               <Input
                 placeholder="New category name..."
@@ -954,6 +955,16 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                 <Plus className="h-4 w-4 mr-2" />
                 Add
               </Button>
+              {displayCategories.length > 0 && (
+                <Button variant="outline" onClick={() => {
+                  setCopyAllMode(true);
+                  setCategoryToCopy(null);
+                  setCopyCategoryDialogOpen(true);
+                }}>
+                  <Copy className="h-4 w-4 mr-1" />
+                  Copy All
+                </Button>
+              )}
             </div>
 
             {/* Categories List with Drag & Drop */}
