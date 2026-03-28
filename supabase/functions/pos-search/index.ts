@@ -7,15 +7,30 @@ const corsHeaders = {
 };
 
 async function authenticateV4(credentials?: { client_id?: string; client_secret?: string; username?: string; password?: string }): Promise<string | null> {
-  // Priority: per-location client_id/secret → per-location username/password → global env vars
-  const cid = credentials?.client_id || credentials?.username || Deno.env.get("QU_USERNAME");
-  const csec = credentials?.client_secret || credentials?.password || Deno.env.get("QU_PASSWORD");
-  if (!cid || !csec) return null;
+  const hasApiKeys = !!(credentials?.client_id && credentials?.client_secret);
+  const hasPortalCreds = !!(credentials?.username && credentials?.password);
+  const hasGlobalEnv = !!(Deno.env.get("QU_USERNAME") && Deno.env.get("QU_PASSWORD"));
 
-  const formData = new FormData();
-  formData.append("grant_type", "client_credentials");
-  formData.append("client_id", cid);
-  formData.append("client_secret", csec);
+  let formData: FormData;
+
+  if (hasApiKeys) {
+    formData = new FormData();
+    formData.append("grant_type", "client_credentials");
+    formData.append("client_id", credentials!.client_id!);
+    formData.append("client_secret", credentials!.client_secret!);
+  } else if (hasPortalCreds) {
+    formData = new FormData();
+    formData.append("grant_type", "password");
+    formData.append("username", credentials!.username!);
+    formData.append("password", credentials!.password!);
+  } else if (hasGlobalEnv) {
+    formData = new FormData();
+    formData.append("grant_type", "client_credentials");
+    formData.append("client_id", Deno.env.get("QU_USERNAME")!);
+    formData.append("client_secret", Deno.env.get("QU_PASSWORD")!);
+  } else {
+    return null;
+  }
 
   const response = await fetch(
     "https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token",
