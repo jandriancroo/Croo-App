@@ -62,16 +62,18 @@ export default function TransferDialog({ open, onClose, locationId }: TransferDi
 
   const addItem = (item: typeof inventoryItems[0]) => {
     if (items.find(i => i.item_id === item.id)) return;
-    const cost = item.blended_price ?? item.cost_per_unit ?? 0;
+    // Match counter logic exactly: cost_per_unit = case cost, pack_quantity = units per case
+    const caseCost = Number(item.cost_per_unit || 0);
+    const packQty = item.pack_quantity || 1;
     setItems(prev => [
       ...prev,
       {
         item_id: item.id,
         quantity: 1,
         unit_type: "case" as const,
-        cost_per_unit: Number(cost),
+        cost_per_unit: caseCost,  // stored as case-level cost, same as DB
         name: item.common_name || item.name,
-        packQty: item.count_units_per_case || item.pack_quantity || 1,
+        packQty,
       },
     ]);
     setSearch("");
@@ -107,12 +109,13 @@ export default function TransferDialog({ open, onClose, locationId }: TransferDi
   };
 
   const totalCost = items.reduce((sum, item) => {
-    // cost_per_unit is the case-level cost from the DB (blended_price or cost_per_unit)
-    // For cases: qty * case cost. For units: qty * (case cost / packQty)
-    const unitCost = item.unit_type === "case" 
-      ? (item.cost_per_unit || 0) 
-      : (item.cost_per_unit || 0) / Math.max(item.packQty, 1);
-    return sum + item.quantity * unitCost;
+    // Matches counter: costPerCase / packQty = costPerUnit
+    const costPerCase = item.cost_per_unit || 0;
+    const packQty = Math.max(item.packQty, 1);
+    const costPerEach = costPerCase / packQty;
+    // Cases = qty * packQty units, Units = qty units
+    const totalUnits = item.unit_type === "case" ? item.quantity * packQty : item.quantity;
+    return sum + totalUnits * costPerEach;
   }, 0);
 
   return (
