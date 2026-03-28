@@ -281,6 +281,13 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
             </button>
           </CollapsibleTrigger>
           <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5">
+            <button
+              className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+              onClick={() => { setEditRecipeId(null); setEditBlueprintId(null); setShowRecipeDialog(true); }}
+            >
+              <Plus className="h-3 w-3" />
+              New
+            </button>
             {purgeMode ? (
               <>
                 <button
@@ -299,19 +306,11 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
               <button
                 className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
                 onClick={() => setPurgeMode(true)}
-                title="Bulk remove recipes"
               >
                 <Trash2 className="h-3 w-3" />
-                Purge
+                Delete
               </button>
             )}
-            <button
-              className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-              onClick={() => { setEditRecipeId(null); setEditBlueprintId(null); setShowRecipeDialog(true); }}
-            >
-              <Plus className="h-3 w-3" />
-              New
-            </button>
           </div>
         </div>
         <CollapsibleContent>
