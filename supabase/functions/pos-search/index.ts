@@ -6,15 +6,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function authenticateV4(): Promise<string | null> {
-  const clientId = Deno.env.get("QU_USERNAME");
-  const clientSecret = Deno.env.get("QU_PASSWORD");
-  if (!clientId || !clientSecret) return null;
+async function authenticateV4(clientId?: string, clientSecret?: string): Promise<string | null> {
+  // Use per-location creds if provided, fall back to global env vars
+  const cid = clientId || Deno.env.get("QU_USERNAME");
+  const csec = clientSecret || Deno.env.get("QU_PASSWORD");
+  if (!cid || !csec) return null;
 
   const formData = new FormData();
   formData.append("grant_type", "client_credentials");
-  formData.append("client_id", clientId);
-  formData.append("client_secret", clientSecret);
+  formData.append("client_id", cid);
+  formData.append("client_secret", csec);
 
   const response = await fetch(
     "https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token",
@@ -78,7 +79,8 @@ serve(async (req) => {
       );
     }
 
-    const token = await authenticateV4();
+    // Use per-location QU credentials if available, otherwise fall back to global
+    const token = await authenticateV4(creds?.client_id, creds?.client_secret);
     if (!token) {
       return new Response(
         JSON.stringify({ error: "QU authentication failed" }),
