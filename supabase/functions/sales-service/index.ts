@@ -696,7 +696,7 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] backfill: ${locationId}, daysBack=${daysBack}`);
 
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password, credentials);
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
@@ -826,7 +826,7 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] sync-day: ${locationId} ${date}, QB location=${qbLocationId}`);
 
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password, credentials);
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
@@ -919,7 +919,7 @@ async function handleSyncYesterday(supabase: any): Promise<Response> {
     console.log(`[sales-service] sync-yesterday: ${locationName} syncing ${yesterdayStr}`);
 
     try {
-      const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+      const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password, credentials);
       if (!tokenGw) {
         results.push({ locationId, name: locationName, status: 'auth_failed' });
         continue;
@@ -993,17 +993,17 @@ async function handleSyncDates(req: Request, supabase: any): Promise<Response> {
   }
 
   const locationName = (integration.locations as any)?.name || 'Unknown';
-  const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+  const credentials = integration.credentials as any;
   const qbLocationId = credentials?.location_id || '';
 
-  if (!qbLocationId || !credentials?.username || !credentials?.password) {
-    return new Response(JSON.stringify({ error: 'Missing credentials' }), {
+  if (!qbLocationId) {
+    return new Response(JSON.stringify({ error: 'Missing QU location_id in credentials' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password, credentials);
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
@@ -1144,7 +1144,7 @@ async function handleSyncTips(req: Request, supabase: any) {
   }
 
   const creds = integration.credentials as any;
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, creds.username, creds.password);
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, creds.username, creds.password, creds);
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'Authentication failed' }), {
       status: 500,
