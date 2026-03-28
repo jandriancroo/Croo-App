@@ -271,37 +271,51 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
     <>
     <Card>
       <Collapsible defaultOpen={false}>
-        <CollapsibleTrigger asChild>
-          <button className="flex items-center gap-2 w-full px-4 py-3 text-left border-b border-border hover:bg-muted/30 transition-colors">
-            <FlaskConical className="h-4 w-4" />
-            <span className="font-semibold text-sm">Prep Recipes</span>
-            <Badge variant="secondary" className="text-xs">{allRecipes.length}</Badge>
-            <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-          </button>
-        </CollapsibleTrigger>
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-left hover:bg-muted/30 transition-colors flex-1">
+              <FlaskConical className="h-4 w-4" />
+              <span className="font-semibold text-sm">Prep Recipes</span>
+              <Badge variant="secondary" className="text-xs">{allRecipes.length}</Badge>
+              <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+            </button>
+          </CollapsibleTrigger>
+          <div className="flex items-center gap-0.5">
+            {purgeMode ? (
+              <>
+                <button
+                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                  onClick={() => {
+                    const r365Ids = allRecipes.filter(r => r.source === "r365_import").map(r => r.id);
+                    setPurgeSelection(new Set(r365Ids));
+                  }}
+                >Select R365</button>
+                <button
+                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                  onClick={() => { setPurgeMode(false); setPurgeSelection(new Set()); }}
+                >Cancel</button>
+              </>
+            ) : (
+              <button
+                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                onClick={() => setPurgeMode(true)}
+                title="Bulk remove recipes"
+              >
+                <Trash2 className="h-3 w-3" />
+                Purge
+              </button>
+            )}
+            <button
+              className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+              onClick={() => { setEditRecipeId(null); setEditBlueprintId(null); setShowRecipeDialog(true); }}
+            >
+              <Plus className="h-3 w-3" />
+              New
+            </button>
+          </div>
+        </div>
         <CollapsibleContent>
           <CardContent className="p-2 space-y-3">
-            <div className="flex items-center justify-end gap-1 px-2 pt-1">
-              {purgeMode ? (
-                <>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs"
-                    onClick={() => {
-                      const r365Ids = allRecipes.filter(r => r.source === "r365_import").map(r => r.id);
-                      setPurgeSelection(new Set(r365Ids));
-                    }}>Select R365</Button>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs"
-                    onClick={() => { setPurgeMode(false); setPurgeSelection(new Set()); }}>Cancel</Button>
-                </>
-              ) : (
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPurgeMode(true)} title="Bulk remove recipes">
-                  <Trash2 className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" className="h-6 w-6"
-                onClick={() => { setEditRecipeId(null); setEditBlueprintId(null); setShowRecipeDialog(true); }}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
 
             {allRecipes.length === 0 ? (
               <p className="text-sm text-muted-foreground px-2">No prep recipes yet. Tap + to create one.</p>
