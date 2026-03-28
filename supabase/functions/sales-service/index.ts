@@ -59,44 +59,21 @@ function isWithinBusinessHours(
 // ============================================================================
 
 async function authenticateV4(credentials?: { client_id?: string; client_secret?: string; username?: string; password?: string }): Promise<string | null> {
-  // Determine auth mode: official API (client_credentials) vs portal login (password grant)
-  const hasApiKeys = !!(credentials?.client_id && credentials?.client_secret);
-  const hasPortalCreds = !!(credentials?.username && credentials?.password);
-  const hasGlobalEnv = !!(Deno.env.get('QU_USERNAME') && Deno.env.get('QU_PASSWORD'));
+  // All QU auth uses client_credentials grant — portal username/password map to client_id/client_secret
+  const cid = credentials?.client_id || credentials?.username || Deno.env.get('QU_USERNAME');
+  const csec = credentials?.client_secret || credentials?.password || Deno.env.get('QU_PASSWORD');
 
-  let grantType: string;
-  let formData: FormData;
-
-  if (hasApiKeys) {
-    // Official V4 API — client_credentials grant
-    grantType = 'client_credentials';
-    formData = new FormData();
-    formData.append('grant_type', 'client_credentials');
-    formData.append('client_id', credentials!.client_id!);
-    formData.append('client_secret', credentials!.client_secret!);
-    console.log(`[sales-service] Using client_credentials grant (client_id: ${credentials!.client_id})`);
-  } else if (hasPortalCreds) {
-    // Legacy portal login — password grant (ROPC)
-    grantType = 'password';
-    formData = new FormData();
-    formData.append('grant_type', 'password');
-    formData.append('username', credentials!.username!);
-    formData.append('password', credentials!.password!);
-    console.log(`[sales-service] Using password grant (username: ${credentials!.username})`);
-  } else if (hasGlobalEnv) {
-    // Fallback to global env vars — official V4 API
-    grantType = 'client_credentials';
-    formData = new FormData();
-    formData.append('grant_type', 'client_credentials');
-    formData.append('client_id', Deno.env.get('QU_USERNAME')!);
-    formData.append('client_secret', Deno.env.get('QU_PASSWORD')!);
-    console.log('[sales-service] Using global env client_credentials grant');
-  } else {
+  if (!cid || !csec) {
     console.error('[sales-service] Missing QU credentials (no per-location or global env vars)');
     return null;
   }
 
   try {
+    const formData = new FormData();
+    formData.append('grant_type', 'client_credentials');
+    formData.append('client_id', cid);
+    formData.append('client_secret', csec);
+
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token', {
       method: 'POST',
       body: formData,
@@ -104,7 +81,7 @@ async function authenticateV4(credentials?: { client_id?: string; client_secret?
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      console.error(`[sales-service] V4 OAuth2 auth failed (${grantType}, ${response.status}): ${text.substring(0, 200)}`);
+      console.error(`[sales-service] V4 OAuth2 auth failed (${response.status}): ${text.substring(0, 200)}`);
       return null;
     }
 
@@ -115,7 +92,7 @@ async function authenticateV4(credentials?: { client_id?: string; client_secret?
       return null;
     }
 
-    console.log(`[sales-service] V4 OAuth2 auth OK (grant: ${grantType})`);
+    console.log(`[sales-service] V4 OAuth2 auth OK (user: ${cid})`);
     return token;
   } catch (error) {
     console.error('[sales-service] V4 OAuth2 error:', error);
