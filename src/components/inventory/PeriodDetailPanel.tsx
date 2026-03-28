@@ -50,8 +50,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
   const hasCountedItems = (_stats.countedItems || 0) > 0;
   const isUpcoming = !!count._isUpcoming || (count.status === "in_progress" && !hasCountedItems);
   const [showPurchases, setShowPurchases] = useState(false);
-  const [showTransfersIn, setShowTransfersIn] = useState(false);
-  const [showTransfersOut, setShowTransfersOut] = useState(false);
   const { getTodayInTimezone } = useLocationTimezone();
   const todayStr = getTodayInTimezone();
   const { transfers } = useInventoryTransfers(locationId);
