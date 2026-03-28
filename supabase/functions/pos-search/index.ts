@@ -6,10 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function authenticateV4(clientId?: string, clientSecret?: string): Promise<string | null> {
-  // Use per-location creds if provided, fall back to global env vars
-  const cid = clientId || Deno.env.get("QU_USERNAME");
-  const csec = clientSecret || Deno.env.get("QU_PASSWORD");
+async function authenticateV4(credentials?: { client_id?: string; client_secret?: string; username?: string; password?: string }): Promise<string | null> {
+  // Priority: per-location client_id/secret → per-location username/password → global env vars
+  const cid = credentials?.client_id || credentials?.username || Deno.env.get("QU_USERNAME");
+  const csec = credentials?.client_secret || credentials?.password || Deno.env.get("QU_PASSWORD");
   if (!cid || !csec) return null;
 
   const formData = new FormData();
@@ -80,7 +80,7 @@ serve(async (req) => {
     }
 
     // Use per-location QU credentials if available, otherwise fall back to global
-    const token = await authenticateV4(creds?.client_id, creds?.client_secret);
+    const token = await authenticateV4(creds);
     if (!token) {
       return new Response(
         JSON.stringify({ error: "QU authentication failed" }),

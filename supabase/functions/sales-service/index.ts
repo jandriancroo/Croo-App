@@ -58,10 +58,10 @@ function isWithinBusinessHours(
 // V4 OAuth2 Authentication (replaces legacy scraping auth)
 // ============================================================================
 
-async function authenticateV4(clientId?: string, clientSecret?: string): Promise<string | null> {
-  // Use per-location creds if provided, fall back to global env vars
-  const cid = clientId || Deno.env.get('QU_USERNAME');
-  const csec = clientSecret || Deno.env.get('QU_PASSWORD');
+async function authenticateV4(credentials?: { client_id?: string; client_secret?: string; username?: string; password?: string }): Promise<string | null> {
+  // Priority: per-location client_id/secret → per-location username/password → global env vars
+  const cid = credentials?.client_id || credentials?.username || Deno.env.get('QU_USERNAME');
+  const csec = credentials?.client_secret || credentials?.password || Deno.env.get('QU_PASSWORD');
 
   if (!cid || !csec) {
     console.error('[sales-service] Missing QU credentials (no per-location or global env vars)');
@@ -92,7 +92,7 @@ async function authenticateV4(clientId?: string, clientSecret?: string): Promise
       return null;
     }
 
-    console.log('[sales-service] V4 OAuth2 auth OK');
+    console.log(`[sales-service] V4 OAuth2 auth OK (user: ${cid})`);
     return token;
   } catch (error) {
     console.error('[sales-service] V4 OAuth2 error:', error);
@@ -109,8 +109,7 @@ function getV4Headers(accessToken: string): Record<string, string> {
   };
 }
 
-// Legacy wrapper — allows existing callers (backfill, sync-day, etc.) to work without signature changes
-// Now supports per-location credentials from the credentials JSON
+// Legacy wrapper — passes full credentials object to authenticateV4
 async function getOrRefreshToken(
   _supabase: any,
   _integrationId: string,
@@ -118,7 +117,7 @@ async function getOrRefreshToken(
   _password: string,
   credentials?: any
 ): Promise<string | null> {
-  return await authenticateV4(credentials?.client_id, credentials?.client_secret);
+  return await authenticateV4(credentials);
 }
 
 function convertTo24Hour(time12h: string): string {
@@ -530,9 +529,9 @@ async function handleSyncLive(supabase: any): Promise<Response> {
   const tokenCache = new Map<string, string | null>();
 
   async function getTokenForCredentials(creds: any): Promise<string | null> {
-    const cacheKey = creds?.client_id || '__global__';
+    const cacheKey = creds?.client_id || creds?.username || '__global__';
     if (tokenCache.has(cacheKey)) return tokenCache.get(cacheKey)!;
-    const token = await authenticateV4(creds?.client_id, creds?.client_secret);
+    const token = await authenticateV4(creds);
     tokenCache.set(cacheKey, token);
     return token;
   }
@@ -1226,9 +1225,9 @@ async function handleTestApi(supabase: any): Promise<Response> {
   // Token cache for test-api
   const tokenCache = new Map<string, string | null>();
   async function getTestToken(creds: any): Promise<string | null> {
-    const key = creds?.client_id || '__global__';
+    const key = creds?.client_id || creds?.username || '__global__';
     if (tokenCache.has(key)) return tokenCache.get(key)!;
-    const t = await authenticateV4(creds?.client_id, creds?.client_secret);
+    const t = await authenticateV4(creds);
     tokenCache.set(key, t);
     return t;
   }
