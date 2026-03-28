@@ -11,10 +11,13 @@ const corsHeaders = {
 };
 
 interface QuBeyondCredentials {
-  username: string;
-  password: string;
-  location_id?: string;
+  location_id?: string | number;
   pull_labor?: boolean;
+}
+
+function getQbLocationId(credentials: QuBeyondCredentials): string {
+  if (credentials.location_id === undefined || credentials.location_id === null) return '';
+  return String(credentials.location_id).trim();
 }
 
 function decodeJwtPayload(token: string): any {
@@ -2448,7 +2451,10 @@ serve(async (req) => {
     let integration: any = null;
     
     if (testCredentials) {
-      credentials = testCredentials;
+      credentials = {
+        location_id: testCredentials.location_id,
+        pull_labor: !!testCredentials.pull_labor,
+      };
     } else if (locationId) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -2476,8 +2482,6 @@ serve(async (req) => {
       }
       
       credentials = integration.credentials as QuBeyondCredentials;
-      console.log('Loaded credentials from integration:', JSON.stringify(integration.credentials));
-      console.log('Credentials object keys:', Object.keys(integration.credentials || {}));
       
       // Fetch location hours for today's day of week
       const now = new Date();
@@ -2512,10 +2516,7 @@ serve(async (req) => {
         }
       }
     } else {
-      credentials = {
-        username: Deno.env.get('QU_USERNAME') || '',
-        password: Deno.env.get('QU_PASSWORD') || ''
-      };
+      credentials = {};
     }
 
     // V4 OAuth2 Authentication (replaces legacy scraping)
@@ -2527,9 +2528,7 @@ serve(async (req) => {
     let bearerToken: string = v4Token; // For compatibility
 
     // Handle location_id being a number or string in credentials
-    let qbLocationId = credentials.location_id?.toString() || (credentials as any)['location_id']?.toString();
-    
-    console.log('Raw credentials.location_id:', credentials.location_id, 'Type:', typeof credentials.location_id);
+    const qbLocationId = getQbLocationId(credentials);
     
     // Extract company ID from env var
     const companyId = Deno.env.get('QU_CID') || '';
