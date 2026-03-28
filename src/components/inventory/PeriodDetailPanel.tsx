@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useInventoryTransfers, getTransferTotalsForPeriod } from "@/hooks/useInventoryTransfers";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -309,6 +310,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         .lte("sale_date", periodRange.salesEndStr);
 
       const netSales = (salesRows || []).reduce((s, d) => s + (Number(d.net_sales) || 0), 0);
+      
+      // Transfers will be calculated separately and merged at render time
       const cogsTotal = beginValue + purchasesTotal - endValue;
       const cogsPct = netSales > 0 ? (cogsTotal / netSales) * 100 : 0;
 
