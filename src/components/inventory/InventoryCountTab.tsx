@@ -39,6 +39,8 @@ export default function InventoryCountTab({
   const [typeFilter, setTypeFilter] = useState<"all" | "weekly" | "monthly">("all");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const tabsRef = useRef<HTMLDivElement>(null);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const { pendingIncoming } = useInventoryTransfers(locationId);
 
   // Merge in-progress into recentCounts stats if available
   const inProgressWithStats = useMemo(() => {
@@ -122,10 +124,23 @@ export default function InventoryCountTab({
       <div className="flex items-center gap-2">
         <FilterChips typeFilter={typeFilter} setTypeFilter={setTypeFilter} />
         <div className="flex-1" />
+        <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5 relative" onClick={() => setShowTransferDialog(true)}>
+          <ArrowRightLeft className="h-3.5 w-3.5" /> Transfer
+          {pendingIncoming.length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-bold">
+              {pendingIncoming.length}
+            </span>
+          )}
+        </Button>
         <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5" onClick={onStartCount}>
           <Plus className="h-3.5 w-3.5" /> New
         </Button>
       </div>
+
+      {/* Pending incoming transfers */}
+      <PendingTransfersSection locationId={locationId} />
+
+      <TransferDialog open={showTransferDialog} onClose={() => setShowTransferDialog(false)} locationId={locationId} />
 
       {/* Notch tabs + detail panel */}
       <div>
