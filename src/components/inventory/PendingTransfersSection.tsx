@@ -61,7 +61,7 @@ export default function PendingTransfersSection({ locationId }: PendingTransfers
               <div className="space-y-1">
                 {((transfer as any).inventory_transfer_items || []).map((item: any) => (
                   <div key={item.id} className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{item.item_id.slice(0, 8)}...</span>
+                    <span className="text-foreground">{item.item_name || "Unknown"}</span>
                     <span className="font-medium">
                       {item.quantity} {item.unit_type === "case" ? "cs" : "ea"}
                     </span>
