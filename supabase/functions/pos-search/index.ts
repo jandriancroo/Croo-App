@@ -3,19 +3,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function authenticateV4(credentials?: { client_id?: string; client_secret?: string; username?: string; password?: string }): Promise<string | null> {
-  // All QU auth uses client_credentials — portal username/password map to client_id/client_secret
-  const cid = credentials?.client_id || credentials?.username || Deno.env.get("QU_USERNAME");
-  const csec = credentials?.client_secret || credentials?.password || Deno.env.get("QU_PASSWORD");
-  if (!cid || !csec) return null;
+async function authenticateV4(): Promise<string | null> {
+  const clientId = Deno.env.get("QU_USERNAME");
+  const clientSecret = Deno.env.get("QU_PASSWORD");
+  if (!clientId || !clientSecret) return null;
 
   const formData = new FormData();
   formData.append("grant_type", "client_credentials");
-  formData.append("client_id", cid);
-  formData.append("client_secret", csec);
+  formData.append("client_id", clientId);
+  formData.append("client_secret", clientSecret);
 
   const response = await fetch(
     "https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token",
@@ -79,8 +78,7 @@ serve(async (req) => {
       );
     }
 
-    // Use per-location QU credentials if available, otherwise fall back to global
-    const token = await authenticateV4(creds);
+    const token = await authenticateV4();
     if (!token) {
       return new Response(
         JSON.stringify({ error: "QU authentication failed" }),

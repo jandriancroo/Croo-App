@@ -7,7 +7,7 @@ declare const EdgeRuntime: {
 };
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 interface QuBeyondCredentials {
@@ -26,12 +26,12 @@ function decodeJwtPayload(token: string): any {
   return JSON.parse(jsonPayload);
 }
 
-// V4 OAuth2 Authentication — supports per-location credentials
-async function authenticateV4(creds?: { username?: string; password?: string; client_id?: string; client_secret?: string }): Promise<string | null> {
-  const clientId = creds?.client_id || creds?.username || Deno.env.get('QU_USERNAME');
-  const clientSecret = creds?.client_secret || creds?.password || Deno.env.get('QU_PASSWORD');
+// V4 OAuth2 Authentication
+async function authenticateV4(): Promise<string | null> {
+  const clientId = Deno.env.get('QU_USERNAME');
+  const clientSecret = Deno.env.get('QU_PASSWORD');
   if (!clientId || !clientSecret) {
-    console.error('[fetch-qubeyond] Missing QU credentials');
+    console.error('[fetch-qubeyond] Missing QU_USERNAME or QU_PASSWORD env vars');
     return null;
   }
   try {
@@ -53,7 +53,7 @@ async function authenticateV4(creds?: { username?: string; password?: string; cl
       console.error('[fetch-qubeyond] No access_token in OAuth2 response');
       return null;
     }
-    console.log(`[fetch-qubeyond] V4 OAuth2 auth OK (user: ${clientId})`);
+    console.log('[fetch-qubeyond] V4 OAuth2 auth OK');
     return data.access_token;
   } catch (error) {
     console.error('[fetch-qubeyond] V4 OAuth2 error:', error);
@@ -2519,7 +2519,7 @@ serve(async (req) => {
     }
 
     // V4 OAuth2 Authentication (replaces legacy scraping)
-    const v4Token = await authenticateV4(credentials);
+    const v4Token = await authenticateV4();
     if (!v4Token) throw new Error('V4 OAuth2 authentication failed');
     
     let tokenGw: string = v4Token;

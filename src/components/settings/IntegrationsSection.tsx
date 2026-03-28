@@ -298,7 +298,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           }
         }
       }, 2000);
-      supabase.functions.invoke('sales-service', { body: { locationId, daysBack: 365, action: 'backfill' }, headers: { 'X-Action': 'backfill' } }).then(({ error }) => {
+      supabase.functions.invoke('sales-service', { body: { locationId, daysBack: 365 }, headers: { 'X-Action': 'backfill' } }).then(({ error }) => {
         if (error) { clearInterval(pollInterval); setIsSyncing(false); toast.error("Sync failed: " + error.message); }
       });
       toast.info("Syncing 365 days of sales data...", { duration: 5000 });
