@@ -677,6 +677,17 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
     });
   }
 
+  const updateBackfillState = async (updates: Record<string, unknown>) => {
+    const { error } = await supabase
+      .from('location_integrations')
+      .update(updates)
+      .eq('id', integration.id);
+
+    if (error) {
+      console.error('[sales-service] backfill state update failed:', error);
+    }
+  };
+
   const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
   if (!credentials?.username || !credentials?.password) {
     return new Response(JSON.stringify({ error: 'Missing credentials' }), {
@@ -693,10 +704,24 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
     });
   }
 
+  await updateBackfillState({
+    backfill_status: 'running',
+    backfill_started_at: new Date().toISOString(),
+    backfill_completed_at: null,
+    backfill_days_completed: 0,
+    backfill_error: null,
+  });
+
   console.log(`[sales-service] backfill: ${locationId}, daysBack=${daysBack}`);
 
   const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password, credentials);
   if (!tokenGw) {
+    await updateBackfillState({
+      backfill_status: 'failed',
+      backfill_completed_at: new Date().toISOString(),
+      backfill_error: 'QuBeyond authentication failed',
+    });
+
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -717,27 +742,91 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
   let successCount = 0;
   let totalAttempted = 0;
 
-  for (const dateStr of dates) {
-    totalAttempted++;
-    const salesData = await fetchAllSalesData(supabase, tokenGw, dateStr, qbLocationId, locationId);
+  try {
+    for (const dateStr of dates) {
+      totalAttempted++;
+      const salesData = await fetchAllSalesData(supabase, tokenGw, dateStr, qbLocationId, locationId);
 
-    if (salesData.netSales <= 0) continue;
+      if (salesData.netSales > 0) {
+        const payload = buildUpsertPayload(locationId, dateStr, salesData);
 
-    const payload = buildUpsertPayload(locationId, dateStr, salesData);
+        const { error: upsertError } = await supabase
+          .from('sales_cache')
+          .upsert(payload, { onConflict: 'location_id,sale_date' });
 
-    const { error: upsertError } = await supabase
-      .from('sales_cache')
-      .upsert(payload, { onConflict: 'location_id,sale_date' });
+        if (!upsertError) successCount++;
+      }
 
-    if (!upsertError) successCount++;
+      if (totalAttempted % 5 === 0 || totalAttempted === dates.length) {
+        await updateBackfillState({ backfill_days_completed: totalAttempted });
+      }
+    }
+
+    const completedAt = new Date().toISOString();
+
+    if (successCount === 0) {
+      await updateBackfillState({
+        backfill_status: 'failed',
+        backfill_days_completed: totalAttempted,
+        backfill_completed_at: completedAt,
+        backfill_error: 'No sales rows returned from provider',
+      });
+
+      return new Response(
+        JSON.stringify({ status: 'failed', locationId, successCount, totalAttempted, error: 'No sales rows returned from provider' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    await updateBackfillState({
+      backfill_status: 'completed',
+      backfill_days_completed: totalAttempted,
+      backfill_completed_at: completedAt,
+      backfill_error: null,
+    });
+
+    console.log(`[sales-service] backfill OK: ${locationId} ${successCount}/${totalAttempted} days`);
+
+    return new Response(
+      JSON.stringify({ status: 'completed', locationId, successCount, totalAttempted }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  } catch (error: any) {
+    console.error('[sales-service] backfill failed:', error);
+
+    await updateBackfillState({
+      backfill_status: 'failed',
+      backfill_days_completed: totalAttempted,
+      backfill_completed_at: new Date().toISOString(),
+      backfill_error: error?.message || 'Backfill failed',
+    });
+
+    return new Response(
+      JSON.stringify({ error: error?.message || 'Backfill failed', locationId, totalAttempted }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+}
+
+async function resolveAction(req: Request, url: URL): Promise<string> {
+  const queryAction = url.searchParams.get('action');
+  if (queryAction) return queryAction;
+
+  const headerAction = req.headers.get('x-action') || req.headers.get('X-Action');
+  if (headerAction) return headerAction;
+
+  if (req.method !== 'GET' && req.method !== 'OPTIONS') {
+    try {
+      const body = await req.clone().json();
+      if (typeof body?.action === 'string' && body.action.trim().length > 0) {
+        return body.action.trim();
+      }
+    } catch {
+      // no-op: non-JSON body or empty body
+    }
   }
 
-  console.log(`[sales-service] backfill OK: ${locationId} ${successCount}/${totalAttempted} days`);
-
-  return new Response(
-    JSON.stringify({ status: 'completed', locationId, successCount, totalAttempted }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-  );
+  return 'sync-live';
 }
 
 // ============================================================================
@@ -1398,7 +1487,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const url = new URL(req.url);
-    const action = url.searchParams.get('action') || req.headers.get('x-action') || 'sync-live';
+    const action = await resolveAction(req, url);
 
     console.log(`[sales-service] Action: ${action}`);
 
