@@ -20,7 +20,7 @@ interface TransferDialogProps {
 
 export default function TransferDialog({ open, onClose, locationId }: TransferDialogProps) {
   const { user } = useAuth();
-  const { locations } = useLocationContext();
+  const { locations } = useLocation();
   const { sendTransfer } = useInventoryTransfers(locationId);
   const [toLocationId, setToLocationId] = useState<string>("");
   const [search, setSearch] = useState("");
