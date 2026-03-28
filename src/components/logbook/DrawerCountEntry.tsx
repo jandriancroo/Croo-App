@@ -122,6 +122,19 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200 }: DrawerCo
                 </div>
               )}
               
+              {(data.priorPullsTotal != null && data.priorPullsTotal > 0) && (
+                <div className="border-t pt-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground text-sm">Prior Pulls Total:</span>
+                    <span className="font-medium">{formatCurrency(data.priorPullsTotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground text-sm">Total Cash Handled:</span>
+                    <span className="font-bold">{formatCurrency(data.actualDeposit + data.priorPullsTotal)}</span>
+                  </div>
+                </div>
+              )}
+
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground text-sm">Expected (from Qu):</span>
