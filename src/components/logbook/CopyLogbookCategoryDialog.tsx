@@ -248,9 +248,9 @@ export function CopyLogbookCategoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Copy Category to Other Locations</DialogTitle>
+          <DialogTitle>Copy {allCategories.length > 1 ? 'Categories' : 'Category'} to Other Locations</DialogTitle>
           <DialogDescription>
-            Copy "{category?.name}" and its fields to other locations
+            Push {allCategories.length} categor{allCategories.length > 1 ? 'ies' : 'y'} and fields to other locations
             {!isSuperAdmin && ' in your organization'}
           </DialogDescription>
         </DialogHeader>
@@ -265,8 +265,9 @@ export function CopyLogbookCategoryDialog({
             <div className="space-y-1">
               <Label className="text-sm text-muted-foreground">Copying:</Label>
               <div className="flex flex-wrap gap-1">
-                <Badge variant="secondary">{category?.name}</Badge>
-                <Badge variant="outline">{category?.logbook_fields?.length || 0} fields</Badge>
+                {allCategories.map(cat => (
+                  <Badge key={cat.id} variant="secondary">{cat.name}</Badge>
+                ))}
               </div>
             </div>
 
@@ -296,7 +297,7 @@ export function CopyLogbookCategoryDialog({
                         )}
                         {loc.hasExisting && (
                           <div className="text-xs text-amber-600">
-                            Existing category will be replaced
+                            {loc.existingCount} of {allCategories.length} will be replaced
                           </div>
                         )}
                       </div>
