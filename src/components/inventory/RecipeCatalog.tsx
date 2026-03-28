@@ -232,10 +232,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
             ))}
 
             {!reassignMode && (
-              <>
-                <PrepRecipesSection locationId={locationId} />
-                <IngredientsSection locationId={locationId} />
-              </>
+              <IngredientsSection locationId={locationId} />
             )}
           </div>
         </CardContent>
