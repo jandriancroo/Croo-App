@@ -181,9 +181,13 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
       }
     }
 
-    // Variance calculation (actual deposit vs expected deposit from Qu)
+    // Prior pulls total
+    const priorPullsTotal = priorPulls.reduce((sum, p) => sum + p.amount, 0);
+
+    // Variance calculation: (this deposit + prior pulls) vs expected from Qu
     const expectedDep = parseFloat(expectedDeposit) || 0;
-    const variance = actualDeposit - expectedDep;
+    const totalCashHandled = actualDeposit + priorPullsTotal;
+    const variance = totalCashHandled - expectedDep;
 
     return {
       totalDollars,
@@ -191,8 +195,10 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
       removalSuggestions,
       variance,
       isOverBank: totalDollars > bankAmount,
+      priorPullsTotal,
+      totalCashHandled,
     };
-  }, [counts, expectedDeposit]);
+  }, [counts, expectedDeposit, priorPulls]);
 
   const handleCountChange = (denomination: string, value: string) => {
     const num = parseInt(value) || 0;
@@ -213,6 +219,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
       actualDeposit: calculations.actualDeposit,
       variance: calculations.variance,
       removalSuggestions: calculations.removalSuggestions,
+      priorPullsTotal: calculations.priorPullsTotal,
     };
     onSave(data);
   };
