@@ -369,6 +369,38 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_event_categories: {
+        Row: {
+          brand_id: string
+          color: string
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          brand_id: string
+          color?: string
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          brand_id?: string
+          color?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_event_categories_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_inventory_deployments: {
         Row: {
           calculated_baseline: number | null
