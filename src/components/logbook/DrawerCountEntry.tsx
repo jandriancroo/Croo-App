@@ -11,6 +11,7 @@ interface DrawerCountData {
   actualDeposit: number;
   variance: number;
   removalSuggestions: { denomination: string; count: number; value: number }[];
+  priorPullsTotal?: number;
 }
 
 interface DrawerCountEntryProps {
@@ -41,8 +42,13 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200 }: DrawerCo
       ? 'UNDER' 
       : 'EXACT';
 
+  const hasPriorPulls = (data.priorPullsTotal ?? 0) > 0;
+  const countTime = format(new Date(createdAt), 'h:mm a');
+
   return (
     <div className="space-y-3">
+      {/* Time label */}
+      <div className="text-xs text-muted-foreground">{countTime}</div>
       {/* Mobile: Stack vertically, Desktop: inline */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm flex-1">
@@ -51,8 +57,10 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200 }: DrawerCo
             <span className="font-medium ml-2 sm:ml-1">{formatCurrency(data.expectedDeposit)}</span>
           </div>
           <div className="flex justify-between sm:block">
-            <span className="text-muted-foreground">Actual:</span>
-            <span className="font-medium ml-2 sm:ml-1">{formatCurrency(data.actualDeposit)}</span>
+            <span className="text-muted-foreground">{hasPriorPulls ? 'Total Handled:' : 'Actual:'}</span>
+            <span className="font-medium ml-2 sm:ml-1">
+              {formatCurrency(hasPriorPulls ? data.actualDeposit + (data.priorPullsTotal || 0) : data.actualDeposit)}
+            </span>
           </div>
           <div className="flex justify-between sm:block">
             <span className="text-muted-foreground">Variance:</span>
@@ -121,6 +129,19 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200 }: DrawerCo
                 </div>
               )}
               
+              {(data.priorPullsTotal != null && data.priorPullsTotal > 0) && (
+                <div className="border-t pt-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground text-sm">Prior Pulls Total:</span>
+                    <span className="font-medium">{formatCurrency(data.priorPullsTotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground text-sm">Total Cash Handled:</span>
+                    <span className="font-bold">{formatCurrency(data.actualDeposit + data.priorPullsTotal)}</span>
+                  </div>
+                </div>
+              )}
+
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground text-sm">Expected (from Qu):</span>
