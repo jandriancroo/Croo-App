@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
 
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
 import TransferDialog from "@/components/inventory/TransferDialog";
