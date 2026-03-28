@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Plus, RefreshCw } from 'lucide-react';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface CopyEventCategoriesDialogProps {
   open: boolean;
@@ -31,6 +32,7 @@ export function CopyEventCategoriesDialog({
   onSuccess
 }: CopyEventCategoriesDialogProps) {
   const { currentLocation } = useAppLocation();
+  const { isSuperAdmin } = useUserRole();
   const [targetLocations, setTargetLocations] = useState<TargetLocation[]>([]);
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,13 +47,35 @@ export function CopyEventCategoriesDialog({
   const fetchTargetLocations = async () => {
     setLoading(true);
     try {
-      const { data: locations, error: locError } = await supabase
-        .from('locations')
-        .select('id, name')
-        .neq('id', currentLocation?.id)
-        .order('name');
+      let locations: { id: string; name: string }[] = [];
 
-      if (locError) throw locError;
+      if (isSuperAdmin) {
+        const { data, error } = await supabase
+          .from('locations')
+          .select('id, name')
+          .neq('id', currentLocation?.id)
+          .order('name');
+        if (error) throw error;
+        locations = data || [];
+      } else {
+        // Get current location's org, then only show locations in same org
+        const { data: locationData } = await supabase
+          .from('locations')
+          .select('organization_id')
+          .eq('id', currentLocation?.id)
+          .single();
+
+        if (locationData?.organization_id) {
+          const { data, error } = await supabase
+            .from('locations')
+            .select('id, name')
+            .eq('organization_id', locationData.organization_id)
+            .neq('id', currentLocation?.id)
+            .order('name');
+          if (error) throw error;
+          locations = data || [];
+        }
+      }
 
       const locationsWithExisting: TargetLocation[] = await Promise.all(
         (locations || []).map(async (loc) => {
