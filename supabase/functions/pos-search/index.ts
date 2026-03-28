@@ -80,7 +80,7 @@ serve(async (req) => {
     }
 
     // Use per-location QU credentials if available, otherwise fall back to global
-    const token = await authenticateV4(creds?.client_id, creds?.client_secret);
+    const token = await authenticateV4(creds);
     if (!token) {
       return new Response(
         JSON.stringify({ error: "QU authentication failed" }),
