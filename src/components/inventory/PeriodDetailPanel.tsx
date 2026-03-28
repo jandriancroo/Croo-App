@@ -142,6 +142,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     };
   }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, prevCountData]);
 
+  // Compute transfer totals for this period
+  const transferTotals = useMemo(() => {
+    if (!periodRange || !transfers.length) return { transfersIn: 0, transfersOut: 0, transfersInItems: [], transfersOutItems: [] };
+    return getTransferTotalsForPeriod(transfers, locationId, periodRange.startStr, periodRange.endStr);
+  }, [transfers, locationId, periodRange]);
+
   // Fetch COGS data — now uses bound orders instead of date-range
   const { data: cogsData, isLoading: cogsLoading } = useQuery({
     queryKey: ["period-cogs", locationId, count.id, periodRange?.startStr, periodRange?.endStr],
