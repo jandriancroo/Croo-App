@@ -2992,6 +2992,125 @@ export type Database = {
           },
         ]
       }
+      inventory_transfer_items: {
+        Row: {
+          cost_per_unit: number | null
+          created_at: string
+          id: string
+          item_id: string
+          quantity: number
+          transfer_id: string
+          unit_type: string
+        }
+        Insert: {
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          item_id: string
+          quantity?: number
+          transfer_id: string
+          unit_type?: string
+        }
+        Update: {
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          item_id?: string
+          quantity?: number
+          transfer_id?: string
+          unit_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transfer_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transfer_items_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_transfers: {
+        Row: {
+          created_at: string
+          from_location_id: string
+          id: string
+          notes: string | null
+          period_end_date: string | null
+          received_at: string | null
+          received_by: string | null
+          status: string
+          to_location_id: string
+          transfer_date: string
+          transferred_by: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          from_location_id: string
+          id?: string
+          notes?: string | null
+          period_end_date?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          status?: string
+          to_location_id: string
+          transfer_date?: string
+          transferred_by: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          from_location_id?: string
+          id?: string
+          notes?: string | null
+          period_end_date?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          status?: string
+          to_location_id?: string
+          transfer_date?: string
+          transferred_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transfers_from_location_id_fkey"
+            columns: ["from_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transfers_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transfers_to_location_id_fkey"
+            columns: ["to_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transfers_transferred_by_fkey"
+            columns: ["transferred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_usage_rates: {
         Row: {
           calculated_from_period_end: string | null
