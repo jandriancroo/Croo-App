@@ -1001,8 +1001,12 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
         
         <CopyLogbookCategoryDialog
           open={copyCategoryDialogOpen}
-          onOpenChange={setCopyCategoryDialogOpen}
-          category={categoryToCopy}
+          onOpenChange={(open) => {
+            setCopyCategoryDialogOpen(open);
+            if (!open) setCopyAllMode(false);
+          }}
+          category={!copyAllMode ? categoryToCopy : undefined}
+          categories={copyAllMode ? displayCategories : undefined}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['logbook-categories-manage'] });
           }}
