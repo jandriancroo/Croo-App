@@ -524,14 +524,15 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 
   const results: { locationId: string; name: string; status: string; salesUpdated?: number; pizzaCount?: number }[] = [];
 
-  // V4: Get ONE global token for all locations
-  const tokenGw = await authenticateV4();
-  if (!tokenGw) {
-    console.error('[sales-service] V4 authentication failed, aborting sync');
-    return new Response(JSON.stringify({ error: 'V4 authentication failed' }), {
-      status: 502,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+  // Token cache: keyed by credential pair so each org authenticates once
+  const tokenCache = new Map<string, string | null>();
+
+  async function getTokenForCredentials(creds: any): Promise<string | null> {
+    const cacheKey = creds?.client_id || '__global__';
+    if (tokenCache.has(cacheKey)) return tokenCache.get(cacheKey)!;
+    const token = await authenticateV4(creds?.client_id, creds?.client_secret);
+    tokenCache.set(cacheKey, token);
+    return token;
   }
 
   for (const integration of integrations) {
