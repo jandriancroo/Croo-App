@@ -316,7 +316,7 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
                         <MapPin className="h-3 w-3" />{loc.name}
                         <span className="text-muted-foreground/60">({locRecipes.length})</span>
                       </h4>
-                      <div className="grid gap-1">{locRecipes.map(renderRecipeRow)}</div>
+                      <div>{locRecipes.map(renderRecipeRow)}</div>
                     </div>
                   );
                 })}
@@ -326,7 +326,7 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
                       <Package className="h-3 w-3" />Unassigned
                       <span className="text-muted-foreground/60">({unassigned.length})</span>
                     </h4>
-                    <div className="grid gap-1">{unassigned.map(renderRecipeRow)}</div>
+                    <div>{unassigned.map(renderRecipeRow)}</div>
                   </div>
                 )}
                 {purgeMode && purgeSelection.size > 0 && (
