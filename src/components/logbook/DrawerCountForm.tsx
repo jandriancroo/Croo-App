@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertCircle, CheckCircle2, ArrowDown, DollarSign, Coins, Calculator, Loader2, ChevronDown, FileText } from "lucide-react";
+import { AlertCircle, CheckCircle2, ArrowDown, DollarSign, Coins, Calculator, Loader2, ChevronDown, FileText, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
@@ -31,13 +31,20 @@ const DENOMINATIONS: Denomination[] = [
   { name: "$100 Bill", value: 10000, pluralName: "$100 Bills", icon: "$100" },
 ];
 
+export interface PriorPull {
+  amount: number;
+  time: string; // ISO timestamp
+  createdBy?: string;
+}
+
 interface DrawerCountFormProps {
   onSave: (data: DrawerCountData) => void;
   isSaving?: boolean;
   existingData?: DrawerCountData | null;
   entryCount?: number;
   drawerBank?: number;
-  businessDate?: string; // The business date to use for fetching expected deposit (YYYY-MM-DD)
+  businessDate?: string;
+  priorPulls?: PriorPull[];
 }
 
 export interface DrawerCountData {
@@ -47,9 +54,10 @@ export interface DrawerCountData {
   actualDeposit: number;
   variance: number;
   removalSuggestions: { denomination: string; count: number; value: number }[];
+  priorPullsTotal?: number;
 }
 
-export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK, businessDate }: DrawerCountFormProps) {
+export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK, businessDate, priorPulls = [] }: DrawerCountFormProps) {
   const { currentLocation } = useAppLocation();
   const DRAWER_BANK = drawerBank;
   const [counts, setCounts] = useState<Record<string, number>>(() => {
