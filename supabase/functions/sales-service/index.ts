@@ -58,20 +58,21 @@ function isWithinBusinessHours(
 // V4 OAuth2 Authentication (replaces legacy scraping auth)
 // ============================================================================
 
-async function authenticateV4(): Promise<string | null> {
-  const clientId = Deno.env.get('QU_USERNAME');
-  const clientSecret = Deno.env.get('QU_PASSWORD');
+async function authenticateV4(clientId?: string, clientSecret?: string): Promise<string | null> {
+  // Use per-location creds if provided, fall back to global env vars
+  const cid = clientId || Deno.env.get('QU_USERNAME');
+  const csec = clientSecret || Deno.env.get('QU_PASSWORD');
 
-  if (!clientId || !clientSecret) {
-    console.error('[sales-service] Missing QU_USERNAME or QU_PASSWORD env vars');
+  if (!cid || !csec) {
+    console.error('[sales-service] Missing QU credentials (no per-location or global env vars)');
     return null;
   }
 
   try {
     const formData = new FormData();
     formData.append('grant_type', 'client_credentials');
-    formData.append('client_id', clientId);
-    formData.append('client_secret', clientSecret);
+    formData.append('client_id', cid);
+    formData.append('client_secret', csec);
 
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/authentication/oauth2/access-token', {
       method: 'POST',
