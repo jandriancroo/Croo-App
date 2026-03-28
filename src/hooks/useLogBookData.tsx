@@ -372,10 +372,11 @@ export function useLogBookData() {
       const dateStr = getBusinessDateInTimezone();
       const { data, error } = await supabase
         .from('logbook_entries')
-        .select(`*, logbook_entry_values(*)`)
+        .select(`*, logbook_entry_values(*), profiles:created_by(full_name)`)
         .eq('category_id', drawerCountCategoryId)
         .eq('entry_date', dateStr)
-        .eq('location_id', currentLocation.id);
+        .eq('location_id', currentLocation.id)
+        .order('created_at', { ascending: true });
       if (error) throw error;
       return data || [];
     },

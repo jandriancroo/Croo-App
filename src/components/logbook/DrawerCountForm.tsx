@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertCircle, CheckCircle2, ArrowDown, DollarSign, Coins, Calculator, Loader2, ChevronDown, FileText } from "lucide-react";
+import { AlertCircle, CheckCircle2, ArrowDown, DollarSign, Coins, Calculator, Loader2, ChevronDown, FileText, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
@@ -31,13 +31,20 @@ const DENOMINATIONS: Denomination[] = [
   { name: "$100 Bill", value: 10000, pluralName: "$100 Bills", icon: "$100" },
 ];
 
+export interface PriorPull {
+  amount: number;
+  time: string; // ISO timestamp
+  createdBy?: string;
+}
+
 interface DrawerCountFormProps {
   onSave: (data: DrawerCountData) => void;
   isSaving?: boolean;
   existingData?: DrawerCountData | null;
   entryCount?: number;
   drawerBank?: number;
-  businessDate?: string; // The business date to use for fetching expected deposit (YYYY-MM-DD)
+  businessDate?: string;
+  priorPulls?: PriorPull[];
 }
 
 export interface DrawerCountData {
@@ -47,9 +54,10 @@ export interface DrawerCountData {
   actualDeposit: number;
   variance: number;
   removalSuggestions: { denomination: string; count: number; value: number }[];
+  priorPullsTotal?: number;
 }
 
-export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK, businessDate }: DrawerCountFormProps) {
+export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK, businessDate, priorPulls = [] }: DrawerCountFormProps) {
   const { currentLocation } = useAppLocation();
   const DRAWER_BANK = drawerBank;
   const [counts, setCounts] = useState<Record<string, number>>(() => {
@@ -173,9 +181,13 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
       }
     }
 
-    // Variance calculation (actual deposit vs expected deposit from Qu)
+    // Prior pulls total
+    const priorPullsTotal = priorPulls.reduce((sum, p) => sum + p.amount, 0);
+
+    // Variance calculation: (this deposit + prior pulls) vs expected from Qu
     const expectedDep = parseFloat(expectedDeposit) || 0;
-    const variance = actualDeposit - expectedDep;
+    const totalCashHandled = actualDeposit + priorPullsTotal;
+    const variance = totalCashHandled - expectedDep;
 
     return {
       totalDollars,
@@ -183,8 +195,10 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
       removalSuggestions,
       variance,
       isOverBank: totalDollars > bankAmount,
+      priorPullsTotal,
+      totalCashHandled,
     };
-  }, [counts, expectedDeposit]);
+  }, [counts, expectedDeposit, priorPulls]);
 
   const handleCountChange = (denomination: string, value: string) => {
     const num = parseInt(value) || 0;
@@ -205,6 +219,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
       actualDeposit: calculations.actualDeposit,
       variance: calculations.variance,
       removalSuggestions: calculations.removalSuggestions,
+      priorPullsTotal: calculations.priorPullsTotal,
     };
     onSave(data);
   };
@@ -358,11 +373,42 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
             </CardContent>
           </Card>
 
+          {/* Prior Pulls (mid-day counts) */}
+          {priorPulls.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Prior Pulls Today
+                </CardTitle>
+                <CardDescription>These earlier counts are locked and included in your total</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {priorPulls.map((pull, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2.5 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge variant="outline" className="text-[10px] px-1.5">#{idx + 1}</Badge>
+                      <span className="text-muted-foreground">
+                        {new Date(pull.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                      {pull.createdBy && <span className="text-muted-foreground">· {pull.createdBy}</span>}
+                    </div>
+                    <span className="font-semibold text-sm">{formatCurrency(pull.amount)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between p-2.5 border-t pt-3">
+                  <span className="text-sm font-medium">Prior Pulls Subtotal</span>
+                  <span className="font-bold">{formatCurrency(calculations.priorPullsTotal)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Expected Deposit Comparison */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Deposit Verification</CardTitle>
-              <CardDescription>Compare your actual deposit to the expected from Qu</CardDescription>
+              <CardDescription>Compare your total cash handled to expected from Qu</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -386,6 +432,24 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                   />
                 </div>
               </div>
+
+              {/* Total Cash Handled breakdown (when prior pulls exist) */}
+              {priorPulls.length > 0 && expectedDeposit && parseFloat(expectedDeposit) > 0 && (
+                <div className="space-y-1.5 p-3 bg-muted/50 rounded-lg text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">This Count Deposit</span>
+                    <span>{formatCurrency(calculations.actualDeposit)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">+ Prior Pulls</span>
+                    <span>{formatCurrency(calculations.priorPullsTotal)}</span>
+                  </div>
+                  <div className="flex justify-between font-medium border-t pt-1.5">
+                    <span>Total Cash Handled</span>
+                    <span>{formatCurrency(calculations.totalCashHandled)}</span>
+                  </div>
+                </div>
+              )}
 
               {expectedDeposit && parseFloat(expectedDeposit) > 0 && (
                 <div className={`flex items-center justify-between p-4 rounded-lg ${
