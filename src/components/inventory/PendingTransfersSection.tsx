@@ -59,15 +59,35 @@ export default function PendingTransfersSection({ locationId }: PendingTransfers
 
               {/* Items list */}
               <div className="space-y-1">
-                {((transfer as any).inventory_transfer_items || []).map((item: any) => (
-                  <div key={item.id} className="flex items-center justify-between text-xs">
-                    <span className="text-foreground">{item.item_name || "Unknown"}</span>
-                    <span className="font-medium">
-                      {item.quantity} {item.unit_type === "case" ? "cs" : "ea"}
-                    </span>
-                  </div>
-                ))}
+                {((transfer as any).inventory_transfer_items || []).map((item: any) => {
+                  const itemCost = Number(item.quantity) * Number(item.cost_per_unit || 0);
+                  return (
+                    <div key={item.id} className="flex items-center justify-between text-xs">
+                      <span className="text-foreground">{item.item_name || "Unknown"}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {item.quantity} {item.unit_type === "case" ? "cs" : "ea"}
+                        </span>
+                        {itemCost > 0 && (
+                          <span className="text-muted-foreground">${itemCost.toFixed(2)}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* Total value */}
+              {(() => {
+                const total = ((transfer as any).inventory_transfer_items || [])
+                  .reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.cost_per_unit || 0), 0);
+                return total > 0 ? (
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
+                    <span className="text-muted-foreground">Est. Value</span>
+                    <span className="font-semibold">${total.toFixed(2)}</span>
+                  </div>
+                ) : null;
+              })()}
 
               {transfer.notes && (
                 <p className="text-xs text-muted-foreground italic">"{transfer.notes}"</p>
