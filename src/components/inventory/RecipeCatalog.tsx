@@ -151,9 +151,9 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
   if (!blueprints) {
     return (
       <Card>
-        <CardContent className="p-4">
+        <div className="p-4">
           <p className="text-sm text-muted-foreground">Loading recipes...</p>
-        </CardContent>
+        </div>
       </Card>
     );
   }
