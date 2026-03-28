@@ -202,72 +202,68 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
   };
 
   const renderRecipeRow = (item: RecipeRow) => (
-    <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm group">
-      <div className="flex items-center gap-2 truncate flex-1">
-        {purgeMode && (
-          <button type="button"
-            className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-              purgeSelection.has(item.id) ? "bg-destructive border-destructive text-destructive-foreground" : "border-border hover:border-destructive/50"
-            }`}
-            onClick={() => {
-              setPurgeSelection(prev => {
-                const next = new Set(prev);
-                if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
-                return next;
-              });
-            }}
-          >
-            {purgeSelection.has(item.id) && <X className="h-3 w-3" />}
-          </button>
-        )}
-        <span className="truncate">{item.name}</span>
-        {item.source === "r365_import" && (
-          <Badge variant="outline" className="text-[9px] px-1 py-0 flex-shrink-0 opacity-60">R365</Badge>
-        )}
-        {item.type === "legacy" && (
-          <Badge variant="secondary" className="text-[9px] px-1 py-0 flex-shrink-0 opacity-40">Legacy</Badge>
-        )}
-        {!item.countable && (
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex-shrink-0">Not counted</Badge>
-        )}
-      </div>
-      {!purgeMode && (
-        <div className="flex items-center gap-2 text-muted-foreground">
-          {item.yield_qty && item.yield_unit && (
-            <span className="text-xs">yields {item.yield_qty} {item.yield_unit}</span>
-          )}
-          {(() => {
-            const displayCost = item.cost;
-            if (displayCost == null || displayCost <= 0) return null;
-            const yq = item.yield_qty || 0;
-            const yu = item.yield_unit || "ea";
-            if (yq > 1) {
-              return (
-                <span className="text-xs text-primary">
-                  ${(displayCost / yq).toFixed(2)}/{yu}
-                  {item.isPartial && <span className="text-amber-500 ml-0.5">⚠</span>}
-                </span>
-              );
-            }
-            return <span className="text-xs text-primary">${displayCost.toFixed(2)}/ea</span>;
-          })()}
-          <Button variant="ghost" size="icon"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={() => {
-              if (item.type === "blueprint") {
-                setEditBlueprintId(item.id);
-                setEditRecipeId(null);
-              } else {
-                setEditRecipeId(item.id);
-                setEditBlueprintId(null);
-              }
-              setShowRecipeDialog(true);
-            }}
-          >
-            <Pencil className="h-3 w-3" />
-          </Button>
-        </div>
+    <div key={item.id} className="flex items-center gap-2 py-2 px-2 text-sm hover:bg-muted/50 transition-colors border-b border-border/40 last:border-0 group">
+      {purgeMode && (
+        <button type="button"
+          className={`h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+            purgeSelection.has(item.id) ? "bg-destructive border-destructive text-destructive-foreground" : "border-border hover:border-destructive/50"
+          }`}
+          onClick={() => {
+            setPurgeSelection(prev => {
+              const next = new Set(prev);
+              if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+              return next;
+            });
+          }}
+        >
+          {purgeSelection.has(item.id) && <X className="h-3 w-3" />}
+        </button>
       )}
+      <span className="truncate flex-1 font-medium">{item.name}</span>
+      {!purgeMode && (
+        <Button variant="ghost" size="icon"
+          className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => {
+            if (item.type === "blueprint") {
+              setEditBlueprintId(item.id);
+              setEditRecipeId(null);
+            } else {
+              setEditRecipeId(item.id);
+              setEditBlueprintId(null);
+            }
+            setShowRecipeDialog(true);
+          }}
+        >
+          <Pencil className="h-3 w-3" />
+        </Button>
+      )}
+      {item.source === "r365_import" && (
+        <Badge variant="outline" className="text-[9px] px-1.5 py-0 flex-shrink-0 uppercase tracking-wider bg-blue-500/10 text-blue-600 border-blue-500/30">R365</Badge>
+      )}
+      {item.type === "legacy" && (
+        <Badge variant="outline" className="text-[9px] px-1.5 py-0 flex-shrink-0 uppercase tracking-wider opacity-60">Legacy</Badge>
+      )}
+      {!item.countable && (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">Not counted</Badge>
+      )}
+      {item.yield_qty && item.yield_unit && (
+        <span className="text-xs text-muted-foreground flex-shrink-0">yields {item.yield_qty} {item.yield_unit}</span>
+      )}
+      {(() => {
+        const displayCost = item.cost;
+        if (displayCost == null || displayCost <= 0) return null;
+        const yq = item.yield_qty || 0;
+        const yu = item.yield_unit || "ea";
+        if (yq > 1) {
+          return (
+            <span className="text-xs text-emerald-600/70 flex-shrink-0">
+              ${(displayCost / yq).toFixed(2)}/{yu}
+              {item.isPartial && <span className="text-amber-500 ml-0.5">⚠</span>}
+            </span>
+          );
+        }
+        return <span className="text-xs text-emerald-600/70 flex-shrink-0">${displayCost.toFixed(2)}/ea</span>;
+      })()}
     </div>
   );
 
