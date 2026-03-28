@@ -238,6 +238,8 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
         </CardContent>
       </Card>
 
+      {!reassignMode && <PrepRecipesSection locationId={locationId} />}
+
       {reassignMode && selectedIds.size > 0 && (
         <BulkReassignBar
           selectedIds={selectedIds}
