@@ -41,8 +41,12 @@ export function CopyLogbookCategoryDialog({
   open, 
   onOpenChange, 
   category,
+  categories,
   onSuccess
 }: CopyLogbookCategoryDialogProps) {
+  // Support both single category and multi-category modes
+  const allCategories: LogbookCategory[] = categories || (category ? [category] : []);
+  const categoryNames = allCategories.map(c => c.name);
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
   const { role } = useUserRole();
