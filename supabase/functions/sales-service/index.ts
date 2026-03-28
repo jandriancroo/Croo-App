@@ -529,9 +529,9 @@ async function handleSyncLive(supabase: any): Promise<Response> {
   const tokenCache = new Map<string, string | null>();
 
   async function getTokenForCredentials(creds: any): Promise<string | null> {
-    const cacheKey = creds?.client_id || '__global__';
+    const cacheKey = creds?.client_id || creds?.username || '__global__';
     if (tokenCache.has(cacheKey)) return tokenCache.get(cacheKey)!;
-    const token = await authenticateV4(creds?.client_id, creds?.client_secret);
+    const token = await authenticateV4(creds);
     tokenCache.set(cacheKey, token);
     return token;
   }
@@ -1225,9 +1225,9 @@ async function handleTestApi(supabase: any): Promise<Response> {
   // Token cache for test-api
   const tokenCache = new Map<string, string | null>();
   async function getTestToken(creds: any): Promise<string | null> {
-    const key = creds?.client_id || '__global__';
+    const key = creds?.client_id || creds?.username || '__global__';
     if (tokenCache.has(key)) return tokenCache.get(key)!;
-    const t = await authenticateV4(creds?.client_id, creds?.client_secret);
+    const t = await authenticateV4(creds);
     tokenCache.set(key, t);
     return t;
   }
