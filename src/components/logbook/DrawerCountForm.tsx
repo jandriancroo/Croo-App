@@ -218,7 +218,6 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
 
   return (
     <div className="space-y-6">
-        <>
           {/* Denomination Inputs */}
           <Card>
             <CardHeader className="pb-3">
@@ -430,8 +429,6 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
           <Button onClick={handleSubmit} disabled={isSaving} className="w-full">
             {isSaving ? "Saving..." : "Save Drawer Count"}
           </Button>
-        </>
-      )}
         </>
       )}
     </div>
