@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useInventoryTransfers, TransferItem } from "@/hooks/useInventoryTransfers";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation } from "@/hooks/useLocation";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -20,18 +21,23 @@ interface TransferDialogProps {
 
 export default function TransferDialog({ open, onClose, locationId }: TransferDialogProps) {
   const { user } = useAuth();
-  const { locations } = useLocation();
+  const { locations, currentLocation } = useLocation();
+  const { isSuperAdmin } = useUserRole();
   const { sendTransfer } = useInventoryTransfers(locationId);
   const [toLocationId, setToLocationId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<(TransferItem & { name: string; packQty: number })[]>([]);
   const [notes, setNotes] = useState("");
 
-  // Other locations (exclude current)
-  const otherLocations = useMemo(
-    () => locations.filter(l => l.id !== locationId),
-    [locations, locationId]
-  );
+  // Super admins see all locations; others only see locations in the same org
+  const otherLocations = useMemo(() => {
+    const orgId = currentLocation?.organization_id;
+    return locations.filter(l => {
+      if (l.id === locationId) return false;
+      if (isSuperAdmin) return true;
+      return orgId && l.organization_id === orgId;
+    });
+  }, [locations, locationId, isSuperAdmin, currentLocation?.organization_id]);
 
   // Fetch inventory items for this location
   const { data: inventoryItems = [] } = useQuery({
