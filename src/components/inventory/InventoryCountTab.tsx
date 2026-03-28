@@ -3,14 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Plus, ArrowRight, ChevronLeft, ChevronRight,
-  CheckCircle2,
+  CheckCircle2, ArrowRightLeft,
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import { Badge } from "@/components/ui/badge";
 
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
+import TransferDialog from "@/components/inventory/TransferDialog";
+import PendingTransfersSection from "@/components/inventory/PendingTransfersSection";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useInventoryPeriodSettings, computePeriodEndDate } from "@/hooks/useInventoryPeriodSettings";
+import { useInventoryTransfers } from "@/hooks/useInventoryTransfers";
 
 interface InventoryCountTabProps {
   locationId: string;
