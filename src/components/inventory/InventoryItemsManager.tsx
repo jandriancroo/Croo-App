@@ -1007,8 +1007,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       </>}
 
       {(mode === "build" || isBuildMode) && <>
-      {/* POS Mapping — Brand Admin+ only */}
-      {canEditProductGroups && <ProductGroupsManager locationId={locationId} />}
+      {/* POS Mapping now handled inline in Recipe Catalog */}
 
       {/* Usage Rates removed — recipes are now the single source of truth */}
 
