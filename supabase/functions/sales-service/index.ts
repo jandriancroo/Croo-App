@@ -1398,7 +1398,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const url = new URL(req.url);
-    const action = url.searchParams.get('action') || 'sync-live';
+    const action = url.searchParams.get('action') || req.headers.get('x-action') || 'sync-live';
 
     console.log(`[sales-service] Action: ${action}`);
 
