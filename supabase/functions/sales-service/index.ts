@@ -108,6 +108,12 @@ function getV4Headers(accessToken: string): Record<string, string> {
   };
 }
 
+function getQbLocationId(credentials: unknown): string {
+  const raw = (credentials as { location_id?: string | number } | null)?.location_id;
+  if (raw === null || raw === undefined) return '';
+  return String(raw).trim();
+}
+
 // Legacy wrapper — allows existing callers (backfill, sync-day, etc.) to work without signature changes
 async function getOrRefreshToken(
   _supabase: any,
@@ -536,11 +542,11 @@ async function handleSyncLive(supabase: any): Promise<Response> {
   for (const integration of integrations) {
     const locationId = integration.location_id;
     const locationName = (integration.locations as any)?.name || 'Unknown';
-    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+    const credentials = integration.credentials as { location_id?: string | number };
     const settings = settingsByLocation[locationId];
     const timezone = settings?.timezone || 'America/Los_Angeles';
 
-    const qbLocationId = credentials?.location_id || '';
+    const qbLocationId = getQbLocationId(credentials);
     if (!qbLocationId) {
       console.log(`${locationName}: Missing QuBeyond location_id in credentials`);
       results.push({ locationId, name: locationName, status: 'missing_qb_location_id' });
@@ -666,15 +672,8 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
     });
   }
 
-  const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
-  if (!credentials?.username || !credentials?.password) {
-    return new Response(JSON.stringify({ error: 'Missing credentials' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  const qbLocationId = credentials?.location_id || '';
+  const credentials = integration.credentials as { location_id?: string | number };
+  const qbLocationId = getQbLocationId(credentials);
   if (!qbLocationId) {
     return new Response(JSON.stringify({ error: 'Missing QuBeyond location_id' }), {
       status: 400,
@@ -684,7 +683,7 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] backfill: ${locationId}, daysBack=${daysBack}`);
 
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  const tokenGw = await authenticateV4();
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
@@ -796,15 +795,8 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
     });
   }
 
-  const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
-  if (!credentials?.username || !credentials?.password) {
-    return new Response(JSON.stringify({ error: 'Missing integration credentials' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  const qbLocationId = credentials?.location_id || '';
+  const credentials = integration.credentials as { location_id?: string | number };
+  const qbLocationId = getQbLocationId(credentials);
   if (!qbLocationId) {
     return new Response(JSON.stringify({ error: 'Missing QuBeyond location_id in credentials' }), {
       status: 400,
@@ -814,7 +806,7 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] sync-day: ${locationId} ${date}, QB location=${qbLocationId}`);
 
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  const tokenGw = await authenticateV4();
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
@@ -879,11 +871,11 @@ async function handleSyncYesterday(supabase: any): Promise<Response> {
   for (const integration of integrations) {
     const locationId = integration.location_id;
     const locationName = (integration.locations as any)?.name || 'Unknown';
-    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
-    const qbLocationId = credentials?.location_id || '';
+    const credentials = integration.credentials as { location_id?: string | number };
+    const qbLocationId = getQbLocationId(credentials);
 
-    if (!qbLocationId || !credentials?.username || !credentials?.password) {
-      results.push({ locationId, name: locationName, status: 'missing_credentials' });
+    if (!qbLocationId) {
+      results.push({ locationId, name: locationName, status: 'missing_qb_location_id' });
       continue;
     }
 
@@ -907,7 +899,7 @@ async function handleSyncYesterday(supabase: any): Promise<Response> {
     console.log(`[sales-service] sync-yesterday: ${locationName} syncing ${yesterdayStr}`);
 
     try {
-      const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+      const tokenGw = await authenticateV4();
       if (!tokenGw) {
         results.push({ locationId, name: locationName, status: 'auth_failed' });
         continue;
@@ -981,17 +973,17 @@ async function handleSyncDates(req: Request, supabase: any): Promise<Response> {
   }
 
   const locationName = (integration.locations as any)?.name || 'Unknown';
-  const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
-  const qbLocationId = credentials?.location_id || '';
+  const credentials = integration.credentials as { location_id?: string | number };
+  const qbLocationId = getQbLocationId(credentials);
 
-  if (!qbLocationId || !credentials?.username || !credentials?.password) {
+  if (!qbLocationId) {
     return new Response(JSON.stringify({ error: 'Missing credentials' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  const tokenGw = await authenticateV4();
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
@@ -1131,8 +1123,8 @@ async function handleSyncTips(req: Request, supabase: any) {
     });
   }
 
-  const creds = integration.credentials as any;
-  const tokenGw = await getOrRefreshToken(supabase, integration.id, creds.username, creds.password);
+  const creds = integration.credentials as { location_id?: string | number };
+  const tokenGw = await authenticateV4();
   if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'Authentication failed' }), {
       status: 500,
@@ -1140,7 +1132,13 @@ async function handleSyncTips(req: Request, supabase: any) {
     });
   }
 
-  const qbLocationId = creds.location_id;
+  const qbLocationId = getQbLocationId(creds);
+  if (!qbLocationId) {
+    return new Response(JSON.stringify({ error: 'Missing QuBeyond location_id in credentials' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 
   // Generate date range
   const dates: string[] = [];
