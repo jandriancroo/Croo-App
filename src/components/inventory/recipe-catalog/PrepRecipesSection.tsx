@@ -280,7 +280,7 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
               <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
             </button>
           </CollapsibleTrigger>
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5">
             {purgeMode ? (
               <>
                 <button
