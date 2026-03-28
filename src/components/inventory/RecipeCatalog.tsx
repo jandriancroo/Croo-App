@@ -164,7 +164,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
             <Layers className="h-4 w-4" />
             <h3 className="font-semibold text-sm">Recipe Catalog</h3>
-            <Badge variant="secondary" className="ml-auto text-xs tabular-nums">
+            <Badge variant="secondary" className="text-xs tabular-nums">
               {blueprints.length} recipes
             </Badge>
             {totalMIs > 0 && (
@@ -176,6 +176,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 {mappedMIs}/{totalMIs} POS
               </Badge>
             )}
+            <div className="ml-auto" />
             <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5">
               <button
                 className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
