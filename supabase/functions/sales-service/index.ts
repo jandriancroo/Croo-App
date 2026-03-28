@@ -538,7 +538,7 @@ async function handleSyncLive(supabase: any): Promise<Response> {
   for (const integration of integrations) {
     const locationId = integration.location_id;
     const locationName = (integration.locations as any)?.name || 'Unknown';
-    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string; client_id?: string; client_secret?: string };
     const settings = settingsByLocation[locationId];
     const timezone = settings?.timezone || 'America/Los_Angeles';
 
@@ -571,6 +571,14 @@ async function handleSyncLive(supabase: any): Promise<Response> {
     if (!isWithinBusinessHours(currentTime.hours, currentTime.minutes, openTime, closeTime)) {
       console.log(`${locationName}: Outside business hours (${openTime}-${closeTime}+10min), current: ${currentTime.hours}:${currentTime.minutes}`);
       results.push({ locationId, name: locationName, status: 'outside_hours' });
+      continue;
+    }
+
+    // Get token for this location's credential set
+    const tokenGw = await getTokenForCredentials(credentials);
+    if (!tokenGw) {
+      console.error(`${locationName}: V4 authentication failed, skipping`);
+      results.push({ locationId, name: locationName, status: 'auth_failed' });
       continue;
     }
 
