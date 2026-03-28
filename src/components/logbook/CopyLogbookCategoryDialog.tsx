@@ -12,18 +12,21 @@ import { useAuth } from '@/lib/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserRole } from '@/hooks/useUserRole';
 
+interface LogbookCategory {
+  id: string;
+  name: string;
+  display_order: number;
+  is_active: boolean;
+  alert_enabled: boolean;
+  push_notification_enabled: boolean;
+  logbook_fields?: any[];
+}
+
 interface CopyLogbookCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  category: {
-    id: string;
-    name: string;
-    display_order: number;
-    is_active: boolean;
-    alert_enabled: boolean;
-    push_notification_enabled: boolean;
-    logbook_fields?: any[];
-  } | null;
+  category?: LogbookCategory | null;
+  categories?: LogbookCategory[];
   onSuccess?: () => void;
 }
 

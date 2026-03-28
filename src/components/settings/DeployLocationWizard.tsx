@@ -170,6 +170,35 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         if (hoursError) console.error('Hours error:', hoursError);
       }
 
+      // 4. Auto-deploy brand event categories
+      try {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('brand_id')
+          .eq('id', orgId)
+          .single();
+
+        if (orgData?.brand_id) {
+          const { data: brandCategories } = await supabase
+            .from('brand_event_categories')
+            .select('name, color')
+            .eq('brand_id', orgData.brand_id);
+
+          if (brandCategories && brandCategories.length > 0) {
+            const categoriesToInsert = brandCategories.map(bc => ({
+              name: bc.name,
+              color: bc.color,
+              location_id: locationId,
+            }));
+
+            await supabase.from('event_categories').insert(categoriesToInsert);
+          }
+        }
+      } catch (autoDeployError) {
+        console.error('Auto-deploy event categories error:', autoDeployError);
+        // Non-blocking — location still deploys successfully
+      }
+
       setDeployComplete(true);
       refetchLocations();
       toast.success(`${name} deployed successfully!`);
