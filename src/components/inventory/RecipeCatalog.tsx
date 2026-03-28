@@ -176,9 +176,9 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 {mappedMIs}/{totalMIs} POS
               </Badge>
             )}
-            <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
+            <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5">
               <button
-                className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
                 onClick={() => {
                   setEditBlueprintId(null);
                   setShowBuilderDialog(true);
@@ -188,17 +188,17 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 New
               </button>
               <button
-                className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
                 onClick={() => navigate(`/inventory/${locationId}/triage`)}
               >
                 <ClipboardCheck className="h-3 w-3" />
                 Triage
               </button>
               <button
-                className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded-md transition-colors ${
+                className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
                   reassignMode
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/80"
                 }`}
                 onClick={() => {
                   setReassignMode(!reassignMode);
