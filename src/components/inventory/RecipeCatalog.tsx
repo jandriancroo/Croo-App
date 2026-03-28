@@ -234,7 +234,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
               <IngredientsSection locationId={locationId} />
             )}
           </div>
-        </CardContent>
+        </div>
       </Card>
 
       {!reassignMode && <PrepRecipesSection locationId={locationId} />}
