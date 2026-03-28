@@ -160,80 +160,79 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
   return (
     <>
       <Card>
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-            <Layers className="h-4 w-4" />
-            <h3 className="font-semibold text-sm">Recipe Catalog</h3>
-            <Badge variant="secondary" className="text-xs tabular-nums">
-              {blueprints.length} recipes
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+          <Layers className="h-4 w-4" />
+          <h3 className="font-semibold text-sm">Recipe Catalog</h3>
+          <Badge variant="secondary" className="text-xs tabular-nums">
+            {blueprints.length} recipes
+          </Badge>
+          {totalMIs > 0 && (
+            <Badge
+              variant={mappedMIs === totalMIs ? "default" : "outline"}
+              className="text-[10px] gap-1 tabular-nums"
+            >
+              <Link2 className="h-3 w-3" />
+              {mappedMIs}/{totalMIs} POS
             </Badge>
-            {totalMIs > 0 && (
-              <Badge
-                variant={mappedMIs === totalMIs ? "default" : "outline"}
-                className="text-[10px] gap-1 tabular-nums"
-              >
-                <Link2 className="h-3 w-3" />
-                {mappedMIs}/{totalMIs} POS
-              </Badge>
-            )}
-            <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5 ml-auto">
-              <button
-                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-                onClick={() => {
-                  setEditBlueprintId(null);
-                  setShowBuilderDialog(true);
-                }}
-              >
-                <Plus className="h-3 w-3" />
-                New
-              </button>
-              <button
-                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-                onClick={() => navigate(`/inventory/${locationId}/triage`)}
-              >
-                <ClipboardCheck className="h-3 w-3" />
-                Triage
-              </button>
-              <button
-                className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
-                  reassignMode
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/80"
-                }`}
-                onClick={() => {
-                  setReassignMode(!reassignMode);
-                  if (reassignMode) setSelectedIds(new Set());
-                }}
-              >
-                <ArrowRightLeft className="h-3 w-3" />
-                {reassignMode ? "Cancel" : "Reassign"}
-              </button>
-            </div>
+          )}
+          <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5 ml-auto">
+            <button
+              className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+              onClick={() => {
+                setEditBlueprintId(null);
+                setShowBuilderDialog(true);
+              }}
+            >
+              <Plus className="h-3 w-3" />
+              New
+            </button>
+            <button
+              className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+              onClick={() => navigate(`/inventory/${locationId}/triage`)}
+            >
+              <ClipboardCheck className="h-3 w-3" />
+              Triage
+            </button>
+            <button
+              className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
+                reassignMode
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/80"
+              }`}
+              onClick={() => {
+                setReassignMode(!reassignMode);
+                if (reassignMode) setSelectedIds(new Set());
+              }}
+            >
+              <ArrowRightLeft className="h-3 w-3" />
+              {reassignMode ? "Cancel" : "Reassign"}
+            </button>
           </div>
+        </div>
 
-          <div className="divide-y divide-border">
-            {sections.map((section, i) => (
-              <CatalogSectionComponent
-                key={section.key}
-                section={section}
-                defaultOpen={i === 0}
-                locationId={locationId}
-                onEditRecipe={reassignMode ? undefined : handleEditRecipe}
-                reassignMode={reassignMode}
-                selectedIds={selectedIds}
-                onToggleSelect={toggleSelect}
-                posMappings={posMap.mappedBlueprints}
-                posItems={posMap.posItems}
-                onPosLink={posMap.linkBlueprint}
-                onPosUnlink={posMap.unlinkBlueprint}
-                onUpdateMappingMeta={posMap.updateMappingMeta}
-                isPosLinking={posMap.isLinking}
-              />
-            ))}
+        <div className="divide-y divide-border">
+          {sections.map((section, i) => (
+            <CatalogSectionComponent
+              key={section.key}
+              section={section}
+              defaultOpen={i === 0}
+              locationId={locationId}
+              onEditRecipe={reassignMode ? undefined : handleEditRecipe}
+              reassignMode={reassignMode}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              posMappings={posMap.mappedBlueprints}
+              posItems={posMap.posItems}
+              onPosLink={posMap.linkBlueprint}
+              onPosUnlink={posMap.unlinkBlueprint}
+              onUpdateMappingMeta={posMap.updateMappingMeta}
+              isPosLinking={posMap.isLinking}
+            />
+          ))}
 
-            {!reassignMode && (
-              <IngredientsSection locationId={locationId} />
-            )}
-          </div>
+          {!reassignMode && (
+            <IngredientsSection locationId={locationId} />
+          )}
         </div>
       </Card>
 
