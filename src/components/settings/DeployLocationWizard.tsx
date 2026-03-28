@@ -170,6 +170,35 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         if (hoursError) console.error('Hours error:', hoursError);
       }
 
+      // 4. Auto-deploy brand event categories
+      try {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('brand_id')
+          .eq('id', orgId)
+          .single();
+
+        if (orgData?.brand_id) {
+          const { data: brandCategories } = await supabase
+            .from('brand_event_categories')
+            .select('name, color')
+            .eq('brand_id', orgData.brand_id);
+
+          if (brandCategories && brandCategories.length > 0) {
+            const categoriesToInsert = brandCategories.map(bc => ({
+              name: bc.name,
+              color: bc.color,
+              location_id: locationId,
+            }));
+
+            await supabase.from('event_categories').insert(categoriesToInsert);
+          }
+        }
+      } catch (autoDeployError) {
+        console.error('Auto-deploy event categories error:', autoDeployError);
+        // Non-blocking — location still deploys successfully
+      }
+
       setDeployComplete(true);
       refetchLocations();
       toast.success(`${name} deployed successfully!`);
@@ -408,7 +437,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                   </div>
                   <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <p className="text-xs text-muted-foreground">
-                      <strong>What happens next:</strong> Only your Super Admin account will be assigned to this location. 
+                      <strong>What happens next:</strong> Brand event categories will be auto-deployed. Only your Super Admin account will be assigned. 
                       Switch to the new location to invite team members, set up checklists, configure inventory, and connect integrations.
                     </p>
                   </div>

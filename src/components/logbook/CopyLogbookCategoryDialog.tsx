@@ -12,18 +12,21 @@ import { useAuth } from '@/lib/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserRole } from '@/hooks/useUserRole';
 
+interface LogbookCategory {
+  id: string;
+  name: string;
+  display_order: number;
+  is_active: boolean;
+  alert_enabled: boolean;
+  push_notification_enabled: boolean;
+  logbook_fields?: any[];
+}
+
 interface CopyLogbookCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  category: {
-    id: string;
-    name: string;
-    display_order: number;
-    is_active: boolean;
-    alert_enabled: boolean;
-    push_notification_enabled: boolean;
-    logbook_fields?: any[];
-  } | null;
+  category?: LogbookCategory | null;
+  categories?: LogbookCategory[];
   onSuccess?: () => void;
 }
 
@@ -31,6 +34,7 @@ interface TargetLocation {
   id: string;
   name: string;
   hasExisting: boolean;
+  existingCount: number;
   organizationName?: string;
 }
 
@@ -38,8 +42,12 @@ export function CopyLogbookCategoryDialog({
   open, 
   onOpenChange, 
   category,
+  categories,
   onSuccess
 }: CopyLogbookCategoryDialogProps) {
+  // Support both single category and multi-category modes
+  const allCategories: LogbookCategory[] = categories || (category ? [category] : []);
+  const categoryNames = allCategories.map(c => c.name);
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
   const { role } = useUserRole();
@@ -52,14 +60,14 @@ export function CopyLogbookCategoryDialog({
   const isSuperAdmin = role === 'super_admin';
 
   useEffect(() => {
-    if (open && currentLocation?.id && category) {
+    if (open && currentLocation?.id && allCategories.length > 0) {
       fetchTargetLocations();
       setSelectedLocationIds([]);
     }
-  }, [open, currentLocation?.id, category?.id]);
+  }, [open, currentLocation?.id, allCategories.length]);
 
   const fetchTargetLocations = async () => {
-    if (!category) return;
+    if (allCategories.length === 0) return;
     
     setLoading(true);
     try {
@@ -102,20 +110,20 @@ export function CopyLogbookCategoryDialog({
         locations = data || [];
       }
 
-      // For each location, check if the category already exists (by name)
+      // For each location, check how many categories already exist (by name)
       const locationsWithExisting: TargetLocation[] = await Promise.all(
         locations.map(async (loc) => {
           const { data: existing } = await supabase
             .from('logbook_categories')
-            .select('id')
+            .select('name')
             .eq('location_id', loc.id)
-            .ilike('name', category.name)
-            .maybeSingle();
+            .in('name', categoryNames);
 
           return {
             id: loc.id,
             name: loc.name,
-            hasExisting: !!existing,
+            hasExisting: (existing?.length || 0) > 0,
+            existingCount: existing?.length || 0,
             organizationName: isSuperAdmin ? (loc.organizations as any)?.name : undefined
           };
         })
@@ -131,7 +139,7 @@ export function CopyLogbookCategoryDialog({
   };
 
   const handleCopy = async () => {
-    if (!category || !user) return;
+    if (allCategories.length === 0 || !user) return;
     
     if (selectedLocationIds.length === 0) {
       toast.error('Please select at least one location');
@@ -144,67 +152,69 @@ export function CopyLogbookCategoryDialog({
       let replaced = 0;
 
       for (const targetLocationId of selectedLocationIds) {
-        // Check if exists at target - delete if so (replace mode)
-        const { data: existing } = await supabase
-          .from('logbook_categories')
-          .select('id')
-          .eq('location_id', targetLocationId)
-          .ilike('name', category.name)
-          .maybeSingle();
+        for (const cat of allCategories) {
+          // Check if exists at target - delete if so (replace mode)
+          const { data: existing } = await supabase
+            .from('logbook_categories')
+            .select('id')
+            .eq('location_id', targetLocationId)
+            .ilike('name', cat.name)
+            .maybeSingle();
 
-        if (existing) {
-          // Delete existing category (fields will cascade)
-          await supabase.from('logbook_categories').delete().eq('id', existing.id);
-          replaced++;
-        }
-
-        // Create new category at target
-        const { data: newCategory, error: createError } = await supabase
-          .from('logbook_categories')
-          .insert({
-            name: category.name,
-            display_order: category.display_order,
-            is_active: category.is_active,
-            alert_enabled: category.alert_enabled,
-            push_notification_enabled: category.push_notification_enabled,
-            location_id: targetLocationId,
-            created_by: user.id,
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating category:', createError);
-          toast.error(`Failed to copy "${category.name}": ${createError.message}`);
-          continue;
-        }
-
-        // Copy fields for this category
-        if (category.logbook_fields && category.logbook_fields.length > 0) {
-          const fieldsToInsert = category.logbook_fields.map((field: any) => ({
-            category_id: newCategory.id,
-            field_name: field.field_name,
-            field_type: field.field_type,
-            is_required: field.is_required,
-            display_order: field.display_order,
-            options: field.options || null,
-          }));
-
-          const { error: fieldsError } = await supabase
-            .from('logbook_fields')
-            .insert(fieldsToInsert);
-
-          if (fieldsError) {
-            console.error('Error copying fields:', fieldsError);
+          if (existing) {
+            await supabase.from('logbook_categories').delete().eq('id', existing.id);
+            replaced++;
           }
-        }
 
-        totalCopied++;
+          // Create new category at target
+          const { data: newCategory, error: createError } = await supabase
+            .from('logbook_categories')
+            .insert({
+              name: cat.name,
+              display_order: cat.display_order,
+              is_active: cat.is_active,
+              alert_enabled: cat.alert_enabled,
+              push_notification_enabled: cat.push_notification_enabled,
+              location_id: targetLocationId,
+              created_by: user.id,
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Error creating category:', createError);
+            toast.error(`Failed to copy "${cat.name}": ${createError.message}`);
+            continue;
+          }
+
+          // Copy fields for this category
+          if (cat.logbook_fields && cat.logbook_fields.length > 0) {
+            const fieldsToInsert = cat.logbook_fields.map((field: any) => ({
+              category_id: newCategory.id,
+              field_name: field.field_name,
+              field_type: field.field_type,
+              is_required: field.is_required,
+              display_order: field.display_order,
+              options: field.options || null,
+            }));
+
+            const { error: fieldsError } = await supabase
+              .from('logbook_fields')
+              .insert(fieldsToInsert);
+
+            if (fieldsError) {
+              console.error('Error copying fields:', fieldsError);
+            }
+          }
+
+          totalCopied++;
+        }
       }
 
+      const catLabel = allCategories.length === 1 ? `"${allCategories[0].name}"` : `${allCategories.length} categories`;
       const message = replaced > 0 
-        ? `Copied "${category.name}" to ${totalCopied} location(s) (${replaced} replaced)`
-        : `Copied "${category.name}" to ${totalCopied} location(s)`;
+        ? `Copied ${catLabel} to ${selectedLocationIds.length} location(s) (${replaced} replaced)`
+        : `Copied ${catLabel} to ${selectedLocationIds.length} location(s)`;
       
       toast.success(message);
       queryClient.invalidateQueries({ queryKey: ['logbook-categories'] });
@@ -212,8 +222,8 @@ export function CopyLogbookCategoryDialog({
       setSelectedLocationIds([]);
       onSuccess?.();
     } catch (error: any) {
-      console.error('Error copying category:', error);
-      toast.error(error.message || 'Failed to copy category');
+      console.error('Error copying categories:', error);
+      toast.error(error.message || 'Failed to copy categories');
     } finally {
       setCopying(false);
     }
@@ -238,9 +248,9 @@ export function CopyLogbookCategoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Copy Category to Other Locations</DialogTitle>
+          <DialogTitle>Copy {allCategories.length > 1 ? 'Categories' : 'Category'} to Other Locations</DialogTitle>
           <DialogDescription>
-            Copy "{category?.name}" and its fields to other locations
+            Push {allCategories.length} categor{allCategories.length > 1 ? 'ies' : 'y'} and fields to other locations
             {!isSuperAdmin && ' in your organization'}
           </DialogDescription>
         </DialogHeader>
@@ -255,8 +265,9 @@ export function CopyLogbookCategoryDialog({
             <div className="space-y-1">
               <Label className="text-sm text-muted-foreground">Copying:</Label>
               <div className="flex flex-wrap gap-1">
-                <Badge variant="secondary">{category?.name}</Badge>
-                <Badge variant="outline">{category?.logbook_fields?.length || 0} fields</Badge>
+                {allCategories.map(cat => (
+                  <Badge key={cat.id} variant="secondary">{cat.name}</Badge>
+                ))}
               </div>
             </div>
 
@@ -286,7 +297,7 @@ export function CopyLogbookCategoryDialog({
                         )}
                         {loc.hasExisting && (
                           <div className="text-xs text-amber-600">
-                            Existing category will be replaced
+                            {loc.existingCount} of {allCategories.length} will be replaced
                           </div>
                         )}
                       </div>
