@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useInventoryTransfers, getTransferTotalsForPeriod } from "@/hooks/useInventoryTransfers";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +52,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
   const [showPurchases, setShowPurchases] = useState(false);
   const { getTodayInTimezone } = useLocationTimezone();
   const todayStr = getTodayInTimezone();
+  const { transfers } = useInventoryTransfers(locationId);
   
 
   // Fetch previous count to check if it was flex (affects current period start)
@@ -139,6 +141,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       isNonStandard,
     };
   }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, prevCountData]);
+
+  // Compute transfer totals for this period
+  const transferTotals = useMemo(() => {
+    if (!periodRange || !transfers.length) return { transfersIn: 0, transfersOut: 0, transfersInItems: [], transfersOutItems: [] };
+    return getTransferTotalsForPeriod(transfers, locationId, periodRange.startStr, periodRange.endStr);
+  }, [transfers, locationId, periodRange]);
 
   // Fetch COGS data — now uses bound orders instead of date-range
   const { data: cogsData, isLoading: cogsLoading } = useQuery({
@@ -309,6 +317,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         .lte("sale_date", periodRange.salesEndStr);
 
       const netSales = (salesRows || []).reduce((s, d) => s + (Number(d.net_sales) || 0), 0);
+      
+      // Transfers will be calculated separately and merged at render time
       const cogsTotal = beginValue + purchasesTotal - endValue;
       const cogsPct = netSales > 0 ? (cogsTotal / netSales) * 100 : 0;
 
@@ -450,14 +460,22 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                 <div className="text-right">
-                  <p className={`text-2xl font-bold leading-none ${
-                    count.status === "completed"
-                      ? (cogsData.cogsPct > 22 ? "text-destructive" : "")
-                      : "text-muted-foreground"
-                  }`}>
-                    {cogsData.cogsPct.toFixed(1)}%
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
+                  {(() => {
+                    const adjCogs = cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut;
+                    const adjPct = cogsData.netSales > 0 ? (adjCogs / cogsData.netSales) * 100 : 0;
+                    return (
+                      <>
+                        <p className={`text-2xl font-bold leading-none ${
+                          count.status === "completed"
+                            ? (adjPct > 22 ? "text-destructive" : "")
+                            : "text-muted-foreground"
+                        }`}>
+                          {adjPct.toFixed(1)}%
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
+                      </>
+                    );
+                  })()}
                 </div>
                 {count.status === "in_progress" && hasCountedItems && (
                   <Button
@@ -607,9 +625,20 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 </div>
               )}
 
+              {/* Transfer rows */}
+              {transferTotals.transfersIn > 0 && (
+                <FormulaRow label="+ Transfers In" value={transferTotals.transfersIn} />
+              )}
+              {transferTotals.transfersOut > 0 && (
+                <FormulaRow label="− Transfers Out" value={transferTotals.transfersOut} />
+              )}
               <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
               <div className="border-t border-border/60 pt-1.5 mt-1.5">
-                <FormulaRow label="= Cost of Goods Sold" value={cogsData.cogsTotal} bold />
+                <FormulaRow 
+                  label="= Cost of Goods Sold" 
+                  value={cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut} 
+                  bold 
+                />
               </div>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-xs text-muted-foreground">Net Sales</span>
