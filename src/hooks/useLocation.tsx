@@ -139,6 +139,11 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
 
+    // Update organizationId to match the new location's org
+    if (location.organization_id) {
+      setOrganizationId(location.organization_id);
+    }
+
     const locationScopedKeys = [
       'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',
       'checklists', 'inventory', 'user-data-cubes', 'sales-cache-today',
