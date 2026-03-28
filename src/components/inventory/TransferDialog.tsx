@@ -107,8 +107,12 @@ export default function TransferDialog({ open, onClose, locationId }: TransferDi
   };
 
   const totalCost = items.reduce((sum, item) => {
-    const qty = item.unit_type === "case" ? item.quantity * item.packQty : item.quantity;
-    return sum + qty * (item.cost_per_unit || 0);
+    // cost_per_unit is the case-level cost from the DB (blended_price or cost_per_unit)
+    // For cases: qty * case cost. For units: qty * (case cost / packQty)
+    const unitCost = item.unit_type === "case" 
+      ? (item.cost_per_unit || 0) 
+      : (item.cost_per_unit || 0) / Math.max(item.packQty, 1);
+    return sum + item.quantity * unitCost;
   }, 0);
 
   return (
