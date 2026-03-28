@@ -1221,12 +1221,14 @@ async function handleSyncTips(req: Request, supabase: any) {
 async function handleTestApi(supabase: any): Promise<Response> {
   console.log('[sales-service] test-api: Starting V4 API test...');
 
-  const token = await authenticateV4();
-  if (!token) {
-    return new Response(JSON.stringify({ error: 'V4 OAuth2 authentication failed' }), {
-      status: 502,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+  // Token cache for test-api
+  const tokenCache = new Map<string, string | null>();
+  async function getTestToken(creds: any): Promise<string | null> {
+    const key = creds?.client_id || '__global__';
+    if (tokenCache.has(key)) return tokenCache.get(key)!;
+    const t = await authenticateV4(creds?.client_id, creds?.client_secret);
+    tokenCache.set(key, t);
+    return t;
   }
 
   // Get all active QU integrations
@@ -1244,18 +1246,25 @@ async function handleTestApi(supabase: any): Promise<Response> {
   }
 
   const todayStr = getDateStringForTimezone(new Date(), 'America/Los_Angeles');
-  const headers = getV4Headers(token);
   const locationResults: any[] = [];
 
   for (const integration of integrations) {
     const locationName = (integration.locations as any)?.name || 'Unknown';
-    const credentials = integration.credentials as { location_id?: string };
+    const credentials = integration.credentials as { location_id?: string; client_id?: string; client_secret?: string };
     const qbLocationId = credentials?.location_id || '';
 
     if (!qbLocationId) {
       locationResults.push({ location: locationName, status: 'missing_qb_location_id' });
       continue;
     }
+
+    const token = await getTestToken(credentials);
+    if (!token) {
+      locationResults.push({ location: locationName, status: 'auth_failed' });
+      continue;
+    }
+
+    const headers = getV4Headers(token);
 
     console.log(`[test-api] Testing ${locationName} (QB: ${qbLocationId})...`);
 
