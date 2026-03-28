@@ -613,14 +613,37 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 </div>
               )}
 
-              <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
-              <div className="border-t border-border/60 pt-1.5 mt-1.5">
-                <FormulaRow label="= Cost of Goods Sold" value={cogsData.cogsTotal} bold />
-              </div>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-muted-foreground">Net Sales</span>
-                <span className="text-sm font-medium">${Math.round(cogsData.netSales).toLocaleString()}</span>
-              </div>
+              {/* Transfer rows */}
+              {(() => {
+                const transferTotals = periodRange ? getTransferTotalsForPeriod(transfers, locationId, periodRange.startStr, periodRange.endStr) : null;
+                const hasTransfersIn = (transferTotals?.transfersIn || 0) > 0;
+                const hasTransfersOut = (transferTotals?.transfersOut || 0) > 0;
+                const adjustedCogs = cogsData.cogsTotal + (transferTotals?.transfersIn || 0) - (transferTotals?.transfersOut || 0);
+                // Note: transfersIn ADDS to available goods (like purchases), transfersOut REMOVES
+                // COGS = Begin + Purchases + TransfersIn - TransfersOut - Ending
+                return (
+                  <>
+                    {hasTransfersIn && (
+                      <FormulaRow label="+ Transfers In" value={transferTotals!.transfersIn} />
+                    )}
+                    {hasTransfersOut && (
+                      <FormulaRow label="− Transfers Out" value={transferTotals!.transfersOut} />
+                    )}
+                    <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
+                    <div className="border-t border-border/60 pt-1.5 mt-1.5">
+                      <FormulaRow 
+                        label="= Cost of Goods Sold" 
+                        value={(hasTransfersIn || hasTransfersOut) ? adjustedCogs : cogsData.cogsTotal} 
+                        bold 
+                      />
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs text-muted-foreground">Net Sales</span>
+                      <span className="text-sm font-medium">${Math.round(cogsData.netSales).toLocaleString()}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             {count.period_type === "weekly" && (
