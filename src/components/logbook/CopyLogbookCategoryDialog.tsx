@@ -34,6 +34,7 @@ interface TargetLocation {
   id: string;
   name: string;
   hasExisting: boolean;
+  existingCount: number;
   organizationName?: string;
 }
 
