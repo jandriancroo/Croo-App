@@ -433,6 +433,24 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                 </div>
               </div>
 
+              {/* Total Cash Handled breakdown (when prior pulls exist) */}
+              {priorPulls.length > 0 && expectedDeposit && parseFloat(expectedDeposit) > 0 && (
+                <div className="space-y-1.5 p-3 bg-muted/50 rounded-lg text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">This Count Deposit</span>
+                    <span>{formatCurrency(calculations.actualDeposit)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">+ Prior Pulls</span>
+                    <span>{formatCurrency(calculations.priorPullsTotal)}</span>
+                  </div>
+                  <div className="flex justify-between font-medium border-t pt-1.5">
+                    <span>Total Cash Handled</span>
+                    <span>{formatCurrency(calculations.totalCashHandled)}</span>
+                  </div>
+                </div>
+              )}
+
               {expectedDeposit && parseFloat(expectedDeposit) > 0 && (
                 <div className={`flex items-center justify-between p-4 rounded-lg ${
                   calculations.variance === 0 
