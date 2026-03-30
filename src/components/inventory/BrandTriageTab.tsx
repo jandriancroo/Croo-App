@@ -250,7 +250,7 @@ export default function BrandTriageTab({ brandId, locations }: BrandTriageTabPro
     setSearchQuery('');
   };
 
-  const totalPending = stagingItems.length;
+  
 
   return (
     <div className="space-y-4">
