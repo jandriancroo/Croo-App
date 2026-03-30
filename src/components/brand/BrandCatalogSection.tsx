@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tag, ChevronDown, ChevronRight, CheckCircle2, Clock, Archive, RefreshCw } from "lucide-react";
@@ -22,14 +22,32 @@ interface BrandCatalogSectionProps {
   selectionMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
+  onStartSelection?: (id: string) => void;
 }
 
 export default function BrandCatalogSection({
   category, items, onEdit, onStatusChange,
-  selectionMode, selectedIds, onToggleSelect,
+  selectionMode, selectedIds, onToggleSelect, onStartSelection,
 }: BrandCatalogSectionProps) {
   const [isOpen, setIsOpen] = useState(true);
   const recipeCount = items.filter(i => i.is_recipe).length;
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
+
+  const handleTouchStart = useCallback((id: string) => {
+    longPressTriggered.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      onStartSelection?.(id);
+    }, 500);
+  }, [onStartSelection]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
 
   return (
     <div>
@@ -63,28 +81,35 @@ export default function BrandCatalogSection({
           {items.map(item => (
             <div
               key={item.id}
-              className="w-full flex items-center gap-2 py-1.5 px-2 text-sm hover:bg-muted/50 transition-colors text-left rounded-sm group"
+              className={`w-full flex items-center gap-2 py-1.5 px-2 text-sm hover:bg-muted/50 transition-colors text-left rounded-sm group cursor-pointer ${
+                selectionMode && selectedIds?.has(item.id) ? 'bg-primary/5' : ''
+              }`}
+              onClick={() => {
+                if (longPressTriggered.current) return;
+                if (selectionMode && onToggleSelect) {
+                  onToggleSelect(item.id);
+                } else {
+                  onEdit(item);
+                }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onStartSelection?.(item.id);
+              }}
+              onTouchStart={() => handleTouchStart(item.id)}
+              onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchEnd}
             >
-              {onToggleSelect && (
+              {selectionMode && (
                 <Checkbox
                   checked={selectedIds?.has(item.id) ?? false}
                   className="flex-shrink-0"
-                  onCheckedChange={() => onToggleSelect(item.id)}
+                  onCheckedChange={() => onToggleSelect?.(item.id)}
                 />
               )}
-              <button
-                type="button"
-                className="truncate flex-1 font-medium text-left"
-                onClick={() => {
-                  if (selectionMode && onToggleSelect) {
-                    onToggleSelect(item.id);
-                  } else {
-                    onEdit(item);
-                  }
-                }}
-              >
+              <span className="truncate flex-1 font-medium">
                 {item.common_name || item.product_name}
-              </button>
+              </span>
               {item.common_name && (
                 <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:inline">
                   {item.product_name}
@@ -111,7 +136,7 @@ export default function BrandCatalogSection({
                     <button
                       className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
                       title="Publish (Live)"
-                      onClick={() => onStatusChange(item.id, 'live')}
+                      onClick={(e) => { e.stopPropagation(); onStatusChange(item.id, 'live'); }}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </button>
@@ -120,7 +145,7 @@ export default function BrandCatalogSection({
                     <button
                       className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       title="Revert to Draft"
-                      onClick={() => onStatusChange(item.id, 'draft')}
+                      onClick={(e) => { e.stopPropagation(); onStatusChange(item.id, 'draft'); }}
                     >
                       <Clock className="h-3.5 w-3.5" />
                     </button>
@@ -129,7 +154,7 @@ export default function BrandCatalogSection({
                     <button
                       className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                       title="Archive"
-                      onClick={() => onStatusChange(item.id, 'archived')}
+                      onClick={(e) => { e.stopPropagation(); onStatusChange(item.id, 'archived'); }}
                     >
                       <Archive className="h-3.5 w-3.5" />
                     </button>
@@ -138,7 +163,7 @@ export default function BrandCatalogSection({
                     <button
                       className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
                       title="Restore to Live"
-                      onClick={() => onStatusChange(item.id, 'live')}
+                      onClick={(e) => { e.stopPropagation(); onStatusChange(item.id, 'live'); }}
                     >
                       <RefreshCw className="h-3.5 w-3.5" />
                     </button>
