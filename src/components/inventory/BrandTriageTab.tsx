@@ -263,7 +263,7 @@ export default function BrandTriageTab({ brandId, locations }: BrandTriageTabPro
           <div>
             <h2 className="text-sm font-bold">Item Triage</h2>
             <p className="text-[11px] text-muted-foreground">
-              {totalPending === 0 ? 'All clear!' : `${totalPending} items to resolve`}
+              {totalCards === 0 ? 'All clear!' : `${totalCards} items to resolve`}
             </p>
           </div>
         </div>
@@ -278,7 +278,7 @@ export default function BrandTriageTab({ brandId, locations }: BrandTriageTabPro
           <Loader2 className="h-6 w-6 animate-spin mx-auto mb-3" />
           Loading triage data...
         </div>
-      ) : totalPending === 0 ? (
+      ) : totalCards === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="h-16 w-16 rounded-2xl bg-green-500/10 flex items-center justify-center mb-4">
