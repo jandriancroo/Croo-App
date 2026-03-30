@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,11 +26,11 @@ export default function BrandCategoryEditor({ brandId, categories, open, onOpenC
   const [newName, setNewName] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  // Sync from props when dialog opens
-  const handleOpenChange = (o: boolean) => {
-    if (o) setItems([...categories].sort((a, b) => a.display_order - b.display_order));
-    onOpenChange(o);
-  };
+  useEffect(() => {
+    if (open) {
+      setItems([...categories].sort((a, b) => a.display_order - b.display_order));
+    }
+  }, [open, categories]);
 
   const addMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -107,7 +107,7 @@ export default function BrandCategoryEditor({ brandId, categories, open, onOpenC
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
