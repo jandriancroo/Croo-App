@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Package, BookOpen, Settings, History, Search, Plus, Archive, FileText, Layers, Tag, ChefHat, Utensils, BarChart3, Building2, CheckCircle2, XCircle, Clock, Zap, ArrowRight, GitBranch, Eye, EyeOff, RefreshCw, Shield } from 'lucide-react';
+import { ArrowLeft, Package, BookOpen, Settings, Search, Plus, Archive, FileText, Layers, Tag, ChefHat, Utensils, BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye, RefreshCw, Shield, Upload } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -72,7 +72,7 @@ export default function BrandInventory() {
   }, {});
 
   const recipeTemplates = templates.filter(t => t.is_recipe);
-  const ingredientTemplates = templates.filter(t => !t.is_recipe);
+  const _ingredientTemplates = templates.filter(t => !t.is_recipe);
 
   if (roleLoading || brandLoading) {
     return (
