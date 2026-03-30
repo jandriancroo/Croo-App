@@ -130,46 +130,6 @@ export default function BrandCatalogSection({
                   POS ✓
                 </Badge>
               )}
-              {!selectionMode && (
-                <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
-                  {item.status === 'draft' && (
-                    <button
-                      className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                      title="Publish (Live)"
-                      onClick={(e) => { e.stopPropagation(); onStatusChange(item.id, 'live'); }}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {item.status === 'live' && (
-                    <button
-                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                      title="Revert to Draft"
-                      onClick={(e) => { e.stopPropagation(); onStatusChange(item.id, 'draft'); }}
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {item.status !== 'archived' && (
-                    <button
-                      className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                      title="Archive"
-                      onClick={(e) => { e.stopPropagation(); onStatusChange(item.id, 'archived'); }}
-                    >
-                      <Archive className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {item.status === 'archived' && (
-                    <button
-                      className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                      title="Restore to Live"
-                      onClick={(e) => { e.stopPropagation(); onStatusChange(item.id, 'live'); }}
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           ))}
         </div>
