@@ -326,5 +326,80 @@ async function createSystemSupportTicket(
     }
   } catch (err) {
     console.error(`[QUEUE] Error creating support ticket:`, err);
+}
+
+// ============================================================================
+// BACKFILL SALES — calls sales-service sync-dates in 7-day batches
+// target_date = the END date for this batch (work backward 7 days from it)
+// Auto-queues next batch until 371 days (53 weeks) are covered
+// ============================================================================
+const BACKFILL_BATCH_DAYS = 7;
+const BACKFILL_TOTAL_DAYS = 371; // 53 weeks for full YOY projection coverage
+
+async function processBackfillSales(
+  supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  supabaseKey: string,
+  task: any
+) {
+  const locationId = task.location_id;
+  const batchEndDate = new Date(task.target_date + "T12:00:00Z");
+
+  // Generate 7 dates ending at target_date, going backward
+  const dates: string[] = [];
+  for (let i = 0; i < BACKFILL_BATCH_DAYS; i++) {
+    const d = new Date(batchEndDate);
+    d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
   }
+
+  console.log(`[QUEUE] backfill_sales: ${locationId} batch ending ${task.target_date}, ${dates.length} dates`);
+
+  // Call sync-dates (caps at 30 per call, we send 7)
+  const response = await fetch(`${supabaseUrl}/functions/v1/sales-service?action=sync-dates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({ locationId, dates }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
+
+  const result = await response.json();
+  console.log(`[QUEUE] backfill_sales batch done: ${result.synced || 0}/${result.total || 0} days synced`);
+
+  // Calculate how many days back we've now gone from today
+  const today = new Date();
+  const oldestDateInBatch = new Date(batchEndDate);
+  oldestDateInBatch.setDate(oldestDateInBatch.getDate() - (BACKFILL_BATCH_DAYS - 1));
+  const daysCovered = Math.floor((today.getTime() - oldestDateInBatch.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysCovered < BACKFILL_TOTAL_DAYS) {
+    // Queue next batch — start from where this batch ended
+    const nextEndDate = new Date(oldestDateInBatch);
+    nextEndDate.setDate(nextEndDate.getDate() - 1);
+    const nextDateStr = nextEndDate.toISOString().slice(0, 10);
+
+    const { error: queueError } = await supabase
+      .from("maintenance_queue")
+      .insert({
+        task_type: "backfill_sales",
+        location_id: locationId,
+        target_date: nextDateStr,
+        status: "pending",
+      });
+
+    if (queueError) {
+      console.error(`[QUEUE] Failed to queue next backfill batch:`, queueError);
+    } else {
+      console.log(`[QUEUE] Queued next backfill batch for ${locationId} ending ${nextDateStr} (${daysCovered}/${BACKFILL_TOTAL_DAYS} days covered)`);
+    }
+  } else {
+    console.log(`[QUEUE] ✓ Backfill complete for ${locationId}: ${daysCovered} days covered`);
+  }
+
+  return result;
+}
 }
