@@ -83,9 +83,8 @@ export default function BrandCatalogSection({
                   }
                 }}
               >
-              <span className="truncate flex-1 font-medium">
                 {item.common_name || item.product_name}
-              </span>
+              </button>
               {item.common_name && (
                 <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:inline">
                   {item.product_name}
@@ -106,9 +105,8 @@ export default function BrandCatalogSection({
                   POS ✓
                 </Badge>
               )}
-              {/* Hover-reveal status actions (hidden during selection mode) */}
               {!selectionMode && (
-                <div className="hidden group-hover:flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
+                <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
                   {item.status === 'draft' && (
                     <button
                       className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
@@ -147,7 +145,7 @@ export default function BrandCatalogSection({
                   )}
                 </div>
               )}
-            </button>
+            </div>
           ))}
         </div>
       )}
