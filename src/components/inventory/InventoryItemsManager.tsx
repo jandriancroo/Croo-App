@@ -505,6 +505,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       cost_per_unit: item.cost_per_unit ? Number(item.cost_per_unit) : null,
       unit: item.unit || null,
       pack_size: item.pack_size || null,
+      brand_item_id: item.brand_item_id || null,
     });
     setIsDailyTracked(!!item.is_daily_tracked);
     setOverrideValue(item.pack_quantity_override?.toString() || "");
