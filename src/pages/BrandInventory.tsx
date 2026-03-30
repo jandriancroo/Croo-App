@@ -199,7 +199,14 @@ export default function BrandInventory() {
       toast.success('Item updated');
       setEditingTemplate(null);
     },
-    onError: () => toast.error('Failed to update'),
+    onError: (err: any) => {
+      const msg = err?.message || '';
+      if (msg.includes('23505') || msg.includes('unique constraint') || msg.includes('duplicate key')) {
+        toast.error('An item with that name already exists');
+      } else {
+        toast.error('Failed to update');
+      }
+    },
   });
 
   // Create new item mutation
@@ -595,12 +602,11 @@ function EditTemplateForm({
   onCancel,
 }: {
   template: any;
-  onSave: (updates: { product_name?: string; common_name?: string; category?: string }) => void;
+  onSave: (updates: { product_name?: string; category?: string }) => void;
   isPending: boolean;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(template.product_name || '');
-  const [commonName, setCommonName] = useState(template.common_name || '');
   const [category, setCategory] = useState(template.category || '');
 
   return (
@@ -608,14 +614,6 @@ function EditTemplateForm({
       <div className="space-y-2">
         <Label>Product Name</Label>
         <Input value={name} onChange={e => setName(e.target.value)} />
-      </div>
-      <div className="space-y-2">
-        <Label>Common Name</Label>
-        <Input
-          placeholder="Short display name"
-          value={commonName}
-          onChange={e => setCommonName(e.target.value)}
-        />
       </div>
       <div className="space-y-2">
         <Label>Category</Label>
@@ -636,7 +634,7 @@ function EditTemplateForm({
         <Button
           className="flex-1"
           disabled={isPending || !name.trim()}
-          onClick={() => onSave({ product_name: name, common_name: commonName || null, category: category || null } as any)}
+          onClick={() => onSave({ product_name: name, category: category || null } as any)}
         >
           {isPending ? 'Saving...' : 'Save'}
         </Button>
