@@ -90,7 +90,26 @@ export default function BrandInventory() {
     enabled: !!brandId,
   });
 
-  const { data: locations = [] } = useQuery({
+  // Brand categories (dynamic, reorderable)
+  const { data: brandCategories = [] } = useQuery({
+    queryKey: ['brand-categories', brandId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('brand_inventory_categories' as any)
+        .select('*')
+        .eq('brand_id', brandId!)
+        .order('display_order', { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!brandId,
+  });
+
+  const categoryNames = useMemo(() => {
+    if (brandCategories.length > 0) return brandCategories.map((c: any) => c.name as string);
+    return FALLBACK_CATEGORIES;
+  }, [brandCategories]);
+
     queryKey: ['brand-locations', brandId],
     queryFn: async () => {
       const { data, error } = await supabase
