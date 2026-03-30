@@ -652,7 +652,7 @@ function EditTemplateForm({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">No category</SelectItem>
-            {categoryNames.map(cat => (
+            {categories.map(cat => (
               <SelectItem key={cat} value={cat}>{cat}</SelectItem>
             ))}
           </SelectContent>
