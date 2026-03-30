@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck, Link2, Plus, ChevronDown } from "lucide-react";
+import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck, Link2, Plus, ChevronDown, Shield } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
@@ -18,9 +18,10 @@ import { usePosMapping } from "./recipe-catalog/usePosMapping";
 
 interface RecipeCatalogProps {
   locationId: string;
+  readOnly?: boolean;
 }
 
-const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
+const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => {
   const navigate = useNavigate();
   const [editBlueprintId, setEditBlueprintId] = useState<string | null>(null);
   const [showBuilderDialog, setShowBuilderDialog] = useState(false);
@@ -182,39 +183,47 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                 <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
               </button>
             </CollapsibleTrigger>
-            <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5">
-              <button
-                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-                onClick={() => {
-                  setEditBlueprintId(null);
-                  setShowBuilderDialog(true);
-                }}
-              >
-                <Plus className="h-3 w-3" />
-                New
-              </button>
-              <button
-                className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-                onClick={() => navigate(`/inventory/${locationId}/triage`)}
-              >
-                <ClipboardCheck className="h-3 w-3" />
-                Triage
-              </button>
-              <button
-                className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
-                  reassignMode
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/80"
-                }`}
-                onClick={() => {
-                  setReassignMode(!reassignMode);
-                  if (reassignMode) setSelectedIds(new Set());
-                }}
-              >
-                <ArrowRightLeft className="h-3 w-3" />
-                {reassignMode ? "Cancel" : "Reassign"}
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5">
+                <button
+                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                  onClick={() => {
+                    setEditBlueprintId(null);
+                    setShowBuilderDialog(true);
+                  }}
+                >
+                  <Plus className="h-3 w-3" />
+                  New
+                </button>
+                <button
+                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
+                  onClick={() => navigate(`/inventory/${locationId}/triage`)}
+                >
+                  <ClipboardCheck className="h-3 w-3" />
+                  Triage
+                </button>
+                <button
+                  className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
+                    reassignMode
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/80"
+                  }`}
+                  onClick={() => {
+                    setReassignMode(!reassignMode);
+                    if (reassignMode) setSelectedIds(new Set());
+                  }}
+                >
+                  <ArrowRightLeft className="h-3 w-3" />
+                  {reassignMode ? "Cancel" : "Reassign"}
+                </button>
+              </div>
+            )}
+            {readOnly && (
+              <Badge variant="outline" className="text-[10px] shrink-0">
+                <Shield className="h-3 w-3 mr-1" />
+                Brand managed
+              </Badge>
+            )}
           </div>
           <CollapsibleContent>
             <div className="divide-y divide-border">
@@ -224,7 +233,7 @@ const RecipeCatalog = ({ locationId }: RecipeCatalogProps) => {
                   section={section}
                   defaultOpen={i === 0}
                   locationId={locationId}
-                  onEditRecipe={reassignMode ? undefined : handleEditRecipe}
+                  onEditRecipe={readOnly || reassignMode ? undefined : handleEditRecipe}
                   reassignMode={reassignMode}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}

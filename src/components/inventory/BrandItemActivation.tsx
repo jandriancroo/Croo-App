@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Search, Package, AlertTriangle, Zap, Tag } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Search, Package, AlertTriangle, Zap, Tag, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface BrandItemActivationProps {
@@ -146,133 +147,146 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
   const activeCount = activeBrandIds.size;
   const totalCount = brandItems.length;
 
+  const inactiveCount = totalCount - activeCount;
+
   if (brandLoading || itemsLoading) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-muted-foreground text-sm">
+        <CardContent className="py-4 text-center text-muted-foreground text-sm">
           Loading brand catalog...
         </CardContent>
       </Card>
     );
   }
 
+  if (totalCount === 0) return null;
+
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Brand Catalog Activation
-          </CardTitle>
-          <Badge variant="secondary" className="text-[10px]">
-            {activeCount}/{totalCount} active
-          </Badge>
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          Toggle which brand items this location counts
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Search + filter */}
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search brand items..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 text-sm"
-            />
-          </div>
-          <Button
-            variant={showInactiveOnly ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowInactiveOnly(!showInactiveOnly)}
-            className="text-xs shrink-0"
-          >
-            Inactive only
-          </Button>
-        </div>
+      <Collapsible defaultOpen={inactiveCount > 0}>
+        <CollapsibleTrigger asChild>
+          <button className="w-full flex items-center gap-2 px-4 py-3 hover:bg-muted/30 transition-colors text-left">
+            <Package className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold flex-1">Brand Catalog</span>
+            <Badge variant="secondary" className="text-[10px]">
+              {activeCount}/{totalCount} active
+            </Badge>
+            {inactiveCount > 0 && (
+              <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30">
+                {inactiveCount} available
+              </Badge>
+            )}
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pt-0 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Toggle which brand items this location stocks and counts
+            </p>
 
-        {/* Grouped items */}
-        {Object.keys(grouped).length === 0 ? (
-          <div className="text-center py-6 text-muted-foreground text-sm">
-            {searchQuery ? 'No items match your search' : 'No brand items available'}
-          </div>
-        ) : (
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-            {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
-              <div key={category}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Tag className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{category}</span>
-                  <Badge variant="outline" className="text-[9px] ml-auto">
-                    {items.filter(i => activeBrandIds.has(i.id)).length}/{items.length}
-                  </Badge>
-                </div>
-                <div className="divide-y divide-border rounded-lg border">
-                  {items.map(item => {
-                    const isActive = activeBrandIds.has(item.id);
-                    const missingDeps = getMissingDeps(item);
-                    return (
-                      <div key={item.id} className="flex items-center justify-between px-3 py-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-medium truncate">
-                              {item.common_name || item.product_name}
-                            </span>
-                            {item.is_recipe && (
-                              <Badge variant="outline" className="text-[9px] shrink-0">Recipe</Badge>
-                            )}
-                          </div>
-                          {item.common_name && (
-                            <p className="text-[10px] text-muted-foreground truncate">{item.product_name}</p>
-                          )}
-                          {missingDeps.length > 0 && !isActive && (
-                            <div className="flex items-center gap-1 text-[10px] text-amber-600 mt-0.5">
-                              <AlertTriangle className="h-3 w-3" />
-                              Requires {missingDeps.length} inactive ingredients
-                            </div>
-                          )}
-                        </div>
-                        <Switch
-                          checked={isActive}
-                          onCheckedChange={(checked) => {
-                            toggleMutation.mutate({ brandItemId: item.id, activate: checked });
-                          }}
-                          disabled={toggleMutation.isPending}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+            {/* Search + filter */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search brand items..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                />
               </div>
-            ))}
-          </div>
-        )}
+              <Button
+                variant={showInactiveOnly ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowInactiveOnly(!showInactiveOnly)}
+                className="text-xs shrink-0"
+              >
+                Inactive only
+              </Button>
+            </div>
 
-        {/* Quick activate all */}
-        {totalCount > 0 && activeCount < totalCount && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full gap-1.5 text-xs"
-            onClick={() => {
-              const inactive = brandItems.filter(i => !activeBrandIds.has(i.id));
-              if (inactive.length > 20) {
-                toast.info(`This would activate ${inactive.length} items. Use the toggles individually for safety.`);
-                return;
-              }
-              inactive.forEach(item => {
-                toggleMutation.mutate({ brandItemId: item.id, activate: true });
-              });
-            }}
-          >
-            <Zap className="h-3.5 w-3.5" />
-            Activate all ({totalCount - activeCount} remaining)
-          </Button>
-        )}
-      </CardContent>
+            {/* Grouped items */}
+            {Object.keys(grouped).length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground text-sm">
+                {searchQuery ? 'No items match your search' : 'No brand items available'}
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+                {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([category, items]) => (
+                  <div key={category}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Tag className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{category}</span>
+                      <Badge variant="outline" className="text-[9px] ml-auto">
+                        {items.filter(i => activeBrandIds.has(i.id)).length}/{items.length}
+                      </Badge>
+                    </div>
+                    <div className="divide-y divide-border rounded-lg border">
+                      {items.map(item => {
+                        const isActive = activeBrandIds.has(item.id);
+                        const missingDeps = getMissingDeps(item);
+                        return (
+                          <div key={item.id} className="flex items-center justify-between px-3 py-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-medium truncate">
+                                  {item.common_name || item.product_name}
+                                </span>
+                                {item.is_recipe && (
+                                  <Badge variant="outline" className="text-[9px] shrink-0">Recipe</Badge>
+                                )}
+                              </div>
+                              {item.common_name && (
+                                <p className="text-[10px] text-muted-foreground truncate">{item.product_name}</p>
+                              )}
+                              {missingDeps.length > 0 && !isActive && (
+                                <div className="flex items-center gap-1 text-[10px] text-amber-600 mt-0.5">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Requires {missingDeps.length} inactive ingredients
+                                </div>
+                              )}
+                            </div>
+                            <Switch
+                              checked={isActive}
+                              onCheckedChange={(checked) => {
+                                toggleMutation.mutate({ brandItemId: item.id, activate: checked });
+                              }}
+                              disabled={toggleMutation.isPending}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Quick activate all */}
+            {totalCount > 0 && activeCount < totalCount && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-1.5 text-xs"
+                onClick={() => {
+                  const inactive = brandItems.filter(i => !activeBrandIds.has(i.id));
+                  if (inactive.length > 20) {
+                    toast.info(`This would activate ${inactive.length} items. Use the toggles individually for safety.`);
+                    return;
+                  }
+                  inactive.forEach(item => {
+                    toggleMutation.mutate({ brandItemId: item.id, activate: true });
+                  });
+                }}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                Activate all ({totalCount - activeCount} remaining)
+              </Button>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 }
