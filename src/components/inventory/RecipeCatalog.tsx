@@ -233,7 +233,7 @@ const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => 
                   section={section}
                   defaultOpen={i === 0}
                   locationId={locationId}
-                  onEditRecipe={reassignMode ? undefined : handleEditRecipe}
+                  onEditRecipe={readOnly || reassignMode ? undefined : handleEditRecipe}
                   reassignMode={reassignMode}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
