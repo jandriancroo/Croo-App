@@ -1,0 +1,1 @@
+DELETE FROM brand_inventory_templates WHERE id = '1ed1b5e2-38ab-4a77-981d-4d374ce029e8';
