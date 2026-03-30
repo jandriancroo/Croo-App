@@ -406,19 +406,28 @@ export default function BrandManagement() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => openEditDialog(brand)}
+                      onClick={(e) => { e.stopPropagation(); openEditDialog(brand); }}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 space-y-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Building2 className="h-3 w-3" />
                     <span>
                       {brand.organizations?.length || 0} organization{(brand.organizations?.length || 0) !== 1 ? 's' : ''}
                     </span>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => navigate(`/brand/${brand.id}/inventory`)}
+                  >
+                    <Package className="h-3.5 w-3.5" />
+                    Inventory
+                  </Button>
                 </CardContent>
               </Card>
             ))}
