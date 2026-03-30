@@ -369,6 +369,7 @@ export default function BrandInventory() {
                         selectionMode={catalogSelectionMode}
                         selectedIds={catalogSelectedIds}
                         onToggleSelect={toggleCatalogSelect}
+                        onStartSelection={(id) => setCatalogSelectedIds(new Set([id]))}
                       />
                     ))}
                 </div>
