@@ -67,6 +67,7 @@ interface EditingItem {
   cost_per_unit: number | null;
   unit: string | null;
   pack_size: string | null;
+  brand_item_id: string | null;
 }
 
 const INVENTORY_CATEGORIES = [
@@ -504,6 +505,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       cost_per_unit: item.cost_per_unit ? Number(item.cost_per_unit) : null,
       unit: item.unit || null,
       pack_size: item.pack_size || null,
+      brand_item_id: item.brand_item_id || null,
     });
     setIsDailyTracked(!!item.is_daily_tracked);
     setOverrideValue(item.pack_quantity_override?.toString() || "");
@@ -1380,9 +1382,15 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
              <DialogTitle className="sr-only">Edit Item</DialogTitle>
            </DialogHeader>
            {editingItem && (
-             <div className="space-y-4">
-               <div className="space-y-1">
-                 <div className="flex items-center gap-2 pr-6 min-w-0 max-w-full">
+              <div className="space-y-4">
+                {!!editingItem.brand_item_id && (
+                  <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2.5 py-1.5">
+                    <Tag className="h-3 w-3" />
+                    Brand managed — category &amp; common name controlled by brand catalog
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 pr-6 min-w-0 max-w-full">
                    {editingCommonName ? (
                      <Input
                        autoFocus
@@ -1398,14 +1406,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                            setEditingCommonName(false);
                          }
                        }}
-                       disabled={!canEditCommonNames}
+                       disabled={!canEditCommonNames || !!editingItem.brand_item_id}
                      />
                    ) : (
                      <>
                        <p className="text-sm font-medium min-w-0 flex-1 break-all line-clamp-2">
                          {commonNameValue || editingItem.name}
                        </p>
-                       {canEditCommonNames && (
+                       {canEditCommonNames && !editingItem.brand_item_id && (
                          <Button
                            variant="ghost"
                            size="icon"
@@ -1420,7 +1428,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                    <Select
                      value={categoryValue || "__none__"}
                      onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
-                     disabled={!canEditCategories}
+                     disabled={!canEditCategories || !!editingItem.brand_item_id}
                    >
                      <SelectTrigger className="h-7 w-auto gap-1.5 px-3 py-0 text-xs rounded-full font-medium bg-primary text-primary-foreground border-primary hover:bg-primary/90 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-primary-foreground">
                        <SelectValue placeholder="No category" />

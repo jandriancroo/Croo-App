@@ -26,6 +26,7 @@ import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
 import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialog";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 import RecipeCatalog from "@/components/inventory/RecipeCatalog";
+import BrandItemActivation from "@/components/inventory/BrandItemActivation";
 
 const Inventory = () => {
   const { locationId } = useParams();
@@ -417,6 +418,9 @@ const Inventory = () => {
                   Deploy to Location
                 </Button>
               </div>
+            )}
+            {brandInfo && (
+              <BrandItemActivation locationId={locationId!} brandId={brandInfo} />
             )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
           </div>
