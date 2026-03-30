@@ -502,7 +502,7 @@ export default function BrandInventory() {
                     {locations.map((loc: any) => {
                       const stats = locationActivationMap.get(loc.id);
                       const active = stats?.active || 0;
-                      const total = stats?.total || 0;
+                      const _total = stats?.total || 0;
                       const liveCount = statusCounts.live;
                       const pct = liveCount > 0 ? Math.round((active / liveCount) * 100) : 0;
                       return (
