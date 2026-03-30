@@ -5691,12 +5691,13 @@ export type Database = {
       }
       recipe_blueprints: {
         Row: {
+          brand_id: string | null
           catalog_section: string | null
           category: string | null
           created_at: string
           id: string
           is_active: boolean
-          location_id: string
+          location_id: string | null
           name: string
           produces_item_id: string | null
           r365_name: string | null
@@ -5706,12 +5707,13 @@ export type Database = {
           yield_unit: string | null
         }
         Insert: {
+          brand_id?: string | null
           catalog_section?: string | null
           category?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
-          location_id: string
+          location_id?: string | null
           name: string
           produces_item_id?: string | null
           r365_name?: string | null
@@ -5721,12 +5723,13 @@ export type Database = {
           yield_unit?: string | null
         }
         Update: {
+          brand_id?: string | null
           catalog_section?: string | null
           category?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
-          location_id?: string
+          location_id?: string | null
           name?: string
           produces_item_id?: string | null
           r365_name?: string | null
@@ -5736,6 +5739,13 @@ export type Database = {
           yield_unit?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "recipe_blueprints_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recipe_blueprints_location_id_fkey"
             columns: ["location_id"]
