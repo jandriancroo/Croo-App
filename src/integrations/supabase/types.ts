@@ -501,6 +501,57 @@ export type Database = {
           },
         ]
       }
+      brand_inventory_staging: {
+        Row: {
+          brand_id: string
+          category: string | null
+          created_at: string
+          id: string
+          item_number: string | null
+          matched_template_id: string | null
+          product_name: string
+          status: string
+          vendor_source: string | null
+        }
+        Insert: {
+          brand_id: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          item_number?: string | null
+          matched_template_id?: string | null
+          product_name: string
+          status?: string
+          vendor_source?: string | null
+        }
+        Update: {
+          brand_id?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          item_number?: string | null
+          matched_template_id?: string | null
+          product_name?: string
+          status?: string
+          vendor_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_inventory_staging_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_inventory_staging_matched_template_id_fkey"
+            columns: ["matched_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_inventory_templates: {
         Row: {
           brand_id: string
