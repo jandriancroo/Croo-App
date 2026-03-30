@@ -497,6 +497,7 @@ export type Database = {
           shortcut_location_names: string[] | null
           source_item_id: string | null
           source_location_id: string | null
+          status: string
           storage_location_name: string | null
           updated_at: string
           usage_rate: number | null
@@ -532,6 +533,7 @@ export type Database = {
           shortcut_location_names?: string[] | null
           source_item_id?: string | null
           source_location_id?: string | null
+          status?: string
           storage_location_name?: string | null
           updated_at?: string
           usage_rate?: number | null
@@ -567,6 +569,7 @@ export type Database = {
           shortcut_location_names?: string[] | null
           source_item_id?: string | null
           source_location_id?: string | null
+          status?: string
           storage_location_name?: string | null
           updated_at?: string
           usage_rate?: number | null
@@ -2613,6 +2616,7 @@ export type Database = {
         Row: {
           blended_price: number | null
           brand: string | null
+          brand_item_id: string | null
           category: string | null
           common_name: string | null
           cost_per_unit: number | null
@@ -2651,6 +2655,7 @@ export type Database = {
         Insert: {
           blended_price?: number | null
           brand?: string | null
+          brand_item_id?: string | null
           category?: string | null
           common_name?: string | null
           cost_per_unit?: number | null
@@ -2689,6 +2694,7 @@ export type Database = {
         Update: {
           blended_price?: number | null
           brand?: string | null
+          brand_item_id?: string | null
           category?: string | null
           common_name?: string | null
           cost_per_unit?: number | null
@@ -2725,6 +2731,13 @@ export type Database = {
           vendor_source?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_items_brand_item_id_fkey"
+            columns: ["brand_item_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inventory_items_linked_item_id_fkey"
             columns: ["linked_item_id"]
