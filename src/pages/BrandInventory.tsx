@@ -25,8 +25,9 @@ import { toast } from 'sonner';
 import RecipeCatalog from '@/components/inventory/RecipeCatalog';
 import BrandCatalogSection from '@/components/brand/BrandCatalogSection';
 import BrandCatalogBulkBar from '@/components/brand/BrandCatalogBulkBar';
+import BrandCategoryEditor from '@/components/brand/BrandCategoryEditor';
 
-const INVENTORY_CATEGORIES = [
+const FALLBACK_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
   "Dry Goods", "Beverages", "Paper Goods", "Cleaning", "Other"
 ];
@@ -45,6 +46,7 @@ export default function BrandInventory() {
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemIsRecipe, setNewItemIsRecipe] = useState(false);
   const [catalogSelectedIds, setCatalogSelectedIds] = useState<Set<string>>(new Set());
+  const [categoryEditorOpen, setCategoryEditorOpen] = useState(false);
 
   // Source location for recipe catalog
   const [sourceLocationId, setSourceLocationId] = useState<string | null>(null);
@@ -87,6 +89,26 @@ export default function BrandInventory() {
     },
     enabled: !!brandId,
   });
+
+  // Brand categories (dynamic, reorderable)
+  const { data: brandCategories = [] } = useQuery({
+    queryKey: ['brand-categories', brandId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('brand_inventory_categories' as any)
+        .select('*')
+        .eq('brand_id', brandId!)
+        .order('display_order', { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!brandId,
+  });
+
+  const categoryNames = useMemo(() => {
+    if (brandCategories.length > 0) return brandCategories.map((c: any) => c.name as string);
+    return FALLBACK_CATEGORIES;
+  }, [brandCategories]);
 
   const { data: locations = [] } = useQuery({
     queryKey: ['brand-locations', brandId],
@@ -338,6 +360,10 @@ export default function BrandInventory() {
                     className="pl-9 h-9"
                   />
                 </div>
+                <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setCategoryEditorOpen(true)}>
+                  <Tag className="h-3.5 w-3.5" />
+                  Edit Categories
+                </Button>
                 <Button size="sm" className="gap-1.5 shrink-0" onClick={() => setNewItemDialog(true)}>
                   <Plus className="h-3.5 w-3.5" />
                   New Item
@@ -365,7 +391,12 @@ export default function BrandInventory() {
               <Card>
                 <div className="divide-y divide-border">
                   {Object.entries(groupedTemplates)
-                    .sort(([a], [b]) => a.localeCompare(b))
+                    .sort(([a], [b]) => {
+                      const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
+                      const aIdx = orderMap[a] ?? 999;
+                      const bIdx = orderMap[b] ?? 999;
+                      return aIdx - bIdx;
+                    })
                     .map(([category, items]) => (
                       <BrandCatalogSection
                         key={category}
@@ -389,6 +420,7 @@ export default function BrandInventory() {
                 brandId={brandId}
                 onClear={() => setCatalogSelectedIds(new Set())}
                 activeFilter={catalogFilter}
+                categories={categoryNames}
               />
             )}
           </TabsContent>
@@ -537,6 +569,7 @@ export default function BrandInventory() {
               onSave={(updates) => updateMutation.mutate({ id: editingTemplate.id, ...updates })}
               isPending={updateMutation.isPending}
               onCancel={() => setEditingTemplate(null)}
+              categories={categoryNames}
             />
           )}
         </DialogContent>
@@ -565,7 +598,7 @@ export default function BrandInventory() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">No category</SelectItem>
-                  {INVENTORY_CATEGORIES.map(cat => (
+                  {categoryNames.map(cat => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
                 </SelectContent>
@@ -590,6 +623,15 @@ export default function BrandInventory() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {brandId && (
+        <BrandCategoryEditor
+          brandId={brandId}
+          categories={brandCategories as any[]}
+          open={categoryEditorOpen}
+          onOpenChange={setCategoryEditorOpen}
+        />
+      )}
     </Layout>
   );
 }
@@ -600,11 +642,13 @@ function EditTemplateForm({
   onSave,
   isPending,
   onCancel,
+  categories,
 }: {
   template: any;
   onSave: (updates: { product_name?: string; category?: string }) => void;
   isPending: boolean;
   onCancel: () => void;
+  categories: string[];
 }) {
   const [name, setName] = useState(template.product_name || '');
   const [category, setCategory] = useState(template.category || '');
@@ -623,7 +667,7 @@ function EditTemplateForm({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">No category</SelectItem>
-            {INVENTORY_CATEGORIES.map(cat => (
+            {categories.map(cat => (
               <SelectItem key={cat} value={cat}>{cat}</SelectItem>
             ))}
           </SelectContent>

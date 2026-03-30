@@ -12,19 +12,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const CATEGORIES = [
-  "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
-  "Dry Goods", "Beverages", "Paper Goods", "Cleaning", "Other",
-];
-
 interface BrandCatalogBulkBarProps {
   selectedIds: Set<string>;
   brandId: string;
   onClear: () => void;
   activeFilter?: string;
+  categories?: string[];
 }
 
-export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, activeFilter = 'live' }: BrandCatalogBulkBarProps) {
+export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, activeFilter = 'live', categories = [] }: BrandCatalogBulkBarProps) {
   const queryClient = useQueryClient();
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const count = selectedIds.size;
@@ -106,7 +102,7 @@ export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, act
                   <SelectValue placeholder="Pick category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(cat => (
+                  {categories.map(cat => (
                     <SelectItem key={cat} value={cat} className="text-xs">
                       {cat}
                     </SelectItem>
