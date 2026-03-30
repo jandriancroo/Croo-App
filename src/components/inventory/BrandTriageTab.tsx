@@ -331,23 +331,11 @@ export default function BrandTriageTab({ brandId, locations }: BrandTriageTabPro
                           <h3 className="text-base md:text-lg font-bold leading-tight">
                             {currentCard.catalog.product_name}
                           </h3>
-                          <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            {currentCard.catalog.vendor_source && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                {currentCard.catalog.vendor_source}
-                              </Badge>
-                            )}
-                            {currentCard.catalog.item_number && (
-                              <span className="text-[11px] text-muted-foreground font-mono">
-                                #{currentCard.catalog.item_number}
-                              </span>
-                            )}
-                            {currentCard.catalog.category && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/50">
-                                {currentCard.catalog.category}
-                              </Badge>
-                            )}
-                          </div>
+                          {currentCard.catalog.category && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted/50 w-fit mt-2">
+                              {currentCard.catalog.category}
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Column 2: Branches (imported items with arrows) */}
