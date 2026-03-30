@@ -112,6 +112,8 @@ async function processTask(
       return await processRefreshPfgToken(supabaseUrl, supabaseKey, task);
     case "labor_intelligence":
       return await processLaborIntelligence(supabaseUrl, supabaseKey, task);
+    case "backfill_sales":
+      return await processBackfillSales(supabase, supabaseUrl, supabaseKey, task);
     default:
       throw new Error(`Unknown task type: ${task.task_type}`);
   }
