@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ArrowLeft, Plus, Tag, Upload, X, Wand2, Loader2, Save, Pencil, Building2, Crop } from 'lucide-react';
+import { ArrowLeft, Plus, Tag, Upload, X, Wand2, Loader2, Save, Pencil, Building2, Crop, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -406,19 +406,28 @@ export default function BrandManagement() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => openEditDialog(brand)}
+                      onClick={(e) => { e.stopPropagation(); openEditDialog(brand); }}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 space-y-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Building2 className="h-3 w-3" />
                     <span>
                       {brand.organizations?.length || 0} organization{(brand.organizations?.length || 0) !== 1 ? 's' : ''}
                     </span>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => navigate(`/brand/${brand.id}/inventory`)}
+                  >
+                    <Package className="h-3.5 w-3.5" />
+                    Inventory
+                  </Button>
                 </CardContent>
               </Card>
             ))}

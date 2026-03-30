@@ -103,6 +103,7 @@ const SchedulePreview = lazyWithRetry(() => import("./pages/SchedulePreview"));
 const DashboardStylePreview = lazyWithRetry(() => import("./pages/DashboardStylePreview"));
 const CountTabPreview = lazyWithRetry(() => import("./pages/CountTabPreview"));
 const LocationPickerPreview = lazyWithRetry(() => import("./pages/LocationPickerPreview"));
+const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
 
 const queryClient = new QueryClient();
 
@@ -200,6 +201,7 @@ const AppContent = () => {
         <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
         <Route path="/organization/:organizationId/role-dashboard" element={<ProtectedRoute><RoleDashboardCustomizer /></ProtectedRoute>} />
         <Route path="/brands" element={<ProtectedRoute><BrandManagement /></ProtectedRoute>} />
+        <Route path="/brand/:brandId/inventory" element={<ProtectedRoute><BrandInventory /></ProtectedRoute>} />
         <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
         <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
         <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
