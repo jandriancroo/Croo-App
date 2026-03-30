@@ -568,6 +568,11 @@ export default function BrandInventory() {
             </Card>
           </TabsContent>
 
+          {/* ===== TRIAGE TAB ===== */}
+          <TabsContent value="triage" className="space-y-4">
+            <BrandTriageTab brandId={brandId!} locations={locations as any} />
+          </TabsContent>
+
           {/* ===== GUIDE TAB ===== */}
           <TabsContent value="guide" className="space-y-4">
             <BrandInventoryGuide locationCount={locations.length} itemCount={statusCounts.live} />
