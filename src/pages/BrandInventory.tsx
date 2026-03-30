@@ -24,6 +24,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import RecipeCatalog from '@/components/inventory/RecipeCatalog';
 import BrandCatalogSection from '@/components/brand/BrandCatalogSection';
+import BrandCatalogBulkBar from '@/components/brand/BrandCatalogBulkBar';
 
 const INVENTORY_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
