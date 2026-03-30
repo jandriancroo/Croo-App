@@ -17,17 +17,11 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, MoreHorizontal, Pencil, AlertTriangle,
+  RefreshCw, Shield, FileText, AlertTriangle, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import BrandTriageTab from '@/components/inventory/BrandTriageTab';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import RecipeCatalog from '@/components/inventory/RecipeCatalog';
 
 const INVENTORY_CATEGORIES = [
