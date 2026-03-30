@@ -17,18 +17,13 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, MoreHorizontal, Pencil, AlertTriangle,
+  RefreshCw, Shield, FileText, AlertTriangle,
 } from 'lucide-react';
 import BrandTriageTab from '@/components/inventory/BrandTriageTab';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import RecipeCatalog from '@/components/inventory/RecipeCatalog';
+import BrandCatalogSection from '@/components/brand/BrandCatalogSection';
 
 const INVENTORY_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
@@ -348,103 +343,21 @@ export default function BrandInventory() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {Object.entries(groupedTemplates)
-                  .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([category, items]) => (
-                    <Card key={category}>
-                      <CardHeader className="py-3 px-4">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                            <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                            {category}
-                          </CardTitle>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-[10px]">
-                              {items.length} items
-                            </Badge>
-                            <Badge variant="outline" className="text-[10px]">
-                              {items.filter(i => i.is_recipe).length} recipes
-                            </Badge>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="px-4 pb-3 pt-0">
-                        <div className="divide-y divide-border">
-                          {items.map(item => (
-                            <div key={item.id} className="flex items-center justify-between py-2.5 gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm truncate">
-                                    {item.common_name || item.product_name}
-                                  </span>
-                                  {item.is_recipe && (
-                                    <Badge variant="outline" className="text-[10px] shrink-0">Recipe</Badge>
-                                  )}
-                                  {item.status === 'draft' && (
-                                    <Badge variant="secondary" className="text-[10px] shrink-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
-                                      Draft
-                                    </Badge>
-                                  )}
-                                </div>
-                                {item.common_name && (
-                                  <p className="text-xs text-muted-foreground truncate">{item.product_name}</p>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {item.product_group_name ? (
-                                  <Badge variant="secondary" className="text-[10px]">POS ✓</Badge>
-                                ) : item.is_recipe ? (
-                                  <Badge variant="outline" className="text-[10px] text-muted-foreground">No POS</Badge>
-                                ) : null}
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => setEditingTemplate(item)}>
-                                      <Pencil className="h-3.5 w-3.5 mr-2" />
-                                      Edit
-                                    </DropdownMenuItem>
-                                    {(item.status === 'draft' || !item.status) && (
-                                      <DropdownMenuItem onClick={() => statusMutation.mutate({ id: item.id, status: 'live' })}>
-                                        <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
-                                        Publish (Live)
-                                      </DropdownMenuItem>
-                                    )}
-                                    {item.status === 'live' && (
-                                      <DropdownMenuItem onClick={() => statusMutation.mutate({ id: item.id, status: 'draft' })}>
-                                        <Clock className="h-3.5 w-3.5 mr-2" />
-                                        Revert to Draft
-                                      </DropdownMenuItem>
-                                    )}
-                                    {item.status !== 'archived' && (
-                                      <DropdownMenuItem
-                                        className="text-destructive"
-                                        onClick={() => statusMutation.mutate({ id: item.id, status: 'archived' })}
-                                      >
-                                        <Archive className="h-3.5 w-3.5 mr-2" />
-                                        Archive
-                                      </DropdownMenuItem>
-                                    )}
-                                    {item.status === 'archived' && (
-                                      <DropdownMenuItem onClick={() => statusMutation.mutate({ id: item.id, status: 'live' })}>
-                                        <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                                        Restore to Live
-                                      </DropdownMenuItem>
-                                    )}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </div>
+              <Card>
+                <div className="divide-y divide-border">
+                  {Object.entries(groupedTemplates)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([category, items]) => (
+                      <BrandCatalogSection
+                        key={category}
+                        category={category}
+                        items={items}
+                        onEdit={setEditingTemplate}
+                        onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
+                      />
+                    ))}
+                </div>
+              </Card>
             )}
           </TabsContent>
 
