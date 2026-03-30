@@ -1406,14 +1406,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                            setEditingCommonName(false);
                          }
                        }}
-                       disabled={!canEditCommonNames}
+                       disabled={!canEditCommonNames || !!editingItem.brand_item_id}
                      />
                    ) : (
                      <>
                        <p className="text-sm font-medium min-w-0 flex-1 break-all line-clamp-2">
                          {commonNameValue || editingItem.name}
                        </p>
-                       {canEditCommonNames && (
+                       {canEditCommonNames && !editingItem.brand_item_id && (
                          <Button
                            variant="ghost"
                            size="icon"
@@ -1428,7 +1428,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                    <Select
                      value={categoryValue || "__none__"}
                      onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
-                     disabled={!canEditCategories}
+                     disabled={!canEditCategories || !!editingItem.brand_item_id}
                    >
                      <SelectTrigger className="h-7 w-auto gap-1.5 px-3 py-0 text-xs rounded-full font-medium bg-primary text-primary-foreground border-primary hover:bg-primary/90 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-primary-foreground">
                        <SelectValue placeholder="No category" />
