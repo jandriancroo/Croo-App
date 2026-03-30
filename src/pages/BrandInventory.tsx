@@ -366,10 +366,21 @@ export default function BrandInventory() {
                         items={items}
                         onEdit={setEditingTemplate}
                         onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
+                        selectionMode={catalogSelectionMode}
+                        selectedIds={catalogSelectedIds}
+                        onToggleSelect={toggleCatalogSelect}
                       />
                     ))}
                 </div>
               </Card>
+            )}
+
+            {catalogSelectedIds.size > 0 && brandId && (
+              <BrandCatalogBulkBar
+                selectedIds={catalogSelectedIds}
+                brandId={brandId}
+                onClear={() => setCatalogSelectedIds(new Set())}
+              />
             )}
           </TabsContent>
 
