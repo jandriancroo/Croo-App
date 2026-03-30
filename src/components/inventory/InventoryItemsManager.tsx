@@ -67,6 +67,7 @@ interface EditingItem {
   cost_per_unit: number | null;
   unit: string | null;
   pack_size: string | null;
+  brand_item_id: string | null;
 }
 
 const INVENTORY_CATEGORIES = [
