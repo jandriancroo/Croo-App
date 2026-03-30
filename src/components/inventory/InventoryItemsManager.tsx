@@ -1381,10 +1381,20 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
            <DialogHeader>
              <DialogTitle className="sr-only">Edit Item</DialogTitle>
            </DialogHeader>
-           {editingItem && (
-             <div className="space-y-4">
-               <div className="space-y-1">
-                 <div className="flex items-center gap-2 pr-6 min-w-0 max-w-full">
+           {editingItem && (() => {
+              const isBrandManaged = !!editingItem.brand_item_id;
+              const canEditCat = canEditCategories && !isBrandManaged;
+              const canEditCN = canEditCommonNames && !isBrandManaged;
+              return (
+              <div className="space-y-4">
+                {isBrandManaged && (
+                  <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2.5 py-1.5">
+                    <Tag className="h-3 w-3" />
+                    Brand managed — category &amp; common name controlled by brand catalog
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 pr-6 min-w-0 max-w-full">
                    {editingCommonName ? (
                      <Input
                        autoFocus
