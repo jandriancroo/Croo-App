@@ -385,12 +385,16 @@ const Inventory = () => {
             />
           </TabsContent>
 
-          <TabsContent value="items" className="mt-4">
+          <TabsContent value="items" className="mt-4 space-y-4">
+            {/* Brand Catalog Activation — collapsible banner at top */}
+            {brandInfo && (
+              <BrandItemActivation locationId={locationId!} brandId={brandInfo} />
+            )}
             <InventoryItemsManager locationId={locationId!} mode="items" />
           </TabsContent>
 
           <TabsContent value="build" className="mt-4 space-y-4">
-            <RecipeCatalog locationId={locationId!} />
+            <RecipeCatalog locationId={locationId!} readOnly={!!brandInfo} />
             <InventoryItemsManager locationId={locationId!} mode="build" />
           </TabsContent>
         </Tabs>
@@ -418,9 +422,6 @@ const Inventory = () => {
                   Deploy to Location
                 </Button>
               </div>
-            )}
-            {brandInfo && (
-              <BrandItemActivation locationId={locationId!} brandId={brandInfo} />
             )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
           </div>
