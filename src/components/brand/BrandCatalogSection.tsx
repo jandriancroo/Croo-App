@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tag, ChevronDown, ChevronRight, CheckCircle2, Clock, Archive, RefreshCw } from "lucide-react";
+import { Tag, ChevronDown, ChevronRight } from "lucide-react";
 
 interface BrandTemplateItem {
   id: string;
