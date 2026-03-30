@@ -21,9 +21,10 @@ interface BrandCatalogBulkBarProps {
   selectedIds: Set<string>;
   brandId: string;
   onClear: () => void;
+  activeFilter?: string;
 }
 
-export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear }: BrandCatalogBulkBarProps) {
+export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, activeFilter = 'live' }: BrandCatalogBulkBarProps) {
   const queryClient = useQueryClient();
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const count = selectedIds.size;
