@@ -110,6 +110,7 @@ export default function BrandInventory() {
     return FALLBACK_CATEGORIES;
   }, [brandCategories]);
 
+  const { data: locations = [] } = useQuery({
     queryKey: ['brand-locations', brandId],
     queryFn: async () => {
       const { data, error } = await supabase
