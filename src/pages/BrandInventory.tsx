@@ -110,6 +110,30 @@ export default function BrandInventory() {
     return FALLBACK_CATEGORIES;
   }, [brandCategories]);
 
+  // Compute recipe usage: how many recipes reference each non-recipe item by name or item_number
+  const recipeUsageMap = useMemo(() => {
+    const map = new Map<string, number>();
+    const recipes = templates.filter(t => t.is_recipe && t.recipe_ingredients);
+    for (const recipe of recipes) {
+      const ingredients = Array.isArray(recipe.recipe_ingredients) ? recipe.recipe_ingredients : [];
+      for (const ing of ingredients as any[]) {
+        const name = (ing.ingredient_name || '').toLowerCase().trim();
+        const itemNum = ing.ingredient_item_number || '';
+        // Match against all non-recipe templates
+        for (const t of templates) {
+          if (t.is_recipe) continue;
+          const matched =
+            (name && t.product_name.toLowerCase().trim() === name) ||
+            (itemNum && t.item_number === itemNum);
+          if (matched) {
+            map.set(t.id, (map.get(t.id) || 0) + 1);
+          }
+        }
+      }
+    }
+    return map;
+  }, [templates]);
+
   const { data: locations = [] } = useQuery({
     queryKey: ['brand-locations', brandId],
     queryFn: async () => {
@@ -408,6 +432,7 @@ export default function BrandInventory() {
                         selectedIds={catalogSelectedIds}
                         onToggleSelect={toggleCatalogSelect}
                         onStartSelection={(id) => setCatalogSelectedIds(new Set([id]))}
+                        recipeUsageMap={recipeUsageMap}
                       />
                     ))}
                 </div>

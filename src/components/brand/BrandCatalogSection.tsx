@@ -23,11 +23,12 @@ interface BrandCatalogSectionProps {
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
   onStartSelection?: (id: string) => void;
+  recipeUsageMap?: Map<string, number>;
 }
 
 export default function BrandCatalogSection({
   category, items, onEdit, onStatusChange,
-  selectionMode, selectedIds, onToggleSelect, onStartSelection,
+  selectionMode, selectedIds, onToggleSelect, onStartSelection, recipeUsageMap,
 }: BrandCatalogSectionProps) {
   const [isOpen, setIsOpen] = useState(true);
   const recipeCount = items.filter(i => i.is_recipe).length;
@@ -110,6 +111,11 @@ export default function BrandCatalogSection({
               <span className="truncate flex-1 font-medium">
                 {item.product_name}
               </span>
+              {!item.is_recipe && recipeUsageMap && recipeUsageMap.has(item.id) && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20">
+                  {recipeUsageMap.get(item.id)} recipe{recipeUsageMap.get(item.id)! > 1 ? 's' : ''}
+                </Badge>
+              )}
               {item.is_recipe && (
                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 uppercase tracking-wider">
                   Recipe
