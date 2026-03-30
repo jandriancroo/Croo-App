@@ -108,13 +108,8 @@ export default function BrandCatalogSection({
                 />
               )}
               <span className="truncate flex-1 font-medium">
-                {item.common_name || item.product_name}
+                {item.product_name}
               </span>
-              {item.common_name && (
-                <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:inline">
-                  {item.product_name}
-                </span>
-              )}
               {item.is_recipe && (
                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 uppercase tracking-wider">
                   Recipe
@@ -123,11 +118,6 @@ export default function BrandCatalogSection({
               {item.status === 'draft' && (
                 <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
                   Draft
-                </Badge>
-              )}
-              {item.product_group_name && (
-                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">
-                  POS ✓
                 </Badge>
               )}
             </div>
