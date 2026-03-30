@@ -381,6 +381,7 @@ export default function BrandInventory() {
                 selectedIds={catalogSelectedIds}
                 brandId={brandId}
                 onClear={() => setCatalogSelectedIds(new Set())}
+                activeFilter={catalogFilter}
               />
             )}
           </TabsContent>

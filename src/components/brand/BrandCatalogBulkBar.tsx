@@ -21,9 +21,10 @@ interface BrandCatalogBulkBarProps {
   selectedIds: Set<string>;
   brandId: string;
   onClear: () => void;
+  activeFilter?: string;
 }
 
-export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear }: BrandCatalogBulkBarProps) {
+export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, activeFilter = 'live' }: BrandCatalogBulkBarProps) {
   const queryClient = useQueryClient();
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const count = selectedIds.size;
@@ -56,29 +57,35 @@ export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear }: B
           {count} selected
         </Badge>
 
-        <button
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
-          onClick={() => bulkMutation.mutate({ field: "status", value: "live" })}
-        >
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          Publish
-        </button>
+        {activeFilter !== 'live' && (
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
+            onClick={() => bulkMutation.mutate({ field: "status", value: "live" })}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Publish
+          </button>
+        )}
 
-        <button
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
-          onClick={() => bulkMutation.mutate({ field: "status", value: "draft" })}
-        >
-          <Clock className="h-3.5 w-3.5" />
-          Draft
-        </button>
+        {activeFilter !== 'draft' && (
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
+            onClick={() => bulkMutation.mutate({ field: "status", value: "draft" })}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            Draft
+          </button>
+        )}
 
-        <button
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
-          onClick={() => bulkMutation.mutate({ field: "status", value: "archived" })}
-        >
-          <Archive className="h-3.5 w-3.5" />
-          Archive
-        </button>
+        {activeFilter !== 'archived' && (
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
+            onClick={() => bulkMutation.mutate({ field: "status", value: "archived" })}
+          >
+            <Archive className="h-3.5 w-3.5" />
+            Archive
+          </button>
+        )}
 
         <div className="relative">
           <button
