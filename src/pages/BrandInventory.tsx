@@ -23,6 +23,7 @@ import BrandTriageTab from '@/components/inventory/BrandTriageTab';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import RecipeCatalog from '@/components/inventory/RecipeCatalog';
+import BrandCatalogSection from '@/components/brand/BrandCatalogSection';
 
 const INVENTORY_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
