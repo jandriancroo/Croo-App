@@ -387,7 +387,12 @@ export default function BrandInventory() {
               <Card>
                 <div className="divide-y divide-border">
                   {Object.entries(groupedTemplates)
-                    .sort(([a], [b]) => a.localeCompare(b))
+                    .sort(([a], [b]) => {
+                      const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
+                      const aIdx = orderMap[a] ?? 999;
+                      const bIdx = orderMap[b] ?? 999;
+                      return aIdx - bIdx;
+                    })
                     .map(([category, items]) => (
                       <BrandCatalogSection
                         key={category}
@@ -587,7 +592,7 @@ export default function BrandInventory() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">No category</SelectItem>
-                  {INVENTORY_CATEGORIES.map(cat => (
+                  {categoryNames.map(cat => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
                 </SelectContent>
@@ -645,7 +650,7 @@ function EditTemplateForm({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">No category</SelectItem>
-            {INVENTORY_CATEGORIES.map(cat => (
+            {categoryNames.map(cat => (
               <SelectItem key={cat} value={cat}>{cat}</SelectItem>
             ))}
           </SelectContent>
