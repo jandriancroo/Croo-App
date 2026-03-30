@@ -564,6 +564,7 @@ export default function BrandInventory() {
               onSave={(updates) => updateMutation.mutate({ id: editingTemplate.id, ...updates })}
               isPending={updateMutation.isPending}
               onCancel={() => setEditingTemplate(null)}
+              categories={categoryNames}
             />
           )}
         </DialogContent>
