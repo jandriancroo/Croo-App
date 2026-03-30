@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, CheckCircle2, Package, Upload, Trash2,
+  Search, CheckCircle2, Upload, Trash2,
   ArrowRight, Plus, Loader2, X, ChevronRight, ChevronLeft,
   TreePine, Utensils, Sparkles,
 } from 'lucide-react';
