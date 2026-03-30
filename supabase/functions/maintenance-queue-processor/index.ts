@@ -322,8 +322,8 @@ async function createSystemSupportTicket(
         });
       } catch (emailErr) {
         console.error(`[QUEUE] Failed to send ticket email notification:`, emailErr);
-      }
-    }
+  }
+}
   } catch (err) {
     console.error(`[QUEUE] Error creating support ticket:`, err);
 }
