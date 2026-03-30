@@ -408,9 +408,10 @@ export default function BrandTriageTab({ brandId, locations }: BrandTriageTabPro
                                   >
                                     <Plus className="h-3 w-3 text-primary shrink-0" />
                                     <span className="truncate">{r.product_name}</span>
-                                    {r.item_number && (
-                                      <span className="text-[10px] text-muted-foreground ml-auto shrink-0">#{r.item_number}</span>
-                                    )}
+                                    <span className="text-[10px] text-muted-foreground ml-auto shrink-0 flex items-center gap-1">
+                                      {r.pack_size && <span>{r.pack_size}</span>}
+                                      {r.item_number && <span>#{r.item_number}</span>}
+                                    </span>
                                   </button>
                                 ))}
                               </div>
