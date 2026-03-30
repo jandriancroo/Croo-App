@@ -27,6 +27,8 @@ interface StagingItem {
   category: string | null;
   matched_template_id: string | null;
   status: string;
+  pack_size: string | null;
+  original_vendor_name: string | null;
 }
 
 interface CatalogItem {
@@ -58,7 +60,7 @@ export default function BrandTriageTab({ brandId, locations }: BrandTriageTabPro
     queryFn: async () => {
       const { data, error } = await supabase
         .from('brand_inventory_staging' as any)
-        .select('id, product_name, item_number, vendor_source, category, matched_template_id, status')
+        .select('id, product_name, item_number, vendor_source, category, matched_template_id, status, pack_size, original_vendor_name')
         .eq('brand_id', brandId)
         .eq('status', 'pending')
         .order('product_name');
@@ -356,12 +358,18 @@ export default function BrandTriageTab({ brandId, locations }: BrandTriageTabPro
                                 <div className="flex-1 min-w-0 bg-background rounded-lg px-2.5 py-1.5 border border-border/40 flex items-center justify-between gap-1">
                                   <div className="min-w-0">
                                     <span className="text-xs font-medium truncate block">{s.product_name}</span>
-                                    <div className="flex items-center gap-1.5">
+                                    {s.original_vendor_name && s.original_vendor_name !== s.product_name && (
+                                      <span className="text-[10px] text-muted-foreground italic truncate block">PFG: {s.original_vendor_name}</span>
+                                    )}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {s.pack_size && (
+                                        <span className="text-[10px] font-medium text-primary/80">{s.pack_size}</span>
+                                      )}
                                       {s.item_number && (
                                         <span className="text-[10px] text-muted-foreground font-mono">#{s.item_number}</span>
                                       )}
                                       {s.vendor_source && (
-                                        <span className="text-[10px] text-muted-foreground">{s.vendor_source}</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase">{s.vendor_source}</span>
                                       )}
                                     </div>
                                   </div>
@@ -400,9 +408,10 @@ export default function BrandTriageTab({ brandId, locations }: BrandTriageTabPro
                                   >
                                     <Plus className="h-3 w-3 text-primary shrink-0" />
                                     <span className="truncate">{r.product_name}</span>
-                                    {r.item_number && (
-                                      <span className="text-[10px] text-muted-foreground ml-auto shrink-0">#{r.item_number}</span>
-                                    )}
+                                    <span className="text-[10px] text-muted-foreground ml-auto shrink-0 flex items-center gap-1">
+                                      {r.pack_size && <span>{r.pack_size}</span>}
+                                      {r.item_number && <span>#{r.item_number}</span>}
+                                    </span>
                                   </button>
                                 ))}
                               </div>

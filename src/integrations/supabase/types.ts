@@ -509,6 +509,8 @@ export type Database = {
           id: string
           item_number: string | null
           matched_template_id: string | null
+          original_vendor_name: string | null
+          pack_size: string | null
           product_name: string
           status: string
           vendor_source: string | null
@@ -520,6 +522,8 @@ export type Database = {
           id?: string
           item_number?: string | null
           matched_template_id?: string | null
+          original_vendor_name?: string | null
+          pack_size?: string | null
           product_name: string
           status?: string
           vendor_source?: string | null
@@ -531,6 +535,8 @@ export type Database = {
           id?: string
           item_number?: string | null
           matched_template_id?: string | null
+          original_vendor_name?: string | null
+          pack_size?: string | null
           product_name?: string
           status?: string
           vendor_source?: string | null
