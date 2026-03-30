@@ -627,11 +627,13 @@ function EditTemplateForm({
   onSave,
   isPending,
   onCancel,
+  categories,
 }: {
   template: any;
   onSave: (updates: { product_name?: string; category?: string }) => void;
   isPending: boolean;
   onCancel: () => void;
+  categories: string[];
 }) {
   const [name, setName] = useState(template.product_name || '');
   const [category, setCategory] = useState(template.category || '');
