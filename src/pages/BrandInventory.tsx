@@ -622,6 +622,15 @@ export default function BrandInventory() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {brandId && (
+        <BrandCategoryEditor
+          brandId={brandId}
+          categories={brandCategories as any[]}
+          open={categoryEditorOpen}
+          onOpenChange={setCategoryEditorOpen}
+        />
+      )}
     </Layout>
   );
 }
