@@ -61,26 +61,28 @@ export default function BrandCatalogSection({
       {isOpen && (
         <div className="px-2 pb-2">
           {items.map(item => (
-            <button
+            <div
               key={item.id}
-              type="button"
               className="w-full flex items-center gap-2 py-1.5 px-2 text-sm hover:bg-muted/50 transition-colors text-left rounded-sm group"
-              onClick={() => {
-                if (selectionMode && onToggleSelect) {
-                  onToggleSelect(item.id);
-                } else {
-                  onEdit(item);
-                }
-              }}
             >
-              {selectionMode && selectedIds && (
+              {onToggleSelect && (
                 <Checkbox
-                  checked={selectedIds.has(item.id)}
+                  checked={selectedIds?.has(item.id) ?? false}
                   className="flex-shrink-0"
-                  onClick={e => e.stopPropagation()}
-                  onCheckedChange={() => onToggleSelect?.(item.id)}
+                  onCheckedChange={() => onToggleSelect(item.id)}
                 />
               )}
+              <button
+                type="button"
+                className="truncate flex-1 font-medium text-left"
+                onClick={() => {
+                  if (selectionMode && onToggleSelect) {
+                    onToggleSelect(item.id);
+                  } else {
+                    onEdit(item);
+                  }
+                }}
+              >
               <span className="truncate flex-1 font-medium">
                 {item.common_name || item.product_name}
               </span>
