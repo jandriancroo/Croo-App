@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tag, ChevronDown, ChevronRight, CheckCircle2, Clock, Archive, RefreshCw } from "lucide-react";
 
 interface BrandTemplateItem {
@@ -18,9 +19,15 @@ interface BrandCatalogSectionProps {
   items: BrandTemplateItem[];
   onEdit: (item: BrandTemplateItem) => void;
   onStatusChange: (id: string, status: string) => void;
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
-export default function BrandCatalogSection({ category, items, onEdit, onStatusChange }: BrandCatalogSectionProps) {
+export default function BrandCatalogSection({
+  category, items, onEdit, onStatusChange,
+  selectionMode, selectedIds, onToggleSelect,
+}: BrandCatalogSectionProps) {
   const [isOpen, setIsOpen] = useState(true);
   const recipeCount = items.filter(i => i.is_recipe).length;
 
@@ -54,15 +61,30 @@ export default function BrandCatalogSection({ category, items, onEdit, onStatusC
       {isOpen && (
         <div className="px-2 pb-2">
           {items.map(item => (
-            <button
+            <div
               key={item.id}
-              type="button"
               className="w-full flex items-center gap-2 py-1.5 px-2 text-sm hover:bg-muted/50 transition-colors text-left rounded-sm group"
-              onClick={() => onEdit(item)}
             >
-              <span className="truncate flex-1 font-medium">
+              {onToggleSelect && (
+                <Checkbox
+                  checked={selectedIds?.has(item.id) ?? false}
+                  className="flex-shrink-0"
+                  onCheckedChange={() => onToggleSelect(item.id)}
+                />
+              )}
+              <button
+                type="button"
+                className="truncate flex-1 font-medium text-left"
+                onClick={() => {
+                  if (selectionMode && onToggleSelect) {
+                    onToggleSelect(item.id);
+                  } else {
+                    onEdit(item);
+                  }
+                }}
+              >
                 {item.common_name || item.product_name}
-              </span>
+              </button>
               {item.common_name && (
                 <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:inline">
                   {item.product_name}
@@ -83,46 +105,47 @@ export default function BrandCatalogSection({ category, items, onEdit, onStatusC
                   POS ✓
                 </Badge>
               )}
-              {/* Hover-reveal status actions */}
-              <div className="hidden group-hover:flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
-                {item.status === 'draft' && (
-                  <button
-                    className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                    title="Publish (Live)"
-                    onClick={() => onStatusChange(item.id, 'live')}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                {item.status === 'live' && (
-                  <button
-                    className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                    title="Revert to Draft"
-                    onClick={() => onStatusChange(item.id, 'draft')}
-                  >
-                    <Clock className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                {item.status !== 'archived' && (
-                  <button
-                    className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                    title="Archive"
-                    onClick={() => onStatusChange(item.id, 'archived')}
-                  >
-                    <Archive className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                {item.status === 'archived' && (
-                  <button
-                    className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                    title="Restore to Live"
-                    onClick={() => onStatusChange(item.id, 'live')}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </button>
+              {!selectionMode && (
+                <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+                  {item.status === 'draft' && (
+                    <button
+                      className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                      title="Publish (Live)"
+                      onClick={() => onStatusChange(item.id, 'live')}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {item.status === 'live' && (
+                    <button
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      title="Revert to Draft"
+                      onClick={() => onStatusChange(item.id, 'draft')}
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {item.status !== 'archived' && (
+                    <button
+                      className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                      title="Archive"
+                      onClick={() => onStatusChange(item.id, 'archived')}
+                    >
+                      <Archive className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {item.status === 'archived' && (
+                    <button
+                      className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                      title="Restore to Live"
+                      onClick={() => onStatusChange(item.id, 'live')}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

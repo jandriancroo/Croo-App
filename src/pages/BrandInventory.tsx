@@ -24,6 +24,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import RecipeCatalog from '@/components/inventory/RecipeCatalog';
 import BrandCatalogSection from '@/components/brand/BrandCatalogSection';
+import BrandCatalogBulkBar from '@/components/brand/BrandCatalogBulkBar';
 
 const INVENTORY_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
@@ -43,9 +44,20 @@ export default function BrandInventory() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemIsRecipe, setNewItemIsRecipe] = useState(false);
+  const [catalogSelectedIds, setCatalogSelectedIds] = useState<Set<string>>(new Set());
 
   // Source location for recipe catalog
   const [sourceLocationId, setSourceLocationId] = useState<string | null>(null);
+
+  const catalogSelectionMode = catalogSelectedIds.size > 0;
+  const toggleCatalogSelect = (id: string) => {
+    setCatalogSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const { data: brand, isLoading: brandLoading } = useQuery({
     queryKey: ['brand-detail', brandId],
@@ -354,10 +366,21 @@ export default function BrandInventory() {
                         items={items}
                         onEdit={setEditingTemplate}
                         onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
+                        selectionMode={catalogSelectionMode}
+                        selectedIds={catalogSelectedIds}
+                        onToggleSelect={toggleCatalogSelect}
                       />
                     ))}
                 </div>
               </Card>
+            )}
+
+            {catalogSelectedIds.size > 0 && brandId && (
+              <BrandCatalogBulkBar
+                selectedIds={catalogSelectedIds}
+                brandId={brandId}
+                onClear={() => setCatalogSelectedIds(new Set())}
+              />
             )}
           </TabsContent>
 
