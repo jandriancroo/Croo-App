@@ -17,8 +17,9 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, MoreHorizontal, Pencil,
+  RefreshCw, Shield, FileText, MoreHorizontal, Pencil, AlertTriangle,
 } from 'lucide-react';
+import BrandTriageTab from '@/components/inventory/BrandTriageTab';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import {
@@ -280,6 +281,10 @@ export default function BrandInventory() {
             <TabsTrigger value="locations" className="gap-1.5">
               <Building2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Locations</span>
+            </TabsTrigger>
+            <TabsTrigger value="triage" className="gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Triage</span>
             </TabsTrigger>
             <TabsTrigger value="guide" className="gap-1.5">
               <BookOpen className="h-3.5 w-3.5" />
@@ -561,6 +566,11 @@ export default function BrandInventory() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ===== TRIAGE TAB ===== */}
+          <TabsContent value="triage" className="space-y-4">
+            <BrandTriageTab brandId={brandId!} locations={locations as any} />
           </TabsContent>
 
           {/* ===== GUIDE TAB ===== */}
