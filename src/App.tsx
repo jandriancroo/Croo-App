@@ -103,6 +103,7 @@ const SchedulePreview = lazyWithRetry(() => import("./pages/SchedulePreview"));
 const DashboardStylePreview = lazyWithRetry(() => import("./pages/DashboardStylePreview"));
 const CountTabPreview = lazyWithRetry(() => import("./pages/CountTabPreview"));
 const LocationPickerPreview = lazyWithRetry(() => import("./pages/LocationPickerPreview"));
+const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
 
 const queryClient = new QueryClient();
 
