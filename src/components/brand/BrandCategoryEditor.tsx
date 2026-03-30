@@ -26,11 +26,11 @@ export default function BrandCategoryEditor({ brandId, categories, open, onOpenC
   const [newName, setNewName] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  // Sync from props when dialog opens
-  const handleOpenChange = (o: boolean) => {
-    if (o) setItems([...categories].sort((a, b) => a.display_order - b.display_order));
-    onOpenChange(o);
-  };
+  // Sync from props whenever dialog opens or categories change while open
+  useState(() => {}); // placeholder
+  if (open && items.length === 0 && categories.length > 0) {
+    setItems([...categories].sort((a, b) => a.display_order - b.display_order));
+  }
 
   const addMutation = useMutation({
     mutationFn: async (name: string) => {
