@@ -102,7 +102,7 @@ export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, act
                   <SelectValue placeholder="Pick category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(cat => (
+                  {categories.map(cat => (
                     <SelectItem key={cat} value={cat} className="text-xs">
                       {cat}
                     </SelectItem>
