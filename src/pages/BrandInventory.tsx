@@ -63,16 +63,28 @@ export default function BrandInventory() {
     enabled: !!brandId,
   });
 
+  // Group templates by status
+  const statusCounts = {
+    live: templates.filter(t => (t as any).status === 'live' || !(t as any).status).length,
+    draft: templates.filter(t => (t as any).status === 'draft').length,
+    archived: templates.filter(t => (t as any).status === 'archived').length,
+  };
+
+  const filteredByStatus = templates.filter(t => {
+    const status = (t as any).status || 'live';
+    return status === catalogFilter;
+  });
+
   // Group templates by category
-  const groupedTemplates = templates.reduce((acc: Record<string, typeof templates>, t) => {
+  const groupedTemplates = filteredByStatus.reduce((acc: Record<string, typeof templates>, t) => {
     const cat = t.category || 'Uncategorized';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(t);
     return acc;
   }, {});
 
-  const recipeTemplates = templates.filter(t => t.is_recipe);
-  const _ingredientTemplates = templates.filter(t => !t.is_recipe);
+  const recipeTemplates = filteredByStatus.filter(t => t.is_recipe);
+  const _ingredientTemplates = filteredByStatus.filter(t => !t.is_recipe);
 
   if (roleLoading || brandLoading) {
     return (
@@ -160,7 +172,7 @@ export default function BrandInventory() {
                     {filter === 'archived' && <Archive className="h-3.5 w-3.5 mr-1.5" />}
                     {filter}
                     <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5">
-                      {filter === 'live' ? templates.length : 0}
+                      {statusCounts[filter]}
                     </Badge>
                   </Button>
                 ))}
