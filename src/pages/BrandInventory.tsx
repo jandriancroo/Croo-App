@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, AlertTriangle, ChevronDown, ChevronRight,
+  RefreshCw, Shield, FileText, AlertTriangle,
 } from 'lucide-react';
 import BrandTriageTab from '@/components/inventory/BrandTriageTab';
 import { useUserRole } from '@/hooks/useUserRole';
