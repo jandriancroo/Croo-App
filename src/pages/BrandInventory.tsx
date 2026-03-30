@@ -172,7 +172,7 @@ export default function BrandInventory() {
                     {filter === 'archived' && <Archive className="h-3.5 w-3.5 mr-1.5" />}
                     {filter}
                     <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5">
-                      {filter === 'live' ? templates.length : 0}
+                      {statusCounts[filter]}
                     </Badge>
                   </Button>
                 ))}
