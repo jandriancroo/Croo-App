@@ -1042,21 +1042,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
           {/* List sub-view */}
           {itemsSubView === "list" && <>
-          {isPlacingMode && (
-            <div className="flex items-center gap-2 px-1">
-              <p className="text-xs text-muted-foreground flex-1">
-                Tap where to place {pickedItemIds.size} item{pickedItemIds.size > 1 ? 's' : ''}.
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs px-3"
-                onClick={() => setIsPlacingMode(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          )}
           {items && items.length > 0 ? (
             <div className="space-y-2">
               {/* Items needing remap */}
