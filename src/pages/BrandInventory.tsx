@@ -583,10 +583,6 @@ export default function BrandInventory() {
           </TabsContent>
 
 
-          {/* ===== GAP FINDER TAB ===== */}
-          <TabsContent value="gaps" className="space-y-4">
-            <VendorGapFinder brandId={brandId!} />
-          </TabsContent>
 
           {/* ===== GUIDE TAB ===== */}
           <TabsContent value="guide" className="space-y-4">
