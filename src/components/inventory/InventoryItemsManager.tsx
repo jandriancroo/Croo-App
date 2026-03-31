@@ -1208,9 +1208,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                         onDragStart={handleItemDragStart}
                         onDragEnd={(event) => {
                           if (isBulkDragThisGroup) {
-                            handleBulkDragEnd(event, allLocItems, shortcutIdSet);
+                            handleBulkDragEnd(event, allLocItems, shortcutIdSet, loc.id);
                           } else {
-                            handleItemDragEnd(event, allLocItems, shortcutIdSet);
+                            handleItemDragEnd(event, allLocItems, shortcutIdSet, loc.id);
                           }
                         }}
                       >
