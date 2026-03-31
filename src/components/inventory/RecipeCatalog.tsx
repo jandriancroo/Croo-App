@@ -1,12 +1,11 @@
 import { useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, ClipboardCheck, Link2, Plus, ChevronDown, Shield } from "lucide-react";
+
+import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, Link2, Plus, ChevronDown, Shield } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
@@ -22,7 +21,7 @@ interface RecipeCatalogProps {
 }
 
 const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => {
-  const navigate = useNavigate();
+  
   const [editBlueprintId, setEditBlueprintId] = useState<string | null>(null);
   const [showBuilderDialog, setShowBuilderDialog] = useState(false);
   const [reassignMode, setReassignMode] = useState(false);
@@ -194,13 +193,6 @@ const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => 
                 >
                   <Plus className="h-3 w-3" />
                   New
-                </button>
-                <button
-                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-                  onClick={() => navigate(`/inventory/${locationId}/triage`)}
-                >
-                  <ClipboardCheck className="h-3 w-3" />
-                  Triage
                 </button>
                 <button
                   className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
