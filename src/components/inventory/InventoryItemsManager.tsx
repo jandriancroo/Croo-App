@@ -1213,7 +1213,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                         }
                       } else {
                         renderItems = allLocItems.map(item => {
-                          const isShortcut = shortcutItems.includes(item);
+                          const isShortcut = (item as any)._isShortcut || shortcutIdSet.has(item.id);
                           return { type: 'item' as const, item, sortableId: item.id + (isShortcut ? '-shortcut' : ''), isShortcut };
                         });
                       }
