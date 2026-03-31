@@ -401,58 +401,64 @@ export default function BrandInventory() {
               </div>
             </div>
 
-            {templatesLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading catalog...</div>
-            ) : filteredTemplates.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="font-medium mb-1">
-                    {searchQuery ? 'No items match your search' : `No ${catalogFilter} items`}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-                    {catalogFilter === 'live' && !searchQuery && "Create items or promote drafts to populate the live catalog."}
-                    {catalogFilter === 'draft' && "Draft items are being tested before going live."}
-                    {catalogFilter === 'archived' && "Archived items are hidden from locations but data is preserved."}
-                  </p>
-                </CardContent>
-              </Card>
+            {catalogFilter === 'gaps' ? (
+              <VendorGapFinder brandId={brandId!} />
             ) : (
-              <Card>
-                <div className="divide-y divide-border">
-                  {Object.entries(groupedTemplates)
-                    .sort(([a], [b]) => {
-                      const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
-                      const aIdx = orderMap[a] ?? 999;
-                      const bIdx = orderMap[b] ?? 999;
-                      return aIdx - bIdx;
-                    })
-                    .map(([category, items]) => (
-                      <BrandCatalogSection
-                        key={category}
-                        category={category}
-                        items={items}
-                        onEdit={setEditingTemplate}
-                        onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
-                        selectionMode={catalogSelectionMode}
-                        selectedIds={catalogSelectedIds}
-                        onToggleSelect={toggleCatalogSelect}
-                        onStartSelection={(id) => setCatalogSelectedIds(new Set([id]))}
-                        recipeUsageMap={recipeUsageMap}
-                      />
-                    ))}
-                </div>
-              </Card>
-            )}
+              <>
+                {templatesLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading catalog...</div>
+                ) : filteredTemplates.length === 0 ? (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="font-medium mb-1">
+                        {searchQuery ? 'No items match your search' : `No ${catalogFilter} items`}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
+                        {catalogFilter === 'live' && !searchQuery && "Create items or promote drafts to populate the live catalog."}
+                        {catalogFilter === 'draft' && "Draft items are being tested before going live."}
+                        {catalogFilter === 'archived' && "Archived items are hidden from locations but data is preserved."}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <div className="divide-y divide-border">
+                      {Object.entries(groupedTemplates)
+                        .sort(([a], [b]) => {
+                          const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
+                          const aIdx = orderMap[a] ?? 999;
+                          const bIdx = orderMap[b] ?? 999;
+                          return aIdx - bIdx;
+                        })
+                        .map(([category, items]) => (
+                          <BrandCatalogSection
+                            key={category}
+                            category={category}
+                            items={items}
+                            onEdit={setEditingTemplate}
+                            onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
+                            selectionMode={catalogSelectionMode}
+                            selectedIds={catalogSelectedIds}
+                            onToggleSelect={toggleCatalogSelect}
+                            onStartSelection={(id) => setCatalogSelectedIds(new Set([id]))}
+                            recipeUsageMap={recipeUsageMap}
+                          />
+                        ))}
+                    </div>
+                  </Card>
+                )}
 
-            {catalogSelectedIds.size > 0 && brandId && (
-              <BrandCatalogBulkBar
-                selectedIds={catalogSelectedIds}
-                brandId={brandId}
-                onClear={() => setCatalogSelectedIds(new Set())}
-                activeFilter={catalogFilter}
-                categories={categoryNames}
-              />
+                {catalogSelectedIds.size > 0 && brandId && (
+                  <BrandCatalogBulkBar
+                    selectedIds={catalogSelectedIds}
+                    brandId={brandId}
+                    onClear={() => setCatalogSelectedIds(new Set())}
+                    activeFilter={catalogFilter}
+                    categories={categoryNames}
+                  />
+                )}
+              </>
             )}
           </TabsContent>
 
