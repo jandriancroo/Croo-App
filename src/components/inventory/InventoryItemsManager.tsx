@@ -1999,39 +1999,27 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         </div>
       )}
 
-      {/* Reorder Position Dialog */}
-      <Dialog open={showReorderDialog} onOpenChange={setShowReorderDialog}>
-        <DialogContent className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle className="text-base">Move to Position</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Moving {selectedItemIds.size} item{selectedItemIds.size > 1 ? 's' : ''} within {reorderGroupItems.length} total items.
-            </p>
-            <div className="flex items-center gap-2">
-              <Label className="text-sm whitespace-nowrap">Row #</Label>
-              <Input
-                type="number"
-                min={1}
-                max={reorderGroupItems.length}
-                value={reorderPosition}
-                onChange={(e) => setReorderPosition(e.target.value)}
-                placeholder={`1–${reorderGroupItems.length}`}
-                className="flex-1"
-                autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') handleNumericReorder(); }}
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" size="sm" onClick={() => setShowReorderDialog(false)}>Cancel</Button>
-              <Button size="sm" onClick={handleNumericReorder} disabled={!reorderPosition || parseInt(reorderPosition) < 1}>
-                Move
-              </Button>
-            </div>
+      {/* Bulk drag mode banner */}
+      {isBulkDragMode && (
+        <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)]">
+          <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-4 sm:px-6 py-3 flex items-center gap-3 border-2 border-primary-foreground/20">
+            <span className="font-semibold text-sm">Drag the highlighted group to reorder</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setIsBulkDragMode(false);
+                setBulkDragGroupKey(null);
+                setBulkDragItemIds([]);
+                setSelectedItemIds(new Set());
+                setActiveSelectGroup(null);
+              }}
+            >
+              Cancel
+            </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </>
   );
 };
