@@ -30,8 +30,6 @@ export function SortableInventoryItem({
   isSelectingThisGroup,
   isDragDisabled,
   isReorderMode = false,
-  reorderState = "idle",
-  pickedCount = 0,
   onMoveUp,
   onMoveDown,
   isFirst = false,
@@ -58,14 +56,6 @@ export function SortableInventoryItem({
         zIndex: isDragging ? 50 : undefined,
       };
 
-  const reorderClasses = isReorderMode
-    ? reorderState === "picked"
-      ? "bg-primary/15 ring-2 ring-primary shadow-md scale-[1.02] -translate-y-0.5"
-      : reorderState === "target"
-      ? "bg-primary/5"
-      : "hover:bg-muted/40"
-    : "";
-
   return (
     <div
       ref={setNodeRef}
@@ -82,7 +72,7 @@ export function SortableInventoryItem({
       onClick={onClick}
       onContextMenu={isReorderMode ? undefined : onContextMenu}
     >
-      {/* Reorder arrows — shown inline before other icons */}
+      {/* Reorder arrows */}
       {isReorderMode && (
         <div className="flex flex-col -my-1 flex-shrink-0">
           <button
@@ -102,16 +92,32 @@ export function SortableInventoryItem({
         </div>
       )}
 
+      {/* Selection checkbox & shortcut icon */}
+      {!isReorderMode && (
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {isSelectingThisGroup && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => {}}
+              className="h-3.5 w-3.5 flex-shrink-0 pointer-events-none"
+            />
+          )}
+          {isShortcut && (
+            <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
+          )}
+        </div>
+      )}
+      {isReorderMode && isShortcut && (
+        <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
+      )}
+
       {/* Name */}
       <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-        <span className={`truncate ${isShortcut ? "text-muted-foreground" : ""} ${reorderState === "picked" ? "font-medium" : ""}`}>
+        <span className={`truncate ${isShortcut ? "text-muted-foreground" : ""}`}>
           {(item as any).common_name || item.name}
         </span>
         {(item as any).common_name && !isShortcut && (
-          <span
-            className="text-[10px] text-muted-foreground truncate max-w-[100px]"
-            title={item.name}
-          >
+          <span className="text-[10px] text-muted-foreground truncate max-w-[100px]" title={item.name}>
             ({item.name})
           </span>
         )}
@@ -125,33 +131,29 @@ export function SortableInventoryItem({
         )}
       </div>
 
-      {/* Badge columns — hidden in reorder mode, responsive on mobile */}
-      {!isReorderMode && (
-        <div className="flex items-center gap-1 flex-shrink-0 justify-end">
-          {(item as any).category && !isShortcut ? (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-muted-foreground whitespace-nowrap hidden sm:inline-flex">
-              {(item as any).category}
-            </Badge>
-          ) : null}
-          {(item as any).pan_sizes?.enabled && !isShortcut && (
-            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 whitespace-nowrap hidden sm:inline-flex">
-              Pans
-            </Badge>
-          )}
-        </div>
-      )}
+      {/* Badge columns */}
+      <div className="flex items-center gap-1 flex-shrink-0 justify-end">
+        {(item as any).category && !isShortcut ? (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-muted-foreground whitespace-nowrap hidden sm:inline-flex">
+            {(item as any).category}
+          </Badge>
+        ) : null}
+        {(item as any).pan_sizes?.enabled && !isShortcut && (
+          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 whitespace-nowrap hidden sm:inline-flex">
+            Pans
+          </Badge>
+        )}
+      </div>
 
-      {/* Price/unit column — hidden in reorder mode */}
-      {!isReorderMode && (
-        <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground flex-shrink-0">
-          <span className="text-[10px] sm:text-xs">{item.pack_size || item.unit || "ea"}</span>
-          {item.cost_per_unit && !isShortcut && (
-            <span className="text-[10px] sm:text-xs text-primary">
-              ${Number(item.cost_per_unit).toFixed(2)}
-            </span>
-          )}
-        </div>
-      )}
+      {/* Price/unit column */}
+      <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground flex-shrink-0">
+        <span className="text-[10px] sm:text-xs">{item.pack_size || item.unit || "ea"}</span>
+        {item.cost_per_unit && !isShortcut && (
+          <span className="text-[10px] sm:text-xs text-primary">
+            ${Number(item.cost_per_unit).toFixed(2)}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
