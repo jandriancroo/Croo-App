@@ -190,7 +190,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
   }, [reorderItemsMutation]);
 
-  const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>) => {
+  const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
     setActiveDragItemId(null);
     const { active, over } = event;
     console.log("[bulkDrag] dragEnd — active:", String(active.id), "over:", over ? String(over.id) : "null");
@@ -214,13 +214,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       const draggedItems = groupItems.filter(i => bulkDragItemIds.includes(i.id));
       const reordered = [...nonGroupItems.slice(0, overIndex), ...draggedItems, ...nonGroupItems.slice(overIndex)];
       const primaryOnly = reordered.filter(i => !shortcutIdSet?.has(i.id));
-      console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length);
-      console.log("[bulkDrag] first 5 reordered names:", reordered.slice(0, 5).map(i => i.common_name || i.name));
-      if (primaryOnly.length > 0) {
-        reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
-      } else {
-        console.log("[bulkDrag] No primary items to reorder!");
-      }
+      const shortcutEntries = storageLocId ? reordered
+        .filter(i => shortcutIdSet?.has(i.id))
+        .map((i, idx) => ({ itemId: i.id, storageLocationId: storageLocId, displayOrder: idx })) : [];
+      console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length, "shortcuts:", shortcutEntries.length);
+      reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
       setIsBulkDragMode(false);
       setBulkDragGroupKey(null);
       setBulkDragItemIds([]);
@@ -229,7 +227,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       toast.success(`Moved ${draggedItems.length} items`);
     } else {
       // Normal single-item drag
-      handleItemDragEnd(event, groupItems, shortcutIdSet);
+      handleItemDragEnd(event, groupItems, shortcutIdSet, storageLocId);
     }
   }, [bulkDragItemIds, reorderItemsMutation, handleItemDragEnd]);
 
