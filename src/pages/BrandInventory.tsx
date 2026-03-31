@@ -393,6 +393,11 @@ export default function BrandInventory() {
                 >
                   <ScanSearch className="h-3.5 w-3.5" />
                   Vendor Gaps
+                  {gapAlertCount > 0 && (
+                    <Badge variant="destructive" className="ml-1.5 text-[10px] px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
+                      {gapAlertCount}
+                    </Badge>
+                  )}
                 </Button>
               </div>
               <div className="flex-1 flex gap-2">
