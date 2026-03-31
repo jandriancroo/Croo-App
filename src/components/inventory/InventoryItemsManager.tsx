@@ -215,10 +215,20 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       }
       const draggedItems = groupItems.filter(i => bulkDragItemIds.includes(i.id));
       const reordered = [...nonGroupItems.slice(0, overIndex), ...draggedItems, ...nonGroupItems.slice(overIndex)];
-      const primaryOnly = reordered.filter(i => !shortcutIdSet?.has(i.id));
-      const shortcutEntries = storageLocId ? reordered
-        .filter(i => shortcutIdSet?.has(i.id))
-        .map((i, idx) => ({ itemId: i.id, storageLocationId: storageLocId, displayOrder: idx })) : [];
+      const primaryOnly: any[] = [];
+      const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
+      reordered.forEach((item, globalIdx) => {
+        if (shortcutIdSet?.has(item.id)) {
+          if (storageLocId) {
+            shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
+          }
+        } else {
+          primaryOnly.push({ ...item, _newOrder: globalIdx });
+        }
+      });
+      // Use global index for primary items too so interleaving is preserved
+      const primaryIds = primaryOnly.map(i => i.id);
+      const primaryOrders = primaryOnly.map(i => i._newOrder);
       console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length, "shortcuts:", shortcutEntries.length);
       reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
       setIsBulkDragMode(false);
