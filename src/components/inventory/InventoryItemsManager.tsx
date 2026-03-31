@@ -1247,7 +1247,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                           ) : null}
                         </DragOverlay>
                       </DndContext>
-                    )}
+                      );
+                    })()}
                   </div>
                 );
               })}
