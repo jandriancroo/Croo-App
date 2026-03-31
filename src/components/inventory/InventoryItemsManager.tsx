@@ -136,18 +136,18 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   );
 
   const reorderItemsMutation = useMutation({
-    mutationFn: async ({ primaryIds, shortcuts }: { primaryIds: string[]; shortcuts?: { itemId: string; storageLocationId: string; displayOrder: number }[] }) => {
-      console.log("[reorder] mutationFn called with", primaryIds.length, "primary ids,", shortcuts?.length || 0, "shortcuts");
-      const primaryUpdates = primaryIds.map((id, index) =>
-        supabase.from("inventory_items").update({ display_order: index } as any).eq("id", id)
+    mutationFn: async ({ primaryUpdates: pUpdates, shortcuts }: { primaryUpdates: { id: string; displayOrder: number }[]; shortcuts?: { itemId: string; storageLocationId: string; displayOrder: number }[] }) => {
+      console.log("[reorder] mutationFn called with", pUpdates.length, "primary items,", shortcuts?.length || 0, "shortcuts");
+      const primaryOps = pUpdates.map(p =>
+        supabase.from("inventory_items").update({ display_order: p.displayOrder } as any).eq("id", p.id)
       );
-      const shortcutUpdates = (shortcuts || []).map(s =>
+      const shortcutOps = (shortcuts || []).map(s =>
         supabase.from("inventory_item_locations")
           .update({ display_order: s.displayOrder } as any)
           .eq("item_id", s.itemId)
           .eq("storage_location_id", s.storageLocationId)
       );
-      console.log("[reorder] primary orders:", primaryIds.map((id, i) => `${id.slice(0,6)}=${i}`).join(', '));
+      console.log("[reorder] primary orders:", pUpdates.map(p => `${p.id.slice(0,6)}=${p.displayOrder}`).join(', '));
       console.log("[reorder] shortcut orders:", (shortcuts || []).map(s => `${s.itemId.slice(0,6)}=${s.displayOrder}`).join(', '));
       const results = await Promise.all([...primaryUpdates, ...shortcutUpdates]);
       const errors = results.filter(r => r.error);
