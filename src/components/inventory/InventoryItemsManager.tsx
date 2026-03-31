@@ -1151,12 +1151,24 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 const shortcutItemIds = shortcutJunctions.map(s => s.item_id);
                 const shortcutItems = items
                   .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id);
+
+                // Legacy guard: older shortcut order values were local-only (0..N), which collides with primary orders and causes staggering.
+                const primaryOrderSet = new Set(
+                  primaryItems.map(i => (i as any).display_order).filter((v): v is number => typeof v === "number")
+                );
+                const hasLegacyShortcutOrderCollisions = shortcutJunctions.some(s =>
+                  typeof (s as any).display_order === "number" && primaryOrderSet.has((s as any).display_order)
+                );
+
                 // Build unified list with display_order for interleaved sorting
                 const allLocItems = [
                   ...primaryItems.map(i => ({ ...i, _sortOrder: (i as any).display_order ?? 9999, _isShortcut: false })),
                   ...shortcutItems.map(i => {
                     const junctionOrder = shortcutJunctions.find(s => s.item_id === i.id)?.display_order;
-                    return { ...i, _sortOrder: (junctionOrder as number) ?? 9999, _isShortcut: true };
+                    const normalizedShortcutOrder = hasLegacyShortcutOrderCollisions
+                      ? (primaryItems.length + ((junctionOrder as number) ?? 9999))
+                      : ((junctionOrder as number) ?? 9999);
+                    return { ...i, _sortOrder: normalizedShortcutOrder, _isShortcut: true };
                   }),
                 ].sort((a, b) => a._sortOrder - b._sortOrder);
                 const isCollapsed = collapsedSections.has(loc.id);
