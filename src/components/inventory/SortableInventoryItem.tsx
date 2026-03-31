@@ -72,22 +72,22 @@ export function SortableInventoryItem({
       onClick={onClick}
       onContextMenu={isReorderMode ? undefined : onContextMenu}
     >
-      {/* Reorder arrows */}
+      {/* Reorder arrows — inline, single row */}
       {isReorderMode && (
-        <div className="flex flex-col -my-1 flex-shrink-0">
+        <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isFirst ? 'opacity-30 pointer-events-none' : ''}`}
             onClick={(e) => { e.stopPropagation(); onMoveUp?.(); }}
             disabled={isFirst}
           >
-            <ChevronUp className="h-3.5 w-3.5 text-primary" />
+            <ChevronUp className="h-4 w-4 text-primary" />
           </button>
           <button
             className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isLast ? 'opacity-30 pointer-events-none' : ''}`}
             onClick={(e) => { e.stopPropagation(); onMoveDown?.(); }}
             disabled={isLast}
           >
-            <ChevronDown className="h-3.5 w-3.5 text-primary" />
+            <ChevronDown className="h-4 w-4 text-primary" />
           </button>
         </div>
       )}
@@ -183,7 +183,7 @@ interface BulkReorderGroupProps {
 export function BulkReorderGroup({ items, onMoveUp, onMoveDown, isFirst, isLast }: BulkReorderGroupProps) {
   return (
     <div className="flex items-center gap-2 py-2 px-3 rounded-lg text-sm bg-primary/10 ring-2 ring-primary border border-primary/30">
-      <div className="flex flex-col -my-1 flex-shrink-0">
+      <div className="flex items-center gap-0.5 flex-shrink-0">
         <button
           className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isFirst ? 'opacity-30 pointer-events-none' : ''}`}
           onClick={onMoveUp}
