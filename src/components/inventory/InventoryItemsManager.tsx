@@ -366,7 +366,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_item_locations")
-        .select("item_id, storage_location_id")
+        .select("item_id, storage_location_id, display_order")
         .in("item_id", (items || []).map(i => i.id));
       if (error) throw error;
       return data || [];
