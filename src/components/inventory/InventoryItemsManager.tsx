@@ -1209,6 +1209,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                     {!isCollapsed && (() => {
                       const shortcutIdSet = new Set(shortcutItems.map(i => i.id));
                       const isBulkDragThisGroup = isBulkDragMode && bulkDragGroupKey === loc.id;
+                      const isReorderThisGroup = reorderModeGroup === loc.id;
                       const bulkDragSet = new Set(bulkDragItemIds);
 
                       // Build render items — in bulk mode, replace consecutive selected items with a group row
