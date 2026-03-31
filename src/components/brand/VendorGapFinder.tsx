@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Search, RefreshCw, PackagePlus, AlertTriangle, CheckCircle2, Package,
+  Search, RefreshCw, PackagePlus, AlertTriangle, CheckCircle2,
   Loader2, Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
