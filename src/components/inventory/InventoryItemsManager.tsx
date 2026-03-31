@@ -122,10 +122,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [shortcutCountBy, setShortcutCountBy] = useState<string>('inherit');
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
   const [shortcutConfigItem, setShortcutConfigItem] = useState<{ itemId: string; itemName: string; storageLocationId: string; storageLocationName: string } | null>(null);
-  // isReorderMode removed — reorder now integrated into floating bulk action bar
-  const [pickedItemIds, setPickedItemIds] = useState<Set<string>>(new Set());
-  const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
-  const [isPlacingMode, setIsPlacingMode] = useState(false);
+  const [showReorderDialog, setShowReorderDialog] = useState(false);
+  const [reorderPosition, setReorderPosition] = useState<string>("");
+  const [reorderGroupItems, setReorderGroupItems] = useState<any[]>([]);
+  const [reorderShortcutIds, setReorderShortcutIds] = useState<Set<string>>(new Set());
   const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
   const [recipePurgeMode, setRecipePurgeMode] = useState(false);
   const [recipePurgeSelection, setRecipePurgeSelection] = useState<Set<string>>(new Set());
@@ -174,44 +174,24 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   }, [reorderItemsMutation]);
 
-  const handleReorderClick = useCallback((clickedItemId: string, groupKey: string, groupItems: any[], isShortcutList?: Set<string>) => {
-    if (!isPlacingMode) {
-      // Selection phase — toggle items on/off
-      if (pickedGroupKey && pickedGroupKey !== groupKey) {
-        // Different group — start fresh
-        setPickedItemIds(new Set([clickedItemId]));
-        setPickedGroupKey(groupKey);
-        return;
-      }
-      const next = new Set(pickedItemIds);
-      if (next.has(clickedItemId)) {
-        next.delete(clickedItemId);
-        if (next.size === 0) setPickedGroupKey(null);
-      } else {
-        next.add(clickedItemId);
-        if (!pickedGroupKey) setPickedGroupKey(groupKey);
-      }
-      setPickedItemIds(next);
-      return;
-    }
-    // Placement phase — place selected items above the clicked target
-    if (pickedItemIds.has(clickedItemId)) return; // Can't place on self
-    if (pickedGroupKey !== groupKey) return; // Can't place across groups
-    const pickedIndices = [...pickedItemIds].map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
-    const targetIndex = groupItems.findIndex(i => i.id === clickedItemId);
-    if (targetIndex === -1 || pickedIndices.length === 0) return;
-    const pickedItems = pickedIndices.map(idx => groupItems[idx]);
-    const remaining = groupItems.filter(i => !pickedItemIds.has(i.id));
-    const insertAt = remaining.findIndex(i => i.id === clickedItemId);
+  const handleNumericReorder = useCallback(() => {
+    const pos = parseInt(reorderPosition, 10);
+    if (isNaN(pos) || pos < 1 || reorderGroupItems.length === 0 || selectedItemIds.size === 0) return;
+    const clampedPos = Math.min(pos, reorderGroupItems.length);
+    const pickedItems = reorderGroupItems.filter(i => selectedItemIds.has(i.id));
+    const remaining = reorderGroupItems.filter(i => !selectedItemIds.has(i.id));
+    const insertAt = Math.max(0, clampedPos - 1);
     const reordered = [...remaining.slice(0, insertAt), ...pickedItems, ...remaining.slice(insertAt)];
-    const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
+    const primaryOnly = reordered.filter(i => !reorderShortcutIds.has(i.id));
     if (primaryOnly.length > 0) {
       reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
     }
-    setPickedItemIds(new Set());
-    setPickedGroupKey(null);
-    setIsPlacingMode(false);
-  }, [pickedItemIds, pickedGroupKey, isPlacingMode, reorderItemsMutation]);
+    setShowReorderDialog(false);
+    setReorderPosition("");
+    setSelectedItemIds(new Set());
+    setActiveSelectGroup(null);
+    toast.success(`Moved ${pickedItems.length} item${pickedItems.length > 1 ? 's' : ''} to position ${clampedPos}`);
+  }, [reorderPosition, reorderGroupItems, selectedItemIds, reorderShortcutIds, reorderItemsMutation]);
 
 
 
@@ -1062,21 +1042,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
           {/* List sub-view */}
           {itemsSubView === "list" && <>
-          {isPlacingMode && (
-            <div className="flex items-center gap-2 px-1">
-              <p className="text-xs text-muted-foreground flex-1">
-                Tap where to place {pickedItemIds.size} item{pickedItemIds.size > 1 ? 's' : ''}.
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs px-3"
-                onClick={() => setIsPlacingMode(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          )}
           {items && items.length > 0 ? (
             <div className="space-y-2">
               {/* Items needing remap */}
@@ -1192,18 +1157,12 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isShortcut={isShortcut}
                                   isSelected={selectedItemIds.has(item.id)}
                                   isSelectingThisGroup={isSelectingThisGroup}
-                                  isDragDisabled={isSelectingThisGroup || isPlacingMode}
-                                  isReorderMode={isPlacingMode}
-                                  reorderState={
-                                    isPlacingMode && pickedGroupKey === loc.id
-                                      ? pickedItemIds.has(item.id) ? "picked" : "target"
-                                      : "idle"
-                                  }
-                                  pickedCount={pickedItemIds.size}
+                                  isDragDisabled={isSelectingThisGroup}
+                                  isReorderMode={false}
+                                  reorderState="idle"
+                                  pickedCount={0}
                                   onClick={() => {
-                                    if (isPlacingMode) {
-                                      handleReorderClick(item.id, loc.id, allLocItems, shortcutIdSet);
-                                    } else if (isSelectingThisGroup) {
+                                    if (isSelectingThisGroup) {
                                       const next = new Set(selectedItemIds);
                                       if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
                                       setSelectedItemIds(next);
@@ -1280,18 +1239,12 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                 isShortcut={false}
                                 isSelected={selectedItemIds.has(item.id)}
                                 isSelectingThisGroup={isSelectingThisGroup}
-                                isDragDisabled={isSelectingThisGroup || isPlacingMode}
-                                isReorderMode={isPlacingMode}
-                                reorderState={
-                                  isPlacingMode && pickedGroupKey === "__unassigned__"
-                                    ? pickedItemIds.has(item.id) ? "picked" : "target"
-                                    : "idle"
-                                }
-                                pickedCount={pickedItemIds.size}
+                                isDragDisabled={isSelectingThisGroup}
+                                isReorderMode={false}
+                                reorderState="idle"
+                                pickedCount={0}
                                 onClick={() => {
-                                  if (isPlacingMode) {
-                                    handleReorderClick(item.id, "__unassigned__", unassigned);
-                                  } else if (isSelectingThisGroup) {
+                                  if (isSelectingThisGroup) {
                                     const next = new Set(selectedItemIds);
                                     if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
                                     setSelectedItemIds(next);
@@ -1945,7 +1898,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       </Dialog>
 
       {/* Floating Bulk Action Bar — scoped to active location group */}
-      {activeSelectGroup && selectedItemIds.size > 0 && !isPlacingMode && (
+      {activeSelectGroup && selectedItemIds.size > 0 && (
         <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)]">
           <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4 border-2 border-primary-foreground/20 overflow-x-auto">
             <span className="font-semibold whitespace-nowrap">{selectedItemIds.size} selected</span>
@@ -1955,10 +1908,23 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 size="sm"
                 variant="secondary"
                 onClick={() => {
-                  // Enter reorder placing mode: use selected items as picked items
-                  setPickedItemIds(new Set(selectedItemIds));
-                  setPickedGroupKey(activeSelectGroup);
-                  setIsPlacingMode(true);
+                  // Find group items for this active group
+                  const groupKey = activeSelectGroup;
+                  let groupItems: any[] = [];
+                  let shortcutIds = new Set<string>();
+                  if (groupKey === "__unassigned__") {
+                    groupItems = (items || []).filter(i => !i.storage_location_id).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                  } else {
+                    const primaryItems = (items || []).filter(i => i.storage_location_id === groupKey).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                    const shortcutItemIds = (itemLocationShortcuts || []).filter(s => s.storage_location_id === groupKey).map(s => s.item_id);
+                    const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey);
+                    groupItems = [...primaryItems, ...shortcutItems];
+                    shortcutIds = new Set(shortcutItems.map(i => i.id));
+                  }
+                  setReorderGroupItems(groupItems);
+                  setReorderShortcutIds(shortcutIds);
+                  setReorderPosition("");
+                  setShowReorderDialog(true);
                 }}
                 className="gap-1.5"
               >
@@ -2008,9 +1974,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               onClick={() => {
                 setSelectedItemIds(new Set());
                 setActiveSelectGroup(null);
-                setPickedItemIds(new Set());
-                setPickedGroupKey(null);
-                setIsPlacingMode(false);
               }}
               className="hover:bg-primary-foreground/10"
             >
@@ -2019,6 +1982,40 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           </div>
         </div>
       )}
+
+      {/* Reorder Position Dialog */}
+      <Dialog open={showReorderDialog} onOpenChange={setShowReorderDialog}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base">Move to Position</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Moving {selectedItemIds.size} item{selectedItemIds.size > 1 ? 's' : ''} within {reorderGroupItems.length} total items.
+            </p>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm whitespace-nowrap">Row #</Label>
+              <Input
+                type="number"
+                min={1}
+                max={reorderGroupItems.length}
+                value={reorderPosition}
+                onChange={(e) => setReorderPosition(e.target.value)}
+                placeholder={`1–${reorderGroupItems.length}`}
+                className="flex-1"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleNumericReorder(); }}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowReorderDialog(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleNumericReorder} disabled={!reorderPosition || parseInt(reorderPosition) < 1}>
+                Move
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
