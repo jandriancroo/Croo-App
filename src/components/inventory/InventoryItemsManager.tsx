@@ -2184,6 +2184,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               size="sm"
               variant="secondary"
               onClick={() => {
+                flushReorder();
+                setOptimisticOrder({});
                 setIsBulkDragMode(false);
                 setBulkDragGroupKey(null);
                 setBulkDragItemIds([]);
