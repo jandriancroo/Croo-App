@@ -196,13 +196,6 @@ const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => 
                   New
                 </button>
                 <button
-                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors"
-                  onClick={() => navigate(`/inventory/${locationId}/triage`)}
-                >
-                  <ClipboardCheck className="h-3 w-3" />
-                  Triage
-                </button>
-                <button
                   className={`flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
                     reassignMode
                       ? "bg-primary text-primary-foreground shadow-sm"
