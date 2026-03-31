@@ -19,7 +19,7 @@ import {
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
   RefreshCw, Shield, FileText, AlertTriangle,
 } from 'lucide-react';
-import BrandTriageTab from '@/components/inventory/BrandTriageTab';
+
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import RecipeCatalog from '@/components/inventory/RecipeCatalog';
