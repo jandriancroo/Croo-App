@@ -1285,9 +1285,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isSelected={selectedItemIds.has(item.id)}
                                   isSelectingThisGroup={isSelectingThisGroup && !isBulkDragThisGroup}
                                   isDragDisabled={isSelectingThisGroup || isBulkDragThisGroup}
-                                  isReorderMode={isBulkDragThisGroup}
-                                  onMoveUp={isBulkDragThisGroup ? undefined : undefined}
-                                  onMoveDown={isBulkDragThisGroup ? undefined : undefined}
+                                  isReorderMode={isBulkDragThisGroup || isReorderThisGroup}
+                                  onMoveUp={isReorderThisGroup ? () => handleArrowMove('up', allLocItems, item.id, shortcutIdSet, loc.id) : undefined}
+                                  onMoveDown={isReorderThisGroup ? () => handleArrowMove('down', allLocItems, item.id, shortcutIdSet, loc.id) : undefined}
                                   isFirst={itemIdx === 0}
                                   isLast={itemIdx === renderItems.length - 1}
                                   onClick={() => {
