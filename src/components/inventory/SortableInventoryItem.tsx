@@ -73,8 +73,6 @@ export function SortableInventoryItem({
       className={`flex items-center py-1.5 px-2 rounded text-sm cursor-pointer gap-2 transition-all duration-150 ${
         isDragging
           ? "border border-primary/40 border-dashed bg-primary/5 shadow-lg"
-          : isReorderMode
-          ? `${reorderClasses}`
           : isSelected
           ? "bg-primary/10 ring-1 ring-primary/30"
           : isShortcut
@@ -84,45 +82,25 @@ export function SortableInventoryItem({
       onClick={onClick}
       onContextMenu={isReorderMode ? undefined : onContextMenu}
     >
-      {/* Left icons */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {isReorderMode ? (
-          <>
-            <div className="flex flex-col -my-1">
-              <button
-                className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isFirst ? 'opacity-30 pointer-events-none' : ''}`}
-                onClick={(e) => { e.stopPropagation(); onMoveUp?.(); }}
-                disabled={isFirst}
-              >
-                <ChevronUp className="h-3.5 w-3.5 text-primary" />
-              </button>
-              <button
-                className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isLast ? 'opacity-30 pointer-events-none' : ''}`}
-                onClick={(e) => { e.stopPropagation(); onMoveDown?.(); }}
-                disabled={isLast}
-              >
-                <ChevronDown className="h-3.5 w-3.5 text-primary" />
-              </button>
-            </div>
-            {isShortcut && (
-              <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
-            )}
-          </>
-        ) : (
-          <>
-            {isSelectingThisGroup && (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => {}}
-                className="h-3.5 w-3.5 flex-shrink-0 pointer-events-none"
-              />
-            )}
-            {isShortcut && (
-              <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
-            )}
-          </>
-        )}
-      </div>
+      {/* Reorder arrows — shown inline before other icons */}
+      {isReorderMode && (
+        <div className="flex flex-col -my-1 flex-shrink-0">
+          <button
+            className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isFirst ? 'opacity-30 pointer-events-none' : ''}`}
+            onClick={(e) => { e.stopPropagation(); onMoveUp?.(); }}
+            disabled={isFirst}
+          >
+            <ChevronUp className="h-3.5 w-3.5 text-primary" />
+          </button>
+          <button
+            className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isLast ? 'opacity-30 pointer-events-none' : ''}`}
+            onClick={(e) => { e.stopPropagation(); onMoveDown?.(); }}
+            disabled={isLast}
+          >
+            <ChevronDown className="h-3.5 w-3.5 text-primary" />
+          </button>
+        </div>
+      )}
 
       {/* Name */}
       <div className="flex items-center gap-2 truncate flex-1 min-w-0">
