@@ -2660,6 +2660,7 @@ export type Database = {
         Row: {
           count_by: string
           created_at: string
+          display_order: number | null
           id: string
           item_id: string
           pack_quantity_override: number | null
@@ -2669,6 +2670,7 @@ export type Database = {
         Insert: {
           count_by?: string
           created_at?: string
+          display_order?: number | null
           id?: string
           item_id: string
           pack_quantity_override?: number | null
@@ -2678,6 +2680,7 @@ export type Database = {
         Update: {
           count_by?: string
           created_at?: string
+          display_order?: number | null
           id?: string
           item_id?: string
           pack_quantity_override?: number | null
