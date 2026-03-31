@@ -204,39 +204,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   }, [bulkDragItemIds, reorderItemsMutation, handleItemDragEnd]);
 
-  const enterBulkDragMode = useCallback(() => {
-    const groupKey = activeSelectGroup;
-    if (!groupKey || selectedItemIds.size === 0) return;
-    
-    let groupItems: any[] = [];
-    if (groupKey === "__unassigned__") {
-      groupItems = (items || []).filter(i => !i.storage_location_id).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
-    } else {
-      const primaryItems = (items || []).filter(i => i.storage_location_id === groupKey).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
-      const shortcutItemIds = (itemLocationShortcuts || []).filter((s: any) => s.storage_location_id === groupKey).map((s: any) => s.item_id);
-      const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey);
-      groupItems = [...primaryItems, ...shortcutItems];
-    }
-    
-    // Check if selected items are consecutive
-    const selectedArr = Array.from(selectedItemIds);
-    const indices = selectedArr.map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
-    if (indices.length === 0) return;
-    
-    const isConsecutive = indices.every((val, i) => i === 0 || val === indices[i - 1] + 1);
-    if (!isConsecutive) {
-      toast.error("Select consecutive items to reorder as a group");
-      return;
-    }
-    
-    // Order the IDs by their position in the group
-    const orderedIds = indices.map(idx => groupItems[idx].id);
-    setBulkDragItemIds(orderedIds);
-    setBulkDragGroupKey(groupKey);
-    setIsBulkDragMode(true);
-  }, [activeSelectGroup, selectedItemIds, items, itemLocationShortcuts]);
-
-
 
   // Check if PFG is configured
   const { data: pfgIntegration } = useQuery({
