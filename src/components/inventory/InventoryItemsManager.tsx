@@ -174,44 +174,24 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   }, [reorderItemsMutation]);
 
-  const handleReorderClick = useCallback((clickedItemId: string, groupKey: string, groupItems: any[], isShortcutList?: Set<string>) => {
-    if (!isPlacingMode) {
-      // Selection phase — toggle items on/off
-      if (pickedGroupKey && pickedGroupKey !== groupKey) {
-        // Different group — start fresh
-        setPickedItemIds(new Set([clickedItemId]));
-        setPickedGroupKey(groupKey);
-        return;
-      }
-      const next = new Set(pickedItemIds);
-      if (next.has(clickedItemId)) {
-        next.delete(clickedItemId);
-        if (next.size === 0) setPickedGroupKey(null);
-      } else {
-        next.add(clickedItemId);
-        if (!pickedGroupKey) setPickedGroupKey(groupKey);
-      }
-      setPickedItemIds(next);
-      return;
-    }
-    // Placement phase — place selected items above the clicked target
-    if (pickedItemIds.has(clickedItemId)) return; // Can't place on self
-    if (pickedGroupKey !== groupKey) return; // Can't place across groups
-    const pickedIndices = [...pickedItemIds].map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
-    const targetIndex = groupItems.findIndex(i => i.id === clickedItemId);
-    if (targetIndex === -1 || pickedIndices.length === 0) return;
-    const pickedItems = pickedIndices.map(idx => groupItems[idx]);
-    const remaining = groupItems.filter(i => !pickedItemIds.has(i.id));
-    const insertAt = remaining.findIndex(i => i.id === clickedItemId);
+  const handleNumericReorder = useCallback(() => {
+    const pos = parseInt(reorderPosition, 10);
+    if (isNaN(pos) || pos < 1 || reorderGroupItems.length === 0 || selectedItemIds.size === 0) return;
+    const clampedPos = Math.min(pos, reorderGroupItems.length);
+    const pickedItems = reorderGroupItems.filter(i => selectedItemIds.has(i.id));
+    const remaining = reorderGroupItems.filter(i => !selectedItemIds.has(i.id));
+    const insertAt = Math.max(0, clampedPos - 1);
     const reordered = [...remaining.slice(0, insertAt), ...pickedItems, ...remaining.slice(insertAt)];
-    const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
+    const primaryOnly = reordered.filter(i => !reorderShortcutIds.has(i.id));
     if (primaryOnly.length > 0) {
       reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
     }
-    setPickedItemIds(new Set());
-    setPickedGroupKey(null);
-    setIsPlacingMode(false);
-  }, [pickedItemIds, pickedGroupKey, isPlacingMode, reorderItemsMutation]);
+    setShowReorderDialog(false);
+    setReorderPosition("");
+    setSelectedItemIds(new Set());
+    setActiveSelectGroup(null);
+    toast.success(`Moved ${pickedItems.length} item${pickedItems.length > 1 ? 's' : ''} to position ${clampedPos}`);
+  }, [reorderPosition, reorderGroupItems, selectedItemIds, reorderShortcutIds, reorderItemsMutation]);
 
 
 
