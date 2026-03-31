@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+
 import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, Link2, Plus, ChevronDown, Shield } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
 import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
