@@ -21,7 +21,7 @@ interface RecipeCatalogProps {
 }
 
 const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => {
-  const navigate = useNavigate();
+  
   const [editBlueprintId, setEditBlueprintId] = useState<string | null>(null);
   const [showBuilderDialog, setShowBuilderDialog] = useState(false);
   const [reassignMode, setReassignMode] = useState(false);
