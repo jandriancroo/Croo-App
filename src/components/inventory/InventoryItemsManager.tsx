@@ -1206,6 +1206,19 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                         </Badge>
                       )}
                     </button>
+                    {!isCollapsed && !isBulkDragMode && !activeSelectGroup && (
+                      <div className="flex justify-end px-2 py-1 bg-muted/30">
+                        <Button
+                          size="sm"
+                          variant={reorderModeGroup === loc.id ? "default" : "ghost"}
+                          className="h-6 text-[10px] px-2 gap-1"
+                          onClick={() => setReorderModeGroup(reorderModeGroup === loc.id ? null : loc.id)}
+                        >
+                          <ListOrdered className="h-3 w-3" />
+                          {reorderModeGroup === loc.id ? "Done" : "Reorder"}
+                        </Button>
+                      </div>
+                    )}
                     {!isCollapsed && (() => {
                       const shortcutIdSet = new Set(shortcutItems.map(i => i.id));
                       const isBulkDragThisGroup = isBulkDragMode && bulkDragGroupKey === loc.id;
