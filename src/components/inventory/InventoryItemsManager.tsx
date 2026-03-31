@@ -1240,7 +1240,15 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                           size="sm"
                           variant={reorderModeGroup === loc.id ? "default" : "ghost"}
                           className="h-6 text-[10px] px-2 gap-1"
-                          onClick={() => setReorderModeGroup(reorderModeGroup === loc.id ? null : loc.id)}
+                          onClick={() => {
+                            if (reorderModeGroup === loc.id) {
+                              flushReorder();
+                              setOptimisticOrder(prev => { const next = { ...prev }; delete next[loc.id]; return next; });
+                              setReorderModeGroup(null);
+                            } else {
+                              setReorderModeGroup(loc.id);
+                            }
+                          }}
                         >
                           <ListOrdered className="h-3 w-3" />
                           {reorderModeGroup === loc.id ? "Done" : "Reorder"}
