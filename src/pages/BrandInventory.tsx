@@ -39,7 +39,7 @@ export default function BrandInventory() {
   const queryClient = useQueryClient();
   const { isSuperAdmin, isBrandAdmin, loading: roleLoading } = useUserRole();
   const [activeTab, setActiveTab] = useState('catalog');
-  const [catalogFilter, setCatalogFilter] = useState<'live' | 'draft' | 'archived'>('live');
+  const [catalogFilter, setCatalogFilter] = useState<'live' | 'draft' | 'archived' | 'gaps'>('live');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [newItemDialog, setNewItemDialog] = useState(false);
