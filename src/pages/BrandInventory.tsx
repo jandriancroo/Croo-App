@@ -370,6 +370,15 @@ export default function BrandInventory() {
                     </Badge>
                   </Button>
                 ))}
+                <Button
+                  variant={catalogFilter === 'gaps' as any ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCatalogFilter('gaps' as any)}
+                  className="gap-1.5"
+                >
+                  <ScanSearch className="h-3.5 w-3.5" />
+                  Vendor Gaps
+                </Button>
               </div>
               <div className="flex-1 flex gap-2">
                 <div className="relative flex-1">
