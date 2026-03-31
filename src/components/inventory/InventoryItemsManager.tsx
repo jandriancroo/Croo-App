@@ -1304,7 +1304,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isFirst={itemIdx === 0}
                                   isLast={itemIdx === renderItems.length - 1}
                                   onClick={() => {
-                                    if (isBulkDragThisGroup) return;
+                                    if (isBulkDragThisGroup || isReorderThisGroup) return;
                                     if (isSelectingThisGroup) {
                                       const next = new Set(selectedItemIds);
                                       if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
