@@ -1207,7 +1207,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                               groupInserted = true;
                             }
                           } else {
-                            const isShortcut = shortcutItems.includes(item);
+                            const isShortcut = (item as any)._isShortcut || shortcutIdSet.has(item.id);
                             renderItems.push({ type: 'item', item, sortableId: item.id + (isShortcut ? '-shortcut' : ''), isShortcut });
                           }
                         }
