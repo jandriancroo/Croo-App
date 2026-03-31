@@ -122,10 +122,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [shortcutCountBy, setShortcutCountBy] = useState<string>('inherit');
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
   const [shortcutConfigItem, setShortcutConfigItem] = useState<{ itemId: string; itemName: string; storageLocationId: string; storageLocationName: string } | null>(null);
-  const [showReorderDialog, setShowReorderDialog] = useState(false);
-  const [reorderPosition, setReorderPosition] = useState<string>("");
-  const [reorderGroupItems, setReorderGroupItems] = useState<any[]>([]);
-  const [reorderShortcutIds, setReorderShortcutIds] = useState<Set<string>>(new Set());
+  const [isBulkDragMode, setIsBulkDragMode] = useState(false);
+  const [bulkDragGroupKey, setBulkDragGroupKey] = useState<string | null>(null);
+  const [bulkDragItemIds, setBulkDragItemIds] = useState<string[]>([]);
   const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
   const [recipePurgeMode, setRecipePurgeMode] = useState(false);
   const [recipePurgeSelection, setRecipePurgeSelection] = useState<Set<string>>(new Set());
