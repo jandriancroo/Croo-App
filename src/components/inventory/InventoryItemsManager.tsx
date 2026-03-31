@@ -1898,7 +1898,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       </Dialog>
 
       {/* Floating Bulk Action Bar — scoped to active location group */}
-      {activeSelectGroup && selectedItemIds.size > 0 && !isPlacingMode && (
+      {activeSelectGroup && selectedItemIds.size > 0 && (
         <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)]">
           <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4 border-2 border-primary-foreground/20 overflow-x-auto">
             <span className="font-semibold whitespace-nowrap">{selectedItemIds.size} selected</span>
@@ -1908,10 +1908,23 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 size="sm"
                 variant="secondary"
                 onClick={() => {
-                  // Enter reorder placing mode: use selected items as picked items
-                  setPickedItemIds(new Set(selectedItemIds));
-                  setPickedGroupKey(activeSelectGroup);
-                  setIsPlacingMode(true);
+                  // Find group items for this active group
+                  const groupKey = activeSelectGroup;
+                  let groupItems: any[] = [];
+                  let shortcutIds = new Set<string>();
+                  if (groupKey === "__unassigned__") {
+                    groupItems = (items || []).filter(i => !i.storage_location_id).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                  } else {
+                    const primaryItems = (items || []).filter(i => i.storage_location_id === groupKey).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                    const shortcutItemIds = (itemLocationShortcuts || []).filter(s => s.storage_location_id === groupKey).map(s => s.item_id);
+                    const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey);
+                    groupItems = [...primaryItems, ...shortcutItems];
+                    shortcutIds = new Set(shortcutItems.map(i => i.id));
+                  }
+                  setReorderGroupItems(groupItems);
+                  setReorderShortcutIds(shortcutIds);
+                  setReorderPosition("");
+                  setShowReorderDialog(true);
                 }}
                 className="gap-1.5"
               >
@@ -1961,9 +1974,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               onClick={() => {
                 setSelectedItemIds(new Set());
                 setActiveSelectGroup(null);
-                setPickedItemIds(new Set());
-                setPickedGroupKey(null);
-                setIsPlacingMode(false);
               }}
               className="hover:bg-primary-foreground/10"
             >
@@ -1972,6 +1982,40 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           </div>
         </div>
       )}
+
+      {/* Reorder Position Dialog */}
+      <Dialog open={showReorderDialog} onOpenChange={setShowReorderDialog}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base">Move to Position</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Moving {selectedItemIds.size} item{selectedItemIds.size > 1 ? 's' : ''} within {reorderGroupItems.length} total items.
+            </p>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm whitespace-nowrap">Row #</Label>
+              <Input
+                type="number"
+                min={1}
+                max={reorderGroupItems.length}
+                value={reorderPosition}
+                onChange={(e) => setReorderPosition(e.target.value)}
+                placeholder={`1–${reorderGroupItems.length}`}
+                className="flex-1"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleNumericReorder(); }}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowReorderDialog(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleNumericReorder} disabled={!reorderPosition || parseInt(reorderPosition) < 1}>
+                Move
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
