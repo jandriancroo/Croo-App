@@ -199,53 +199,59 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
   }, [reorderItemsMutation]);
 
-  const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
-    setActiveDragItemId(null);
-    const { active, over } = event;
-    console.log("[bulkDrag] dragEnd — active:", String(active.id), "over:", over ? String(over.id) : "null");
-    if (!over || active.id === over.id) {
-      console.log("[bulkDrag] Early return — no over or same id");
-      return;
+  const handleArrowMove = useCallback((direction: 'up' | 'down', groupItems: any[], itemId: string, shortcutIdSet?: Set<string>, storageLocId?: string) => {
+    const idx = groupItems.findIndex(i => i.id === itemId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= groupItems.length) return;
+    const reordered = arrayMove(groupItems, idx, targetIdx);
+    const primaryEntries: { id: string; displayOrder: number }[] = [];
+    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
+    reordered.forEach((item, globalIdx) => {
+      if (shortcutIdSet?.has(item.id)) {
+        if (storageLocId) shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
+      } else {
+        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
+      }
+    });
+    reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
+  }, [reorderItemsMutation]);
+
+  const handleBulkArrowMove = useCallback((direction: 'up' | 'down', groupItems: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
+    if (bulkDragItemIds.length === 0) return;
+    const bulkSet = new Set(bulkDragItemIds);
+    const nonGroupItems = groupItems.filter(i => !bulkSet.has(i.id));
+    const draggedItems = groupItems.filter(i => bulkSet.has(i.id));
+    
+    // Find current position of the bulk group
+    let groupStartIdx = groupItems.findIndex(i => bulkSet.has(i.id));
+    // Find where they sit in the non-group list
+    let insertIdx = nonGroupItems.findIndex(i => {
+      const origIdx = groupItems.indexOf(i);
+      return origIdx > groupStartIdx;
+    });
+    if (insertIdx === -1) insertIdx = nonGroupItems.length;
+    
+    if (direction === 'up') {
+      if (insertIdx <= 0 && groupStartIdx === 0) return;
+      insertIdx = Math.max(0, insertIdx - 1);
+    } else {
+      if (insertIdx >= nonGroupItems.length) return;
+      insertIdx = insertIdx + 1;
     }
     
-    if (String(active.id) === '__bulk_group__') {
-      const nonGroupItems = groupItems.filter(i => !bulkDragItemIds.includes(i.id));
-      console.log("[bulkDrag] groupItems:", groupItems.length, "nonGroupItems:", nonGroupItems.length, "bulkDragItemIds:", bulkDragItemIds.length);
-      const overIndex = nonGroupItems.findIndex(i => {
-        const sid = i.id + (shortcutIdSet?.has(i.id) ? '-shortcut' : '');
-        return sid === String(over.id);
-      });
-      console.log("[bulkDrag] overIndex in nonGroupItems:", overIndex);
-      if (overIndex === -1) {
-        console.log("[bulkDrag] overIndex -1 — aborting");
-        return;
+    const reordered = [...nonGroupItems.slice(0, insertIdx), ...draggedItems, ...nonGroupItems.slice(insertIdx)];
+    const primaryEntries: { id: string; displayOrder: number }[] = [];
+    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
+    reordered.forEach((item, globalIdx) => {
+      if (shortcutIdSet?.has(item.id)) {
+        if (storageLocId) shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
+      } else {
+        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
       }
-      const draggedItems = groupItems.filter(i => bulkDragItemIds.includes(i.id));
-      const reordered = [...nonGroupItems.slice(0, overIndex), ...draggedItems, ...nonGroupItems.slice(overIndex)];
-      const primaryOnly: any[] = [];
-      const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
-      reordered.forEach((item, globalIdx) => {
-        if (shortcutIdSet?.has(item.id)) {
-          if (storageLocId) {
-            shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
-          }
-        } else {
-          primaryOnly.push({ ...item, _newOrder: globalIdx });
-        }
-      });
-      console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length, "shortcuts:", shortcutEntries.length);
-      reorderItemsMutation.mutate({ primaryUpdates: primaryOnly.map(i => ({ id: i.id, displayOrder: i._newOrder })), shortcuts: shortcutEntries });
-      setIsBulkDragMode(false);
-      setBulkDragGroupKey(null);
-      setBulkDragItemIds([]);
-      setSelectedItemIds(new Set());
-      setActiveSelectGroup(null);
-      toast.success(`Moved ${draggedItems.length} items`);
-    } else {
-      // Normal single-item drag
-      handleItemDragEnd(event, groupItems, shortcutIdSet, storageLocId);
-    }
-  }, [bulkDragItemIds, reorderItemsMutation, handleItemDragEnd]);
+    });
+    reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
+  }, [bulkDragItemIds, reorderItemsMutation]);
 
 
   // Check if PFG is configured
