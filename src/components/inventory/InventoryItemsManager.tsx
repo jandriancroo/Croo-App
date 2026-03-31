@@ -1918,23 +1918,29 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 size="sm"
                 variant="secondary"
                 onClick={() => {
-                  // Find group items for this active group
                   const groupKey = activeSelectGroup;
+                  if (!groupKey || selectedItemIds.size === 0) return;
                   let groupItems: any[] = [];
-                  let shortcutIds = new Set<string>();
                   if (groupKey === "__unassigned__") {
                     groupItems = (items || []).filter(i => !i.storage_location_id).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
                   } else {
                     const primaryItems = (items || []).filter(i => i.storage_location_id === groupKey).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
-                    const shortcutItemIds = (itemLocationShortcuts || []).filter(s => s.storage_location_id === groupKey).map(s => s.item_id);
+                    const shortcutItemIds = (itemLocationShortcuts || []).filter((s: any) => s.storage_location_id === groupKey).map((s: any) => s.item_id);
                     const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey);
                     groupItems = [...primaryItems, ...shortcutItems];
-                    shortcutIds = new Set(shortcutItems.map(i => i.id));
                   }
-                  setReorderGroupItems(groupItems);
-                  setReorderShortcutIds(shortcutIds);
-                  setReorderPosition("");
-                  setShowReorderDialog(true);
+                  const selectedArr = Array.from(selectedItemIds);
+                  const indices = selectedArr.map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
+                  if (indices.length === 0) return;
+                  const isConsecutive = indices.every((val, i) => i === 0 || val === indices[i - 1] + 1);
+                  if (!isConsecutive) {
+                    toast.error("Select consecutive items to reorder as a group");
+                    return;
+                  }
+                  const orderedIds = indices.map(idx => groupItems[idx].id);
+                  setBulkDragItemIds(orderedIds);
+                  setBulkDragGroupKey(groupKey);
+                  setIsBulkDragMode(true);
                 }}
                 className="gap-1.5"
               >
