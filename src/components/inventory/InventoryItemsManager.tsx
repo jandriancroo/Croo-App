@@ -1210,7 +1210,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                       const isBulkDragThisGroup = isBulkDragMode && bulkDragGroupKey === loc.id;
                       const bulkDragSet = new Set(bulkDragItemIds);
 
-                      // Build the sortable items list — in bulk drag mode, replace consecutive selected items with a group
+                      // Build render items — in bulk mode, replace consecutive selected items with a group row
                       let renderItems: { type: 'item' | 'group'; item?: any; items?: any[]; sortableId: string; isShortcut?: boolean }[] = [];
                       if (isBulkDragThisGroup) {
                         let groupInserted = false;
@@ -1236,21 +1236,22 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                         });
                       }
 
+                      // Check if bulk group is at edges
+                      const bulkGroupIdx = renderItems.findIndex(r => r.type === 'group');
+                      const isBulkFirst = bulkGroupIdx === 0;
+                      const isBulkLast = bulkGroupIdx === renderItems.length - 1;
+
                       return (
                       <DndContext
                         sensors={dndSensors}
                         collisionDetection={closestCenter}
                         onDragStart={handleItemDragStart}
                         onDragEnd={(event) => {
-                          if (isBulkDragThisGroup) {
-                            handleBulkDragEnd(event, allLocItems, shortcutIdSet, loc.id);
-                          } else {
-                            handleItemDragEnd(event, allLocItems, shortcutIdSet, loc.id);
-                          }
+                          handleItemDragEnd(event, allLocItems, shortcutIdSet, loc.id);
                         }}
                       >
                         <SortableContext
-                          items={renderItems.map(r => r.sortableId)}
+                          items={renderItems.filter(r => r.type === 'item').map(r => r.sortableId)}
                           strategy={verticalListSortingStrategy}
                         >
                           <div className="grid gap-0.5 p-1">
@@ -1260,15 +1261,19 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                             {renderItems.map((ri) => {
                               if (ri.type === 'group') {
                                 return (
-                                  <BulkDragGroupItem
+                                  <BulkReorderGroup
                                     key="__bulk_group__"
-                                    sortableId="__bulk_group__"
                                     items={ri.items!}
+                                    onMoveUp={() => handleBulkArrowMove('up', allLocItems, shortcutIdSet, loc.id)}
+                                    onMoveDown={() => handleBulkArrowMove('down', allLocItems, shortcutIdSet, loc.id)}
+                                    isFirst={isBulkFirst}
+                                    isLast={isBulkLast}
                                   />
                                 );
                               }
                               const item = ri.item!;
                               const isShortcut = ri.isShortcut!;
+                              const itemIdx = renderItems.indexOf(ri);
                               return (
                                 <SortableInventoryItem
                                   key={ri.sortableId}
@@ -1278,9 +1283,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isSelected={selectedItemIds.has(item.id)}
                                   isSelectingThisGroup={isSelectingThisGroup && !isBulkDragThisGroup}
                                   isDragDisabled={isSelectingThisGroup || isBulkDragThisGroup}
-                                  isReorderMode={false}
-                                  reorderState="idle"
-                                  pickedCount={0}
+                                  isReorderMode={isBulkDragThisGroup}
+                                  onMoveUp={isBulkDragThisGroup ? undefined : undefined}
+                                  onMoveDown={isBulkDragThisGroup ? undefined : undefined}
+                                  isFirst={itemIdx === 0}
+                                  isLast={itemIdx === renderItems.length - 1}
                                   onClick={() => {
                                     if (isBulkDragThisGroup) return;
                                     if (isSelectingThisGroup) {
