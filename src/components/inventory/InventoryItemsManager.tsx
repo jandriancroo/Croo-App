@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -131,6 +131,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [isPurging, setIsPurging] = useState(false);
   const [reorderModeGroup, setReorderModeGroup] = useState<string | null>(null);
 
+  // Optimistic reorder state: maps storageLocId -> ordered item id list
+  const [optimisticOrder, setOptimisticOrder] = useState<Record<string, string[]>>({});
+  const reorderSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingReorderRef = useRef<{ primaryUpdates: { id: string; displayOrder: number }[]; shortcuts?: { itemId: string; storageLocationId: string; displayOrder: number }[] } | null>(null);
+
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor)
@@ -148,8 +153,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           .eq("item_id", s.itemId)
           .eq("storage_location_id", s.storageLocationId)
       );
-      console.log("[reorder] primary orders:", pUpdates.map(p => `${p.id.slice(0,6)}=${p.displayOrder}`).join(', '));
-      console.log("[reorder] shortcut orders:", (shortcuts || []).map(s => `${s.itemId.slice(0,6)}=${s.displayOrder}`).join(', '));
       const results = await Promise.all([...primaryOps, ...shortcutOps]);
       const errors = results.filter(r => r.error);
       if (errors.length > 0) {
@@ -159,7 +162,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       }
     },
     onSuccess: () => {
-      console.log("[reorder] onSuccess — invalidating cache");
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-item-locations", locationId] });
     },
@@ -168,6 +170,45 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       toast.error("Failed to reorder items");
     },
   });
+
+  // Flush any pending reorder to DB immediately
+  const flushReorder = useCallback(() => {
+    if (reorderSaveTimerRef.current) {
+      clearTimeout(reorderSaveTimerRef.current);
+      reorderSaveTimerRef.current = null;
+    }
+    if (pendingReorderRef.current) {
+      reorderItemsMutation.mutate(pendingReorderRef.current);
+      pendingReorderRef.current = null;
+    }
+  }, [reorderItemsMutation]);
+
+  // Schedule a debounced save (600ms)
+  const scheduleReorderSave = useCallback((payload: { primaryUpdates: { id: string; displayOrder: number }[]; shortcuts?: { itemId: string; storageLocationId: string; displayOrder: number }[] }) => {
+    pendingReorderRef.current = payload;
+    if (reorderSaveTimerRef.current) clearTimeout(reorderSaveTimerRef.current);
+    reorderSaveTimerRef.current = setTimeout(() => {
+      if (pendingReorderRef.current) {
+        reorderItemsMutation.mutate(pendingReorderRef.current);
+        pendingReorderRef.current = null;
+      }
+      reorderSaveTimerRef.current = null;
+    }, 600);
+  }, [reorderItemsMutation]);
+
+  // Build reorder payload from an ordered list
+  const buildReorderPayload = useCallback((reordered: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
+    const primaryEntries: { id: string; displayOrder: number }[] = [];
+    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
+    reordered.forEach((item, globalIdx) => {
+      if (shortcutIdSet?.has(item.id)) {
+        if (storageLocId) shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
+      } else {
+        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
+      }
+    });
+    return { primaryUpdates: primaryEntries, shortcuts: shortcutEntries };
+  }, []);
 
   const handleItemDragStart = useCallback((event: DragStartEvent) => {
     const id = String(event.active.id).replace('-shortcut', '');
@@ -186,19 +227,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     const newIndex = groupItems.findIndex(i => getSortableId(i) === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(groupItems, oldIndex, newIndex);
-    const primaryEntries: { id: string; displayOrder: number }[] = [];
-    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
-    reordered.forEach((item, globalIdx) => {
-      if (isShortcutList?.has(item.id)) {
-        if (storageLocId) {
-          shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
-        }
-      } else {
-        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
-      }
-    });
-    reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
-  }, [reorderItemsMutation]);
+    reorderItemsMutation.mutate(buildReorderPayload(reordered, isShortcutList, storageLocId));
+  }, [reorderItemsMutation, buildReorderPayload]);
 
   const handleArrowMove = useCallback((direction: 'up' | 'down', groupItems: any[], itemId: string, shortcutIdSet?: Set<string>, storageLocId?: string) => {
     const idx = groupItems.findIndex(i => i.id === itemId);
@@ -206,17 +236,12 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (targetIdx < 0 || targetIdx >= groupItems.length) return;
     const reordered = arrayMove(groupItems, idx, targetIdx);
-    const primaryEntries: { id: string; displayOrder: number }[] = [];
-    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
-    reordered.forEach((item, globalIdx) => {
-      if (shortcutIdSet?.has(item.id)) {
-        if (storageLocId) shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
-      } else {
-        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
-      }
-    });
-    reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
-  }, [reorderItemsMutation]);
+    // Optimistic: update local order immediately
+    if (storageLocId) {
+      setOptimisticOrder(prev => ({ ...prev, [storageLocId]: reordered.map(i => i.id) }));
+    }
+    scheduleReorderSave(buildReorderPayload(reordered, shortcutIdSet, storageLocId));
+  }, [scheduleReorderSave, buildReorderPayload]);
 
   const handleBulkArrowMove = useCallback((direction: 'up' | 'down', groupItems: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
     if (bulkDragItemIds.length === 0) return;
@@ -224,9 +249,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     const nonGroupItems = groupItems.filter(i => !bulkSet.has(i.id));
     const draggedItems = groupItems.filter(i => bulkSet.has(i.id));
     
-    // Find current position of the bulk group
     let groupStartIdx = groupItems.findIndex(i => bulkSet.has(i.id));
-    // Find where they sit in the non-group list
     let insertIdx = nonGroupItems.findIndex(i => {
       const origIdx = groupItems.indexOf(i);
       return origIdx > groupStartIdx;
@@ -242,17 +265,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
     
     const reordered = [...nonGroupItems.slice(0, insertIdx), ...draggedItems, ...nonGroupItems.slice(insertIdx)];
-    const primaryEntries: { id: string; displayOrder: number }[] = [];
-    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
-    reordered.forEach((item, globalIdx) => {
-      if (shortcutIdSet?.has(item.id)) {
-        if (storageLocId) shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
-      } else {
-        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
-      }
-    });
-    reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
-  }, [bulkDragItemIds, reorderItemsMutation]);
+    if (storageLocId) {
+      setOptimisticOrder(prev => ({ ...prev, [storageLocId]: reordered.map(i => i.id) }));
+    }
+    scheduleReorderSave(buildReorderPayload(reordered, shortcutIdSet, storageLocId));
+  }, [bulkDragItemIds, scheduleReorderSave, buildReorderPayload]);
 
 
   // Check if PFG is configured
@@ -1168,7 +1185,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 );
 
                 // Build unified list with display_order for interleaved sorting
-                const allLocItems = [
+                let allLocItems = [
                   ...primaryItems.map(i => ({ ...i, _sortOrder: (i as any).display_order ?? 9999, _isShortcut: false })),
                   ...shortcutItems.map(i => {
                     const junctionOrder = shortcutJunctions.find(s => s.item_id === i.id)?.display_order;
@@ -1178,6 +1195,17 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                     return { ...i, _sortOrder: normalizedShortcutOrder, _isShortcut: true };
                   }),
                 ].sort((a, b) => a._sortOrder - b._sortOrder);
+
+                // Apply optimistic order if available
+                const optOrder = optimisticOrder[loc.id];
+                if (optOrder) {
+                  const orderMap = new Map(optOrder.map((id, idx) => [id, idx]));
+                  allLocItems = [...allLocItems].sort((a, b) => {
+                    const aIdx = orderMap.get(a.id) ?? 9999;
+                    const bIdx = orderMap.get(b.id) ?? 9999;
+                    return aIdx - bIdx;
+                  });
+                }
                 const isCollapsed = collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
                 const panCount = primaryItems.filter(i => (i as any).pan_sizes?.enabled).length;
@@ -1212,7 +1240,15 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                           size="sm"
                           variant={reorderModeGroup === loc.id ? "default" : "ghost"}
                           className="h-6 text-[10px] px-2 gap-1"
-                          onClick={() => setReorderModeGroup(reorderModeGroup === loc.id ? null : loc.id)}
+                          onClick={() => {
+                            if (reorderModeGroup === loc.id) {
+                              flushReorder();
+                              setOptimisticOrder(prev => { const next = { ...prev }; delete next[loc.id]; return next; });
+                              setReorderModeGroup(null);
+                            } else {
+                              setReorderModeGroup(loc.id);
+                            }
+                          }}
                         >
                           <ListOrdered className="h-3 w-3" />
                           {reorderModeGroup === loc.id ? "Done" : "Reorder"}
@@ -2148,6 +2184,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               size="sm"
               variant="secondary"
               onClick={() => {
+                flushReorder();
+                setOptimisticOrder({});
                 setIsBulkDragMode(false);
                 setBulkDragGroupKey(null);
                 setBulkDragItemIds([]);
