@@ -173,24 +173,68 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   }, [reorderItemsMutation]);
 
-  const handleNumericReorder = useCallback(() => {
-    const pos = parseInt(reorderPosition, 10);
-    if (isNaN(pos) || pos < 1 || reorderGroupItems.length === 0 || selectedItemIds.size === 0) return;
-    const clampedPos = Math.min(pos, reorderGroupItems.length);
-    const pickedItems = reorderGroupItems.filter(i => selectedItemIds.has(i.id));
-    const remaining = reorderGroupItems.filter(i => !selectedItemIds.has(i.id));
-    const insertAt = Math.max(0, clampedPos - 1);
-    const reordered = [...remaining.slice(0, insertAt), ...pickedItems, ...remaining.slice(insertAt)];
-    const primaryOnly = reordered.filter(i => !reorderShortcutIds.has(i.id));
-    if (primaryOnly.length > 0) {
-      reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
+  const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>) => {
+    setActiveDragItemId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    if (String(active.id) === '__bulk_group__') {
+      // Bulk group was dragged — find where it landed
+      const nonGroupItems = groupItems.filter(i => !bulkDragItemIds.includes(i.id));
+      const overIndex = nonGroupItems.findIndex(i => {
+        const sid = i.id + (shortcutIdSet?.has(i.id) ? '-shortcut' : '');
+        return sid === String(over.id);
+      });
+      if (overIndex === -1) return;
+      const draggedItems = groupItems.filter(i => bulkDragItemIds.includes(i.id));
+      const reordered = [...nonGroupItems.slice(0, overIndex), ...draggedItems, ...nonGroupItems.slice(overIndex)];
+      const primaryOnly = reordered.filter(i => !shortcutIdSet?.has(i.id));
+      if (primaryOnly.length > 0) {
+        reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
+      }
+      setIsBulkDragMode(false);
+      setBulkDragGroupKey(null);
+      setBulkDragItemIds([]);
+      setSelectedItemIds(new Set());
+      setActiveSelectGroup(null);
+      toast.success(`Moved ${draggedItems.length} items`);
+    } else {
+      // Normal single-item drag
+      handleItemDragEnd(event, groupItems, shortcutIdSet);
     }
-    setShowReorderDialog(false);
-    setReorderPosition("");
-    setSelectedItemIds(new Set());
-    setActiveSelectGroup(null);
-    toast.success(`Moved ${pickedItems.length} item${pickedItems.length > 1 ? 's' : ''} to position ${clampedPos}`);
-  }, [reorderPosition, reorderGroupItems, selectedItemIds, reorderShortcutIds, reorderItemsMutation]);
+  }, [bulkDragItemIds, reorderItemsMutation, handleItemDragEnd]);
+
+  const enterBulkDragMode = useCallback(() => {
+    const groupKey = activeSelectGroup;
+    if (!groupKey || selectedItemIds.size === 0) return;
+    
+    let groupItems: any[] = [];
+    if (groupKey === "__unassigned__") {
+      groupItems = (items || []).filter(i => !i.storage_location_id).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+    } else {
+      const primaryItems = (items || []).filter(i => i.storage_location_id === groupKey).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+      const shortcutItemIds = (itemLocationShortcuts || []).filter((s: any) => s.storage_location_id === groupKey).map((s: any) => s.item_id);
+      const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey);
+      groupItems = [...primaryItems, ...shortcutItems];
+    }
+    
+    // Check if selected items are consecutive
+    const selectedArr = Array.from(selectedItemIds);
+    const indices = selectedArr.map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
+    if (indices.length === 0) return;
+    
+    const isConsecutive = indices.every((val, i) => i === 0 || val === indices[i - 1] + 1);
+    if (!isConsecutive) {
+      toast.error("Select consecutive items to reorder as a group");
+      return;
+    }
+    
+    // Order the IDs by their position in the group
+    const orderedIds = indices.map(idx => groupItems[idx].id);
+    setBulkDragItemIds(orderedIds);
+    setBulkDragGroupKey(groupKey);
+    setIsBulkDragMode(true);
+  }, [activeSelectGroup, selectedItemIds, items, itemLocationShortcuts]);
 
 
 
