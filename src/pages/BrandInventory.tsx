@@ -91,6 +91,21 @@ export default function BrandInventory() {
     enabled: !!brandId,
   });
 
+  // New vendor gap alert count
+  const { data: gapAlertCount = 0 } = useQuery({
+    queryKey: ['vendor-gap-alert-count', brandId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('vendor_gap_alerts' as any)
+        .select('*', { count: 'exact', head: true })
+        .eq('brand_id', brandId!)
+        .eq('status', 'new');
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!brandId,
+  });
+
   // Brand categories (dynamic, reorderable)
   const { data: brandCategories = [] } = useQuery({
     queryKey: ['brand-categories', brandId],
