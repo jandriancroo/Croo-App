@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText,
+  RefreshCw, Shield, FileText, ScanSearch,
 } from 'lucide-react';
 
 import { useUserRole } from '@/hooks/useUserRole';
@@ -26,6 +26,7 @@ import RecipeCatalog from '@/components/inventory/RecipeCatalog';
 import BrandCatalogSection from '@/components/brand/BrandCatalogSection';
 import BrandCatalogBulkBar from '@/components/brand/BrandCatalogBulkBar';
 import BrandCategoryEditor from '@/components/brand/BrandCategoryEditor';
+import VendorGapFinder from '@/components/brand/VendorGapFinder';
 
 const FALLBACK_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
@@ -342,6 +343,10 @@ export default function BrandInventory() {
               <Building2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Locations</span>
             </TabsTrigger>
+            <TabsTrigger value="gaps" className="gap-1.5">
+              <ScanSearch className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Gap Finder</span>
+            </TabsTrigger>
             <TabsTrigger value="guide" className="gap-1.5">
               <BookOpen className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Guide</span>
@@ -566,6 +571,11 @@ export default function BrandInventory() {
             </Card>
           </TabsContent>
 
+
+          {/* ===== GAP FINDER TAB ===== */}
+          <TabsContent value="gaps" className="space-y-4">
+            <VendorGapFinder brandId={brandId!} />
+          </TabsContent>
 
           {/* ===== GUIDE TAB ===== */}
           <TabsContent value="guide" className="space-y-4">
