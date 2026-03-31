@@ -136,18 +136,20 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   );
 
   const reorderItemsMutation = useMutation({
-    mutationFn: async ({ primaryIds, shortcuts }: { primaryIds: string[]; shortcuts?: { itemId: string; storageLocationId: string; displayOrder: number }[] }) => {
-      console.log("[reorder] mutationFn called with", primaryIds.length, "primary ids,", shortcuts?.length || 0, "shortcuts");
-      const primaryUpdates = primaryIds.map((id, index) =>
-        supabase.from("inventory_items").update({ display_order: index } as any).eq("id", id)
+    mutationFn: async ({ primaryUpdates: pUpdates, shortcuts }: { primaryUpdates: { id: string; displayOrder: number }[]; shortcuts?: { itemId: string; storageLocationId: string; displayOrder: number }[] }) => {
+      console.log("[reorder] mutationFn called with", pUpdates.length, "primary items,", shortcuts?.length || 0, "shortcuts");
+      const primaryOps = pUpdates.map(p =>
+        supabase.from("inventory_items").update({ display_order: p.displayOrder } as any).eq("id", p.id)
       );
-      const shortcutUpdates = (shortcuts || []).map(s =>
+      const shortcutOps = (shortcuts || []).map(s =>
         supabase.from("inventory_item_locations")
           .update({ display_order: s.displayOrder } as any)
           .eq("item_id", s.itemId)
           .eq("storage_location_id", s.storageLocationId)
       );
-      const results = await Promise.all([...primaryUpdates, ...shortcutUpdates]);
+      console.log("[reorder] primary orders:", pUpdates.map(p => `${p.id.slice(0,6)}=${p.displayOrder}`).join(', '));
+      console.log("[reorder] shortcut orders:", (shortcuts || []).map(s => `${s.itemId.slice(0,6)}=${s.displayOrder}`).join(', '));
+      const results = await Promise.all([...primaryOps, ...shortcutOps]);
       const errors = results.filter(r => r.error);
       if (errors.length > 0) {
         console.error("[reorder] DB errors:", errors.map(e => e.error));
@@ -183,11 +185,18 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     const newIndex = groupItems.findIndex(i => getSortableId(i) === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(groupItems, oldIndex, newIndex);
-    const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
-    const shortcutEntries = storageLocId ? reordered
-      .filter(i => isShortcutList?.has(i.id))
-      .map((i, idx) => ({ itemId: i.id, storageLocationId: storageLocId, displayOrder: idx })) : [];
-    reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
+    const primaryEntries: { id: string; displayOrder: number }[] = [];
+    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
+    reordered.forEach((item, globalIdx) => {
+      if (isShortcutList?.has(item.id)) {
+        if (storageLocId) {
+          shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
+        }
+      } else {
+        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
+      }
+    });
+    reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
   }, [reorderItemsMutation]);
 
   const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
@@ -213,12 +222,19 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       }
       const draggedItems = groupItems.filter(i => bulkDragItemIds.includes(i.id));
       const reordered = [...nonGroupItems.slice(0, overIndex), ...draggedItems, ...nonGroupItems.slice(overIndex)];
-      const primaryOnly = reordered.filter(i => !shortcutIdSet?.has(i.id));
-      const shortcutEntries = storageLocId ? reordered
-        .filter(i => shortcutIdSet?.has(i.id))
-        .map((i, idx) => ({ itemId: i.id, storageLocationId: storageLocId, displayOrder: idx })) : [];
+      const primaryOnly: any[] = [];
+      const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
+      reordered.forEach((item, globalIdx) => {
+        if (shortcutIdSet?.has(item.id)) {
+          if (storageLocId) {
+            shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
+          }
+        } else {
+          primaryOnly.push({ ...item, _newOrder: globalIdx });
+        }
+      });
       console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length, "shortcuts:", shortcutEntries.length);
-      reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
+      reorderItemsMutation.mutate({ primaryUpdates: primaryOnly.map(i => ({ id: i.id, displayOrder: i._newOrder })), shortcuts: shortcutEntries });
       setIsBulkDragMode(false);
       setBulkDragGroupKey(null);
       setBulkDragItemIds([]);
@@ -1128,20 +1144,21 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               {storageLocations?.map((loc) => {
                 // Primary items (home location)
                 const primaryItems = items
-                  .filter(i => i.storage_location_id === loc.id)
-                  .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                  .filter(i => i.storage_location_id === loc.id);
                 // Shortcut items (items whose primary is elsewhere but have a junction entry here)
                 const shortcutJunctions = (itemLocationShortcuts || [])
                   .filter(s => s.storage_location_id === loc.id);
                 const shortcutItemIds = shortcutJunctions.map(s => s.item_id);
                 const shortcutItems = items
-                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id)
-                  .sort((a, b) => {
-                    const aOrder = shortcutJunctions.find(s => s.item_id === a.id)?.display_order ?? 9999;
-                    const bOrder = shortcutJunctions.find(s => s.item_id === b.id)?.display_order ?? 9999;
-                    return (aOrder as number) - (bOrder as number);
-                  });
-                const allLocItems = [...primaryItems, ...shortcutItems];
+                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id);
+                // Build unified list with display_order for interleaved sorting
+                const allLocItems = [
+                  ...primaryItems.map(i => ({ ...i, _sortOrder: (i as any).display_order ?? 9999, _isShortcut: false })),
+                  ...shortcutItems.map(i => {
+                    const junctionOrder = shortcutJunctions.find(s => s.item_id === i.id)?.display_order;
+                    return { ...i, _sortOrder: (junctionOrder as number) ?? 9999, _isShortcut: true };
+                  }),
+                ].sort((a, b) => a._sortOrder - b._sortOrder);
                 const isCollapsed = collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
                 const panCount = primaryItems.filter(i => (i as any).pan_sizes?.enabled).length;
@@ -1190,13 +1207,13 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                               groupInserted = true;
                             }
                           } else {
-                            const isShortcut = shortcutItems.includes(item);
+                            const isShortcut = (item as any)._isShortcut || shortcutIdSet.has(item.id);
                             renderItems.push({ type: 'item', item, sortableId: item.id + (isShortcut ? '-shortcut' : ''), isShortcut });
                           }
                         }
                       } else {
                         renderItems = allLocItems.map(item => {
-                          const isShortcut = shortcutItems.includes(item);
+                          const isShortcut = (item as any)._isShortcut || shortcutIdSet.has(item.id);
                           return { type: 'item' as const, item, sortableId: item.id + (isShortcut ? '-shortcut' : ''), isShortcut };
                         });
                       }
