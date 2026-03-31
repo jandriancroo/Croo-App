@@ -7381,6 +7381,56 @@ export type Database = {
           },
         ]
       }
+      vendor_gap_alerts: {
+        Row: {
+          brand_id: string
+          category_name: string | null
+          created_at: string
+          id: string
+          item_number: string
+          pack_size: string | null
+          resolved_at: string | null
+          status: string
+          vendor_description: string | null
+          vendor_name: string
+          vendor_source: string
+        }
+        Insert: {
+          brand_id: string
+          category_name?: string | null
+          created_at?: string
+          id?: string
+          item_number: string
+          pack_size?: string | null
+          resolved_at?: string | null
+          status?: string
+          vendor_description?: string | null
+          vendor_name: string
+          vendor_source: string
+        }
+        Update: {
+          brand_id?: string
+          category_name?: string | null
+          created_at?: string
+          id?: string
+          item_number?: string
+          pack_size?: string | null
+          resolved_at?: string | null
+          status?: string
+          vendor_description?: string | null
+          vendor_name?: string
+          vendor_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_gap_alerts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wage_history: {
         Row: {
           created_at: string | null
