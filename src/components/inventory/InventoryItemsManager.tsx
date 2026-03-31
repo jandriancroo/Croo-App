@@ -1138,40 +1138,84 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                         </Badge>
                       )}
                     </button>
-                    {!isCollapsed && (
+                    {!isCollapsed && (() => {
+                      const shortcutIdSet = new Set(shortcutItems.map(i => i.id));
+                      const isBulkDragThisGroup = isBulkDragMode && bulkDragGroupKey === loc.id;
+                      const bulkDragSet = new Set(bulkDragItemIds);
+
+                      // Build the sortable items list — in bulk drag mode, replace consecutive selected items with a group
+                      let renderItems: { type: 'item' | 'group'; item?: any; items?: any[]; sortableId: string; isShortcut?: boolean }[] = [];
+                      if (isBulkDragThisGroup) {
+                        let groupInserted = false;
+                        for (const item of allLocItems) {
+                          if (bulkDragSet.has(item.id)) {
+                            if (!groupInserted) {
+                              renderItems.push({
+                                type: 'group',
+                                items: allLocItems.filter(i => bulkDragSet.has(i.id)),
+                                sortableId: '__bulk_group__',
+                              });
+                              groupInserted = true;
+                            }
+                          } else {
+                            const isShortcut = shortcutItems.includes(item);
+                            renderItems.push({ type: 'item', item, sortableId: item.id + (isShortcut ? '-shortcut' : ''), isShortcut });
+                          }
+                        }
+                      } else {
+                        renderItems = allLocItems.map(item => {
+                          const isShortcut = shortcutItems.includes(item);
+                          return { type: 'item' as const, item, sortableId: item.id + (isShortcut ? '-shortcut' : ''), isShortcut };
+                        });
+                      }
+
+                      return (
                       <DndContext
                         sensors={dndSensors}
                         collisionDetection={closestCenter}
                         onDragStart={handleItemDragStart}
                         onDragEnd={(event) => {
-                          const shortcutIdSet = new Set(shortcutItems.map(i => i.id));
-                          handleItemDragEnd(event, allLocItems, shortcutIdSet);
+                          if (isBulkDragThisGroup) {
+                            handleBulkDragEnd(event, allLocItems, shortcutIdSet);
+                          } else {
+                            handleItemDragEnd(event, allLocItems, shortcutIdSet);
+                          }
                         }}
                       >
                         <SortableContext
-                          items={allLocItems.map(i => i.id + (shortcutItems.includes(i) ? '-shortcut' : ''))}
+                          items={renderItems.map(r => r.sortableId)}
                           strategy={verticalListSortingStrategy}
                         >
                           <div className="grid gap-0.5 p-1">
                             {allLocItems.length === 0 && (
                               <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">No items assigned yet</p>
                             )}
-                            {allLocItems.map((item, idx) => {
-                              const isShortcut = shortcutItems.includes(item);
-                              const shortcutIdSet = new Set(shortcutItems.map(i => i.id));
+                            {renderItems.map((ri) => {
+                              if (ri.type === 'group') {
+                                return (
+                                  <BulkDragGroupItem
+                                    key="__bulk_group__"
+                                    sortableId="__bulk_group__"
+                                    items={ri.items!}
+                                  />
+                                );
+                              }
+                              const item = ri.item!;
+                              const isShortcut = ri.isShortcut!;
                               return (
                                 <SortableInventoryItem
-                                  key={`${item.id}${isShortcut ? '-shortcut' : ''}`}
-                                  sortableId={`${item.id}${isShortcut ? '-shortcut' : ''}`}
+                                  key={ri.sortableId}
+                                  sortableId={ri.sortableId}
                                   item={item}
                                   isShortcut={isShortcut}
                                   isSelected={selectedItemIds.has(item.id)}
-                                  isSelectingThisGroup={isSelectingThisGroup}
-                                  isDragDisabled={isSelectingThisGroup}
+                                  isSelectingThisGroup={isSelectingThisGroup && !isBulkDragThisGroup}
+                                  isDragDisabled={isSelectingThisGroup || isBulkDragThisGroup}
                                   isReorderMode={false}
                                   reorderState="idle"
                                   pickedCount={0}
                                   onClick={() => {
+                                    if (isBulkDragThisGroup) return;
                                     if (isSelectingThisGroup) {
                                       const next = new Set(selectedItemIds);
                                       if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
