@@ -49,7 +49,7 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { SortableInventoryItem, ItemDragOverlay, BulkDragGroupItem } from "./SortableInventoryItem";
+import { SortableInventoryItem, ItemDragOverlay, BulkReorderGroup } from "./SortableInventoryItem";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -129,6 +129,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [recipePurgeMode, setRecipePurgeMode] = useState(false);
   const [recipePurgeSelection, setRecipePurgeSelection] = useState<Set<string>>(new Set());
   const [isPurging, setIsPurging] = useState(false);
+  const [reorderModeGroup, setReorderModeGroup] = useState<string | null>(null);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -199,53 +200,59 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
   }, [reorderItemsMutation]);
 
-  const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
-    setActiveDragItemId(null);
-    const { active, over } = event;
-    console.log("[bulkDrag] dragEnd — active:", String(active.id), "over:", over ? String(over.id) : "null");
-    if (!over || active.id === over.id) {
-      console.log("[bulkDrag] Early return — no over or same id");
-      return;
+  const handleArrowMove = useCallback((direction: 'up' | 'down', groupItems: any[], itemId: string, shortcutIdSet?: Set<string>, storageLocId?: string) => {
+    const idx = groupItems.findIndex(i => i.id === itemId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= groupItems.length) return;
+    const reordered = arrayMove(groupItems, idx, targetIdx);
+    const primaryEntries: { id: string; displayOrder: number }[] = [];
+    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
+    reordered.forEach((item, globalIdx) => {
+      if (shortcutIdSet?.has(item.id)) {
+        if (storageLocId) shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
+      } else {
+        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
+      }
+    });
+    reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
+  }, [reorderItemsMutation]);
+
+  const handleBulkArrowMove = useCallback((direction: 'up' | 'down', groupItems: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
+    if (bulkDragItemIds.length === 0) return;
+    const bulkSet = new Set(bulkDragItemIds);
+    const nonGroupItems = groupItems.filter(i => !bulkSet.has(i.id));
+    const draggedItems = groupItems.filter(i => bulkSet.has(i.id));
+    
+    // Find current position of the bulk group
+    let groupStartIdx = groupItems.findIndex(i => bulkSet.has(i.id));
+    // Find where they sit in the non-group list
+    let insertIdx = nonGroupItems.findIndex(i => {
+      const origIdx = groupItems.indexOf(i);
+      return origIdx > groupStartIdx;
+    });
+    if (insertIdx === -1) insertIdx = nonGroupItems.length;
+    
+    if (direction === 'up') {
+      if (insertIdx <= 0 && groupStartIdx === 0) return;
+      insertIdx = Math.max(0, insertIdx - 1);
+    } else {
+      if (insertIdx >= nonGroupItems.length) return;
+      insertIdx = insertIdx + 1;
     }
     
-    if (String(active.id) === '__bulk_group__') {
-      const nonGroupItems = groupItems.filter(i => !bulkDragItemIds.includes(i.id));
-      console.log("[bulkDrag] groupItems:", groupItems.length, "nonGroupItems:", nonGroupItems.length, "bulkDragItemIds:", bulkDragItemIds.length);
-      const overIndex = nonGroupItems.findIndex(i => {
-        const sid = i.id + (shortcutIdSet?.has(i.id) ? '-shortcut' : '');
-        return sid === String(over.id);
-      });
-      console.log("[bulkDrag] overIndex in nonGroupItems:", overIndex);
-      if (overIndex === -1) {
-        console.log("[bulkDrag] overIndex -1 — aborting");
-        return;
+    const reordered = [...nonGroupItems.slice(0, insertIdx), ...draggedItems, ...nonGroupItems.slice(insertIdx)];
+    const primaryEntries: { id: string; displayOrder: number }[] = [];
+    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
+    reordered.forEach((item, globalIdx) => {
+      if (shortcutIdSet?.has(item.id)) {
+        if (storageLocId) shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
+      } else {
+        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
       }
-      const draggedItems = groupItems.filter(i => bulkDragItemIds.includes(i.id));
-      const reordered = [...nonGroupItems.slice(0, overIndex), ...draggedItems, ...nonGroupItems.slice(overIndex)];
-      const primaryOnly: any[] = [];
-      const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
-      reordered.forEach((item, globalIdx) => {
-        if (shortcutIdSet?.has(item.id)) {
-          if (storageLocId) {
-            shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
-          }
-        } else {
-          primaryOnly.push({ ...item, _newOrder: globalIdx });
-        }
-      });
-      console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length, "shortcuts:", shortcutEntries.length);
-      reorderItemsMutation.mutate({ primaryUpdates: primaryOnly.map(i => ({ id: i.id, displayOrder: i._newOrder })), shortcuts: shortcutEntries });
-      setIsBulkDragMode(false);
-      setBulkDragGroupKey(null);
-      setBulkDragItemIds([]);
-      setSelectedItemIds(new Set());
-      setActiveSelectGroup(null);
-      toast.success(`Moved ${draggedItems.length} items`);
-    } else {
-      // Normal single-item drag
-      handleItemDragEnd(event, groupItems, shortcutIdSet, storageLocId);
-    }
-  }, [bulkDragItemIds, reorderItemsMutation, handleItemDragEnd]);
+    });
+    reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
+  }, [bulkDragItemIds, reorderItemsMutation]);
 
 
   // Check if PFG is configured
@@ -1199,12 +1206,26 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                         </Badge>
                       )}
                     </button>
+                    {!isCollapsed && !isBulkDragMode && !activeSelectGroup && (
+                      <div className="flex justify-end px-2 py-1 bg-muted/30">
+                        <Button
+                          size="sm"
+                          variant={reorderModeGroup === loc.id ? "default" : "ghost"}
+                          className="h-6 text-[10px] px-2 gap-1"
+                          onClick={() => setReorderModeGroup(reorderModeGroup === loc.id ? null : loc.id)}
+                        >
+                          <ListOrdered className="h-3 w-3" />
+                          {reorderModeGroup === loc.id ? "Done" : "Reorder"}
+                        </Button>
+                      </div>
+                    )}
                     {!isCollapsed && (() => {
                       const shortcutIdSet = new Set(shortcutItems.map(i => i.id));
                       const isBulkDragThisGroup = isBulkDragMode && bulkDragGroupKey === loc.id;
+                      const isReorderThisGroup = reorderModeGroup === loc.id;
                       const bulkDragSet = new Set(bulkDragItemIds);
 
-                      // Build the sortable items list — in bulk drag mode, replace consecutive selected items with a group
+                      // Build render items — in bulk mode, replace consecutive selected items with a group row
                       let renderItems: { type: 'item' | 'group'; item?: any; items?: any[]; sortableId: string; isShortcut?: boolean }[] = [];
                       if (isBulkDragThisGroup) {
                         let groupInserted = false;
@@ -1230,21 +1251,22 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                         });
                       }
 
+                      // Check if bulk group is at edges
+                      const bulkGroupIdx = renderItems.findIndex(r => r.type === 'group');
+                      const isBulkFirst = bulkGroupIdx === 0;
+                      const isBulkLast = bulkGroupIdx === renderItems.length - 1;
+
                       return (
                       <DndContext
                         sensors={dndSensors}
                         collisionDetection={closestCenter}
                         onDragStart={handleItemDragStart}
                         onDragEnd={(event) => {
-                          if (isBulkDragThisGroup) {
-                            handleBulkDragEnd(event, allLocItems, shortcutIdSet, loc.id);
-                          } else {
-                            handleItemDragEnd(event, allLocItems, shortcutIdSet, loc.id);
-                          }
+                          handleItemDragEnd(event, allLocItems, shortcutIdSet, loc.id);
                         }}
                       >
                         <SortableContext
-                          items={renderItems.map(r => r.sortableId)}
+                          items={renderItems.filter(r => r.type === 'item').map(r => r.sortableId)}
                           strategy={verticalListSortingStrategy}
                         >
                           <div className="grid gap-0.5 p-1">
@@ -1254,15 +1276,19 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                             {renderItems.map((ri) => {
                               if (ri.type === 'group') {
                                 return (
-                                  <BulkDragGroupItem
+                                  <BulkReorderGroup
                                     key="__bulk_group__"
-                                    sortableId="__bulk_group__"
                                     items={ri.items!}
+                                    onMoveUp={() => handleBulkArrowMove('up', allLocItems, shortcutIdSet, loc.id)}
+                                    onMoveDown={() => handleBulkArrowMove('down', allLocItems, shortcutIdSet, loc.id)}
+                                    isFirst={isBulkFirst}
+                                    isLast={isBulkLast}
                                   />
                                 );
                               }
                               const item = ri.item!;
                               const isShortcut = ri.isShortcut!;
+                              const itemIdx = renderItems.indexOf(ri);
                               return (
                                 <SortableInventoryItem
                                   key={ri.sortableId}
@@ -1272,11 +1298,13 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isSelected={selectedItemIds.has(item.id)}
                                   isSelectingThisGroup={isSelectingThisGroup && !isBulkDragThisGroup}
                                   isDragDisabled={isSelectingThisGroup || isBulkDragThisGroup}
-                                  isReorderMode={false}
-                                  reorderState="idle"
-                                  pickedCount={0}
+                                  isReorderMode={isBulkDragThisGroup || isReorderThisGroup}
+                                  onMoveUp={isReorderThisGroup ? () => handleArrowMove('up', allLocItems, item.id, shortcutIdSet, loc.id) : undefined}
+                                  onMoveDown={isReorderThisGroup ? () => handleArrowMove('down', allLocItems, item.id, shortcutIdSet, loc.id) : undefined}
+                                  isFirst={itemIdx === 0}
+                                  isLast={itemIdx === renderItems.length - 1}
                                   onClick={() => {
-                                    if (isBulkDragThisGroup) return;
+                                    if (isBulkDragThisGroup || isReorderThisGroup) return;
                                     if (isSelectingThisGroup) {
                                       const next = new Set(selectedItemIds);
                                       if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
@@ -2115,7 +2143,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       {isBulkDragMode && (
         <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)]">
           <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-4 sm:px-6 py-3 flex items-center gap-3 border-2 border-primary-foreground/20">
-            <span className="font-semibold text-sm">Drag the highlighted group to reorder</span>
+            <span className="font-semibold text-sm">Use arrows to move {bulkDragItemIds.length} items</span>
             <Button
               size="sm"
               variant="secondary"

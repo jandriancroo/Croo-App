@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Link2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -14,6 +14,10 @@ interface SortableInventoryItemProps {
   isReorderMode?: boolean;
   reorderState?: "idle" | "picked" | "target";
   pickedCount?: number;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
@@ -28,6 +32,10 @@ export function SortableInventoryItem({
   isReorderMode = false,
   reorderState = "idle",
   pickedCount = 0,
+  onMoveUp,
+  onMoveDown,
+  isFirst = false,
+  isLast = false,
   onClick,
   onContextMenu,
 }: SortableInventoryItemProps) {
@@ -66,7 +74,7 @@ export function SortableInventoryItem({
         isDragging
           ? "border border-primary/40 border-dashed bg-primary/5 shadow-lg"
           : isReorderMode
-          ? `${reorderClasses} ${reorderState === "picked" ? "" : ""}`
+          ? `${reorderClasses}`
           : isSelected
           ? "bg-primary/10 ring-1 ring-primary/30"
           : isShortcut
@@ -80,19 +88,22 @@ export function SortableInventoryItem({
       <div className="flex items-center gap-1 flex-shrink-0">
         {isReorderMode ? (
           <>
-            {reorderState === "picked" ? (
-              <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-[10px] text-primary-foreground font-bold">
-                  {pickedCount > 1 ? pickedCount : "✓"}
-                </span>
-              </div>
-            ) : (
-              <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center">
-                <span className="text-[10px] text-muted-foreground">
-                  {reorderState === "target" ? "↓" : ""}
-                </span>
-              </div>
-            )}
+            <div className="flex flex-col -my-1">
+              <button
+                className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isFirst ? 'opacity-30 pointer-events-none' : ''}`}
+                onClick={(e) => { e.stopPropagation(); onMoveUp?.(); }}
+                disabled={isFirst}
+              >
+                <ChevronUp className="h-3.5 w-3.5 text-primary" />
+              </button>
+              <button
+                className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isLast ? 'opacity-30 pointer-events-none' : ''}`}
+                onClick={(e) => { e.stopPropagation(); onMoveDown?.(); }}
+                disabled={isLast}
+              >
+                <ChevronDown className="h-3.5 w-3.5 text-primary" />
+              </button>
+            </div>
             {isShortcut && (
               <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
             )}
@@ -163,15 +174,6 @@ export function SortableInventoryItem({
           )}
         </div>
       )}
-
-      {/* Reorder hint */}
-      {isReorderMode && reorderState === "target" && (
-        <div className="flex-shrink-0">
-          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-primary/10 text-primary">
-            Place here
-          </Badge>
-        </div>
-      )}
     </div>
   );
 }
@@ -190,42 +192,32 @@ export function ItemDragOverlay({ item }: { item: any }) {
   );
 }
 
-interface BulkDragGroupItemProps {
-  sortableId: string;
+interface BulkReorderGroupProps {
   items: any[];
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  isFirst: boolean;
+  isLast: boolean;
 }
 
-export function BulkDragGroupItem({ sortableId, items }: BulkDragGroupItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: sortableId });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : undefined,
-  };
-
+export function BulkReorderGroup({ items, onMoveUp, onMoveDown, isFirst, isLast }: BulkReorderGroupProps) {
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`flex items-center gap-2 py-2 px-3 rounded-lg text-sm bg-primary/10 ring-2 ring-primary border border-primary/30 ${
-        isDragging ? "shadow-xl scale-[1.02]" : ""
-      }`}
-    >
-      <div
-        className="cursor-grab active:cursor-grabbing touch-none text-primary flex-shrink-0"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-5 w-5" />
+    <div className="flex items-center gap-2 py-2 px-3 rounded-lg text-sm bg-primary/10 ring-2 ring-primary border border-primary/30">
+      <div className="flex flex-col -my-1 flex-shrink-0">
+        <button
+          className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isFirst ? 'opacity-30 pointer-events-none' : ''}`}
+          onClick={onMoveUp}
+          disabled={isFirst}
+        >
+          <ChevronUp className="h-4 w-4 text-primary" />
+        </button>
+        <button
+          className={`p-0.5 rounded hover:bg-primary/20 transition-colors ${isLast ? 'opacity-30 pointer-events-none' : ''}`}
+          onClick={onMoveDown}
+          disabled={isLast}
+        >
+          <ChevronDown className="h-4 w-4 text-primary" />
+        </button>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
