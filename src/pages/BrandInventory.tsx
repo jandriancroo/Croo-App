@@ -342,10 +342,6 @@ export default function BrandInventory() {
               <Building2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Locations</span>
             </TabsTrigger>
-            <TabsTrigger value="triage" className="gap-1.5">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Triage</span>
-            </TabsTrigger>
             <TabsTrigger value="guide" className="gap-1.5">
               <BookOpen className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Guide</span>
