@@ -149,7 +149,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       );
       console.log("[reorder] primary orders:", pUpdates.map(p => `${p.id.slice(0,6)}=${p.displayOrder}`).join(', '));
       console.log("[reorder] shortcut orders:", (shortcuts || []).map(s => `${s.itemId.slice(0,6)}=${s.displayOrder}`).join(', '));
-      const results = await Promise.all([...primaryUpdates, ...shortcutUpdates]);
+      const results = await Promise.all([...primaryOps, ...shortcutOps]);
       const errors = results.filter(r => r.error);
       if (errors.length > 0) {
         console.error("[reorder] DB errors:", errors.map(e => e.error));
