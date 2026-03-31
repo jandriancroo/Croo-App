@@ -39,7 +39,7 @@ export default function BrandInventory() {
   const queryClient = useQueryClient();
   const { isSuperAdmin, isBrandAdmin, loading: roleLoading } = useUserRole();
   const [activeTab, setActiveTab] = useState('catalog');
-  const [catalogFilter, setCatalogFilter] = useState<'live' | 'draft' | 'archived'>('live');
+  const [catalogFilter, setCatalogFilter] = useState<'live' | 'draft' | 'archived' | 'gaps'>('live');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [newItemDialog, setNewItemDialog] = useState(false);
@@ -87,6 +87,21 @@ export default function BrandInventory() {
         .order('product_name', { ascending: true });
       if (error) throw error;
       return data;
+    },
+    enabled: !!brandId,
+  });
+
+  // New vendor gap alert count
+  const { data: gapAlertCount = 0 } = useQuery({
+    queryKey: ['vendor-gap-alert-count', brandId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('vendor_gap_alerts' as any)
+        .select('*', { count: 'exact', head: true })
+        .eq('brand_id', brandId!)
+        .eq('status', 'new');
+      if (error) throw error;
+      return count || 0;
     },
     enabled: !!brandId,
   });
@@ -343,10 +358,6 @@ export default function BrandInventory() {
               <Building2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Locations</span>
             </TabsTrigger>
-            <TabsTrigger value="gaps" className="gap-1.5">
-              <ScanSearch className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Gap Finder</span>
-            </TabsTrigger>
             <TabsTrigger value="guide" className="gap-1.5">
               <BookOpen className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Guide</span>
@@ -374,6 +385,20 @@ export default function BrandInventory() {
                     </Badge>
                   </Button>
                 ))}
+                <Button
+                  variant={catalogFilter === 'gaps' as any ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCatalogFilter('gaps' as any)}
+                  className="gap-1.5"
+                >
+                  <ScanSearch className="h-3.5 w-3.5" />
+                  Vendor Gaps
+                  {gapAlertCount > 0 && (
+                    <Badge variant="destructive" className="ml-1.5 text-[10px] px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
+                      {gapAlertCount}
+                    </Badge>
+                  )}
+                </Button>
               </div>
               <div className="flex-1 flex gap-2">
                 <div className="relative flex-1">
@@ -396,58 +421,64 @@ export default function BrandInventory() {
               </div>
             </div>
 
-            {templatesLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading catalog...</div>
-            ) : filteredTemplates.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="font-medium mb-1">
-                    {searchQuery ? 'No items match your search' : `No ${catalogFilter} items`}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-                    {catalogFilter === 'live' && !searchQuery && "Create items or promote drafts to populate the live catalog."}
-                    {catalogFilter === 'draft' && "Draft items are being tested before going live."}
-                    {catalogFilter === 'archived' && "Archived items are hidden from locations but data is preserved."}
-                  </p>
-                </CardContent>
-              </Card>
+            {catalogFilter === 'gaps' ? (
+              <VendorGapFinder brandId={brandId!} />
             ) : (
-              <Card>
-                <div className="divide-y divide-border">
-                  {Object.entries(groupedTemplates)
-                    .sort(([a], [b]) => {
-                      const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
-                      const aIdx = orderMap[a] ?? 999;
-                      const bIdx = orderMap[b] ?? 999;
-                      return aIdx - bIdx;
-                    })
-                    .map(([category, items]) => (
-                      <BrandCatalogSection
-                        key={category}
-                        category={category}
-                        items={items}
-                        onEdit={setEditingTemplate}
-                        onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
-                        selectionMode={catalogSelectionMode}
-                        selectedIds={catalogSelectedIds}
-                        onToggleSelect={toggleCatalogSelect}
-                        onStartSelection={(id) => setCatalogSelectedIds(new Set([id]))}
-                        recipeUsageMap={recipeUsageMap}
-                      />
-                    ))}
-                </div>
-              </Card>
-            )}
+              <>
+                {templatesLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading catalog...</div>
+                ) : filteredTemplates.length === 0 ? (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="font-medium mb-1">
+                        {searchQuery ? 'No items match your search' : `No ${catalogFilter} items`}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
+                        {catalogFilter === 'live' && !searchQuery && "Create items or promote drafts to populate the live catalog."}
+                        {catalogFilter === 'draft' && "Draft items are being tested before going live."}
+                        {catalogFilter === 'archived' && "Archived items are hidden from locations but data is preserved."}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <div className="divide-y divide-border">
+                      {Object.entries(groupedTemplates)
+                        .sort(([a], [b]) => {
+                          const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
+                          const aIdx = orderMap[a] ?? 999;
+                          const bIdx = orderMap[b] ?? 999;
+                          return aIdx - bIdx;
+                        })
+                        .map(([category, items]) => (
+                          <BrandCatalogSection
+                            key={category}
+                            category={category}
+                            items={items}
+                            onEdit={setEditingTemplate}
+                            onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
+                            selectionMode={catalogSelectionMode}
+                            selectedIds={catalogSelectedIds}
+                            onToggleSelect={toggleCatalogSelect}
+                            onStartSelection={(id) => setCatalogSelectedIds(new Set([id]))}
+                            recipeUsageMap={recipeUsageMap}
+                          />
+                        ))}
+                    </div>
+                  </Card>
+                )}
 
-            {catalogSelectedIds.size > 0 && brandId && (
-              <BrandCatalogBulkBar
-                selectedIds={catalogSelectedIds}
-                brandId={brandId}
-                onClear={() => setCatalogSelectedIds(new Set())}
-                activeFilter={catalogFilter}
-                categories={categoryNames}
-              />
+                {catalogSelectedIds.size > 0 && brandId && (
+                  <BrandCatalogBulkBar
+                    selectedIds={catalogSelectedIds}
+                    brandId={brandId}
+                    onClear={() => setCatalogSelectedIds(new Set())}
+                    activeFilter={catalogFilter}
+                    categories={categoryNames}
+                  />
+                )}
+              </>
             )}
           </TabsContent>
 
@@ -572,10 +603,6 @@ export default function BrandInventory() {
           </TabsContent>
 
 
-          {/* ===== GAP FINDER TAB ===== */}
-          <TabsContent value="gaps" className="space-y-4">
-            <VendorGapFinder brandId={brandId!} />
-          </TabsContent>
 
           {/* ===== GUIDE TAB ===== */}
           <TabsContent value="guide" className="space-y-4">
