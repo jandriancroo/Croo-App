@@ -189,3 +189,55 @@ export function ItemDragOverlay({ item }: { item: any }) {
     </div>
   );
 }
+
+interface BulkDragGroupItemProps {
+  sortableId: string;
+  items: any[];
+}
+
+export function BulkDragGroupItem({ sortableId, items }: BulkDragGroupItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: sortableId });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 py-2 px-3 rounded-lg text-sm bg-primary/10 ring-2 ring-primary border border-primary/30 ${
+        isDragging ? "shadow-xl scale-[1.02]" : ""
+      }`}
+    >
+      <div
+        className="cursor-grab active:cursor-grabbing touch-none text-primary flex-shrink-0"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-5 w-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <Badge className="bg-primary text-primary-foreground text-xs px-2">
+            {items.length} items
+          </Badge>
+          <span className="text-xs text-muted-foreground truncate">
+            {items.slice(0, 3).map(i => (i as any).common_name || i.name).join(", ")}
+            {items.length > 3 ? ` +${items.length - 3} more` : ""}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
