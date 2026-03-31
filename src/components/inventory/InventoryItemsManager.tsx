@@ -136,23 +136,29 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   );
 
   const reorderItemsMutation = useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      console.log("[reorder] mutationFn called with", orderedIds.length, "ids");
-      console.log("[reorder] first 5 ids:", orderedIds.slice(0, 5));
-      const updates = orderedIds.map((id, index) =>
+    mutationFn: async ({ primaryIds, shortcuts }: { primaryIds: string[]; shortcuts?: { itemId: string; storageLocationId: string; displayOrder: number }[] }) => {
+      console.log("[reorder] mutationFn called with", primaryIds.length, "primary ids,", shortcuts?.length || 0, "shortcuts");
+      const primaryUpdates = primaryIds.map((id, index) =>
         supabase.from("inventory_items").update({ display_order: index } as any).eq("id", id)
       );
-      const results = await Promise.all(updates);
+      const shortcutUpdates = (shortcuts || []).map(s =>
+        supabase.from("inventory_item_locations")
+          .update({ display_order: s.displayOrder } as any)
+          .eq("item_id", s.itemId)
+          .eq("storage_location_id", s.storageLocationId)
+      );
+      const results = await Promise.all([...primaryUpdates, ...shortcutUpdates]);
       const errors = results.filter(r => r.error);
       if (errors.length > 0) {
         console.error("[reorder] DB errors:", errors.map(e => e.error));
       } else {
-        console.log("[reorder] All", orderedIds.length, "updates succeeded");
+        console.log("[reorder] All", results.length, "updates succeeded");
       }
     },
     onSuccess: () => {
       console.log("[reorder] onSuccess — invalidating cache");
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-item-locations", locationId] });
     },
     onError: (err) => {
       console.error("[reorder] onError:", err);
