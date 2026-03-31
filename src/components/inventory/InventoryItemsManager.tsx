@@ -137,15 +137,27 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
   const reorderItemsMutation = useMutation({
     mutationFn: async (orderedIds: string[]) => {
+      console.log("[reorder] mutationFn called with", orderedIds.length, "ids");
+      console.log("[reorder] first 5 ids:", orderedIds.slice(0, 5));
       const updates = orderedIds.map((id, index) =>
         supabase.from("inventory_items").update({ display_order: index } as any).eq("id", id)
       );
-      await Promise.all(updates);
+      const results = await Promise.all(updates);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        console.error("[reorder] DB errors:", errors.map(e => e.error));
+      } else {
+        console.log("[reorder] All", orderedIds.length, "updates succeeded");
+      }
     },
     onSuccess: () => {
+      console.log("[reorder] onSuccess — invalidating cache");
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
     },
-    onError: () => toast.error("Failed to reorder items"),
+    onError: (err) => {
+      console.error("[reorder] onError:", err);
+      toast.error("Failed to reorder items");
+    },
   });
 
   const handleItemDragStart = useCallback((event: DragStartEvent) => {
@@ -176,21 +188,33 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>) => {
     setActiveDragItemId(null);
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    console.log("[bulkDrag] dragEnd — active:", String(active.id), "over:", over ? String(over.id) : "null");
+    if (!over || active.id === over.id) {
+      console.log("[bulkDrag] Early return — no over or same id");
+      return;
+    }
     
     if (String(active.id) === '__bulk_group__') {
-      // Bulk group was dragged — find where it landed
       const nonGroupItems = groupItems.filter(i => !bulkDragItemIds.includes(i.id));
+      console.log("[bulkDrag] groupItems:", groupItems.length, "nonGroupItems:", nonGroupItems.length, "bulkDragItemIds:", bulkDragItemIds.length);
       const overIndex = nonGroupItems.findIndex(i => {
         const sid = i.id + (shortcutIdSet?.has(i.id) ? '-shortcut' : '');
         return sid === String(over.id);
       });
-      if (overIndex === -1) return;
+      console.log("[bulkDrag] overIndex in nonGroupItems:", overIndex);
+      if (overIndex === -1) {
+        console.log("[bulkDrag] overIndex -1 — aborting");
+        return;
+      }
       const draggedItems = groupItems.filter(i => bulkDragItemIds.includes(i.id));
       const reordered = [...nonGroupItems.slice(0, overIndex), ...draggedItems, ...nonGroupItems.slice(overIndex)];
       const primaryOnly = reordered.filter(i => !shortcutIdSet?.has(i.id));
+      console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length);
+      console.log("[bulkDrag] first 5 reordered names:", reordered.slice(0, 5).map(i => i.common_name || i.name));
       if (primaryOnly.length > 0) {
         reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
+      } else {
+        console.log("[bulkDrag] No primary items to reorder!");
       }
       setIsBulkDragMode(false);
       setBulkDragGroupKey(null);
