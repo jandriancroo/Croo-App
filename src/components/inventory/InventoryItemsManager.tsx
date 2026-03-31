@@ -1131,11 +1131,16 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                   .filter(i => i.storage_location_id === loc.id)
                   .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
                 // Shortcut items (items whose primary is elsewhere but have a junction entry here)
-                const shortcutItemIds = (itemLocationShortcuts || [])
-                  .filter(s => s.storage_location_id === loc.id)
-                  .map(s => s.item_id);
+                const shortcutJunctions = (itemLocationShortcuts || [])
+                  .filter(s => s.storage_location_id === loc.id);
+                const shortcutItemIds = shortcutJunctions.map(s => s.item_id);
                 const shortcutItems = items
-                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id);
+                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id)
+                  .sort((a, b) => {
+                    const aOrder = shortcutJunctions.find(s => s.item_id === a.id)?.display_order ?? 9999;
+                    const bOrder = shortcutJunctions.find(s => s.item_id === b.id)?.display_order ?? 9999;
+                    return (aOrder as number) - (bOrder as number);
+                  });
                 const allLocItems = [...primaryItems, ...shortcutItems];
                 const isCollapsed = collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
