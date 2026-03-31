@@ -470,6 +470,26 @@ export function LocationPickerDialog({
             );
           })()}
 
+          {/* Org Dashboard link for org_admins (single org, no brand tabs) */}
+          {hasMultiLocationAccess && !isSuperAdmin && organizations.length === 1 && !activeBrandId && (() => {
+            const org = organizations[0];
+            return (
+              <button
+                onClick={() => {
+                  navigate(`/org-dash?org=${org.id}`);
+                  onOpenChange(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-lg py-2 transition-colors"
+              >
+                {org.logo_url && (
+                  <img src={org.logo_url} alt="" className="h-4 w-4 rounded object-contain" />
+                )}
+                <Building2 className="h-3.5 w-3.5" />
+                {org.brand_name || org.name} Dashboard
+              </button>
+            );
+          })()}
+
           {/* Location list */}
           <div className="space-y-1 max-h-[50vh] overflow-y-auto p-0.5 -m-0.5">
             {filteredLocations.length === 0 ? (
