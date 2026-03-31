@@ -171,11 +171,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     setActiveDragItemId(id);
   }, []);
 
-  const handleItemDragEnd = useCallback((event: DragEndEvent, groupItems: any[], isShortcutList?: Set<string>) => {
+  const handleItemDragEnd = useCallback((event: DragEndEvent, groupItems: any[], isShortcutList?: Set<string>, storageLocId?: string) => {
     setActiveDragItemId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    // Build sortable ID for each item to match DndContext IDs
     const getSortableId = (item: any) => {
       const isShortcut = isShortcutList?.has(item.id);
       return item.id + (isShortcut ? '-shortcut' : '');
@@ -184,11 +183,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     const newIndex = groupItems.findIndex(i => getSortableId(i) === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(groupItems, oldIndex, newIndex);
-    // Only reorder primary items (not shortcuts) for display_order persistence
     const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
-    if (primaryOnly.length > 0) {
-      reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
-    }
+    const shortcutEntries = storageLocId ? reordered
+      .filter(i => isShortcutList?.has(i.id))
+      .map((i, idx) => ({ itemId: i.id, storageLocationId: storageLocId, displayOrder: idx })) : [];
+    reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
   }, [reorderItemsMutation]);
 
   const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>) => {
