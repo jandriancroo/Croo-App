@@ -2002,8 +2002,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                     groupItems = (items || []).filter(i => !i.storage_location_id).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
                   } else {
                     const primaryItems = (items || []).filter(i => i.storage_location_id === groupKey).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
-                    const shortcutItemIds = (itemLocationShortcuts || []).filter((s: any) => s.storage_location_id === groupKey).map((s: any) => s.item_id);
-                    const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey);
+                    const shortcutJunctions = (itemLocationShortcuts || []).filter((s: any) => s.storage_location_id === groupKey);
+                    const shortcutItemIds = shortcutJunctions.map((s: any) => s.item_id);
+                    const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey)
+                      .sort((a, b) => {
+                        const aOrder = shortcutJunctions.find((s: any) => s.item_id === a.id)?.display_order ?? 9999;
+                        const bOrder = shortcutJunctions.find((s: any) => s.item_id === b.id)?.display_order ?? 9999;
+                        return (aOrder as number) - (bOrder as number);
+                      });
                     groupItems = [...primaryItems, ...shortcutItems];
                   }
                   const selectedArr = Array.from(selectedItemIds);
