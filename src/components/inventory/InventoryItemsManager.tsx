@@ -136,23 +136,29 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   );
 
   const reorderItemsMutation = useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      console.log("[reorder] mutationFn called with", orderedIds.length, "ids");
-      console.log("[reorder] first 5 ids:", orderedIds.slice(0, 5));
-      const updates = orderedIds.map((id, index) =>
+    mutationFn: async ({ primaryIds, shortcuts }: { primaryIds: string[]; shortcuts?: { itemId: string; storageLocationId: string; displayOrder: number }[] }) => {
+      console.log("[reorder] mutationFn called with", primaryIds.length, "primary ids,", shortcuts?.length || 0, "shortcuts");
+      const primaryUpdates = primaryIds.map((id, index) =>
         supabase.from("inventory_items").update({ display_order: index } as any).eq("id", id)
       );
-      const results = await Promise.all(updates);
+      const shortcutUpdates = (shortcuts || []).map(s =>
+        supabase.from("inventory_item_locations")
+          .update({ display_order: s.displayOrder } as any)
+          .eq("item_id", s.itemId)
+          .eq("storage_location_id", s.storageLocationId)
+      );
+      const results = await Promise.all([...primaryUpdates, ...shortcutUpdates]);
       const errors = results.filter(r => r.error);
       if (errors.length > 0) {
         console.error("[reorder] DB errors:", errors.map(e => e.error));
       } else {
-        console.log("[reorder] All", orderedIds.length, "updates succeeded");
+        console.log("[reorder] All", results.length, "updates succeeded");
       }
     },
     onSuccess: () => {
       console.log("[reorder] onSuccess — invalidating cache");
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-item-locations", locationId] });
     },
     onError: (err) => {
       console.error("[reorder] onError:", err);
@@ -165,11 +171,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     setActiveDragItemId(id);
   }, []);
 
-  const handleItemDragEnd = useCallback((event: DragEndEvent, groupItems: any[], isShortcutList?: Set<string>) => {
+  const handleItemDragEnd = useCallback((event: DragEndEvent, groupItems: any[], isShortcutList?: Set<string>, storageLocId?: string) => {
     setActiveDragItemId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    // Build sortable ID for each item to match DndContext IDs
     const getSortableId = (item: any) => {
       const isShortcut = isShortcutList?.has(item.id);
       return item.id + (isShortcut ? '-shortcut' : '');
@@ -178,14 +183,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     const newIndex = groupItems.findIndex(i => getSortableId(i) === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(groupItems, oldIndex, newIndex);
-    // Only reorder primary items (not shortcuts) for display_order persistence
     const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
-    if (primaryOnly.length > 0) {
-      reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
-    }
+    const shortcutEntries = storageLocId ? reordered
+      .filter(i => isShortcutList?.has(i.id))
+      .map((i, idx) => ({ itemId: i.id, storageLocationId: storageLocId, displayOrder: idx })) : [];
+    reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
   }, [reorderItemsMutation]);
 
-  const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>) => {
+  const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
     setActiveDragItemId(null);
     const { active, over } = event;
     console.log("[bulkDrag] dragEnd — active:", String(active.id), "over:", over ? String(over.id) : "null");
@@ -209,13 +214,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       const draggedItems = groupItems.filter(i => bulkDragItemIds.includes(i.id));
       const reordered = [...nonGroupItems.slice(0, overIndex), ...draggedItems, ...nonGroupItems.slice(overIndex)];
       const primaryOnly = reordered.filter(i => !shortcutIdSet?.has(i.id));
-      console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length);
-      console.log("[bulkDrag] first 5 reordered names:", reordered.slice(0, 5).map(i => i.common_name || i.name));
-      if (primaryOnly.length > 0) {
-        reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
-      } else {
-        console.log("[bulkDrag] No primary items to reorder!");
-      }
+      const shortcutEntries = storageLocId ? reordered
+        .filter(i => shortcutIdSet?.has(i.id))
+        .map((i, idx) => ({ itemId: i.id, storageLocationId: storageLocId, displayOrder: idx })) : [];
+      console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length, "shortcuts:", shortcutEntries.length);
+      reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
       setIsBulkDragMode(false);
       setBulkDragGroupKey(null);
       setBulkDragItemIds([]);
@@ -224,7 +227,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       toast.success(`Moved ${draggedItems.length} items`);
     } else {
       // Normal single-item drag
-      handleItemDragEnd(event, groupItems, shortcutIdSet);
+      handleItemDragEnd(event, groupItems, shortcutIdSet, storageLocId);
     }
   }, [bulkDragItemIds, reorderItemsMutation, handleItemDragEnd]);
 
@@ -366,7 +369,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_item_locations")
-        .select("item_id, storage_location_id")
+        .select("item_id, storage_location_id, display_order")
         .in("item_id", (items || []).map(i => i.id));
       if (error) throw error;
       return data || [];
@@ -1128,11 +1131,16 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                   .filter(i => i.storage_location_id === loc.id)
                   .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
                 // Shortcut items (items whose primary is elsewhere but have a junction entry here)
-                const shortcutItemIds = (itemLocationShortcuts || [])
-                  .filter(s => s.storage_location_id === loc.id)
-                  .map(s => s.item_id);
+                const shortcutJunctions = (itemLocationShortcuts || [])
+                  .filter(s => s.storage_location_id === loc.id);
+                const shortcutItemIds = shortcutJunctions.map(s => s.item_id);
                 const shortcutItems = items
-                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id);
+                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id)
+                  .sort((a, b) => {
+                    const aOrder = shortcutJunctions.find(s => s.item_id === a.id)?.display_order ?? 9999;
+                    const bOrder = shortcutJunctions.find(s => s.item_id === b.id)?.display_order ?? 9999;
+                    return (aOrder as number) - (bOrder as number);
+                  });
                 const allLocItems = [...primaryItems, ...shortcutItems];
                 const isCollapsed = collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
@@ -1200,9 +1208,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                         onDragStart={handleItemDragStart}
                         onDragEnd={(event) => {
                           if (isBulkDragThisGroup) {
-                            handleBulkDragEnd(event, allLocItems, shortcutIdSet);
+                            handleBulkDragEnd(event, allLocItems, shortcutIdSet, loc.id);
                           } else {
-                            handleItemDragEnd(event, allLocItems, shortcutIdSet);
+                            handleItemDragEnd(event, allLocItems, shortcutIdSet, loc.id);
                           }
                         }}
                       >
@@ -1994,8 +2002,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                     groupItems = (items || []).filter(i => !i.storage_location_id).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
                   } else {
                     const primaryItems = (items || []).filter(i => i.storage_location_id === groupKey).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
-                    const shortcutItemIds = (itemLocationShortcuts || []).filter((s: any) => s.storage_location_id === groupKey).map((s: any) => s.item_id);
-                    const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey);
+                    const shortcutJunctions = (itemLocationShortcuts || []).filter((s: any) => s.storage_location_id === groupKey);
+                    const shortcutItemIds = shortcutJunctions.map((s: any) => s.item_id);
+                    const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey)
+                      .sort((a, b) => {
+                        const aOrder = shortcutJunctions.find((s: any) => s.item_id === a.id)?.display_order ?? 9999;
+                        const bOrder = shortcutJunctions.find((s: any) => s.item_id === b.id)?.display_order ?? 9999;
+                        return (aOrder as number) - (bOrder as number);
+                      });
                     groupItems = [...primaryItems, ...shortcutItems];
                   }
                   const selectedArr = Array.from(selectedItemIds);

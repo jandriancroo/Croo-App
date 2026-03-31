@@ -1,0 +1,1 @@
+ALTER TABLE public.inventory_item_locations ADD COLUMN display_order integer DEFAULT 0;
