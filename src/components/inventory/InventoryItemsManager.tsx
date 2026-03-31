@@ -137,15 +137,27 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
   const reorderItemsMutation = useMutation({
     mutationFn: async (orderedIds: string[]) => {
+      console.log("[reorder] mutationFn called with", orderedIds.length, "ids");
+      console.log("[reorder] first 5 ids:", orderedIds.slice(0, 5));
       const updates = orderedIds.map((id, index) =>
         supabase.from("inventory_items").update({ display_order: index } as any).eq("id", id)
       );
-      await Promise.all(updates);
+      const results = await Promise.all(updates);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        console.error("[reorder] DB errors:", errors.map(e => e.error));
+      } else {
+        console.log("[reorder] All", orderedIds.length, "updates succeeded");
+      }
     },
     onSuccess: () => {
+      console.log("[reorder] onSuccess — invalidating cache");
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
     },
-    onError: () => toast.error("Failed to reorder items"),
+    onError: (err) => {
+      console.error("[reorder] onError:", err);
+      toast.error("Failed to reorder items");
+    },
   });
 
   const handleItemDragStart = useCallback((event: DragStartEvent) => {
