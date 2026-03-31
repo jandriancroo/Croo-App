@@ -233,11 +233,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           primaryOnly.push({ ...item, _newOrder: globalIdx });
         }
       });
-      // Use global index for primary items too so interleaving is preserved
-      const primaryIds = primaryOnly.map(i => i.id);
-      const primaryOrders = primaryOnly.map(i => i._newOrder);
       console.log("[bulkDrag] reordered:", reordered.length, "primaryOnly:", primaryOnly.length, "shortcuts:", shortcutEntries.length);
-      reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
+      reorderItemsMutation.mutate({ primaryUpdates: primaryOnly.map(i => ({ id: i.id, displayOrder: i._newOrder })), shortcuts: shortcutEntries });
       setIsBulkDragMode(false);
       setBulkDragGroupKey(null);
       setBulkDragItemIds([]);
