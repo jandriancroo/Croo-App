@@ -185,11 +185,18 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     const newIndex = groupItems.findIndex(i => getSortableId(i) === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(groupItems, oldIndex, newIndex);
-    const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
-    const shortcutEntries = storageLocId ? reordered
-      .filter(i => isShortcutList?.has(i.id))
-      .map((i, idx) => ({ itemId: i.id, storageLocationId: storageLocId, displayOrder: idx })) : [];
-    reorderItemsMutation.mutate({ primaryIds: primaryOnly.map(i => i.id), shortcuts: shortcutEntries });
+    const primaryEntries: { id: string; displayOrder: number }[] = [];
+    const shortcutEntries: { itemId: string; storageLocationId: string; displayOrder: number }[] = [];
+    reordered.forEach((item, globalIdx) => {
+      if (isShortcutList?.has(item.id)) {
+        if (storageLocId) {
+          shortcutEntries.push({ itemId: item.id, storageLocationId: storageLocId, displayOrder: globalIdx });
+        }
+      } else {
+        primaryEntries.push({ id: item.id, displayOrder: globalIdx });
+      }
+    });
+    reorderItemsMutation.mutate({ primaryUpdates: primaryEntries, shortcuts: shortcutEntries });
   }, [reorderItemsMutation]);
 
   const handleBulkDragEnd = useCallback((event: DragEndEvent, groupItems: any[], shortcutIdSet?: Set<string>, storageLocId?: string) => {
