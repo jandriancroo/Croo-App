@@ -1144,20 +1144,21 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               {storageLocations?.map((loc) => {
                 // Primary items (home location)
                 const primaryItems = items
-                  .filter(i => i.storage_location_id === loc.id)
-                  .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                  .filter(i => i.storage_location_id === loc.id);
                 // Shortcut items (items whose primary is elsewhere but have a junction entry here)
                 const shortcutJunctions = (itemLocationShortcuts || [])
                   .filter(s => s.storage_location_id === loc.id);
                 const shortcutItemIds = shortcutJunctions.map(s => s.item_id);
                 const shortcutItems = items
-                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id)
-                  .sort((a, b) => {
-                    const aOrder = shortcutJunctions.find(s => s.item_id === a.id)?.display_order ?? 9999;
-                    const bOrder = shortcutJunctions.find(s => s.item_id === b.id)?.display_order ?? 9999;
-                    return (aOrder as number) - (bOrder as number);
-                  });
-                const allLocItems = [...primaryItems, ...shortcutItems];
+                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id);
+                // Build unified list with display_order for interleaved sorting
+                const allLocItems = [
+                  ...primaryItems.map(i => ({ ...i, _sortOrder: (i as any).display_order ?? 9999, _isShortcut: false })),
+                  ...shortcutItems.map(i => {
+                    const junctionOrder = shortcutJunctions.find(s => s.item_id === i.id)?.display_order;
+                    return { ...i, _sortOrder: (junctionOrder as number) ?? 9999, _isShortcut: true };
+                  }),
+                ].sort((a, b) => a._sortOrder - b._sortOrder);
                 const isCollapsed = collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
                 const panCount = primaryItems.filter(i => (i as any).pan_sizes?.enabled).length;
