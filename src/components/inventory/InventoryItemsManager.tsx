@@ -49,7 +49,7 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import { SortableInventoryItem, ItemDragOverlay } from "./SortableInventoryItem";
+import { SortableInventoryItem, ItemDragOverlay, BulkDragGroupItem } from "./SortableInventoryItem";
 
 interface InventoryItemsManagerProps {
   locationId: string;
