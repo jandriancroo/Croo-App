@@ -1185,7 +1185,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 );
 
                 // Build unified list with display_order for interleaved sorting
-                const allLocItems = [
+                let allLocItems = [
                   ...primaryItems.map(i => ({ ...i, _sortOrder: (i as any).display_order ?? 9999, _isShortcut: false })),
                   ...shortcutItems.map(i => {
                     const junctionOrder = shortcutJunctions.find(s => s.item_id === i.id)?.display_order;
@@ -1195,6 +1195,17 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                     return { ...i, _sortOrder: normalizedShortcutOrder, _isShortcut: true };
                   }),
                 ].sort((a, b) => a._sortOrder - b._sortOrder);
+
+                // Apply optimistic order if available
+                const optOrder = optimisticOrder[loc.id];
+                if (optOrder) {
+                  const orderMap = new Map(optOrder.map((id, idx) => [id, idx]));
+                  allLocItems = [...allLocItems].sort((a, b) => {
+                    const aIdx = orderMap.get(a.id) ?? 9999;
+                    const bIdx = orderMap.get(b.id) ?? 9999;
+                    return aIdx - bIdx;
+                  });
+                }
                 const isCollapsed = collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
                 const panCount = primaryItems.filter(i => (i as any).pan_sizes?.enabled).length;
