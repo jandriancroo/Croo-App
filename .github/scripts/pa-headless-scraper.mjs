@@ -627,7 +627,7 @@ async function main() {
       for (const loc of catalogLocations) {
         const result = await processCatalogLocation(browser, loc);
         console.log(`   ${result.success ? '✅' : '❌'} ${loc.locationId}: ${result.items} items`);
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, 1000));
       }
     } else {
       console.log('ℹ️ No PA locations configured.');
