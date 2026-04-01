@@ -55,7 +55,7 @@ export default function OrderReconciliationPicker({
         ? format(addDays(new Date(periodEndDate + "T12:00:00"), 7), "yyyy-MM-dd")
         : format(new Date(), "yyyy-MM-dd");
 
-      const [pfgResult, paResult] = await Promise.all([
+      const [pfgResult, paResult, invResult] = await Promise.all([
         supabase
           .from("pfg_orders")
           .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
@@ -70,6 +70,14 @@ export default function OrderReconciliationPicker({
           .gte("delivery_date", windowStart)
           .lte("delivery_date", windowEnd)
           .order("order_date", { ascending: true }),
+        supabase
+          .from("vendor_invoices")
+          .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
+          .eq("location_id", locationId)
+          .eq("status", "parsed")
+          .gte("delivery_date", windowStart)
+          .lte("delivery_date", windowEnd)
+          .order("delivery_date", { ascending: true }),
       ]);
 
       const otherCountIds = new Set<string>();
