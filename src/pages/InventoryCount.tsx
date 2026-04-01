@@ -226,7 +226,6 @@ const InventoryCount = () => {
       if (localDay <= 2) {
         let inferredEnd = format(countedAt, "yyyy-MM-dd");
         if (localHour < 10) {
-          const { subDays } = require("date-fns");
           inferredEnd = format(subDays(new Date(inferredEnd + "T12:00:00"), 1), "yyyy-MM-dd");
         }
         if (inferredEnd < effectiveEnd) {
