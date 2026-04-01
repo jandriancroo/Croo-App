@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { Link2, Search, Loader2, CheckCircle2 } from "lucide-react";
+import { Link2, Search, Loader2, CheckCircle2, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface InlineLinkToExistingProps {
@@ -18,9 +18,23 @@ interface InlineLinkToExistingProps {
   onLinked: () => void;
 }
 
+/** Simple word-overlap fuzzy score: fraction of draft words found in candidate */
+function fuzzyScore(draftName: string, candidateName: string): number {
+  const draftWords = draftName.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(Boolean);
+  const candidateStr = candidateName.toLowerCase().replace(/[^a-z0-9 ]/g, "");
+  if (draftWords.length === 0) return 0;
+  let hits = 0;
+  for (const w of draftWords) {
+    if (w.length < 2) continue; // skip tiny words
+    if (candidateStr.includes(w)) hits++;
+  }
+  return hits / draftWords.length;
+}
+
 export default function InlineLinkToExisting({ draft, onLinked }: InlineLinkToExistingProps) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [userTyped, setUserTyped] = useState(false);
   const [liveItems, setLiveItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState(false);
@@ -41,9 +55,27 @@ export default function InlineLinkToExisting({ draft, onLinked }: InlineLinkToEx
     fetchLiveItems();
   }, [draft.brand_id]);
 
-  const filtered = liveItems.filter(item =>
-    item.product_name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Auto fuzzy matches ranked by score
+  const autoMatches = useMemo(() => {
+    if (liveItems.length === 0) return [];
+    return liveItems
+      .map(item => ({ ...item, score: fuzzyScore(draft.product_name, item.product_name) }))
+      .filter(item => item.score > 0.3)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8);
+  }, [liveItems, draft.product_name]);
+
+  // When user types, filter full list
+  const searchFiltered = useMemo(() => {
+    if (!search.trim()) return [];
+    const q = search.toLowerCase();
+    return liveItems.filter(item =>
+      item.product_name.toLowerCase().includes(q)
+    );
+  }, [liveItems, search]);
+
+  const displayItems = userTyped && search.trim() ? searchFiltered : autoMatches;
+  const isAutoMode = !userTyped || !search.trim();
 
   const handleLink = async (targetId: string, targetName: string) => {
     setLinking(true);
@@ -102,12 +134,20 @@ export default function InlineLinkToExisting({ draft, onLinked }: InlineLinkToEx
         <Link2 className="h-3.5 w-3.5" />
         Link to Existing (merge duplicate)
       </p>
+
+      {isAutoMode && autoMatches.length > 0 && (
+        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+          <Sparkles className="h-3 w-3" />
+          Suggested matches — or type to search
+        </p>
+      )}
+
       <div className="relative">
         <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <Input
-          placeholder="Search live items..."
+          placeholder="Search all live items..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => { setSearch(e.target.value); setUserTyped(true); }}
           className="pl-8 h-8 text-xs"
         />
       </div>
@@ -119,12 +159,12 @@ export default function InlineLinkToExisting({ draft, onLinked }: InlineLinkToEx
       ) : (
         <ScrollArea className="h-[160px]">
           <div className="space-y-0.5">
-            {filtered.length === 0 ? (
+            {displayItems.length === 0 ? (
               <p className="text-[11px] text-muted-foreground text-center py-4">
-                {search ? "No matching items" : "No live items found"}
+                {search ? "No matching items" : "No fuzzy matches found — type to search"}
               </p>
             ) : (
-              filtered.map(item => (
+              displayItems.map((item: any) => (
                 <button
                   key={item.id}
                   type="button"
