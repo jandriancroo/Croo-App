@@ -362,7 +362,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   }, [countRecord]);
 
-  // Group items by storage location
+  // Group items by storage location and sort within each group by unified display_order
   const itemsByLocation = items?.reduce((acc, item) => {
     const locId = item.storage_location_id;
     if (!acc[locId]) {
@@ -374,6 +374,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     acc[locId].items.push(item);
     return acc;
   }, {} as Record<string, { name: string; items: CountItem[] }>) || {};
+  
+  // Sort items within each location by their unified _sortOrder
+  for (const locId of Object.keys(itemsByLocation)) {
+    itemsByLocation[locId].items.sort((a, b) => 
+      ((a as any)._sortOrder ?? 9999) - ((b as any)._sortOrder ?? 9999)
+    );
+  }
 
   // Sort location keys by storage location display_order
   const locationKeys = Object.keys(itemsByLocation).sort((a, b) => {
