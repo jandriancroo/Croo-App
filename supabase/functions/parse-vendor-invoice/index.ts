@@ -180,13 +180,21 @@ Return ONLY valid JSON, no markdown.`,
       .eq("location_id", invoice.location_id)
       .eq("status", "active");
 
-    // Get location's brand_id for draft creation
+    // Get location's brand_id for draft creation (via organization)
     const { data: location } = await admin
       .from("locations")
-      .select("brand_id")
+      .select("organization_id")
       .eq("id", invoice.location_id)
       .single();
-    const brandId = location?.brand_id;
+    let brandId: string | null = null;
+    if (location?.organization_id) {
+      const { data: org } = await admin
+        .from("organizations")
+        .select("brand_id")
+        .eq("id", location.organization_id)
+        .single();
+      brandId = org?.brand_id || null;
+    }
 
     // Get existing brand templates for dedup
     let existingTemplates: any[] = [];
