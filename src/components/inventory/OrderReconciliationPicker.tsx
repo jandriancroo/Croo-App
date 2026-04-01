@@ -195,20 +195,25 @@ export default function OrderReconciliationPicker({
       const pfgUnbind: string[] = [];
       const paBind: string[] = [];
       const paUnbind: string[] = [];
+      const invBind: string[] = [];
+      const invUnbind: string[] = [];
 
       for (const o of orders) {
         if (o.boundToCountId && o.boundToCountId !== countId) continue;
 
-        const realId = o.id.replace(/^(pfg_|pa_)/, "");
+        const realId = o.id.replace(/^(pfg_|pa_|inv_)/, "");
         const isSelected = selectedIds.has(o.id);
         const wasBound = o.boundToCountId === countId;
 
         if (o.vendor === "PFG") {
           if (isSelected && !wasBound) pfgBind.push(realId);
           if (!isSelected && wasBound) pfgUnbind.push(realId);
-        } else {
+        } else if (o.vendor === "PA") {
           if (isSelected && !wasBound) paBind.push(realId);
           if (!isSelected && wasBound) paUnbind.push(realId);
+        } else if (o.vendor === "INV") {
+          if (isSelected && !wasBound) invBind.push(realId);
+          if (!isSelected && wasBound) invUnbind.push(realId);
         }
       }
 
@@ -232,6 +237,16 @@ export default function OrderReconciliationPicker({
       if (paUnbind.length > 0) {
         promises.push(
           supabase.from("pa_orders").update({ bound_to_count_id: null } as any).in("id", paUnbind).select()
+        );
+      }
+      if (invBind.length > 0) {
+        promises.push(
+          supabase.from("vendor_invoices").update({ inventory_count_id: countId } as any).in("id", invBind).select()
+        );
+      }
+      if (invUnbind.length > 0) {
+        promises.push(
+          supabase.from("vendor_invoices").update({ inventory_count_id: null } as any).in("id", invUnbind).select()
         );
       }
 
