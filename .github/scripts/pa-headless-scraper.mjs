@@ -363,47 +363,222 @@ async function processLocation(browser, location) {
   return { locationId, success: true, scraped, total: pendingOrders.length, results };
 }
 
+// ── Fetch all PA locations (for catalog scrape) ────────────────
+async function fetchAllPALocations() {
+  const response = await fetch(
+    `${SUPABASE_URL}/functions/v1/produce-alliance-service`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ action: 'list_catalog_locations' }),
+    }
+  );
+
+  const result = await response.json();
+  if (!response.ok || result.error) {
+    throw new Error(`Failed to fetch PA locations: ${JSON.stringify(result)}`);
+  }
+
+  return result.locations || [];
+}
+
+// ── Scrape full product catalog from restaurantOrderSort.jsp ───
+async function scrapeCatalog(page, { restaurantId }) {
+  const url = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${restaurantId}`;
+  console.log(`   📦 Loading catalog page...`);
+
+  await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+
+  // Wait for the table to render
+  try {
+    await page.waitForSelector('table td', { timeout: 15000 });
+  } catch {
+    console.log(`   ⚠️ No catalog table rendered, checking page...`);
+    const content = await page.content();
+    if (content.includes('Sign in') || content.includes('j_security_check')) {
+      throw new Error('Session expired — got login page');
+    }
+    return [];
+  }
+
+  // Wait for Angular to finish rendering
+  await page.waitForTimeout(3000);
+
+  const items = await page.evaluate(() => {
+    const results = [];
+    const tables = document.querySelectorAll('table');
+
+    for (const table of tables) {
+      const rows = table.querySelectorAll('tr');
+      let currentCategory = '';
+
+      for (const row of rows) {
+        const cells = Array.from(row.querySelectorAll('td')).map(td => td.textContent.trim());
+
+        // Category header rows often have fewer cells or a colspan
+        if (cells.length === 1 && cells[0].length > 0) {
+          currentCategory = cells[0];
+          continue;
+        }
+
+        if (cells.length < 3) continue;
+
+        // Detect spacer column
+        const hasSpacerCol = cells.length >= 5 && (
+          cells[0] === '' || cells[0] === '\u00a0' || !/\d/.test(cells[0])
+        );
+        const offset = hasSpacerCol ? 1 : 0;
+
+        const itemCode = cells[offset];
+        if (!itemCode || !/^\d{3,}$/.test(itemCode)) continue;
+
+        const description = cells[offset + 1] || '';
+        const packSize = cells[offset + 2] || '';
+        const priceStr = cells[offset + 3] || '0';
+        const unitPrice = parseFloat(priceStr.replace(/[$,]/g, '')) || 0;
+
+        results.push({
+          pa_item_id: itemCode,
+          description,
+          pack_size: packSize,
+          category: currentCategory || null,
+          unit_price: unitPrice > 0 ? unitPrice : null,
+        });
+      }
+
+      if (results.length > 0) break; // Found the right table
+    }
+
+    return results;
+  });
+
+  console.log(`   ${items.length > 0 ? '✅' : '⚠️'} Catalog: ${items.length} items found`);
+  return items;
+}
+
+// ── Process catalog scrape for a single location ────────────────
+async function processCatalogLocation(browser, location) {
+  const { locationId, username, password, restaurantId } = location;
+  console.log(`\n🗂️  [${locationId}] Scraping catalog...`);
+
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  });
+  const page = await context.newPage();
+
+  try {
+    const loggedIn = await loginToPA(page, { username, password });
+    if (!loggedIn) {
+      return { locationId, success: false, error: 'Login failed', items: 0 };
+    }
+
+    // Set PA designation so JSP pages route correctly
+    await page.evaluate((rid) => {
+      localStorage.setItem('urlDesignation', 'PA');
+    }, restaurantId);
+
+    // Navigate to ProduceAlliance.jsp first to establish JSP session
+    await page.goto(`${PA_BASE_URL}/ProduceAlliance.jsp`, { waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    const items = await scrapeCatalog(page, { restaurantId });
+
+    if (items.length > 0) {
+      // Post catalog items back to edge function
+      const saveResp = await fetch(
+        `${SUPABASE_URL}/functions/v1/produce-alliance-service`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            action: 'save_catalog',
+            locationId,
+            items,
+          }),
+        }
+      );
+
+      const saveResult = await saveResp.json();
+      console.log(`   💾 Saved: ${saveResult.saved || 0} catalog items`);
+      return { locationId, success: true, items: items.length, saved: saveResult.saved || 0 };
+    }
+
+    return { locationId, success: true, items: 0, note: 'No items found on catalog page' };
+  } catch (error) {
+    console.error(`   ❌ [${locationId}] Catalog error:`, error.message);
+    return { locationId, success: false, error: error.message, items: 0 };
+  } finally {
+    await context.close();
+  }
+}
+
 // ── Main ────────────────────────────────────────────────────────
 async function main() {
   console.log('🍅 Produce Alliance Headless Scraper');
   console.log('━'.repeat(40));
-  
-  // 1. Fetch locations with pending orders
-  console.log('📡 Fetching pending orders...');
-  const locations = await fetchPendingOrders();
-  
-  if (!locations || locations.length === 0) {
-    console.log('ℹ️ No pending PA orders to scrape.');
-    return;
-  }
-  
-  const totalOrders = locations.reduce((sum, l) => sum + (l.pendingOrders?.length || 0), 0);
-  console.log(`📋 Found ${locations.length} location(s) with ${totalOrders} pending order(s)\n`);
-  
-  // 2. Launch browser
+
   const browser = await chromium.launch({ headless: true });
-  const allResults = [];
-  
-  for (const location of locations) {
-    const result = await processLocation(browser, location);
-    allResults.push(result);
-    
-    // Delay between locations
-    if (locations.indexOf(location) < locations.length - 1) {
-      await new Promise(r => setTimeout(r, 3000));
+
+  // ── Phase 1: Catalog scrape (all PA locations) ──
+  console.log('\n📦 Phase 1: Full catalog scrape');
+  console.log('─'.repeat(30));
+  try {
+    const catalogLocations = await fetchAllPALocations();
+    if (catalogLocations.length > 0) {
+      console.log(`Found ${catalogLocations.length} PA location(s) for catalog scrape`);
+      for (const loc of catalogLocations) {
+        const result = await processCatalogLocation(browser, loc);
+        console.log(`   ${result.success ? '✅' : '❌'} ${loc.locationId}: ${result.items} items`);
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    } else {
+      console.log('ℹ️ No PA locations configured.');
     }
+  } catch (err) {
+    console.error('❌ Catalog scrape error:', err.message);
   }
-  
+
+  // ── Phase 2: Pending order scrape (orders missing line items) ──
+  console.log('\n📄 Phase 2: Pending order scrape');
+  console.log('─'.repeat(30));
+  let totalOrders = 0;
+  const allResults = [];
+
+  try {
+    const locations = await fetchPendingOrders();
+    if (locations && locations.length > 0) {
+      totalOrders = locations.reduce((sum, l) => sum + (l.pendingOrders?.length || 0), 0);
+      console.log(`Found ${locations.length} location(s) with ${totalOrders} pending order(s)`);
+
+      for (const location of locations) {
+        const result = await processLocation(browser, location);
+        allResults.push(result);
+        if (locations.indexOf(location) < locations.length - 1) {
+          await new Promise(r => setTimeout(r, 3000));
+        }
+      }
+    } else {
+      console.log('ℹ️ No pending PA orders to scrape.');
+    }
+  } catch (err) {
+    console.error('❌ Order scrape error:', err.message);
+  }
+
   await browser.close();
-  
-  // 3. Report
+
+  // ── Report ──
   const succeeded = allResults.filter(r => r.success);
   const totalScraped = allResults.reduce((sum, r) => sum + (r.scraped || 0), 0);
-  
+
   console.log(`\n${'━'.repeat(40)}`);
-  console.log(`✅ Locations processed: ${succeeded.length}/${allResults.length}`);
   console.log(`📦 Orders scraped: ${totalScraped}/${totalOrders}`);
-  
+
   const failed = allResults.filter(r => !r.success);
   if (failed.length > 0) {
     console.log(`❌ Failed locations: ${failed.length}`);
