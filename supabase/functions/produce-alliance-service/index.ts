@@ -576,88 +576,62 @@ interface PAOrderDetail {
 async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string, credentials?: PACredentials | null): Promise<PAOrderDetail | null> {
   console.log('[PA Detail] Fetching order:', webOrderId);
 
-  // The OAuth2 login already provides: JSESSIONID (from home page), tokenStore cookie
-  // (mirrors Angular app), and Bearer token. The JSP pages read the tokenStore cookie
-  // for auth — no j_security_check needed (that actually poisons the session).
-  // 
-  // Strategy: Hit a page with Bearer+cookies to ensure session is warm, then fetch JSP.
-  try {
-    // Warm up: hit /ProduceAlliance.jsp to establish PA designation in server session,
-    // then hit /ng/ to ensure Angular session context is active
-    for (const warmupUrl of [`${PA_BASE_URL}/ProduceAlliance.jsp`, `${PA_BASE_URL}/ng/`]) {
-      const warmupResp = await fetch(warmupUrl, {
-        method: 'GET',
-        headers: {
-          ...getAuthHeaders(session),
-          'Accept': 'text/html,application/xhtml+xml,*/*',
-        },
-        redirect: 'follow',
-      });
-      const warmupCookies = extractCookies(warmupResp.headers);
-      if (warmupCookies) {
-        session.cookies = mergeCookies(session.cookies, warmupCookies);
-      }
-      await warmupResp.text().catch(() => '');
-    }
-    console.log('[PA Detail] Session warmup (with PA designation): JSESSIONID:', session.cookies.includes('JSESSIONID') ? 'yes' : 'no');
-  } catch (e) {
-    console.warn('[PA Detail] Session warmup failed:', e);
-  }
-
   const authHeaders = getAuthHeaders(session);
 
-  // Try REST API endpoints for order detail
-  const detailEndpoints = [
-    { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-detail`, method: 'POST', body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }) },
-    { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-details`, method: 'POST', body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }) },
-    { url: `${PA_BASE_URL}/api/restaurant-dashboard/order/${webOrderId}`, method: 'GET', body: undefined },
-    { url: `${PA_BASE_URL}/api/restaurant-dashboard/view-order?webOrderId=${webOrderId}&restaurantId=${session.restaurantId}`, method: 'GET', body: undefined },
-  ];
+  // Primary: GET /api/order-details?webOrderId=X (discovered from Angular app network calls)
+  try {
+    const url = `${PA_BASE_URL}/api/order-details?webOrderId=${webOrderId}`;
+    console.log('[PA Detail] GET', url);
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...authHeaders,
+        'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/view-order?webOrderId=${webOrderId}&restaurantId=${session.restaurantId}`,
+      },
+    });
 
-  for (const ep of detailEndpoints) {
-    try {
-      const apiResp = await fetch(ep.url, {
-        method: ep.method,
-        headers: { 
-          ...authHeaders, 
-          'Content-Type': 'application/json',
-          'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/viewOrders?restaurantId=${session.restaurantId}`,
-        },
-        body: ep.body,
-      });
-      
-      const text = await apiResp.text();
-      console.log('[PA Detail] API', ep.url.replace(PA_BASE_URL, ''), '→', apiResp.status, 'len:', text.length, 'preview:', text.substring(0, 300));
-      
-      if (apiResp.ok && text.length > 50) {
-        try {
-          const json = JSON.parse(text);
-          const keys = Object.keys(json);
-          console.log('[PA Detail] JSON keys:', keys.join(', '));
-          
-          // Check all possible data locations
-          const items = json.lineItems || json.items || json.orderLines || json.data?.lineItems || json.data?.items || json.dataList || json.orderDetails || [];
-          if (Array.isArray(items) && items.length > 0) {
-            console.log('[PA Detail] ✅ Found', items.length, 'line items from API');
-            return {
-              webOrderId,
-              deliveryDate: json.deliveryDate || json.delivery_date || null,
-              totalCases: json.totalCases || json.total_cases || json.caseCount || null,
-              totalAmount: json.totalAmount || json.total_amount || json.orderTotal || null,
-              lineItems: items.map((li: any) => ({
-                item_code: String(li.itemCode || li.item_code || li.productCode || li.itemNumber || ''),
-                description: li.description || li.name || li.productName || li.itemName || '',
-                pa_product_id: String(li.paProductId || li.pa_product_id || li.productId || ''),
-                unit_price: parseFloat(li.unitPrice || li.unit_price || li.price || 0),
-                quantity: parseFloat(li.quantity || li.qty || li.caseCount || 0),
-                cost: parseFloat(li.cost || li.total || li.lineTotal || li.extendedPrice || 0),
-              })),
-            };
-          }
-        } catch { /* not JSON */ }
+    const text = await resp.text();
+    console.log('[PA Detail] Response:', resp.status, 'len:', text.length);
+
+    if (resp.ok && text.length > 50) {
+      try {
+        const json = JSON.parse(text);
+        // Response structure: { restaurant, client, distributor, order: { orderId, orderItemList, deliveryDate, orderTotal, ... } }
+        const order = json.order;
+        if (order && Array.isArray(order.orderItemList) && order.orderItemList.length > 0) {
+          console.log('[PA Detail] ✅ Found', order.orderItemList.length, 'line items from REST API');
+          return {
+            webOrderId,
+            deliveryDate: order.deliveryDate || null,
+            totalCases: order.totalQuantity || null,
+            totalAmount: order.orderTotal || null,
+            lineItems: order.orderItemList.map((li: any) => ({
+              item_code: String(li.distributorProductId || li.masterProductCode || ''),
+              description: li.masterProductName || '',
+              pa_product_id: String(li.masterProductId || ''),
+              unit_price: parseFloat(li.pricePerUnit || 0),
+              quantity: parseFloat(li.quantity || 0),
+              cost: parseFloat(li.cost || 0),
+            })),
+          };
+        } else if (order) {
+          console.log('[PA Detail] Order found but no items (empty order):', webOrderId);
+          return {
+            webOrderId,
+            deliveryDate: order.deliveryDate || null,
+            totalCases: order.totalQuantity || null,
+            totalAmount: order.orderTotal || null,
+            lineItems: [],
+          };
+        }
+      } catch (e) {
+        console.warn('[PA Detail] JSON parse error:', e);
       }
-    } catch (e) {
-      console.warn('[PA Detail] API error:', e);
+    } else {
+      console.warn('[PA Detail] Non-OK response:', resp.status, text.substring(0, 300));
+    }
+  } catch (e) {
+    console.error('[PA Detail] REST API error:', e);
     }
   }
 
