@@ -1782,12 +1782,18 @@ async function handleListPendingScrapes(supabase: any, _body: any): Promise<Resp
     weekStart.setDate(pst.getDate() - mondayOffset);
     const weekStartStr = weekStart.toISOString().split('T')[0];
 
-    // Find pa_orders with no items: current week + up to 4 most recent backfill
+    // Find pa_orders with no items: only orders from last 30 days, limit 4
+    // Skip orders older than 30 days to prevent infinite zombie retries
+    const thirtyDaysAgo = new Date(pst);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
+
     const { data: orders } = await supabase
       .from('pa_orders')
       .select('id, pa_order_id, order_date, delivery_date')
       .eq('location_id', integration.location_id)
       .or('items.is.null,items.eq.[]')
+      .gte('order_date', cutoffDate)
       .order('order_date', { ascending: false })
       .limit(4);
 
