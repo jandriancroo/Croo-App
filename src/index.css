@@ -505,8 +505,9 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   }
 
   h1 {
-    font-size: 1.25rem !important;
-    line-height: 1.75rem !important;
+    font-size: 1rem !important;
+    line-height: 1.5rem !important;
+    font-weight: 500 !important;
   }
 
   body {
