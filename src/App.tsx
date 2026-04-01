@@ -57,7 +57,7 @@ const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
 const ForgotPassword = lazyWithRetry(() => import("./pages/ForgotPassword"));
 const MyTimecard = lazyWithRetry(() => import("./pages/MyTimecard"));
 const MyTeam = lazyWithRetry(() => import("./pages/MyTeam"));
-const CompletedStampPreview = lazyWithRetry(() => import("./pages/CompletedStampPreview"));
+
 const OrganizationProfile = lazyWithRetry(() => import("./pages/OrganizationProfile"));
 const BrandManagement = lazyWithRetry(() => import("./pages/BrandManagement"));
 const Hiring = lazyWithRetry(() => import("./pages/Hiring"));
