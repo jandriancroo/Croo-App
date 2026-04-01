@@ -841,7 +841,115 @@ function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
 }
 
 // ============================================================================
-// PRICING — parse weekly pricing from the portal
+// CURRENT PRICES — REST API for full product catalog (Angular order page)
+// POST /api/restaurant-order/current-prices
+// Returns: { records, dataList: [{ masterProductId, masterProductCode,
+//            masterProductName, pricePerCase, distributorProductId, ... }] }
+// ============================================================================
+
+async function fetchCurrentPricesCatalog(session: PASession): Promise<Array<{
+  pa_item_id: string;
+  description: string;
+  pack_size: string | null;
+  category: string | null;
+  unit_price: number | null;
+  master_product_code: string | null;
+  distributor_product_id: string | null;
+}>> {
+  console.log('[PA CurrentPrices] Fetching full catalog via current-prices API, restaurant:', session.restaurantId);
+
+  const authHeaders = getAuthHeaders(session, true);
+  const allItems: Array<{
+    pa_item_id: string;
+    description: string;
+    pack_size: string | null;
+    category: string | null;
+    unit_price: number | null;
+    master_product_code: string | null;
+    distributor_product_id: string | null;
+  }> = [];
+
+  // Tomorrow's date for deliveryDate param (matches browser behavior — order page uses next delivery date)
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const deliveryDate = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
+
+  let offset = 0;
+  const limit = 100; // fetch more per page to minimize calls
+  let totalRecords = Infinity;
+
+  while (offset < totalRecords) {
+    const postBody = JSON.stringify({
+      deliveryDate,
+      filters: null,
+      sortByField: null,
+      orderBy: null,
+      limit,
+      offset,
+    });
+
+    try {
+      const resp = await fetch(`${PA_BASE_URL}/api/restaurant-order/current-prices`, {
+        method: 'POST',
+        headers: {
+          ...authHeaders,
+          'Content-Type': 'application/json',
+          'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/restaurant-order/restaurant-order-selection?deliveryDate=${encodeURIComponent(deliveryDate)}&restRef=`,
+        },
+        body: postBody,
+      });
+
+      const text = await resp.text();
+      console.log(`[PA CurrentPrices] offset=${offset} → ${resp.status}, ${text.length} chars`);
+
+      if (!resp.ok || text.length < 10) {
+        console.warn('[PA CurrentPrices] Non-OK response:', resp.status, text.substring(0, 300));
+        break;
+      }
+
+      const json = JSON.parse(text);
+      totalRecords = json.records || 0;
+      const dataList = json.dataList || [];
+
+      console.log(`[PA CurrentPrices] records=${totalRecords}, dataList=${dataList.length} items at offset=${offset}`);
+
+      for (const item of dataList) {
+        const name = item.masterProductName || '';
+        if (!name) continue;
+
+        const parsedPack = parsePackFromName(name);
+
+        allItems.push({
+          pa_item_id: String(item.masterProductId || ''),
+          description: name,
+          pack_size: parsedPack.packSize,
+          category: 'Produce',
+          unit_price: item.pricePerCase != null ? Number(item.pricePerCase) : null,
+          master_product_code: item.masterProductCode || null,
+          distributor_product_id: item.distributorProductId || null,
+        });
+      }
+
+      offset += dataList.length;
+
+      // Safety: if we got fewer items than limit, we've reached the end
+      if (dataList.length < limit) break;
+
+      // Brief pause between pages
+      if (offset < totalRecords) await new Promise(r => setTimeout(r, 200));
+    } catch (e) {
+      console.error('[PA CurrentPrices] Error at offset', offset, ':', e);
+      break;
+    }
+  }
+
+  console.log(`[PA CurrentPrices] ✅ Total: ${allItems.length} items fetched`);
+  return allItems;
+}
+
+// ============================================================================
+// PRICING — parse weekly pricing from the portal (LEGACY — replaced by current-prices)
 // ============================================================================
 
 async function fetchPAPricing(session: PASession): Promise<any[]> {
@@ -1196,33 +1304,33 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     return jsonResponse({ success: false, error: 'PA login failed' });
   }
 
-  // Fetch recent orders to get latest items and prices
+  // ── PRIMARY: Use current-prices REST API for full catalog with prices ──
+  const catalogItems = await fetchCurrentPricesCatalog(session);
+  
+  // Convert catalog items to PALineItem format for the sync logic below
+  const allItems = new Map<string, PALineItem>();
+  for (const ci of catalogItems) {
+    if (!ci.pa_item_id) continue;
+    allItems.set(ci.pa_item_id, {
+      item_code: ci.distributor_product_id || ci.master_product_code || '',
+      description: ci.description,
+      pa_product_id: ci.pa_item_id,
+      unit_price: ci.unit_price || 0,
+      quantity: 0,
+      cost: 0,
+    });
+  }
+
+  // Also fetch recent orders for persistence (COGS reconciliation)
   const now = new Date();
   const pad2 = (n: number) => String(n).padStart(2, '0');
   const startDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`;
   const endDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   
   const orderList = await fetchOrderList(session, startDate, endDate);
+  let ordersProcessed = orderList.length;
   
-  // Fetch details for recent orders
-  const allItems = new Map<string, PALineItem>();
-  let ordersProcessed = 0;
-  
-  for (const order of orderList.slice(0, 5)) {
-   const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate, credentials);
-    if (detail && detail.lineItems.length > 0) {
-      for (const li of detail.lineItems) {
-        allItems.set(li.pa_product_id || li.item_code, li);
-      }
-      ordersProcessed++;
-      await new Promise(r => setTimeout(r, 300));
-    }
-  }
-
-  // Also try pricing
-  const pricing = await fetchPAPricing(session);
-  
-  console.log('[PA Sync] Got', allItems.size, 'unique items from', ordersProcessed, 'orders,', pricing.length, 'from pricing');
+  console.log('[PA Sync] Got', allItems.size, 'items from current-prices API,', orderList.length, 'orders');
 
   // Persist orders to pa_orders from summary data (even without line items)
   // This ensures they show up in the Order Reconciliation Picker for COGS
@@ -1256,8 +1364,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   }
   console.log('[PA Sync] Persisted', ordersPersisted, 'orders to pa_orders');
 
-  if (allItems.size === 0 && pricing.length === 0) {
-    await updateSyncLog(supabase, syncLogId, 'completed', 0, ordersPersisted, [], { message: ordersPersisted > 0 ? `${ordersPersisted} orders saved (no line items available)` : 'No items found' });
+  if (allItems.size === 0) {
+    await updateSyncLog(supabase, syncLogId, 'completed', 0, ordersPersisted, [], { message: ordersPersisted > 0 ? `${ordersPersisted} orders saved (no items from current-prices API)` : 'No items found' });
     return jsonResponse({ success: true, message: ordersPersisted > 0 ? `${ordersPersisted} orders saved` : 'No items found', synced: 0, ordersPersisted });
   }
 
@@ -2280,7 +2388,20 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
 
   let items: any[] = [];
 
-  // ── PRIMARY: JSP page (PROVEN WORKING — returns 170KB HTML with full product table) ──
+  // ── PRIMARY: current-prices REST API (clean JSON, no scraping needed) ──
+  console.log(`[PA Catalog Live] Trying current-prices REST API...`);
+  try {
+    const catalogItems = await fetchCurrentPricesCatalog(session);
+    if (catalogItems.length > 0) {
+      items = catalogItems;
+      console.log(`[PA Catalog Live] ✅ current-prices API returned ${items.length} items`);
+    }
+  } catch (e) {
+    console.warn('[PA Catalog Live] current-prices API error:', e);
+  }
+
+  // ── FALLBACK 1: JSP page (legacy — slower, requires HTML parsing) ──
+  if (items.length === 0) {
   const weeklyUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`;
   console.log(`[PA Catalog Live] Trying Weekly Prices JSP page...`);
   try {
@@ -2307,6 +2428,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   } catch (e) {
     console.warn('[PA Catalog Live] Weekly Prices JSP error:', e);
   }
+  } // end FALLBACK 1: JSP
 
   // ── ATTEMPT 2: download-sheet API ──
   if (items.length === 0) {
@@ -2376,7 +2498,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
       try {
         const resp = await fetch(ep.url, {
           method: ep.method,
-          headers: ep.body ? { ...authHeaders, 'Content-Type': 'application/json' } : authHeaders,
+          headers: ep.body ? { ...getAuthHeaders(session, true), 'Content-Type': 'application/json' } : getAuthHeaders(session),
           body: ep.body,
         });
         const text = await resp.text();
