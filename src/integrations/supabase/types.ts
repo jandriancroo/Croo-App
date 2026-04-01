@@ -2602,6 +2602,7 @@ export type Database = {
           notes: string | null
           period_end_date: string | null
           period_type: string | null
+          sales_end_override: string | null
           started_at: string
           status: string
         }
@@ -2619,6 +2620,7 @@ export type Database = {
           notes?: string | null
           period_end_date?: string | null
           period_type?: string | null
+          sales_end_override?: string | null
           started_at?: string
           status?: string
         }
@@ -2636,6 +2638,7 @@ export type Database = {
           notes?: string | null
           period_end_date?: string | null
           period_type?: string | null
+          sales_end_override?: string | null
           started_at?: string
           status?: string
         }
