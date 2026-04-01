@@ -2069,6 +2069,7 @@ serve(async (req) => {
       case 'probe_catalog': return await handleProbeCatalog(supabase, body);
       case 'list_catalog_locations': return await handleListCatalogLocations(supabase, body);
       case 'save_catalog': return await handleSaveCatalog(supabase, body);
+      case 'scrape_catalog_live': return await handleScrapeCatalogLive(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
