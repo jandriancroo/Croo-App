@@ -211,42 +211,6 @@ const InventoryCount = () => {
     }
   };
 
-  // Helper to format period label
-  const formatPeriodLabel = (count: any) => {
-    if (!count?.period_type || !count?.period_end_date) {
-      return count?.count_date ? format(new Date(count.count_date), "MMM d, yyyy") : "";
-    }
-    let effectiveEnd = count.period_end_date;
-    
-    // Monthly close safeguard: if counted in first 2 days of a new month (before 10am),
-    // use the prior month for label
-    if (count.period_type === "monthly" && count.status === "completed" && count.completed_at) {
-      const countedAt = new Date(count.completed_at);
-      const localDay = countedAt.getDate();
-      const localHour = countedAt.getHours();
-      if (localDay <= 2) {
-        let inferredEnd = format(countedAt, "yyyy-MM-dd");
-        if (localHour < 10) {
-          inferredEnd = format(subDays(new Date(inferredEnd + "T12:00:00"), 1), "yyyy-MM-dd");
-        }
-        if (inferredEnd < effectiveEnd) {
-          effectiveEnd = inferredEnd;
-        }
-      }
-    }
-
-    const endDate = new Date(effectiveEnd + 'T12:00:00');
-    switch (count.period_type) {
-      case "weekly":
-        return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
-      case "monthly":
-        return `${format(endDate, "MMMM yyyy")} Month End`;
-      case "yearly":
-        return `${format(endDate, "yyyy")} Year End`;
-      default:
-        return format(new Date(count.count_date), "MMM d, yyyy");
-    }
-  };
 
   if (isLoading) {
     return (
