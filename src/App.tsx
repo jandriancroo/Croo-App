@@ -143,7 +143,7 @@ const AppContent = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/landing" element={<Index />} />
-        <Route path="/stamp-preview" element={<CompletedStampPreview />} />
+        
         <Route path="/install" element={<InstallGuide />} />
         <Route path="/apply/:orgSlug" element={<PublicApplication />} />
         <Route path="/qr/:qrCode" element={<QRQuickTaskReport />} />
