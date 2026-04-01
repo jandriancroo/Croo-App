@@ -22,7 +22,8 @@ interface OrderReconciliationPickerProps {
 
 interface VendorOrder {
   id: string;
-  vendor: "PFG" | "PA";
+  vendor: "PFG" | "PA" | "INV";
+  vendorName?: string;
   orderId: string;
   orderDate: string;
   deliveryDate: string;
