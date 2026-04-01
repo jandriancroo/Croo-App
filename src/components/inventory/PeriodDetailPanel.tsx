@@ -1050,7 +1050,3 @@ function DailySpotChecksGrid({
   );
 }
 
-// ——— Helpers ———
-
-// Re-export from shared utility for use in this file
-import { formatPeriodLabel } from "@/utils/periodLabelUtils";
