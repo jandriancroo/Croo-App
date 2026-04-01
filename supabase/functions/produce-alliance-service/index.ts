@@ -2389,40 +2389,40 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
 
   // Attempt 3: Extract full product list from order history (PROVEN WORKING approach)
   // The order sync works perfectly — so we can use 6 months of orders to build the catalog
+  // Attempt 3: Build catalog from EXISTING pa_orders data in database
+  // The order sync already stores line items — no need to re-scrape
   if (items.length === 0) {
-    console.log(`[PA Catalog Live] All API endpoints failed. Building catalog from order history (6 months)...`);
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const sixMonthsAgo = new Date(now.getTime() - 180 * 86400000);
-    const startDate = `${sixMonthsAgo.getFullYear()}-${pad(sixMonthsAgo.getMonth() + 1)}-${pad(sixMonthsAgo.getDate())}`;
-    const endDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    console.log(`[PA Catalog Live] All API endpoints failed. Building catalog from existing pa_orders data...`);
+    
+    const { data: orders } = await supabase
+      .from('pa_orders')
+      .select('items')
+      .eq('location_id', locationId)
+      .not('items', 'eq', '[]')
+      .order('order_date', { ascending: false })
+      .limit(100);
 
-    const orders = await fetchOrderList(session, startDate, endDate);
-    console.log(`[PA Catalog Live] Found ${orders.length} orders in 6-month window`);
-
-    const productMap = new Map<string, any>();
-    const maxOrders = Math.min(orders.length, 20);
-    for (let i = 0; i < maxOrders; i++) {
-      const detail = await fetchOrderDetail(session, orders[i].webOrderId, startDate, endDate, credentials);
-      if (detail?.lineItems?.length) {
-        for (const li of detail.lineItems) {
-          const id = li.pa_product_id || li.item_code;
-          if (id && !productMap.has(id)) {
-            const parsedPack = parsePackFromName(li.description);
+    if (orders?.length) {
+      const productMap = new Map<string, any>();
+      for (const order of orders) {
+        const orderItems = Array.isArray(order.items) ? order.items : [];
+        for (const li of orderItems) {
+          const id = li.pa_product_id || li.item_code || '';
+          if (id && !productMap.has(id) && li.name) {
+            const parsedPack = parsePackFromName(li.name);
             productMap.set(id, {
               pa_item_id: id,
-              description: li.description,
-              pack_size: parsedPack.packSize,
+              description: li.name,
+              pack_size: parsedPack.packSize || li.pack_size || null,
               category: 'Produce',
-              unit_price: li.unit_price > 0 ? li.unit_price : null,
+              unit_price: parseFloat(li.price || 0) || null,
             });
           }
         }
       }
-      if (i < maxOrders - 1) await new Promise(r => setTimeout(r, 200));
+      items = Array.from(productMap.values());
+      console.log(`[PA Catalog Live] Built catalog from ${orders.length} existing orders: ${items.length} unique items`);
     }
-    items = Array.from(productMap.values());
-    console.log(`[PA Catalog Live] Built catalog from orders: ${items.length} unique items from ${maxOrders} orders`);
   }
 
   // ── FALLBACK: Try GET-based download endpoints ──
