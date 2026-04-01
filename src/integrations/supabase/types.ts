@@ -7478,6 +7478,132 @@ export type Database = {
           },
         ]
       }
+      vendor_invoice_items: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_id: string
+          item_number: string | null
+          match_status: string
+          matched_item_id: string | null
+          matched_template_id: string | null
+          product_name: string
+          quantity: number | null
+          total_price: number | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id: string
+          item_number?: string | null
+          match_status?: string
+          matched_item_id?: string | null
+          matched_template_id?: string | null
+          product_name: string
+          quantity?: number | null
+          total_price?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          item_number?: string | null
+          match_status?: string
+          matched_item_id?: string | null
+          matched_template_id?: string | null
+          product_name?: string
+          quantity?: number | null
+          total_price?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_invoice_items_matched_item_id_fkey"
+            columns: ["matched_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_invoice_items_matched_template_id_fkey"
+            columns: ["matched_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_invoices: {
+        Row: {
+          created_at: string
+          delivery_date: string | null
+          id: string
+          image_url: string | null
+          inventory_count_id: string | null
+          invoice_date: string | null
+          invoice_number: string | null
+          location_id: string
+          parsed_at: string | null
+          status: string
+          total_amount: number | null
+          updated_at: string
+          uploaded_by: string | null
+          vendor_name: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          image_url?: string | null
+          inventory_count_id?: string | null
+          invoice_date?: string | null
+          invoice_number?: string | null
+          location_id: string
+          parsed_at?: string | null
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+          vendor_name: string
+        }
+        Update: {
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          image_url?: string | null
+          inventory_count_id?: string | null
+          invoice_date?: string | null
+          invoice_number?: string | null
+          location_id?: string
+          parsed_at?: string | null
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+          vendor_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_invoices_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wage_history: {
         Row: {
           created_at: string | null
