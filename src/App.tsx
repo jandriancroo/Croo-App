@@ -82,27 +82,6 @@ const QRQuickTaskReport = lazyWithRetry(() => import("./pages/QRQuickTaskReport"
 const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboardCustomizer"));
-const DockStylePreview = lazyWithRetry(() => import("./pages/DockStylePreview"));
-const DesignStylePreview = lazyWithRetry(() => import("./pages/DesignStylePreview"));
-const HeaderStylePreview = lazyWithRetry(() => import("./pages/HeaderStylePreview"));
-const AvailabilityRequestPreview = lazyWithRetry(() => import("./pages/AvailabilityRequestPreview"));
-const VisionOSPreview = lazyWithRetry(() => import("./pages/VisionOSPreview"));
-const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
-const SalesDesignPreview = lazyWithRetry(() => import("./pages/SalesDesignPreview"));
-const SalesPreviewVariations = lazyWithRetry(() => import("./pages/SalesPreviewVariations"));
-const TabStylePreview = lazyWithRetry(() => import("./pages/TabStylePreview"));
-const ChatListPreview = lazyWithRetry(() => import("./pages/ChatListPreview"));
-const InventoryCardPreview = lazyWithRetry(() => import("./pages/InventoryCardPreview"));
-const InventoryRedesignPreview = lazyWithRetry(() => import("./pages/InventoryRedesignPreview"));
-const InventoryCountUIPreview = lazyWithRetry(() => import("./pages/InventoryCountUIPreview"));
-const ChecklistCardPreview = lazyWithRetry(() => import("./pages/ChecklistCardPreview"));
-const ChecklistStylePreview = lazyWithRetry(() => import("./pages/ChecklistStylePreview"));
-const LocationSwitchPreview = lazyWithRetry(() => import("./pages/LocationSwitchPreview"));
-const TimelineStylePreview = lazyWithRetry(() => import("./pages/TimelineStylePreview"));
-const SchedulePreview = lazyWithRetry(() => import("./pages/SchedulePreview"));
-const DashboardStylePreview = lazyWithRetry(() => import("./pages/DashboardStylePreview"));
-const CountTabPreview = lazyWithRetry(() => import("./pages/CountTabPreview"));
-const LocationPickerPreview = lazyWithRetry(() => import("./pages/LocationPickerPreview"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
 
 const queryClient = new QueryClient();
