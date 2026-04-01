@@ -492,15 +492,15 @@ async function scrapeCatalogFallback(page, { restaurantId }) {
   const url = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${restaurantId}`;
   console.log(`   📦 Fallback: Loading order sort page...`);
 
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
   try {
-    await page.waitForSelector('table td', { timeout: 15000 });
+    await page.waitForSelector('table td', { timeout: 8000 });
   } catch {
     return [];
   }
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(500);
 
   const items = await page.evaluate(() => {
     const results = [];
