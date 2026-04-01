@@ -391,23 +391,22 @@ async function scrapeCatalog(page, { restaurantId }) {
   const url = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restaurantId}`;
   console.log(`   📦 Loading weekly prices report...`);
 
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
   // Wait for the table to render
   try {
-    await page.waitForSelector('table td', { timeout: 20000 });
+    await page.waitForSelector('table td', { timeout: 10000 });
   } catch {
     console.log(`   ⚠️ No table rendered on weekly prices page, trying fallback...`);
     const content = await page.content();
     if (content.includes('Sign in') || content.includes('j_security_check')) {
       throw new Error('Session expired — got login page');
     }
-    // Fallback to restaurantOrderSort.jsp
     return await scrapeCatalogFallback(page, { restaurantId });
   }
 
-  // Wait for full render
-  await page.waitForTimeout(3000);
+  // Brief pause for any late-rendering cells
+  await page.waitForTimeout(500);
 
   const items = await page.evaluate(() => {
     const results = [];
@@ -493,15 +492,15 @@ async function scrapeCatalogFallback(page, { restaurantId }) {
   const url = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${restaurantId}`;
   console.log(`   📦 Fallback: Loading order sort page...`);
 
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
   try {
-    await page.waitForSelector('table td', { timeout: 15000 });
+    await page.waitForSelector('table td', { timeout: 8000 });
   } catch {
     return [];
   }
 
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(500);
 
   const items = await page.evaluate(() => {
     const results = [];
@@ -575,8 +574,7 @@ async function processCatalogLocation(browser, location) {
     }, restaurantId);
 
     // Navigate to ProduceAlliance.jsp first to establish JSP session
-    await page.goto(`${PA_BASE_URL}/ProduceAlliance.jsp`, { waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1000);
+    await page.goto(`${PA_BASE_URL}/ProduceAlliance.jsp`, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
 
     const items = await scrapeCatalog(page, { restaurantId });
 
@@ -629,7 +627,7 @@ async function main() {
       for (const loc of catalogLocations) {
         const result = await processCatalogLocation(browser, loc);
         console.log(`   ${result.success ? '✅' : '❌'} ${loc.locationId}: ${result.items} items`);
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, 1000));
       }
     } else {
       console.log('ℹ️ No PA locations configured.');
