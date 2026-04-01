@@ -504,6 +504,10 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     }
   }
 
+  h1 {
+    @apply text-xl;
+  }
+
   body {
     @apply bg-background text-foreground font-manrope;
     font-weight: 500;
