@@ -418,6 +418,7 @@ export function MobileScheduleView({
     refetchInterval: 120 * 1000,
   });
 
+
   // Get week label relative to current week (using timezone-aware calculation)
   const getWeekLabel = useCallback(() => {
     // Use timezone-aware "today" to determine "this week"
@@ -478,6 +479,112 @@ export function MobileScheduleView({
   // Use shift_date as source of truth (matches EmployeeRow.tsx fix)
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const isSelectedDateToday = selectedDateStr === todayStr;
+  const isPastDate = selectedDateStr && todayStr && selectedDateStr < todayStr;
+
+  // Fetch punch data for past selected dates
+  const { data: pastDatePunches = [] } = useQuery({
+    queryKey: ['past-date-punches', currentLocation?.id, selectedDateStr],
+    queryFn: async (): Promise<DayPunch[]> => {
+      if (!currentLocation?.id || !timezone || !selectedDateStr) return [];
+
+      const startOfDay = parseDateStringInTimezone(selectedDateStr, timezone);
+      const startMinus = new Date(startOfDay);
+      startMinus.setHours(startMinus.getHours() - 12);
+      const endOfDay = getEndOfDateStringInTimezone(selectedDateStr, timezone);
+      const endPlus = new Date(endOfDay);
+      endPlus.setHours(endPlus.getHours() + 12);
+
+      const punchesRes = await supabase
+        .from('time_punches')
+        .select('id, user_id, punch_time, punch_type, notes, created_by')
+        .eq('location_id', currentLocation.id)
+        .gte('punch_time', startMinus.toISOString())
+        .lte('punch_time', endPlus.toISOString())
+        .order('punch_time', { ascending: true });
+
+      const allPunches = punchesRes.data || [];
+      if (allPunches.length === 0) return [];
+
+      const punchUserIds = [...new Set(allPunches.map(p => p.user_id))];
+      const createdByIds = [...new Set(allPunches.filter(p => p.created_by && p.created_by !== p.user_id).map(p => p.created_by!))] as string[];
+
+      const [profilesRes, creatorRes, scheduledRes] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', punchUserIds),
+        createdByIds.length > 0
+          ? supabase.from('profiles').select('id, full_name, nickname').in('id', createdByIds)
+          : Promise.resolve({ data: [] as { id: string; full_name: string; nickname: string | null }[] }),
+        supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, day_of_week, shift_date').eq('shift_date', selectedDateStr),
+      ]);
+
+      const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p]));
+      const creatorMap = new Map((creatorRes.data || []).map(p => [p.id, p.full_name]));
+      const scheduledShifts = (scheduledRes.data || []) as { id: string; user_id: string; start_time: string; end_time: string; day_of_week: number; shift_date: string }[];
+
+      const userPunches: Record<string, typeof allPunches> = {};
+      allPunches.forEach(p => {
+        if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
+        userPunches[p.user_id].push(p);
+      });
+
+      const summaries: DayPunch[] = [];
+      Object.entries(userPunches).forEach(([userId, punches]) => {
+        const clockIns = punches.filter(p => p.punch_type === 'clock_in');
+        const clockOuts = punches.filter(p => p.punch_type === 'clock_out');
+        const breakStarts = punches.filter(p => p.punch_type === 'break_start');
+        const breakEnds = punches.filter(p => p.punch_type === 'break_end');
+
+        const firstClockIn = clockIns[0];
+        if (!firstClockIn) return;
+
+        const clockInLocalDate = new Date(firstClockIn.punch_time).toLocaleDateString('en-CA', { timeZone: timezone });
+        if (clockInLocalDate !== selectedDateStr) return;
+
+        const clockOut = clockOuts[clockOuts.length - 1];
+        const breakStart = breakStarts[0];
+        const breakEnd = breakEnds[0];
+
+        const clockInMs = new Date(firstClockIn.punch_time).getTime();
+        const endMs = clockOut ? new Date(clockOut.punch_time).getTime() : clockInMs;
+        let breakMs = 0;
+        if (breakStart && breakEnd) {
+          breakMs = new Date(breakEnd.punch_time).getTime() - new Date(breakStart.punch_time).getTime();
+        }
+        const hoursWorked = Math.max(0, (endMs - clockInMs - breakMs) / 3600000);
+
+        const profile = profileMap.get(userId);
+        const scheduledShift = scheduledShifts.find(s => s.user_id === userId);
+        const createdByOther = firstClockIn.created_by && firstClockIn.created_by !== userId;
+        const createdByName = createdByOther ? creatorMap.get(firstClockIn.created_by!) || null : null;
+
+        summaries.push({
+          id: firstClockIn.id,
+          user_id: userId,
+          clockInTime: firstClockIn.punch_time,
+          clockOutTime: clockOut?.punch_time || null,
+          breakStartTime: breakStart?.punch_time || null,
+          breakEndTime: breakEnd?.punch_time || null,
+          breakType: breakStart?.notes || null,
+          isActive: false,
+          isOnBreak: false,
+          profile: profile || { id: userId, full_name: 'Unknown', nickname: null, profile_photo_url: null },
+          hoursWorked,
+          createdByName,
+          scheduledShift: scheduledShift ? {
+            id: scheduledShift.id,
+            start_time: scheduledShift.start_time,
+            end_time: scheduledShift.end_time,
+            day_of_week: scheduledShift.day_of_week,
+            shift_date: scheduledShift.shift_date,
+          } : null,
+        });
+      });
+
+      summaries.sort((a, b) => new Date(a.clockInTime).getTime() - new Date(b.clockInTime).getTime());
+      return summaries;
+    },
+    enabled: !!currentLocation?.id && !!timezone && !!isPastDate,
+    staleTime: 5 * 60 * 1000,
+  });
 
   if (import.meta.env.DEV) {
     console.info('[MobileScheduleView]', {
@@ -1159,8 +1266,91 @@ export function MobileScheduleView({
                     </Card>
                   </>
                 );
-              })()) : (
-                /* Past/Future days — show all scheduled shifts, no punch tracking */
+              })()) : isPastDate && pastDatePunches.length > 0 ? (
+                /* Past days with punch data — show completed-style cards */
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                    {`Completed (${pastDatePunches.length})`}
+                    <div className="flex items-center gap-1 ml-auto">
+                      {(isAdmin || isManager) && scheduleId && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
+                          <CalendarPlus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </h4>
+                  {pastDatePunches.map(punch => (
+                    <MobileShiftCard
+                      key={punch.id}
+                      name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                      avatarUrl={punch.profile.profile_photo_url}
+                      startTime={punch.scheduledShift?.start_time || '00:00'}
+                      endTime={punch.scheduledShift?.end_time || '00:00'}
+                      statusIndicator="none"
+                      scheduledStart={punch.scheduledShift?.start_time}
+                      scheduledEnd={punch.scheduledShift?.end_time}
+                      clockInTime={punch.clockInTime}
+                      clockOutTime={punch.clockOutTime}
+                      breakStartTime={punch.breakStartTime}
+                      breakEndTime={punch.breakEndTime}
+                      hoursWorked={punch.hoursWorked}
+                      createdByName={punch.createdByName}
+                      timezone={timezone}
+                      formatTimeDisplay={formatTimeDisplay}
+                      showBreakIndicator={false}
+                      onClick={() => {
+                        setSelectedPunch({
+                          userId: punch.user_id,
+                          userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                          userPhoto: punch.profile.profile_photo_url,
+                          punchDate: selectedDateStr
+                        });
+                        setEditPunchOpen(true);
+                      }}
+                    />
+                  ))}
+                  {/* Show scheduled shifts without punches */}
+                  {(() => {
+                    const unpunchedShifts = dayShifts.filter(s => {
+                      const profile = getProfileForShift(s);
+                      return profile && !pastDatePunches.some(p => p.user_id === s.user_id);
+                    });
+                    if (unpunchedShifts.length === 0) return null;
+                    return (
+                      <>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-2">
+                          No Punches ({unpunchedShifts.length})
+                        </h4>
+                        {unpunchedShifts.sort((a, b) => a.start_time.localeCompare(b.start_time)).map(shift => {
+                          const profile = getProfileForShift(shift);
+                          if (!profile) return null;
+                          const shiftLabel = getShiftLabel(shift);
+                          return (
+                            <MobileShiftCard
+                              key={shift.id}
+                              name={getDisplayName(profile.full_name, (profile as any).nickname)}
+                              avatarUrl={profile.profile_photo_url}
+                              startTime={shift.start_time}
+                              endTime={shift.end_time}
+                              accentColor={shift.template?.color}
+                              isPublished={isShiftPublished(shift)}
+                              positionLabel={shiftLabel}
+                              positionColor={shift.template?.color}
+                              onClick={() => {
+                                if (isAdmin || isManager) {
+                                  setSelectedShift(shift);
+                                  setShiftDialogOpen(true);
+                                }
+                              }}
+                            />
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : (
+                /* Future days or past without punches — show all scheduled shifts */
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                     Scheduled
