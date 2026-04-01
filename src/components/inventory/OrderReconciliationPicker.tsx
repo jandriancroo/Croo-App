@@ -70,13 +70,13 @@ export default function OrderReconciliationPicker({
           .gte("delivery_date", windowStart)
           .lte("delivery_date", windowEnd)
           .order("order_date", { ascending: true }),
+        // Fetch vendor invoices in date range OR already bound to this count
         supabase
           .from("vendor_invoices")
           .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
           .eq("location_id", locationId)
           .eq("status", "parsed")
-          .gte("delivery_date", windowStart)
-          .lte("delivery_date", windowEnd)
+          .or(`and(delivery_date.gte.${windowStart},delivery_date.lte.${windowEnd}),and(invoice_date.gte.${windowStart},invoice_date.lte.${windowEnd}),inventory_count_id.eq.${countId}`)
           .order("delivery_date", { ascending: true }),
       ]);
 

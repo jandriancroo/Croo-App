@@ -154,11 +154,14 @@ Return ONLY valid JSON, no markdown.`,
     console.log("Parsed invoice:", JSON.stringify(parsed).slice(0, 500));
 
     // Update invoice metadata
+    // Use delivery_date from AI, falling back to invoice_date so the order is discoverable by date
+    const effectiveDeliveryDate = parsed.delivery_date || parsed.invoice_date || null;
+
     await admin.from("vendor_invoices").update({
       vendor_name: parsed.vendor_name || invoice.vendor_name,
       invoice_number: parsed.invoice_number || invoice.invoice_number,
       invoice_date: parsed.invoice_date || null,
-      delivery_date: parsed.delivery_date || null,
+      delivery_date: effectiveDeliveryDate,
       total_amount: parsed.total_amount || null,
       parsed_at: new Date().toISOString(),
       status: "parsed",
