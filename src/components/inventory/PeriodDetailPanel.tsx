@@ -1052,36 +1052,5 @@ function DailySpotChecksGrid({
 
 // ——— Helpers ———
 
-function formatPeriodLabel(count: any): string {
-  if (!count.period_type || !count.period_end_date) {
-    return format(new Date(count.count_date + "T12:00:00"), "MMM d, yyyy");
-  }
-  let effectiveEnd = count.period_end_date;
-  
-  // Monthly close safeguard: if counted in first 2 days of a new month (before 10am),
-  // use the prior month for label instead of the stored period_end_date
-  if (count.period_type === "monthly" && count.status === "completed" && count.counted_at) {
-    const countedAt = new Date(count.counted_at);
-    const localDay = countedAt.getDate();
-    const localHour = countedAt.getHours();
-    if (localDay <= 2) {
-      let inferredEnd = format(countedAt, "yyyy-MM-dd");
-      if (localHour < 10) {
-        inferredEnd = format(subDays(new Date(inferredEnd + "T12:00:00"), 1), "yyyy-MM-dd");
-      }
-      if (inferredEnd < effectiveEnd) {
-        effectiveEnd = inferredEnd;
-      }
-    }
-  }
-
-  const endDate = new Date(effectiveEnd + "T12:00:00");
-  switch (count.period_type) {
-    case "weekly":
-      return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
-    case "monthly":
-      return `${format(endDate, "MMMM yyyy")} Month End`;
-    default:
-      return format(new Date(count.count_date + "T12:00:00"), "MMM d, yyyy");
-  }
-}
+// Re-export from shared utility for use in this file
+import { formatPeriodLabel } from "@/utils/periodLabelUtils";
