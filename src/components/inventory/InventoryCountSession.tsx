@@ -246,6 +246,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const splitKey = `${item.id}|${locId || ''}`;
           const countData = countMap.get(splitKey) || (locIds.length === 1 ? simpleCountMap.get(item.id) : undefined);
           
+          // Determine sort order: shortcuts use junction display_order, primaries use item display_order
+          const isPrimaryLoc = locId === primaryLoc;
+          const sortOrder = isPrimaryLoc
+            ? ((item as any).display_order ?? 9999)
+            : (junctionOrderMap.get(`${item.id}|${locId}`) ?? 9999);
+
           result.push({
             item_id: item.id,
             item_name: (item as any).common_name || item.name,
@@ -271,7 +277,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             _existingUnits: countData?.entered_units ?? null,
             _countItemId: countData?.countItemId || null,
             _splitKey: splitKey,
-          });
+            _sortOrder: sortOrder,
+          } as any);
         }
       }
 
