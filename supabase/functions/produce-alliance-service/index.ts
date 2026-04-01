@@ -632,8 +632,6 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
     }
   } catch (e) {
     console.error('[PA Detail] REST API error:', e);
-    }
-  }
   }
 
   // Fallback: JSP scraping if REST API fails
