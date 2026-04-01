@@ -46,6 +46,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
   const { isManager, isAdmin } = useUserRole();
   const canManageOrders = isManager || isAdmin;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
+  const [showInvoiceUpload, setShowInvoiceUpload] = useState(false);
   const [realCountId, setRealCountId] = useState<string | null>(null);
   const [creatingCount, setCreatingCount] = useState(false);
   const hasCountedItems = (_stats.countedItems || 0) > 0;
