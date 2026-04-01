@@ -169,25 +169,37 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
           .map(t => ({ itemNumber: t.item_number!, name: t.product_name }));
       }
 
-      // --- PA Scan ---
+      // --- PA Scan (live catalog scrape) ---
       if (brandLocationIds.length > 0) {
-        const { data: paOrders } = await supabase
-          .from('produce_alliance_orders' as any)
-          .select('items')
-          .in('location_id', brandLocationIds)
-          .not('items', 'is', null)
-          .order('delivery_date', { ascending: false })
-          .limit(30);
+        // Trigger live catalog scrape for each PA location
+        for (const locId of brandLocationIds) {
+          try {
+            toast.info('Scraping PA catalog...', { id: 'pa-scrape' });
+            const { data: scrapeResult } = await supabase.functions.invoke('produce-alliance-service', {
+              body: { action: 'scrape_catalog_live', locationId: locId },
+            });
+            if (scrapeResult?.saved > 0) {
+              console.log(`[VendorGap] PA catalog scraped: ${scrapeResult.saved} items for ${locId}`);
+            }
+          } catch (e) {
+            console.warn(`[VendorGap] PA catalog scrape failed for ${locId}:`, e);
+          }
+        }
+        toast.dismiss('pa-scrape');
 
+        // Now query pa_catalog_items for gap analysis
         const seenPaItems = new Map<string, any>();
-        for (const order of (paOrders || []) as any[]) {
-          const items = order.items as any[];
-          if (!Array.isArray(items)) continue;
-          for (const item of items) {
-            const paId = String(item.itemId || item.item_id || '').trim();
+
+        for (const locId of brandLocationIds) {
+          const { data: catalogItems } = await supabase
+            .from('pa_catalog_items' as any)
+            .select('pa_item_id, description, pack_size, category, unit_price')
+            .eq('location_id', locId);
+
+          for (const item of (catalogItems || []) as any[]) {
+            const paId = String(item.pa_item_id || '').trim();
             if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
-            // Also check by name
-            const itemName = (item.description || item.name || '').toLowerCase();
+            const itemName = (item.description || '').toLowerCase();
             if (itemName && existingNames.has(itemName)) continue;
             seenPaItems.set(paId, item);
           }
@@ -195,12 +207,12 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
 
         const paOutliers: OutlierItem[] = Array.from(seenPaItems.entries()).map(([paId, item]) => ({
           itemNumber: paId,
-          name: item.description || item.name || paId,
-          fullDescription: item.description || item.name || paId,
+          name: item.description || paId,
+          fullDescription: item.description || paId,
           brand: '',
-          packSize: item.packSize || item.pack_size || '',
+          packSize: item.pack_size || '',
           categoryName: item.category || 'Produce',
-          price: item.price || item.unitPrice || null,
+          price: item.unit_price || null,
           vendorSource: 'pa' as const,
         }));
 
