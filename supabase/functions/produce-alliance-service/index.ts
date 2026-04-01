@@ -2428,6 +2428,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   } catch (e) {
     console.warn('[PA Catalog Live] Weekly Prices JSP error:', e);
   }
+  } // end FALLBACK 1: JSP
 
   // ── ATTEMPT 2: download-sheet API ──
   if (items.length === 0) {
