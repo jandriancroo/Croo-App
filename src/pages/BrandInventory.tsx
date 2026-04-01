@@ -707,7 +707,7 @@ function EditTemplateForm({
 }) {
   const [name, setName] = useState(template.product_name || '');
   const [category, setCategory] = useState(template.category || '');
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  
 
   return (
     <div className="space-y-4">
