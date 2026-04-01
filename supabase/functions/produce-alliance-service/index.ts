@@ -2484,81 +2484,17 @@ async function handleScrapeAllCatalogs(supabase: any, _body: any): Promise<Respo
     const locationId = integration.location_id;
     console.log(`[PA Catalog All] Processing location ${locationId}`);
 
+    // Delegate to handleScrapeCatalogLive which has all the API logic
     try {
-      const session = await loginToPA({
-        username: creds.username,
-        password: creds.password,
-        restaurant_id: creds.restaurant_id || creds.pa_location_id || '',
-      });
-
-      if (!session) {
-        results.push({ locationId, success: false, error: 'Login failed', items: 0 });
-        continue;
-      }
-
-      let items: any[] = [];
-
-      // Try Weekly Prices Report first
-      try {
-        const weeklyUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`;
-        const resp = await fetch(weeklyUrl, {
-          method: 'GET',
-          headers: { ...getAuthHeaders(session), 'Accept': 'text/html,application/xhtml+xml,*/*' },
-          redirect: 'follow',
-        });
-        const html = await resp.text();
-        if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in') && html.length > 500) {
-          items = parseWeeklyPricesHtml(html);
-        }
-      } catch (e) {
-        console.warn(`[PA Catalog All] Weekly Prices error for ${locationId}:`, e);
-      }
-
-      // Fallback: Order Sort
-      if (items.length === 0) {
-        try {
-          const sortUrl = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${session.restaurantId}`;
-          const resp = await fetch(sortUrl, {
-            method: 'GET',
-            headers: { ...getAuthHeaders(session), 'Accept': 'text/html,application/xhtml+xml,*/*' },
-            redirect: 'follow',
-          });
-          const html = await resp.text();
-          if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in')) {
-            items = parseOrderSortHtml(html);
-          }
-        } catch (e) {
-          console.warn(`[PA Catalog All] Order Sort error for ${locationId}:`, e);
-        }
-      }
-
-      if (items.length > 0) {
-        const now = new Date().toISOString();
-        let saved = 0;
-        for (let i = 0; i < items.length; i += 50) {
-          const chunk = items.slice(i, i + 50).map(item => ({
-            location_id: locationId,
-            pa_item_id: item.pa_item_id,
-            description: item.description,
-            pack_size: item.pack_size,
-            category: item.category,
-            unit_price: item.unit_price,
-            last_seen_at: now,
-          }));
-          const { error } = await supabase.from('pa_catalog_items').upsert(chunk, { onConflict: 'location_id,pa_item_id' });
-          if (error) console.error('[PA Catalog All] Upsert error:', error);
-          else saved += chunk.length;
-        }
-        results.push({ locationId, success: true, items: items.length, saved });
-      } else {
-        results.push({ locationId, success: true, items: 0, note: 'No items found' });
-      }
+      const result = await handleScrapeCatalogLive(supabase, { locationId });
+      const body = await result.clone().json();
+      results.push({ locationId, ...body });
     } catch (e) {
       results.push({ locationId, success: false, error: String(e), items: 0 });
     }
   }
 
-  const totalSaved = results.reduce((sum, r) => sum + (r.saved || 0), 0);
+  const totalSaved = results.reduce((sum: number, r: any) => sum + (r.saved || 0), 0);
   console.log(`[PA Catalog All] ✅ Done. ${results.length} locations, ${totalSaved} total items saved`);
   return jsonResponse({ success: true, results, totalSaved });
 }
