@@ -1,0 +1,1 @@
+UPDATE vendor_invoices SET delivery_date = invoice_date WHERE id = '7606e813-dc6d-48ea-8c10-004e9825fa40' AND delivery_date IS NULL;
