@@ -2242,6 +2242,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     });
     const html = await resp.text();
     console.log(`[PA Catalog Live] Weekly Prices: ${resp.status}, ${html.length} chars`);
+    console.log(`[PA Catalog Live] HTML preview: ${html.substring(0, 300)}`);
 
     if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in') && html.length > 500) {
       items = parseWeeklyPricesHtml(html);
