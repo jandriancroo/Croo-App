@@ -1,0 +1,1 @@
+ALTER TABLE inventory_counts ADD COLUMN sales_end_override date;

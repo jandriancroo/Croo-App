@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 import VarianceReport from "./VarianceReport";
 import InvoiceUploadDialog from "./InvoiceUploadDialog";
+import SalesDateEditor from "./SalesDateEditor";
 
 interface PeriodDetailPanelProps {
   count: any;
@@ -83,11 +84,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     if (!count.period_end_date) return null;
     const endDate = count.period_end_date;
     
-    // For flex counts (is_late_close), sales window extends to counted_at date
-    // BUT if the count was submitted before the store opened (before 10 AM local),
-    // the last full sales day is the day BEFORE counted_at — not counted_at itself.
     let salesEndDate = endDate;
-    if (count.is_late_close) {
+    // Priority: manual override > flex auto-calc > period end date
+    if (count.sales_end_override) {
+      salesEndDate = count.sales_end_override;
+    } else if (count.is_late_close) {
       if (count.counted_at) {
         const countedAtDate = new Date(count.counted_at);
         const localDateStr = formatInTimeZone(countedAtDate, timezone, 'yyyy-MM-dd');
@@ -154,7 +155,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       activeDays,
       isNonStandard,
     };
-  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, prevCountData, timezone]);
+  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, count.sales_end_override, prevCountData, timezone]);
 
   // Compute transfer totals for this period
   const transferTotals = useMemo(() => {
@@ -558,12 +559,25 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             {/* Sub-details */}
             <div className="mb-4">
               {periodRange && (
-                <p className="text-xs font-medium text-primary/80">
-                  {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
-                  {count.is_late_close && periodRange.salesEndStr !== periodRange.endStr && (
-                    <span className="text-amber-600 ml-1">(sales thru {format(new Date(periodRange.salesEndStr + "T12:00:00"), "MMM d")})</span>
+                <div className="flex items-center gap-0.5 flex-wrap">
+                  <p className="text-xs font-medium text-primary/80">
+                    {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
+                    {periodRange.salesEndStr !== periodRange.endStr && (
+                      <span className="text-amber-600 ml-1">(sales thru {format(new Date(periodRange.salesEndStr + "T12:00:00"), "MMM d")})</span>
+                    )}
+                  </p>
+                  {canManageOrders && count.status === "completed" && (
+                    <SalesDateEditor
+                      countId={count.id}
+                      locationId={locationId}
+                      startStr={periodRange.startStr}
+                      endStr={periodRange.endStr}
+                      salesEndStr={periodRange.salesEndStr}
+                      canEdit={canManageOrders}
+                      currentOverride={count.sales_end_override || null}
+                    />
                   )}
-                </p>
+                </div>
               )}
               <p className="text-xs text-muted-foreground mt-0.5">
                 {count.counted_by_profile?.full_name || "Unknown"}
