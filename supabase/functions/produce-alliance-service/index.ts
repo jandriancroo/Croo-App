@@ -2067,6 +2067,8 @@ serve(async (req) => {
       case 'save_scraped_order': return await handleSaveScrapedOrder(supabase, body);
       case 'headless_login_failed': return await handleHeadlessLoginFailed(supabase, body);
       case 'probe_catalog': return await handleProbeCatalog(supabase, body);
+      case 'list_catalog_locations': return await handleListCatalogLocations(supabase, body);
+      case 'save_catalog': return await handleSaveCatalog(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {

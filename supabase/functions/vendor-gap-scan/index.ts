@@ -129,7 +129,8 @@ serve(async (req) => {
       }
 
       // --- PA Scan ---
-      // Authenticate with PA portal and scrape full catalog (pricing + extended order history)
+      // Read from pa_catalog_items table (populated by headless scraper from restaurantOrderSort.jsp)
+      // Falls back to DB order history if no catalog data exists
       if (orgs?.length) {
         const orgIds = orgs.map(o => o.id);
         const { data: locs } = await supabase
@@ -141,53 +142,30 @@ serve(async (req) => {
           const locIds = locs.map(l => l.id);
           const seenPaItems = new Map<string, any>();
 
-          // Try live PA portal scrape for each location with PA credentials
+          // Primary source: pa_catalog_items (scraped from restaurantOrderSort.jsp)
           for (const locId of locIds) {
-            const { data: paInt } = await supabase
-              .from("location_integrations")
-              .select("credentials")
-              .eq("location_id", locId)
-              .eq("integration_type", "produce_alliance")
-              .eq("is_active", true)
-              .maybeSingle();
+            const { data: catalogItems } = await supabase
+              .from("pa_catalog_items")
+              .select("pa_item_id, description, pack_size, category, unit_price")
+              .eq("location_id", locId);
 
-            if (!paInt?.credentials) continue;
-
-            try {
-              // Call produce-alliance-service to get items via pricing + orders
-              const paResp = await fetch(
-                `${Deno.env.get("SUPABASE_URL")}/functions/v1/produce-alliance-service`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                  },
-                  body: JSON.stringify({ action: "items", locationId: locId }),
-                }
-              );
-
-              if (paResp.ok) {
-                const paData = await paResp.json();
-                const items = paData?.data?.items || [];
-                console.log(`[vendor-gap-scan] PA portal returned ${items.length} items for location ${locId}`);
-
-                for (const item of items) {
-                  const paId = String(item.itemId || item.item_id || item.pa_product_id || item.productId || "").trim();
-                  const desc = String(item.description || item.name || item.productName || "").trim();
-                  if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
-                  seenPaItems.set(paId, { ...item, description: desc });
-                }
-              } else {
-                console.warn(`[vendor-gap-scan] PA service error for loc ${locId}: ${paResp.status}`);
-                await paResp.text(); // consume body
+            if (catalogItems?.length) {
+              console.log(`[vendor-gap-scan] PA catalog has ${catalogItems.length} items for location ${locId}`);
+              for (const item of catalogItems) {
+                const paId = String(item.pa_item_id || "").trim();
+                if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
+                seenPaItems.set(paId, {
+                  itemId: paId,
+                  description: item.description,
+                  packSize: item.pack_size,
+                  category: item.category,
+                  unitPrice: item.unit_price,
+                });
               }
-            } catch (e) {
-              console.error(`[vendor-gap-scan] PA portal scrape error for loc ${locId}:`, e);
             }
           }
 
-          // Fallback: also check DB orders for any items the portal didn't return
+          // Fallback: also check DB orders for any items the catalog didn't have
           const { data: paOrders } = await supabase
             .from("produce_alliance_orders")
             .select("items")
