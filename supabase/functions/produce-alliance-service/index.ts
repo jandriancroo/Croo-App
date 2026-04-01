@@ -2228,57 +2228,158 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
 
   let items: any[] = [];
 
-  // Primary: Weekly Prices Report (has ALL items with prices — the full catalog)
-  const weeklyUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`;
-  console.log(`[PA Catalog Live] Trying Weekly Prices Report...`);
-  try {
-    const resp = await fetch(weeklyUrl, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(session),
-        'Accept': 'text/html,application/xhtml+xml,*/*',
-      },
-      redirect: 'follow',
+  // ── PRIMARY: /api/common/download-sheet (same direct API approach as order sync) ──
+  // This is the data behind the Weekly Prices Report — returns CSV/spreadsheet data
+  // instead of the JSP shell that requires a full browser to render.
+  const reportConfigs = [
+    'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES',
+    'REPORT_CONFIG_WEEKLY_PRODUCE_PRICES',
+    'RESTAURANT_WEEKLY_PRODUCE_PRICES',
+  ];
+
+  for (const reportConfig of reportConfigs) {
+    if (items.length > 0) break;
+    
+    const downloadUrl = `${PA_BASE_URL}/api/common/download-sheet`;
+    const postBody = JSON.stringify({
+      reportConfigName: reportConfig,
+      restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+      format: 'csv',
     });
-    const html = await resp.text();
-    console.log(`[PA Catalog Live] Weekly Prices: ${resp.status}, ${html.length} chars`);
-    console.log(`[PA Catalog Live] HTML preview: ${html.substring(0, 300)}`);
 
-    if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in') && html.length > 500) {
-      items = parseWeeklyPricesHtml(html);
-      console.log(`[PA Catalog Live] Weekly Prices parsed: ${items.length} items`);
-    }
-  } catch (e) {
-    console.warn('[PA Catalog Live] Weekly Prices fetch error:', e);
-  }
-
-  // Fallback: Order Sort page
-  if (items.length === 0) {
-    const catalogUrl = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${session.restaurantId}`;
-    console.log(`[PA Catalog Live] Fallback: Order Sort page...`);
+    console.log(`[PA Catalog Live] Trying download-sheet with config: ${reportConfig}`);
     try {
-      const resp = await fetch(catalogUrl, {
-        method: 'GET',
+      const resp = await fetch(downloadUrl, {
+        method: 'POST',
         headers: {
-          ...getAuthHeaders(session),
-          'Accept': 'text/html,application/xhtml+xml,*/*',
+          ...getAuthHeaders(session, true),
+          'Content-Type': 'application/json',
         },
-        redirect: 'follow',
+        body: postBody,
       });
-      const html = await resp.text();
-      console.log(`[PA Catalog Live] Order Sort: ${resp.status}, ${html.length} chars`);
+      const text = await resp.text();
+      console.log(`[PA Catalog Live] download-sheet ${reportConfig}: ${resp.status}, ${text.length} chars`);
+      console.log(`[PA Catalog Live] Preview: ${text.substring(0, 500)}`);
 
-      if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in')) {
-        items = parseOrderSortHtml(html);
-        console.log(`[PA Catalog Live] Order Sort parsed: ${items.length} items`);
+      if (resp.status === 200 && text.length > 100) {
+        // Try parsing as CSV first
+        items = parseCatalogCsv(text);
+        if (items.length > 0) {
+          console.log(`[PA Catalog Live] ✅ CSV parsed: ${items.length} items from ${reportConfig}`);
+          break;
+        }
+        // Try as HTML table (some endpoints return HTML)
+        items = parseWeeklyPricesHtml(text);
+        if (items.length > 0) {
+          console.log(`[PA Catalog Live] ✅ HTML parsed: ${items.length} items from ${reportConfig}`);
+          break;
+        }
+        // Try as JSON
+        try {
+          const json = JSON.parse(text);
+          const arr = Array.isArray(json) ? json : json.data || json.items || json.dataList || [];
+          if (Array.isArray(arr) && arr.length > 0) {
+            items = arr.map((r: any) => ({
+              pa_item_id: String(r.paProductId || r.productId || r.itemId || r.id || ''),
+              description: r.masterProductName || r.productName || r.description || r.name || '',
+              pack_size: r.packSize || r.pack || null,
+              category: r.category || r.productCategory || 'Produce',
+              unit_price: parseFloat(r.price || r.unitPrice || r.cost || 0) || null,
+            })).filter((i: any) => i.pa_item_id && i.description);
+            if (items.length > 0) {
+              console.log(`[PA Catalog Live] ✅ JSON parsed: ${items.length} items from ${reportConfig}`);
+              break;
+            }
+          }
+        } catch { /* not JSON */ }
       }
     } catch (e) {
-      console.warn('[PA Catalog Live] Order Sort fetch error:', e);
+      console.warn(`[PA Catalog Live] download-sheet ${reportConfig} error:`, e);
+    }
+  }
+
+  // ── FALLBACK: Try GET-based download endpoints ──
+  if (items.length === 0) {
+    const fallbackUrls = [
+      `${PA_BASE_URL}/api/reports/weekly-prices?restaurantId=${session.restaurantId}`,
+      `${PA_BASE_URL}/api/reports/restaurant-weekly-produce-prices?restaurantId=${session.restaurantId}`,
+      `${PA_BASE_URL}/api/restaurant-dashboard/fetch-products-for-restaurant?restaurantId=${session.restaurantId}`,
+      `${PA_BASE_URL}/api/restaurant-dashboard/products?restaurantId=${session.restaurantId}`,
+    ];
+
+    for (const url of fallbackUrls) {
+      if (items.length > 0) break;
+      console.log(`[PA Catalog Live] Trying fallback: ${url.replace(PA_BASE_URL, '')}`);
+      try {
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers: getAuthHeaders(session),
+        });
+        const text = await resp.text();
+        console.log(`[PA Catalog Live] ${resp.status}, ${text.length} chars, preview: ${text.substring(0, 300)}`);
+
+        if (resp.status === 200 && text.length > 50) {
+          // Try JSON
+          try {
+            const json = JSON.parse(text);
+            const arr = Array.isArray(json) ? json : json.data || json.items || json.dataList || json.products || [];
+            if (Array.isArray(arr) && arr.length > 0) {
+              console.log(`[PA Catalog Live] JSON keys sample:`, Object.keys(arr[0]).join(', '));
+              items = arr.map((r: any) => ({
+                pa_item_id: String(r.paProductId || r.productId || r.itemId || r.id || r.masterProductCode || ''),
+                description: r.masterProductName || r.productName || r.description || r.name || '',
+                pack_size: r.packSize || r.pack || null,
+                category: r.category || r.productCategory || 'Produce',
+                unit_price: parseFloat(r.price || r.unitPrice || r.cost || 0) || null,
+              })).filter((i: any) => i.pa_item_id && i.description);
+              if (items.length > 0) {
+                console.log(`[PA Catalog Live] ✅ Found ${items.length} items from ${url.replace(PA_BASE_URL, '')}`);
+              }
+            }
+          } catch {
+            // Try CSV
+            items = parseCatalogCsv(text);
+            if (items.length > 0) {
+              console.log(`[PA Catalog Live] ✅ CSV parsed ${items.length} items from fallback`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[PA Catalog Live] Fallback error:`, e);
+      }
+    }
+  }
+
+  // ── LAST RESORT: JSP pages (may work if session is strong enough) ──
+  if (items.length === 0) {
+    console.log(`[PA Catalog Live] All API endpoints failed, trying JSP fallback...`);
+    const jspUrls = [
+      `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`,
+      `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${session.restaurantId}`,
+    ];
+    for (const url of jspUrls) {
+      try {
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers: { ...getAuthHeaders(session), 'Accept': 'text/html,application/xhtml+xml,*/*' },
+          redirect: 'follow',
+        });
+        const html = await resp.text();
+        if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in') && html.length > 500) {
+          items = url.includes('OrderSort') ? parseOrderSortHtml(html) : parseWeeklyPricesHtml(html);
+          if (items.length > 0) {
+            console.log(`[PA Catalog Live] ✅ JSP fallback found ${items.length} items`);
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn('[PA Catalog Live] JSP fallback error:', e);
+      }
     }
   }
 
   if (items.length === 0) {
-    return jsonResponse({ success: true, message: 'No items found on catalog pages', saved: 0 });
+    return jsonResponse({ success: true, message: 'No items found from any endpoint — check logs for API response details', saved: 0 });
   }
 
   // Save to pa_catalog_items
