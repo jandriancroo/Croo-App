@@ -1170,7 +1170,7 @@ export function MobileScheduleView({
                 /* Past days with punch data — show completed-style cards */
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    {`Completed (${pastDatePunches.length})`}
+                    {`Completed (${dayPunches.length})`}
                     <div className="flex items-center gap-1 ml-auto">
                       {(isAdmin || isManager) && scheduleId && (
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
