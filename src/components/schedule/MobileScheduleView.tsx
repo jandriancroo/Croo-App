@@ -1166,7 +1166,7 @@ export function MobileScheduleView({
                     </Card>
                   </>
                 );
-              })()) : isPastDate && pastDatePunches.length > 0 ? (
+              })()) : isPastDate && dayPunches.length > 0 ? (
                 /* Past days with punch data — show completed-style cards */
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
