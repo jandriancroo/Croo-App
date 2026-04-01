@@ -14,7 +14,7 @@ const corsHeaders = {
 // Order list: POST /api/restaurant-dashboard/fetch-orders-for-restaurant-by-params
 // ============================================================================
 
-const PA_BASE_URL = 'https://producealliance.info';
+const PA_BASE_URL = 'https://www.producealliance.info';
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15';
 
 interface PACredentials {
@@ -2280,13 +2280,38 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
 
   let items: any[] = [];
 
-  // ── PRIMARY: Try various API endpoints for product catalog ──
-  // The download-sheet endpoint needs specific parameters — try multiple formats
-  const authHeaders = getAuthHeaders(session, true);
+  // ── PRIMARY: JSP page (PROVEN WORKING — returns 170KB HTML with full product table) ──
+  const weeklyUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`;
+  console.log(`[PA Catalog Live] Trying Weekly Prices JSP page...`);
+  try {
+    const resp = await fetch(weeklyUrl, {
+      method: 'GET',
+      headers: {
+        ...getAuthHeaders(session),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Referer': `${PA_BASE_URL}/ng/`,
+      },
+      redirect: 'follow',
+    });
+    const html = await resp.text();
+    const isRedirectStub = html.includes('localStorage.setItem') && html.length < 1000;
+    console.log(`[PA Catalog Live] Weekly Prices JSP: ${resp.status}, ${html.length} chars, redirect_stub: ${isRedirectStub}`);
+    if (!isRedirectStub) {
+      console.log(`[PA Catalog Live] HTML preview: ${html.substring(0, 500)}`);
+    }
 
-  // Attempt 1: download-sheet with different body formats
+    if (resp.status === 200 && !isRedirectStub && !html.includes('j_security_check') && !html.includes('Sign in') && html.length > 500) {
+      items = parseWeeklyPricesHtml(html);
+      console.log(`[PA Catalog Live] ✅ Weekly Prices JSP parsed: ${items.length} items`);
+    }
+  } catch (e) {
+    console.warn('[PA Catalog Live] Weekly Prices JSP error:', e);
+  }
+
+  // ── ATTEMPT 2: download-sheet API ──
+  if (items.length === 0) {
+  const authHeaders = getAuthHeaders(session, true);
   const downloadSheetBodies = [
-    // Format from Angular app network tab
     { reportConfigName: 'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES', restaurantId: parseInt(session.restaurantId), params: { restaurantId: parseInt(session.restaurantId) } },
     { configName: 'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES', restaurantId: parseInt(session.restaurantId) },
     { reportName: 'restaurantWeeklyProducePricesReport', restaurantId: parseInt(session.restaurantId) },
@@ -2332,8 +2357,9 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
       console.warn(`[PA Catalog Live] download-sheet error:`, e);
     }
   }
+  } // close download-sheet if block
 
-  // Attempt 2: Try various product/catalog REST endpoints
+  // Attempt 3: Try various product/catalog REST endpoints
   if (items.length === 0) {
     const apiUrls = [
       { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-products-for-restaurant-by-params?restaurantId=${session.restaurantId}`, method: 'POST', body: JSON.stringify({ restaurantId: parseInt(session.restaurantId), limit: 1000, offset: 0 }) },
