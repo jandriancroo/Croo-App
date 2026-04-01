@@ -57,7 +57,7 @@ const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
 const ForgotPassword = lazyWithRetry(() => import("./pages/ForgotPassword"));
 const MyTimecard = lazyWithRetry(() => import("./pages/MyTimecard"));
 const MyTeam = lazyWithRetry(() => import("./pages/MyTeam"));
-const CompletedStampPreview = lazyWithRetry(() => import("./pages/CompletedStampPreview"));
+
 const OrganizationProfile = lazyWithRetry(() => import("./pages/OrganizationProfile"));
 const BrandManagement = lazyWithRetry(() => import("./pages/BrandManagement"));
 const Hiring = lazyWithRetry(() => import("./pages/Hiring"));
@@ -69,7 +69,7 @@ const PunchClockCustomization = lazyWithRetry(() => import("./pages/PunchClockCu
 const BrandDashboard = lazyWithRetry(() => import("./pages/BrandDashboard"));
 const MyProfile = lazyWithRetry(() => import("./pages/MyProfile"));
 const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocationDashboard"));
-const OrgDashStylePreview = lazyWithRetry(() => import("./pages/OrgDashStylePreview"));
+
 const Billing = lazyWithRetry(() => import("./pages/Billing"));
 const Terms = lazyWithRetry(() => import("./pages/Terms"));
 const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
@@ -82,27 +82,6 @@ const QRQuickTaskReport = lazyWithRetry(() => import("./pages/QRQuickTaskReport"
 const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboardCustomizer"));
-const DockStylePreview = lazyWithRetry(() => import("./pages/DockStylePreview"));
-const DesignStylePreview = lazyWithRetry(() => import("./pages/DesignStylePreview"));
-const HeaderStylePreview = lazyWithRetry(() => import("./pages/HeaderStylePreview"));
-const AvailabilityRequestPreview = lazyWithRetry(() => import("./pages/AvailabilityRequestPreview"));
-const VisionOSPreview = lazyWithRetry(() => import("./pages/VisionOSPreview"));
-const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
-const SalesDesignPreview = lazyWithRetry(() => import("./pages/SalesDesignPreview"));
-const SalesPreviewVariations = lazyWithRetry(() => import("./pages/SalesPreviewVariations"));
-const TabStylePreview = lazyWithRetry(() => import("./pages/TabStylePreview"));
-const ChatListPreview = lazyWithRetry(() => import("./pages/ChatListPreview"));
-const InventoryCardPreview = lazyWithRetry(() => import("./pages/InventoryCardPreview"));
-const InventoryRedesignPreview = lazyWithRetry(() => import("./pages/InventoryRedesignPreview"));
-const InventoryCountUIPreview = lazyWithRetry(() => import("./pages/InventoryCountUIPreview"));
-const ChecklistCardPreview = lazyWithRetry(() => import("./pages/ChecklistCardPreview"));
-const ChecklistStylePreview = lazyWithRetry(() => import("./pages/ChecklistStylePreview"));
-const LocationSwitchPreview = lazyWithRetry(() => import("./pages/LocationSwitchPreview"));
-const TimelineStylePreview = lazyWithRetry(() => import("./pages/TimelineStylePreview"));
-const SchedulePreview = lazyWithRetry(() => import("./pages/SchedulePreview"));
-const DashboardStylePreview = lazyWithRetry(() => import("./pages/DashboardStylePreview"));
-const CountTabPreview = lazyWithRetry(() => import("./pages/CountTabPreview"));
-const LocationPickerPreview = lazyWithRetry(() => import("./pages/LocationPickerPreview"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
 
 const queryClient = new QueryClient();
@@ -164,7 +143,7 @@ const AppContent = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/landing" element={<Index />} />
-        <Route path="/stamp-preview" element={<CompletedStampPreview />} />
+        
         <Route path="/install" element={<InstallGuide />} />
         <Route path="/apply/:orgSlug" element={<PublicApplication />} />
         <Route path="/qr/:qrCode" element={<QRQuickTaskReport />} />
@@ -212,7 +191,7 @@ const AppContent = () => {
         <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
         <Route path="/brand-dashboard" element={<ProtectedRoute><BrandDashboard /></ProtectedRoute>} />
         <Route path="/org-dash" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
-        <Route path="/org-dash-preview" element={<ProtectedRoute><OrgDashStylePreview /></ProtectedRoute>} />
+        
         <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/count/:countId" element={<ProtectedRoute><InventoryCount /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/cogs" element={<ProtectedRoute><COGSReport /></ProtectedRoute>} />
@@ -223,27 +202,6 @@ const AppContent = () => {
         <Route path="/feature-tree" element={<ProtectedRoute><FeatureTree /></ProtectedRoute>} />
         <Route path="/architecture-map" element={<ProtectedRoute><ArchitectureMap /></ProtectedRoute>} />
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
-        <Route path="/dock-style-preview" element={<ProtectedRoute><DockStylePreview /></ProtectedRoute>} />
-        <Route path="/design-style-preview" element={<ProtectedRoute><DesignStylePreview /></ProtectedRoute>} />
-        <Route path="/header-style-preview" element={<ProtectedRoute><HeaderStylePreview /></ProtectedRoute>} />
-        <Route path="/availability-request-preview" element={<AvailabilityRequestPreview />} />
-        <Route path="/vision-preview" element={<ProtectedRoute><VisionOSPreview /></ProtectedRoute>} />
-        <Route path="/email-preview" element={<ProtectedRoute><EmailPreview /></ProtectedRoute>} />
-        <Route path="/sales-design-preview" element={<ProtectedRoute><SalesDesignPreview /></ProtectedRoute>} />
-        <Route path="/sales-preview-variations" element={<ProtectedRoute><SalesPreviewVariations /></ProtectedRoute>} />
-        <Route path="/tab-style-preview" element={<ProtectedRoute><TabStylePreview /></ProtectedRoute>} />
-        <Route path="/chat-list-preview" element={<ProtectedRoute><ChatListPreview /></ProtectedRoute>} />
-        <Route path="/inventory-card-preview" element={<ProtectedRoute><InventoryCardPreview /></ProtectedRoute>} />
-        <Route path="/inventory-redesign-preview" element={<ProtectedRoute><InventoryRedesignPreview /></ProtectedRoute>} />
-        <Route path="/inventory-count-ui-preview" element={<ProtectedRoute><InventoryCountUIPreview /></ProtectedRoute>} />
-        <Route path="/checklist-card-preview" element={<ProtectedRoute><ChecklistCardPreview /></ProtectedRoute>} />
-        <Route path="/checklist-style-preview" element={<ProtectedRoute><ChecklistStylePreview /></ProtectedRoute>} />
-        <Route path="/location-switch-preview" element={<ProtectedRoute><LocationSwitchPreview /></ProtectedRoute>} />
-        <Route path="/timeline-style-preview" element={<ProtectedRoute><TimelineStylePreview /></ProtectedRoute>} />
-        <Route path="/schedule-preview" element={<ProtectedRoute><SchedulePreview /></ProtectedRoute>} />
-        <Route path="/dashboard-style-preview" element={<ProtectedRoute><DashboardStylePreview /></ProtectedRoute>} />
-        <Route path="/count-tab-preview" element={<ProtectedRoute><CountTabPreview /></ProtectedRoute>} />
-        <Route path="/location-picker-preview" element={<ProtectedRoute><LocationPickerPreview /></ProtectedRoute>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
