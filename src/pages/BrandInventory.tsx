@@ -27,7 +27,7 @@ import BrandCatalogSection from '@/components/brand/BrandCatalogSection';
 import BrandCatalogBulkBar from '@/components/brand/BrandCatalogBulkBar';
 import BrandCategoryEditor from '@/components/brand/BrandCategoryEditor';
 import VendorGapFinder from '@/components/brand/VendorGapFinder';
-import LinkDraftToExistingDialog from '@/components/brand/LinkDraftToExistingDialog';
+import InlineLinkToExisting from '@/components/brand/InlineLinkToExisting';
 
 const FALLBACK_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
