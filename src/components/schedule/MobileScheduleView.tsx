@@ -568,7 +568,7 @@ export function MobileScheduleView({
 
   // Content for Schedule tab
   const renderScheduleContent = () => (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       {/* Week Header - Centered with week label */}
       <div className="flex flex-col items-center gap-1">
         <DateNavigator
