@@ -301,11 +301,27 @@ const Inventory = () => {
     if (!count.period_type || !count.period_end_date) {
       return format(new Date(count.count_date + 'T12:00:00'), "MMM d, yyyy");
     }
+    let effectiveEnd = count.period_end_date;
     
-    const endDate = new Date(count.period_end_date + 'T12:00:00');
+    // Monthly close safeguard: if counted in first 2 days of new month before 10am
+    if (count.period_type === "monthly" && count.status === "completed" && count.counted_at) {
+      const countedAt = new Date(count.counted_at);
+      const localDay = countedAt.getDate();
+      const localHour = countedAt.getHours();
+      if (localDay <= 2) {
+        let inferredEnd = format(countedAt, "yyyy-MM-dd");
+        if (localHour < 10) {
+          inferredEnd = format(subDays(new Date(inferredEnd + "T12:00:00"), 1), "yyyy-MM-dd");
+        }
+        if (inferredEnd < effectiveEnd) {
+          effectiveEnd = inferredEnd;
+        }
+      }
+    }
+
+    const endDate = new Date(effectiveEnd + 'T12:00:00');
     switch (count.period_type) {
       case "weekly":
-        // period_end_date is already the week-ending date (e.g. Sunday)
         return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
       case "monthly":
         return `${format(endDate, "MMMM yyyy")} Month End`;
