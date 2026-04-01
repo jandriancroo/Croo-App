@@ -1882,6 +1882,96 @@ async function handleHeadlessLoginFailed(supabase: any, body: any): Promise<Resp
   return jsonResponse({ success: true, message: 'Failure logged' });
 }
 
+async function handleProbeCatalog(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  const results: any = {};
+
+  // 1. Hit restaurantOrderSort.jsp
+  const catalogPages = [
+    `/restaurantOrderSort.jsp?restaurantId=${session.restaurantId}`,
+    `/restaurantOrderSort.jsp`,
+  ];
+
+  for (const path of catalogPages) {
+    try {
+      const resp = await fetch(`${PA_BASE_URL}${path}`, {
+        method: 'GET',
+        headers: { ...getAuthHeaders(session), 'Accept': 'text/html,application/json,*/*' },
+        redirect: 'manual',
+      });
+      const text = await resp.text();
+      results[path] = { status: resp.status, len: text.length, redirect: resp.headers.get('location') || null, preview: text.substring(0, 2000) };
+    } catch (e) { results[path] = { error: String(e) }; }
+  }
+
+  // 2. Try API endpoints that might back the order sort page
+  const apiEndpoints = [
+    { url: `/api/restaurant-dashboard/order-sort?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/restaurant-dashboard/get-order-sort?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/restaurant-dashboard/get-order-guide?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/order-guide?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/order-guide/items?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/product/list?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/product/search?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/weborder/products?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/weborder/order-guide?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/restaurant-dashboard/fetch-order-guide-for-restaurant`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId) } },
+    { url: `/api/restaurant-dashboard/fetch-products-for-restaurant`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId) } },
+    { url: `/api/common/order-guide?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/restaurant-dashboard/get-restaurant-order-sort?restaurantId=${session.restaurantId}`, method: 'GET' },
+    { url: `/api/restaurant-dashboard/fetch-restaurant-order-sort`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId) } },
+  ];
+
+  results.apiProbes = [];
+  for (const ep of apiEndpoints) {
+    try {
+      const resp = await fetch(`${PA_BASE_URL}${ep.url}`, {
+        method: ep.method,
+        headers: { ...getAuthHeaders(session, true), 'Content-Type': 'application/json; charset=UTF-8' },
+        body: (ep as any).body ? JSON.stringify((ep as any).body) : undefined,
+      });
+      const text = await resp.text();
+      let preview = text.substring(0, 500);
+      try { preview = JSON.stringify(JSON.parse(text)).substring(0, 500); } catch {}
+      results.apiProbes.push({ url: ep.url, method: ep.method, status: resp.status, len: text.length, preview });
+    } catch (e) {
+      results.apiProbes.push({ url: ep.url, error: String(e) });
+    }
+  }
+
+  // 3. Scan Angular main.js for order-sort / order-guide related API paths
+  try {
+    const ngResp = await fetch(`${PA_BASE_URL}/ng/`, { method: 'GET', headers: getAuthHeaders(session) });
+    const ngHtml = await ngResp.text();
+    const scriptMatch = ngHtml.match(/src="(main\.[^"]+\.js)"/);
+    if (scriptMatch) {
+      const jsResp = await fetch(`${PA_BASE_URL}/ng/${scriptMatch[1]}`, { method: 'GET', headers: { 'User-Agent': UA } });
+      const jsText = await jsResp.text();
+      const patterns = [
+        /["']([^"']*(?:order[-_]?sort|order[-_]?guide|product[-_]?list|catalog|item[-_]?list)[^"']*?)["']/gi,
+        /["'](\/api\/[^"']*?)["']/g,
+      ];
+      const found: string[] = [];
+      for (const p of patterns) {
+        let m;
+        while ((m = p.exec(jsText)) !== null) {
+          const ep = m[1];
+          if (ep.length < 200 && !found.includes(ep)) found.push(ep);
+        }
+      }
+      results.jsEndpoints = found;
+    }
+  } catch (e) { results.jsError = String(e); }
+
+  return jsonResponse({ success: true, data: results });
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -1915,6 +2005,7 @@ serve(async (req) => {
       case 'list_pending_scrapes': return await handleListPendingScrapes(supabase, body);
       case 'save_scraped_order': return await handleSaveScrapedOrder(supabase, body);
       case 'headless_login_failed': return await handleHeadlessLoginFailed(supabase, body);
+      case 'probe_catalog': return await handleProbeCatalog(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
