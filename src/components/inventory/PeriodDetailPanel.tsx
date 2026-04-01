@@ -312,26 +312,43 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         endValue += Number(ci.quantity) * (costMap.get(ci.item_id) || 0);
       }
 
+      // For monthly/yearly: aggregate orders from all child weekly counts in the period
+      const isAggregatingPeriod = count.period_type === "monthly" || count.period_type === "yearly";
+      let childCountIds: string[] = [];
+      if (isAggregatingPeriod) {
+        const { data: childCounts } = await supabase
+          .from("inventory_counts")
+          .select("id")
+          .eq("location_id", locationId)
+          .eq("period_type", "weekly")
+          .gte("period_end_date", periodRange.startStr)
+          .lte("period_end_date", periodRange.endStr);
+        childCountIds = (childCounts || []).map(c => c.id);
+      }
+
+      // All count IDs to fetch orders for (this count + child weekly counts for monthly)
+      const allCountIds = [count.id, ...childCountIds];
+
       // Fetch purchases: PREFER bound orders, fallback to date-range
       const [pfgBound, paBound, vendorBound, pfgDateRange, paDateRange, vendorDateRange] = await Promise.all([
         supabase
           .from("pfg_orders")
           .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
-          .eq("bound_to_count_id", count.id)
+          .in("bound_to_count_id", allCountIds)
           .order("delivery_date", { ascending: true }),
         supabase
           .from("pa_orders")
           .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
-          .eq("bound_to_count_id", count.id)
+          .in("bound_to_count_id", allCountIds)
           .order("delivery_date", { ascending: true }),
         supabase
           .from("vendor_invoices")
           .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
           .eq("location_id", locationId)
           .eq("status", "parsed")
-          .eq("inventory_count_id", count.id)
+          .in("inventory_count_id", allCountIds)
           .order("delivery_date", { ascending: true }),
         // Fallback: date-range query for unbound orders in period
         supabase
@@ -362,10 +379,15 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       ]);
 
       // Use bound orders if any exist, otherwise fallback to date-range unbound
+      // Deduplicate by id in case of overlapping queries
+      const dedup = (arr: any[]) => {
+        const seen = new Set<string>();
+        return arr.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
+      };
       const hasBoundOrders = (pfgBound.data?.length || 0) + (paBound.data?.length || 0) + (vendorBound.data?.length || 0) > 0;
-      const pfg = hasBoundOrders ? (pfgBound.data || []) : (pfgDateRange.data || []);
-      const pa = hasBoundOrders ? (paBound.data || []) : (paDateRange.data || []);
-      const vendorInv = hasBoundOrders ? (vendorBound.data || []) : (vendorDateRange.data || []).filter((vi: any) => {
+      const pfg = hasBoundOrders ? dedup(pfgBound.data || []) : (pfgDateRange.data || []);
+      const pa = hasBoundOrders ? dedup(paBound.data || []) : (paDateRange.data || []);
+      const vendorInv = hasBoundOrders ? dedup(vendorBound.data || []) : (vendorDateRange.data || []).filter((vi: any) => {
         const d = vi.delivery_date || vi.invoice_date;
         return d && d >= periodRange.startStr && d <= periodRange.endStr;
       });
