@@ -8,22 +8,8 @@ import { Type } from "lucide-react";
 
 const fonts = [
   { name: "VanSans", class: "font-vansans", type: "Custom (Local)", note: "App's primary display font. Loaded from /fonts/." },
+  { name: "Pacifico", class: "font-pacifico", type: "Google Font", note: "Brush script, used for decorative display text." },
   { name: "Manrope", class: "font-manrope", type: "Google Font", note: "High x-height, semi-rounded, great clarity." },
-  { name: "Inter", class: "font-inter", type: "Google Font", note: "Widely used UI font. Neutral and highly legible." },
-  { name: "Nunito", class: "font-nunito", type: "Google Font", note: "Rounded terminals, friendly and approachable." },
-  { name: "Poppins", class: "font-poppins", type: "Google Font", note: "Geometric sans-serif, clean and modern." },
-  { name: "Outfit", class: "font-outfit", type: "Google Font", note: "Variable font with geometric proportions." },
-  { name: "Plus Jakarta Sans", class: "font-jakarta", type: "Google Font", note: "Contemporary, slightly rounded sans-serif." },
-  { name: "Space Grotesk", class: "font-grotesk", type: "Google Font", note: "Proportional sans with monospace DNA." },
-  { name: "Lexend", class: "font-lexend", type: "Google Font", note: "Designed for reading proficiency improvement." },
-  { name: "Comfortaa", class: "font-comfortaa", type: "Google Font", note: "Rounded geometric with unique character." },
-  { name: "DM Sans", class: "font-dm-sans", type: "Google Font", note: "Low-contrast geometric sans-serif." },
-  { name: "Figtree", class: "font-figtree", type: "Google Font", note: "Friendly geometric with open shapes." },
-  { name: "Sora", class: "font-sora", type: "Google Font", note: "Clean, slightly techy geometric." },
-  { name: "Work Sans", class: "font-work-sans", type: "Google Font", note: "Optimized for on-screen body text." },
-  { name: "Black Ops One", class: "font-stencil", type: "Google Font", note: "Military stencil display font." },
-  { name: "Pacifico", class: "font-pacifico", type: "Google Font", note: "Brush script, fun/casual display." },
-  { name: "SF Pro (System)", class: "font-apple-system", type: "System", note: "Apple's native font. Falls back on non-Apple devices." },
 ];
 
 const weights = [
