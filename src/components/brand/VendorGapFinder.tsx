@@ -26,6 +26,7 @@ interface OutlierItem {
   packSize: string;
   categoryName: string;
   price: number | null;
+  vendorSource: 'pfg' | 'pa';
 }
 
 export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
@@ -84,71 +85,136 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('brand_inventory_templates')
-        .select('id, item_number, product_name, status')
+        .select('id, item_number, product_name, status, pa_item_id')
         .eq('brand_id', brandId);
       if (error) throw error;
       return data || [];
     },
   });
 
-  const runScan = async () => {
-    const loc = pfgLocations[0]; // Use first location with bid guide
-    if (!loc) {
-      toast.error('No location with PFG bid guide configured');
-      return;
-    }
+  // Get brand location IDs for PA order lookup
+  const { data: brandLocationIds = [] } = useQuery({
+    queryKey: ['brand-location-ids', brandId],
+    queryFn: async () => {
+      const { data: orgs } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('brand_id', brandId);
+      if (!orgs?.length) return [];
+      const { data: locs } = await supabase
+        .from('locations')
+        .select('id')
+        .in('organization_id', orgs.map(o => o.id));
+      return (locs || []).map(l => l.id);
+    },
+  });
 
+  const runScan = async () => {
     setIsScanning(true);
     setScanResult(null);
 
+    const existingNumbers = new Set(
+      templates.map(t => t.item_number).filter(Boolean)
+    );
+    const existingNames = new Set(
+      templates.map(t => t.product_name?.toLowerCase()).filter(Boolean)
+    );
+    const existingPaIds = new Set(
+      templates.map(t => (t as any).pa_item_id).filter(Boolean).map((id: string) => id.trim())
+    );
+
+    let allOutliers: OutlierItem[] = [];
+    let pfgMatchCount = 0;
+    let pfgTotal = 0;
+    let discrepancies: { itemNumber: string; name: string }[] = [];
+
     try {
-      const { data, error } = await supabase.functions.invoke('pfg-service', {
-        body: {
-          locationId: loc.locationId,
-          action: 'search_bid_guide',
-          bidGuideHeaderId: loc.bidGuideHeaderId,
-          customerId: loc.customerId,
-          searchQuery: '',
-        },
-      });
+      // --- PFG Scan ---
+      const loc = pfgLocations[0];
+      if (loc) {
+        const { data, error } = await supabase.functions.invoke('pfg-service', {
+          body: {
+            locationId: loc.locationId,
+            action: 'search_bid_guide',
+            bidGuideHeaderId: loc.bidGuideHeaderId,
+            customerId: loc.customerId,
+            searchQuery: '',
+          },
+        });
+        if (error) throw error;
 
-      if (error) throw error;
+        const bidProducts: any[] = data?.data?.products || [];
+        pfgTotal = bidProducts.length;
 
-      const bidProducts: any[] = data?.data?.products || [];
-      const existingNumbers = new Set(
-        templates.map(t => t.item_number).filter(Boolean)
-      );
-      const existingNames = new Set(
-        templates.map(t => t.product_name?.toLowerCase()).filter(Boolean)
-      );
+        const pfgOutliers: OutlierItem[] = bidProducts
+          .filter(p => !existingNumbers.has(p.itemNumber) && !existingNames.has((p.fullDescription || p.name || '').toLowerCase()))
+          .map(p => ({
+            itemNumber: p.itemNumber,
+            name: p.name || p.fullDescription,
+            fullDescription: p.fullDescription || p.name,
+            brand: p.brand || '',
+            packSize: p.packSize || '',
+            categoryName: p.categoryName || 'Uncategorized',
+            price: p.price,
+            vendorSource: 'pfg' as const,
+          }));
 
-      // Find outliers (in bid but not in catalog by item_number OR product_name)
-      const outliers: OutlierItem[] = bidProducts
-        .filter(p => !existingNumbers.has(p.itemNumber) && !existingNames.has((p.fullDescription || p.name || '').toLowerCase()))
-        .map(p => ({
-          itemNumber: p.itemNumber,
-          name: p.name || p.fullDescription,
-          fullDescription: p.fullDescription || p.name,
-          brand: p.brand || '',
-          packSize: p.packSize || '',
-          categoryName: p.categoryName || 'Uncategorized',
-          price: p.price,
+        pfgMatchCount = pfgTotal - pfgOutliers.length;
+        allOutliers.push(...pfgOutliers);
+
+        // Discrepancies (in catalog but not in bid)
+        const bidNumbers = new Set(bidProducts.map((p: any) => p.itemNumber));
+        discrepancies = templates
+          .filter(t => t.item_number && !bidNumbers.has(t.item_number) && t.status === 'live')
+          .map(t => ({ itemNumber: t.item_number!, name: t.product_name }));
+      }
+
+      // --- PA Scan ---
+      if (brandLocationIds.length > 0) {
+        const { data: paOrders } = await supabase
+          .from('produce_alliance_orders' as any)
+          .select('items')
+          .in('location_id', brandLocationIds)
+          .not('items', 'is', null)
+          .order('delivery_date', { ascending: false })
+          .limit(30);
+
+        const seenPaItems = new Map<string, any>();
+        for (const order of (paOrders || []) as any[]) {
+          const items = order.items as any[];
+          if (!Array.isArray(items)) continue;
+          for (const item of items) {
+            const paId = String(item.itemId || item.item_id || '').trim();
+            if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
+            // Also check by name
+            const itemName = (item.description || item.name || '').toLowerCase();
+            if (itemName && existingNames.has(itemName)) continue;
+            seenPaItems.set(paId, item);
+          }
+        }
+
+        const paOutliers: OutlierItem[] = Array.from(seenPaItems.entries()).map(([paId, item]) => ({
+          itemNumber: paId,
+          name: item.description || item.name || paId,
+          fullDescription: item.description || item.name || paId,
+          brand: '',
+          packSize: item.packSize || item.pack_size || '',
+          categoryName: item.category || 'Produce',
+          price: item.price || item.unitPrice || null,
+          vendorSource: 'pa' as const,
         }));
 
-      // Find discrepancies (in catalog but not in bid)
-      const bidNumbers = new Set(bidProducts.map((p: any) => p.itemNumber));
-      const discrepancies = templates
-        .filter(t => t.item_number && !bidNumbers.has(t.item_number) && t.status === 'live')
-        .map(t => ({ itemNumber: t.item_number!, name: t.product_name }));
+        allOutliers.push(...paOutliers);
+      }
 
       setScanResult({
-        outliers,
-        matchCount: bidProducts.length - outliers.length,
-        totalBid: bidProducts.length,
+        outliers: allOutliers,
+        matchCount: pfgMatchCount,
+        totalBid: pfgTotal,
         discrepancies,
       });
 
-      toast.success(`Scan complete: ${outliers.length} new items found`);
+      toast.success(`Scan complete: ${allOutliers.length} new items found`);
     } catch (err: any) {
       toast.error('Scan failed: ' + (err.message || 'Unknown error'));
     } finally {
@@ -162,7 +228,9 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       const inserts = items.map(item => ({
         brand_id: brandId,
         product_name: item.fullDescription || item.name,
-        item_number: item.itemNumber,
+        item_number: item.vendorSource === 'pfg' ? item.itemNumber : null,
+        pa_item_id: item.vendorSource === 'pa' ? item.itemNumber : null,
+        vendor_source: item.vendorSource === 'pa' ? 'produce_alliance' : 'pfg',
         category: item.categoryName,
         status: 'draft',
       }));
@@ -248,13 +316,13 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                 Vendor Gap Finder
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Compare PFG Bid List against your catalog to find missing items
+                Compare PFG Bid List &amp; PA order history against your catalog
               </p>
             </div>
             <Button
               size="sm"
               onClick={runScan}
-              disabled={isScanning || pfgLocations.length === 0}
+              disabled={isScanning || (pfgLocations.length === 0 && brandLocationIds.length === 0)}
             >
               {isScanning ? (
                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -265,15 +333,15 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
             </Button>
           </div>
 
-          {pfgLocations.length === 0 && (
+          {pfgLocations.length === 0 && brandLocationIds.length === 0 && (
             <p className="text-xs text-destructive mt-2">
-              No locations have a PFG bid guide configured.
+              No locations have PFG or PA integrations configured.
             </p>
           )}
 
-          {pfgLocations.length > 0 && !scanResult && !isScanning && (
+          {(pfgLocations.length > 0 || brandLocationIds.length > 0) && !scanResult && !isScanning && (
             <p className="text-xs text-muted-foreground mt-2">
-              Will scan bid list via <strong>{pfgLocations[0].name}</strong>'s PFG connection.
+              Will scan{pfgLocations.length > 0 ? ` PFG bid list via ${pfgLocations[0].name}` : ''}{pfgLocations.length > 0 && brandLocationIds.length > 0 ? ' + ' : ''}{brandLocationIds.length > 0 ? 'PA order history' : ''}.
             </p>
           )}
         </CardContent>
@@ -414,9 +482,14 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                         {item.brand && <span>• {item.brand}</span>}
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-[10px] shrink-0">
-                      {item.categoryName}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge variant="outline" className="text-[10px]">
+                        {item.vendorSource === 'pa' ? 'PA' : 'PFG'}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {item.categoryName}
+                      </Badge>
+                    </div>
                   </div>
                 ))}
               </div>
