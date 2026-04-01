@@ -2280,74 +2280,149 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
 
   let items: any[] = [];
 
-  // ── PRIMARY: /api/common/download-sheet (same direct API approach as order sync) ──
-  // This is the data behind the Weekly Prices Report — returns CSV/spreadsheet data
-  // instead of the JSP shell that requires a full browser to render.
-  const reportConfigs = [
-    'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES',
-    'REPORT_CONFIG_WEEKLY_PRODUCE_PRICES',
-    'RESTAURANT_WEEKLY_PRODUCE_PRICES',
+  // ── PRIMARY: Try various API endpoints for product catalog ──
+  // The download-sheet endpoint needs specific parameters — try multiple formats
+  const authHeaders = getAuthHeaders(session, true);
+
+  // Attempt 1: download-sheet with different body formats
+  const downloadSheetBodies = [
+    // Format from Angular app network tab
+    { reportConfigName: 'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES', restaurantId: parseInt(session.restaurantId), params: { restaurantId: parseInt(session.restaurantId) } },
+    { configName: 'REPORT_CONFIG_RESTAURANT_WEEKLY_PRODUCE_PRICES', restaurantId: parseInt(session.restaurantId) },
+    { reportName: 'restaurantWeeklyProducePricesReport', restaurantId: parseInt(session.restaurantId) },
+    { reportType: 'WEEKLY_PRICES', restaurantId: parseInt(session.restaurantId) },
   ];
 
-  for (const reportConfig of reportConfigs) {
+  for (const postBody of downloadSheetBodies) {
     if (items.length > 0) break;
-    
     const downloadUrl = `${PA_BASE_URL}/api/common/download-sheet`;
-    const postBody = JSON.stringify({
-      reportConfigName: reportConfig,
-      restaurantId: parseInt(session.restaurantId) || session.restaurantId,
-      format: 'csv',
-    });
-
-    console.log(`[PA Catalog Live] Trying download-sheet with config: ${reportConfig}`);
+    console.log(`[PA Catalog Live] Trying download-sheet body: ${JSON.stringify(postBody).substring(0, 200)}`);
     try {
       const resp = await fetch(downloadUrl, {
         method: 'POST',
-        headers: {
-          ...getAuthHeaders(session, true),
-          'Content-Type': 'application/json',
-        },
-        body: postBody,
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify(postBody),
       });
       const text = await resp.text();
-      console.log(`[PA Catalog Live] download-sheet ${reportConfig}: ${resp.status}, ${text.length} chars`);
-      console.log(`[PA Catalog Live] Preview: ${text.substring(0, 500)}`);
-
-      if (resp.status === 200 && text.length > 100) {
-        // Try parsing as CSV first
+      const isError = text.includes('stackTrace') || text.includes('exception');
+      console.log(`[PA Catalog Live] download-sheet: ${resp.status}, ${text.length} chars, error: ${isError}`);
+      if (!isError && resp.status === 200 && text.length > 100) {
+        console.log(`[PA Catalog Live] Response preview: ${text.substring(0, 500)}`);
         items = parseCatalogCsv(text);
-        if (items.length > 0) {
-          console.log(`[PA Catalog Live] ✅ CSV parsed: ${items.length} items from ${reportConfig}`);
-          break;
-        }
-        // Try as HTML table (some endpoints return HTML)
-        items = parseWeeklyPricesHtml(text);
-        if (items.length > 0) {
-          console.log(`[PA Catalog Live] ✅ HTML parsed: ${items.length} items from ${reportConfig}`);
-          break;
-        }
-        // Try as JSON
-        try {
-          const json = JSON.parse(text);
-          const arr = Array.isArray(json) ? json : json.data || json.items || json.dataList || [];
-          if (Array.isArray(arr) && arr.length > 0) {
-            items = arr.map((r: any) => ({
-              pa_item_id: String(r.paProductId || r.productId || r.itemId || r.id || ''),
-              description: r.masterProductName || r.productName || r.description || r.name || '',
-              pack_size: r.packSize || r.pack || null,
-              category: r.category || r.productCategory || 'Produce',
-              unit_price: parseFloat(r.price || r.unitPrice || r.cost || 0) || null,
-            })).filter((i: any) => i.pa_item_id && i.description);
-            if (items.length > 0) {
-              console.log(`[PA Catalog Live] ✅ JSON parsed: ${items.length} items from ${reportConfig}`);
-              break;
+        if (items.length === 0) items = parseWeeklyPricesHtml(text);
+        if (items.length === 0) {
+          try {
+            const json = JSON.parse(text);
+            const arr = Array.isArray(json) ? json : json.data || json.items || json.dataList || [];
+            if (Array.isArray(arr) && arr.length > 0) {
+              console.log(`[PA Catalog Live] JSON sample:`, JSON.stringify(arr[0]).substring(0, 300));
+              items = arr.map((r: any) => ({
+                pa_item_id: String(r.paProductId || r.productId || r.itemId || r.id || r.masterProductCode || ''),
+                description: r.masterProductName || r.productName || r.description || r.name || '',
+                pack_size: r.packSize || r.pack || null,
+                category: r.category || r.productCategory || 'Produce',
+                unit_price: parseFloat(r.price || r.unitPrice || r.cost || 0) || null,
+              })).filter((i: any) => i.pa_item_id && i.description);
             }
-          }
-        } catch { /* not JSON */ }
+          } catch { /* not JSON */ }
+        }
+        if (items.length > 0) console.log(`[PA Catalog Live] ✅ Found ${items.length} items from download-sheet`);
       }
     } catch (e) {
-      console.warn(`[PA Catalog Live] download-sheet ${reportConfig} error:`, e);
+      console.warn(`[PA Catalog Live] download-sheet error:`, e);
     }
+  }
+
+  // Attempt 2: Try various product/catalog REST endpoints
+  if (items.length === 0) {
+    const apiUrls = [
+      { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-products-for-restaurant-by-params?restaurantId=${session.restaurantId}`, method: 'POST', body: JSON.stringify({ restaurantId: parseInt(session.restaurantId), limit: 1000, offset: 0 }) },
+      { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-restaurant-products?restaurantId=${session.restaurantId}`, method: 'POST', body: JSON.stringify({ restaurantId: parseInt(session.restaurantId) }) },
+      { url: `${PA_BASE_URL}/api/restaurant-dashboard/products?restaurantId=${session.restaurantId}`, method: 'GET', body: undefined },
+      { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-products-for-restaurant?restaurantId=${session.restaurantId}`, method: 'GET', body: undefined },
+      { url: `${PA_BASE_URL}/api/product/list?restaurantId=${session.restaurantId}`, method: 'GET', body: undefined },
+      { url: `${PA_BASE_URL}/api/reports/weekly-prices?restaurantId=${session.restaurantId}`, method: 'GET', body: undefined },
+    ];
+
+    for (const ep of apiUrls) {
+      if (items.length > 0) break;
+      console.log(`[PA Catalog Live] Trying: ${ep.method} ${ep.url.replace(PA_BASE_URL, '')}`);
+      try {
+        const resp = await fetch(ep.url, {
+          method: ep.method,
+          headers: ep.body ? { ...authHeaders, 'Content-Type': 'application/json' } : authHeaders,
+          body: ep.body,
+        });
+        const text = await resp.text();
+        console.log(`[PA Catalog Live] ${resp.status}, ${text.length} chars`);
+        if (resp.status === 200 && text.length > 50 && !text.includes('stackTrace')) {
+          console.log(`[PA Catalog Live] Preview: ${text.substring(0, 500)}`);
+          try {
+            const json = JSON.parse(text);
+            const possibleArrays = [json, json.data, json.items, json.dataList, json.products, json.content, json.records];
+            for (const arr of possibleArrays) {
+              if (Array.isArray(arr) && arr.length > 0) {
+                console.log(`[PA Catalog Live] Array[${arr.length}] sample keys: ${Object.keys(arr[0]).join(', ')}`);
+                const mapped = arr.map((r: any) => ({
+                  pa_item_id: String(r.paProductId || r.productId || r.itemId || r.id || r.masterProductCode || r.itemCode || ''),
+                  description: r.masterProductName || r.productName || r.description || r.name || r.itemName || '',
+                  pack_size: r.packSize || r.pack || r.unitSize || null,
+                  category: r.category || r.productCategory || r.categoryName || 'Produce',
+                  unit_price: parseFloat(r.price || r.unitPrice || r.cost || r.weeklyPrice || 0) || null,
+                })).filter((i: any) => i.pa_item_id && i.description);
+                if (mapped.length > 0) {
+                  items = mapped;
+                  console.log(`[PA Catalog Live] ✅ Found ${items.length} items`);
+                  break;
+                }
+              }
+            }
+          } catch {
+            items = parseCatalogCsv(text);
+          }
+        }
+      } catch (e) {
+        console.warn(`[PA Catalog Live] Error:`, e);
+      }
+    }
+  }
+
+  // Attempt 3: Extract full product list from order history (PROVEN WORKING approach)
+  // The order sync works perfectly — so we can use 6 months of orders to build the catalog
+  if (items.length === 0) {
+    console.log(`[PA Catalog Live] All API endpoints failed. Building catalog from order history (6 months)...`);
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const sixMonthsAgo = new Date(now.getTime() - 180 * 86400000);
+    const startDate = `${sixMonthsAgo.getFullYear()}-${pad(sixMonthsAgo.getMonth() + 1)}-${pad(sixMonthsAgo.getDate())}`;
+    const endDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    const orders = await fetchOrderList(session, startDate, endDate);
+    console.log(`[PA Catalog Live] Found ${orders.length} orders in 6-month window`);
+
+    const productMap = new Map<string, any>();
+    const maxOrders = Math.min(orders.length, 20);
+    for (let i = 0; i < maxOrders; i++) {
+      const detail = await fetchOrderDetail(session, orders[i].webOrderId, startDate, endDate, credentials);
+      if (detail?.lineItems?.length) {
+        for (const li of detail.lineItems) {
+          const id = li.pa_product_id || li.item_code;
+          if (id && !productMap.has(id)) {
+            const parsedPack = parsePackFromName(li.description);
+            productMap.set(id, {
+              pa_item_id: id,
+              description: li.description,
+              pack_size: parsedPack.packSize,
+              category: 'Produce',
+              unit_price: li.unit_price > 0 ? li.unit_price : null,
+            });
+          }
+        }
+      }
+      if (i < maxOrders - 1) await new Promise(r => setTimeout(r, 200));
+    }
+    items = Array.from(productMap.values());
+    console.log(`[PA Catalog Live] Built catalog from orders: ${items.length} unique items from ${maxOrders} orders`);
   }
 
   // ── FALLBACK: Try GET-based download endpoints ──
