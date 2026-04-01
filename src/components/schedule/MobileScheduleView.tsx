@@ -1179,7 +1179,7 @@ export function MobileScheduleView({
                       )}
                     </div>
                   </h4>
-                  {pastDatePunches.map(punch => (
+                  {dayPunches.map(punch => (
                     <MobileShiftCard
                       key={punch.id}
                       name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
