@@ -316,13 +316,13 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                 Vendor Gap Finder
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Compare PFG Bid List against your catalog to find missing items
+                Compare PFG Bid List &amp; PA order history against your catalog
               </p>
             </div>
             <Button
               size="sm"
               onClick={runScan}
-              disabled={isScanning || pfgLocations.length === 0}
+              disabled={isScanning || (pfgLocations.length === 0 && brandLocationIds.length === 0)}
             >
               {isScanning ? (
                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
@@ -333,15 +333,15 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
             </Button>
           </div>
 
-          {pfgLocations.length === 0 && (
+          {pfgLocations.length === 0 && brandLocationIds.length === 0 && (
             <p className="text-xs text-destructive mt-2">
-              No locations have a PFG bid guide configured.
+              No locations have PFG or PA integrations configured.
             </p>
           )}
 
-          {pfgLocations.length > 0 && !scanResult && !isScanning && (
+          {(pfgLocations.length > 0 || brandLocationIds.length > 0) && !scanResult && !isScanning && (
             <p className="text-xs text-muted-foreground mt-2">
-              Will scan bid list via <strong>{pfgLocations[0].name}</strong>'s PFG connection.
+              Will scan{pfgLocations.length > 0 ? ` PFG bid list via ${pfgLocations[0].name}` : ''}{pfgLocations.length > 0 && brandLocationIds.length > 0 ? ' + ' : ''}{brandLocationIds.length > 0 ? 'PA order history' : ''}.
             </p>
           )}
         </CardContent>
