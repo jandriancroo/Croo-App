@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, Loader2, Sparkles, Mic, MicOff } from 'lucide-react';
+import { X, Send, Loader2, Sparkles, Mic, MicOff, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -11,6 +11,7 @@ import { AiMarkdownRenderer } from './AiMarkdownRenderer';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -18,10 +19,10 @@ interface Message {
 }
 
 const SUGGESTIONS = [
-  "What were net sales today?",
-  "Who clocked in late today?",
-  "Who temped the tomatoes on AM Line Check?",
-  "Who's scheduled tomorrow?",
+  { icon: '📊', text: "What were net sales today?" },
+  { icon: '⏰', text: "Who clocked in late today?" },
+  { icon: '🌡️', text: "Who temped the tomatoes on AM Line Check?" },
+  { icon: '📋', text: "Who's scheduled tomorrow?" },
 ];
 
 export function AiAssistantBubble() {
@@ -51,12 +52,10 @@ export function AiAssistantBubble() {
     silenceTimeoutMs: 6000,
   });
 
-  // Get today's date in location timezone
   const today = useMemo(() => {
     return formatInTimeZone(new Date(), timezone || 'America/Los_Angeles', 'yyyy-MM-dd');
   }, [timezone]);
 
-  // Fetch today's briefing for unread dot
   const { data: briefing } = useQuery({
     queryKey: ['croo-ai-briefing', currentLocation?.id, today],
     queryFn: async () => {
@@ -74,7 +73,6 @@ export function AiAssistantBubble() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Check if current user has read today's briefing
   const { data: hasRead } = useQuery({
     queryKey: ['croo-ai-briefing-read', briefing?.id],
     queryFn: async () => {
@@ -94,7 +92,6 @@ export function AiAssistantBubble() {
     staleTime: 30 * 1000,
   });
 
-  // Mark briefing as read
   const markRead = useMutation({
     mutationFn: async (briefingId: string) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -110,12 +107,10 @@ export function AiAssistantBubble() {
 
   const hasUnreadBriefing = !!briefing && !hasRead;
 
-  // When opening the chat, inject the morning briefing as the first assistant message
   useEffect(() => {
     if (open && briefing?.content && !briefingLoadedRef.current && messages.length === 0) {
       briefingLoadedRef.current = true;
       setMessages([{ role: 'assistant', content: briefing.content }]);
-      // Mark as read
       if (briefing.id) {
         markRead.mutate(briefing.id);
       }
@@ -123,7 +118,6 @@ export function AiAssistantBubble() {
     }
   }, [open, briefing]);
 
-  // Reset briefing loaded flag when location changes
   useEffect(() => {
     briefingLoadedRef.current = false;
     setMessages([]);
@@ -135,7 +129,6 @@ export function AiAssistantBubble() {
     }
   }, [open]);
 
-  // Don't render for non-managers
   if (!isShiftManager) return null;
 
   const scrollToBottom = () => {
@@ -144,10 +137,14 @@ export function AiAssistantBubble() {
     }, 50);
   };
 
+  const handleNewChat = () => {
+    setMessages([]);
+    briefingLoadedRef.current = false;
+    setInput('');
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !currentLocation) return;
-
-    // Stop listening when sending
     if (isListening) toggleListening();
 
     const userMsg: Message = { role: 'user', content: text.trim() };
@@ -191,144 +188,195 @@ export function AiAssistantBubble() {
   return createPortal(
     <>
       {/* Floating bubble */}
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="crooai-orb crooai-orb-floating z-[55] h-14 w-14 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center"
-          aria-label="Open AI Assistant"
-        >
-          <Sparkles className="h-5 w-5 text-[hsl(43_80%_62%)] drop-shadow-[0_0_6px_hsl(43_80%_55%/0.6)]" style={{ animation: 'crooai-icon-spin 5s ease-in-out infinite' }} />
-          {hasUnreadBriefing && (
-            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-destructive border-2 border-background animate-pulse" />
-          )}
-        </button>
-      )}
+      <AnimatePresence>
+        {!open && (
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            onClick={() => setOpen(true)}
+            className="crooai-orb crooai-orb-floating z-[55] h-14 w-14 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center"
+            aria-label="Open AI Assistant"
+          >
+            <Sparkles className="h-5 w-5 text-[hsl(43_80%_62%)] drop-shadow-[0_0_6px_hsl(43_80%_55%/0.6)]" style={{ animation: 'crooai-icon-spin 5s ease-in-out infinite' }} />
+            {hasUnreadBriefing && (
+              <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-destructive border-2 border-background animate-pulse" />
+            )}
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Chat overlay */}
-      {open && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-background md:inset-auto md:bottom-8 md:right-4 md:w-[400px] md:h-[560px] md:rounded-2xl md:border md:border-border/50 md:shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-primary/5">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">CrooAI</h3>
-                <p className="text-[10px] text-muted-foreground">{currentLocation?.name || 'Assistant'}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
-            >
-              <X className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
-
-          {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-            {messages.length === 0 && (
-              <div className="space-y-4 pt-8">
-                <div className="text-center">
-                  <Sparkles className="h-8 w-8 text-primary/30 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-foreground">Ask me anything about your store</p>
-                  <p className="text-xs text-muted-foreground mt-1">Sales, labor, schedules, checklists — I have access to your live data</p>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+            className="fixed inset-0 z-[60] flex flex-col bg-background md:inset-auto md:bottom-8 md:right-4 md:w-[420px] md:h-[580px] md:rounded-2xl md:border md:border-border/40 md:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] overflow-hidden"
+          >
+            {/* Header — glassmorphic */}
+            <div className="relative flex items-center justify-between px-4 py-3 border-b border-border/30 crooai-header-bg">
+              <div className="flex items-center gap-3">
+                <div className="crooai-header-icon h-9 w-9 rounded-xl flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-[hsl(43_80%_62%)]" />
                 </div>
-                <div className="grid grid-cols-1 gap-2 pt-2">
-                  {SUGGESTIONS.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => sendMessage(s)}
-                      className="text-left text-xs px-3 py-2 rounded-lg border border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={cn(
-                  'flex',
-                  msg.role === 'user' ? 'justify-end' : 'justify-start'
-                )}
-              >
-                <div
-                  className={cn(
-                    'max-w-[85%] rounded-2xl px-3.5 py-2 text-sm',
-                    msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-br-md'
-                      : 'bg-muted/50 text-foreground rounded-bl-md'
-                  )}
-                >
-                  {msg.role === 'assistant' ? (
-                    <AiMarkdownRenderer content={msg.content} />
-                  ) : (
-                    msg.content
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-muted/50 rounded-2xl rounded-bl-md px-4 py-3">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground tracking-tight">CrooAI</h3>
                   <div className="flex items-center gap-1.5">
-                    <div className="h-2 w-2 rounded-full bg-primary/40 animate-bounce [animation-delay:0ms]" />
-                    <div className="h-2 w-2 rounded-full bg-primary/40 animate-bounce [animation-delay:150ms]" />
-                    <div className="h-2 w-2 rounded-full bg-primary/40 animate-bounce [animation-delay:300ms]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <p className="text-[10px] text-muted-foreground font-medium">{currentLocation?.name || 'Assistant'}</p>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Input */}
-          <div className="p-3 border-t border-border/50" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}>
-            <form
-              onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
-              className="flex items-center gap-2 bg-muted/50 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-primary/30 transition-all"
-            >
-              {/* Mic button */}
-              {voiceSupported && (
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && (
+                  <button
+                    onClick={handleNewChat}
+                    className="p-2 rounded-xl hover:bg-muted/50 transition-colors"
+                    title="New chat"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                )}
                 <button
-                  type="button"
-                  onClick={toggleListening}
-                  className={cn(
-                    'p-1.5 rounded-lg transition-all shrink-0',
-                    isListening
-                      ? 'bg-destructive text-destructive-foreground animate-pulse'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  )}
-                  aria-label={isListening ? 'Stop listening' : 'Start voice input'}
+                  onClick={() => setOpen(false)}
+                  className="p-2 rounded-xl hover:bg-muted/50 transition-colors"
                 >
-                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  <X className="h-4 w-4 text-muted-foreground" />
                 </button>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto crooai-messages-bg">
+              {messages.length === 0 && (
+                <div className="px-5 pt-10 pb-4 space-y-5">
+                  <div className="text-center space-y-2">
+                    <div className="crooai-empty-icon mx-auto h-14 w-14 rounded-2xl flex items-center justify-center mb-3">
+                      <Sparkles className="h-7 w-7 text-[hsl(43_80%_62%)]" />
+                    </div>
+                    <p className="text-base font-semibold text-foreground">What can I help with?</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-[260px] mx-auto">
+                      Sales, labor, schedules, checklists — I have access to your live store data.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 pt-1">
+                    {SUGGESTIONS.map((s, i) => (
+                      <motion.button
+                        key={i}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.06 }}
+                        onClick={() => sendMessage(s.text)}
+                        className="crooai-suggestion-card flex items-center gap-2.5 text-left text-[13px] px-3.5 py-2.5 rounded-xl border border-border/40 text-muted-foreground hover:text-foreground transition-all"
+                      >
+                        <span className="text-base shrink-0">{s.icon}</span>
+                        <span>{s.text}</span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
               )}
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={isListening ? "Listening..." : "Ask about sales, labor, checklists..."}
-                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none min-w-0"
-                disabled={loading}
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || loading}
-                className="p-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-30 transition-opacity shrink-0"
+
+              {messages.length > 0 && (
+                <div className="px-4 py-3 space-y-3">
+                  {messages.map((msg, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
+                    >
+                      {msg.role === 'assistant' && (
+                        <div className="crooai-avatar h-6 w-6 rounded-lg flex items-center justify-center mr-2 mt-1 shrink-0">
+                          <Sparkles className="h-3 w-3 text-[hsl(43_80%_62%)]" />
+                        </div>
+                      )}
+                      <div
+                        className={cn(
+                          'max-w-[82%] text-sm',
+                          msg.role === 'user'
+                            ? 'crooai-user-bubble rounded-2xl rounded-br-md px-3.5 py-2.5'
+                            : 'crooai-ai-bubble rounded-2xl rounded-bl-md px-3.5 py-2.5'
+                        )}
+                      >
+                        {msg.role === 'assistant' ? (
+                          <AiMarkdownRenderer content={msg.content} />
+                        ) : (
+                          <span className="leading-relaxed">{msg.content}</span>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+
+                  {loading && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex justify-start"
+                    >
+                      <div className="crooai-avatar h-6 w-6 rounded-lg flex items-center justify-center mr-2 mt-1 shrink-0">
+                        <Sparkles className="h-3 w-3 text-[hsl(43_80%_62%)]" />
+                      </div>
+                      <div className="crooai-ai-bubble rounded-2xl rounded-bl-md px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <div className="crooai-typing-dot h-2 w-2 rounded-full" style={{ animationDelay: '0ms' }} />
+                          <div className="crooai-typing-dot h-2 w-2 rounded-full" style={{ animationDelay: '150ms' }} />
+                          <div className="crooai-typing-dot h-2 w-2 rounded-full" style={{ animationDelay: '300ms' }} />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Input */}
+            <div className="crooai-input-bar px-3 py-3 border-t border-border/30" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}>
+              <form
+                onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
+                className="crooai-input-field flex items-center gap-2 rounded-xl px-3 py-2.5 transition-all"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+                {voiceSupported && (
+                  <button
+                    type="button"
+                    onClick={toggleListening}
+                    className={cn(
+                      'p-1.5 rounded-lg transition-all shrink-0',
+                      isListening
+                        ? 'bg-destructive text-destructive-foreground animate-pulse'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                    )}
+                    aria-label={isListening ? 'Stop listening' : 'Start voice input'}
+                  >
+                    {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  </button>
+                )}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={isListening ? "Listening..." : "Ask CrooAI anything..."}
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none min-w-0"
+                  disabled={loading}
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim() || loading}
+                  className="crooai-send-btn p-2 rounded-xl disabled:opacity-20 transition-all shrink-0"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>,
     document.body
   );

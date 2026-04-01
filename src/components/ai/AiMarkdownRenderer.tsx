@@ -5,47 +5,47 @@ import { cn } from '@/lib/utils';
 
 const markdownComponents: Components = {
   table: ({ children, ...props }) => (
-    <div className="my-2 overflow-x-auto rounded-lg border border-border/50 bg-background/50">
+    <div className="my-2.5 overflow-x-auto rounded-xl border border-border/40 bg-card/80 shadow-sm">
       <table className="w-full text-xs" {...props}>
         {children}
       </table>
     </div>
   ),
   thead: ({ children, ...props }) => (
-    <thead className="bg-muted/70 text-muted-foreground" {...props}>
+    <thead className="bg-muted/50 text-muted-foreground" {...props}>
       {children}
     </thead>
   ),
   tbody: ({ children, ...props }) => (
-    <tbody className="divide-y divide-border/30" {...props}>
+    <tbody className="divide-y divide-border/20" {...props}>
       {children}
     </tbody>
   ),
   tr: ({ children, ...props }) => (
-    <tr className="transition-colors hover:bg-muted/30" {...props}>
+    <tr className="transition-colors hover:bg-muted/20" {...props}>
       {children}
     </tr>
   ),
   th: ({ children, ...props }) => (
     <th
-      className="px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap"
+      className="px-2.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap"
       {...props}
     >
       {children}
     </th>
   ),
   td: ({ children, ...props }) => (
-    <td className="px-2.5 py-1.5 text-xs whitespace-nowrap" {...props}>
+    <td className="px-2.5 py-2 text-xs whitespace-nowrap" {...props}>
       {children}
     </td>
   ),
   ul: ({ children, ...props }) => (
-    <ul className="my-1.5 ml-3 space-y-0.5 list-disc marker:text-primary/50" {...props}>
+    <ul className="my-1.5 ml-3.5 space-y-1 list-disc marker:text-primary/40" {...props}>
       {children}
     </ul>
   ),
   ol: ({ children, ...props }) => (
-    <ol className="my-1.5 ml-3 space-y-0.5 list-decimal marker:text-primary/50" {...props}>
+    <ol className="my-1.5 ml-3.5 space-y-1 list-decimal marker:text-primary/40" {...props}>
       {children}
     </ol>
   ),
@@ -55,16 +55,16 @@ const markdownComponents: Components = {
     </li>
   ),
   h1: ({ children, ...props }) => (
-    <h1 className="text-sm font-bold mt-3 mb-1.5 text-foreground" {...props}>{children}</h1>
+    <h1 className="text-sm font-bold mt-3 mb-1.5 text-foreground tracking-tight" {...props}>{children}</h1>
   ),
   h2: ({ children, ...props }) => (
-    <h2 className="text-[13px] font-semibold mt-2.5 mb-1 text-foreground" {...props}>{children}</h2>
+    <h2 className="text-[13px] font-semibold mt-2.5 mb-1 text-foreground tracking-tight" {...props}>{children}</h2>
   ),
   h3: ({ children, ...props }) => (
     <h3 className="text-xs font-semibold mt-2 mb-0.5 text-foreground" {...props}>{children}</h3>
   ),
   p: ({ children, ...props }) => (
-    <p className="my-1 text-xs leading-relaxed" {...props}>{children}</p>
+    <p className="my-1 text-xs leading-[1.6]" {...props}>{children}</p>
   ),
   strong: ({ children, ...props }) => (
     <strong className="font-semibold text-foreground" {...props}>{children}</strong>
@@ -73,22 +73,22 @@ const markdownComponents: Components = {
     const isInline = !className;
     if (isInline) {
       return (
-        <code className="rounded bg-muted px-1 py-0.5 text-[11px] font-mono text-primary" {...props}>
+        <code className="rounded-md bg-primary/8 px-1.5 py-0.5 text-[11px] font-mono text-primary border border-primary/10" {...props}>
           {children}
         </code>
       );
     }
     return (
-      <code className={cn("block rounded-lg bg-muted/70 p-2 text-[11px] font-mono overflow-x-auto my-1.5", className)} {...props}>
+      <code className={cn("block rounded-xl bg-muted/60 p-3 text-[11px] font-mono overflow-x-auto my-2 border border-border/30", className)} {...props}>
         {children}
       </code>
     );
   },
   hr: (props) => (
-    <hr className="my-2 border-border/40" {...props} />
+    <hr className="my-2.5 border-border/30" {...props} />
   ),
   blockquote: ({ children, ...props }) => (
-    <blockquote className="my-1.5 border-l-2 border-primary/40 pl-2.5 text-xs italic text-muted-foreground" {...props}>
+    <blockquote className="my-2 border-l-2 border-primary/30 pl-3 text-xs italic text-muted-foreground bg-primary/3 rounded-r-lg py-1" {...props}>
       {children}
     </blockquote>
   ),
