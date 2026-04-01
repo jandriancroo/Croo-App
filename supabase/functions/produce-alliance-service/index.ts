@@ -14,7 +14,7 @@ const corsHeaders = {
 // Order list: POST /api/restaurant-dashboard/fetch-orders-for-restaurant-by-params
 // ============================================================================
 
-const PA_BASE_URL = 'https://producealliance.info';
+const PA_BASE_URL = 'https://www.producealliance.info';
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15';
 
 interface PACredentials {
