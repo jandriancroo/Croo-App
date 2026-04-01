@@ -6,7 +6,7 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Save } from "lucide-react";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { calculateUsageRates } from "@/utils/inventoryRateCalculation";
