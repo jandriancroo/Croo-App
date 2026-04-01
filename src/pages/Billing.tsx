@@ -1,5 +1,4 @@
 import { Layout } from '@/components/Layout';
-import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -75,7 +74,6 @@ export default function Billing() {
         <div>
           <h1 className="text-3xl font-bold">Plans & Billing</h1>
           <p className="text-muted-foreground">Subscribe each location individually</p>
-          <PageHeaderDivider />
         </div>
 
 

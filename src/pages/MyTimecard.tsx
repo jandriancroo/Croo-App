@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
-import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { formatInTimeZone } from "date-fns-tz";
 import { Clock, DollarSign, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
@@ -82,7 +81,6 @@ export default function MyTimecard() {
               </Button>
             </div>
           </div>
-          <PageHeaderDivider />
         </div>
 
         {/* Hours & Earnings Summary */}

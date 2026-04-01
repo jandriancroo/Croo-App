@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
-import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Type } from "lucide-react";
 
 const fonts = [
@@ -31,7 +30,6 @@ export function FontPreview() {
             <h1 className="text-3xl font-bold">Fonts</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">{fonts.length} registered typefaces</p>
-          <PageHeaderDivider />
         </div>
 
         <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md py-3 -mx-1 px-1">

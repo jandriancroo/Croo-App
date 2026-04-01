@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
-import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -937,7 +936,6 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-            <PageHeaderDivider />
           </div>
 
           {/* Edit Dashboard Dialog */}
