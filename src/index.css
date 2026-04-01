@@ -1559,8 +1559,13 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   100% { transform: rotate(360deg); }
 }
 
+@keyframes crooai-typing {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
 .crooai-orb {
-  background: hsl(var(--primary));
+  background: linear-gradient(145deg, hsl(var(--primary)), hsl(189 50% 35%));
   border: 2px solid hsl(43 72% 45%);
   position: relative;
   overflow: hidden;
@@ -1600,4 +1605,80 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 
 .crooai-orb:hover {
   border-color: hsl(43 80% 55%);
+}
+
+/* Chat Panel */
+.crooai-header-bg {
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.02));
+  backdrop-filter: blur(12px);
+}
+
+.crooai-header-icon {
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(43 80% 55% / 0.15));
+  border: 1px solid hsl(43 80% 55% / 0.2);
+}
+
+.crooai-messages-bg {
+  background: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.15));
+}
+
+.crooai-empty-icon {
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(43 80% 55% / 0.12));
+  border: 1px solid hsl(43 80% 55% / 0.15);
+  box-shadow: 0 4px 20px hsl(43 80% 55% / 0.08);
+}
+
+.crooai-suggestion-card {
+  background: hsl(var(--card));
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.04);
+}
+.crooai-suggestion-card:hover {
+  background: hsl(var(--muted) / 0.6);
+  border-color: hsl(var(--primary) / 0.3);
+  box-shadow: 0 2px 8px hsl(var(--primary) / 0.08);
+  transform: translateY(-1px);
+}
+
+.crooai-user-bubble {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(189 50% 35%));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 2px 8px hsl(var(--primary) / 0.2);
+}
+
+.crooai-ai-bubble {
+  background: hsl(var(--muted) / 0.5);
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border) / 0.3);
+}
+
+.crooai-avatar {
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(43 80% 55% / 0.12));
+  border: 1px solid hsl(43 80% 55% / 0.15);
+}
+
+.crooai-typing-dot {
+  background: hsl(var(--primary) / 0.5);
+  animation: crooai-typing 1.2s ease-in-out infinite;
+}
+
+.crooai-input-bar {
+  background: hsl(var(--background) / 0.95);
+  backdrop-filter: blur(12px);
+}
+
+.crooai-input-field {
+  background: hsl(var(--muted) / 0.5);
+  border: 1px solid hsl(var(--border) / 0.3);
+}
+.crooai-input-field:focus-within {
+  border-color: hsl(var(--primary) / 0.4);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.08);
+}
+
+.crooai-send-btn {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(189 50% 35%));
+  color: hsl(var(--primary-foreground));
+}
+.crooai-send-btn:not(:disabled):hover {
+  box-shadow: 0 2px 8px hsl(var(--primary) / 0.3);
 }
