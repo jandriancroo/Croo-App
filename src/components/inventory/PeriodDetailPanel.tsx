@@ -127,7 +127,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     let adjustedStart = standardStart;
     let isFlexAdjusted = false;
     if (prevCountData?.is_late_close && prevCountData?.counted_at) {
-      const prevCountedDate = formatInTimeZone(new Date(prevCountData.counted_at), 'America/Los_Angeles', 'yyyy-MM-dd');
+      const prevCountedDate = formatInTimeZone(new Date(prevCountData.counted_at), timezone, 'yyyy-MM-dd');
       const dayAfterPrevCount = format(
         new Date(new Date(prevCountedDate + "T12:00:00").getTime() + 86400000),
         "yyyy-MM-dd"
