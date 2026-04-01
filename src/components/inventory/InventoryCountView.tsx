@@ -100,6 +100,22 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     }
   });
 
+  // Fetch junction table display_order for shortcuts (unified ordering)
+  const { data: junctionOrders } = useQuery({
+    queryKey: ["inventory-item-location-orders-view", countId],
+    queryFn: async () => {
+      const itemIds = countItems?.map(ci => ci.item_id) || [];
+      if (itemIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("inventory_item_locations")
+        .select("item_id, storage_location_id, display_order")
+        .in("item_id", itemIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!countItems && countItems.length > 0,
+  });
+
   // Fetch edit history grouped by item
   const { data: editHistory } = useQuery({
     queryKey: ["inventory-count-edits", countId],
@@ -157,6 +173,14 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     return item.quantity * ((item.item?.cost_per_unit || 0) / Math.max(packQty, 1));
   };
 
+  // Build junction order map: "itemId|storLocId" -> display_order
+  const junctionOrderMap = new Map<string, number>();
+  (junctionOrders || []).forEach((jo: any) => {
+    if (typeof jo.display_order === 'number') {
+      junctionOrderMap.set(`${jo.item_id}|${jo.storage_location_id}`, jo.display_order);
+    }
+  });
+
   // Group items by storage location, maintaining display_order
   const itemsByLocation = countItems?.reduce((acc, item) => {
     // Prefer the count item's own storage location (for multi-location items)
@@ -174,12 +198,25 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     return acc;
   }, {} as Record<string, { items: CountItem[]; order: number }>) || {};
 
-  // Sort locations by display_order and items within each location by display_order
+  // Sort locations by display_order and items within each location using unified ordering
+  // Shortcuts use junction table display_order; primary items use item display_order
   const sortedLocations = Object.entries(itemsByLocation)
     .sort(([, a], [, b]) => a.order - b.order)
     .map(([name, data]) => ({
       name,
-      items: data.items.sort((a, b) => ((a.item as any)?.display_order ?? 0) - ((b.item as any)?.display_order ?? 0))
+      items: data.items.sort((a, b) => {
+        const aStorLocId = (a as any).storage_location_id || (a.item as any)?.storage_location_id;
+        const bStorLocId = (b as any).storage_location_id || (b.item as any)?.storage_location_id;
+        const aIsShortcut = aStorLocId && aStorLocId !== (a.item as any)?.storage_location_id;
+        const bIsShortcut = bStorLocId && bStorLocId !== (b.item as any)?.storage_location_id;
+        const aOrder = aIsShortcut 
+          ? (junctionOrderMap.get(`${a.item_id}|${aStorLocId}`) ?? 9999)
+          : ((a.item as any)?.display_order ?? 0);
+        const bOrder = bIsShortcut
+          ? (junctionOrderMap.get(`${b.item_id}|${bStorLocId}`) ?? 9999)
+          : ((b.item as any)?.display_order ?? 0);
+        return aOrder - bOrder;
+      })
     }));
 
   // Calculate totals

@@ -6,6 +6,7 @@ import {
   CheckCircle2, ArrowRightLeft,
 } from "lucide-react";
 import { format } from "date-fns";
+import { getEffectivePeriodEndDate } from "@/utils/periodLabelUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
@@ -155,7 +156,8 @@ export default function InventoryCountTab({
           <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto flex-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {filteredCounts.map((count, idx) => {
               const isActive = idx === safeIdx;
-              const endDate = new Date(count.period_end_date + "T12:00:00");
+              const effectiveEnd = getEffectivePeriodEndDate(count) || count.period_end_date;
+              const endDate = new Date(effectiveEnd + "T12:00:00");
               const hasCountedItems = (count._stats?.countedItems || 0) > 0;
               const isInProgress = count.status === "in_progress" && hasCountedItems;
               const isCompleted = count.status === "completed";

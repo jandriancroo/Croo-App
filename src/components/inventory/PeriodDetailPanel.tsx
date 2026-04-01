@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { formatPeriodLabel } from "@/utils/periodLabelUtils";
 import { useInventoryTransfers, getTransferTotalsForPeriod } from "@/hooks/useInventoryTransfers";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1050,19 +1051,3 @@ function DailySpotChecksGrid({
   );
 }
 
-// ——— Helpers ———
-
-function formatPeriodLabel(count: any): string {
-  if (!count.period_type || !count.period_end_date) {
-    return format(new Date(count.count_date + "T12:00:00"), "MMM d, yyyy");
-  }
-  const endDate = new Date(count.period_end_date + "T12:00:00");
-  switch (count.period_type) {
-    case "weekly":
-      return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
-    case "monthly":
-      return `${format(endDate, "MMMM yyyy")} Month End`;
-    default:
-      return format(new Date(count.count_date + "T12:00:00"), "MMM d, yyyy");
-  }
-}

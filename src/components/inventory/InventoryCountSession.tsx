@@ -179,20 +179,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         }
       }
 
-      // Fetch multi-location assignments from junction table (including count_by override)
+      // Fetch multi-location assignments from junction table (including count_by override and display_order)
       const { data: itemLocations } = await supabase
         .from("inventory_item_locations")
-        .select("item_id, storage_location_id, count_by");
+        .select("item_id, storage_location_id, count_by, display_order");
       
       // Build map: item_id -> list of storage_location_ids
       const multiLocMap = new Map<string, string[]>();
       // Build map: "itemId|storLocId" -> count_by override
       const countByMap = new Map<string, string>();
+      // Build map: "itemId|storLocId" -> display_order from junction table (for shortcuts)
+      const junctionOrderMap = new Map<string, number>();
       for (const il of itemLocations || []) {
         const existing = multiLocMap.get(il.item_id) || [];
         existing.push(il.storage_location_id);
         multiLocMap.set(il.item_id, existing);
         countByMap.set(`${il.item_id}|${il.storage_location_id}`, il.count_by || 'inherit');
+        if (typeof (il as any).display_order === 'number') {
+          junctionOrderMap.set(`${il.item_id}|${il.storage_location_id}`, (il as any).display_order);
+        }
       }
 
       // Get storage location names for lookup
@@ -241,6 +246,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const splitKey = `${item.id}|${locId || ''}`;
           const countData = countMap.get(splitKey) || (locIds.length === 1 ? simpleCountMap.get(item.id) : undefined);
           
+          // Determine sort order: shortcuts use junction display_order, primaries use item display_order
+          const isPrimaryLoc = locId === primaryLoc;
+          const sortOrder = isPrimaryLoc
+            ? ((item as any).display_order ?? 9999)
+            : (junctionOrderMap.get(`${item.id}|${locId}`) ?? 9999);
+
           result.push({
             item_id: item.id,
             item_name: (item as any).common_name || item.name,
@@ -266,7 +277,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             _existingUnits: countData?.entered_units ?? null,
             _countItemId: countData?.countItemId || null,
             _splitKey: splitKey,
-          });
+            _sortOrder: sortOrder,
+          } as any);
         }
       }
 
@@ -350,7 +362,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   }, [countRecord]);
 
-  // Group items by storage location
+  // Group items by storage location and sort within each group by unified display_order
   const itemsByLocation = items?.reduce((acc, item) => {
     const locId = item.storage_location_id;
     if (!acc[locId]) {
@@ -362,6 +374,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     acc[locId].items.push(item);
     return acc;
   }, {} as Record<string, { name: string; items: CountItem[] }>) || {};
+  
+  // Sort items within each location by their unified _sortOrder
+  for (const locId of Object.keys(itemsByLocation)) {
+    itemsByLocation[locId].items.sort((a, b) => 
+      ((a as any)._sortOrder ?? 9999) - ((b as any)._sortOrder ?? 9999)
+    );
+  }
 
   // Sort location keys by storage location display_order
   const locationKeys = Object.keys(itemsByLocation).sort((a, b) => {

@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, ArrowLeft, Hammer } from "lucide-react";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
 import { format } from "date-fns";
+import { formatPeriodLabel } from "@/utils/periodLabelUtils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -296,25 +297,6 @@ const Inventory = () => {
     }
   };
 
-  // Helper to format period label
-  const formatPeriodLabel = (count: any) => {
-    if (!count.period_type || !count.period_end_date) {
-      return format(new Date(count.count_date + 'T12:00:00'), "MMM d, yyyy");
-    }
-    
-    const endDate = new Date(count.period_end_date + 'T12:00:00');
-    switch (count.period_type) {
-      case "weekly":
-        // period_end_date is already the week-ending date (e.g. Sunday)
-        return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
-      case "monthly":
-        return `${format(endDate, "MMMM yyyy")} Month End`;
-      case "yearly":
-        return `${format(endDate, "yyyy")} Year End`;
-      default:
-        return format(new Date(count.count_date + 'T12:00:00'), "MMM d, yyyy");
-    }
-  };
 
 
 
