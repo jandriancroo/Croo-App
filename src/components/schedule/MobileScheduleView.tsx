@@ -1266,8 +1266,91 @@ export function MobileScheduleView({
                     </Card>
                   </>
                 );
-              })()) : (
-                /* Past/Future days — show all scheduled shifts, no punch tracking */
+              })()) : isPastDate && pastDatePunches.length > 0 ? (
+                /* Past days with punch data — show completed-style cards */
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                    {`Completed (${pastDatePunches.length})`}
+                    <div className="flex items-center gap-1 ml-auto">
+                      {(isAdmin || isManager) && scheduleId && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
+                          <CalendarPlus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </h4>
+                  {pastDatePunches.map(punch => (
+                    <MobileShiftCard
+                      key={punch.id}
+                      name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                      avatarUrl={punch.profile.profile_photo_url}
+                      startTime={punch.scheduledShift?.start_time || '00:00'}
+                      endTime={punch.scheduledShift?.end_time || '00:00'}
+                      statusIndicator="none"
+                      scheduledStart={punch.scheduledShift?.start_time}
+                      scheduledEnd={punch.scheduledShift?.end_time}
+                      clockInTime={punch.clockInTime}
+                      clockOutTime={punch.clockOutTime}
+                      breakStartTime={punch.breakStartTime}
+                      breakEndTime={punch.breakEndTime}
+                      hoursWorked={punch.hoursWorked}
+                      createdByName={punch.createdByName}
+                      timezone={timezone}
+                      formatTimeDisplay={formatTimeDisplay}
+                      showBreakIndicator={false}
+                      onClick={() => {
+                        setSelectedPunch({
+                          userId: punch.user_id,
+                          userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                          userPhoto: punch.profile.profile_photo_url,
+                          punchDate: selectedDateStr
+                        });
+                        setEditPunchOpen(true);
+                      }}
+                    />
+                  ))}
+                  {/* Show scheduled shifts without punches */}
+                  {(() => {
+                    const unpunchedShifts = dayShifts.filter(s => {
+                      const profile = getProfileForShift(s);
+                      return profile && !pastDatePunches.some(p => p.user_id === s.user_id);
+                    });
+                    if (unpunchedShifts.length === 0) return null;
+                    return (
+                      <>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-2">
+                          No Punches ({unpunchedShifts.length})
+                        </h4>
+                        {unpunchedShifts.sort((a, b) => a.start_time.localeCompare(b.start_time)).map(shift => {
+                          const profile = getProfileForShift(shift);
+                          if (!profile) return null;
+                          const shiftLabel = getShiftLabel(shift);
+                          return (
+                            <MobileShiftCard
+                              key={shift.id}
+                              name={getDisplayName(profile.full_name, (profile as any).nickname)}
+                              avatarUrl={profile.profile_photo_url}
+                              startTime={shift.start_time}
+                              endTime={shift.end_time}
+                              accentColor={shift.template?.color}
+                              isPublished={isShiftPublished(shift)}
+                              positionLabel={shiftLabel}
+                              positionColor={shift.template?.color}
+                              onClick={() => {
+                                if (isAdmin || isManager) {
+                                  setSelectedShift(shift);
+                                  setShiftDialogOpen(true);
+                                }
+                              }}
+                            />
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : (
+                /* Future days or past without punches — show all scheduled shifts */
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                     Scheduled
