@@ -4753,6 +4753,50 @@ export type Database = {
           },
         ]
       }
+      pa_catalog_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string
+          id: string
+          last_seen_at: string
+          location_id: string
+          pa_item_id: string
+          pack_size: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          last_seen_at?: string
+          location_id: string
+          pa_item_id: string
+          pack_size?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          last_seen_at?: string
+          location_id?: string
+          pa_item_id?: string
+          pack_size?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pa_catalog_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pa_orders: {
         Row: {
           bound_to_count_id: string | null
