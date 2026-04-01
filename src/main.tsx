@@ -41,6 +41,17 @@ try {
 } catch {
   // ignore
 }
+
+// Catch stale Vite chunk preload failures globally and recover once.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  const key = 'vite_preload_reload_attempted';
+  if (!sessionStorage.getItem(key)) {
+    sessionStorage.setItem(key, Date.now().toString());
+    window.location.reload();
+  }
+});
+
 // PWA: Register a minimal service worker for push notifications.
 // Required for web push to work in both PWA and browser mode.
 // No precaching = no stale version issues. Browser/CDN cache handles freshness.
