@@ -376,14 +376,24 @@ export default function OrderReconciliationPicker({
                           "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
                           order.vendor === "PFG"
                             ? "bg-red-500 text-red-200"
-                            : "bg-green-500 text-green-200"
+                            : order.vendor === "PA"
+                            ? "bg-green-500 text-green-200"
+                            : "bg-amber-500 text-amber-100"
                         )}
                       >
-                        {order.vendor === "PFG" ? <UtensilsCrossed className="h-5 w-5" /> : <Carrot className="h-5 w-5" />}
+                        {order.vendor === "PFG" ? (
+                          <UtensilsCrossed className="h-5 w-5" />
+                        ) : order.vendor === "PA" ? (
+                          <Carrot className="h-5 w-5" />
+                        ) : (
+                          <Receipt className="h-5 w-5" />
+                        )}
                       </div>
 
                       <div className="text-left">
-                        <p className="text-sm font-medium font-mono">{order.vendor} #{order.orderId}</p>
+                        <p className="text-sm font-medium font-mono">
+                          {order.vendor === "INV" ? order.vendorName : order.vendor} #{order.orderId}
+                        </p>
                       </div>
                     </div>
 
