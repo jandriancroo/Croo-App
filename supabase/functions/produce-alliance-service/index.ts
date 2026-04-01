@@ -1364,8 +1364,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   }
   console.log('[PA Sync] Persisted', ordersPersisted, 'orders to pa_orders');
 
-  if (allItems.size === 0 && pricing.length === 0) {
-    await updateSyncLog(supabase, syncLogId, 'completed', 0, ordersPersisted, [], { message: ordersPersisted > 0 ? `${ordersPersisted} orders saved (no line items available)` : 'No items found' });
+  if (allItems.size === 0) {
+    await updateSyncLog(supabase, syncLogId, 'completed', 0, ordersPersisted, [], { message: ordersPersisted > 0 ? `${ordersPersisted} orders saved (no items from current-prices API)` : 'No items found' });
     return jsonResponse({ success: true, message: ordersPersisted > 0 ? `${ordersPersisted} orders saved` : 'No items found', synced: 0, ordersPersisted });
   }
 
