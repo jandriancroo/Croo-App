@@ -202,27 +202,6 @@ const AppContent = () => {
         <Route path="/feature-tree" element={<ProtectedRoute><FeatureTree /></ProtectedRoute>} />
         <Route path="/architecture-map" element={<ProtectedRoute><ArchitectureMap /></ProtectedRoute>} />
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
-        <Route path="/dock-style-preview" element={<ProtectedRoute><DockStylePreview /></ProtectedRoute>} />
-        <Route path="/design-style-preview" element={<ProtectedRoute><DesignStylePreview /></ProtectedRoute>} />
-        <Route path="/header-style-preview" element={<ProtectedRoute><HeaderStylePreview /></ProtectedRoute>} />
-        <Route path="/availability-request-preview" element={<AvailabilityRequestPreview />} />
-        <Route path="/vision-preview" element={<ProtectedRoute><VisionOSPreview /></ProtectedRoute>} />
-        <Route path="/email-preview" element={<ProtectedRoute><EmailPreview /></ProtectedRoute>} />
-        <Route path="/sales-design-preview" element={<ProtectedRoute><SalesDesignPreview /></ProtectedRoute>} />
-        <Route path="/sales-preview-variations" element={<ProtectedRoute><SalesPreviewVariations /></ProtectedRoute>} />
-        <Route path="/tab-style-preview" element={<ProtectedRoute><TabStylePreview /></ProtectedRoute>} />
-        <Route path="/chat-list-preview" element={<ProtectedRoute><ChatListPreview /></ProtectedRoute>} />
-        <Route path="/inventory-card-preview" element={<ProtectedRoute><InventoryCardPreview /></ProtectedRoute>} />
-        <Route path="/inventory-redesign-preview" element={<ProtectedRoute><InventoryRedesignPreview /></ProtectedRoute>} />
-        <Route path="/inventory-count-ui-preview" element={<ProtectedRoute><InventoryCountUIPreview /></ProtectedRoute>} />
-        <Route path="/checklist-card-preview" element={<ProtectedRoute><ChecklistCardPreview /></ProtectedRoute>} />
-        <Route path="/checklist-style-preview" element={<ProtectedRoute><ChecklistStylePreview /></ProtectedRoute>} />
-        <Route path="/location-switch-preview" element={<ProtectedRoute><LocationSwitchPreview /></ProtectedRoute>} />
-        <Route path="/timeline-style-preview" element={<ProtectedRoute><TimelineStylePreview /></ProtectedRoute>} />
-        <Route path="/schedule-preview" element={<ProtectedRoute><SchedulePreview /></ProtectedRoute>} />
-        <Route path="/dashboard-style-preview" element={<ProtectedRoute><DashboardStylePreview /></ProtectedRoute>} />
-        <Route path="/count-tab-preview" element={<ProtectedRoute><CountTabPreview /></ProtectedRoute>} />
-        <Route path="/location-picker-preview" element={<ProtectedRoute><LocationPickerPreview /></ProtectedRoute>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
