@@ -56,11 +56,17 @@ serve(async (req) => {
 
     if (!imageUrl) throw new Error("No image URL on invoice");
 
-    // Fetch the image and convert to base64
+    // Fetch the image and convert to base64 (chunked to avoid stack overflow on large files)
     const imageResp = await fetch(imageUrl);
     if (!imageResp.ok) throw new Error("Failed to fetch invoice image");
     const imageBuffer = await imageResp.arrayBuffer();
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+    const bytes = new Uint8Array(imageBuffer);
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const base64Image = btoa(binary);
     const contentType = imageResp.headers.get("content-type") || "image/jpeg";
 
     // Call Lovable AI with vision to extract line items
