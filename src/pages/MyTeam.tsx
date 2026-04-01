@@ -1,5 +1,4 @@
 import { Layout } from '@/components/Layout';
-import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useQuery } from '@tanstack/react-query';
@@ -93,7 +92,6 @@ export default function MyTeam() {
           <p className="text-muted-foreground">
             {teamMembers.length} team member{teamMembers.length !== 1 ? 's' : ''} at {currentLocation?.name || 'this location'}
           </p>
-          <PageHeaderDivider />
         </div>
 
         {teamMembers.length === 0 ? (

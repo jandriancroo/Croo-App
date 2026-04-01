@@ -1,5 +1,4 @@
 import { Layout } from "@/components/Layout";
-import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,7 +61,6 @@ export default function LogBook() {
               </Button>
             )}
           </div>
-          <PageHeaderDivider />
         </div>
 
         {/* Recent Logs Tab */}

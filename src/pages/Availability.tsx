@@ -1,5 +1,4 @@
 import { Layout } from "@/components/Layout";
-import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,7 +43,6 @@ export default function Availability() {
               Request Time Off
             </Button>
           </div>
-          <PageHeaderDivider />
         </div>
 
         {!data.canApproveRequests && data.canViewSickTime && (

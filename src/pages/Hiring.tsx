@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
-import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -415,7 +414,6 @@ export default function Hiring() {
               </Button>
             </div>
           </div>
-          <PageHeaderDivider />
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>

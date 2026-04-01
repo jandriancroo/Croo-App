@@ -1,6 +1,5 @@
 import { useState, Suspense, useMemo } from "react";
 import { Layout } from "@/components/Layout";
-import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { DateNavigator } from "@/components/ui/date-navigator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,7 +82,6 @@ export default function Tasks() {
                 </span>
               </div>
             </div>
-            <PageHeaderDivider />
           </div>
 
           <TabsContent value="history" className="space-y-4">
