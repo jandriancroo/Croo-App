@@ -175,23 +175,30 @@ export function MobileScheduleView({
     return getTodayInTimezone(timezone);
   }, [timezone]);
 
-  // Use React Query for active shifts with 1-minute refetch
+  // Determine which date to fetch punches for — today or selected past date
+  const punchDateStr = useMemo(() => {
+    if (!todayStr) return null;
+    const selStr = format(selectedDate, 'yyyy-MM-dd');
+    // Only fetch for today or past dates, not future
+    if (selStr <= todayStr) return selStr;
+    return null;
+  }, [selectedDate, todayStr]);
+
+  // Use React Query for punch data — works for today AND past dates
   const { data: dayPunches = [], isLoading: loadingActive, refetch: refetchPunches } = useQuery({
-    queryKey: ['today-punches', currentLocation?.id, todayStr],
+    queryKey: ['schedule-punches', currentLocation?.id, punchDateStr],
     queryFn: async () => {
-      if (!currentLocation?.id || !timezone || !todayStr) return [];
+      if (!currentLocation?.id || !timezone || !punchDateStr) return [];
       
-      const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
-      const offset = getTimezoneOffset(timezone);
+      const targetDayOfWeek = getDayOfWeekInTimezone(timezone);
 
       // Use DST-safe parseDateStringInTimezone for day boundaries
-      // (getTimezoneOffset may return wrong offset on DST transition days)
-      const startOfDay = parseDateStringInTimezone(todayStr, timezone);
+      const startOfDay = parseDateStringInTimezone(punchDateStr, timezone);
       const startMinus = new Date(startOfDay);
       startMinus.setHours(startMinus.getHours() - 12);
       const startOfDayTime = startMinus.toISOString();
 
-      const endOfDay = getEndOfDateStringInTimezone(todayStr, timezone);
+      const endOfDay = getEndOfDateStringInTimezone(punchDateStr, timezone);
       const endOfDayPlus = new Date(endOfDay);
       endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
       const endOfDayTime = endOfDayPlus.toISOString();
@@ -208,13 +215,16 @@ export function MobileScheduleView({
       const scheduledQuery = supabase
         .from('scheduled_shifts')
         .select('id, user_id, start_time, end_time, day_of_week, shift_date')
-        .eq('shift_date', todayStr);
+        .eq('shift_date', punchDateStr);
       
-      const eventsQuery = supabase
-        .from('schedule_events')
-        .select('*, event_categories(name, color)')
-        .eq('location_id', currentLocation.id)
-        .eq('is_recurring', true);
+      const isToday = punchDateStr === todayStr;
+      const eventsQuery = isToday
+        ? supabase
+            .from('schedule_events')
+            .select('*, event_categories(name, color)')
+            .eq('location_id', currentLocation.id)
+            .eq('is_recurring', true)
+        : Promise.resolve({ data: [] });
       
       const [punchesRes, scheduledRes, eventsRes] = await Promise.all([
         punchesQuery,
@@ -224,23 +234,24 @@ export function MobileScheduleView({
 
       const allPunches = punchesRes.data || [];
       const todayScheduledShifts = (scheduledRes.data || []) as { id: string; user_id: string; start_time: string; end_time: string; day_of_week: number; shift_date: string }[];
-      const eventsData = eventsRes.data || [];
+      const eventsData = (eventsRes as any).data || [];
       
-      // Filter events for today
-      const eventsForToday = eventsData.filter(event => {
-        if (event.days_of_week && event.days_of_week.length > 0) {
-          return event.days_of_week.includes(todayDayOfWeek);
-        }
-        return event.day_of_week === todayDayOfWeek;
-      }).map(event => ({
-        ...event,
-        tagged_roles: event.tagged_roles as string[] | null,
-        category: event.event_categories
-      })).sort((a, b) => a.event_time.localeCompare(b.event_time));
-      
-      // Filter by user role visibility
-      const roleFilteredEvents = filterEventsByRole(eventsForToday, role);
-      setTodayEvents(roleFilteredEvents);
+      // Filter events for today only
+      if (isToday && eventsData.length > 0) {
+        const eventsForToday = eventsData.filter((event: any) => {
+          if (event.days_of_week && event.days_of_week.length > 0) {
+            return event.days_of_week.includes(targetDayOfWeek);
+          }
+          return event.day_of_week === targetDayOfWeek;
+        }).map((event: any) => ({
+          ...event,
+          tagged_roles: event.tagged_roles as string[] | null,
+          category: event.event_categories
+        })).sort((a: any, b: any) => a.event_time.localeCompare(b.event_time));
+        
+        const roleFilteredEvents = filterEventsByRole(eventsForToday, role);
+        setTodayEvents(roleFilteredEvents);
+      }
       
       // Get creator IDs and user IDs
       const createdByIds = [...new Set(allPunches
@@ -286,9 +297,6 @@ export function MobileScheduleView({
             }
             if (!isClockedIn) {
               isClockedIn = true;
-                // Always treat a new clock_in (after being clocked out) as a new shift.
-                // This prevents an earlier clock_out (e.g., 1:00 AM) from being paired with
-                // a later clock_in (e.g., 7:09 PM) for the same user.
                 firstClockIn = { id: p.id, punch_time: p.punch_time, created_by: p.created_by };
                 lastClockOut = null;
                 breakStart = null;
@@ -297,11 +305,7 @@ export function MobileScheduleView({
             return;
           }
           if (p.punch_type === 'clock_out') {
-              // Ignore clock_outs that happen before we've seen the matching clock_in in this window.
-              // Those belong to a shift that started before our query window and should not be paired
-              // with a later clock_in (which creates negative hours).
               if (!firstClockIn) return;
-
               isClockedIn = false;
               isOnBreak = false;
               lastClockOut = { punch_time: p.punch_time };
@@ -309,7 +313,7 @@ export function MobileScheduleView({
           }
           if (p.punch_type === 'break_start') {
             breakStart = { punch_time: p.punch_time, notes: p.notes || '' };
-            breakEnd = null; // Reset so we don't show stale end time from a previous break
+            breakEnd = null;
             isOnBreak = true;
             return;
           }
@@ -339,7 +343,6 @@ export function MobileScheduleView({
               breakDeductionMs = breakEndMs - breakStartMs;
             }
           }
-          // Defensive clamp: if we ever get a negative due to missing/odd punch ordering, show 0.
           const hoursWorked = Math.max(0, (endTime - clockInMs - breakDeductionMs) / 3600000);
           const scheduledShift = todayScheduledShifts.find(s => s.user_id === userId);
           
@@ -371,28 +374,27 @@ export function MobileScheduleView({
       });
       
       // Filter punches: always show ACTIVE punches (even if clocked in yesterday),
-      // but only show COMPLETED punches if clock-in was today
-      const todayOnlyPunches = punchSummaries.filter(punch => {
-        // Active/on-break punches always show (matches manager dashboard behavior)
+      // but only show COMPLETED punches if clock-in was on target date
+      const filteredPunches = punchSummaries.filter(punch => {
         if (punch.isActive || punch.isOnBreak) return true;
-        // Completed punches: only show if clock-in was today
         const clockInDate = new Date(punch.clockInTime);
         const clockInLocalDate = clockInDate.toLocaleDateString('en-CA', { timeZone: timezone });
-        return clockInLocalDate === todayStr;
+        return clockInLocalDate === punchDateStr;
       });
       
       // Sort: active first, then by clock-in time
-      todayOnlyPunches.sort((a, b) => {
+      filteredPunches.sort((a, b) => {
         if (a.isActive && !b.isActive) return -1;
         if (!a.isActive && b.isActive) return 1;
         return new Date(a.clockInTime).getTime() - new Date(b.clockInTime).getTime();
       });
       
-      return todayOnlyPunches;
+      return filteredPunches;
     },
-    enabled: !!currentLocation?.id && !!timezone,
+    enabled: !!currentLocation?.id && !!timezone && !!punchDateStr,
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    // Only auto-refetch for today
+    refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
 
   // Fetch sales + labor for Day Insights (V2)
