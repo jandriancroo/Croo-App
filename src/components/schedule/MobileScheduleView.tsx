@@ -250,7 +250,7 @@ export function MobileScheduleView({
         })).sort((a: any, b: any) => a.event_time.localeCompare(b.event_time));
         
         const roleFilteredEvents = filterEventsByRole(eventsForToday, role);
-        setTodayEvents(roleFilteredEvents);
+        setTodayEvents(roleFilteredEvents as Event[]);
       }
       
       // Get creator IDs and user IDs
