@@ -791,13 +791,13 @@ export function MobileScheduleView({
   );
 
   return (
-    <div className="flex flex-col h-full bg-background -mx-[max(1rem,env(safe-area-inset-left))] -mt-3">
+    <div className="flex flex-col h-full bg-background -mx-[max(1rem,env(safe-area-inset-left))] -mt-1">
       {/* Admin/Manager view */}
       {(isAdmin || isManager) ? (
         (
           /* V2: Combined single-scroll view — no tabs */
           <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] py-3 space-y-3">
+            <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-1 pb-3 space-y-1.5">
               {/* Date header */}
               <div className="flex items-center justify-center">
                 <DateNavigator
@@ -808,7 +808,7 @@ export function MobileScheduleView({
               </div>
 
               {/* Week Calendar Strip */}
-              <div className="bg-muted rounded-xl p-1.5 flex items-center justify-around border border-border/40 overflow-hidden">
+              <div className="bg-muted rounded-xl p-1 flex items-center justify-around border border-border/40 overflow-hidden">
                 {weekDays.map((day, index) => {
                   const isSelected = isSameDay(day, selectedDate);
                   const isDayToday = isSameDay(day, new Date());
@@ -816,7 +816,7 @@ export function MobileScheduleView({
                     <button
                       key={index}
                       onClick={() => setSelectedDate(day)}
-                      className={`flex flex-col items-center flex-1 py-1.5 rounded-lg transition-all ${
+                      className={`flex flex-col items-center flex-1 py-0.5 rounded-lg transition-all ${
                         isSelected
                           ? 'bg-primary text-primary-foreground shadow-md'
                           : isDayToday
