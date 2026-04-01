@@ -1,4 +1,4 @@
-name: PFG Token Refresh + PA Catalog Sync
+name: PFG Token Refresh + PA Price Sync (REST API)
 
 on:
   schedule:
