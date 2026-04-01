@@ -3,6 +3,13 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tag, ChevronDown, ChevronRight } from "lucide-react";
 
+const isNewItem = (createdAt: string) => {
+  const created = new Date(createdAt);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  return created > sevenDaysAgo;
+};
+
 interface BrandTemplateItem {
   id: string;
   product_name: string;
