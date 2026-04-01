@@ -559,12 +559,25 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             {/* Sub-details */}
             <div className="mb-4">
               {periodRange && (
-                <p className="text-xs font-medium text-primary/80">
-                  {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
-                  {count.is_late_close && periodRange.salesEndStr !== periodRange.endStr && (
-                    <span className="text-amber-600 ml-1">(sales thru {format(new Date(periodRange.salesEndStr + "T12:00:00"), "MMM d")})</span>
+                <div className="flex items-center gap-0.5 flex-wrap">
+                  <p className="text-xs font-medium text-primary/80">
+                    {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
+                    {periodRange.salesEndStr !== periodRange.endStr && (
+                      <span className="text-amber-600 ml-1">(sales thru {format(new Date(periodRange.salesEndStr + "T12:00:00"), "MMM d")})</span>
+                    )}
+                  </p>
+                  {canManageOrders && count.status === "completed" && (
+                    <SalesDateEditor
+                      countId={count.id}
+                      locationId={locationId}
+                      startStr={periodRange.startStr}
+                      endStr={periodRange.endStr}
+                      salesEndStr={periodRange.salesEndStr}
+                      canEdit={canManageOrders}
+                      currentOverride={count.sales_end_override || null}
+                    />
                   )}
-                </p>
+                </div>
               )}
               <p className="text-xs text-muted-foreground mt-0.5">
                 {count.counted_by_profile?.full_name || "Unknown"}
