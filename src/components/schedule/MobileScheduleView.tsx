@@ -418,6 +418,112 @@ export function MobileScheduleView({
     refetchInterval: 120 * 1000,
   });
 
+  // Fetch punch data for past selected dates (not today — today uses its own query)
+  const isPastDate = selectedDateStr && todayStr && selectedDateStr < todayStr;
+  const { data: pastDatePunches = [] } = useQuery({
+    queryKey: ['past-date-punches', currentLocation?.id, selectedDateStr],
+    queryFn: async (): Promise<DayPunch[]> => {
+      if (!currentLocation?.id || !timezone || !selectedDateStr) return [];
+
+      const startOfDay = parseDateStringInTimezone(selectedDateStr, timezone);
+      const startMinus = new Date(startOfDay);
+      startMinus.setHours(startMinus.getHours() - 12);
+      const endOfDay = getEndOfDateStringInTimezone(selectedDateStr, timezone);
+      const endPlus = new Date(endOfDay);
+      endPlus.setHours(endPlus.getHours() + 12);
+
+      const punchesRes = await supabase
+        .from('time_punches')
+        .select('id, user_id, punch_time, punch_type, notes, created_by')
+        .eq('location_id', currentLocation.id)
+        .gte('punch_time', startMinus.toISOString())
+        .lte('punch_time', endPlus.toISOString())
+        .order('punch_time', { ascending: true });
+
+      const allPunches = punchesRes.data || [];
+      if (allPunches.length === 0) return [];
+
+      const punchUserIds = [...new Set(allPunches.map(p => p.user_id))];
+      const createdByIds = [...new Set(allPunches.filter(p => p.created_by && p.created_by !== p.user_id).map(p => p.created_by!))] as string[];
+
+      const [profilesRes, creatorRes, scheduledRes] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', punchUserIds),
+        createdByIds.length > 0
+          ? supabase.from('profiles').select('id, full_name, nickname').in('id', createdByIds)
+          : Promise.resolve({ data: [] as { id: string; full_name: string; nickname: string | null }[] }),
+        supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, day_of_week, shift_date').eq('shift_date', selectedDateStr),
+      ]);
+
+      const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p]));
+      const creatorMap = new Map((creatorRes.data || []).map(p => [p.id, p.full_name]));
+      const scheduledShifts = (scheduledRes.data || []) as { id: string; user_id: string; start_time: string; end_time: string; day_of_week: number; shift_date: string }[];
+
+      const userPunches: Record<string, typeof allPunches> = {};
+      allPunches.forEach(p => {
+        if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
+        userPunches[p.user_id].push(p);
+      });
+
+      const summaries: DayPunch[] = [];
+      Object.entries(userPunches).forEach(([userId, punches]) => {
+        const clockIns = punches.filter(p => p.punch_type === 'clock_in');
+        const clockOuts = punches.filter(p => p.punch_type === 'clock_out');
+        const breakStarts = punches.filter(p => p.punch_type === 'break_start');
+        const breakEnds = punches.filter(p => p.punch_type === 'break_end');
+
+        const firstClockIn = clockIns[0];
+        if (!firstClockIn) return;
+
+        const clockInLocalDate = new Date(firstClockIn.punch_time).toLocaleDateString('en-CA', { timeZone: timezone });
+        if (clockInLocalDate !== selectedDateStr) return;
+
+        const clockOut = clockOuts[clockOuts.length - 1];
+        const breakStart = breakStarts[0];
+        const breakEnd = breakEnds[0];
+
+        const clockInMs = new Date(firstClockIn.punch_time).getTime();
+        const endMs = clockOut ? new Date(clockOut.punch_time).getTime() : clockInMs;
+        let breakMs = 0;
+        if (breakStart && breakEnd) {
+          breakMs = new Date(breakEnd.punch_time).getTime() - new Date(breakStart.punch_time).getTime();
+        }
+        const hoursWorked = Math.max(0, (endMs - clockInMs - breakMs) / 3600000);
+
+        const profile = profileMap.get(userId);
+        const scheduledShift = scheduledShifts.find(s => s.user_id === userId);
+        const createdByOther = firstClockIn.created_by && firstClockIn.created_by !== userId;
+        const createdByName = createdByOther ? creatorMap.get(firstClockIn.created_by!) || null : null;
+
+        summaries.push({
+          id: firstClockIn.id,
+          user_id: userId,
+          clockInTime: firstClockIn.punch_time,
+          clockOutTime: clockOut?.punch_time || null,
+          breakStartTime: breakStart?.punch_time || null,
+          breakEndTime: breakEnd?.punch_time || null,
+          breakType: breakStart?.notes || null,
+          isActive: false,
+          isOnBreak: false,
+          profile: profile || { id: userId, full_name: 'Unknown', nickname: null, profile_photo_url: null },
+          hoursWorked,
+          createdByName,
+          scheduledShift: scheduledShift ? {
+            id: scheduledShift.id,
+            start_time: scheduledShift.start_time,
+            end_time: scheduledShift.end_time,
+            day_of_week: scheduledShift.day_of_week,
+            shift_date: scheduledShift.shift_date,
+          } : null,
+        });
+      });
+
+      summaries.sort((a, b) => new Date(a.clockInTime).getTime() - new Date(b.clockInTime).getTime());
+      return summaries;
+    },
+    enabled: !!currentLocation?.id && !!timezone && !!isPastDate,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Get week label relative to current week (using timezone-aware calculation)
   const getWeekLabel = useCallback(() => {
     // Use timezone-aware "today" to determine "this week"
