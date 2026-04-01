@@ -195,11 +195,29 @@ Return ONLY valid JSON, no markdown.`,
       if (item.name) itemMap.set(item.name.toLowerCase(), item);
     }
 
+    // Generate a deterministic ID for items without a vendor SKU
+    function generateItemId(vendorName: string, productName: string): string {
+      const slug = (vendorName || "unknown").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
+      // Simple hash from product name
+      let hash = 0;
+      const normalized = productName.toLowerCase().trim();
+      for (let i = 0; i < normalized.length; i++) {
+        hash = ((hash << 5) - hash + normalized.charCodeAt(i)) | 0;
+      }
+      const hexHash = Math.abs(hash).toString(16).slice(0, 6);
+      return `INV-${slug}-${hexHash}`;
+    }
+
     const insertItems: any[] = [];
     const newDrafts: any[] = [];
     const priceUpdates: { id: string; cost: number }[] = [];
 
     for (const li of parsed.line_items || []) {
+      // Auto-assign item_number if vendor didn't provide one
+      if (!li.item_number && li.product_name) {
+        li.item_number = generateItemId(parsed.vendor_name, li.product_name);
+      }
+
       const matchByNumber = li.item_number ? itemMap.get(li.item_number.toLowerCase()) : null;
       const matchByName = li.product_name ? itemMap.get(li.product_name.toLowerCase()) : null;
       const match = matchByNumber || matchByName;
