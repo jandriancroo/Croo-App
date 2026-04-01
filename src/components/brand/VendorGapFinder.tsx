@@ -482,9 +482,14 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                         {item.brand && <span>• {item.brand}</span>}
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-[10px] shrink-0">
-                      {item.categoryName}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge variant="outline" className="text-[10px]">
+                        {item.vendorSource === 'pa' ? 'PA' : 'PFG'}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {item.categoryName}
+                      </Badge>
+                    </div>
                   </div>
                 ))}
               </div>
