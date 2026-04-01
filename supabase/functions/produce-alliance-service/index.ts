@@ -2036,6 +2036,141 @@ async function handleSaveCatalog(supabase: any, body: any): Promise<Response> {
 }
 
 
+// ── Live catalog scrape (no Playwright needed) ──────────────────
+function parseOrderSortHtml(html: string): Array<{
+  pa_item_id: string;
+  description: string;
+  pack_size: string | null;
+  category: string | null;
+  unit_price: number | null;
+}> {
+  const items: Array<{
+    pa_item_id: string;
+    description: string;
+    pack_size: string | null;
+    category: string | null;
+    unit_price: number | null;
+  }> = [];
+
+  // Strip HTML tags helper
+  const stripTags = (s: string) => s.replace(/<[^>]*>/g, '').trim();
+
+  // Find table rows
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let currentCategory = '';
+  let match;
+
+  while ((match = rowRegex.exec(html)) !== null) {
+    const rowHtml = match[1];
+    const cells: string[] = [];
+    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+      cells.push(stripTags(cellMatch[1]));
+    }
+
+    // Category header rows (single cell with colspan)
+    if (cells.length === 1 && cells[0].length > 0) {
+      currentCategory = cells[0];
+      continue;
+    }
+
+    if (cells.length < 3) continue;
+
+    // Detect spacer column
+    const hasSpacerCol = cells.length >= 5 && (
+      cells[0] === '' || cells[0] === '\u00a0' || !/\d/.test(cells[0])
+    );
+    const offset = hasSpacerCol ? 1 : 0;
+
+    const itemCode = cells[offset];
+    if (!itemCode || !/^\d{3,}$/.test(itemCode)) continue;
+
+    const description = cells[offset + 1] || '';
+    const packSize = cells[offset + 2] || '';
+    const priceStr = cells[offset + 3] || '0';
+    const unitPrice = parseFloat(priceStr.replace(/[$,]/g, '')) || 0;
+
+    items.push({
+      pa_item_id: itemCode,
+      description,
+      pack_size: packSize || null,
+      category: currentCategory || null,
+      unit_price: unitPrice > 0 ? unitPrice : null,
+    });
+  }
+
+  return items;
+}
+
+async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  if (!locationId) return jsonResponse({ success: false, error: 'Missing locationId' }, 400);
+
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA not configured for this location' });
+
+  console.log(`[PA Catalog Live] Starting live scrape for location ${locationId}`);
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  // Fetch restaurantOrderSort.jsp
+  const catalogUrl = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${session.restaurantId}`;
+  console.log(`[PA Catalog Live] Fetching ${catalogUrl}`);
+
+  const resp = await fetch(catalogUrl, {
+    method: 'GET',
+    headers: {
+      ...getAuthHeaders(session),
+      'Accept': 'text/html,application/xhtml+xml,*/*',
+    },
+    redirect: 'follow',
+  });
+
+  const html = await resp.text();
+  console.log(`[PA Catalog Live] Got ${html.length} chars, status ${resp.status}`);
+
+  if (resp.status !== 200 || html.includes('j_security_check') || html.includes('Sign in')) {
+    return jsonResponse({ success: false, error: 'Session expired or login redirect', htmlLength: html.length });
+  }
+
+  // Parse items from HTML table
+  const items = parseOrderSortHtml(html);
+  console.log(`[PA Catalog Live] Parsed ${items.length} items from HTML`);
+
+  if (items.length === 0) {
+    return jsonResponse({ success: true, message: 'No items found in catalog page', saved: 0, htmlLength: html.length });
+  }
+
+  // Save to pa_catalog_items using existing save logic
+  const now = new Date().toISOString();
+  let saved = 0;
+  for (let i = 0; i < items.length; i += 50) {
+    const chunk = items.slice(i, i + 50).map(item => ({
+      location_id: locationId,
+      pa_item_id: item.pa_item_id,
+      description: item.description,
+      pack_size: item.pack_size,
+      category: item.category,
+      unit_price: item.unit_price,
+      last_seen_at: now,
+    }));
+
+    const { error } = await supabase
+      .from('pa_catalog_items')
+      .upsert(chunk, { onConflict: 'location_id,pa_item_id' });
+
+    if (error) {
+      console.error('[PA Catalog Live] Upsert error:', error);
+    } else {
+      saved += chunk.length;
+    }
+  }
+
+  console.log(`[PA Catalog Live] ✅ Saved ${saved} items for location ${locationId}`);
+  return jsonResponse({ success: true, saved, total: items.length });
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
