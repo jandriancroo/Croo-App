@@ -385,26 +385,122 @@ async function fetchAllPALocations() {
   return result.locations || [];
 }
 
-// ── Scrape full product catalog from restaurantOrderSort.jsp ───
+// ── Scrape full product catalog from restaurantWeeklyProducePricesReport.jsp ───
 async function scrapeCatalog(page, { restaurantId }) {
-  const url = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${restaurantId}`;
-  console.log(`   📦 Loading catalog page...`);
+  // Primary: Weekly Prices Report has ALL items with Master Product Name, PA Product ID, prices
+  const url = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restaurantId}`;
+  console.log(`   📦 Loading weekly prices report...`);
 
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+  await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
 
   // Wait for the table to render
   try {
-    await page.waitForSelector('table td', { timeout: 15000 });
+    await page.waitForSelector('table td', { timeout: 20000 });
   } catch {
-    console.log(`   ⚠️ No catalog table rendered, checking page...`);
+    console.log(`   ⚠️ No table rendered on weekly prices page, trying fallback...`);
     const content = await page.content();
     if (content.includes('Sign in') || content.includes('j_security_check')) {
       throw new Error('Session expired — got login page');
     }
+    // Fallback to restaurantOrderSort.jsp
+    return await scrapeCatalogFallback(page, { restaurantId });
+  }
+
+  // Wait for full render
+  await page.waitForTimeout(3000);
+
+  const items = await page.evaluate(() => {
+    const results = [];
+    const tables = document.querySelectorAll('table');
+
+    for (const table of tables) {
+      const headerRow = table.querySelector('tr');
+      if (!headerRow) continue;
+      
+      const headers = Array.from(headerRow.querySelectorAll('th, td'))
+        .map(cell => cell.textContent.trim().toLowerCase());
+      
+      // Look for the table with "master product name" or "pa product id" headers
+      const hasProductName = headers.some(h => h.includes('master product name') || h.includes('product name'));
+      const hasPaId = headers.some(h => h.includes('pa product id') || h.includes('product id'));
+      
+      if (!hasProductName && !hasPaId) continue;
+      
+      // Find column indices
+      const nameIdx = headers.findIndex(h => h.includes('master product name') || h.includes('product name'));
+      const paIdIdx = headers.findIndex(h => h.includes('pa product id') || h.includes('product id'));
+      const codeIdx = headers.findIndex(h => h.includes('master product code') || h.includes('product code'));
+      // Look for price columns
+      const priceIdx = headers.findIndex(h => h.includes('price') || h.includes('cost'));
+      
+      const rows = table.querySelectorAll('tr');
+      for (let i = 1; i < rows.length; i++) { // Skip header
+        const cells = Array.from(rows[i].querySelectorAll('td')).map(td => td.textContent.trim());
+        if (cells.length < 2) continue;
+        
+        // Skip filter/input rows
+        const hasInput = rows[i].querySelector('input');
+        if (hasInput) continue;
+        
+        const description = nameIdx >= 0 ? (cells[nameIdx] || '') : '';
+        const paItemId = paIdIdx >= 0 ? (cells[paIdIdx] || '') : '';
+        const productCode = codeIdx >= 0 ? (cells[codeIdx] || '') : '';
+        
+        if (!description && !paItemId) continue;
+        if (!paItemId || !/^\d+$/.test(paItemId)) continue;
+        
+        // Extract pack size from the description (e.g., "Strawberries, lb." or "Tomatoes, Grape, 10 lb.")
+        let packSize = '';
+        const descParts = description.split(',');
+        if (descParts.length > 1) {
+          packSize = descParts[descParts.length - 1].trim();
+        }
+        
+        let unitPrice = null;
+        if (priceIdx >= 0 && cells[priceIdx]) {
+          const parsed = parseFloat(cells[priceIdx].replace(/[$,]/g, ''));
+          if (!isNaN(parsed) && parsed > 0) unitPrice = parsed;
+        }
+
+        results.push({
+          pa_item_id: paItemId,
+          description,
+          pack_size: packSize,
+          category: 'Produce',
+          unit_price: unitPrice,
+          product_code: productCode || null,
+        });
+      }
+
+      if (results.length > 0) break; // Found the right table
+    }
+
+    return results;
+  });
+
+  console.log(`   ${items.length > 0 ? '✅' : '⚠️'} Weekly Prices Report: ${items.length} items found`);
+  
+  // If weekly prices page yielded nothing, try fallback
+  if (items.length === 0) {
+    return await scrapeCatalogFallback(page, { restaurantId });
+  }
+  
+  return items;
+}
+
+// ── Fallback: restaurantOrderSort.jsp ──
+async function scrapeCatalogFallback(page, { restaurantId }) {
+  const url = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${restaurantId}`;
+  console.log(`   📦 Fallback: Loading order sort page...`);
+
+  await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+
+  try {
+    await page.waitForSelector('table td', { timeout: 15000 });
+  } catch {
     return [];
   }
 
-  // Wait for Angular to finish rendering
   await page.waitForTimeout(3000);
 
   const items = await page.evaluate(() => {
@@ -418,7 +514,6 @@ async function scrapeCatalog(page, { restaurantId }) {
       for (const row of rows) {
         const cells = Array.from(row.querySelectorAll('td')).map(td => td.textContent.trim());
 
-        // Category header rows often have fewer cells or a colspan
         if (cells.length === 1 && cells[0].length > 0) {
           currentCategory = cells[0];
           continue;
@@ -426,7 +521,6 @@ async function scrapeCatalog(page, { restaurantId }) {
 
         if (cells.length < 3) continue;
 
-        // Detect spacer column
         const hasSpacerCol = cells.length >= 5 && (
           cells[0] === '' || cells[0] === '\u00a0' || !/\d/.test(cells[0])
         );
@@ -449,13 +543,13 @@ async function scrapeCatalog(page, { restaurantId }) {
         });
       }
 
-      if (results.length > 0) break; // Found the right table
+      if (results.length > 0) break;
     }
 
     return results;
   });
 
-  console.log(`   ${items.length > 0 ? '✅' : '⚠️'} Catalog: ${items.length} items found`);
+  console.log(`   ${items.length > 0 ? '✅' : '⚠️'} Fallback catalog: ${items.length} items found`);
   return items;
 }
 
