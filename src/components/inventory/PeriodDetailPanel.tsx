@@ -158,7 +158,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       // For upcoming periods, only fetch purchases (no count items exist yet)
       if (isUpcoming) {
-        const [pfgDateRange, paDateRange] = await Promise.all([
+        const [pfgDateRange, paDateRange, vendorInvoicesRange] = await Promise.all([
           supabase
             .from("pfg_orders")
             .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
@@ -175,13 +175,23 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             .gte("delivery_date", periodRange.startStr)
             .lte("delivery_date", periodRange.endStr)
             .order("delivery_date", { ascending: true }),
+          supabase
+            .from("vendor_invoices")
+            .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
+            .eq("location_id", locationId)
+            .eq("status", "parsed")
+            .is("inventory_count_id", null)
+            .or(`delivery_date.gte.${periodRange.startStr},invoice_date.gte.${periodRange.startStr}`)
+            .or(`delivery_date.lte.${periodRange.endStr},invoice_date.lte.${periodRange.endStr}`)
+            .order("delivery_date", { ascending: true }),
         ]);
 
         // Also check for orders bound to a real count_id (if one was created via Manage Orders)
         let pfgBound: any[] = [];
         let paBound: any[] = [];
+        let vendorBound: any[] = [];
         if (realCountId) {
-          const [pfgB, paB] = await Promise.all([
+          const [pfgB, paB, vendorB] = await Promise.all([
             supabase
               .from("pfg_orders")
               .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
@@ -194,15 +204,27 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               .eq("location_id", locationId)
               .eq("bound_to_count_id", realCountId)
               .order("delivery_date", { ascending: true }),
+            supabase
+              .from("vendor_invoices")
+              .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
+              .eq("location_id", locationId)
+              .eq("status", "parsed")
+              .eq("inventory_count_id", realCountId)
+              .order("delivery_date", { ascending: true }),
           ]);
           pfgBound = pfgB.data || [];
           paBound = paB.data || [];
+          vendorBound = vendorB.data || [];
         }
 
-        const hasBoundOrders = pfgBound.length + paBound.length > 0;
+        const hasBoundOrders = pfgBound.length + paBound.length + vendorBound.length > 0;
         const pfg = hasBoundOrders ? pfgBound : (pfgDateRange.data || []);
         const pa = hasBoundOrders ? paBound : (paDateRange.data || []);
-        const purchasesTotal = [...pfg, ...pa].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+        const vendorInv = hasBoundOrders ? vendorBound : (vendorInvoicesRange.data || []).filter((vi: any) => {
+          const d = vi.delivery_date || vi.invoice_date;
+          return d && d >= periodRange.startStr && d <= periodRange.endStr;
+        });
+        const purchasesTotal = [...pfg, ...pa, ...vendorInv].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
 
         return {
           beginValue: 0,
@@ -225,6 +247,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
               const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
               return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+            }),
+            ...vendorInv.map((o: any) => {
+              const d = o.delivery_date || o.invoice_date;
+              const cleanId = o.invoice_number || o.id.slice(0, 8);
+              const deliveryDateLabel = d ? format(new Date(d + "T12:00:00"), "EEEE, MMM d") : null;
+              return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel };
             }),
           ],
         };
@@ -272,7 +300,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       }
 
       // Fetch purchases: PREFER bound orders, fallback to date-range
-      const [pfgBound, paBound, pfgDateRange, paDateRange] = await Promise.all([
+      const [pfgBound, paBound, vendorBound, pfgDateRange, paDateRange, vendorDateRange] = await Promise.all([
         supabase
           .from("pfg_orders")
           .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
@@ -284,6 +312,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .eq("bound_to_count_id", count.id)
+          .order("delivery_date", { ascending: true }),
+        supabase
+          .from("vendor_invoices")
+          .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
+          .eq("location_id", locationId)
+          .eq("status", "parsed")
+          .eq("inventory_count_id", count.id)
           .order("delivery_date", { ascending: true }),
         // Fallback: date-range query for unbound orders in period
         supabase
@@ -302,14 +337,27 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           .gte("delivery_date", periodRange.startStr)
           .lte("delivery_date", periodRange.endStr)
           .order("delivery_date", { ascending: true }),
+        supabase
+          .from("vendor_invoices")
+          .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
+          .eq("location_id", locationId)
+          .eq("status", "parsed")
+          .is("inventory_count_id", null)
+          .or(`delivery_date.gte.${periodRange.startStr},invoice_date.gte.${periodRange.startStr}`)
+          .or(`delivery_date.lte.${periodRange.endStr},invoice_date.lte.${periodRange.endStr}`)
+          .order("delivery_date", { ascending: true }),
       ]);
 
       // Use bound orders if any exist, otherwise fallback to date-range unbound
-      const hasBoundOrders = (pfgBound.data?.length || 0) + (paBound.data?.length || 0) > 0;
+      const hasBoundOrders = (pfgBound.data?.length || 0) + (paBound.data?.length || 0) + (vendorBound.data?.length || 0) > 0;
       const pfg = hasBoundOrders ? (pfgBound.data || []) : (pfgDateRange.data || []);
       const pa = hasBoundOrders ? (paBound.data || []) : (paDateRange.data || []);
+      const vendorInv = hasBoundOrders ? (vendorBound.data || []) : (vendorDateRange.data || []).filter((vi: any) => {
+        const d = vi.delivery_date || vi.invoice_date;
+        return d && d >= periodRange.startStr && d <= periodRange.endStr;
+      });
       
-      const purchasesTotal = [...pfg, ...pa].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+      const purchasesTotal = [...pfg, ...pa, ...vendorInv].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
 
       const { data: salesRows } = await supabase
         .from("sales_cache")
@@ -335,7 +383,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         hasBoundOrders,
         purchases: [
           ...pfg.map((o: any) => {
-            // Extract clean invoice number: "428_56356274_2026-02-24_4461199" → "4461199", or use order_number/pfg_order_id
             const rawId = o.pfg_order_id || '';
             const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
             const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
@@ -345,6 +392,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
             const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
             return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
+          }),
+          ...vendorInv.map((o: any) => {
+            const d = o.delivery_date || o.invoice_date;
+            const cleanId = o.invoice_number || o.id.slice(0, 8);
+            const deliveryDateLabel = d ? format(new Date(d + "T12:00:00"), "EEEE, MMM d") : null;
+            return { vendor: o.vendor_name || "Invoice", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: d ? format(new Date(d + "T12:00:00"), "MMM d") : "—", deliveryDate: deliveryDateLabel };
           }),
         ],
       };
