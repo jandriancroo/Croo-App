@@ -1304,33 +1304,33 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     return jsonResponse({ success: false, error: 'PA login failed' });
   }
 
-  // Fetch recent orders to get latest items and prices
+  // ── PRIMARY: Use current-prices REST API for full catalog with prices ──
+  const catalogItems = await fetchCurrentPricesCatalog(session);
+  
+  // Convert catalog items to PALineItem format for the sync logic below
+  const allItems = new Map<string, PALineItem>();
+  for (const ci of catalogItems) {
+    if (!ci.pa_item_id) continue;
+    allItems.set(ci.pa_item_id, {
+      item_code: ci.distributor_product_id || ci.master_product_code || '',
+      description: ci.description,
+      pa_product_id: ci.pa_item_id,
+      unit_price: ci.unit_price || 0,
+      quantity: 0,
+      cost: 0,
+    });
+  }
+
+  // Also fetch recent orders for persistence (COGS reconciliation)
   const now = new Date();
   const pad2 = (n: number) => String(n).padStart(2, '0');
   const startDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`;
   const endDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   
   const orderList = await fetchOrderList(session, startDate, endDate);
+  let ordersProcessed = orderList.length;
   
-  // Fetch details for recent orders
-  const allItems = new Map<string, PALineItem>();
-  let ordersProcessed = 0;
-  
-  for (const order of orderList.slice(0, 5)) {
-   const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate, credentials);
-    if (detail && detail.lineItems.length > 0) {
-      for (const li of detail.lineItems) {
-        allItems.set(li.pa_product_id || li.item_code, li);
-      }
-      ordersProcessed++;
-      await new Promise(r => setTimeout(r, 300));
-    }
-  }
-
-  // Also try pricing
-  const pricing = await fetchPAPricing(session);
-  
-  console.log('[PA Sync] Got', allItems.size, 'unique items from', ordersProcessed, 'orders,', pricing.length, 'from pricing');
+  console.log('[PA Sync] Got', allItems.size, 'items from current-prices API,', orderList.length, 'orders');
 
   // Persist orders to pa_orders from summary data (even without line items)
   // This ensures they show up in the Order Reconciliation Picker for COGS
