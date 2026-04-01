@@ -118,10 +118,13 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       const existingNumbers = new Set(
         templates.map(t => t.item_number).filter(Boolean)
       );
+      const existingNames = new Set(
+        templates.map(t => t.product_name?.toLowerCase()).filter(Boolean)
+      );
 
-      // Find outliers (in bid but not in catalog)
+      // Find outliers (in bid but not in catalog by item_number OR product_name)
       const outliers: OutlierItem[] = bidProducts
-        .filter(p => !existingNumbers.has(p.itemNumber))
+        .filter(p => !existingNumbers.has(p.itemNumber) && !existingNames.has((p.fullDescription || p.name || '').toLowerCase()))
         .map(p => ({
           itemNumber: p.itemNumber,
           name: p.name || p.fullDescription,
