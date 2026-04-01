@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 import VarianceReport from "./VarianceReport";
 import InvoiceUploadDialog from "./InvoiceUploadDialog";
+import SalesDateEditor from "./SalesDateEditor";
 
 interface PeriodDetailPanelProps {
   count: any;
