@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, ScanSearch, Link2,
+  RefreshCw, Shield, FileText, ScanSearch,
 } from 'lucide-react';
 
 import { useUserRole } from '@/hooks/useUserRole';
@@ -27,7 +27,7 @@ import BrandCatalogSection from '@/components/brand/BrandCatalogSection';
 import BrandCatalogBulkBar from '@/components/brand/BrandCatalogBulkBar';
 import BrandCategoryEditor from '@/components/brand/BrandCategoryEditor';
 import VendorGapFinder from '@/components/brand/VendorGapFinder';
-import LinkDraftToExistingDialog from '@/components/brand/LinkDraftToExistingDialog';
+import InlineLinkToExisting from '@/components/brand/InlineLinkToExisting';
 
 const FALLBACK_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
@@ -707,7 +707,7 @@ function EditTemplateForm({
 }) {
   const [name, setName] = useState(template.product_name || '');
   const [category, setCategory] = useState(template.category || '');
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  
 
   return (
     <div className="space-y-4">
@@ -741,25 +741,7 @@ function EditTemplateForm({
       </div>
 
       {template.status === 'draft' && (
-        <>
-          <div className="border-t pt-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-xs gap-1.5"
-              onClick={() => setLinkDialogOpen(true)}
-            >
-              <Link2 className="h-3.5 w-3.5" />
-              Link to Existing Item (merge duplicate)
-            </Button>
-          </div>
-          <LinkDraftToExistingDialog
-            open={linkDialogOpen}
-            onOpenChange={setLinkDialogOpen}
-            draft={template}
-            onLinked={onCancel}
-          />
-        </>
+        <InlineLinkToExisting draft={template} onLinked={onCancel} />
       )}
     </div>
   );
