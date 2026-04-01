@@ -204,7 +204,7 @@ export default function OrderReconciliationPicker({
   const toggle = (id: string) => {
     if (!editable) return;
     const order = orders?.find((o) => o.id === id);
-    if (order?.boundToCountId && order.boundToCountId !== countId) return;
+    if (order?.boundToCountId && order.boundToCountId !== countId && !order.isInheritedFromChild) return;
 
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -375,7 +375,7 @@ export default function OrderReconciliationPicker({
                   <button
                     key={order.id}
                     onClick={() => toggle(order.id)}
-                    disabled={isBoundElsewhere || !editable}
+                    disabled={isLockedElsewhere || !editable}
                     className={cn(
                       "w-full flex items-center justify-between py-3 px-2 rounded-lg transition-all",
                       isLockedElsewhere
