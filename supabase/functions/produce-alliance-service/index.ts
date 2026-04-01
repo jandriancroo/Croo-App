@@ -2388,7 +2388,20 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
 
   let items: any[] = [];
 
-  // ── PRIMARY: JSP page (PROVEN WORKING — returns 170KB HTML with full product table) ──
+  // ── PRIMARY: current-prices REST API (clean JSON, no scraping needed) ──
+  console.log(`[PA Catalog Live] Trying current-prices REST API...`);
+  try {
+    const catalogItems = await fetchCurrentPricesCatalog(session);
+    if (catalogItems.length > 0) {
+      items = catalogItems;
+      console.log(`[PA Catalog Live] ✅ current-prices API returned ${items.length} items`);
+    }
+  } catch (e) {
+    console.warn('[PA Catalog Live] current-prices API error:', e);
+  }
+
+  // ── FALLBACK 1: JSP page (legacy — slower, requires HTML parsing) ──
+  if (items.length === 0) {
   const weeklyUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`;
   console.log(`[PA Catalog Live] Trying Weekly Prices JSP page...`);
   try {
