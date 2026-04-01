@@ -86,6 +86,11 @@ export default function OrderReconciliationPicker({
           otherCountIds.add((o as any).bound_to_count_id);
         }
       }
+      for (const o of (invResult.data || [])) {
+        if ((o as any).inventory_count_id && (o as any).inventory_count_id !== countId) {
+          otherCountIds.add((o as any).inventory_count_id);
+        }
+      }
 
       let periodLabelMap = new Map<string, string>();
       if (otherCountIds.size > 0) {
@@ -129,6 +134,19 @@ export default function OrderReconciliationPicker({
           boundToCountId: o.bound_to_count_id,
           boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
             ? periodLabelMap.get(o.bound_to_count_id)
+            : undefined,
+        })),
+        ...(invResult.data || []).map((o: any) => ({
+          id: `inv_${o.id}`,
+          vendor: "INV" as const,
+          vendorName: o.vendor_name || "Invoice",
+          orderId: o.invoice_number || o.id.slice(0, 8),
+          orderDate: o.invoice_date || o.delivery_date,
+          deliveryDate: o.delivery_date || o.invoice_date,
+          totalAmount: Number(o.total_amount) || 0,
+          boundToCountId: o.inventory_count_id,
+          boundPeriodLabel: o.inventory_count_id && o.inventory_count_id !== countId
+            ? periodLabelMap.get(o.inventory_count_id)
             : undefined,
         })),
       ];
