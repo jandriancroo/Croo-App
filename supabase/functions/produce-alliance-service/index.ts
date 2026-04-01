@@ -2037,6 +2037,116 @@ async function handleSaveCatalog(supabase: any, body: any): Promise<Response> {
 
 
 // ── Live catalog scrape (no Playwright needed) ──────────────────
+
+function parseWeeklyPricesHtml(html: string): Array<{
+  pa_item_id: string;
+  description: string;
+  pack_size: string | null;
+  category: string | null;
+  unit_price: number | null;
+}> {
+  const items: Array<{
+    pa_item_id: string;
+    description: string;
+    pack_size: string | null;
+    category: string | null;
+    unit_price: number | null;
+  }> = [];
+
+  const stripTags = (s: string) => s.replace(/<[^>]*>/g, '').trim();
+
+  // Parse header row to find column indices dynamically
+  const headerRowMatch = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/i);
+  if (!headerRowMatch) return items;
+
+  // Find ALL table rows
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let headerCells: string[] = [];
+  let nameIdx = -1, paIdIdx = -1, packIdx = -1, priceIdx = -1, codeIdx = -1;
+  let foundHeader = false;
+  let match;
+
+  while ((match = rowRegex.exec(html)) !== null) {
+    const rowHtml = match[1];
+    
+    // Check for header row (th cells)
+    if (!foundHeader) {
+      const thCells: string[] = [];
+      const thRegex = /<th[^>]*>([\s\S]*?)<\/th>/gi;
+      let thMatch;
+      while ((thMatch = thRegex.exec(rowHtml)) !== null) {
+        thCells.push(stripTags(thMatch[1]).toLowerCase());
+      }
+      if (thCells.length >= 3) {
+        headerCells = thCells;
+        nameIdx = thCells.findIndex(h => h.includes('master product name') || h.includes('product name') || h.includes('description'));
+        paIdIdx = thCells.findIndex(h => h.includes('pa product id') || (h.includes('product id') && !h.includes('name')));
+        codeIdx = thCells.findIndex(h => h.includes('master product code') || h.includes('product code') || h.includes('item code'));
+        packIdx = thCells.findIndex(h => h.includes('pack') || h.includes('size') || h.includes('unit'));
+        priceIdx = thCells.findIndex(h => h.includes('price') || h.includes('cost'));
+        foundHeader = true;
+        continue;
+      }
+    }
+
+    if (!foundHeader) continue;
+
+    // Data rows (td cells)
+    const cells: string[] = [];
+    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+      cells.push(stripTags(cellMatch[1]));
+    }
+
+    if (cells.length < 3) continue;
+
+    // Skip filter/input rows
+    if (rowHtml.includes('<input') || rowHtml.includes('<select')) continue;
+
+    // Extract PA Item ID - try mapped column first, then scan for numeric ID
+    let paItemId = paIdIdx >= 0 && cells[paIdIdx] ? cells[paIdIdx] : '';
+    if (!paItemId || !/^\d{3,}$/.test(paItemId)) {
+      // Scan cells for a numeric ID (5+ digits typical for PA)
+      for (let i = 0; i < cells.length; i++) {
+        if (/^\d{4,}$/.test(cells[i].trim())) {
+          paItemId = cells[i].trim();
+          break;
+        }
+      }
+    }
+    if (!paItemId || !/^\d{3,}$/.test(paItemId)) continue;
+
+    const description = nameIdx >= 0 ? (cells[nameIdx] || '') : (cells[1] || '');
+    if (!description) continue;
+
+    let packSize: string | null = null;
+    if (packIdx >= 0 && cells[packIdx]) {
+      packSize = cells[packIdx];
+    } else {
+      // Extract from description
+      const parts = description.split(',');
+      if (parts.length > 1) packSize = parts[parts.length - 1].trim();
+    }
+
+    let unitPrice: number | null = null;
+    if (priceIdx >= 0 && cells[priceIdx]) {
+      const parsed = parseFloat(cells[priceIdx].replace(/[$,]/g, ''));
+      if (!isNaN(parsed) && parsed > 0) unitPrice = parsed;
+    }
+
+    items.push({
+      pa_item_id: paItemId,
+      description,
+      pack_size: packSize,
+      category: 'Produce',
+      unit_price: unitPrice,
+    });
+  }
+
+  return items;
+}
+
 function parseOrderSortHtml(html: string): Array<{
   pa_item_id: string;
   description: string;
@@ -2052,10 +2162,7 @@ function parseOrderSortHtml(html: string): Array<{
     unit_price: number | null;
   }> = [];
 
-  // Strip HTML tags helper
   const stripTags = (s: string) => s.replace(/<[^>]*>/g, '').trim();
-
-  // Find table rows
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
   let currentCategory = '';
   let match;
@@ -2069,7 +2176,6 @@ function parseOrderSortHtml(html: string): Array<{
       cells.push(stripTags(cellMatch[1]));
     }
 
-    // Category header rows (single cell with colspan)
     if (cells.length === 1 && cells[0].length > 0) {
       currentCategory = cells[0];
       continue;
@@ -2077,7 +2183,6 @@ function parseOrderSortHtml(html: string): Array<{
 
     if (cells.length < 3) continue;
 
-    // Detect spacer column
     const hasSpacerCol = cells.length >= 5 && (
       cells[0] === '' || cells[0] === '\u00a0' || !/\d/.test(cells[0])
     );
@@ -2115,35 +2220,61 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Fetch restaurantOrderSort.jsp
-  const catalogUrl = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${session.restaurantId}`;
-  console.log(`[PA Catalog Live] Fetching ${catalogUrl}`);
+  let items: any[] = [];
 
-  const resp = await fetch(catalogUrl, {
-    method: 'GET',
-    headers: {
-      ...getAuthHeaders(session),
-      'Accept': 'text/html,application/xhtml+xml,*/*',
-    },
-    redirect: 'follow',
-  });
+  // Primary: Weekly Prices Report (has ALL items with prices — the full catalog)
+  const weeklyUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`;
+  console.log(`[PA Catalog Live] Trying Weekly Prices Report...`);
+  try {
+    const resp = await fetch(weeklyUrl, {
+      method: 'GET',
+      headers: {
+        ...getAuthHeaders(session),
+        'Accept': 'text/html,application/xhtml+xml,*/*',
+      },
+      redirect: 'follow',
+    });
+    const html = await resp.text();
+    console.log(`[PA Catalog Live] Weekly Prices: ${resp.status}, ${html.length} chars`);
 
-  const html = await resp.text();
-  console.log(`[PA Catalog Live] Got ${html.length} chars, status ${resp.status}`);
-
-  if (resp.status !== 200 || html.includes('j_security_check') || html.includes('Sign in')) {
-    return jsonResponse({ success: false, error: 'Session expired or login redirect', htmlLength: html.length });
+    if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in') && html.length > 500) {
+      items = parseWeeklyPricesHtml(html);
+      console.log(`[PA Catalog Live] Weekly Prices parsed: ${items.length} items`);
+    }
+  } catch (e) {
+    console.warn('[PA Catalog Live] Weekly Prices fetch error:', e);
   }
 
-  // Parse items from HTML table
-  const items = parseOrderSortHtml(html);
-  console.log(`[PA Catalog Live] Parsed ${items.length} items from HTML`);
+  // Fallback: Order Sort page
+  if (items.length === 0) {
+    const catalogUrl = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${session.restaurantId}`;
+    console.log(`[PA Catalog Live] Fallback: Order Sort page...`);
+    try {
+      const resp = await fetch(catalogUrl, {
+        method: 'GET',
+        headers: {
+          ...getAuthHeaders(session),
+          'Accept': 'text/html,application/xhtml+xml,*/*',
+        },
+        redirect: 'follow',
+      });
+      const html = await resp.text();
+      console.log(`[PA Catalog Live] Order Sort: ${resp.status}, ${html.length} chars`);
+
+      if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in')) {
+        items = parseOrderSortHtml(html);
+        console.log(`[PA Catalog Live] Order Sort parsed: ${items.length} items`);
+      }
+    } catch (e) {
+      console.warn('[PA Catalog Live] Order Sort fetch error:', e);
+    }
+  }
 
   if (items.length === 0) {
-    return jsonResponse({ success: true, message: 'No items found in catalog page', saved: 0, htmlLength: html.length });
+    return jsonResponse({ success: true, message: 'No items found on catalog pages', saved: 0 });
   }
 
-  // Save to pa_catalog_items using existing save logic
+  // Save to pa_catalog_items
   const now = new Date().toISOString();
   let saved = 0;
   for (let i = 0; i < items.length; i += 50) {
@@ -2170,6 +2301,106 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
 
   console.log(`[PA Catalog Live] ✅ Saved ${saved} items for location ${locationId}`);
   return jsonResponse({ success: true, saved, total: items.length });
+}
+
+// ── Scrape all PA locations' catalogs (called by GitHub Action) ──
+async function handleScrapeAllCatalogs(supabase: any, _body: any): Promise<Response> {
+  const { data: integrations } = await supabase
+    .from('location_integrations')
+    .select('location_id, credentials')
+    .eq('integration_type', 'produce_alliance')
+    .eq('is_active', true);
+
+  if (!integrations?.length) {
+    return jsonResponse({ success: true, message: 'No PA locations configured', results: [] });
+  }
+
+  const results: any[] = [];
+
+  for (const integration of integrations) {
+    const creds = integration.credentials as unknown as PACredentials;
+    if (!creds?.username || !creds?.password) continue;
+
+    const locationId = integration.location_id;
+    console.log(`[PA Catalog All] Processing location ${locationId}`);
+
+    try {
+      const session = await loginToPA({
+        username: creds.username,
+        password: creds.password,
+        restaurant_id: creds.restaurant_id || creds.pa_location_id || '',
+      });
+
+      if (!session) {
+        results.push({ locationId, success: false, error: 'Login failed', items: 0 });
+        continue;
+      }
+
+      let items: any[] = [];
+
+      // Try Weekly Prices Report first
+      try {
+        const weeklyUrl = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${session.restaurantId}`;
+        const resp = await fetch(weeklyUrl, {
+          method: 'GET',
+          headers: { ...getAuthHeaders(session), 'Accept': 'text/html,application/xhtml+xml,*/*' },
+          redirect: 'follow',
+        });
+        const html = await resp.text();
+        if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in') && html.length > 500) {
+          items = parseWeeklyPricesHtml(html);
+        }
+      } catch (e) {
+        console.warn(`[PA Catalog All] Weekly Prices error for ${locationId}:`, e);
+      }
+
+      // Fallback: Order Sort
+      if (items.length === 0) {
+        try {
+          const sortUrl = `${PA_BASE_URL}/restaurantOrderSort.jsp?restaurantId=${session.restaurantId}`;
+          const resp = await fetch(sortUrl, {
+            method: 'GET',
+            headers: { ...getAuthHeaders(session), 'Accept': 'text/html,application/xhtml+xml,*/*' },
+            redirect: 'follow',
+          });
+          const html = await resp.text();
+          if (resp.status === 200 && !html.includes('j_security_check') && !html.includes('Sign in')) {
+            items = parseOrderSortHtml(html);
+          }
+        } catch (e) {
+          console.warn(`[PA Catalog All] Order Sort error for ${locationId}:`, e);
+        }
+      }
+
+      if (items.length > 0) {
+        const now = new Date().toISOString();
+        let saved = 0;
+        for (let i = 0; i < items.length; i += 50) {
+          const chunk = items.slice(i, i + 50).map(item => ({
+            location_id: locationId,
+            pa_item_id: item.pa_item_id,
+            description: item.description,
+            pack_size: item.pack_size,
+            category: item.category,
+            unit_price: item.unit_price,
+            last_seen_at: now,
+          }));
+          const { error } = await supabase.from('pa_catalog_items').upsert(chunk, { onConflict: 'location_id,pa_item_id' });
+          if (error) console.error('[PA Catalog All] Upsert error:', error);
+          else saved += chunk.length;
+        }
+        results.push({ locationId, success: true, items: items.length, saved });
+      } else {
+        results.push({ locationId, success: true, items: 0, note: 'No items found' });
+      }
+    } catch (e) {
+      results.push({ locationId, success: false, error: String(e), items: 0 });
+    }
+  }
+
+  const totalSaved = results.reduce((sum, r) => sum + (r.saved || 0), 0);
+  console.log(`[PA Catalog All] ✅ Done. ${results.length} locations, ${totalSaved} total items saved`);
+  return jsonResponse({ success: true, results, totalSaved });
 }
 
 serve(async (req) => {
