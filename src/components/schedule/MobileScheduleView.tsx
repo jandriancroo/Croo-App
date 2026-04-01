@@ -808,7 +808,7 @@ export function MobileScheduleView({
               </div>
 
               {/* Week Calendar Strip */}
-              <div className="bg-muted rounded-xl p-1.5 flex items-center justify-around border border-border/40 overflow-hidden">
+              <div className="bg-muted rounded-xl p-1 flex items-center justify-around border border-border/40 overflow-hidden">
                 {weekDays.map((day, index) => {
                   const isSelected = isSameDay(day, selectedDate);
                   const isDayToday = isSameDay(day, new Date());
