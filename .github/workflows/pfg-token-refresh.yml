@@ -1,4 +1,4 @@
-name: PFG Token Refresh + PA Scraper
+name: PFG Token Refresh + PA Catalog Sync
 
 on:
   schedule:
@@ -11,7 +11,7 @@ on:
         required: false
         default: 'false'
       skip_pa:
-        description: 'Skip PA order scraping'
+        description: 'Skip PA catalog sync'
         required: false
         default: 'false'
 
@@ -40,26 +40,33 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: node .github/scripts/pfg-headless-login.mjs
 
-  scrape-pa-orders:
+  sync-pa-catalog:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     if: ${{ github.event.inputs.skip_pa != 'true' }}
     
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      
-      - name: Install Playwright
-        run: |
-          npm init -y
-          npm install playwright
-          npx playwright install chromium
-      
-      - name: Run PA Headless Scraper
+      - name: Sync PA Catalog via Edge Function
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: node .github/scripts/pa-headless-scraper.mjs
+        run: |
+          echo "🍅 Syncing PA catalog via edge function (no browser needed)..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST "$SUPABASE_URL/functions/v1/produce-alliance-service" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -d '{"action":"scrape_all_catalogs"}')
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Status: $HTTP_CODE"
+          echo "$BODY" | python3 -m json.tool 2>/dev/null || echo "$BODY"
+          
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "❌ PA catalog sync failed with status $HTTP_CODE"
+            exit 1
+          fi
+          
+          echo "✅ PA catalog sync complete"
