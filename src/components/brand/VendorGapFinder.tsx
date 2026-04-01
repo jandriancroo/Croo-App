@@ -228,7 +228,9 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       const inserts = items.map(item => ({
         brand_id: brandId,
         product_name: item.fullDescription || item.name,
-        item_number: item.itemNumber,
+        item_number: item.vendorSource === 'pfg' ? item.itemNumber : null,
+        pa_item_id: item.vendorSource === 'pa' ? item.itemNumber : null,
+        vendor_source: item.vendorSource === 'pa' ? 'produce_alliance' : 'pfg',
         category: item.categoryName,
         status: 'draft',
       }));
