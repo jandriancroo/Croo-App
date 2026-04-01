@@ -103,6 +103,7 @@ export default function InvoiceUploadDialog({
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
       queryClient.invalidateQueries({ queryKey: ["brand-inventory-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["period-cogs"] });
     } catch (err: any) {
       console.error("Invoice upload error:", err);
       setError(err.message || "Upload failed");
