@@ -707,6 +707,7 @@ function EditTemplateForm({
 }) {
   const [name, setName] = useState(template.product_name || '');
   const [category, setCategory] = useState(template.category || '');
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -738,6 +739,28 @@ function EditTemplateForm({
           {isPending ? 'Saving...' : 'Save'}
         </Button>
       </div>
+
+      {template.status === 'draft' && (
+        <>
+          <div className="border-t pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs gap-1.5"
+              onClick={() => setLinkDialogOpen(true)}
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              Link to Existing Item (merge duplicate)
+            </Button>
+          </div>
+          <LinkDraftToExistingDialog
+            open={linkDialogOpen}
+            onOpenChange={setLinkDialogOpen}
+            draft={template}
+            onLinked={onCancel}
+          />
+        </>
+      )}
     </div>
   );
 }
