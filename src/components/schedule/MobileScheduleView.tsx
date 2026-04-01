@@ -586,7 +586,7 @@ export function MobileScheduleView({
     staleTime: 5 * 60 * 1000,
   });
 
-
+  if (import.meta.env.DEV) {
     console.info('[MobileScheduleView]', {
       selectedDateStr,
       isPublished,
