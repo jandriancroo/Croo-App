@@ -6,6 +6,7 @@ import {
   CheckCircle2, ArrowRightLeft,
 } from "lucide-react";
 import { format } from "date-fns";
+import { getEffectivePeriodEndDate } from "@/utils/periodLabelUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
