@@ -1000,20 +1000,56 @@ async function handleItems(supabase: any, body: any): Promise<Response> {
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Get items from recent orders (the Buyers Edge portal shows items via orders)
+  // Get items from extended order history (6 months) + pricing for full catalog coverage
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
-  const startDate = `${thirtyDaysAgo.getFullYear()}-${pad(thirtyDaysAgo.getMonth() + 1)}-${pad(thirtyDaysAgo.getDate())}`;
+  const sixMonthsAgo = new Date(now.getTime() - 180 * 86400000);
+  const startDate = `${sixMonthsAgo.getFullYear()}-${pad(sixMonthsAgo.getMonth() + 1)}-${pad(sixMonthsAgo.getDate())}`;
   const endDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   
   const orders = await fetchOrderList(session, startDate, endDate);
   
-  // Also try pricing
+  // Fetch pricing (may contain full catalog)
   const pricing = await fetchPAPricing(session);
   
-  // Collect unique items from pricing
-  const items = pricing.length > 0 ? pricing : [];
+  // Also extract items from order details (up to 10 orders)
+  const orderItems = new Map<string, any>();
+  for (const order of orders.slice(0, 10)) {
+    try {
+      const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate, credentials);
+      if (detail?.lineItems?.length) {
+        for (const li of detail.lineItems) {
+          const id = li.pa_product_id || li.item_code || '';
+          if (id && !orderItems.has(id)) {
+            orderItems.set(id, {
+              itemId: li.pa_product_id,
+              description: li.description,
+              packSize: li.pack_size,
+              category: li.category || '',
+            });
+          }
+        }
+      }
+      await new Promise(r => setTimeout(r, 200));
+    } catch (e) {
+      console.warn('[PA Items] Error fetching order detail:', e);
+    }
+  }
+
+  // Merge pricing + order items into a single list
+  const allItems = new Map<string, any>();
+  
+  for (const item of pricing) {
+    const id = String(item.itemId || item.item_id || item.productId || '').trim();
+    if (id) allItems.set(id, item);
+  }
+  
+  for (const [id, item] of orderItems) {
+    if (!allItems.has(id)) allItems.set(id, item);
+  }
+
+  const items = Array.from(allItems.values());
+  console.log('[PA Items] Total unique items:', items.length, '(pricing:', pricing.length, ', orders:', orderItems.size, ')');
 
   return jsonResponse({ success: true, data: { items, count: items.length, orderCount: orders.length } });
 }

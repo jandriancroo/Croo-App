@@ -129,7 +129,7 @@ serve(async (req) => {
       }
 
       // --- PA Scan ---
-      // Check PA orders for items not in templates
+      // Authenticate with PA portal and scrape full catalog (pricing + extended order history)
       if (orgs?.length) {
         const orgIds = orgs.map(o => o.id);
         const { data: locs } = await supabase
@@ -139,16 +139,63 @@ serve(async (req) => {
 
         if (locs?.length) {
           const locIds = locs.map(l => l.id);
-          // Get unique PA item IDs from recent orders
+          const seenPaItems = new Map<string, any>();
+
+          // Try live PA portal scrape for each location with PA credentials
+          for (const locId of locIds) {
+            const { data: paInt } = await supabase
+              .from("location_integrations")
+              .select("credentials")
+              .eq("location_id", locId)
+              .eq("integration_type", "produce_alliance")
+              .eq("is_active", true)
+              .maybeSingle();
+
+            if (!paInt?.credentials) continue;
+
+            try {
+              // Call produce-alliance-service to get items via pricing + orders
+              const paResp = await fetch(
+                `${Deno.env.get("SUPABASE_URL")}/functions/v1/produce-alliance-service`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                  },
+                  body: JSON.stringify({ action: "items", locationId: locId }),
+                }
+              );
+
+              if (paResp.ok) {
+                const paData = await paResp.json();
+                const items = paData?.data?.items || [];
+                console.log(`[vendor-gap-scan] PA portal returned ${items.length} items for location ${locId}`);
+
+                for (const item of items) {
+                  const paId = String(item.itemId || item.item_id || item.pa_product_id || item.productId || "").trim();
+                  const desc = String(item.description || item.name || item.productName || "").trim();
+                  if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
+                  seenPaItems.set(paId, { ...item, description: desc });
+                }
+              } else {
+                console.warn(`[vendor-gap-scan] PA service error for loc ${locId}: ${paResp.status}`);
+                await paResp.text(); // consume body
+              }
+            } catch (e) {
+              console.error(`[vendor-gap-scan] PA portal scrape error for loc ${locId}:`, e);
+            }
+          }
+
+          // Fallback: also check DB orders for any items the portal didn't return
           const { data: paOrders } = await supabase
             .from("produce_alliance_orders")
             .select("items")
             .in("location_id", locIds)
             .not("items", "is", null)
             .order("delivery_date", { ascending: false })
-            .limit(30);
+            .limit(100);
 
-          const seenPaItems = new Map<string, any>();
           for (const order of paOrders || []) {
             const items = order.items as any[];
             if (!Array.isArray(items)) continue;
@@ -158,6 +205,27 @@ serve(async (req) => {
               seenPaItems.set(paId, item);
             }
           }
+
+          // Also check pa_orders table
+          const { data: paOrdersV2 } = await supabase
+            .from("pa_orders")
+            .select("items")
+            .in("location_id", locIds)
+            .not("items", "is", null)
+            .order("delivery_date", { ascending: false })
+            .limit(100);
+
+          for (const order of paOrdersV2 || []) {
+            const items = order.items as any[];
+            if (!Array.isArray(items)) continue;
+            for (const item of items) {
+              const paId = String(item.itemId || item.item_id || item.pa_product_id || "").trim();
+              if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
+              seenPaItems.set(paId, item);
+            }
+          }
+
+          console.log(`[vendor-gap-scan] PA total unique items found: ${seenPaItems.size}`);
 
           for (const [paId, item] of seenPaItems) {
             const { error } = await supabase
