@@ -226,21 +226,23 @@ export default function OrderReconciliationPicker({
       const invUnbind: string[] = [];
 
       for (const o of orders) {
-        if (o.boundToCountId && o.boundToCountId !== countId) continue;
+        // Skip orders locked to a different (non-child) count
+        if (o.boundToCountId && o.boundToCountId !== countId && !o.isInheritedFromChild) continue;
 
         const realId = o.id.replace(/^(pfg_|pa_|inv_)/, "");
         const isSelected = selectedIds.has(o.id);
         const wasBound = o.boundToCountId === countId;
+        const wasInherited = o.isInheritedFromChild && !!o.boundToCountId;
 
         if (o.vendor === "PFG") {
-          if (isSelected && !wasBound) pfgBind.push(realId);
-          if (!isSelected && wasBound) pfgUnbind.push(realId);
+          if (isSelected && !wasBound && !wasInherited) pfgBind.push(realId);
+          if (!isSelected && (wasBound || wasInherited)) pfgUnbind.push(realId);
         } else if (o.vendor === "PA") {
-          if (isSelected && !wasBound) paBind.push(realId);
-          if (!isSelected && wasBound) paUnbind.push(realId);
+          if (isSelected && !wasBound && !wasInherited) paBind.push(realId);
+          if (!isSelected && (wasBound || wasInherited)) paUnbind.push(realId);
         } else if (o.vendor === "INV") {
-          if (isSelected && !wasBound) invBind.push(realId);
-          if (!isSelected && wasBound) invUnbind.push(realId);
+          if (isSelected && !wasBound && !wasInherited) invBind.push(realId);
+          if (!isSelected && (wasBound || wasInherited)) invUnbind.push(realId);
         }
       }
 
