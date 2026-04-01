@@ -900,8 +900,6 @@ function DailySpotChecksGrid({
     </>
   );
 }
-  );
-}
 
 // ——— Helpers ———
 
