@@ -897,6 +897,13 @@ function DailySpotChecksGrid({
           </div>
         </DialogContent>
       </Dialog>
+
+      <InvoiceUploadDialog
+        open={showInvoiceUpload}
+        onOpenChange={setShowInvoiceUpload}
+        locationId={locationId}
+        countId={realCountId || count.id}
+      />
     </>
   );
 }
