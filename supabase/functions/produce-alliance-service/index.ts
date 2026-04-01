@@ -2042,6 +2042,58 @@ async function handleSaveCatalog(supabase: any, body: any): Promise<Response> {
 }
 
 
+// ── CSV parser for download-sheet API responses ─────────────────
+function parseCatalogCsv(csv: string): Array<{
+  pa_item_id: string;
+  description: string;
+  pack_size: string | null;
+  category: string | null;
+  unit_price: number | null;
+}> {
+  const items: Array<{ pa_item_id: string; description: string; pack_size: string | null; category: string | null; unit_price: number | null }> = [];
+  const lines = csv.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length < 2) return items;
+
+  // Parse header row
+  const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
+  console.log(`[PA CSV] Headers: ${headers.join(', ')}`);
+
+  const idIdx = headers.findIndex(h => h.includes('product id') || h.includes('item id') || h.includes('product code') || h === 'id');
+  const nameIdx = headers.findIndex(h => h.includes('product name') || h.includes('description') || h.includes('name'));
+  const packIdx = headers.findIndex(h => h.includes('pack') || h.includes('size') || h.includes('unit'));
+  const priceIdx = headers.findIndex(h => h.includes('price') || h.includes('cost'));
+  const catIdx = headers.findIndex(h => h.includes('category') || h.includes('group'));
+
+  if (idIdx < 0 && nameIdx < 0) {
+    console.log('[PA CSV] Could not find id or name columns');
+    return items;
+  }
+
+  for (let i = 1; i < lines.length; i++) {
+    // Simple CSV split (handles quoted fields)
+    const cells = lines[i].match(/("([^"]*)")|([^,]+)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) || [];
+    if (cells.length < 2) continue;
+
+    const paItemId = idIdx >= 0 ? (cells[idIdx] || '') : '';
+    const description = nameIdx >= 0 ? (cells[nameIdx] || '') : '';
+    if (!paItemId && !description) continue;
+    // Need at least an ID that looks numeric
+    if (paItemId && !/^\d{3,}$/.test(paItemId)) continue;
+
+    const packSize = packIdx >= 0 ? (cells[packIdx] || null) : null;
+    const category = catIdx >= 0 ? (cells[catIdx] || 'Produce') : 'Produce';
+    let unitPrice: number | null = null;
+    if (priceIdx >= 0 && cells[priceIdx]) {
+      const p = parseFloat(cells[priceIdx].replace(/[$,]/g, ''));
+      if (!isNaN(p) && p > 0) unitPrice = p;
+    }
+
+    items.push({ pa_item_id: paItemId || description.substring(0, 20), description, pack_size: packSize, category, unit_price: unitPrice });
+  }
+
+  return items;
+}
+
 // ── Live catalog scrape (no Playwright needed) ──────────────────
 
 function parseWeeklyPricesHtml(html: string): Array<{
