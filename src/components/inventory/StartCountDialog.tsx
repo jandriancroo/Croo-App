@@ -284,7 +284,9 @@ const StartCountDialog = ({
       const prevWeekEnd = subDays(weekEnd, 7);
       const prevWeekStart = subDays(prevWeekEnd, 6);
       const prevWeekEndStr = format(prevWeekEnd, "yyyy-MM-dd");
-      const isLateClose = todayStr > prevWeekEndStr;
+      // Counting the morning after period end (e.g., Monday for a Sunday-ending week) is normal — not flex
+      const dayAfterPeriodEnd = format(new Date(new Date(prevWeekEndStr + "T12:00:00").getTime() + 86400000), "yyyy-MM-dd");
+      const isLateClose = todayStr > dayAfterPeriodEnd;
       
       if (!isPeriodCounted("weekly", prevWeekEndStr)) {
         scheduledOptions.push({

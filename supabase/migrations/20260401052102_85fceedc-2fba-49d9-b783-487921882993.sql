@@ -1,0 +1,1 @@
+UPDATE inventory_counts SET is_late_close = false, late_close_notes = NULL WHERE id = 'b452b6de-4a11-4ee6-85e1-2a19568063db';
