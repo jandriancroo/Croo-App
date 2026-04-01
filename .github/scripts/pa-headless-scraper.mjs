@@ -391,23 +391,22 @@ async function scrapeCatalog(page, { restaurantId }) {
   const url = `${PA_BASE_URL}/reports/restaurantWeeklyProducePricesReport.jsp?restaurantId=${restaurantId}`;
   console.log(`   📦 Loading weekly prices report...`);
 
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 
   // Wait for the table to render
   try {
-    await page.waitForSelector('table td', { timeout: 20000 });
+    await page.waitForSelector('table td', { timeout: 10000 });
   } catch {
     console.log(`   ⚠️ No table rendered on weekly prices page, trying fallback...`);
     const content = await page.content();
     if (content.includes('Sign in') || content.includes('j_security_check')) {
       throw new Error('Session expired — got login page');
     }
-    // Fallback to restaurantOrderSort.jsp
     return await scrapeCatalogFallback(page, { restaurantId });
   }
 
-  // Wait for full render
-  await page.waitForTimeout(3000);
+  // Brief pause for any late-rendering cells
+  await page.waitForTimeout(500);
 
   const items = await page.evaluate(() => {
     const results = [];
