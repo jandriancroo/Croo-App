@@ -169,27 +169,11 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
           .map(t => ({ itemNumber: t.item_number!, name: t.product_name }));
       }
 
-      // --- PA Scan (live catalog scrape) ---
+      // --- PA Scan (from pa_catalog_items populated by nightly GitHub Action) ---
       if (brandLocationIds.length > 0) {
-        // Trigger live catalog scrape for each PA location
-        for (const locId of brandLocationIds) {
-          try {
-            toast.info('Scraping PA catalog...', { id: 'pa-scrape' });
-            const { data: scrapeResult } = await supabase.functions.invoke('produce-alliance-service', {
-              body: { action: 'scrape_catalog_live', locationId: locId },
-            });
-            if (scrapeResult?.saved > 0) {
-              console.log(`[VendorGap] PA catalog scraped: ${scrapeResult.saved} items for ${locId}`);
-            }
-          } catch (e) {
-            console.warn(`[VendorGap] PA catalog scrape failed for ${locId}:`, e);
-          }
-        }
-        toast.dismiss('pa-scrape');
-
-        // Now query pa_catalog_items for gap analysis
         const seenPaItems = new Map<string, any>();
 
+        // Primary: pa_catalog_items (scraped from restaurantOrderSort.jsp)
         for (const locId of brandLocationIds) {
           const { data: catalogItems } = await supabase
             .from('pa_catalog_items' as any)
@@ -205,14 +189,37 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
           }
         }
 
+        // Fallback: order history if catalog is empty
+        if (seenPaItems.size === 0) {
+          const { data: paOrders } = await supabase
+            .from('produce_alliance_orders' as any)
+            .select('items')
+            .in('location_id', brandLocationIds)
+            .not('items', 'is', null)
+            .order('delivery_date', { ascending: false })
+            .limit(30);
+
+          for (const order of (paOrders || []) as any[]) {
+            const items = order.items as any[];
+            if (!Array.isArray(items)) continue;
+            for (const item of items) {
+              const paId = String(item.itemId || item.item_id || '').trim();
+              if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
+              const itemName = (item.description || item.name || '').toLowerCase();
+              if (itemName && existingNames.has(itemName)) continue;
+              seenPaItems.set(paId, item);
+            }
+          }
+        }
+
         const paOutliers: OutlierItem[] = Array.from(seenPaItems.entries()).map(([paId, item]) => ({
           itemNumber: paId,
-          name: item.description || paId,
-          fullDescription: item.description || paId,
+          name: item.description || item.name || paId,
+          fullDescription: item.description || item.name || paId,
           brand: '',
-          packSize: item.pack_size || '',
+          packSize: item.pack_size || item.packSize || '',
           categoryName: item.category || 'Produce',
-          price: item.unit_price || null,
+          price: item.unit_price || item.price || item.unitPrice || null,
           vendorSource: 'pa' as const,
         }));
 
