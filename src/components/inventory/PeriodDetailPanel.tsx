@@ -52,7 +52,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
   const hasCountedItems = (_stats.countedItems || 0) > 0;
   const isUpcoming = !!count._isUpcoming || (count.status === "in_progress" && !hasCountedItems);
   const [showPurchases, setShowPurchases] = useState(false);
-  const { getTodayInTimezone } = useLocationTimezone();
+  const { getTodayInTimezone, timezone } = useLocationTimezone();
   const todayStr = getTodayInTimezone();
   const { transfers } = useInventoryTransfers(locationId);
   
@@ -84,10 +84,22 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     const endDate = count.period_end_date;
     
     // For flex counts (is_late_close), sales window extends to counted_at date
+    // BUT if the count was submitted before the store opened (before 10 AM local),
+    // the last full sales day is the day BEFORE counted_at — not counted_at itself.
     let salesEndDate = endDate;
     if (count.is_late_close) {
       if (count.counted_at) {
-        salesEndDate = formatInTimeZone(new Date(count.counted_at), 'America/Los_Angeles', 'yyyy-MM-dd');
+        const countedAtDate = new Date(count.counted_at);
+        const localDateStr = formatInTimeZone(countedAtDate, timezone, 'yyyy-MM-dd');
+        const localHour = parseInt(formatInTimeZone(countedAtDate, timezone, 'HH'), 10);
+        
+        // If counted before 10 AM, store wasn't open yet — sales thru previous day
+        if (localHour < 10) {
+          const prevDay = subDays(new Date(localDateStr + 'T12:00:00'), 1);
+          salesEndDate = format(prevDay, 'yyyy-MM-dd');
+        } else {
+          salesEndDate = localDateStr;
+        }
       } else {
         const yesterday = subDays(new Date(), 1);
         const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
@@ -115,7 +127,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     let adjustedStart = standardStart;
     let isFlexAdjusted = false;
     if (prevCountData?.is_late_close && prevCountData?.counted_at) {
-      const prevCountedDate = formatInTimeZone(new Date(prevCountData.counted_at), 'America/Los_Angeles', 'yyyy-MM-dd');
+      const prevCountedDate = formatInTimeZone(new Date(prevCountData.counted_at), timezone, 'yyyy-MM-dd');
       const dayAfterPrevCount = format(
         new Date(new Date(prevCountedDate + "T12:00:00").getTime() + 86400000),
         "yyyy-MM-dd"
@@ -142,7 +154,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       activeDays,
       isNonStandard,
     };
-  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, prevCountData]);
+  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, prevCountData, timezone]);
 
   // Compute transfer totals for this period
   const transferTotals = useMemo(() => {
