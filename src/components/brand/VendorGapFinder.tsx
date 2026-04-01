@@ -166,7 +166,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
 
       const { error } = await supabase
         .from('brand_inventory_templates')
-        .insert(inserts as any);
+        .upsert(inserts as any, { onConflict: 'brand_id,product_name', ignoreDuplicates: true });
       if (error) throw error;
     },
     onSuccess: (_, items) => {
