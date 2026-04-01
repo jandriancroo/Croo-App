@@ -3,6 +3,13 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tag, ChevronDown, ChevronRight } from "lucide-react";
 
+const isNewItem = (createdAt: string) => {
+  const created = new Date(createdAt);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  return created > sevenDaysAgo;
+};
+
 interface BrandTemplateItem {
   id: string;
   product_name: string;
@@ -124,6 +131,16 @@ export default function BrandCatalogSection({
               {item.status === 'draft' && (
                 <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
                   Draft
+                </Badge>
+              )}
+              {item.status === 'draft' && item.vendor_source?.startsWith('invoice:') && isNewItem(item.created_at) && (
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/20 font-bold">
+                  ⚠️ NEW
+                </Badge>
+              )}
+              {item.source_location_id && item.vendor_source?.startsWith('invoice:') && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 text-muted-foreground">
+                  📍 {item.vendor_source.replace('invoice:', '')}
                 </Badge>
               )}
             </div>

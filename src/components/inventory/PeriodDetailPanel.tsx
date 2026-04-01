@@ -17,7 +17,7 @@ import {
   Eye, ClipboardCheck,
   Crosshair, Loader2,
   Settings2, UtensilsCrossed, Carrot, ChevronDown,
-  Play, Plus, CheckCircle2,
+  Play, Plus, CheckCircle2, Upload,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
@@ -28,6 +28,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 import VarianceReport from "./VarianceReport";
+import InvoiceUploadDialog from "./InvoiceUploadDialog";
 
 interface PeriodDetailPanelProps {
   count: any;
@@ -45,6 +46,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
   const { isManager, isAdmin } = useUserRole();
   const canManageOrders = isManager || isAdmin;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
+  const [showInvoiceUpload, setShowInvoiceUpload] = useState(false);
   const [realCountId, setRealCountId] = useState<string | null>(null);
   const [creatingCount, setCreatingCount] = useState(false);
   const hasCountedItems = (_stats.countedItems || 0) > 0;
@@ -622,6 +624,17 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                       Manage Orders
                     </Button>
                   )}
+                  {canManageOrders && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs mt-1"
+                      onClick={() => setShowInvoiceUpload(true)}
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      Upload Invoice
+                    </Button>
+                  )}
                 </div>
               )}
 
@@ -715,6 +728,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           />
         </DialogContent>
       </Dialog>
+
+      <InvoiceUploadDialog
+        open={showInvoiceUpload}
+        onOpenChange={setShowInvoiceUpload}
+        locationId={locationId}
+        countId={realCountId || count.id}
+      />
     </motion.div>
   );
 }
