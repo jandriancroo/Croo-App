@@ -154,7 +154,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       activeDays,
       isNonStandard,
     };
-  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, prevCountData, timezone]);
+  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, count.sales_end_override, prevCountData, timezone]);
 
   // Compute transfer totals for this period
   const transferTotals = useMemo(() => {
