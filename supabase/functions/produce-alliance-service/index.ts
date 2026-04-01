@@ -634,6 +634,11 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
     console.error('[PA Detail] REST API error:', e);
     }
   }
+  }
+
+  // Fallback: JSP scraping if REST API fails
+  console.log('[PA Detail] REST API failed, trying JSP fallback...');
+  const authHeaders2 = getAuthHeaders(session);
 
   // Fallback: JSP scraping — use non-zero-padded dates to match browser behavior
   const toNonPadded = (d: string) => {
