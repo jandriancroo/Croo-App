@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Check, Truck, Lock, UtensilsCrossed, Carrot } from "lucide-react";
+import { Loader2, Check, Truck, Lock, UtensilsCrossed, Carrot, Receipt } from "lucide-react";
 import { format, subDays, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -22,7 +22,8 @@ interface OrderReconciliationPickerProps {
 
 interface VendorOrder {
   id: string;
-  vendor: "PFG" | "PA";
+  vendor: "PFG" | "PA" | "INV";
+  vendorName?: string;
   orderId: string;
   orderDate: string;
   deliveryDate: string;
@@ -54,7 +55,7 @@ export default function OrderReconciliationPicker({
         ? format(addDays(new Date(periodEndDate + "T12:00:00"), 7), "yyyy-MM-dd")
         : format(new Date(), "yyyy-MM-dd");
 
-      const [pfgResult, paResult] = await Promise.all([
+      const [pfgResult, paResult, invResult] = await Promise.all([
         supabase
           .from("pfg_orders")
           .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
@@ -69,12 +70,25 @@ export default function OrderReconciliationPicker({
           .gte("delivery_date", windowStart)
           .lte("delivery_date", windowEnd)
           .order("order_date", { ascending: true }),
+        supabase
+          .from("vendor_invoices")
+          .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
+          .eq("location_id", locationId)
+          .eq("status", "parsed")
+          .gte("delivery_date", windowStart)
+          .lte("delivery_date", windowEnd)
+          .order("delivery_date", { ascending: true }),
       ]);
 
       const otherCountIds = new Set<string>();
       for (const o of [...(pfgResult.data || []), ...(paResult.data || [])]) {
         if ((o as any).bound_to_count_id && (o as any).bound_to_count_id !== countId) {
           otherCountIds.add((o as any).bound_to_count_id);
+        }
+      }
+      for (const o of (invResult.data || [])) {
+        if ((o as any).inventory_count_id && (o as any).inventory_count_id !== countId) {
+          otherCountIds.add((o as any).inventory_count_id);
         }
       }
 
@@ -120,6 +134,19 @@ export default function OrderReconciliationPicker({
           boundToCountId: o.bound_to_count_id,
           boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
             ? periodLabelMap.get(o.bound_to_count_id)
+            : undefined,
+        })),
+        ...(invResult.data || []).map((o: any) => ({
+          id: `inv_${o.id}`,
+          vendor: "INV" as const,
+          vendorName: o.vendor_name || "Invoice",
+          orderId: o.invoice_number || o.id.slice(0, 8),
+          orderDate: o.invoice_date || o.delivery_date,
+          deliveryDate: o.delivery_date || o.invoice_date,
+          totalAmount: Number(o.total_amount) || 0,
+          boundToCountId: o.inventory_count_id,
+          boundPeriodLabel: o.inventory_count_id && o.inventory_count_id !== countId
+            ? periodLabelMap.get(o.inventory_count_id)
             : undefined,
         })),
       ];
@@ -168,20 +195,25 @@ export default function OrderReconciliationPicker({
       const pfgUnbind: string[] = [];
       const paBind: string[] = [];
       const paUnbind: string[] = [];
+      const invBind: string[] = [];
+      const invUnbind: string[] = [];
 
       for (const o of orders) {
         if (o.boundToCountId && o.boundToCountId !== countId) continue;
 
-        const realId = o.id.replace(/^(pfg_|pa_)/, "");
+        const realId = o.id.replace(/^(pfg_|pa_|inv_)/, "");
         const isSelected = selectedIds.has(o.id);
         const wasBound = o.boundToCountId === countId;
 
         if (o.vendor === "PFG") {
           if (isSelected && !wasBound) pfgBind.push(realId);
           if (!isSelected && wasBound) pfgUnbind.push(realId);
-        } else {
+        } else if (o.vendor === "PA") {
           if (isSelected && !wasBound) paBind.push(realId);
           if (!isSelected && wasBound) paUnbind.push(realId);
+        } else if (o.vendor === "INV") {
+          if (isSelected && !wasBound) invBind.push(realId);
+          if (!isSelected && wasBound) invUnbind.push(realId);
         }
       }
 
@@ -205,6 +237,16 @@ export default function OrderReconciliationPicker({
       if (paUnbind.length > 0) {
         promises.push(
           supabase.from("pa_orders").update({ bound_to_count_id: null } as any).in("id", paUnbind).select()
+        );
+      }
+      if (invBind.length > 0) {
+        promises.push(
+          supabase.from("vendor_invoices").update({ inventory_count_id: countId } as any).in("id", invBind).select()
+        );
+      }
+      if (invUnbind.length > 0) {
+        promises.push(
+          supabase.from("vendor_invoices").update({ inventory_count_id: null } as any).in("id", invUnbind).select()
         );
       }
 
@@ -334,14 +376,24 @@ export default function OrderReconciliationPicker({
                           "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
                           order.vendor === "PFG"
                             ? "bg-red-500 text-red-200"
-                            : "bg-green-500 text-green-200"
+                            : order.vendor === "PA"
+                            ? "bg-green-500 text-green-200"
+                            : "bg-amber-500 text-amber-100"
                         )}
                       >
-                        {order.vendor === "PFG" ? <UtensilsCrossed className="h-5 w-5" /> : <Carrot className="h-5 w-5" />}
+                        {order.vendor === "PFG" ? (
+                          <UtensilsCrossed className="h-5 w-5" />
+                        ) : order.vendor === "PA" ? (
+                          <Carrot className="h-5 w-5" />
+                        ) : (
+                          <Receipt className="h-5 w-5" />
+                        )}
                       </div>
 
                       <div className="text-left">
-                        <p className="text-sm font-medium font-mono">{order.vendor} #{order.orderId}</p>
+                        <p className="text-sm font-medium font-mono">
+                          {order.vendor === "INV" ? order.vendorName : order.vendor} #{order.orderId}
+                        </p>
                       </div>
                     </div>
 
