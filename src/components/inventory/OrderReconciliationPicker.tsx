@@ -30,6 +30,7 @@ interface VendorOrder {
   totalAmount: number;
   boundToCountId: string | null;
   boundPeriodLabel?: string;
+  isInheritedFromChild?: boolean;
 }
 
 export default function OrderReconciliationPicker({
@@ -55,7 +56,12 @@ export default function OrderReconciliationPicker({
         ? format(addDays(new Date(periodEndDate + "T12:00:00"), 7), "yyyy-MM-dd")
         : format(new Date(), "yyyy-MM-dd");
 
-      const [pfgResult, paResult, invResult] = await Promise.all([
+      const [countResult, pfgResult, paResult, invResult] = await Promise.all([
+        supabase
+          .from("inventory_counts")
+          .select("period_type")
+          .eq("id", countId)
+          .maybeSingle(),
         supabase
           .from("pfg_orders")
           .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
@@ -79,6 +85,22 @@ export default function OrderReconciliationPicker({
           .or(`and(delivery_date.gte.${windowStart},delivery_date.lte.${windowEnd}),and(invoice_date.gte.${windowStart},invoice_date.lte.${windowEnd}),inventory_count_id.eq.${countId}`)
           .order("delivery_date", { ascending: true }),
       ]);
+
+      const isAggregatingPeriod =
+        countResult.data?.period_type === "monthly" || countResult.data?.period_type === "yearly";
+
+      let inheritedChildCountIds = new Set<string>();
+      if (isAggregatingPeriod && periodStartDate && periodEndDate) {
+        const { data: childCounts } = await supabase
+          .from("inventory_counts")
+          .select("id")
+          .eq("location_id", locationId)
+          .eq("period_type", "weekly")
+          .gte("period_end_date", periodStartDate)
+          .lte("period_end_date", periodEndDate);
+
+        inheritedChildCountIds = new Set((childCounts || []).map((c) => c.id));
+      }
 
       const otherCountIds = new Set<string>();
       for (const o of [...(pfgResult.data || []), ...(paResult.data || [])]) {
@@ -120,6 +142,7 @@ export default function OrderReconciliationPicker({
           deliveryDate: o.delivery_date,
           totalAmount: Number(o.total_amount) || 0,
           boundToCountId: o.bound_to_count_id,
+          isInheritedFromChild: !!o.bound_to_count_id && inheritedChildCountIds.has(o.bound_to_count_id),
           boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
             ? periodLabelMap.get(o.bound_to_count_id)
             : undefined,
@@ -132,6 +155,7 @@ export default function OrderReconciliationPicker({
           deliveryDate: o.delivery_date,
           totalAmount: Number(o.total_amount) || 0,
           boundToCountId: o.bound_to_count_id,
+          isInheritedFromChild: !!o.bound_to_count_id && inheritedChildCountIds.has(o.bound_to_count_id),
           boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
             ? periodLabelMap.get(o.bound_to_count_id)
             : undefined,
@@ -145,6 +169,7 @@ export default function OrderReconciliationPicker({
           deliveryDate: o.delivery_date || o.invoice_date,
           totalAmount: Number(o.total_amount) || 0,
           boundToCountId: o.inventory_count_id,
+          isInheritedFromChild: !!o.inventory_count_id && inheritedChildCountIds.has(o.inventory_count_id),
           boundPeriodLabel: o.inventory_count_id && o.inventory_count_id !== countId
             ? periodLabelMap.get(o.inventory_count_id)
             : undefined,
@@ -161,7 +186,9 @@ export default function OrderReconciliationPicker({
   // Initialize selected IDs from orders bound to this count
   if (orders && !initialized) {
     const bound = new Set(
-      orders.filter((o) => o.boundToCountId === countId).map((o) => o.id)
+      orders
+        .filter((o) => o.boundToCountId === countId || o.isInheritedFromChild)
+        .map((o) => o.id)
     );
     if (bound.size === 0 && periodStartDate && periodEndDate) {
       for (const o of orders) {
@@ -177,7 +204,7 @@ export default function OrderReconciliationPicker({
   const toggle = (id: string) => {
     if (!editable) return;
     const order = orders?.find((o) => o.id === id);
-    if (order?.boundToCountId && order.boundToCountId !== countId) return;
+    if (order?.boundToCountId && order.boundToCountId !== countId && !order.isInheritedFromChild) return;
 
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -269,6 +296,11 @@ export default function OrderReconciliationPicker({
     [orders, selectedIds]
   );
 
+  const selectableOrderCount = useMemo(
+    () => (orders || []).filter((o) => !o.boundPeriodLabel || o.isInheritedFromChild).length,
+    [orders]
+  );
+
   // Group orders by delivery date
   const groupedOrders = useMemo(() => {
     if (!orders) return [];
@@ -313,7 +345,7 @@ export default function OrderReconciliationPicker({
       )}
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">
-          {selectedIds.size} of {orders.filter((o) => !o.boundPeriodLabel).length} orders selected
+          {selectedIds.size} of {selectableOrderCount} orders selected
         </p>
         <p className="text-sm font-semibold">
           ${selectedTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -333,6 +365,7 @@ export default function OrderReconciliationPicker({
             <div className="divide-y divide-border/40">
               {group.items.map((order) => {
                 const isBoundElsewhere = !!order.boundPeriodLabel;
+                const isLockedElsewhere = isBoundElsewhere && !order.isInheritedFromChild;
                 const isSelected = selectedIds.has(order.id);
                 const inPeriod = periodStartDate && periodEndDate
                   ? order.deliveryDate >= periodStartDate && order.deliveryDate <= periodEndDate
@@ -342,10 +375,10 @@ export default function OrderReconciliationPicker({
                   <button
                     key={order.id}
                     onClick={() => toggle(order.id)}
-                    disabled={isBoundElsewhere || !editable}
+                    disabled={isLockedElsewhere || !editable}
                     className={cn(
                       "w-full flex items-center justify-between py-3 px-2 rounded-lg transition-all",
-                      isBoundElsewhere
+                      isLockedElsewhere
                         ? "opacity-40 cursor-not-allowed"
                         : isSelected
                         ? "bg-primary/5"
@@ -357,14 +390,14 @@ export default function OrderReconciliationPicker({
                       <div
                         className={cn(
                           "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all",
-                          isBoundElsewhere
+                          isLockedElsewhere
                             ? "border-muted-foreground/30 bg-muted/40"
                             : isSelected
                             ? "border-primary bg-primary"
                             : "border-border"
                         )}
                       >
-                        {isBoundElsewhere ? (
+                        {isLockedElsewhere ? (
                           <Lock className="h-3 w-3 text-muted-foreground" />
                         ) : isSelected ? (
                           <Check className="h-3.5 w-3.5 text-primary-foreground" />
