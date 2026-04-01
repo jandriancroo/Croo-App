@@ -624,6 +624,17 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                       Manage Orders
                     </Button>
                   )}
+                  {canManageOrders && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs mt-1"
+                      onClick={() => setShowInvoiceUpload(true)}
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      Upload Invoice
+                    </Button>
+                  )}
                 </div>
               )}
 
