@@ -2498,7 +2498,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
       try {
         const resp = await fetch(ep.url, {
           method: ep.method,
-          headers: ep.body ? { ...authHeaders, 'Content-Type': 'application/json' } : authHeaders,
+          headers: ep.body ? { ...getAuthHeaders(session, true), 'Content-Type': 'application/json' } : getAuthHeaders(session),
           body: ep.body,
         });
         const text = await resp.text();
