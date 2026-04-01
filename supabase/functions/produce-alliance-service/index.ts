@@ -1915,6 +1915,7 @@ serve(async (req) => {
       case 'list_pending_scrapes': return await handleListPendingScrapes(supabase, body);
       case 'save_scraped_order': return await handleSaveScrapedOrder(supabase, body);
       case 'headless_login_failed': return await handleHeadlessLoginFailed(supabase, body);
+      case 'probe_catalog': return await handleProbeCatalog(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
