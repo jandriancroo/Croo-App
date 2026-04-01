@@ -179,20 +179,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         }
       }
 
-      // Fetch multi-location assignments from junction table (including count_by override)
+      // Fetch multi-location assignments from junction table (including count_by override and display_order)
       const { data: itemLocations } = await supabase
         .from("inventory_item_locations")
-        .select("item_id, storage_location_id, count_by");
+        .select("item_id, storage_location_id, count_by, display_order");
       
       // Build map: item_id -> list of storage_location_ids
       const multiLocMap = new Map<string, string[]>();
       // Build map: "itemId|storLocId" -> count_by override
       const countByMap = new Map<string, string>();
+      // Build map: "itemId|storLocId" -> display_order from junction table (for shortcuts)
+      const junctionOrderMap = new Map<string, number>();
       for (const il of itemLocations || []) {
         const existing = multiLocMap.get(il.item_id) || [];
         existing.push(il.storage_location_id);
         multiLocMap.set(il.item_id, existing);
         countByMap.set(`${il.item_id}|${il.storage_location_id}`, il.count_by || 'inherit');
+        if (typeof (il as any).display_order === 'number') {
+          junctionOrderMap.set(`${il.item_id}|${il.storage_location_id}`, (il as any).display_order);
+        }
       }
 
       // Get storage location names for lookup
