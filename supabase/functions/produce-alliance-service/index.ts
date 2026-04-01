@@ -2357,8 +2357,9 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
       console.warn(`[PA Catalog Live] download-sheet error:`, e);
     }
   }
+  } // close download-sheet if block
 
-  // Attempt 2: Try various product/catalog REST endpoints
+  // Attempt 3: Try various product/catalog REST endpoints
   if (items.length === 0) {
     const apiUrls = [
       { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-products-for-restaurant-by-params?restaurantId=${session.restaurantId}`, method: 'POST', body: JSON.stringify({ restaurantId: parseInt(session.restaurantId), limit: 1000, offset: 0 }) },
