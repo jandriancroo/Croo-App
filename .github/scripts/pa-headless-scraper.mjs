@@ -574,8 +574,7 @@ async function processCatalogLocation(browser, location) {
     }, restaurantId);
 
     // Navigate to ProduceAlliance.jsp first to establish JSP session
-    await page.goto(`${PA_BASE_URL}/ProduceAlliance.jsp`, { waitUntil: 'networkidle', timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1000);
+    await page.goto(`${PA_BASE_URL}/ProduceAlliance.jsp`, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
 
     const items = await scrapeCatalog(page, { restaurantId });
 
