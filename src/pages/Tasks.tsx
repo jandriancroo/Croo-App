@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, useMemo } from "react";
+import { useState, Suspense, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
@@ -10,9 +10,10 @@ import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline'
 import { useTasksData } from '@/hooks/useTasksData';
 import { Layers, LayoutList } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { lazyWithRetry } from '@/utils/lazyWithRetry';
 
 // Lazy-load Edit tab components to defer DnD bundle
-const EditTabContent = lazy(() => import('@/components/tasks/EditTabContent'));
+const EditTabContent = lazyWithRetry(() => import('@/components/tasks/EditTabContent'));
 
 export default function Tasks() {
   const {

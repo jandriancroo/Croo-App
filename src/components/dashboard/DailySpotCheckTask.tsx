@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
@@ -11,8 +11,9 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 
-const DailySpotCount = lazy(() => import("@/components/inventory/DailySpotCount"));
+const DailySpotCount = lazyWithRetry(() => import("@/components/inventory/DailySpotCount"));
 
 const TEAL_COLOR = "#14b8a6";
 
