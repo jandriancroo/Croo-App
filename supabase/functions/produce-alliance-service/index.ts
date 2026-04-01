@@ -1972,9 +1972,70 @@ async function handleProbeCatalog(supabase: any, body: any): Promise<Response> {
   return jsonResponse({ success: true, data: results });
 }
 
-// ============================================================================
-// MAIN HANDLER
-// ============================================================================
+// ── List all PA locations for catalog scrape ─────────────────────
+async function handleListCatalogLocations(supabase: any, _body: any): Promise<Response> {
+  const { data: integrations } = await supabase
+    .from('location_integrations')
+    .select('location_id, credentials')
+    .eq('integration_type', 'produce_alliance')
+    .eq('is_active', true);
+
+  if (!integrations?.length) {
+    return jsonResponse({ success: true, locations: [] });
+  }
+
+  const locations = integrations
+    .filter((i: any) => i.credentials?.username && i.credentials?.password)
+    .map((i: any) => ({
+      locationId: i.location_id,
+      username: i.credentials.username,
+      password: i.credentials.password,
+      restaurantId: i.credentials.restaurant_id || i.credentials.pa_location_id || '',
+    }));
+
+  return jsonResponse({ success: true, locations });
+}
+
+// ── Save scraped catalog items ───────────────────────────────────
+async function handleSaveCatalog(supabase: any, body: any): Promise<Response> {
+  const { locationId, items } = body;
+  if (!locationId || !items?.length) {
+    return jsonResponse({ success: false, error: 'Missing locationId or items' }, 400);
+  }
+
+  console.log(`[PA Catalog] Saving ${items.length} items for location ${locationId}`);
+
+  let saved = 0;
+  const now = new Date().toISOString();
+
+  // Batch upsert in chunks of 50
+  for (let i = 0; i < items.length; i += 50) {
+    const chunk = items.slice(i, i + 50).map((item: any) => ({
+      location_id: locationId,
+      pa_item_id: String(item.pa_item_id || '').trim(),
+      description: String(item.description || '').trim(),
+      pack_size: item.pack_size || null,
+      category: item.category || null,
+      unit_price: item.unit_price || null,
+      last_seen_at: now,
+    })).filter((item: any) => item.pa_item_id);
+
+    const { error } = await supabase
+      .from('pa_catalog_items')
+      .upsert(chunk, { onConflict: 'location_id,pa_item_id' });
+
+    if (error) {
+      console.error('[PA Catalog] Upsert error:', error);
+    } else {
+      saved += chunk.length;
+    }
+  }
+
+  console.log(`[PA Catalog] ✅ Saved ${saved} catalog items`);
+  return jsonResponse({ success: true, saved });
+}
+
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
