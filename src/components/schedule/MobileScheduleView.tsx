@@ -816,7 +816,7 @@ export function MobileScheduleView({
                     <button
                       key={index}
                       onClick={() => setSelectedDate(day)}
-                      className={`flex flex-col items-center flex-1 py-1.5 rounded-lg transition-all ${
+                      className={`flex flex-col items-center flex-1 py-0.5 rounded-lg transition-all ${
                         isSelected
                           ? 'bg-primary text-primary-foreground shadow-md'
                           : isDayToday
