@@ -171,6 +171,21 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       // For upcoming periods, only fetch purchases (no count items exist yet)
       if (isUpcoming) {
+        // For monthly/yearly upcoming periods, also grab orders bound to child weekly counts
+        const isAggregatingUpcoming = count.period_type === "monthly" || count.period_type === "yearly";
+        let childCountIds: string[] = [];
+        if (isAggregatingUpcoming) {
+          const { data: childCounts } = await supabase
+            .from("inventory_counts")
+            .select("id")
+            .eq("location_id", locationId)
+            .eq("period_type", "weekly")
+            .gte("period_end_date", periodRange.startStr)
+            .lte("period_end_date", periodRange.endStr);
+          childCountIds = (childCounts || []).map(c => c.id);
+        }
+        const allUpcomingCountIds = [realCountId, ...childCountIds].filter(Boolean) as string[];
+
         const [pfgDateRange, paDateRange, vendorInvoicesRange] = await Promise.all([
           supabase
             .from("pfg_orders")
@@ -199,30 +214,30 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             .order("delivery_date", { ascending: true }),
         ]);
 
-        // Also check for orders bound to a real count_id (if one was created via Manage Orders)
+        // Also check for orders bound to this count or child weekly counts
         let pfgBound: any[] = [];
         let paBound: any[] = [];
         let vendorBound: any[] = [];
-        if (realCountId) {
+        if (allUpcomingCountIds.length > 0) {
           const [pfgB, paB, vendorB] = await Promise.all([
             supabase
               .from("pfg_orders")
               .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
               .eq("location_id", locationId)
-              .eq("bound_to_count_id", realCountId)
+              .in("bound_to_count_id", allUpcomingCountIds)
               .order("delivery_date", { ascending: true }),
             supabase
               .from("pa_orders")
               .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
               .eq("location_id", locationId)
-              .eq("bound_to_count_id", realCountId)
+              .in("bound_to_count_id", allUpcomingCountIds)
               .order("delivery_date", { ascending: true }),
             supabase
               .from("vendor_invoices")
               .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
               .eq("location_id", locationId)
               .eq("status", "parsed")
-              .eq("inventory_count_id", realCountId)
+              .in("inventory_count_id", allUpcomingCountIds)
               .order("delivery_date", { ascending: true }),
           ]);
           pfgBound = pfgB.data || [];
@@ -230,10 +245,15 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           vendorBound = vendorB.data || [];
         }
 
+        // Deduplicate and merge
+        const dedup = (arr: any[]) => {
+          const seen = new Set<string>();
+          return arr.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
+        };
         const hasBoundOrders = pfgBound.length + paBound.length + vendorBound.length > 0;
-        const pfg = hasBoundOrders ? pfgBound : (pfgDateRange.data || []);
-        const pa = hasBoundOrders ? paBound : (paDateRange.data || []);
-        const vendorInv = hasBoundOrders ? vendorBound : (vendorInvoicesRange.data || []).filter((vi: any) => {
+        const pfg = hasBoundOrders ? dedup(pfgBound) : (pfgDateRange.data || []);
+        const pa = hasBoundOrders ? dedup(paBound) : (paDateRange.data || []);
+        const vendorInv = hasBoundOrders ? dedup(vendorBound) : (vendorInvoicesRange.data || []).filter((vi: any) => {
           const d = vi.delivery_date || vi.invoice_date;
           return d && d >= periodRange.startStr && d <= periodRange.endStr;
         });
