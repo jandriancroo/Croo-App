@@ -126,6 +126,16 @@ export default function BrandCatalogSection({
                   Draft
                 </Badge>
               )}
+              {item.status === 'draft' && item.vendor_source?.startsWith('invoice:') && isNewItem(item.created_at) && (
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/20 font-bold">
+                  ⚠️ NEW
+                </Badge>
+              )}
+              {item.source_location_id && item.vendor_source?.startsWith('invoice:') && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 text-muted-foreground">
+                  📍 {item.vendor_source.replace('invoice:', '')}
+                </Badge>
+              )}
             </div>
           ))}
         </div>

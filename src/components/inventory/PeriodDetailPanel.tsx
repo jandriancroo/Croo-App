@@ -28,6 +28,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 import VarianceReport from "./VarianceReport";
+import InvoiceUploadDialog from "./InvoiceUploadDialog";
 
 interface PeriodDetailPanelProps {
   count: any;
