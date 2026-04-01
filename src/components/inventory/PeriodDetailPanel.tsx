@@ -83,8 +83,29 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
   const periodRange = useMemo(() => {
     if (!count.period_end_date) return null;
     const endDate = count.period_end_date;
+    let effectivePeriodEndDate = endDate;
+
+    // Monthly close safeguard: when a monthly count is completed right at month rollover
+    // (often before open on day 1), treat it as prior-month close for reporting windows.
+    if (count.period_type === "monthly" && count.status === "completed" && count.counted_at) {
+      const countedAtDate = new Date(count.counted_at);
+      const localDateStr = formatInTimeZone(countedAtDate, timezone, "yyyy-MM-dd");
+      const localDay = parseInt(formatInTimeZone(countedAtDate, timezone, "d"), 10);
+      const localHour = parseInt(formatInTimeZone(countedAtDate, timezone, "HH"), 10);
+
+      if (localDay <= 2) {
+        let inferredEnd = localDateStr;
+        if (localHour < 10) {
+          inferredEnd = format(subDays(new Date(localDateStr + "T12:00:00"), 1), "yyyy-MM-dd");
+        }
+
+        if (inferredEnd < endDate) {
+          effectivePeriodEndDate = inferredEnd;
+        }
+      }
+    }
     
-    let salesEndDate = endDate;
+    let salesEndDate = effectivePeriodEndDate;
     // Priority: manual override > flex auto-calc > period end date
     if (count.sales_end_override) {
       salesEndDate = count.sales_end_override;
@@ -104,7 +125,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       } else {
         const yesterday = subDays(new Date(), 1);
         const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-        if (yesterdayStr > endDate) {
+        if (yesterdayStr > effectivePeriodEndDate) {
           salesEndDate = yesterdayStr;
         }
       }
@@ -113,11 +134,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     // Calculate standard start date
     let standardStart: string;
     if (count.period_type === "weekly") {
-      const end = new Date(endDate + "T12:00:00");
+      const end = new Date(effectivePeriodEndDate + "T12:00:00");
       const start = subDays(end, 6);
       standardStart = format(start, "yyyy-MM-dd");
     } else if (count.period_type === "monthly") {
-      const end = new Date(endDate + "T12:00:00");
+      const end = new Date(effectivePeriodEndDate + "T12:00:00");
       const start = new Date(end.getFullYear(), end.getMonth(), 1);
       standardStart = format(start, "yyyy-MM-dd");
     } else {
@@ -142,14 +163,14 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
     // Calculate active days — use salesEndDate for flex counts (extended window)
     const startMs = new Date(adjustedStart + "T12:00:00").getTime();
-    const effectiveEnd = salesEndDate > endDate ? salesEndDate : endDate;
+    const effectiveEnd = salesEndDate > effectivePeriodEndDate ? salesEndDate : effectivePeriodEndDate;
     const endMs = new Date(effectiveEnd + "T12:00:00").getTime();
     const activeDays = Math.round((endMs - startMs) / 86400000) + 1;
     const isNonStandard = activeDays !== 7 && count.period_type === "weekly";
 
     return {
       startStr: adjustedStart,
-      endStr: endDate,
+      endStr: effectivePeriodEndDate,
       salesEndStr: salesEndDate,
       isFlexAdjusted,
       activeDays,
