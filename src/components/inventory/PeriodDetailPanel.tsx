@@ -83,9 +83,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     if (!count.period_end_date) return null;
     const endDate = count.period_end_date;
     
-    // For flex counts (is_late_close), sales window extends to counted_at date
-    // BUT if the count was submitted before the store opened (before 10 AM local),
-    // the last full sales day is the day BEFORE counted_at — not counted_at itself.
+    let salesEndDate = endDate;
     // Priority: manual override > flex auto-calc > period end date
     if (count.sales_end_override) {
       salesEndDate = count.sales_end_override;
