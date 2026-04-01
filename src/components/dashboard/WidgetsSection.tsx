@@ -605,7 +605,7 @@ export const WidgetsSection = memo(function WidgetsSection({
   };
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="space-y-2.5 w-full">
       {sectionOrder.map(section => renderSection(section))}
 
       {/* Add Data Cube Dialog - only for personal cubes */}
