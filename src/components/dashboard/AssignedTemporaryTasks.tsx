@@ -413,7 +413,7 @@ export function AssignedTemporaryTasks({
       <div
         key={item.id}
         onClick={item.onClick}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-sm"
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-md"
         style={{ backgroundColor: `${item.color}10` }}
       >
         {/* Inset rounded accent stripe */}
