@@ -349,7 +349,7 @@ export function JobListings({ organizationId, orgSlug }: JobListingsProps) {
                   <SelectContent>
                     {locations?.map(loc => (
                       <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}{loc.city ? ` (${loc.city})` : ''}
+                        {loc.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
