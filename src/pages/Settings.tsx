@@ -19,6 +19,7 @@ import { OrganizationMembersSection } from '@/components/settings/OrganizationMe
 import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
 import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
 import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
+import { CloneLocationSettings } from '@/components/settings/CloneLocationSettings';
 
 const themes = [
   { value: 'default', label: 'Default' },
