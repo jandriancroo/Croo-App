@@ -420,7 +420,7 @@ export default function Settings() {
             if (!content) return null;
 
             // Sections that have their own internal cards — render flush to avoid nesting
-            const isFlushSection = ['food-safety-audits', 'notifications', 'org-members', 'org-roles', 'org-positions'].includes(sectionId);
+            const isFlushSection = ['food-safety-audits', 'notifications', 'org-members', 'org-roles', 'org-positions', 'clone-settings'].includes(sectionId);
 
             return (
               <Collapsible
