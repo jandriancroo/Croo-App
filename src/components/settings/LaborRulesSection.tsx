@@ -111,6 +111,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     allow_unscheduled_clock_in: true,
     allow_early_clock_in: true,
     early_clock_in_minutes: 30,
+    reporting_time_enabled: false,
+    reporting_time_min_hours: null,
+    reporting_time_max_hours: null,
   };
 
   const [formData, setFormData] = useState<LaborRule>(emptyRule);
