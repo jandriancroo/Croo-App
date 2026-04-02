@@ -360,6 +360,7 @@ export default function EmailPreview() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string>(ALL_TEMPLATES[0].id);
   const [filterCat, setFilterCat] = useState<string | null>(null);
+  const [showLogoCompare, setShowLogoCompare] = useState(false);
 
   const filteredTemplates = filterCat
     ? ALL_TEMPLATES.filter((t) => t.category === filterCat)
@@ -376,8 +377,32 @@ export default function EmailPreview() {
         </Button>
         <Mail className="h-5 w-5 text-primary" />
         <h1 className="text-base font-medium">Email Template Preview</h1>
-        <span className="text-xs text-muted-foreground ml-auto">{ALL_TEMPLATES.length} templates</span>
+        <Button variant="outline" size="sm" className="ml-auto" onClick={() => setShowLogoCompare(!showLogoCompare)}>
+          {showLogoCompare ? "Hide" : "Compare"} Logos
+        </Button>
+        <span className="text-xs text-muted-foreground">{ALL_TEMPLATES.length} templates</span>
       </div>
+
+      {showLogoCompare && (
+        <div className="border-b bg-muted/30 px-6 py-4">
+          <p className="text-sm font-medium mb-3">Choose the logo for all emails:</p>
+          <div className="grid grid-cols-4 gap-4">
+            {[
+              { label: "Transparent (website)", src: "/croo-logo-transparent.webp", bg: "bg-white" },
+              { label: "White (for dark headers)", src: "/croo-logo-white.webp", bg: "bg-[#0a7a8a]" },
+              { label: "Standard colored", src: "/croo-logo.png", bg: "bg-white" },
+              { label: "Current (old Vite hash)", src: "https://croohq.com/assets/croo-logo-eWOfbANR.png", bg: "bg-white" },
+            ].map((logo) => (
+              <div key={logo.label} className="flex flex-col items-center gap-2">
+                <div className={`${logo.bg} rounded-xl p-4 w-full flex items-center justify-center h-24 border`}>
+                  <img src={logo.src} alt={logo.label} className="max-h-16 max-w-full object-contain" />
+                </div>
+                <span className="text-xs text-muted-foreground text-center">{logo.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
