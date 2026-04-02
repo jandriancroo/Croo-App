@@ -83,6 +83,7 @@ const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboardCustomizer"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
+const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 
 const queryClient = new QueryClient();
 
@@ -184,6 +185,7 @@ const AppContent = () => {
         <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
         <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
         <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
+        <Route path="/email-preview" element={<ProtectedRoute><EmailPreview /></ProtectedRoute>} />
         <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
         <Route path="/my-timecard" element={<ProtectedRoute><MyTimecard /></ProtectedRoute>} />
         <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
