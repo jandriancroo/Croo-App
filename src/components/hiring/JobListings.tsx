@@ -79,7 +79,7 @@ export function JobListings({ organizationId, orgSlug }: JobListingsProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('locations')
-        .select('id, name, city, state')
+        .select('id, name, address')
         .eq('organization_id', organizationId)
         .eq('location_type', 'standard')
         .order('name');
