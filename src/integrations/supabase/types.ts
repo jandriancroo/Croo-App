@@ -3814,6 +3814,60 @@ export type Database = {
           },
         ]
       }
+      labor_rule_presets: {
+        Row: {
+          created_at: string
+          daily_double_time_threshold: number
+          daily_overtime_threshold: number
+          double_time_multiplier: number
+          id: string
+          is_system: boolean
+          meal_break_duration: number | null
+          meal_break_hours: number | null
+          overtime_multiplier: number
+          preset_name: string
+          rest_break_duration: number | null
+          rest_break_hours: number | null
+          state_code: string
+          updated_at: string
+          weekly_overtime_threshold: number
+        }
+        Insert: {
+          created_at?: string
+          daily_double_time_threshold?: number
+          daily_overtime_threshold?: number
+          double_time_multiplier?: number
+          id?: string
+          is_system?: boolean
+          meal_break_duration?: number | null
+          meal_break_hours?: number | null
+          overtime_multiplier?: number
+          preset_name: string
+          rest_break_duration?: number | null
+          rest_break_hours?: number | null
+          state_code: string
+          updated_at?: string
+          weekly_overtime_threshold?: number
+        }
+        Update: {
+          created_at?: string
+          daily_double_time_threshold?: number
+          daily_overtime_threshold?: number
+          double_time_multiplier?: number
+          id?: string
+          is_system?: boolean
+          meal_break_duration?: number | null
+          meal_break_hours?: number | null
+          overtime_multiplier?: number
+          preset_name?: string
+          rest_break_duration?: number | null
+          rest_break_hours?: number | null
+          state_code?: string
+          updated_at?: string
+          weekly_overtime_threshold?: number
+        }
+        Relationships: []
+      }
       labor_rules: {
         Row: {
           allow_early_clock_in: boolean
@@ -4095,7 +4149,6 @@ export type Database = {
           id: string
           is_active: boolean
           latitude: number | null
-          location_code: string | null
           location_type: string
           longitude: number | null
           name: string
@@ -4111,7 +4164,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           latitude?: number | null
-          location_code?: string | null
           location_type?: string
           longitude?: number | null
           name: string
@@ -4127,7 +4179,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           latitude?: number | null
-          location_code?: string | null
           location_type?: string
           longitude?: number | null
           name?: string
@@ -7982,7 +8033,6 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
-      generate_location_code: { Args: never; Returns: string }
       generate_unique_pin: { Args: never; Returns: string }
       get_chat_unread_counts: {
         Args: { _location_id: string; _user_id: string }
@@ -8081,13 +8131,6 @@ export type Database = {
       }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       trigger_alarm_tasks_sql: { Args: never; Returns: undefined }
-      validate_location_code: {
-        Args: { p_code: string }
-        Returns: {
-          id: string
-          name: string
-        }[]
-      }
     }
     Enums: {
       app_role:
