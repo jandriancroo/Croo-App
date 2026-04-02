@@ -382,23 +382,23 @@ function weeklyPulse(): string {
   return wrapEmail(`
     ${getUnifiedHeader("Weekly Pulse")}
     <tr><td style="padding:24px;">
-      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Sales Summary</p>
-      <table style="width:100%;border-collapse:collapse;background:#fafaf8;border-radius:12px;overflow:hidden;margin-bottom:20px;">
-        <tr style="border-bottom:1px solid #e8e5df;">
-          <td style="padding:10px 12px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Total Sales</span></td>
-          <td style="padding:10px 12px;text-align:right;"><strong style="font-size:16px;color:${textColor};">$18,420</strong></td>
-        </tr>
-        <tr style="border-bottom:1px solid #e8e5df;">
-          <td style="padding:8px 12px;"><span style="font-size:13px;color:#888;">Weekly Target</span></td>
-          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:#888;">$19,500</span></td>
-        </tr>
-        <tr style="border-bottom:1px solid #e8e5df;">
-          <td style="padding:8px 12px;"><span style="font-size:13px;color:#888;">vs Goal</span></td>
-          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:#ef4444;font-weight:600;">-$1,080</span></td>
-        </tr>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
         <tr>
-          <td style="padding:8px 12px;"><span style="font-size:13px;color:#888;">Avg Labor</span></td>
-          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:#22c55e;font-weight:600;">25.2%</span> <span style="font-size:11px;color:#888;">($4,642)</span></td>
+          <td style="vertical-align:top;width:50%;padding-right:20px;">
+            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Sales</p>
+            <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$18,420</strong></p>
+            <p style="color:#888;font-size:13px;margin:4px 0 0;">Target: $19,500 (<span style="color:#ef4444;font-weight:600;">-$1,080</span>)</p>
+            <table style="margin-top:8px;"><tr>
+              <td style="padding-right:16px;"><span style="display:inline-block;background:#fef3c7;color:#78350f;border:1px solid #fcd34d;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:600;">LW -2.1%</span></td>
+              <td><span style="display:inline-block;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:600;">LY +5.4%</span></td>
+            </tr></table>
+          </td>
+          <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
+            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Labor</p>
+            <p style="margin:0;"><strong style="color:#22c55e;font-size:28px;">25.2%</strong></p>
+            <p style="color:#888;font-size:13px;margin:4px 0 0;">$4,642 &middot; 298h</p>
+            <p style="color:#22c55e;font-size:13px;font-weight:600;margin:4px 0 0;">-0.8% vs 26% goal</p>
+          </td>
         </tr>
       </table>
       <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
@@ -408,17 +408,19 @@ function weeklyPulse(): string {
           <td style="padding:8px 12px;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Day</td>
           <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Sales</td>
           <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Labor%</td>
-          <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">vs Goal</td>
+          <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Cash +/-</td>
         </tr>
-        ${["Mon,$2,180,23.1%,+$80", "Tue,$2,420,24.5%,+$120", "Wed,$2,850,22.8%,+$350", "Thu,$2,540,26.2%,-$60", "Fri,$3,210,25.8%,+$510", "Sat,$3,080,27.1%,-$120", "Sun,$2,140,25.4%,-$360"].map((row, i, arr) => {
-          const [day, sales, labor, diff] = row.split(",");
-          const isNeg = diff.startsWith("-");
+        ${["Mon,$2,180,23.1%,+$2.50", "Tue,$2,420,24.5%,-$4.15", "Wed,$2,850,22.8%,+$0.00", "Thu,$2,540,26.2%,-$17.65", "Fri,$3,210,25.8%,+$1.20", "Sat,$3,080,27.1%,-$8.40", "Sun,$2,140,25.4%,+$3.10"].map((row, i, arr) => {
+          const [day, sales, labor, cash] = row.split(",");
+          const isNeg = cash.startsWith("-") && cash !== "-$0.00";
+          const isZero = cash === "+$0.00";
+          const color = isZero ? '#888' : isNeg ? '#ef4444' : '#22c55e';
           const border = i < arr.length - 1 ? 'border-bottom:1px solid #e8e5df;' : '';
           return `<tr style="${border}">
             <td style="padding:8px 12px;font-size:13px;color:${textColor};font-weight:600;">${day}</td>
             <td style="padding:8px 12px;text-align:right;font-size:13px;color:${textColor};">${sales}</td>
             <td style="padding:8px 12px;text-align:right;font-size:11px;color:#888;">${labor}</td>
-            <td style="padding:8px 12px;text-align:right;font-size:13px;color:${isNeg ? '#ef4444' : '#22c55e'};font-weight:600;">${diff}</td>
+            <td style="padding:8px 12px;text-align:right;font-size:13px;color:${color};font-weight:600;">${cash}</td>
           </tr>`;
         }).join("")}
       </table>
