@@ -75,7 +75,7 @@ function authPasswordReset(): string {
                   </div>
                 </td>
                 <td style="vertical-align:middle;padding-left:12px;">
-                  <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0;font-family:${systemFontStack};letter-spacing:-0.3px;">Reset Your Password</h1>
+                  <h1 style="color:#fff;font-size:16px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;">Reset Your Password</h1>
                 </td>
               </tr>
             </table>
