@@ -337,22 +337,35 @@ async function handleResendInvite(req: Request, supabaseAdmin: any, requestingUs
     locationId = userLoc?.location_id || null;
   } catch (_) {}
 
-  // Send resend email via hiring-email-service (through Resend)
+  // Send resend email directly via email_queue
   try {
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    await fetch(`${supabaseUrl}/functions/v1/hiring-email-service`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
-      },
-      body: JSON.stringify({
-        action: 'resend_invite',
-        payload: { to: emailToUse, fullName: profile.full_name, resetLink, locationId },
-      }),
+    const branding = await getOrgBranding(supabaseAdmin, locationId);
+    const firstName = (profile.full_name || '').split(' ')[0] || 'there';
+
+    await queueEmailDirect(supabaseAdmin, {
+      from: "CrooHQ <hiring@croohq.email>",
+      to: [emailToUse],
+      subject: `Your CrooHQ Invite - ${branding.displayName}`,
+      html: wrapEmail(`
+        <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+          <table style="width:100%;border-collapse:collapse;"><tr>
+            <td style="vertical-align:middle;text-align:left;width:180px;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);" /></td>
+            <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Set Your Password</h1></td>
+            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${branding.displayName}</p>${branding.locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${branding.locName}</p>` : ''}</td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:28px 32px;">
+          <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+          <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Your manager has re-sent your invite to <strong style="color:${primaryColor};">${branding.displayName}</strong>. Click below to set your password and get started.</p>
+          <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
+          <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
+        </td></tr>
+        ${getEmailFooter()}`),
+      source: 'resend_invite',
+      dedupKey: `resend_invite_${emailToUse}_${Date.now()}`,
     });
   } catch (emailError) {
-    console.error("Failed to send resend email:", emailError);
+    console.error("Failed to queue resend email:", emailError);
   }
 
   return new Response(JSON.stringify({
