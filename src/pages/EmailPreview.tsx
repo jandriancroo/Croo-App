@@ -105,7 +105,7 @@ function employeeInvite(): string {
       <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
       <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey Jane!</p>
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">Blaze Pizza</strong> at the <strong>Downtown</strong> location.</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:24px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Next Steps</p>
         <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">Click the button below to set your password and get started. Once you're in, your manager will add you to the schedule.</p>
       </div>
@@ -135,7 +135,7 @@ function interviewInvite(): string {
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi Jane,</p>
       <p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>John Manager</strong> would like to invite you for an interview at <strong>Blaze Pizza</strong>.</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:24px;margin:0 0 24px;text-align:center;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin:0 0 24px;text-align:center;">
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Interview Details</p>
         <p style="color:${textColor};font-size:20px;font-weight:700;margin:0 0 4px;">Wednesday, February 19, 2026</p>
         <p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">2:00 PM</p>
@@ -153,7 +153,7 @@ function rejectionEmail(): string {
     ${getUnifiedHeader("Application Update")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 20px;">Dear Jane,</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:20px;border-left:4px solid ${primaryColor};margin-bottom:24px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <p style="color:${textColor};font-size:14px;line-height:1.7;margin:0;">Thank you for taking the time to apply to Blaze Pizza. After careful consideration, we have decided to move forward with other candidates whose experience more closely matches our current needs.<br><br>We appreciate your interest in our team and encourage you to apply again in the future.<br><br>Best regards,<br>The Blaze Pizza Team</p>
       </div>
     </td></tr>
@@ -165,7 +165,7 @@ function newApplicationNotification(): string {
     ${getUnifiedHeader("New Job Application")}
     <tr><td style="padding:30px 40px;">
       <h2 style="color:${textColor};font-size:18px;font-weight:600;margin:0 0 20px;">Applicant Details</h2>
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <table style="width:100%;">
           <tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Name</span><br/><strong style="color:${textColor};font-size:16px;">Jane Smith</strong></td></tr>
           <tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Email</span><br/><a href="#" style="color:${primaryColor};font-size:14px;text-decoration:none;">jane@example.com</a></td></tr>
@@ -184,7 +184,7 @@ function supportTicket(): string {
     ${getUnifiedHeader("Support Ticket")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="vertical-align:top;width:33%;padding:4px 0;">
@@ -204,7 +204,7 @@ function supportTicket(): string {
       </div>
       <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
       <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Description</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;">
         <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">The schedule page flickers when switching between weeks on mobile. Happens consistently on iPhone 15.</p>
       </div>
       <div style="margin-top:24px;">${getCTAButton("#", "View in Croo")}</div>
@@ -217,7 +217,7 @@ function writeupNotification(): string {
     ${getUnifiedHeader("Write-up Notification")}
     <tr><td style="padding:30px 40px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have received an employee write-up from management.</p>
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #ef4444;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <table style="width:100%;">
           <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Reason</span><br/><strong style="color:#ef4444;font-size:15px;">Tardiness</strong></td></tr>
           <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Issued By</span><br/><strong style="color:${textColor};font-size:14px;">Sarah Manager</strong></td></tr>
@@ -225,11 +225,11 @@ function writeupNotification(): string {
           <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Date</span><br/><strong style="color:${textColor};font-size:14px;">Apr 1, 2026</strong></td></tr>
         </table>
       </div>
-      <div style="background:#fafafa;border-radius:10px;padding:16px;margin-bottom:16px;border-left:4px solid ${primaryColor};">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
         <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Issue Description</p>
         <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">Employee was 15 minutes late to scheduled shift without prior notification.</p>
       </div>
-      <div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:20px;border-left:4px solid ${primaryColor};">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
         <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Next Steps</p>
         <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">Please set an alarm and arrive on time for all future shifts.</p>
       </div>
@@ -261,7 +261,7 @@ function weeklyScheduleEmployee(): string {
     ${getUnifiedHeader("Your Schedule")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hey Sarah! Your schedule for the week has been published.</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:16px;margin-bottom:20px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
         <table style="width:100%;">${shiftRows}</table>
       </div>
       <div style="text-align:center;margin-bottom:20px;">
@@ -276,7 +276,7 @@ function performanceReviewSigned(): string {
     ${getUnifiedHeader("Performance Review")}
     <tr><td style="padding:30px 40px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Thank you for reviewing and acknowledging your performance review.</p>
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <table style="width:100%;">
           <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Reviewed By</span><br/><strong style="color:${textColor};font-size:14px;">Sarah Manager</strong></td></tr>
           <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">Downtown</strong></td></tr>
