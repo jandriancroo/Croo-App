@@ -53,7 +53,7 @@ serve(async (req) => {
     // Preview mode
     if (body.preview) {
       const previewOrgName = "Blaze Pizza";
-      const previewLogoHtml = `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:36px;filter:brightness(0) invert(1);"/>`;
+      const previewLogoHtml = `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:36px;"/>`;
       const previewChatUrl = "https://croohq.lovable.app/hiring-chat/preview-token";
       const previewHtml = wrapEmail(`
         <tr><td style="background:${primaryColor};padding:24px 40px;">
@@ -123,7 +123,7 @@ serve(async (req) => {
 
     const logoHtml = logoUrl
       ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:44px;max-width:140px;border-radius:6px;"/>`
-      : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:36px;filter:brightness(0) invert(1);"/>`;
+      : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:36px;"/>`;
 
     const subject = `New message from ${orgName}`;
 

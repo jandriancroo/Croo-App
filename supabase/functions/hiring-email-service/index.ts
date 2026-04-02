@@ -289,12 +289,12 @@ function wrapEmail(content: string): string {
 function getEmailHeader(title: string, logoUrl?: string, orgName?: string): string {
   const logoHtml = logoUrl 
     ? `<img src="${logoUrl}" alt="${orgName || 'Logo'}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>`
-    : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>`;
+    : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/>`;
   return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
 }
 
 function getEmailFooter(): string {
-  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="croo" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
 }
 
 function getCTAButton(url: string, text: string): string {
@@ -322,7 +322,7 @@ async function sendInviteEmail(payload: any): Promise<Response> {
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="vertical-align:middle;text-align:left;width:180px;">
-              <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+              <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
             </td>
             <td style="vertical-align:middle;text-align:center;">
               <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Welcome to the Team!</h1>
@@ -380,7 +380,7 @@ async function sendInviteEmail(payload: any): Promise<Response> {
     html: wrapEmail(`
       <tr><td style="background-color:${primaryColor};padding:20px 32px;">
         <table style="width:100%;border-collapse:collapse;"><tr>
-          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace('margin-bottom:20px;', '').replace('margin-bottom:16px;', '').replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);"`)}</td>
+          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace('margin-bottom:20px;', '').replace('margin-bottom:16px;', '').replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;"`)}</td>
           <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Welcome to the Team!</h1></td>
           <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${displayName}</p>${locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${locName}</p>` : ''}</td>
         </tr></table>
@@ -435,7 +435,7 @@ async function resendInviteEmail(payload: any): Promise<Response> {
     html: wrapEmail(`
       <tr><td style="background-color:${primaryColor};padding:20px 32px;">
         <table style="width:100%;border-collapse:collapse;"><tr>
-          <td style="vertical-align:middle;text-align:left;width:180px;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);" /></td>
+          <td style="vertical-align:middle;text-align:left;width:180px;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="max-height:40px;max-width:120px;" /></td>
           <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Set Your Password</h1></td>
           <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${displayName}</p>${locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${locName}</p>` : ''}</td>
         </tr></table>
@@ -464,7 +464,7 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="vertical-align:middle;text-align:left;width:180px;">
-              <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+              <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
             </td>
             <td style="vertical-align:middle;text-align:center;">
               <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Application Update</h1>
@@ -504,7 +504,7 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
   const subject = template.subject.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name.split(" ")[0]).replace(/{{organization}}/gi, orgName);
   const body = template.body.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name.split(" ")[0]).replace(/{{organization}}/gi, orgName).replace(/\n/g, "<br>");
 
-  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>`;
+  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/>`;
 
   await queueEmail({
     from: "CrooHQ Hiring <hiring@croohq.email>",
@@ -513,7 +513,7 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
     html: wrapEmail(`
       <tr><td style="background-color:${primaryColor};padding:20px 32px;">
         <table style="width:100%;border-collapse:collapse;"><tr>
-          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);"`)}</td>
+          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;"`)}</td>
           <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Application Update</h1></td>
           <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${orgName}</p></td>
         </tr></table>
@@ -541,7 +541,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="vertical-align:middle;text-align:left;width:180px;">
-              <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+              <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
             </td>
             <td style="vertical-align:middle;text-align:center;">
               <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Interview Invitation</h1>
@@ -595,7 +595,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
   const ampm = hours >= 12 ? 'PM' : 'AM';
   const formattedTime = `${hour12}:${mins.toString().padStart(2, '0')} ${ampm}`;
   const icsContent = generateICS(interviewDate, interviewTime, orgName, locationName, locationAddress);
-  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>`;
+  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/>`;
 
   await queueEmail({
     from: "CrooHQ Hiring <hiring@croohq.email>",
@@ -604,7 +604,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
     html: wrapEmail(`
       <tr><td style="background-color:${primaryColor};padding:20px 32px;">
         <table style="width:100%;border-collapse:collapse;"><tr>
-          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);"`)}</td>
+          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;"`)}</td>
           <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Interview Invitation</h1></td>
           <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${orgName}</p><p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${locationName}</p></td>
         </tr></table>
