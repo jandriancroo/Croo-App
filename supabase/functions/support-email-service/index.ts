@@ -108,7 +108,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
 
         <!-- TICKET INFO -->
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
           <table style="width:100%;border-collapse:collapse;">
             <tr>
               <td style="vertical-align:top;width:33%;padding:4px 0;">
@@ -131,7 +131,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
 
         <!-- DESCRIPTION -->
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Description</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">The schedule page flickers when switching between weeks on mobile. Happens consistently on iPhone 15.</p>
         </div>
 
@@ -184,7 +184,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
       emailContent = `
         <!-- TICKET INFO -->
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
           <table style="width:100%;border-collapse:collapse;">
             <tr>
               <td style="vertical-align:top;width:33%;padding:4px 0;">
@@ -204,7 +204,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
         </div>
         <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Description</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">${ticket.description}</p>
         </div>
        `;
@@ -215,7 +215,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
       pushBody = message_content?.substring(0, 100) || "New message received";
       emailContent = `
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">New Message</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
           <table style="width:100%;border-collapse:collapse;">
             <tr>
               <td style="vertical-align:top;width:50%;padding:4px 0;">
@@ -231,7 +231,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
         </div>
         <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Message</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">${message_content || "(no content)"}</p>
         </div>
        `;
@@ -705,7 +705,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       const barColor = c.pct >= 100 ? primaryColor : primaryColor;
       const pctColor = c.pct >= 100 ? '#22c55e' : '#ef4444';
       const timeStr = c.submittedAt ? formatTimePST(c.submittedAt) : "";
-      return `<div style="background:#fafaf8;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
+      return `<div style="background:#f5f4f1;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="vertical-align:top;">
@@ -1316,7 +1316,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
       <tr>
         <td style="vertical-align:top;width:50%;padding-right:16px;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Checklists</p>
-          <div style="background:#fafaf8;border-radius:12px;padding:12px 14px;">
+          <div style="background:#f5f4f1;border-radius:12px;padding:12px 14px;">
             <p style="margin:0;font-size:22px;font-weight:700;color:${checklistPct >= 90 ? '#22c55e' : checklistPct >= 70 ? '#f59e0b' : '#ef4444'};">${checklistPct}%</p>
             <p style="margin:2px 0 0;font-size:12px;color:#888;">${Math.min(totalResponseCount, totalExpectedItems)}/${totalExpectedItems} items completed</p>
             <div style="background:#e0f2f1;border-radius:4px;height:6px;width:100%;overflow:hidden;margin-top:6px;">
@@ -1326,7 +1326,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
         </td>
         <td style="vertical-align:top;width:50%;border-left:1px solid #e8e5df;padding-left:16px;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Cash Handling</p>
-          <div style="background:#fafaf8;border-radius:12px;padding:12px 14px;">
+          <div style="background:#f5f4f1;border-radius:12px;padding:12px 14px;">
             <table style="width:100%;border-collapse:collapse;">
               <tr>
                 <td style="padding:3px 0;font-size:12px;color:#888;">Drawer Variance</td>
