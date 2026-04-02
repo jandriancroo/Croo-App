@@ -148,6 +148,7 @@ const AppContent = () => {
         
         <Route path="/install" element={<InstallGuide />} />
         <Route path="/apply/:orgSlug" element={<PublicApplication />} />
+        <Route path="/jobs" element={<PublicJobs />} />
         <Route path="/qr/:qrCode" element={<QRQuickTaskReport />} />
         
         <Route path="/hiring-chat/:token" element={<HiringChat />} />
