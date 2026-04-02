@@ -850,84 +850,49 @@ async function sendAllTestEmails(payload: any): Promise<Response> {
   const testEmails = [
     {
       subject: '💬 New message from Sarah Johnson',
-      html: (content: string) => wrapEmail(`
-        ${getEmailHeader('New Chat Message', '💬')}
-        <tr>
-          <td style="padding: 30px 40px;">
-            <p style="color: ${textColor}; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
-              <strong style="color: ${primaryColor};">Sarah Johnson</strong> sent you a message in <strong>Hemet Team Chat</strong>:
-            </p>
-            <div style="background-color: ${backgroundColor}; border-radius: 10px; padding: 16px; margin: 16px 0; border-left: 4px solid ${primaryColor};">
-              <p style="color: ${textColor}; font-size: 14px; line-height: 1.5; margin: 0; font-style: italic;">
-                "Hey! Can you cover my shift tomorrow? I have a doctor's appointment 🙏"
-              </p>
-            </div>
-            <p style="color: #666; font-size: 13px; margin: 16px 0 0;">
-              Tap below to view and reply.
-            </p>
-          </td>
-        </tr>
+      html: () => wrapEmail(`
+        ${getUnifiedHeader('New Chat Message')}
+        <tr><td style="padding:24px;">
+          <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0 0 12px;">
+            <strong style="color:${primaryColor};">Sarah Johnson</strong> sent you a message in <strong>Hemet Team Chat</strong>:
+          </p>
+          <div style="background:${containerBg};border-radius:12px;padding:16px;margin:0 0 12px;border-left:4px solid ${primaryColor};">
+            <p style="color:${textColor};font-size:13px;line-height:1.5;margin:0;font-style:italic;">"Hey! Can you cover my shift tomorrow? I have a doctor's appointment 🙏"</p>
+          </div>
+          <p style="color:#888;font-size:12px;margin:0;">Tap below to view and reply.</p>
+        </td></tr>
         ${getEmailFooter()}
       `)
     },
     {
       subject: '📢 New Announcement: Holiday Schedule Update',
-      html: (content: string) => wrapEmail(`
-        ${getEmailHeader('New Announcement', '📢')}
-        <tr>
-          <td style="padding: 30px 40px;">
-            <h2 style="color: ${textColor}; font-size: 18px; font-weight: 600; margin: 0 0 16px;">
-              Holiday Schedule Update
-            </h2>
-            <div style="background-color: ${backgroundColor}; border-radius: 10px; padding: 20px; margin: 16px 0;">
-              <p style="color: ${textColor}; font-size: 14px; line-height: 1.6; margin: 0;">
-                Quick reminder: We'll be running special holiday hours next week. Please check your schedule carefully and let me know if you have any conflicts. Thanks team! 🎄
-              </p>
-            </div>
-            <p style="color: #666; font-size: 13px; margin: 16px 0 0;">
-              Posted by <strong>Mike Thompson</strong> at Hemet
-            </p>
-          </td>
-        </tr>
+      html: () => wrapEmail(`
+        ${getUnifiedHeader('New Announcement')}
+        <tr><td style="padding:24px;">
+          <h2 style="color:${textColor};font-size:16px;font-weight:700;margin:0 0 12px;">Holiday Schedule Update</h2>
+          <div style="background:${containerBg};border-radius:12px;padding:16px;margin:0 0 12px;">
+            <p style="color:${textColor};font-size:13px;line-height:1.6;margin:0;">Quick reminder: We'll be running special holiday hours next week. Please check your schedule carefully and let me know if you have any conflicts. Thanks team! 🎄</p>
+          </div>
+          <p style="color:#888;font-size:12px;margin:0;">Posted by <strong>Mike Thompson</strong> at Hemet</p>
+        </td></tr>
         ${getEmailFooter()}
       `)
     },
     {
       subject: '📅 Schedule Update: New shift added',
-      html: (content: string) => wrapEmail(`
-        ${getEmailHeader('Schedule Update', '📅')}
-        <tr>
-          <td style="padding: 30px 40px;">
-            <p style="color: ${textColor}; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
-              A new shift has been added to your schedule.
-            </p>
-            <div style="background-color: ${backgroundColor}; border-radius: 10px; padding: 16px; margin: 16px 0;">
-              <table role="presentation" style="width: 100%;">
-                <tr>
-                  <td style="padding: 8px 0;">
-                    <span style="color: #666; font-size: 12px; text-transform: uppercase;">Date</span><br/>
-                    <strong style="color: ${textColor}; font-size: 15px;">Monday, January 13, 2026</strong>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0;">
-                    <span style="color: #666; font-size: 12px; text-transform: uppercase;">Time</span><br/>
-                    <strong style="color: ${textColor}; font-size: 15px;">9:00 AM - 5:00 PM</strong>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0;">
-                    <span style="color: #666; font-size: 12px; text-transform: uppercase;">Position</span><br/>
-                    <strong style="color: ${textColor}; font-size: 15px;">Shift Leader</strong>
-                  </td>
-                </tr>
-              </table>
-            </div>
-            <p style="color: #666; font-size: 13px; margin: 16px 0 0;">
-              Check the app to view your full schedule.
-            </p>
-          </td>
-        </tr>
+      html: () => wrapEmail(`
+        ${getUnifiedHeader('Schedule Update')}
+        <tr><td style="padding:24px;">
+          <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0 0 12px;">A new shift has been added to your schedule.</p>
+          <div style="background:${containerBg};border-radius:12px;padding:16px;margin:0 0 12px;">
+            <table role="presentation" style="width:100%;">
+              <tr><td style="padding:6px 0;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Date</span><br/><strong style="color:${textColor};font-size:14px;">Monday, January 13, 2026</strong></td></tr>
+              <tr><td style="padding:6px 0;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Time</span><br/><strong style="color:${textColor};font-size:14px;">9:00 AM - 5:00 PM</strong></td></tr>
+              <tr><td style="padding:6px 0;"><span style="color:#888;font-size:11px;text-transform:uppercase;">Position</span><br/><strong style="color:${textColor};font-size:14px;">Shift Leader</strong></td></tr>
+            </table>
+          </div>
+          <p style="color:#888;font-size:12px;margin:0;">Check the app to view your full schedule.</p>
+        </td></tr>
         ${getEmailFooter()}
       `)
     },
@@ -944,7 +909,7 @@ async function sendAllTestEmails(payload: any): Promise<Response> {
         from: "CrooHQ <hello@croohq.email>",
         to: [to],
         subject: `[TEST ${i + 1}/${testEmails.length}] ${email.subject}`,
-        html: email.html(''),
+        html: email.html(),
       });
       
       results.push({ subject: email.subject, success: true, id: emailResponse.data?.id });
