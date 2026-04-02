@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, Trash2, Edit, Copy, RefreshCw, Rocket } from 'lucide-react';
+import { MapPin, Trash2, Edit, Rocket } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { LocationMap } from './LocationMap';
 import { DeployLocationWizard } from './DeployLocationWizard';

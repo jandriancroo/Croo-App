@@ -12,7 +12,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield, CalendarIcon, X } from 'lucide-react';
+import { MapPin, ArrowLeft, Save, Shield, CalendarIcon, X } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
