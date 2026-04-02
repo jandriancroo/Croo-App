@@ -231,23 +231,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
   }
 
    const emailHtml = wrapEmail(`
-     <!-- HEADER -->
-     <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-       <table style="width:100%;border-collapse:collapse;">
-         <tr>
-           <td style="vertical-align:middle;text-align:left;width:180px;">
-             <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-           </td>
-           <td style="vertical-align:middle;text-align:center;">
-             <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Support Ticket</h1>
-           </td>
-           <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-             <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${ticketNumber}</p>
-             <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">${dateStr}</p>
-           </td>
-         </tr>
-       </table>
-     </td></tr>
+     ${getUnifiedHeader("Support Ticket")}
      <tr><td style="padding:28px 32px;">${emailContent}<div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div></td></tr>
      ${getEmailFooter()}
    `);
