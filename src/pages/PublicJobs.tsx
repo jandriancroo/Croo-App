@@ -109,7 +109,7 @@ export default function PublicJobs() {
         },
       },
       directApply: true,
-      url: `https://croohq.lovable.app/apply/${job.organization?.slug}?utm_source=google_jobs&listing=${job.id}`,
+      url: `https://croohq.com/apply/${job.organization?.slug}?utm_source=google_jobs&listing=${job.id}`,
     };
 
     if (job.pay_min) {
