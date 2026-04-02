@@ -38,7 +38,7 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
     queryFn: async () => {
       const { data, error } = await supabase
         .from('brand_inventory_templates')
-        .select('id, product_name, common_name, category, is_recipe, recipe_ingredients')
+        .select('id, product_name, common_name, category, is_recipe, recipe_ingredients, match_keywords')
         .eq('brand_id', brandId)
         .eq('status', 'live')
         .order('category')
