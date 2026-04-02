@@ -54,7 +54,7 @@ serve(async (req) => {
     if (body.preview) {
       const previewOrgName = "Blaze Pizza";
       const previewLogoHtml = `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:36px;"/>`;
-      const previewChatUrl = "https://croohq.lovable.app/hiring-chat/preview-token";
+      const previewChatUrl = "https://croohq.com/hiring-chat/preview-token";
       const previewHtml = wrapEmail(`
         <tr><td style="background:${primaryColor};padding:24px 40px;">
           <table role="presentation" style="width:100%;"><tr>
