@@ -118,7 +118,7 @@ function authInvite(): string {
 // ============================================================================
 function employeeInvite(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Welcome to the Team!", "Blaze Pizza", "Downtown Location")}
+    ${getUnifiedHeader("Welcome to the Team!")}
     <tr><td style="padding:28px 32px;">
       <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
       <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey Jane!</p>
@@ -137,7 +137,7 @@ function employeeInvite(): string {
 
 function resendInvite(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Set Your Password", "Blaze Pizza", "Downtown Location")}
+    ${getUnifiedHeader("Set Your Password")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey Jane!</p>
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Your manager has re-sent your invite to <strong style="color:${primaryColor};">Blaze Pizza</strong>. Click below to set your password and get started.</p>
@@ -149,7 +149,7 @@ function resendInvite(): string {
 
 function interviewInvite(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Interview Invitation", "Blaze Pizza", "Downtown Location")}
+    ${getUnifiedHeader("Interview Invitation")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi Jane,</p>
       <p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>John Manager</strong> would like to invite you for an interview at <strong>Blaze Pizza</strong>.</p>
@@ -168,7 +168,7 @@ function interviewInvite(): string {
 
 function rejectionEmail(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Application Update", "Blaze Pizza", "Downtown Location")}
+    ${getUnifiedHeader("Application Update")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 20px;">Dear Jane,</p>
       <div style="background:#fafaf8;border-radius:16px;padding:20px;border-left:4px solid ${primaryColor};margin-bottom:24px;">
@@ -180,7 +180,7 @@ function rejectionEmail(): string {
 
 function newApplicationNotification(): string {
   return wrapEmail(`
-    ${getEmailHeader("New Job Application")}
+    ${getUnifiedHeader("New Job Application")}
     <tr><td style="padding:30px 40px;">
       <h2 style="color:${textColor};font-size:18px;font-weight:600;margin:0 0 20px;">Applicant Details</h2>
       <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
@@ -199,7 +199,7 @@ function newApplicationNotification(): string {
 
 function supportTicket(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Support Ticket", "#SUP-042", "Apr 1, 2026")}
+    ${getUnifiedHeader("Support Ticket")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
       <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
@@ -232,7 +232,7 @@ function supportTicket(): string {
 
 function writeupNotification(): string {
   return wrapEmail(`
-    ${getEmailHeader("Write-up Notification")}
+    ${getUnifiedHeader("Write-up Notification")}
     <tr><td style="padding:30px 40px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have received an employee write-up from management.</p>
       <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #ef4444;">
@@ -276,7 +276,7 @@ function weeklyScheduleEmployee(): string {
     .join("");
 
   return wrapEmail(`
-    ${getThreeColHeader("Your Schedule", "Blaze Pizza", "Feb 10 – Feb 16")}
+    ${getUnifiedHeader("Your Schedule")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hey Sarah! Your schedule for the week has been published.</p>
       <div style="background:#fafaf8;border-radius:16px;padding:16px;margin-bottom:20px;">
@@ -291,7 +291,7 @@ function weeklyScheduleEmployee(): string {
 
 function performanceReviewSigned(): string {
   return wrapEmail(`
-    ${getEmailHeader("Performance Review")}
+    ${getUnifiedHeader("Performance Review")}
     <tr><td style="padding:30px 40px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Thank you for reviewing and acknowledging your performance review.</p>
       <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
