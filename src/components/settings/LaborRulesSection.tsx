@@ -73,6 +73,9 @@ const emptyPreset: Omit<LaborRulePreset, 'id'> = {
   meal_break_duration: null,
   rest_break_hours: null,
   rest_break_duration: null,
+  reporting_time_enabled: false,
+  reporting_time_min_hours: null,
+  reporting_time_max_hours: null,
 };
 
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
