@@ -117,7 +117,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, message: "No email on file" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const chatUrl = `https://croohq.lovable.app/hiring-chat/${conversation.access_token}`;
+    const chatUrl = `https://croohq.com/hiring-chat/${conversation.access_token}`;
     const preview = messageContent ? messageContent.substring(0, 200) : "(no preview)";
     const sender = senderName || "a hiring manager";
 
