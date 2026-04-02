@@ -204,7 +204,7 @@ function supportTicket(): string {
       </div>
       <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
       <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Description</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;">
         <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">The schedule page flickers when switching between weeks on mobile. Happens consistently on iPhone 15.</p>
       </div>
       <div style="margin-top:24px;">${getCTAButton("#", "View in Croo")}</div>
