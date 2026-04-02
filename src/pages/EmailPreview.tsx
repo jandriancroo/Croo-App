@@ -153,7 +153,7 @@ function rejectionEmail(): string {
     ${getUnifiedHeader("Application Update")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 20px;">Dear Jane,</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:20px;border-left:4px solid ${primaryColor};margin-bottom:24px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <p style="color:${textColor};font-size:14px;line-height:1.7;margin:0;">Thank you for taking the time to apply to Blaze Pizza. After careful consideration, we have decided to move forward with other candidates whose experience more closely matches our current needs.<br><br>We appreciate your interest in our team and encourage you to apply again in the future.<br><br>Best regards,<br>The Blaze Pizza Team</p>
       </div>
     </td></tr>
