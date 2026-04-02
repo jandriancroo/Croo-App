@@ -80,6 +80,7 @@ export default function Settings() {
     'org-members': true,
     'org-roles': false,
     'org-positions': false,
+    'clone-settings': false,
     brands: false,
     organizations: false,
     maintenance: false,
