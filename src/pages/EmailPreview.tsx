@@ -24,26 +24,16 @@ function wrapEmail(content: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
 }
 
-function getEmailHeader(title: string): string {
-  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
-}
-
-function getThreeColHeader(title: string, rightTop: string, rightBottom: string): string {
-  return `<tr><td style="background-color:${primaryColor};padding:20px 32px;">
-    <table style="width:100%;border-collapse:collapse;">
-      <tr>
-        <td style="vertical-align:middle;text-align:left;width:180px;">
-          <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-        </td>
-        <td style="vertical-align:middle;text-align:center;">
-          <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">${title}</h1>
-        </td>
-        <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-          <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${rightTop}</p>
-          <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${rightBottom}</p>
-        </td>
-      </tr>
-    </table>
+// UNIFIED HEADER — logo left, title centered, menubar style (LOCKED)
+function getUnifiedHeader(title: string): string {
+  const WHITE_LOGO = "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp";
+  return `<tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:18px 16px;position:relative;">
+    <div style="position:absolute;left:16px;top:50%;transform:translateY(-50%);">
+      <div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;">
+        <img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" />
+      </div>
+    </div>
+    <h1 style="color:#fff;font-size:18px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;text-align:center;padding:8px 0;">${title}</h1>
   </td></tr>`;
 }
 
