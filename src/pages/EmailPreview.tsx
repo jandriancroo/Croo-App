@@ -24,26 +24,16 @@ function wrapEmail(content: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
 }
 
-function getEmailHeader(title: string): string {
-  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
-}
-
-function getThreeColHeader(title: string, rightTop: string, rightBottom: string): string {
-  return `<tr><td style="background-color:${primaryColor};padding:20px 32px;">
-    <table style="width:100%;border-collapse:collapse;">
-      <tr>
-        <td style="vertical-align:middle;text-align:left;width:180px;">
-          <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-        </td>
-        <td style="vertical-align:middle;text-align:center;">
-          <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">${title}</h1>
-        </td>
-        <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-          <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${rightTop}</p>
-          <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${rightBottom}</p>
-        </td>
-      </tr>
-    </table>
+// UNIFIED HEADER — logo left, title centered, menubar style (LOCKED)
+function getUnifiedHeader(title: string): string {
+  const WHITE_LOGO = "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp";
+  return `<tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:18px 16px;position:relative;">
+    <div style="position:absolute;left:16px;top:50%;transform:translateY(-50%);">
+      <div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;">
+        <img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" />
+      </div>
+    </div>
+    <h1 style="color:#fff;font-size:18px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;text-align:center;padding:8px 0;">${title}</h1>
   </td></tr>`;
 }
 
@@ -60,17 +50,8 @@ function getCTAButton(url: string, text: string): string {
 // ============================================================================
 function authPasswordReset(): string {
   const email = "john@example.com";
-  const WHITE_LOGO = "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp";
   return wrapEmail(`
-    <!-- MENUBAR-STYLE HEADER -->
-    <tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:18px 16px;position:relative;">
-      <div style="position:absolute;left:16px;top:50%;transform:translateY(-50%);">
-        <div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;">
-          <img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" />
-        </div>
-      </div>
-      <h1 style="color:#fff;font-size:18px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;text-align:center;padding:8px 0;">Reset Your Password</h1>
-    </td></tr>
+    ${getUnifiedHeader("Reset Your Password")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 20px;">We received a request to reset the password for your CrooHQ account (<strong>${email}</strong>).</p>
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button below to set a new password:</p>
@@ -83,10 +64,7 @@ function authPasswordReset(): string {
 function authEmailConfirmation(): string {
   const email = "jane@example.com";
   return wrapEmail(`
-    <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-      <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
-      <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">Confirm Your Email</h1>
-    </td></tr>
+    ${getUnifiedHeader("Confirm Your Email")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Please confirm your email address (<strong>${email}</strong>) to complete your CrooHQ account setup:</p>
       <div style="text-align:center;margin:28px 0;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Confirm Email</a></div>
@@ -97,10 +75,7 @@ function authEmailConfirmation(): string {
 
 function authMagicLink(): string {
   return wrapEmail(`
-    <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-      <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
-      <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">Sign In to CrooHQ</h1>
-    </td></tr>
+    ${getUnifiedHeader("Sign In to CrooHQ")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button below to sign in to your CrooHQ account:</p>
       <div style="text-align:center;margin:28px 0;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Sign In</a></div>
@@ -111,10 +86,7 @@ function authMagicLink(): string {
 
 function authInvite(): string {
   return wrapEmail(`
-    <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-      <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
-      <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">You're Invited!</h1>
-    </td></tr>
+    ${getUnifiedHeader("You're Invited!")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">You've been invited to join CrooHQ. Click the button below to accept the invitation and set up your account:</p>
       <div style="text-align:center;margin:28px 0;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Accept Invitation</a></div>
@@ -128,7 +100,7 @@ function authInvite(): string {
 // ============================================================================
 function employeeInvite(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Welcome to the Team!", "Blaze Pizza", "Downtown Location")}
+    ${getUnifiedHeader("Welcome to the Team!")}
     <tr><td style="padding:28px 32px;">
       <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
       <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey Jane!</p>
@@ -147,7 +119,7 @@ function employeeInvite(): string {
 
 function resendInvite(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Set Your Password", "Blaze Pizza", "Downtown Location")}
+    ${getUnifiedHeader("Set Your Password")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey Jane!</p>
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Your manager has re-sent your invite to <strong style="color:${primaryColor};">Blaze Pizza</strong>. Click below to set your password and get started.</p>
@@ -159,7 +131,7 @@ function resendInvite(): string {
 
 function interviewInvite(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Interview Invitation", "Blaze Pizza", "Downtown Location")}
+    ${getUnifiedHeader("Interview Invitation")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi Jane,</p>
       <p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>John Manager</strong> would like to invite you for an interview at <strong>Blaze Pizza</strong>.</p>
@@ -178,7 +150,7 @@ function interviewInvite(): string {
 
 function rejectionEmail(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Application Update", "Blaze Pizza", "Downtown Location")}
+    ${getUnifiedHeader("Application Update")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 20px;">Dear Jane,</p>
       <div style="background:#fafaf8;border-radius:16px;padding:20px;border-left:4px solid ${primaryColor};margin-bottom:24px;">
@@ -190,7 +162,7 @@ function rejectionEmail(): string {
 
 function newApplicationNotification(): string {
   return wrapEmail(`
-    ${getEmailHeader("New Job Application")}
+    ${getUnifiedHeader("New Job Application")}
     <tr><td style="padding:30px 40px;">
       <h2 style="color:${textColor};font-size:18px;font-weight:600;margin:0 0 20px;">Applicant Details</h2>
       <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
@@ -209,7 +181,7 @@ function newApplicationNotification(): string {
 
 function supportTicket(): string {
   return wrapEmail(`
-    ${getThreeColHeader("Support Ticket", "#SUP-042", "Apr 1, 2026")}
+    ${getUnifiedHeader("Support Ticket")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
       <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
@@ -242,7 +214,7 @@ function supportTicket(): string {
 
 function writeupNotification(): string {
   return wrapEmail(`
-    ${getEmailHeader("Write-up Notification")}
+    ${getUnifiedHeader("Write-up Notification")}
     <tr><td style="padding:30px 40px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have received an employee write-up from management.</p>
       <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #ef4444;">
@@ -286,7 +258,7 @@ function weeklyScheduleEmployee(): string {
     .join("");
 
   return wrapEmail(`
-    ${getThreeColHeader("Your Schedule", "Blaze Pizza", "Feb 10 – Feb 16")}
+    ${getUnifiedHeader("Your Schedule")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hey Sarah! Your schedule for the week has been published.</p>
       <div style="background:#fafaf8;border-radius:16px;padding:16px;margin-bottom:20px;">
@@ -301,7 +273,7 @@ function weeklyScheduleEmployee(): string {
 
 function performanceReviewSigned(): string {
   return wrapEmail(`
-    ${getEmailHeader("Performance Review")}
+    ${getUnifiedHeader("Performance Review")}
     <tr><td style="padding:30px 40px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Thank you for reviewing and acknowledging your performance review.</p>
       <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
