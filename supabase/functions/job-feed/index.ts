@@ -101,7 +101,7 @@ function getApplicationUrl(listing: any, supabaseUrl: string, source: string) {
 }
 
 function toJsonLd(listing: any, supabaseUrl: string) {
-  const loc = listing.location;
+  const addr = parseAddress(listing.location?.address);
   const org = listing.organization;
 
   const jobPosting: any = {
