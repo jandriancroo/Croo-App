@@ -140,7 +140,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // Fetch daily data + week range + month range + labor data in parallel
     // For month, always fetch full month (1st to last day)
     // Fetch labor for the ENTIRE WEEK to show labor% in weekly chart
-    const [dailyResult, weekResult, monthResult, laborResult, weeklyLaborResult] = await Promise.all([
+    const [dailyResult, weekResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
       // Daily sales
       supabase
         .from('sales_cache')
@@ -184,10 +184,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         .lte('labor_date', monthEndStr)
     ]);
 
-    // If RLS blocks access (or any other DB error), surface it clearly.
-    const monthlyLaborResult = (dailyResult as any).__monthlyLabor || arguments[arguments.length - 1];
-    // Destructure the 6th result
-    const dbError = dailyResult.error || weekResult.error || monthResult.error || laborResult.error || weeklyLaborResult.error;
+    const dbError = dailyResult.error || weekResult.error || monthResult.error || laborResult.error || weeklyLaborResult.error || monthlyLaborResult.error;
     if (dbError) {
       console.error('[SalesOverview] sales_cache/labor_cache query error:', dbError);
       setDiagnosticInfo({
@@ -201,6 +198,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           monthError: monthResult.error,
           laborError: laborResult.error,
           weeklyLaborError: weeklyLaborResult.error
+          ,monthlyLaborError: monthlyLaborResult.error
         },
         error: dbError.message || String(dbError)
       });
