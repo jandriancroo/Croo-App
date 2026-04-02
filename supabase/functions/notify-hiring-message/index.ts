@@ -54,7 +54,7 @@ serve(async (req) => {
     if (body.preview) {
       const previewOrgName = "Blaze Pizza";
       const previewLogoHtml = `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:36px;"/>`;
-      const previewChatUrl = "https://croohq.lovable.app/hiring-chat/preview-token";
+      const previewChatUrl = "https://croohq.com/hiring-chat/preview-token";
       const previewHtml = wrapEmail(`
         <tr><td style="background:${primaryColor};padding:24px 40px;">
           <table role="presentation" style="width:100%;"><tr>
@@ -117,7 +117,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, message: "No email on file" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const chatUrl = `https://croohq.lovable.app/hiring-chat/${conversation.access_token}`;
+    const chatUrl = `https://croohq.com/hiring-chat/${conversation.access_token}`;
     const preview = messageContent ? messageContent.substring(0, 200) : "(no preview)";
     const sender = senderName || "a hiring manager";
 

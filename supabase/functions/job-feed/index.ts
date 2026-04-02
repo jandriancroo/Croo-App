@@ -82,7 +82,7 @@ function parseAddress(address: string | null): { street: string; city: string; s
 function getApplicationUrl(listing: any, supabaseUrl: string, source: string) {
   const orgSlug = listing.organization?.slug;
   // Use the published app URL pattern
-  const baseUrl = Deno.env.get("APP_URL") || "https://croohq.lovable.app";
+  const baseUrl = Deno.env.get("APP_URL") || "https://croohq.com";
   return `${baseUrl}/apply/${orgSlug}?utm_source=${source}&listing=${listing.id}`;
 }
 
@@ -191,7 +191,7 @@ function toXmlFeed(listings: any[], supabaseUrl: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <source>
   <publisher>CrooHQ</publisher>
-  <publisherurl>https://croohq.lovable.app</publisherurl>
+  <publisherurl>https://croohq.com</publisherurl>
   <lastBuildDate>${new Date().toISOString()}</lastBuildDate>
 ${items}
 </source>`;

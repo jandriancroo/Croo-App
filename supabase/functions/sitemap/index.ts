@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const baseUrl = "https://croohq.lovable.app";
+    const baseUrl = "https://croohq.com";
 
     // Fetch all active syndicated listings
     const { data: listings } = await supabase

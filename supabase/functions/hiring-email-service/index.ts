@@ -587,7 +587,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
   const logoUrl = org?.logo_url || "";
   if (!applicantEmail) return new Response(JSON.stringify({ error: "Applicant has no email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  const chatUrl = `https://croohq.lovable.app/hiring-chat/${conversation.access_token}`;
+  const chatUrl = `https://croohq.com/hiring-chat/${conversation.access_token}`;
   const dateObj = new Date(interviewDate + 'T12:00:00');
   const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   const [hours, mins] = interviewTime.split(':').map(Number);
