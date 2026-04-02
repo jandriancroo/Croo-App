@@ -363,6 +363,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             meal_break_duration: presetForm.meal_break_duration,
             rest_break_hours: presetForm.rest_break_hours,
             rest_break_duration: presetForm.rest_break_duration,
+            reporting_time_enabled: presetForm.reporting_time_enabled,
+            reporting_time_min_hours: presetForm.reporting_time_min_hours,
+            reporting_time_max_hours: presetForm.reporting_time_max_hours,
             is_system: true,
           });
 
