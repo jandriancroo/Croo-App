@@ -613,187 +613,176 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   // System font - Manrope
   const fontStack = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
   // Wider daily summary email with clean Croo branding
-  const emailHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head>
-<body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${fontStack};">
-<table style="width:100%;border-collapse:collapse;"><tr><td style="padding:24px 16px;">
-<table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
-
-  <!-- HEADER -->
-  <tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:24px 24px 20px;">
-    <table style="width:100%;border-collapse:collapse;">
-      <tr>
-        <td style="vertical-align:middle;text-align:left;">
-          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:40px;width:40px;border-radius:10px;object-fit:contain;background:#fff;" />` : `<div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;"><img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" /></div>`}
-        </td>
-        <td style="vertical-align:middle;text-align:right;">
-          <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
-          <p style="color:rgba(255,255,255,0.65);font-size:12px;margin:2px 0 0;font-family:${fontStack};">${displayDate}</p>
-        </td>
-      </tr>
-    </table>
-    <h1 style="color:#fff;font-size:22px;font-weight:700;margin:14px 0 0;letter-spacing:0.3px;font-family:${fontStack};">Daily Pulse</h1>
-  </td></tr>
-
-  <tr><td style="padding:24px;">
-
-    <!-- SALES + LABOR ROW -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-      <tr>
-        <td style="vertical-align:top;width:50%;padding-right:20px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Sales</p>
-          <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$${netSales.toLocaleString()}</strong></p>
-          <p style="color:#888;font-size:13px;margin:4px 0 0;">Target: $${projection.toLocaleString()} (<span style="color:${projColor};font-weight:600;">${projDiff >= 0 ? "+" : ""}$${Math.abs(projDiff).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>)</p>
-          <table style="margin-top:8px;"><tr>
-            <td style="padding-right:16px;">${compBadge(lwPct, "LW")}</td>
-            <td>${compBadge(lyPct, "LY")}</td>
-          </tr></table>
-        </td>
-        <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Labor</p>
-          <p style="margin:0;"><strong style="color:${laborColor};font-size:28px;">${laborPercent.toFixed(1)}%</strong></p>
-          <p style="color:#888;font-size:13px;margin:4px 0 0;">$${totalLaborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} &middot; ${totalLaborHours.toFixed(1)}h</p>
-          <p style="color:${laborColor};font-size:13px;font-weight:600;margin:4px 0 0;">${laborOverUnder > 0 ? "+" : "-"}$${Math.abs(laborOverUnder).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} vs ${laborGoal}% goal</p>
-        </td>
-      </tr>
-    </table>
-
-    <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
-
-    <!-- CHECKLISTS -->
-    <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Checklists ${completedCount}/${totalChecklists}</p>
-    ${checklistRows.length > 0 ? checklistRows.map(c => {
-      const barColor = c.pct >= 100 ? primaryColor : primaryColor;
-      const pctColor = c.pct >= 100 ? '#22c55e' : '#ef4444';
+  // Build checklist rows HTML - compact table style matching preview
+  const checklistRowsHtml = checklistRows.length > 0 ? `<table style="width:100%;border-collapse:collapse;background:#f5f4f1;border-radius:12px;overflow:hidden;">
+    ${checklistRows.map((c, i) => {
       const timeStr = c.submittedAt ? formatTimePST(c.submittedAt) : "";
-      return `<div style="background:#f5f4f1;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td style="vertical-align:top;">
-              <p style="margin:0;font-size:13px;color:${textColor};font-weight:700;">${c.title}</p>
-            </td>
-            <td style="text-align:right;white-space:nowrap;vertical-align:top;">
-              ${timeStr ? `<span style="color:#888;font-size:12px;">${timeStr}</span> ` : ''}
-              <span style="color:${pctColor};font-size:12px;font-weight:700;">${c.pct}%</span>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <p style="margin:2px 0 0;font-size:11px;color:#888;">${c.completed ? (c.completers.length > 0 ? c.completers.join(', ') : '') : '<span style="color:#ef4444;">Not Completed</span>'}</p>
-            </td>
-            <td style="text-align:right;">
-              <span style="font-size:11px;color:#888;">${c.itemsCompleted}/${c.itemsTotal} items</span>
-            </td>
-          </tr>
-        </table>
-        <div style="background:#e0f2f1;border-radius:6px;height:6px;width:100%;overflow:hidden;margin-top:8px;">
-          <div style="background:${primaryColor};height:100%;width:${c.pct}%;border-radius:6px;"></div>
-        </div>
-      </div>`;
-    }).join("") : `<p style="color:#888;font-size:13px;margin:0;">None scheduled</p>`}
+      const statusIcon = c.pct >= 100
+        ? `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span>`
+        : `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ef4444;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✗</span>`;
+      const itemsColor = c.pct >= 100 ? '#22c55e' : '#ef4444';
+      const statusText = c.completed ? (c.completers.length > 0 ? c.completers.join(', ') : '') : '<span style="color:#ef4444;">Not Started</span>';
+      const border = i < checklistRows.length - 1 ? 'border-bottom:1px solid #e8e5df;' : '';
+      return `<tr style="${border}">
+        <td style="padding:8px 12px;width:20px;">${statusIcon}</td>
+        <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">${c.title}</span></td>
+        <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:${itemsColor};font-weight:600;">${c.itemsCompleted}/${c.itemsTotal}</span></td>
+        <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">${timeStr ? `${statusText ? statusText.replace(/<[^>]*>/g, '') + ' · ' : ''}${timeStr}` : statusText}</span></td>
+      </tr>`;
+    }).join("")}
+  </table>` : `<p style="color:#888;font-size:13px;margin:0;">None scheduled</p>`;
 
-    <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+  // Build cash handling rows HTML - compact table style
+  const cashRowsHtml = (() => {
+    const rows: string[] = [];
+    const safeCounts = cashDetails.filter(c => c.category === "Safe Count");
+    const drawerCounts = cashDetails.filter(c => c.category === "Drawer Count");
+    const bankDeposits = cashDetails.filter(c => c.category === "Bank Deposit");
 
-    <!-- CASH HANDLING -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-      <tr>
-        <td style="vertical-align:top;width:50%;padding-right:16px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Safe Count</p>
-          ${(() => {
-            const safeCounts = cashDetails.filter(c => c.category === "Safe Count");
-            if (safeCounts.length === 0) return `<p style="color:#ef4444;font-size:13px;font-weight:600;margin:0;">Not Completed</p>`;
-            return safeCounts.map(c => {
-              const shiftField = c.fields.find(f => f.name === "Shift");
-              const shiftVal = shiftField?.value || "AM";
-              const isAM = shiftVal === "AM";
-              const badgeBg = isAM ? "#fef3c7" : "#312e81";
-              const badgeColor = isAM ? "#78350f" : "#e0e7ff";
-              const badgeBorder = isAM ? "#fcd34d" : "#4338ca";
-              const shiftIcon = isAM ? "☀︎" : "☽";
-              const completedTime = c.completedAt ? formatTimePST(c.completedAt) : "";
-              return `<div style="margin-bottom:10px;">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span style="display:inline-block;background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">${shiftIcon} ${shiftVal}</span>
-                  <span style="color:#22c55e;font-weight:600;font-size:13px;">Completed</span>
-                </div>
-                <p style="margin:4px 0 0;font-size:12px;color:#888;">${c.author}${completedTime ? ` &middot; ${completedTime}` : ""}</p>
-              </div>`;
-            }).join("");
-          })()}
-        </td>
-        <td style="vertical-align:top;border-left:1px solid #e8e5df;padding-left:16px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Drawer Count</p>
-          ${(() => {
-            const drawerCounts = cashDetails.filter(c => c.category === "Drawer Count");
-            if (drawerCounts.length === 0) return `<p style="color:#ef4444;font-size:13px;font-weight:600;margin:0;">Not Completed</p>`;
-            return drawerCounts.map(c => {
-              const depositField = c.fields.find(f => f.name === "Actual Deposit") || c.fields.find(f => f.name.includes("Deposit"));
-              const expectedField = c.fields.find(f => f.name === "Expected Deposit") || c.fields.find(f => f.name.includes("Expected"));
-              const varianceField = c.fields.find(f => f.name === "Variance") || c.fields.find(f => f.name === "Difference");
-              const depositVal = depositField?.value || "$0";
-              const expectedVal = expectedField?.value || "$0";
-              const varianceNum = varianceField ? parseFloat(varianceField.value.replace(/[^0-9.-]/g, '')) : 0;
-              const overUnder = varianceNum > 0 ? `<span style="color:#22c55e;font-weight:600;">Over $${Math.abs(varianceNum).toLocaleString()}</span>` : varianceNum < 0 ? `<span style="color:#ef4444;font-weight:600;">Under $${Math.abs(varianceNum).toLocaleString()}</span>` : `<span style="color:#22c55e;font-weight:600;">Even</span>`;
-              const completedTime = c.completedAt ? formatTimePST(c.completedAt) : "";
-              return `<div style="margin-bottom:8px;">
-                <p style="margin:0 0 2px;font-size:13px;color:${textColor};font-weight:600;">${depositVal} / ${expectedVal}</p>
-                <p style="margin:0 0 2px;font-size:12px;">${overUnder}</p>
-                <p style="margin:0;font-size:11px;color:#888;">${completedTime ? `${completedTime} - ` : ""}${c.author}</p>
-              </div>`;
-            }).join("");
-          })()}
-        </td>
-      </tr>
-    </table>
-    ${(() => {
-      const bankDeposits = cashDetails.filter(c => c.category === "Bank Deposit");
-      if (bankDeposits.length === 0) return '';
-      return `<p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Bank Deposit</p>` +
-        bankDeposits.map(c => {
-          const amountField = c.fields.find(f => f.name !== "Shift");
-          return `<p style="margin:0 0 6px;font-size:13px;color:#888;">${amountField?.value || ""} - ${c.author}</p>`;
-        }).join("");
-    })()}
-    ${logEntries.length > 0 ? `
-      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:12px 0 10px;">Log Entries</p>
-      ${logEntries.map((e: any) => 
-        `<p style="margin:0 0 4px;font-size:13px;color:${textColor};">${e.category?.name || "Entry"} - <span style="color:#888;">${e.created_by_profile?.full_name || ""}</span></p>`
-      ).join("")}
-    ` : ""}
+    for (const c of safeCounts) {
+      const shiftField = c.fields.find(f => f.name === "Shift");
+      const shiftVal = shiftField?.value || "AM";
+      const completedTime = c.completedAt ? formatTimePST(c.completedAt) : "";
+      rows.push(`<tr style="border-bottom:1px solid #e8e5df;">
+        <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span></td>
+        <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Safe Count — ${shiftVal}</span></td>
+        <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:#22c55e;font-weight:600;">Completed</span></td>
+        <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">${c.author}${completedTime ? ` · ${completedTime}` : ""}</span></td>
+      </tr>`);
+    }
+    if (safeCounts.length === 0) {
+      rows.push(`<tr style="border-bottom:1px solid #e8e5df;">
+        <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ef4444;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✗</span></td>
+        <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Safe Count</span></td>
+        <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:#ef4444;font-weight:600;">Not Completed</span></td>
+        <td style="padding:8px 12px;text-align:right;"></td>
+      </tr>`);
+    }
 
-    ${topItems.length > 0 ? `
-    <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+    for (const c of drawerCounts) {
+      const varianceField = c.fields.find(f => f.name === "Variance") || c.fields.find(f => f.name === "Difference");
+      const varianceNum = varianceField ? parseFloat(varianceField.value.replace(/[^0-9.-]/g, '')) : 0;
+      const varianceColor = varianceNum >= 0 ? '#22c55e' : '#ef4444';
+      const varianceStr = varianceNum >= 0 ? `+$${Math.abs(varianceNum).toFixed(2)}` : `-$${Math.abs(varianceNum).toFixed(2)}`;
+      const statusIcon = Math.abs(varianceNum) > 10
+        ? `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#f59e0b;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">!</span>`
+        : `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span>`;
+      const completedTime = c.completedAt ? formatTimePST(c.completedAt) : "";
+      rows.push(`<tr style="border-bottom:1px solid #e8e5df;">
+        <td style="padding:8px 12px;width:20px;">${statusIcon}</td>
+        <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Drawer Count</span></td>
+        <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:${varianceColor};font-weight:600;">${varianceStr}</span></td>
+        <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">${c.author}${completedTime ? ` · ${completedTime}` : ""}</span></td>
+      </tr>`);
+    }
+    if (drawerCounts.length === 0) {
+      rows.push(`<tr style="border-bottom:1px solid #e8e5df;">
+        <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ef4444;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✗</span></td>
+        <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Drawer Count</span></td>
+        <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:#ef4444;font-weight:600;">Not Completed</span></td>
+        <td style="padding:8px 12px;text-align:right;"></td>
+      </tr>`);
+    }
 
-    <!-- TOP 5 ITEMS -->
-    <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Top Items by Sales</p>
-    <table style="width:100%;border-collapse:collapse;">
-      ${topItems.map((item, i) => `
-      <tr style="border-bottom:1px solid #f0ebe1;">
-        <td style="padding:6px 0;color:${primaryColor};font-weight:700;font-size:14px;width:24px;">${i + 1}</td>
-        <td style="padding:6px 0;color:${textColor};font-size:13px;">${item.name}</td>
-        <td style="padding:6px 0;color:#888;font-size:13px;text-align:center;width:50px;">${item.qty}</td>
-        <td style="padding:6px 0;color:${textColor};font-size:13px;text-align:right;font-weight:600;width:70px;">$${item.sales.toLocaleString()}</td>
-      </tr>`).join("")}
-    </table>
-    ` : `
-    <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
-    <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Top Items by Sales</p>
-    <p style="color:#888;font-size:13px;margin:0;">No sales data available</p>
-    `}
+    for (const c of bankDeposits) {
+      const amountField = c.fields.find(f => f.name !== "Shift");
+      const completedTime = c.completedAt ? formatTimePST(c.completedAt) : "";
+      rows.push(`<tr>
+        <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span></td>
+        <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Bank Deposit</span></td>
+        <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:${textColor};font-weight:600;">${amountField?.value || ""}</span></td>
+        <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">${c.author}${completedTime ? ` · ${completedTime}` : ""}</span></td>
+      </tr>`);
+    }
 
-  </td></tr>
+    if (rows.length === 0) return '';
+    // Remove trailing border from last row
+    const lastIdx = rows.length - 1;
+    rows[lastIdx] = rows[lastIdx].replace('border-bottom:1px solid #e8e5df;', '');
+    return `<table style="width:100%;border-collapse:collapse;background:#f5f4f1;border-radius:12px;overflow:hidden;">${rows.join("")}</table>`;
+  })();
 
-  <!-- FOOTER -->
-  <tr><td style="background-color:#f0ebe1;padding:28px 32px;text-align:center;border-top:1px solid #e8e5df;">
-    <table role="presentation" style="margin:0 auto;"><tr>
-      <td style="padding-right:10px;vertical-align:middle;"><span style="color:#3a5f7d;font-size:15px;font-weight:400;">Powered by</span></td>
-      <td style="vertical-align:middle;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:28px;"/></td>
-    </tr></table>
-    <p style="color:#bbb;font-size:10px;margin:12px 0 0;">&copy; ${new Date().getFullYear()} Croo. All rights reserved.</p>
-  </td></tr>
+  // Build logbook entries HTML - two-row compact style
+  const logEntriesHtml = logEntries.length > 0 ? `<table style="width:100%;border-collapse:collapse;background:#f5f4f1;border-radius:12px;overflow:hidden;">
+    ${logEntries.map((e: any, i: number) => {
+      const timeStr = e.created_at ? formatTimePST(e.created_at) : "";
+      const categoryName = e.category?.name || "Entry";
+      const authorName = e.created_by_profile?.full_name || "";
+      const border = i < logEntries.length - 1 ? 'border-bottom:1px solid #e8e5df;' : '';
+      const icon = categoryName.toLowerCase().includes('complaint') ? '!' : categoryName.toLowerCase().includes('equipment') ? '⚙' : '📝';
+      const iconBg = categoryName.toLowerCase().includes('complaint') ? '#ef4444' : categoryName.toLowerCase().includes('equipment') ? '#f59e0b' : primaryColor;
+      return `<tr style="${border}">
+        <td style="padding:8px 12px;width:20px;vertical-align:top;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${iconBg};text-align:center;line-height:18px;color:#fff;font-size:10px;font-weight:700;">${icon}</span></td>
+        <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">${categoryName}</span></td>
+        <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">${authorName}${timeStr ? ` · ${timeStr}` : ""}</span></td>
+      </tr>`;
+    }).join("")}
+  </table>` : '';
 
-</table>
-</td></tr></table>
-</body></html>`;
+  const emailHtml = wrapEmail(`
+    ${getPulseHeader("Daily Pulse", brandLogoUrl, location.name, location.store_number, displayDate)}
+    <tr><td style="padding:24px;">
+
+      <!-- SALES + LABOR ROW -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <tr>
+          <td style="vertical-align:top;width:50%;padding-right:20px;">
+            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Sales</p>
+            <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$${netSales.toLocaleString()}</strong></p>
+            <p style="color:#888;font-size:13px;margin:4px 0 0;">Target: $${projection.toLocaleString()} (<span style="color:${projColor};font-weight:600;">${projDiff >= 0 ? "+" : ""}$${Math.abs(projDiff).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>)</p>
+            <table style="margin-top:8px;"><tr>
+              <td style="padding-right:16px;">${compBadge(lwPct, "LW")}</td>
+              <td>${compBadge(lyPct, "LY")}</td>
+            </tr></table>
+          </td>
+          <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
+            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Labor</p>
+            <p style="margin:0;"><strong style="color:${laborColor};font-size:28px;">${laborPercent.toFixed(1)}%</strong></p>
+            <p style="color:#888;font-size:13px;margin:4px 0 0;">$${totalLaborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} &middot; ${totalLaborHours.toFixed(1)}h</p>
+            <p style="color:${laborColor};font-size:13px;font-weight:600;margin:4px 0 0;">${laborOverUnder > 0 ? "+" : "-"}$${Math.abs(laborOverUnder).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} vs ${laborGoal}% goal</p>
+          </td>
+        </tr>
+      </table>
+
+      <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+
+      <!-- CHECKLISTS -->
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Checklists ${completedCount}/${totalChecklists}</p>
+      ${checklistRowsHtml}
+
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+
+      <!-- CASH HANDLING -->
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Cash Handling</p>
+      ${cashRowsHtml || `<p style="color:#888;font-size:13px;margin:0;">No entries</p>`}
+
+      ${logEntries.length > 0 ? `
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Logbook ${logEntries.length} ${logEntries.length === 1 ? 'entry' : 'entries'}</p>
+      ${logEntriesHtml}
+      ` : ""}
+
+      ${topItems.length > 0 ? `
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Top Items by Sales</p>
+      <table style="width:100%;border-collapse:collapse;">
+        ${topItems.map((item, i) => `
+        <tr style="border-bottom:1px solid #f0ebe1;">
+          <td style="padding:6px 0;color:${primaryColor};font-weight:700;font-size:14px;width:24px;">${i + 1}</td>
+          <td style="padding:6px 0;color:${textColor};font-size:13px;">${item.name}</td>
+          <td style="padding:6px 0;color:#888;font-size:13px;text-align:center;width:50px;">${item.qty}</td>
+          <td style="padding:6px 0;color:${textColor};font-size:13px;text-align:right;font-weight:600;width:70px;">$${item.sales.toLocaleString()}</td>
+        </tr>`).join("")}
+      </table>
+      ` : `
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Top Items by Sales</p>
+      <p style="color:#888;font-size:13px;margin:0;">No sales data available</p>
+      `}
+
+    </td></tr>
+    ${getEmailFooter()}
+  `);
 
   // If preview mode, return HTML without sending
   if (payload.preview) {
