@@ -84,31 +84,11 @@ async function notifySupportTicket(payload: any): Promise<Response> {
   
   // Preview mode - return sample HTML without needing a real ticket
   if (preview) {
-    const fontStack = systemFontStack;
     const html = wrapEmail(`
-      <!-- HEADER -->
-      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td style="vertical-align:middle;text-align:left;width:180px;">
-              <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-            </td>
-            <td style="vertical-align:middle;text-align:center;">
-              <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Support Ticket</h1>
-            </td>
-            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-              <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">New Ticket</p>
-              <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">Feb 12, 2026</p>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
-
+      ${getUnifiedHeader("Support Ticket")}
       <tr><td style="padding:28px 32px;">
-
-        <!-- TICKET INFO -->
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
-        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+        <div style="background:${containerBg};border-radius:12px;padding:16px 20px;margin-bottom:16px;">
           <table style="width:100%;border-collapse:collapse;">
             <tr>
               <td style="vertical-align:top;width:33%;padding:4px 0;">
@@ -126,13 +106,23 @@ async function notifySupportTicket(payload: any): Promise<Response> {
             </tr>
           </table>
         </div>
-
         <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
-
-        <!-- DESCRIPTION -->
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Description</p>
-        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+        <div style="background:${containerBg};border-radius:12px;padding:16px 20px;">
           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">The schedule page flickers when switching between weeks on mobile. Happens consistently on iPhone 15.</p>
+        </div>
+        <div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div>
+      </td></tr>
+      ${getEmailFooter()}
+    `);
+    return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  if (!ticket_id || !event_type) {
+    return new Response(JSON.stringify({ error: "ticket_id and event_type required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
         </div>
 
         <div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div>
