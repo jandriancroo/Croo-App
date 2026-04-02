@@ -334,34 +334,6 @@ export default function LocationProfile() {
     }
   };
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast.success('Location code copied to clipboard');
-  };
-
-  const handleRegenerateCode = async () => {
-    if (!confirm('Are you sure you want to generate a new location code? The old code will no longer work.')) {
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.rpc('generate_location_code');
-      if (error) throw error;
-      
-      const { error: updateError } = await supabase
-        .from('locations')
-        .update({ location_code: data })
-        .eq('id', locationId);
-
-      if (updateError) throw updateError;
-
-      toast.success('New location code generated');
-      fetchLocation();
-    } catch (error: any) {
-      console.error('Error regenerating code:', error);
-      toast.error('Failed to regenerate code');
-    }
-  };
 
   const addBlackoutDate = (date: Date | undefined) => {
     if (!date) return;
