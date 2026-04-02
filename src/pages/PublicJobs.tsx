@@ -128,19 +128,29 @@ export default function PublicJobs() {
     return posting;
   });
 
+  // Inject JSON-LD and meta tags
+  useEffect(() => {
+    document.title = 'Restaurant Jobs Near You | CrooHQ';
+    
+    // JSON-LD
+    const existingLd = document.getElementById('jobs-jsonld');
+    if (existingLd) existingLd.remove();
+    if (jsonLd.length > 0) {
+      const script = document.createElement('script');
+      script.id = 'jobs-jsonld';
+      script.type = 'application/ld+json';
+      script.textContent = JSON.stringify(jsonLd);
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      const el = document.getElementById('jobs-jsonld');
+      if (el) el.remove();
+    };
+  }, [jsonLd]);
+
   return (
     <>
-      <Helmet>
-        <title>Restaurant Jobs Near You | CrooHQ</title>
-        <meta name="description" content="Find restaurant jobs near you — Team Members, Shift Managers, and more. Apply instantly through CrooHQ." />
-        <link rel="canonical" href="https://croohq.lovable.app/jobs" />
-        {jsonLd.length > 0 && (
-          <script type="application/ld+json">
-            {JSON.stringify(jsonLd)}
-          </script>
-        )}
-      </Helmet>
-
       <div className="min-h-screen bg-[#f5f4f1]">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
