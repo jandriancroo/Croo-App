@@ -323,6 +323,10 @@ export default function PublicApplication() {
     mutationFn: async () => {
       if (!organization || !selectedTemplate) throw new Error('Missing required data');
 
+      // Capture source from URL params
+      const utmSource = searchParams.get('utm_source') || 'direct';
+      const listingId = searchParams.get('listing') || null;
+
       // Insert main application
       const { data: application, error: appError } = await supabase
         .from('job_applications')
@@ -336,7 +340,9 @@ export default function PublicApplication() {
           availability,
           resume_url: resumeUrl || null,
           custom_responses: customResponses,
-        })
+          source: utmSource,
+          job_listing_id: listingId,
+        } as any)
         .select()
         .single();
 
