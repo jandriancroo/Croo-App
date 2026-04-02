@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
-import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays, Mail, Calendar } from 'lucide-react';
+import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays, Mail, Calendar, Globe } from 'lucide-react';
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
 import { JobListings } from '@/components/hiring/JobListings';
