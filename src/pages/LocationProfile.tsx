@@ -6,17 +6,46 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield } from 'lucide-react';
+import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield, CalendarIcon, X } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
-import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { format } from 'date-fns';
+
+const TIMEZONES = [
+  { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+  { value: "America/Denver", label: "Mountain Time (MT)" },
+  { value: "America/Chicago", label: "Central Time (CT)" },
+  { value: "America/New_York", label: "Eastern Time (ET)" },
+  { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+  { value: "Pacific/Honolulu", label: "Hawaii Time (HT)" },
+  { value: "America/Phoenix", label: "Arizona (no DST)" },
+];
+
+const DAYS_OF_WEEK = [
+  { value: 1, label: "Monday", short: "Mon" },
+  { value: 2, label: "Tuesday", short: "Tue" },
+  { value: 3, label: "Wednesday", short: "Wed" },
+  { value: 4, label: "Thursday", short: "Thu" },
+  { value: 5, label: "Friday", short: "Fri" },
+  { value: 6, label: "Saturday", short: "Sat" },
+  { value: 0, label: "Sunday", short: "Sun" },
+];
+
+interface DayHours {
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_closed: boolean;
+}
 
 export default function LocationProfile() {
   const { locationId } = useParams();
@@ -31,6 +60,19 @@ export default function LocationProfile() {
   const [location, setLocation] = useState<any>(isNew ? { name: '', address: '', location_type: 'standard' } : null);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+
+  // Settings state (merged from LocationSettingsSection)
+  const [timezone, setTimezone] = useState("America/Los_Angeles");
+  const [settingsId, setSettingsId] = useState<string | null>(null);
+  const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
+  const [businessHours, setBusinessHours] = useState<DayHours[]>(
+    DAYS_OF_WEEK.map(day => ({
+      day_of_week: day.value,
+      open_time: "11:00",
+      close_time: "22:00",
+      is_closed: false,
+    }))
+  );
 
   // Scroll to hash section on load
   useEffect(() => {
@@ -48,6 +90,8 @@ export default function LocationProfile() {
   useEffect(() => {
     if (locationId && !isNew) {
       fetchLocation();
+      fetchLocationSettings();
+      fetchBusinessHours();
     }
   }, [locationId, isNew]);
 
@@ -71,20 +115,84 @@ export default function LocationProfile() {
     }
   };
 
+  const fetchLocationSettings = async () => {
+    if (!locationId) return;
+    try {
+      const { data, error } = await supabase
+        .from("location_settings")
+        .select("*")
+        .eq("location_id", locationId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setSettingsId(data.id);
+        setTimezone(data.timezone || "America/Los_Angeles");
+        setBlackoutDates(
+          data.blackout_dates ? data.blackout_dates.map((d: string) => new Date(d)) : []
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching location settings:", error);
+    }
+  };
+
+  const fetchBusinessHours = async () => {
+    if (!locationId) return;
+    try {
+      const { data, error } = await supabase
+        .from("location_hours")
+        .select("*")
+        .eq("location_id", locationId)
+        .order("day_of_week");
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setBusinessHours(
+          DAYS_OF_WEEK.map(day => {
+            const existing = data.find(d => d.day_of_week === day.value);
+            return existing
+              ? {
+                  day_of_week: existing.day_of_week,
+                  open_time: existing.open_time || "11:00",
+                  close_time: existing.close_time || "22:00",
+                  is_closed: existing.is_closed,
+                }
+              : {
+                  day_of_week: day.value,
+                  open_time: "11:00",
+                  close_time: "22:00",
+                  is_closed: false,
+                };
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching business hours:", error);
+    }
+  };
+
+  const updateDayHours = (dayOfWeek: number, field: keyof DayHours, value: string | boolean) => {
+    setBusinessHours(prev =>
+      prev.map(day =>
+        day.day_of_week === dayOfWeek ? { ...day, [field]: value } : day
+      )
+    );
+  };
 
   // Geocode address to get coordinates
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
     if (!address.trim()) return null;
     
     try {
-      // Try with full address first
       let response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=us`,
         { headers: { 'User-Agent': 'CrooHQ/1.0' } }
       );
       let data = await response.json();
       
-      // If no results, try simplifying the address (remove suite/unit numbers)
       if (!data || data.length === 0) {
         const simplified = address.replace(/\s*(suite|ste|unit|apt|#)\s*\d+\w*/gi, '').trim();
         response = await fetch(
@@ -167,6 +275,7 @@ export default function LocationProfile() {
         toast.success('Location created successfully');
         navigate(`/location/${newLocation.id}`);
       } else {
+        // 1. Save location info
         const { error } = await supabase
           .from('locations')
           .update({
@@ -180,7 +289,46 @@ export default function LocationProfile() {
 
         if (error) throw error;
 
-        toast.success('Location updated successfully');
+        // 2. Save location settings (timezone, blackout dates)
+        const settingsData = {
+          timezone,
+          blackout_dates: blackoutDates.map(d => format(d, "yyyy-MM-dd")),
+        };
+
+        if (settingsId) {
+          const { error: settingsError } = await supabase
+            .from("location_settings")
+            .update({ ...settingsData, updated_at: new Date().toISOString() })
+            .eq("location_id", locationId);
+          if (settingsError) throw settingsError;
+        } else {
+          const { data: newSettings, error: settingsError } = await supabase
+            .from("location_settings")
+            .insert({ location_id: locationId, ...settingsData })
+            .select()
+            .single();
+          if (settingsError) throw settingsError;
+          if (newSettings) setSettingsId(newSettings.id);
+        }
+
+        // 3. Save business hours
+        for (const dayHours of businessHours) {
+          const { error: hoursError } = await supabase
+            .from("location_hours")
+            .upsert({
+              location_id: locationId,
+              day_of_week: dayHours.day_of_week,
+              open_time: dayHours.is_closed ? null : dayHours.open_time,
+              close_time: dayHours.is_closed ? null : dayHours.close_time,
+              is_closed: dayHours.is_closed,
+              updated_at: new Date().toISOString(),
+            }, {
+              onConflict: 'location_id,day_of_week',
+            });
+          if (hoursError) throw hoursError;
+        }
+
+        toast.success('Location settings saved');
         fetchLocation();
       }
     } catch (error: any) {
@@ -218,6 +366,24 @@ export default function LocationProfile() {
       console.error('Error regenerating code:', error);
       toast.error('Failed to regenerate code');
     }
+  };
+
+  const addBlackoutDate = (date: Date | undefined) => {
+    if (!date) return;
+    const exists = blackoutDates.some(
+      d => format(d, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+    );
+    if (!exists) {
+      setBlackoutDates([...blackoutDates, date]);
+    }
+  };
+
+  const removeBlackoutDate = (dateToRemove: Date) => {
+    setBlackoutDates(
+      blackoutDates.filter(
+        d => format(d, "yyyy-MM-dd") !== format(dateToRemove, "yyyy-MM-dd")
+      )
+    );
   };
 
   if (loading) {
@@ -264,7 +430,7 @@ export default function LocationProfile() {
           </div>
         </div>
 
-        {/* Map - full width on mobile (only for existing locations with coordinates) */}
+        {/* Map */}
         {!isNew && location?.latitude && location?.longitude && (
           <div className="w-full h-40 sm:h-48 rounded-lg overflow-hidden border shadow-sm">
             <LocationMap 
@@ -276,72 +442,181 @@ export default function LocationProfile() {
         )}
 
         <div className="grid gap-6">
-          {/* Location Information */}
+          {/* Unified Location Settings Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Location Information</CardTitle>
+              <CardTitle>Location Settings</CardTitle>
               <CardDescription>
-                {isNew ? 'Enter details for the new location' : 'Basic details about this location'}
+                {isNew ? 'Enter details for the new location' : 'Configure location details, hours, and preferences'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="space-y-6">
+              {/* Location Information */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">General Information</Label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="location-name">Location Name</Label>
+                    <Input
+                      id="location-name"
+                      value={location?.name || ''}
+                      onChange={(e) => setLocation({...location, name: e.target.value})}
+                      placeholder="e.g., Downtown Store"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="store-number">Store Number</Label>
+                    <Input
+                      id="store-number"
+                      value={location?.store_number || ''}
+                      onChange={(e) => setLocation({...location, store_number: e.target.value})}
+                      placeholder="e.g., 1234"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Optional franchise store number
+                    </p>
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="location-name">Location Name</Label>
-                  <Input
-                    id="location-name"
-                    value={location?.name || ''}
-                    onChange={(e) => setLocation({...location, name: e.target.value})}
-                    placeholder="e.g., Downtown Store"
+                  <Label htmlFor="location-address">Address</Label>
+                  <Textarea
+                    id="location-address"
+                    placeholder="123 Main St, City, State ZIP"
+                    value={location?.address || ''}
+                    onChange={(e) => setLocation({...location, address: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="store-number">Store Number</Label>
-                  <Input
-                    id="store-number"
-                    value={location?.store_number || ''}
-                    onChange={(e) => setLocation({...location, store_number: e.target.value})}
-                    placeholder="e.g., 1234"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Optional franchise store number
-                  </p>
-                </div>
+                
+                {isNew && (
+                  <div className="space-y-2">
+                    <Label htmlFor="location-type">Location Type</Label>
+                    <Select 
+                      value={location?.location_type || 'standard'} 
+                      onValueChange={(value) => setLocation({...location, location_type: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="standard">Standard (Full Features)</SelectItem>
+                        <SelectItem value="checklist_only">Checklist Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Checklist Only locations have simplified navigation and features
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="location-address">Address</Label>
-                <Textarea
-                  id="location-address"
-                  placeholder="123 Main St, City, State ZIP"
-                  value={location?.address || ''}
-                  onChange={(e) => setLocation({...location, address: e.target.value})}
-                />
-              </div>
-              
-              {isNew && (
-                <div className="space-y-2">
-                  <Label htmlFor="location-type">Location Type</Label>
-                  <Select 
-                    value={location?.location_type || 'standard'} 
-                    onValueChange={(value) => setLocation({...location, location_type: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard (Full Features)</SelectItem>
-                      <SelectItem value="checklist_only">Checklist Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Checklist Only locations have simplified navigation and features
-                  </p>
-                </div>
+
+              {/* Timezone - only for existing locations */}
+              {!isNew && (
+                <>
+                  <div className="border-t pt-6 space-y-3">
+                    <Label className="text-base font-semibold">Timezone</Label>
+                    <Select value={timezone} onValueChange={setTimezone}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIMEZONES.map((tz) => (
+                          <SelectItem key={tz.value} value={tz.value}>
+                            {tz.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Business Hours */}
+                  <div className="border-t pt-6 space-y-3">
+                    <Label className="text-base font-semibold">Business Hours</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Set opening and closing times for each day of the week
+                    </p>
+                    <div className="space-y-2">
+                      {DAYS_OF_WEEK.map((day) => {
+                        const dayHours = businessHours.find(d => d.day_of_week === day.value);
+                        return (
+                          <div key={day.value} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+                            <span className="w-9 shrink-0 text-sm font-medium">{day.short}</span>
+                            <Switch
+                              checked={!dayHours?.is_closed}
+                              onCheckedChange={(checked) => updateDayHours(day.value, 'is_closed', !checked)}
+                            />
+                            {dayHours?.is_closed ? (
+                              <span className="text-xs text-muted-foreground">Closed</span>
+                            ) : (
+                              <div className="flex items-center gap-1 min-w-0 flex-1">
+                                <Input
+                                  type="time"
+                                  value={dayHours?.open_time || "11:00"}
+                                  onChange={(e) => updateDayHours(day.value, 'open_time', e.target.value)}
+                                  className="flex-1 min-w-0 h-8 text-sm"
+                                />
+                                <span className="text-muted-foreground text-xs shrink-0">-</span>
+                                <Input
+                                  type="time"
+                                  value={dayHours?.close_time || "22:00"}
+                                  onChange={(e) => updateDayHours(day.value, 'close_time', e.target.value)}
+                                  className="flex-1 min-w-0 h-8 text-sm"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Blackout Dates */}
+                  <div className="border-t pt-6 space-y-3">
+                    <Label className="text-base font-semibold">Blackout Dates</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Days when employees should not request time off (holidays, busy periods, etc.)
+                    </p>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          Add Blackout Date
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          onSelect={addBlackoutDate}
+                        />
+                      </PopoverContent>
+                    </Popover>
+
+                    {blackoutDates.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {blackoutDates
+                          .sort((a, b) => a.getTime() - b.getTime())
+                          .map((date, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-1 bg-destructive/10 text-destructive px-3 py-1 rounded-md"
+                            >
+                              <span className="text-sm">{format(date, "MMM d, yyyy")}</span>
+                              <button
+                                onClick={() => removeBlackoutDate(date)}
+                                className="hover:bg-destructive/20 rounded-sm p-0.5"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
-              
+
               {/* Super Admin Only: Location Type Toggle for existing locations */}
               {!isNew && isSuperAdmin && (
-                <div className="pt-4 border-t space-y-3">
+                <div className="border-t pt-6 space-y-3">
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-primary" />
                     <Label className="text-sm font-medium">Full Features Mode</Label>
@@ -381,9 +656,10 @@ export default function LocationProfile() {
                 </div>
               )}
               
+              {/* Location Code */}
               {!isNew && location?.location_code && (
-                <div className="pt-4 border-t space-y-3">
-                  <Label>Location Code</Label>
+                <div className="border-t pt-6 space-y-3">
+                  <Label className="text-base font-semibold">Location Code</Label>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <code className="text-sm bg-muted px-3 py-2 rounded font-mono">
                       {location.location_code}
@@ -412,15 +688,16 @@ export default function LocationProfile() {
                   </p>
                 </div>
               )}
-              <Button onClick={handleSave} disabled={saving}>
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Saving...' : isNew ? 'Create Location' : 'Save Changes'}
-              </Button>
+
+              {/* Unified Save Button */}
+              <div className="border-t pt-6">
+                <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? 'Saving...' : isNew ? 'Create Location' : 'Save All Settings'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
-
-          {/* Location Settings (hours and blackout dates) - only for existing locations */}
-          {!isNew && <LocationSettingsSection locationId={locationId} />}
 
           {/* Labor Rules - only for existing standard locations */}
           {!isNew && location?.location_type !== 'checklist_only' && (
