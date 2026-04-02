@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 // ============================================================================
 // BRAND CONSTANTS (canonical — these should match every edge function)
 // ============================================================================
-const primaryColor = "#0a7a8a";
+const primaryColor = "#3a8c9b";
 const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
