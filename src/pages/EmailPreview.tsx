@@ -276,7 +276,7 @@ function performanceReviewSigned(): string {
     ${getUnifiedHeader("Performance Review")}
     <tr><td style="padding:30px 40px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Thank you for reviewing and acknowledging your performance review.</p>
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <table style="width:100%;">
           <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Reviewed By</span><br/><strong style="color:${textColor};font-size:14px;">Sarah Manager</strong></td></tr>
           <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">Downtown</strong></td></tr>
