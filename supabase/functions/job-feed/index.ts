@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       .from("job_listings")
       .select(`
         *,
-        location:locations(id, name, address, city, state, zip_code, country),
+        location:locations(id, name, address),
         organization:organizations(id, name, slug, brand_name)
       `)
       .eq("status", "active")
