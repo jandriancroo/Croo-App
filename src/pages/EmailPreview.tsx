@@ -64,24 +64,12 @@ function authPasswordReset(): string {
   return wrapEmail(`
     <!-- MENUBAR-STYLE HEADER -->
     <tr><td style="padding:16px 20px 0;">
-      <table style="width:100%;border-collapse:collapse;background:${primaryColor};border-radius:12px;overflow:hidden;">
-        <tr>
-          <td style="padding:10px 16px;">
-            <table style="width:100%;border-collapse:collapse;">
-              <tr>
-                <td style="vertical-align:middle;width:48px;">
-                  <div style="width:40px;height:40px;background:#fff;border-radius:10px;display:inline-block;text-align:center;line-height:40px;">
-                    <img src="${WHITE_LOGO}" alt="CrooHQ" style="height:28px;vertical-align:middle;" />
-                  </div>
-                </td>
-                <td style="vertical-align:middle;padding-left:12px;">
-                  <h1 style="color:#fff;font-size:16px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;">Reset Your Password</h1>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
+      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" style="width:100%" arcsize="2%" fill="true" stroke="false"><v:fill type="tile" color="${primaryColor}"/><![endif]-->
+      <div style="background:${primaryColor};border-radius:12px;padding:12px 16px;text-align:center;">
+        <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/brand-assets/blaze-logo.png" alt="Blaze Pizza" style="height:32px;margin-bottom:6px;" />
+        <h1 style="color:#fff;font-size:16px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;">Reset Your Password</h1>
+      </div>
+      <!--[if mso]></v:roundrect><![endif]-->
     </td></tr>
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 20px;">We received a request to reset the password for your CrooHQ account (<strong>${email}</strong>).</p>
