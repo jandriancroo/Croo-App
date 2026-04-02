@@ -423,6 +423,10 @@ export default function Hiring() {
               <Users className="h-4 w-4" />
               Applicants
             </TabsTrigger>
+            <TabsTrigger value="listings" className="gap-2">
+              <Globe className="h-4 w-4" />
+              Job Listings
+            </TabsTrigger>
             <TabsTrigger value="templates" className="gap-2">
               <FileText className="h-4 w-4" />
               Templates
