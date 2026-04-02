@@ -165,7 +165,7 @@ function newApplicationNotification(): string {
     ${getUnifiedHeader("New Job Application")}
     <tr><td style="padding:30px 40px;">
       <h2 style="color:${textColor};font-size:18px;font-weight:600;margin:0 0 20px;">Applicant Details</h2>
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <table style="width:100%;">
           <tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Name</span><br/><strong style="color:${textColor};font-size:16px;">Jane Smith</strong></td></tr>
           <tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Email</span><br/><a href="#" style="color:${primaryColor};font-size:14px;text-decoration:none;">jane@example.com</a></td></tr>
