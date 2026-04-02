@@ -63,10 +63,10 @@ function authPasswordReset(): string {
   const WHITE_LOGO = "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp";
   return wrapEmail(`
     <!-- MENUBAR-STYLE HEADER -->
-    <tr><td style="padding:24px 32px 0;">
+    <tr><td style="padding:16px 20px 0;">
       <table style="width:100%;border-collapse:collapse;background:${primaryColor};border-radius:12px;overflow:hidden;">
         <tr>
-          <td style="padding:14px 24px;">
+          <td style="padding:10px 16px;">
             <table style="width:100%;border-collapse:collapse;">
               <tr>
                 <td style="vertical-align:middle;width:48px;">
