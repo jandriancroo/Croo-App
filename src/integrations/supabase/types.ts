@@ -3564,6 +3564,7 @@ export type Database = {
           interview_date: string | null
           interview_status: string | null
           interview_time: string | null
+          job_listing_id: string | null
           location_id: string | null
           organization_id: string
           phone: string | null
@@ -3572,6 +3573,7 @@ export type Database = {
           resume_url: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          source: string | null
           status: Database["public"]["Enums"]["application_status"]
           submitted_at: string
           template_id: string
@@ -3590,6 +3592,7 @@ export type Database = {
           interview_date?: string | null
           interview_status?: string | null
           interview_time?: string | null
+          job_listing_id?: string | null
           location_id?: string | null
           organization_id: string
           phone?: string | null
@@ -3598,6 +3601,7 @@ export type Database = {
           resume_url?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           submitted_at?: string
           template_id: string
@@ -3616,6 +3620,7 @@ export type Database = {
           interview_date?: string | null
           interview_status?: string | null
           interview_time?: string | null
+          job_listing_id?: string | null
           location_id?: string | null
           organization_id?: string
           phone?: string | null
@@ -3624,12 +3629,20 @@ export type Database = {
           resume_url?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           submitted_at?: string
           template_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_applications_job_listing_id_fkey"
+            columns: ["job_listing_id"]
+            isOneToOne: false
+            referencedRelation: "job_listings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_applications_location_id_fkey"
             columns: ["location_id"]
@@ -3663,6 +3676,142 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "job_application_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_listings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          employment_type: string
+          expires_at: string | null
+          id: string
+          location_id: string | null
+          organization_id: string
+          pay_max: number | null
+          pay_min: number | null
+          pay_type: string
+          posted_at: string | null
+          slug: string
+          status: string
+          syndication_enabled: boolean
+          template_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employment_type?: string
+          expires_at?: string | null
+          id?: string
+          location_id?: string | null
+          organization_id: string
+          pay_max?: number | null
+          pay_min?: number | null
+          pay_type?: string
+          posted_at?: string | null
+          slug: string
+          status?: string
+          syndication_enabled?: boolean
+          template_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employment_type?: string
+          expires_at?: string | null
+          id?: string
+          location_id?: string | null
+          organization_id?: string
+          pay_max?: number | null
+          pay_min?: number | null
+          pay_type?: string
+          posted_at?: string | null
+          slug?: string
+          status?: string
+          syndication_enabled?: boolean
+          template_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_listings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_listings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_listings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_listings_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_application_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_syndication_logs: {
+        Row: {
+          board_name: string
+          created_at: string
+          error_message: string | null
+          feed_url: string | null
+          id: string
+          job_listing_id: string
+          last_crawled_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          board_name: string
+          created_at?: string
+          error_message?: string | null
+          feed_url?: string | null
+          id?: string
+          job_listing_id: string
+          last_crawled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          board_name?: string
+          created_at?: string
+          error_message?: string | null
+          feed_url?: string | null
+          id?: string
+          job_listing_id?: string
+          last_crawled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_syndication_logs_job_listing_id_fkey"
+            columns: ["job_listing_id"]
+            isOneToOne: false
+            referencedRelation: "job_listings"
             referencedColumns: ["id"]
           },
         ]
