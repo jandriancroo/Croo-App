@@ -17,9 +17,10 @@ import { toast } from 'sonner';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
-import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays, Mail, Calendar } from 'lucide-react';
+import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays, Mail, Calendar, Globe } from 'lucide-react';
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
+import { JobListings } from '@/components/hiring/JobListings';
 import { RejectionEmailTemplates } from '@/components/hiring/RejectionEmailTemplates';
 import { RejectionEmailDialog } from '@/components/hiring/RejectionEmailDialog';
 import { BulkRejectionEmailDialog, type BulkRejectApplicant } from '@/components/hiring/BulkRejectionEmailDialog';
@@ -422,6 +423,10 @@ export default function Hiring() {
               <Users className="h-4 w-4" />
               Applicants
             </TabsTrigger>
+            <TabsTrigger value="listings" className="gap-2">
+              <Globe className="h-4 w-4" />
+              Job Listings
+            </TabsTrigger>
             <TabsTrigger value="templates" className="gap-2">
               <FileText className="h-4 w-4" />
               Templates
@@ -680,6 +685,10 @@ export default function Hiring() {
                 })}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="listings" className="mt-4">
+            <JobListings organizationId={organization.id} orgSlug={organization.slug} />
           </TabsContent>
 
           <TabsContent value="templates" className="mt-4 space-y-4">
