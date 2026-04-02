@@ -133,6 +133,26 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     setDialogOpen(true);
   };
 
+  const handleApplyPreset = (presetId: string) => {
+    const preset = presets.find(p => p.id === presetId);
+    if (!preset) return;
+    setFormData(prev => ({
+      ...prev,
+      rule_name: preset.preset_name,
+      state_code: preset.state_code,
+      daily_overtime_threshold: preset.daily_overtime_threshold,
+      daily_double_time_threshold: preset.daily_double_time_threshold,
+      weekly_overtime_threshold: preset.weekly_overtime_threshold,
+      overtime_multiplier: preset.overtime_multiplier,
+      double_time_multiplier: preset.double_time_multiplier,
+      meal_break_hours: preset.meal_break_hours,
+      meal_break_duration: preset.meal_break_duration,
+      rest_break_hours: preset.rest_break_hours,
+      rest_break_duration: preset.rest_break_duration,
+    }));
+    toast.success(`Applied "${preset.preset_name}" preset`);
+  };
+
   const handleSave = async () => {
     if (!locationId || !formData.rule_name.trim() || !formData.state_code.trim()) {
       toast.error('Please fill in rule name and state code');
