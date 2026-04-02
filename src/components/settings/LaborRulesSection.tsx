@@ -984,6 +984,11 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                       <span className="text-muted-foreground">Rest Break:</span> {rule.rest_break_duration}min after {rule.rest_break_hours}h
                     </div>
                   )}
+                  {rule.reporting_time_enabled && (
+                    <div>
+                      <span className="text-muted-foreground">Reporting Time:</span> Min {rule.reporting_time_min_hours}h{rule.reporting_time_max_hours ? `, max ${rule.reporting_time_max_hours}h` : ''}
+                    </div>
+                  )}
                   <div className="col-span-2 border-t pt-2 mt-2">
                     <span className="text-muted-foreground">Clock-In:</span>{' '}
                     {rule.allow_unscheduled_clock_in ? 'Allowed without schedule' : 'Requires scheduled shift'}
