@@ -6,6 +6,59 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// ============================================================================
+// EMAIL BRANDING (matches hiring-email-service styles)
+// ============================================================================
+
+const primaryColor = "#0a7a8a";
+const accentColor = "#f58220";
+const backgroundColor = "#f0ebe1";
+const textColor = "#0f1215";
+const systemFontStack = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+function wrapEmail(content: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+}
+
+function getEmailFooter(): string {
+  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="croo" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+}
+
+async function queueEmailDirect(supabaseAdmin: any, opts: { from: string; to: string[]; subject: string; html: string; source: string; dedupKey?: string }) {
+  const { error } = await supabaseAdmin.from('email_queue').insert({
+    from_address: opts.from,
+    to_addresses: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    source: opts.source,
+    dedup_key: opts.dedupKey || null,
+    metadata: {},
+  });
+  if (error) {
+    console.error(`[user-service] Queue insert failed for "${opts.subject}":`, error);
+    throw error;
+  }
+  console.log(`[user-service] Queued email: "${opts.subject}" → ${opts.to.join(', ')}`);
+}
+
+async function getOrgBranding(supabaseAdmin: any, locationId?: string) {
+  let orgName = "your new team", locName = "", logoUrl = "", brandName = "";
+  if (locationId) {
+    const { data: loc } = await supabaseAdmin.from('locations').select('name, organization_id').eq('id', locationId).single();
+    if (loc) {
+      locName = loc.name;
+      if (loc.organization_id) {
+        const { data: org } = await supabaseAdmin.from('organizations').select('name, logo_url, brand_name').eq('id', loc.organization_id).single();
+        if (org) { orgName = org.name; logoUrl = org.logo_url || ""; brandName = org.brand_name || org.name; }
+      }
+    }
+  }
+  return { orgName, locName, logoUrl, displayName: brandName || orgName };
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
