@@ -63,13 +63,21 @@ function authPasswordReset(): string {
   const WHITE_LOGO = "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp";
   return wrapEmail(`
     <!-- MENUBAR-STYLE HEADER -->
-    <tr><td style="padding:16px 20px 0;">
-      <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" style="width:100%" arcsize="2%" fill="true" stroke="false"><v:fill type="tile" color="${primaryColor}"/><![endif]-->
-      <div style="background:${primaryColor};border-radius:12px;padding:12px 16px;text-align:center;">
-        <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/brand-assets/blaze-logo.png" alt="Blaze Pizza" style="height:32px;margin-bottom:6px;" />
-        <h1 style="color:#fff;font-size:16px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;">Reset Your Password</h1>
+    <tr><td style="padding:4px 4px 0;">
+      <div style="background:${primaryColor};border-radius:12px;padding:10px 16px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="vertical-align:middle;width:40px;">
+              <div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;">
+                <img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" />
+              </div>
+            </td>
+            <td style="vertical-align:middle;padding-left:10px;">
+              <h1 style="color:#fff;font-size:15px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;">Reset Your Password</h1>
+            </td>
+          </tr>
+        </table>
       </div>
-      <!--[if mso]></v:roundrect><![endif]-->
     </td></tr>
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 20px;">We received a request to reset the password for your CrooHQ account (<strong>${email}</strong>).</p>
