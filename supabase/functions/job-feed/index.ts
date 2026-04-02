@@ -14,14 +14,13 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const format = url.searchParams.get("format") || "xml";
-    const orgSlug = url.searchParams.get("org");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Build query for active listings
-    let query = supabase
+    // Fetch all active+syndicated listings across all orgs/locations
+    const { data: listings, error } = await supabase
       .from("job_listings")
       .select(`
         *,
@@ -30,21 +29,8 @@ Deno.serve(async (req) => {
       `)
       .eq("status", "active")
       .eq("syndication_enabled", true)
-      .lte("posted_at", new Date().toISOString());
-
-    if (orgSlug) {
-      // Filter by org slug
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("slug", orgSlug)
-        .single();
-      if (org) {
-        query = query.eq("organization_id", org.id);
-      }
-    }
-
-    const { data: listings, error } = await query.order("posted_at", { ascending: false });
+      .lte("posted_at", new Date().toISOString())
+      .order("posted_at", { ascending: false });
 
     if (error) throw error;
 
