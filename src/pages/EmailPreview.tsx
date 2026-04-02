@@ -225,7 +225,7 @@ function writeupNotification(): string {
           <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Date</span><br/><strong style="color:${textColor};font-size:14px;">Apr 1, 2026</strong></td></tr>
         </table>
       </div>
-      <div style="background:#fafafa;border-radius:10px;padding:16px;margin-bottom:16px;border-left:4px solid ${primaryColor};">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
         <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Issue Description</p>
         <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">Employee was 15 minutes late to scheduled shift without prior notification.</p>
       </div>
