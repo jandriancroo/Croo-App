@@ -527,6 +527,36 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                         </div>
                       </div>
 
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold mb-3 text-sm">Reporting Time Pay</h4>
+                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg mb-3">
+                          <div className="space-y-0.5">
+                            <Label className="text-xs font-medium">Reporting Time Pay Required</Label>
+                            <p className="text-[10px] text-muted-foreground">Minimum pay when employee is called in but sent home early</p>
+                          </div>
+                          <Switch
+                            checked={presetForm.reporting_time_enabled}
+                            onCheckedChange={(checked) => setPresetForm({...presetForm, reporting_time_enabled: checked})}
+                          />
+                        </div>
+                        {presetForm.reporting_time_enabled && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Min Hours Paid</Label>
+                              <Input type="number" step="0.5" placeholder="e.g., 2"
+                                value={presetForm.reporting_time_min_hours || ''}
+                                onChange={(e) => setPresetForm({...presetForm, reporting_time_min_hours: e.target.value ? parseFloat(e.target.value) : null})} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Max Hours Cap</Label>
+                              <Input type="number" step="0.5" placeholder="No cap"
+                                value={presetForm.reporting_time_max_hours || ''}
+                                onChange={(e) => setPresetForm({...presetForm, reporting_time_max_hours: e.target.value ? parseFloat(e.target.value) : null})} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setPresetFormOpen(false)}>Back</Button>
                         <Button onClick={handleSavePreset} disabled={presetLoading}>
