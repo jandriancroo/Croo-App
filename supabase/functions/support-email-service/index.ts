@@ -45,23 +45,32 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const primaryColor = "#0a7a8a";
+const primaryColor = "#3a8c9b";
 const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
+const containerBg = "#f5f4f1";
 
 const systemFontStack = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
+const WHITE_LOGO = "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp";
+const TRANSPARENT_LOGO = "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp";
+
 function wrapEmail(content: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
 }
 
-function getEmailHeader(title: string): string {
-   return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
+function getUnifiedHeader(title: string): string {
+  return `<tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:18px 16px;position:relative;"><div style="position:absolute;left:16px;top:50%;transform:translateY(-50%);"><div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;"><img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" /></div></div><h1 style="color:#fff;font-size:18px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;text-align:center;padding:8px 0;">${title}</h1></td></tr>`;
+}
+
+// Pulse-specific header with brand logo and location info
+function getPulseHeader(title: string, brandLogoUrl: string | null, locationName: string, storeNumber: string | null, dateInfo: string): string {
+  return `<tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:24px 24px 20px;"><table style="width:100%;border-collapse:collapse;"><tr><td style="vertical-align:middle;text-align:left;">${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:40px;width:40px;border-radius:10px;object-fit:contain;background:#fff;" />` : `<div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;"><img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" /></div>`}</td><td style="vertical-align:middle;text-align:right;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${locationName}${storeNumber ? ` #${storeNumber}` : ''}</p><p style="color:rgba(255,255,255,0.65);font-size:12px;margin:2px 0 0;font-family:${systemFontStack};">${dateInfo}</p></td></tr></table><h1 style="color:#fff;font-size:22px;font-weight:700;margin:14px 0 0;letter-spacing:0.3px;font-family:${systemFontStack};">${title}</h1></td></tr>`;
 }
 
 function getEmailFooter(): string {
-   return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:44px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+  return `<tr><td style="background-color:#f0ebe1;padding:12px 24px;border-top:1px solid #e8e5df;border-radius:0 0 16px 16px;"><table role="presentation" style="width:100%;"><tr><td style="text-align:left;vertical-align:middle;"><div style="display:inline-flex;align-items:center;gap:6px;"><span style="color:#3a5f7d;font-size:12px;font-weight:400;">Powered by</span><img src="${TRANSPARENT_LOGO}" alt="CrooHQ" style="height:28px;" /></div></td><td style="text-align:right;vertical-align:middle;"><p style="color:#999;font-size:11px;margin:0;">&copy; ${new Date().getFullYear()} Croo. All rights reserved.</p></td></tr></table></td></tr>`;
 }
 
 function getCTAButton(url: string, text: string): string {
@@ -75,31 +84,11 @@ async function notifySupportTicket(payload: any): Promise<Response> {
   
   // Preview mode - return sample HTML without needing a real ticket
   if (preview) {
-    const fontStack = systemFontStack;
     const html = wrapEmail(`
-      <!-- HEADER -->
-      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td style="vertical-align:middle;text-align:left;width:180px;">
-              <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-            </td>
-            <td style="vertical-align:middle;text-align:center;">
-              <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Support Ticket</h1>
-            </td>
-            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-              <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">New Ticket</p>
-              <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">Feb 12, 2026</p>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
-
+      ${getUnifiedHeader("Support Ticket")}
       <tr><td style="padding:28px 32px;">
-
-        <!-- TICKET INFO -->
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+        <div style="background:${containerBg};border-radius:12px;padding:16px 20px;margin-bottom:16px;">
           <table style="width:100%;border-collapse:collapse;">
             <tr>
               <td style="vertical-align:top;width:33%;padding:4px 0;">
@@ -117,15 +106,11 @@ async function notifySupportTicket(payload: any): Promise<Response> {
             </tr>
           </table>
         </div>
-
         <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
-
-        <!-- DESCRIPTION -->
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Description</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+        <div style="background:${containerBg};border-radius:12px;padding:16px 20px;">
           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">The schedule page flickers when switching between weeks on mobile. Happens consistently on iPhone 15.</p>
         </div>
-
         <div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div>
       </td></tr>
       ${getEmailFooter()}
@@ -175,7 +160,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
       emailContent = `
         <!-- TICKET INFO -->
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
           <table style="width:100%;border-collapse:collapse;">
             <tr>
               <td style="vertical-align:top;width:33%;padding:4px 0;">
@@ -195,7 +180,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
         </div>
         <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Description</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">${ticket.description}</p>
         </div>
        `;
@@ -206,7 +191,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
       pushBody = message_content?.substring(0, 100) || "New message received";
       emailContent = `
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">New Message</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
           <table style="width:100%;border-collapse:collapse;">
             <tr>
               <td style="vertical-align:top;width:50%;padding:4px 0;">
@@ -222,7 +207,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
         </div>
         <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Message</p>
-        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+        <div style="background:#f5f4f1;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">${message_content || "(no content)"}</p>
         </div>
        `;
@@ -232,23 +217,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
   }
 
    const emailHtml = wrapEmail(`
-     <!-- HEADER -->
-     <tr><td style="background-color:${primaryColor};padding:20px 32px;">
-       <table style="width:100%;border-collapse:collapse;">
-         <tr>
-           <td style="vertical-align:middle;text-align:left;width:180px;">
-             <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
-           </td>
-           <td style="vertical-align:middle;text-align:center;">
-             <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Support Ticket</h1>
-           </td>
-           <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-             <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${ticketNumber}</p>
-             <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">${dateStr}</p>
-           </td>
-         </tr>
-       </table>
-     </td></tr>
+     ${getUnifiedHeader("Support Ticket")}
      <tr><td style="padding:28px 32px;">${emailContent}<div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div></td></tr>
      ${getEmailFooter()}
    `);
@@ -304,7 +273,7 @@ async function sendSupportResolution(payload: any): Promise<Response> {
       from: "CrooHQ Support <support@croohq.email>",
       to: [userEmail],
       subject: `Your support ticket ${ticketNumber} has been resolved`,
-      html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Ticket Resolved</h1></td></tr><tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 16px;">Good news, ${firstName}!</p><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Your support ticket <strong style="color:${primaryColor};">${ticketNumber}</strong> has been resolved.</p><div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:24px;border-left:4px solid ${primaryColor};"><p style="color:#888;font-size:11px;text-transform:uppercase;margin:0 0 8px;font-weight:500;">Original Issue</p><p style="color:${textColor};font-size:14px;margin:0;">${ticket.description}</p></div><div style="text-align:center;"><a href="https://croohq.com" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Open Croo</a></div></td></tr>${getEmailFooter()}`),
+      html: wrapEmail(`${getUnifiedHeader("Ticket Resolved")}<tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 16px;">Good news, ${firstName}!</p><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Your support ticket <strong style="color:${primaryColor};">${ticketNumber}</strong> has been resolved.</p><div style="background:${containerBg};border-radius:12px;padding:16px 20px;margin-bottom:24px;"><p style="color:#888;font-size:11px;text-transform:uppercase;margin:0 0 8px;font-weight:500;">Original Issue</p><p style="color:${textColor};font-size:14px;margin:0;">${ticket.description}</p></div>${getCTAButton("https://croohq.com", "Open Croo")}</td></tr>${getEmailFooter()}`),
       source: 'support_resolution',
       dedupKey: `support_resolution_${ticketId}`,
     });
@@ -650,11 +619,11 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
 <table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
 
   <!-- HEADER -->
-  <tr><td style="background-color:#0a7a8a;padding:24px 24px 20px;">
+  <tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:24px 24px 20px;">
     <table style="width:100%;border-collapse:collapse;">
       <tr>
         <td style="vertical-align:middle;text-align:left;">
-          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:40px;width:40px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
+          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:40px;width:40px;border-radius:10px;object-fit:contain;background:#fff;" />` : `<div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;"><img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" /></div>`}
         </td>
         <td style="vertical-align:middle;text-align:right;">
           <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
@@ -696,7 +665,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       const barColor = c.pct >= 100 ? primaryColor : primaryColor;
       const pctColor = c.pct >= 100 ? '#22c55e' : '#ef4444';
       const timeStr = c.submittedAt ? formatTimePST(c.submittedAt) : "";
-      return `<div style="background:#fafaf8;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
+      return `<div style="background:#f5f4f1;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="vertical-align:top;">
@@ -1307,7 +1276,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
       <tr>
         <td style="vertical-align:top;width:50%;padding-right:16px;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Checklists</p>
-          <div style="background:#fafaf8;border-radius:12px;padding:12px 14px;">
+          <div style="background:#f5f4f1;border-radius:12px;padding:12px 14px;">
             <p style="margin:0;font-size:22px;font-weight:700;color:${checklistPct >= 90 ? '#22c55e' : checklistPct >= 70 ? '#f59e0b' : '#ef4444'};">${checklistPct}%</p>
             <p style="margin:2px 0 0;font-size:12px;color:#888;">${Math.min(totalResponseCount, totalExpectedItems)}/${totalExpectedItems} items completed</p>
             <div style="background:#e0f2f1;border-radius:4px;height:6px;width:100%;overflow:hidden;margin-top:6px;">
@@ -1317,7 +1286,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
         </td>
         <td style="vertical-align:top;width:50%;border-left:1px solid #e8e5df;padding-left:16px;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Cash Handling</p>
-          <div style="background:#fafaf8;border-radius:12px;padding:12px 14px;">
+          <div style="background:#f5f4f1;border-radius:12px;padding:12px 14px;">
             <table style="width:100%;border-collapse:collapse;">
               <tr>
                 <td style="padding:3px 0;font-size:12px;color:#888;">Drawer Variance</td>

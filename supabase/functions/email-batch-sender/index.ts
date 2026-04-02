@@ -89,8 +89,15 @@ Deno.serve(async (req) => {
         if (job.email_type === 'daily_summary') {
           payload.entry_date = job.target_date
         } else if (job.email_type === 'weekly_summary') {
-          // Weekly summary expects week_end date (the Sunday)
-          payload.week_end = job.target_date
+          // Weekly summary expects week_end date (the Sunday) and week_start (the Monday)
+          // target_date is Sunday (yesterday when queued on Monday)
+          // week_start is 6 days before week_end (Monday of that week)
+          const endDate = new Date(job.target_date + 'T12:00:00')
+          const startDate = new Date(endDate)
+          startDate.setDate(startDate.getDate() - 6)
+          const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          payload.week_end = fmt(endDate)
+          payload.week_start = fmt(startDate)
         }
 
         const response = await fetch(`${supabaseUrl}/functions/v1/support-email-service`, {
