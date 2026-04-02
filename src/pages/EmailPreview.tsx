@@ -291,6 +291,124 @@ function performanceReviewSigned(): string {
 }
 
 // ============================================================================
+// PULSE EMAILS (from support-email-service)
+// ============================================================================
+function dailyPulse(): string {
+  return wrapEmail(`
+    ${getUnifiedHeader("Daily Pulse")}
+    <tr><td style="padding:24px;">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <tr>
+          <td style="vertical-align:top;width:50%;padding-right:20px;">
+            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Sales</p>
+            <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$2,742</strong></p>
+            <p style="color:#888;font-size:13px;margin:4px 0 0;">Target: $3,100 (<span style="color:#ef4444;font-weight:600;">-$358</span>)</p>
+            <table style="margin-top:8px;"><tr>
+              <td style="padding-right:16px;"><span style="display:inline-block;background:#fef3c7;color:#78350f;border:1px solid #fcd34d;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:600;">LW -4.2%</span></td>
+              <td><span style="display:inline-block;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:600;">LY +8.1%</span></td>
+            </tr></table>
+          </td>
+          <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
+            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Labor</p>
+            <p style="margin:0;"><strong style="color:#22c55e;font-size:28px;">24.8%</strong></p>
+            <p style="color:#888;font-size:13px;margin:4px 0 0;">$680 &middot; 42.5h</p>
+            <p style="color:#22c55e;font-size:13px;font-weight:600;margin:4px 0 0;">-$45 vs 26% goal</p>
+          </td>
+        </tr>
+      </table>
+      <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Checklists 2/3</p>
+      <div style="background:#fafaf8;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
+        <table style="width:100%;border-collapse:collapse;"><tr>
+          <td><p style="margin:0;font-size:13px;color:${textColor};font-weight:700;">Opening Checklist</p></td>
+          <td style="text-align:right;"><span style="color:#888;font-size:12px;">8:15 AM</span> <span style="color:#22c55e;font-size:12px;font-weight:700;">100%</span></td>
+        </tr><tr><td><p style="margin:2px 0 0;font-size:11px;color:#888;">John M.</p></td><td style="text-align:right;"><span style="font-size:11px;color:#888;">12/12 items</span></td></tr></table>
+        <div style="background:#e0f2f1;border-radius:6px;height:6px;width:100%;overflow:hidden;margin-top:8px;"><div style="background:${primaryColor};height:100%;width:100%;border-radius:6px;"></div></div>
+      </div>
+      <div style="background:#fafaf8;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
+        <table style="width:100%;border-collapse:collapse;"><tr>
+          <td><p style="margin:0;font-size:13px;color:${textColor};font-weight:700;">Food Safety</p></td>
+          <td style="text-align:right;"><span style="color:#ef4444;font-size:12px;font-weight:700;">0%</span></td>
+        </tr><tr><td><p style="margin:2px 0 0;font-size:11px;color:#ef4444;">Not Completed</p></td><td style="text-align:right;"><span style="font-size:11px;color:#888;">0/6 items</span></td></tr></table>
+        <div style="background:#e0f2f1;border-radius:6px;height:6px;width:100%;overflow:hidden;margin-top:8px;"><div style="background:${primaryColor};height:100%;width:0%;border-radius:6px;"></div></div>
+      </div>
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;"><tr>
+        <td style="vertical-align:top;width:50%;padding-right:16px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Safe Count</p>
+          <div style="margin-bottom:10px;"><span style="display:inline-block;background:#fef3c7;color:#78350f;border:1px solid #fcd34d;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">☀︎ AM</span> <span style="color:#22c55e;font-weight:600;font-size:13px;">Completed</span><p style="margin:4px 0 0;font-size:12px;color:#888;">John M. &middot; 8:30 AM</p></div>
+          <div><span style="display:inline-block;background:#312e81;color:#e0e7ff;border:1px solid #4338ca;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">☽ PM</span> <span style="color:#22c55e;font-weight:600;font-size:13px;">Completed</span><p style="margin:4px 0 0;font-size:12px;color:#888;">Sarah K. &middot; 9:45 PM</p></div>
+        </td>
+        <td style="vertical-align:top;border-left:1px solid #e8e5df;padding-left:16px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Drawer Count</p>
+          <p style="margin:0 0 2px;font-size:13px;color:${textColor};font-weight:600;">$482.35 / $500.00</p>
+          <p style="margin:0 0 2px;font-size:12px;"><span style="color:#ef4444;font-weight:600;">Under $17.65</span></p>
+          <p style="margin:0;font-size:11px;color:#888;">9:55 PM - Sarah K.</p>
+        </td>
+      </tr></table>
+      <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Logbook 2 entries</p>
+      <div style="background:#fafaf8;border-radius:12px;padding:10px 14px;margin-bottom:6px;">
+        <p style="margin:0;font-size:13px;color:${textColor};font-weight:600;">Equipment Issue</p>
+        <p style="margin:2px 0 0;font-size:12px;color:#888;">Oven 2 temp running 15° low — called for service. John M. &middot; 2:30 PM</p>
+      </div>
+      <div style="background:#fafaf8;border-radius:12px;padding:10px 14px;margin-bottom:6px;">
+        <p style="margin:0;font-size:13px;color:${textColor};font-weight:600;">Customer Complaint</p>
+        <p style="margin:2px 0 0;font-size:12px;color:#888;">Guest received wrong order, remade and comped. Sarah K. &middot; 6:15 PM</p>
+      </div>
+    </td></tr>
+    ${getEmailFooter()}`);
+}
+
+function weeklyPulse(): string {
+  return wrapEmail(`
+    ${getUnifiedHeader("Weekly Pulse")}
+    <tr><td style="padding:24px;">
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Sales Summary</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><tr>
+        <td style="vertical-align:top;width:50%;padding-right:20px;">
+          <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$18,420</strong></p>
+          <p style="color:#888;font-size:13px;margin:4px 0 0;">Weekly Target: $19,500</p>
+          <p style="color:#ef4444;font-size:13px;font-weight:600;margin:4px 0 0;">-$1,080 vs goal</p>
+        </td>
+        <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Avg Labor</p>
+          <p style="margin:0;"><strong style="color:#22c55e;font-size:28px;">25.2%</strong></p>
+          <p style="color:#888;font-size:13px;margin:4px 0 0;">$4,642 total labor</p>
+        </td>
+      </tr></table>
+      <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Daily Breakdown</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;">
+        <tr style="border-bottom:2px solid #e8e5df;">
+          <td style="padding:8px 0;font-weight:700;color:${textColor};">Day</td>
+          <td style="padding:8px 0;text-align:right;font-weight:700;color:${textColor};">Sales</td>
+          <td style="padding:8px 0;text-align:right;font-weight:700;color:${textColor};">Labor%</td>
+          <td style="padding:8px 0;text-align:right;font-weight:700;color:${textColor};">vs Goal</td>
+        </tr>
+        ${["Mon,$2,180,23.1%,+$80", "Tue,$2,420,24.5%,+$120", "Wed,$2,850,22.8%,+$350", "Thu,$2,540,26.2%,-$60", "Fri,$3,210,25.8%,+$510", "Sat,$3,080,27.1%,-$120", "Sun,$2,140,25.4%,-$360"].map(row => {
+          const [day, sales, labor, diff] = row.split(",");
+          const isNeg = diff.startsWith("-");
+          return `<tr style="border-bottom:1px solid #f0ebe1;">
+            <td style="padding:8px 0;color:${textColor};">${day}</td>
+            <td style="padding:8px 0;text-align:right;color:${textColor};font-weight:600;">${sales}</td>
+            <td style="padding:8px 0;text-align:right;color:#888;">${labor}</td>
+            <td style="padding:8px 0;text-align:right;color:${isNeg ? '#ef4444' : '#22c55e'};font-weight:600;">${diff}</td>
+          </tr>`;
+        }).join("")}
+      </table>
+      <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Checklist Completion</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tr style="border-bottom:1px solid #e8e5df;"><td style="padding:6px 0;color:${textColor};font-weight:600;">Opening</td><td style="padding:6px 0;text-align:right;color:#22c55e;font-weight:700;">7/7 days</td></tr>
+        <tr style="border-bottom:1px solid #e8e5df;"><td style="padding:6px 0;color:${textColor};font-weight:600;">Closing</td><td style="padding:6px 0;text-align:right;color:#22c55e;font-weight:700;">7/7 days</td></tr>
+        <tr style="border-bottom:1px solid #e8e5df;"><td style="padding:6px 0;color:${textColor};font-weight:600;">Food Safety</td><td style="padding:6px 0;text-align:right;color:#ef4444;font-weight:700;">4/7 days</td></tr>
+      </table>
+    </td></tr>
+    ${getEmailFooter()}`);
+}
+
+// ============================================================================
 // TEMPLATE REGISTRY
 // ============================================================================
 interface EmailTemplate {
