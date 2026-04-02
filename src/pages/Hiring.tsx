@@ -687,6 +687,10 @@ export default function Hiring() {
             )}
           </TabsContent>
 
+          <TabsContent value="listings" className="mt-4">
+            <JobListings organizationId={organization.id} orgSlug={organization.slug} />
+          </TabsContent>
+
           <TabsContent value="templates" className="mt-4 space-y-4">
             <div className="flex gap-2 border-b pb-2">
               <Button
