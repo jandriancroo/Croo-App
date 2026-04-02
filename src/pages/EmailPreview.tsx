@@ -358,14 +358,20 @@ function dailyPulse(): string {
       <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Logbook 2 entries</p>
       <table style="width:100%;border-collapse:collapse;background:#fafaf8;border-radius:12px;overflow:hidden;">
         <tr style="border-bottom:1px solid #e8e5df;">
-          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#f59e0b;text-align:center;line-height:18px;color:#fff;font-size:10px;font-weight:700;">⚙</span></td>
-          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Equipment Issue</span></td>
-          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">John M. · 2:30 PM</span></td>
+          <td style="padding:8px 12px 2px;width:20px;vertical-align:top;" rowspan="2"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#f59e0b;text-align:center;line-height:18px;color:#fff;font-size:10px;font-weight:700;">⚙</span></td>
+          <td style="padding:8px 4px 0;"><span style="font-size:13px;color:${textColor};font-weight:600;">Equipment Issue</span></td>
+          <td style="padding:8px 12px 0;text-align:right;vertical-align:top;"><span style="font-size:11px;color:#888;">John M. · 2:30 PM</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td colspan="2" style="padding:2px 12px 8px 4px;"><span style="font-size:11px;color:#888;">Oven 2 temp running 15° low — called for service.</span></td>
         </tr>
         <tr>
-          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ef4444;text-align:center;line-height:18px;color:#fff;font-size:10px;font-weight:700;">!</span></td>
-          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Customer Complaint</span></td>
-          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">Sarah K. · 6:15 PM</span></td>
+          <td style="padding:8px 12px 2px;width:20px;vertical-align:top;" rowspan="2"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ef4444;text-align:center;line-height:18px;color:#fff;font-size:10px;font-weight:700;">!</span></td>
+          <td style="padding:8px 4px 0;"><span style="font-size:13px;color:${textColor};font-weight:600;">Customer Complaint</span></td>
+          <td style="padding:8px 12px 0;text-align:right;vertical-align:top;"><span style="font-size:11px;color:#888;">Sarah K. · 6:15 PM</span></td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:2px 12px 8px 4px;"><span style="font-size:11px;color:#888;">Guest received wrong order, remade and comped.</span></td>
         </tr>
       </table>
     </td></tr>
