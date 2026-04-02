@@ -433,7 +433,9 @@ const ALL_TEMPLATES: EmailTemplate[] = [
   { id: "hire-rejection", name: "Rejection Email", category: "hiring", source: "hiring-email-service → Resend", html: rejectionEmail() },
   { id: "hire-new-app", name: "New Application Alert", category: "hiring", source: "hiring-email-service → Resend", html: newApplicationNotification() },
 
-  // Operations emails (via Resend)
+  // Operations / Pulse emails
+  { id: "ops-daily-pulse", name: "Daily Pulse", category: "operations", source: "support-email-service → Resend", html: dailyPulse() },
+  { id: "ops-weekly-pulse", name: "Weekly Pulse", category: "operations", source: "support-email-service → Resend", html: weeklyPulse() },
   { id: "ops-schedule", name: "Weekly Schedule (Employee)", category: "operations", source: "send-weekly-schedule-email → Resend", html: weeklyScheduleEmployee() },
   { id: "ops-support", name: "Support Ticket", category: "operations", source: "support-email-service → Resend", html: supportTicket() },
 
