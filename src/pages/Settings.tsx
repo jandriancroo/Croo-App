@@ -10,7 +10,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,6 +19,7 @@ import { OrganizationMembersSection } from '@/components/settings/OrganizationMe
 import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
 import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
 import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
+import { CloneLocationSettings } from '@/components/settings/CloneLocationSettings';
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -41,7 +42,7 @@ const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inve
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'org-members', 'org-roles'];
 // Sections only super admins see
-const SUPER_ADMIN_SECTIONS = ['brands', 'organizations', 'maintenance'];
+const SUPER_ADMIN_SECTIONS = ['clone-settings', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
@@ -54,6 +55,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   'org-members': { title: 'Org Admins', icon: <Building2 className="h-4 w-4" /> },
   'org-roles': { title: 'Roles & Permissions', icon: <Building2 className="h-4 w-4" /> },
   'org-positions': { title: 'Positions', icon: <Building2 className="h-4 w-4" /> },
+  'clone-settings': { title: 'Clone Location Settings', icon: <Copy className="h-4 w-4" /> },
   brands: { title: 'Brands', icon: <Tag className="h-4 w-4" /> },
   organizations: { title: 'All Organizations', icon: <Building2 className="h-4 w-4" /> },
   maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
@@ -78,6 +80,7 @@ export default function Settings() {
     'org-members': true,
     'org-roles': false,
     'org-positions': false,
+    'clone-settings': false,
     brands: false,
     organizations: false,
     maintenance: false,
@@ -215,6 +218,10 @@ export default function Settings() {
 
       case 'notifications':
         return <UnifiedNotificationSettings />;
+
+      case 'clone-settings':
+        if (!isSuperAdmin) return null;
+        return <CloneLocationSettings />;
 
       case 'brands':
         if (!isSuperAdmin) return null;
@@ -413,7 +420,7 @@ export default function Settings() {
             if (!content) return null;
 
             // Sections that have their own internal cards — render flush to avoid nesting
-            const isFlushSection = ['food-safety-audits', 'notifications', 'org-members', 'org-roles', 'org-positions'].includes(sectionId);
+            const isFlushSection = ['food-safety-audits', 'notifications', 'org-members', 'org-roles', 'org-positions', 'clone-settings'].includes(sectionId);
 
             return (
               <Collapsible
