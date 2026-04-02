@@ -60,10 +60,28 @@ function getCTAButton(url: string, text: string): string {
 // ============================================================================
 function authPasswordReset(): string {
   const email = "john@example.com";
+  const WHITE_LOGO = "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp";
   return wrapEmail(`
-    <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-      <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
-      <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">Reset Your Password</h1>
+    <!-- MENUBAR-STYLE HEADER -->
+    <tr><td style="padding:24px 32px 0;">
+      <table style="width:100%;border-collapse:collapse;background:${primaryColor};border-radius:12px;overflow:hidden;">
+        <tr>
+          <td style="padding:14px 24px;">
+            <table style="width:100%;border-collapse:collapse;">
+              <tr>
+                <td style="vertical-align:middle;width:48px;">
+                  <div style="width:40px;height:40px;background:#fff;border-radius:10px;display:inline-block;text-align:center;line-height:40px;">
+                    <img src="${WHITE_LOGO}" alt="CrooHQ" style="height:28px;vertical-align:middle;" />
+                  </div>
+                </td>
+                <td style="vertical-align:middle;padding-left:12px;">
+                  <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0;font-family:${systemFontStack};letter-spacing:-0.3px;">Reset Your Password</h1>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </td></tr>
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 20px;">We received a request to reset the password for your CrooHQ account (<strong>${email}</strong>).</p>
