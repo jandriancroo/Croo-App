@@ -600,6 +600,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                               {preset.meal_break_hours && (
                                 <span>Meal: {preset.meal_break_duration}min/{preset.meal_break_hours}h</span>
                               )}
+                              {preset.reporting_time_enabled && (
+                                <span>Report: min {preset.reporting_time_min_hours}h{preset.reporting_time_max_hours ? `, max ${preset.reporting_time_max_hours}h` : ''}</span>
+                              )}
                             </div>
                           </div>
                         ))
