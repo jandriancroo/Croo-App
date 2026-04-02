@@ -62,6 +62,7 @@ const OrganizationProfile = lazyWithRetry(() => import("./pages/OrganizationProf
 const BrandManagement = lazyWithRetry(() => import("./pages/BrandManagement"));
 const Hiring = lazyWithRetry(() => import("./pages/Hiring"));
 const PublicApplication = lazyWithRetry(() => import("./pages/PublicApplication"));
+const PublicJobs = lazyWithRetry(() => import("./pages/PublicJobs"));
 const HiringChat = lazyWithRetry(() => import("./pages/HiringChat"));
 const ApplicantPortal = lazyWithRetry(() => import("./pages/ApplicantPortal"));
 const Changelog = lazyWithRetry(() => import("./pages/Changelog"));
@@ -147,6 +148,7 @@ const AppContent = () => {
         
         <Route path="/install" element={<InstallGuide />} />
         <Route path="/apply/:orgSlug" element={<PublicApplication />} />
+        <Route path="/jobs" element={<PublicJobs />} />
         <Route path="/qr/:qrCode" element={<QRQuickTaskReport />} />
         
         <Route path="/hiring-chat/:token" element={<HiringChat />} />
