@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Scale, Calendar, Clock, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, Scale, Calendar, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface LaborRulesSectionProps {
