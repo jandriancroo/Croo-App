@@ -184,7 +184,7 @@ function supportTicket(): string {
     ${getUnifiedHeader("Support Ticket")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:16px;">
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="vertical-align:top;width:33%;padding:4px 0;">
