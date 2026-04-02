@@ -154,6 +154,77 @@ export default function PublicApplication() {
     enabled: !!selectedTemplate,
   });
 
+  // Fetch active job listings for JSON-LD structured data (Google Jobs)
+  const { data: activeListings } = useQuery({
+    queryKey: ['active-listings-jsonld', organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('job_listings')
+        .select('*, location:locations(name, address)')
+        .eq('organization_id', organization!.id)
+        .eq('status', 'active')
+        .eq('syndication_enabled', true);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
+  // Inject JSON-LD for Google Jobs
+  useEffect(() => {
+    if (!activeListings?.length || !organization) return;
+    const existingScript = document.getElementById('job-posting-jsonld');
+    if (existingScript) existingScript.remove();
+
+    const jsonLd = activeListings.map((listing: any) => {
+      const addr = listing.location?.address || '';
+      const parts = addr.split(',').map((s: string) => s.trim());
+      const posting: any = {
+        '@context': 'https://schema.org/',
+        '@type': 'JobPosting',
+        title: listing.title,
+        description: listing.description || listing.title,
+        datePosted: listing.posted_at?.split('T')[0],
+        employmentType: listing.employment_type === 'full_time' ? 'FULL_TIME' : listing.employment_type === 'part_time' ? 'PART_TIME' : 'FULL_TIME',
+        hiringOrganization: {
+          '@type': 'Organization',
+          name: (organization as any).brand_name || organization.name,
+        },
+        jobLocation: {
+          '@type': 'Place',
+          address: {
+            '@type': 'PostalAddress',
+            streetAddress: parts[0] || '',
+            addressLocality: parts.length >= 3 ? parts[1] : '',
+            addressRegion: parts.length >= 2 ? parts[parts.length - 1].replace(/\d{5}.*/, '').trim() : '',
+            addressCountry: 'US',
+          },
+        },
+        directApply: true,
+      };
+      if (listing.pay_min) {
+        posting.baseSalary = {
+          '@type': 'MonetaryAmount',
+          currency: 'USD',
+          value: { '@type': 'QuantitativeValue', minValue: listing.pay_min, maxValue: listing.pay_max || listing.pay_min, unitText: listing.pay_type === 'salary' ? 'YEAR' : 'HOUR' },
+        };
+      }
+      if (listing.expires_at) posting.validThrough = listing.expires_at.split('T')[0];
+      return posting;
+    });
+
+    const script = document.createElement('script');
+    script.id = 'job-posting-jsonld';
+    script.type = 'application/ld+json';
+    script.textContent = JSON.stringify(jsonLd.length === 1 ? jsonLd[0] : jsonLd);
+    document.head.appendChild(script);
+
+    return () => {
+      const el = document.getElementById('job-posting-jsonld');
+      if (el) el.remove();
+    };
+  }, [activeListings, organization]);
+
   // Auto-select first template if only one
   useEffect(() => {
     if (templates?.length === 1 && !selectedTemplate) {
