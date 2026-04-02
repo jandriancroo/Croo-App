@@ -1099,6 +1099,9 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
   let safeCountTotal = 0;
   let depositTotal = 0;
 
+  // Per-day cash variance map
+  const dailyCashVariance: Record<string, number> = {};
+
   if (cashEntries.length > 0) {
     const entryIds = cashEntries.map((e: any) => e.id);
     const { data: entryValues } = await supabase
@@ -1114,8 +1117,11 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
           try {
             const parsed = JSON.parse(v.value_text);
             if (entry.category?.name === "Drawer Count" && parsed.variance !== undefined) {
-              drawerVarianceTotal += Number(parsed.variance);
+              const variance = Number(parsed.variance);
+              drawerVarianceTotal += variance;
               drawerCount++;
+              const entryDate = entry.entry_date;
+              dailyCashVariance[entryDate] = (dailyCashVariance[entryDate] || 0) + variance;
             }
             if (entry.category?.name === "Safe Count" && parsed.totalSafe !== undefined) {
               safeCountTotal++;
@@ -1127,6 +1133,15 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
         }
       }
     }
+  }
+
+  // ---- Per-day labor data ----
+  const dailyLaborMap: Record<string, { hours: number; cost: number }> = {};
+  for (const l of (laborRows || [])) {
+    const ld = l.labor_date;
+    if (!dailyLaborMap[ld]) dailyLaborMap[ld] = { hours: 0, cost: 0 };
+    dailyLaborMap[ld].hours += l.labor_hours || 0;
+    dailyLaborMap[ld].cost += l.labor_cost || 0;
   }
 
   // ---- Recipients ----
@@ -1147,8 +1162,6 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
   // ---- Format dates ----
   const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
   const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const startDate = new Date(sYr, sMo - 1, sDy);
-  const endDate = new Date(eYr, eMo - 1, eDy);
   const displayRange = `${monthNames[sMo - 1]} ${sDy} – ${sMo !== eMo ? monthNames[eMo - 1] + " " : ""}${eDy}, ${eYr}`;
 
   // ---- Best / Worst Day ----
@@ -1160,8 +1173,6 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
   const daysWithSales = dailySales.filter(d => d.sales > 0).length || 1;
   const avgDailySales = totalSales / daysWithSales;
 
-  const fontStack = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-
   // Day name helper
   const getDayName = (dateStr: string) => {
     const [y, m, d] = dateStr.split("-").map(Number);
@@ -1169,150 +1180,231 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
   };
   const getShortDay = (dateStr: string) => getDayName(dateStr).slice(0, 3);
 
-  // Daily sales bar chart
-  const maxDaySales = Math.max(...dailySales.map(d => d.sales), 1);
-  const dailyBarsHtml = dailySales.map(d => {
-    const pct = Math.round((d.sales / maxDaySales) * 100);
+  // ---- AI Weekly Insights ----
+  let aiInsightsHtml = '';
+  try {
+    // Build context for AI
+    const aiContext = {
+      totalSales, totalProjection, projDiff,
+      laborPercent: laborPercent.toFixed(1), laborGoal, laborOverUnder,
+      drawerVarianceTotal: drawerVarianceTotal.toFixed(2),
+      checklistPct,
+      bestDay: bestDay ? { day: getDayName(bestDay.date), sales: bestDay.sales } : null,
+      worstDay: worstDay ? { day: getDayName(worstDay.date), sales: worstDay.sales } : null,
+      dailyBreakdown: dailySales.map(d => ({
+        day: getShortDay(d.date),
+        sales: d.sales,
+        projection: d.projection,
+        laborPct: dailyLaborMap[d.date] && d.sales > 0 ? (dailyLaborMap[d.date].cost / d.sales * 100).toFixed(1) : null,
+        cashVariance: dailyCashVariance[d.date] || 0,
+      })),
+    };
+
+    const aiPrompt = `You are a restaurant operations analyst for ${location.name}. Analyze this week's performance (${displayRange}) and provide 3-4 brief, actionable insights. Be specific with numbers. Format as short paragraphs with bold labels. Keep total response under 200 words.
+
+Data:
+- Sales: $${totalSales.toLocaleString()} vs $${totalProjection.toLocaleString()} target (${projDiff >= 0 ? '+' : ''}$${projDiff.toLocaleString()})
+- Labor: ${laborPercent.toFixed(1)}% vs ${laborGoal}% goal (${laborOverUnder >= 0 ? '+' : '-'}$${Math.abs(laborOverUnder).toLocaleString()})
+- Drawer Variance: $${drawerVarianceTotal.toFixed(2)}
+- Checklist Completion: ${checklistPct}%
+- Best Day: ${bestDay ? getDayName(bestDay.date) + ' $' + bestDay.sales.toLocaleString() : 'N/A'}
+- Worst Day: ${worstDay ? getDayName(worstDay.date) + ' $' + worstDay.sales.toLocaleString() : 'N/A'}
+- Daily: ${dailySales.map(d => `${getShortDay(d.date)}: $${d.sales.toLocaleString()}`).join(', ')}
+
+Write concise insights about sales trends, labor efficiency, cash handling, and checklists. Use plain text, no markdown.`;
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const aiResponse = await fetch(`${supabaseUrl}/functions/v1/ai-proxy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [{ role: 'user', content: aiPrompt }],
+      }),
+    });
+
+    if (aiResponse.ok) {
+      const aiResult = await aiResponse.json();
+      const aiText = aiResult?.choices?.[0]?.message?.content || aiResult?.content || '';
+      if (aiText) {
+        // Format the AI text into HTML paragraphs
+        const paragraphs = aiText.split('\n\n').filter((p: string) => p.trim());
+        const formattedInsights = paragraphs.map((p: string) => {
+          // Bold labels that start with **Label:** or similar
+          const formatted = p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+          return `<p style="margin:0 0 10px;font-size:13px;color:${textColor};line-height:1.6;">${formatted}</p>`;
+        }).join('');
+        aiInsightsHtml = `
+          <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">🤖 AI Weekly Insights</p>
+          <div style="background:linear-gradient(135deg,#f0fdf4 0%,#f0f9ff 100%);border:1px solid #d1e7dd;border-radius:12px;padding:16px;">
+            ${formattedInsights}
+          </div>`;
+      }
+    }
+  } catch (aiErr: any) {
+    console.error('[weekly-pulse] AI insights error (non-fatal):', aiErr.message);
+  }
+
+  // ---- Daily breakdown table with cash ----
+  const dailyTableHtml = dailySales.map((d, i) => {
     const dayLabel = getShortDay(d.date);
-    const vsProj = d.projection > 0 ? ((d.sales - d.projection) / d.projection * 100).toFixed(1) : "0";
-    const vsProjColor = Number(vsProj) >= 0 ? "#22c55e" : "#ef4444";
-    return `<tr>
-      <td style="padding:3px 8px 3px 0;font-size:12px;color:#888;width:36px;text-align:right;">${dayLabel}</td>
-      <td style="padding:3px 0;width:100%;">
-        <div style="background:#e0f2f1;border-radius:4px;height:18px;width:100%;overflow:hidden;">
-          <div style="background:${primaryColor};height:100%;width:${pct}%;border-radius:4px;min-width:2px;"></div>
-        </div>
-      </td>
-      <td style="padding:3px 0 3px 8px;font-size:12px;color:${textColor};white-space:nowrap;text-align:right;width:80px;font-weight:600;">$${d.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-      <td style="padding:3px 0 3px 6px;font-size:11px;color:${vsProjColor};white-space:nowrap;text-align:right;width:50px;">${Number(vsProj) >= 0 ? "+" : ""}${vsProj}%</td>
+    const daySales = d.sales;
+    const dayLabor = dailyLaborMap[d.date];
+    const dayLaborPct = dayLabor && daySales > 0 ? (dayLabor.cost / daySales * 100).toFixed(1) : '—';
+    const dayCash = dailyCashVariance[d.date] || 0;
+    const cashStr = dayCash === 0 ? '+$0.00' : (dayCash >= 0 ? `+$${Math.abs(dayCash).toFixed(2)}` : `-$${Math.abs(dayCash).toFixed(2)}`);
+    const cashColor = dayCash === 0 ? '#888' : (dayCash >= 0 ? '#22c55e' : '#ef4444');
+    const border = i < dailySales.length - 1 ? 'border-bottom:1px solid #e8e5df;' : '';
+    return `<tr style="${border}">
+      <td style="padding:8px 12px;font-size:13px;color:${textColor};font-weight:600;">${dayLabel}</td>
+      <td style="padding:8px 12px;text-align:right;font-size:13px;color:${textColor};">$${daySales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+      <td style="padding:8px 12px;text-align:right;font-size:11px;color:#888;">${dayLaborPct}%</td>
+      <td style="padding:8px 12px;text-align:right;font-size:13px;color:${cashColor};font-weight:600;">${cashStr}</td>
     </tr>`;
   }).join("");
 
-  const emailHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head>
-<body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${fontStack};">
-<table style="width:100%;border-collapse:collapse;"><tr><td style="padding:24px 16px;">
-<table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
+  // ---- Checklist weekly rows ----
+  // Count per-checklist daily completions
+  const weeklyChecklistData: { title: string; daysCompleted: number; totalDays: number }[] = [];
+  const dailyAndDynamic = (activeChecklists || []).filter((c: any) => c.frequency === "daily" || c.template_type === "dynamic");
+  for (const c of dailyAndDynamic) {
+    let activeDays = 0;
+    let completedDays = 0;
+    for (const dateStr of weekDates) {
+      const date = new Date(dateStr + "T12:00:00");
+      const jsDow = date.getDay();
+      const monDow = (jsDow + 6) % 7;
+      const items = c.checklist_items || [];
+      const isDynamic = c.template_type === "dynamic";
+      const todayItems = isDynamic ? items.filter((i: any) => i.days_of_week && i.days_of_week.includes(monDow)) : items;
+      if (todayItems.length > 0) {
+        activeDays++;
+        // Check if any submission exists for this checklist on this date
+        const businessDayStart = `${dateStr}T08:00:00.000Z`;
+        const nextD = new Date(new Date(dateStr + "T12:00:00").getTime() + 86400000);
+        const businessDayEnd = `${nextD.getFullYear()}-${String(nextD.getMonth()+1).padStart(2,"0")}-${String(nextD.getDate()).padStart(2,"0")}T08:00:00.000Z`;
+        const hasSub = (weekSubs || []).some((s: any) => s.checklist_id === c.id && s.submitted_at >= businessDayStart && s.submitted_at < businessDayEnd);
+        if (hasSub) completedDays++;
+      }
+    }
+    if (activeDays > 0) {
+      weeklyChecklistData.push({ title: c.title, daysCompleted: completedDays, totalDays: activeDays });
+    }
+  }
 
-  <!-- HEADER -->
-  <tr><td style="background-color:#0a7a8a;padding:20px 32px;">
-    <table style="width:100%;border-collapse:collapse;">
-      <tr>
-        <td style="vertical-align:middle;text-align:left;width:180px;">
-          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:44px;width:44px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
-        </td>
-        <td style="vertical-align:middle;text-align:center;">
-          <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Weekly Pulse</h1>
-        </td>
-        <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
-          <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
-          <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">${displayRange}</p>
-        </td>
-      </tr>
-    </table>
-  </td></tr>
+  const weeklyChecklistHtml = weeklyChecklistData.length > 0 ? `<table style="width:100%;border-collapse:collapse;background:#f5f4f1;border-radius:12px;overflow:hidden;">
+    ${weeklyChecklistData.map((c, i) => {
+      const allComplete = c.daysCompleted >= c.totalDays;
+      const icon = allComplete
+        ? `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span>`
+        : `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ef4444;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✗</span>`;
+      const statusColor = allComplete ? '#22c55e' : '#ef4444';
+      const border = i < weeklyChecklistData.length - 1 ? 'border-bottom:1px solid #e8e5df;' : '';
+      return `<tr style="${border}">
+        <td style="padding:8px 12px;width:20px;">${icon}</td>
+        <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">${c.title}</span></td>
+        <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:${statusColor};font-weight:600;">${c.daysCompleted}/${c.totalDays} days</span></td>
+      </tr>`;
+    }).join("")}
+  </table>` : `<p style="color:#888;font-size:13px;margin:0;">No checklists tracked</p>`;
 
-  <tr><td style="padding:28px 32px;">
+  const emailHtml = wrapEmail(`
+    ${getPulseHeader("Weekly Pulse", brandLogoUrl, location.name, location.store_number, displayRange)}
+    <tr><td style="padding:24px;">
 
-    <!-- SALES + LABOR ROW -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-      <tr>
-        <td style="vertical-align:top;width:50%;padding-right:20px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Total Sales</p>
-          <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$${totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong></p>
-          <p style="color:#888;font-size:13px;margin:4px 0 0;">Target: $${totalProjection.toLocaleString(undefined, { maximumFractionDigits: 0 })} (<span style="color:${projColor};font-weight:600;">${projDiff >= 0 ? "+" : ""}$${Math.abs(projDiff).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>)</p>
-          <p style="color:#888;font-size:12px;margin:6px 0 0;">Avg Daily: $${avgDailySales.toLocaleString(undefined, { maximumFractionDigits: 0 })} &middot; ${totalGuests.toLocaleString()} guests &middot; ${totalPizzas.toLocaleString()} pizzas</p>
-        </td>
-        <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Total Labor</p>
-          <p style="margin:0;"><strong style="color:${laborColor};font-size:28px;">${laborPercent.toFixed(1)}%</strong></p>
-          <p style="color:#888;font-size:13px;margin:4px 0 0;">$${totalLaborCost.toLocaleString(undefined, { maximumFractionDigits: 0 })} &middot; ${totalLaborHours.toFixed(1)}h</p>
-          <p style="color:${laborColor};font-size:13px;font-weight:600;margin:4px 0 0;">${laborOverUnder > 0 ? "+" : "-"}$${Math.abs(laborOverUnder).toLocaleString(undefined, { maximumFractionDigits: 0 })} vs ${laborGoal}% goal</p>
-        </td>
-      </tr>
-    </table>
+      <!-- SALES + LABOR ROW -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <tr>
+          <td style="vertical-align:top;width:50%;padding-right:20px;">
+            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Total Sales</p>
+            <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$${totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong></p>
+            <p style="color:#888;font-size:13px;margin:4px 0 0;">Target: $${totalProjection.toLocaleString(undefined, { maximumFractionDigits: 0 })} (<span style="color:${projColor};font-weight:600;">${projDiff >= 0 ? "+" : ""}$${Math.abs(projDiff).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>)</p>
+            <p style="color:#888;font-size:12px;margin:6px 0 0;">Avg Daily: $${avgDailySales.toLocaleString(undefined, { maximumFractionDigits: 0 })} &middot; ${totalGuests.toLocaleString()} guests &middot; ${totalPizzas.toLocaleString()} pizzas</p>
+          </td>
+          <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
+            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Total Labor</p>
+            <p style="margin:0;"><strong style="color:${laborColor};font-size:28px;">${laborPercent.toFixed(1)}%</strong></p>
+            <p style="color:#888;font-size:13px;margin:4px 0 0;">$${totalLaborCost.toLocaleString(undefined, { maximumFractionDigits: 0 })} &middot; ${totalLaborHours.toFixed(1)}h</p>
+            <p style="color:${laborColor};font-size:13px;font-weight:600;margin:4px 0 0;">${laborOverUnder > 0 ? "+" : "-"}$${Math.abs(laborOverUnder).toLocaleString(undefined, { maximumFractionDigits: 0 })} vs ${laborGoal}% goal</p>
+          </td>
+        </tr>
+      </table>
 
-    <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+      <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
 
-    <!-- DAILY BREAKDOWN CHART -->
-    <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Daily Breakdown</p>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
-      ${dailyBarsHtml}
-    </table>
+      <!-- DAILY BREAKDOWN TABLE -->
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Daily Breakdown</p>
+      <table style="width:100%;border-collapse:collapse;background:#f5f4f1;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+        <tr style="border-bottom:2px solid #e8e5df;">
+          <td style="padding:8px 12px;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Day</td>
+          <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Sales</td>
+          <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Labor%</td>
+          <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Cash +/-</td>
+        </tr>
+        ${dailyTableHtml}
+      </table>
 
-    ${bestDay && worstDay && bestDay.date !== worstDay.date ? `
-    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
-      <tr>
-        <td style="width:50%;padding-right:8px;">
-          <div style="background:#f0fdf4;border-radius:12px;padding:10px 14px;">
-            <p style="margin:0;font-size:11px;color:#888;text-transform:uppercase;">Best Day</p>
-            <p style="margin:2px 0 0;font-size:14px;color:#22c55e;font-weight:700;">${getDayName(bestDay.date)} — $${bestDay.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-          </div>
-        </td>
-        <td style="width:50%;padding-left:8px;">
-          <div style="background:#fef2f2;border-radius:12px;padding:10px 14px;">
-            <p style="margin:0;font-size:11px;color:#888;text-transform:uppercase;">Slowest Day</p>
-            <p style="margin:2px 0 0;font-size:14px;color:#ef4444;font-weight:700;">${getDayName(worstDay.date)} — $${worstDay.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-          </div>
-        </td>
-      </tr>
-    </table>
-    ` : ''}
-
-    <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
-
-    <!-- CHECKLISTS + CASH -->
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-      <tr>
-        <td style="vertical-align:top;width:50%;padding-right:16px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Checklists</p>
-          <div style="background:#f5f4f1;border-radius:12px;padding:12px 14px;">
-            <p style="margin:0;font-size:22px;font-weight:700;color:${checklistPct >= 90 ? '#22c55e' : checklistPct >= 70 ? '#f59e0b' : '#ef4444'};">${checklistPct}%</p>
-            <p style="margin:2px 0 0;font-size:12px;color:#888;">${Math.min(totalResponseCount, totalExpectedItems)}/${totalExpectedItems} items completed</p>
-            <div style="background:#e0f2f1;border-radius:4px;height:6px;width:100%;overflow:hidden;margin-top:6px;">
-              <div style="background:${primaryColor};height:100%;width:${checklistPct}%;border-radius:4px;"></div>
+      ${bestDay && worstDay && bestDay.date !== worstDay.date ? `
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <tr>
+          <td style="width:50%;padding-right:8px;">
+            <div style="background:#f0fdf4;border-radius:12px;padding:10px 14px;">
+              <p style="margin:0;font-size:11px;color:#888;text-transform:uppercase;">Best Day</p>
+              <p style="margin:2px 0 0;font-size:14px;color:#22c55e;font-weight:700;">${getDayName(bestDay.date)} — $${bestDay.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
             </div>
-          </div>
-        </td>
-        <td style="vertical-align:top;width:50%;border-left:1px solid #e8e5df;padding-left:16px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Cash Handling</p>
-          <div style="background:#f5f4f1;border-radius:12px;padding:12px 14px;">
-            <table style="width:100%;border-collapse:collapse;">
-              <tr>
-                <td style="padding:3px 0;font-size:12px;color:#888;">Drawer Variance</td>
-                <td style="padding:3px 0;text-align:right;font-size:13px;font-weight:600;color:${drawerVarianceTotal >= 0 ? '#22c55e' : '#ef4444'};">${drawerVarianceTotal >= 0 ? '+' : '-'}$${Math.abs(drawerVarianceTotal).toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td style="padding:3px 0;font-size:12px;color:#888;">Drawer Counts</td>
-                <td style="padding:3px 0;text-align:right;font-size:13px;font-weight:600;color:${textColor};">${drawerCount}</td>
-              </tr>
-              <tr>
-                <td style="padding:3px 0;font-size:12px;color:#888;">Safe Counts</td>
-                <td style="padding:3px 0;text-align:right;font-size:13px;font-weight:600;color:${textColor};">${safeCountTotal}</td>
-              </tr>
-              ${depositTotal > 0 ? `<tr>
-                <td style="padding:3px 0;font-size:12px;color:#888;">Total Deposits</td>
-                <td style="padding:3px 0;text-align:right;font-size:13px;font-weight:600;color:${textColor};">$${depositTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-              </tr>` : ''}
-            </table>
-          </div>
-        </td>
-      </tr>
-    </table>
+          </td>
+          <td style="width:50%;padding-left:8px;">
+            <div style="background:#fef2f2;border-radius:12px;padding:10px 14px;">
+              <p style="margin:0;font-size:11px;color:#888;text-transform:uppercase;">Slowest Day</p>
+              <p style="margin:2px 0 0;font-size:14px;color:#ef4444;font-weight:700;">${getDayName(worstDay.date)} — $${worstDay.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+      ` : ''}
 
-  </td></tr>
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
 
-  <!-- FOOTER -->
-  <tr><td style="background-color:#f0ebe1;padding:28px 32px;text-align:center;border-top:1px solid #e8e5df;">
-    <table role="presentation" style="margin:0 auto;"><tr>
-      <td style="padding-right:10px;vertical-align:middle;"><span style="color:#3a5f7d;font-size:15px;font-weight:400;">Powered by</span></td>
-      <td style="vertical-align:middle;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:28px;"/></td>
-    </tr></table>
-    <p style="color:#bbb;font-size:10px;margin:12px 0 0;">&copy; ${eYr} Croo. All rights reserved.</p>
-  </td></tr>
+      <!-- CHECKLISTS -->
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Checklists</p>
+      ${weeklyChecklistHtml}
 
-</table>
-</td></tr></table>
-</body></html>`;
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+
+      <!-- CASH HANDLING SUMMARY -->
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Cash Handling</p>
+      <table style="width:100%;border-collapse:collapse;background:#f5f4f1;border-radius:12px;overflow:hidden;">
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${Math.abs(drawerVarianceTotal) > 20 ? '#ef4444' : '#22c55e'};text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">${Math.abs(drawerVarianceTotal) > 20 ? '!' : '✓'}</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Drawer Variance</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:${drawerVarianceTotal >= 0 ? '#22c55e' : '#ef4444'};font-weight:600;">${drawerVarianceTotal >= 0 ? '+' : '-'}$${Math.abs(drawerVarianceTotal).toFixed(2)}</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${primaryColor};text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">#</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Drawer Counts</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:${textColor};font-weight:600;">${drawerCount}</span></td>
+        </tr>
+        <tr${depositTotal > 0 ? ' style="border-bottom:1px solid #e8e5df;"' : ''}>
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${primaryColor};text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">#</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Safe Counts</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:${textColor};font-weight:600;">${safeCountTotal}</span></td>
+        </tr>
+        ${depositTotal > 0 ? `<tr>
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">$</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Total Deposits</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:${textColor};font-weight:600;">$${depositTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></td>
+        </tr>` : ''}
+      </table>
+
+      ${aiInsightsHtml}
+
+    </td></tr>
+    ${getEmailFooter()}
+  `);
 
   // Preview mode
   if (preview) {
@@ -1324,7 +1416,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     return new Response(JSON.stringify({ success: true, message: "No eligible recipients", recipientCount: 0 }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  const dedupKey = `weekly_summary_v1_${location_id}_${week_start}`;
+  const dedupKey = `weekly_summary_v2_${location_id}_${week_start}`;
   await queueEmail({
     from: "CrooHQ <reports@croohq.email>",
     to: eligibleRecipients.map(r => r.email),
