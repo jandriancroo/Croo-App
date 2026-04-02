@@ -235,10 +235,6 @@ export default function LocationProfile() {
       }
       
       if (isNew) {
-        // Generate location code
-        const { data: locationCode, error: codeError } = await supabase.rpc('generate_location_code');
-        if (codeError) throw codeError;
-
         // Create new location
         const { data: newLocation, error: createError } = await supabase
           .from('locations')
@@ -249,7 +245,6 @@ export default function LocationProfile() {
             longitude: coordinates.lng || null,
             location_type: location.location_type || 'standard',
             organization_id: orgId || null,
-            location_code: locationCode,
             created_by: user?.id,
             store_number: location.store_number?.trim() || null,
           })
