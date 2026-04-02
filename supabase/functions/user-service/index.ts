@@ -226,23 +226,44 @@ async function handleInvite(req: Request, supabaseAdmin: any, requestingUserId: 
 
   const resetLink = resetData?.properties?.action_link ?? null;
 
-  // Send branded invite email via hiring-email-service
+  // Send branded invite email directly via email_queue
   if (resetLink) {
     try {
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-      await fetch(`${supabaseUrl}/functions/v1/hiring-email-service`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({
-          action: 'send_invite',
-          payload: { to: email, fullName, locationId, resetLink },
-        }),
+      const branding = await getOrgBranding(supabaseAdmin, locationId);
+      const firstName = fullName.split(' ')[0];
+      const logoHtml = branding.logoUrl
+        ? `<img src="${branding.logoUrl}" alt="${branding.displayName}" style="max-height:40px;max-width:120px;border-radius:8px;"/>`
+        : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);" />`;
+
+      await queueEmailDirect(supabaseAdmin, {
+        from: "CrooHQ Hiring <hiring@croohq.email>",
+        to: [email],
+        subject: `Welcome to ${branding.displayName}${branding.locName ? ` - ${branding.locName}` : ''}!`,
+        html: wrapEmail(`
+          <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+            <table style="width:100%;border-collapse:collapse;"><tr>
+              <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml}</td>
+              <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Welcome to the Team!</h1></td>
+              <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${branding.displayName}</p>${branding.locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${branding.locName}</p>` : ''}</td>
+            </tr></table>
+          </td></tr>
+          <tr><td style="padding:28px 32px;">
+            <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
+            <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+            <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${branding.displayName}</strong>${branding.locName ? ` at the <strong>${branding.locName}</strong> location` : ''}.</p>
+            <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:24px;">
+              <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Next Steps</p>
+              <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">Click the button below to set your password and get started. Once you're in, your manager will add you to the schedule.</p>
+            </div>
+            <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
+            <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
+          </td></tr>
+          ${getEmailFooter()}`),
+        source: 'invite',
+        dedupKey: `invite_${email}_${Date.now()}`,
       });
     } catch (emailError) {
-      console.error("Failed to send invite email:", emailError);
+      console.error("Failed to queue invite email:", emailError);
     }
   }
 
