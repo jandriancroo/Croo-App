@@ -282,6 +282,24 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
+                {!editingRule && presets.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Apply a Preset</Label>
+                    <Select onValueChange={handleApplyPreset}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a preset to auto-fill..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {presets.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.preset_name} ({p.state_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Fills in all fields below — you can still customize before saving.</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="rule-name">Rule Name</Label>
