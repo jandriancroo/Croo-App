@@ -317,21 +317,21 @@ function dailyPulse(): string {
         </tr>
       </table>
       <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
-      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Checklists 2/3</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
-        <table style="width:100%;border-collapse:collapse;"><tr>
-          <td><p style="margin:0;font-size:13px;color:${textColor};font-weight:700;">Opening Checklist</p></td>
-          <td style="text-align:right;"><span style="color:#888;font-size:12px;">8:15 AM</span> <span style="color:#22c55e;font-size:12px;font-weight:700;">100%</span></td>
-        </tr><tr><td><p style="margin:2px 0 0;font-size:11px;color:#888;">John M.</p></td><td style="text-align:right;"><span style="font-size:11px;color:#888;">12/12 items</span></td></tr></table>
-        <div style="background:#e0f2f1;border-radius:6px;height:6px;width:100%;overflow:hidden;margin-top:8px;"><div style="background:${primaryColor};height:100%;width:100%;border-radius:6px;"></div></div>
-      </div>
-      <div style="background:#fafaf8;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
-        <table style="width:100%;border-collapse:collapse;"><tr>
-          <td><p style="margin:0;font-size:13px;color:${textColor};font-weight:700;">Food Safety</p></td>
-          <td style="text-align:right;"><span style="color:#ef4444;font-size:12px;font-weight:700;">0%</span></td>
-        </tr><tr><td><p style="margin:2px 0 0;font-size:11px;color:#ef4444;">Not Completed</p></td><td style="text-align:right;"><span style="font-size:11px;color:#888;">0/6 items</span></td></tr></table>
-        <div style="background:#e0f2f1;border-radius:6px;height:6px;width:100%;overflow:hidden;margin-top:8px;"><div style="background:${primaryColor};height:100%;width:0%;border-radius:6px;"></div></div>
-      </div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Checklists 2/3</p>
+      <table style="width:100%;border-collapse:collapse;background:#fafaf8;border-radius:12px;overflow:hidden;">
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Opening Checklist</span></td>
+          <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:#888;">12/12</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">John M. · 8:15 AM</span></td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ef4444;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✗</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Food Safety</span></td>
+          <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:#ef4444;font-weight:600;">0/6</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#ef4444;">Not Started</span></td>
+        </tr>
+      </table>
       <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;"><tr>
         <td style="vertical-align:top;width:50%;padding-right:16px;">
