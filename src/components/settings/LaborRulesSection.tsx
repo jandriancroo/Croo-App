@@ -251,6 +251,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             allow_unscheduled_clock_in: formData.allow_unscheduled_clock_in,
             allow_early_clock_in: formData.allow_early_clock_in,
             early_clock_in_minutes: formData.early_clock_in_minutes,
+            reporting_time_enabled: formData.reporting_time_enabled,
+            reporting_time_min_hours: formData.reporting_time_min_hours,
+            reporting_time_max_hours: formData.reporting_time_max_hours,
           });
 
         if (error) throw error;
