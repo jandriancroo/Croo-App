@@ -87,7 +87,22 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     if (locationId) {
       fetchRules();
     }
+    fetchPresets();
   }, [locationId]);
+
+  const fetchPresets = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('labor_rule_presets')
+        .select('*')
+        .eq('is_system', true)
+        .order('preset_name');
+      if (error) throw error;
+      setPresets(data || []);
+    } catch (error: any) {
+      console.error('Error fetching presets:', error);
+    }
+  };
 
   const fetchRules = async () => {
     if (!locationId) return;
