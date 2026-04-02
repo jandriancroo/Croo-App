@@ -76,6 +76,23 @@ Deno.serve(async (req) => {
   }
 });
 
+function parseAddress(address: string | null): { street: string; city: string; state: string; zip: string } {
+  if (!address) return { street: '', city: '', state: '', zip: '' };
+  // Try to parse "Street, City, ST ZIP" format
+  const parts = address.split(',').map(s => s.trim());
+  if (parts.length >= 2) {
+    const street = parts.slice(0, -1).join(', ');
+    const lastPart = parts[parts.length - 1];
+    const stateZipMatch = lastPart.match(/^([A-Za-z\s]+?)\s+(\d{5}(?:-\d{4})?)$/);
+    if (stateZipMatch) {
+      const city = parts.length >= 3 ? parts[parts.length - 2] : '';
+      return { street: parts[0], city, state: stateZipMatch[1].trim(), zip: stateZipMatch[2] };
+    }
+    return { street: parts[0], city: parts.length >= 3 ? parts[1] : '', state: lastPart, zip: '' };
+  }
+  return { street: address, city: '', state: '', zip: '' };
+}
+
 function getApplicationUrl(listing: any, supabaseUrl: string, source: string) {
   const orgSlug = listing.organization?.slug;
   // Use the published app URL pattern
