@@ -36,6 +36,9 @@ interface LaborRule {
   allow_unscheduled_clock_in: boolean;
   allow_early_clock_in: boolean;
   early_clock_in_minutes: number;
+  reporting_time_enabled: boolean;
+  reporting_time_min_hours: number | null;
+  reporting_time_max_hours: number | null;
 }
 
 const EARLY_CLOCK_IN_PRESETS = [5, 10, 15, 30];
@@ -53,6 +56,9 @@ interface LaborRulePreset {
   meal_break_duration: number | null;
   rest_break_hours: number | null;
   rest_break_duration: number | null;
+  reporting_time_enabled: boolean;
+  reporting_time_min_hours: number | null;
+  reporting_time_max_hours: number | null;
 }
 
 const emptyPreset: Omit<LaborRulePreset, 'id'> = {
@@ -67,6 +73,9 @@ const emptyPreset: Omit<LaborRulePreset, 'id'> = {
   meal_break_duration: null,
   rest_break_hours: null,
   rest_break_duration: null,
+  reporting_time_enabled: false,
+  reporting_time_min_hours: null,
+  reporting_time_max_hours: null,
 };
 
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
@@ -102,6 +111,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     allow_unscheduled_clock_in: true,
     allow_early_clock_in: true,
     early_clock_in_minutes: 30,
+    reporting_time_enabled: false,
+    reporting_time_min_hours: null,
+    reporting_time_max_hours: null,
   };
 
   const [formData, setFormData] = useState<LaborRule>(emptyRule);
@@ -171,6 +183,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
       meal_break_duration: preset.meal_break_duration,
       rest_break_hours: preset.rest_break_hours,
       rest_break_duration: preset.rest_break_duration,
+      reporting_time_enabled: preset.reporting_time_enabled,
+      reporting_time_min_hours: preset.reporting_time_min_hours,
+      reporting_time_max_hours: preset.reporting_time_max_hours,
     }));
     toast.success(`Applied "${preset.preset_name}" preset`);
   };
@@ -205,6 +220,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             allow_unscheduled_clock_in: formData.allow_unscheduled_clock_in,
             allow_early_clock_in: formData.allow_early_clock_in,
             early_clock_in_minutes: formData.early_clock_in_minutes,
+            reporting_time_enabled: formData.reporting_time_enabled,
+            reporting_time_min_hours: formData.reporting_time_min_hours,
+            reporting_time_max_hours: formData.reporting_time_max_hours,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingRule.id);
@@ -233,6 +251,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             allow_unscheduled_clock_in: formData.allow_unscheduled_clock_in,
             allow_early_clock_in: formData.allow_early_clock_in,
             early_clock_in_minutes: formData.early_clock_in_minutes,
+            reporting_time_enabled: formData.reporting_time_enabled,
+            reporting_time_min_hours: formData.reporting_time_min_hours,
+            reporting_time_max_hours: formData.reporting_time_max_hours,
           });
 
         if (error) throw error;
@@ -283,6 +304,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
         meal_break_duration: preset.meal_break_duration,
         rest_break_hours: preset.rest_break_hours,
         rest_break_duration: preset.rest_break_duration,
+        reporting_time_enabled: preset.reporting_time_enabled,
+        reporting_time_min_hours: preset.reporting_time_min_hours,
+        reporting_time_max_hours: preset.reporting_time_max_hours,
       });
     } else {
       setEditingPreset(null);
@@ -315,6 +339,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             meal_break_duration: presetForm.meal_break_duration,
             rest_break_hours: presetForm.rest_break_hours,
             rest_break_duration: presetForm.rest_break_duration,
+            reporting_time_enabled: presetForm.reporting_time_enabled,
+            reporting_time_min_hours: presetForm.reporting_time_min_hours,
+            reporting_time_max_hours: presetForm.reporting_time_max_hours,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingPreset.id);
@@ -336,6 +363,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             meal_break_duration: presetForm.meal_break_duration,
             rest_break_hours: presetForm.rest_break_hours,
             rest_break_duration: presetForm.rest_break_duration,
+            reporting_time_enabled: presetForm.reporting_time_enabled,
+            reporting_time_min_hours: presetForm.reporting_time_min_hours,
+            reporting_time_max_hours: presetForm.reporting_time_max_hours,
             is_system: true,
           });
 
@@ -497,6 +527,36 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                         </div>
                       </div>
 
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold mb-3 text-sm">Reporting Time Pay</h4>
+                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg mb-3">
+                          <div className="space-y-0.5">
+                            <Label className="text-xs font-medium">Reporting Time Pay Required</Label>
+                            <p className="text-[10px] text-muted-foreground">Minimum pay when employee is called in but sent home early</p>
+                          </div>
+                          <Switch
+                            checked={presetForm.reporting_time_enabled}
+                            onCheckedChange={(checked) => setPresetForm({...presetForm, reporting_time_enabled: checked})}
+                          />
+                        </div>
+                        {presetForm.reporting_time_enabled && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Min Hours Paid</Label>
+                              <Input type="number" step="0.5" placeholder="e.g., 2"
+                                value={presetForm.reporting_time_min_hours || ''}
+                                onChange={(e) => setPresetForm({...presetForm, reporting_time_min_hours: e.target.value ? parseFloat(e.target.value) : null})} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Max Hours Cap</Label>
+                              <Input type="number" step="0.5" placeholder="No cap"
+                                value={presetForm.reporting_time_max_hours || ''}
+                                onChange={(e) => setPresetForm({...presetForm, reporting_time_max_hours: e.target.value ? parseFloat(e.target.value) : null})} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setPresetFormOpen(false)}>Back</Button>
                         <Button onClick={handleSavePreset} disabled={presetLoading}>
@@ -539,6 +599,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                               <span>DT: {preset.double_time_multiplier}x</span>
                               {preset.meal_break_hours && (
                                 <span>Meal: {preset.meal_break_duration}min/{preset.meal_break_hours}h</span>
+                              )}
+                              {preset.reporting_time_enabled && (
+                                <span>Report: min {preset.reporting_time_min_hours}h{preset.reporting_time_max_hours ? `, max ${preset.reporting_time_max_hours}h` : ''}</span>
                               )}
                             </div>
                           </div>
@@ -952,6 +1015,11 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                   {rule.rest_break_hours && (
                     <div>
                       <span className="text-muted-foreground">Rest Break:</span> {rule.rest_break_duration}min after {rule.rest_break_hours}h
+                    </div>
+                  )}
+                  {rule.reporting_time_enabled && (
+                    <div>
+                      <span className="text-muted-foreground">Reporting Time:</span> Min {rule.reporting_time_min_hours}h{rule.reporting_time_max_hours ? `, max ${rule.reporting_time_max_hours}h` : ''}
                     </div>
                   )}
                   <div className="col-span-2 border-t pt-2 mt-2">
