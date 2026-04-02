@@ -39,8 +39,24 @@ interface LaborRule {
 
 const EARLY_CLOCK_IN_PRESETS = [5, 10, 15, 30];
 
+interface LaborRulePreset {
+  id: string;
+  preset_name: string;
+  state_code: string;
+  daily_overtime_threshold: number;
+  daily_double_time_threshold: number;
+  weekly_overtime_threshold: number;
+  overtime_multiplier: number;
+  double_time_multiplier: number;
+  meal_break_hours: number | null;
+  meal_break_duration: number | null;
+  rest_break_hours: number | null;
+  rest_break_duration: number | null;
+}
+
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   const [rules, setRules] = useState<LaborRule[]>([]);
+  const [presets, setPresets] = useState<LaborRulePreset[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<LaborRule | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,7 +87,22 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     if (locationId) {
       fetchRules();
     }
+    fetchPresets();
   }, [locationId]);
+
+  const fetchPresets = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('labor_rule_presets')
+        .select('*')
+        .eq('is_system', true)
+        .order('preset_name');
+      if (error) throw error;
+      setPresets(data || []);
+    } catch (error: any) {
+      console.error('Error fetching presets:', error);
+    }
+  };
 
   const fetchRules = async () => {
     if (!locationId) return;
@@ -100,6 +131,26 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
       setFormData(emptyRule);
     }
     setDialogOpen(true);
+  };
+
+  const handleApplyPreset = (presetId: string) => {
+    const preset = presets.find(p => p.id === presetId);
+    if (!preset) return;
+    setFormData(prev => ({
+      ...prev,
+      rule_name: preset.preset_name,
+      state_code: preset.state_code,
+      daily_overtime_threshold: preset.daily_overtime_threshold,
+      daily_double_time_threshold: preset.daily_double_time_threshold,
+      weekly_overtime_threshold: preset.weekly_overtime_threshold,
+      overtime_multiplier: preset.overtime_multiplier,
+      double_time_multiplier: preset.double_time_multiplier,
+      meal_break_hours: preset.meal_break_hours,
+      meal_break_duration: preset.meal_break_duration,
+      rest_break_hours: preset.rest_break_hours,
+      rest_break_duration: preset.rest_break_duration,
+    }));
+    toast.success(`Applied "${preset.preset_name}" preset`);
   };
 
   const handleSave = async () => {
@@ -231,6 +282,24 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
+                {!editingRule && presets.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Apply a Preset</Label>
+                    <Select onValueChange={handleApplyPreset}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a preset to auto-fill..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {presets.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.preset_name} ({p.state_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Fills in all fields below — you can still customize before saving.</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="rule-name">Rule Name</Label>

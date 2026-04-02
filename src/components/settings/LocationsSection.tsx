@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, Trash2, Edit, Copy, RefreshCw, Rocket } from 'lucide-react';
+import { MapPin, Trash2, Edit, Rocket } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { LocationMap } from './LocationMap';
 import { DeployLocationWizard } from './DeployLocationWizard';
@@ -37,31 +37,6 @@ export const LocationsSection = () => {
     }
   };
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast.success('Location code copied to clipboard');
-  };
-
-  const handleRegenerateCode = async (locationId: string) => {
-    if (!confirm('Are you sure you want to generate a new location code? The old code will no longer work.')) return;
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.rpc('generate_location_code');
-      if (error) throw error;
-      const { error: updateError } = await supabase
-        .from('locations')
-        .update({ location_code: data })
-        .eq('id', locationId);
-      if (updateError) throw updateError;
-      toast.success('New location code generated');
-      fetchLocations();
-    } catch (error: any) {
-      console.error('Error regenerating code:', error);
-      toast.error('Failed to regenerate code');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEditLocation = async () => {
     if (!selectedLocation || !selectedLocation.name.trim()) {
@@ -145,21 +120,6 @@ export const LocationsSection = () => {
                   </div>
                   {location.address && (
                     <p className="text-sm text-muted-foreground pl-7">{location.address}</p>
-                  )}
-                  {location.location_code && (
-                    <div className="pl-7 pt-2 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Location Code:</span>
-                        <code className="text-sm bg-muted px-2 py-1 rounded font-mono">{location.location_code}</code>
-                        <Button variant="ghost" size="sm" onClick={() => handleCopyCode(location.location_code)} className="h-7 px-2">
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleRegenerateCode(location.id)} className="h-7 px-2">
-                          <RefreshCw className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Share this code with new employees to allow them to sign up for this location</p>
-                    </div>
                   )}
                   {location.latitude && location.longitude && (
                     <div className="mt-3 h-48 rounded-md overflow-hidden border">

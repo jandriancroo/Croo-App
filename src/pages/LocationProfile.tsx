@@ -12,7 +12,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield, CalendarIcon, X } from 'lucide-react';
+import { MapPin, ArrowLeft, Save, Shield, CalendarIcon, X } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
@@ -235,10 +235,6 @@ export default function LocationProfile() {
       }
       
       if (isNew) {
-        // Generate location code
-        const { data: locationCode, error: codeError } = await supabase.rpc('generate_location_code');
-        if (codeError) throw codeError;
-
         // Create new location
         const { data: newLocation, error: createError } = await supabase
           .from('locations')
@@ -249,7 +245,6 @@ export default function LocationProfile() {
             longitude: coordinates.lng || null,
             location_type: location.location_type || 'standard',
             organization_id: orgId || null,
-            location_code: locationCode,
             created_by: user?.id,
             store_number: location.store_number?.trim() || null,
           })
@@ -339,34 +334,6 @@ export default function LocationProfile() {
     }
   };
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast.success('Location code copied to clipboard');
-  };
-
-  const handleRegenerateCode = async () => {
-    if (!confirm('Are you sure you want to generate a new location code? The old code will no longer work.')) {
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.rpc('generate_location_code');
-      if (error) throw error;
-      
-      const { error: updateError } = await supabase
-        .from('locations')
-        .update({ location_code: data })
-        .eq('id', locationId);
-
-      if (updateError) throw updateError;
-
-      toast.success('New location code generated');
-      fetchLocation();
-    } catch (error: any) {
-      console.error('Error regenerating code:', error);
-      toast.error('Failed to regenerate code');
-    }
-  };
 
   const addBlackoutDate = (date: Date | undefined) => {
     if (!date) return;
@@ -656,38 +623,6 @@ export default function LocationProfile() {
                 </div>
               )}
               
-              {/* Location Code */}
-              {!isNew && location?.location_code && (
-                <div className="border-t pt-6 space-y-3">
-                  <Label className="text-base font-semibold">Location Code</Label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <code className="text-sm bg-muted px-3 py-2 rounded font-mono">
-                      {location.location_code}
-                    </code>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCopyCode(location.location_code)}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRegenerateCode}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Regenerate
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Share this code with new employees to allow them to sign up for this location
-                  </p>
-                </div>
-              )}
 
               {/* Unified Save Button */}
               <div className="border-t pt-6">
