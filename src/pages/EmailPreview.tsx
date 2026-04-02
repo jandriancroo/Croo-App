@@ -64,10 +64,7 @@ function authPasswordReset(): string {
 function authEmailConfirmation(): string {
   const email = "jane@example.com";
   return wrapEmail(`
-    <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-      <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
-      <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">Confirm Your Email</h1>
-    </td></tr>
+    ${getUnifiedHeader("Confirm Your Email")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Please confirm your email address (<strong>${email}</strong>) to complete your CrooHQ account setup:</p>
       <div style="text-align:center;margin:28px 0;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Confirm Email</a></div>
