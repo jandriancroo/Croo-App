@@ -354,15 +354,20 @@ function dailyPulse(): string {
           <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">Sarah K. · 9:55 PM</span></td>
         </tr>
       </table>
-      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Logbook 2 entries</p>
-      <div style="background:#fafaf8;border-radius:12px;padding:10px 14px;margin-bottom:6px;">
-        <p style="margin:0;font-size:13px;color:${textColor};font-weight:600;">Equipment Issue</p>
-        <p style="margin:2px 0 0;font-size:12px;color:#888;">Oven 2 temp running 15° low — called for service. John M. &middot; 2:30 PM</p>
-      </div>
-      <div style="background:#fafaf8;border-radius:12px;padding:10px 14px;margin-bottom:6px;">
-        <p style="margin:0;font-size:13px;color:${textColor};font-weight:600;">Customer Complaint</p>
-        <p style="margin:2px 0 0;font-size:12px;color:#888;">Guest received wrong order, remade and comped. Sarah K. &middot; 6:15 PM</p>
-      </div>
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Logbook 2 entries</p>
+      <table style="width:100%;border-collapse:collapse;background:#fafaf8;border-radius:12px;overflow:hidden;">
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#f59e0b;text-align:center;line-height:18px;color:#fff;font-size:10px;font-weight:700;">⚙</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Equipment Issue</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">John M. · 2:30 PM</span></td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ef4444;text-align:center;line-height:18px;color:#fff;font-size:10px;font-weight:700;">!</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Customer Complaint</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">Sarah K. · 6:15 PM</span></td>
+        </tr>
+      </table>
     </td></tr>
     ${getEmailFooter()}`);
 }
