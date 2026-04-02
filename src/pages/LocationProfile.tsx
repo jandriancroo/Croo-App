@@ -623,38 +623,6 @@ export default function LocationProfile() {
                 </div>
               )}
               
-              {/* Location Code */}
-              {!isNew && location?.location_code && (
-                <div className="border-t pt-6 space-y-3">
-                  <Label className="text-base font-semibold">Location Code</Label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <code className="text-sm bg-muted px-3 py-2 rounded font-mono">
-                      {location.location_code}
-                    </code>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCopyCode(location.location_code)}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRegenerateCode}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Regenerate
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Share this code with new employees to allow them to sign up for this location
-                  </p>
-                </div>
-              )}
 
               {/* Unified Save Button */}
               <div className="border-t pt-6">

@@ -121,21 +121,6 @@ export const LocationsSection = () => {
                   {location.address && (
                     <p className="text-sm text-muted-foreground pl-7">{location.address}</p>
                   )}
-                  {location.location_code && (
-                    <div className="pl-7 pt-2 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Location Code:</span>
-                        <code className="text-sm bg-muted px-2 py-1 rounded font-mono">{location.location_code}</code>
-                        <Button variant="ghost" size="sm" onClick={() => handleCopyCode(location.location_code)} className="h-7 px-2">
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleRegenerateCode(location.id)} className="h-7 px-2">
-                          <RefreshCw className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Share this code with new employees to allow them to sign up for this location</p>
-                    </div>
-                  )}
                   {location.latitude && location.longitude && (
                     <div className="mt-3 h-48 rounded-md overflow-hidden border">
                       <LocationMap lat={location.latitude} lng={location.longitude} locationName={location.name} />
