@@ -24,6 +24,8 @@ export interface SalesSummaryMonthlyPoint {
   date: string; // yyyy-MM-dd
   sales: number;
   projected: number;
+  laborPercent?: number;
+  laborCost?: number;
 }
 
 export interface SalesSummaryChartProps {
@@ -320,6 +322,8 @@ export function SalesSummaryChart({
     );
   }
 
+  const hasMonthlyLabor = monthlyBreakdown.some((d) => (d.laborPercent || 0) > 0);
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart
@@ -358,6 +362,12 @@ export function SalesSummaryChart({
                 <p className="text-primary">
                   Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span>
                 </p>
+                {hasMonthlyLabor && data?.laborPercent !== undefined && data.laborPercent > 0 && (
+                  <p className="text-blue-500">
+                    Labor: <span className="font-medium">{Number(data.laborPercent).toFixed(1)}%</span>
+                    {data?.laborCost > 0 && <span className="text-muted-foreground ml-1">({formatCurrency(data.laborCost)})</span>}
+                  </p>
+                )}
               </div>
             );
           }}
