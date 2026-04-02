@@ -279,12 +279,7 @@ export function JobListings({ organizationId, orgSlug }: JobListingsProps) {
                         )}
                       </CardTitle>
                       <CardDescription className="mt-1">
-                        {(listing as any).location?.name && (
-                          <span>
-                            {(listing as any).location.name}
-                            {(listing as any).location.city && ` — ${(listing as any).location.city}, ${(listing as any).location.state}`}
-                          </span>
-                        )}
+                        {(listing as any).location?.name || ''}
                       </CardDescription>
                     </div>
                     <div className="flex gap-1 ml-2">
