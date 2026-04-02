@@ -83,6 +83,7 @@ const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboardCustomizer"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
+const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 
 const queryClient = new QueryClient();
 
