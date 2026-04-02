@@ -39,8 +39,24 @@ interface LaborRule {
 
 const EARLY_CLOCK_IN_PRESETS = [5, 10, 15, 30];
 
+interface LaborRulePreset {
+  id: string;
+  preset_name: string;
+  state_code: string;
+  daily_overtime_threshold: number;
+  daily_double_time_threshold: number;
+  weekly_overtime_threshold: number;
+  overtime_multiplier: number;
+  double_time_multiplier: number;
+  meal_break_hours: number | null;
+  meal_break_duration: number | null;
+  rest_break_hours: number | null;
+  rest_break_duration: number | null;
+}
+
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   const [rules, setRules] = useState<LaborRule[]>([]);
+  const [presets, setPresets] = useState<LaborRulePreset[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<LaborRule | null>(null);
   const [loading, setLoading] = useState(false);
