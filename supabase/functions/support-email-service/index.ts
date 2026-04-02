@@ -909,7 +909,7 @@ async function sendAllTestEmails(payload: any): Promise<Response> {
         from: "CrooHQ <hello@croohq.email>",
         to: [to],
         subject: `[TEST ${i + 1}/${testEmails.length}] ${email.subject}`,
-        html: email.html(''),
+        html: email.html(),
       });
       
       results.push({ subject: email.subject, success: true, id: emailResponse.data?.id });
