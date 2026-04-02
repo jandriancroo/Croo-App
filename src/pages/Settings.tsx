@@ -55,6 +55,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   'org-members': { title: 'Org Admins', icon: <Building2 className="h-4 w-4" /> },
   'org-roles': { title: 'Roles & Permissions', icon: <Building2 className="h-4 w-4" /> },
   'org-positions': { title: 'Positions', icon: <Building2 className="h-4 w-4" /> },
+  'clone-settings': { title: 'Clone Location Settings', icon: <Copy className="h-4 w-4" /> },
   brands: { title: 'Brands', icon: <Tag className="h-4 w-4" /> },
   organizations: { title: 'All Organizations', icon: <Building2 className="h-4 w-4" /> },
   maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
