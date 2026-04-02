@@ -62,7 +62,7 @@ export function JobListings({ organizationId, orgSlug }: JobListingsProps) {
         .from('job_listings')
         .select(`
           *,
-          location:locations(id, name, city, state),
+          location:locations(id, name, address),
           template:job_application_templates(id, name)
         `)
         .eq('organization_id', organizationId)
