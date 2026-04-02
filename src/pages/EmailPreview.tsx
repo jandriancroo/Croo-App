@@ -443,6 +443,22 @@ function weeklyPulse(): string {
           <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#ef4444;font-weight:600;">4/7 days</span></td>
         </tr>
       </table>
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">🤖 AI Weekly Insights</p>
+      <div style="background:linear-gradient(135deg,#f0fdf4 0%,#f0f9ff 100%);border:1px solid #d1e7dd;border-radius:12px;padding:16px;">
+        <p style="margin:0 0 10px;font-size:13px;color:${textColor};line-height:1.6;">
+          <strong>Sales:</strong> You finished the week at $18,420 — <span style="color:#22c55e;font-weight:600;">up 5.4% vs last year</span> but <span style="color:#ef4444;font-weight:600;">down 2.1% from last week</span>. Thursday and Sunday dragged the most, both missing target by $60+ each. Consider running a promo or adjusting staffing on historically slower days.
+        </p>
+        <p style="margin:0 0 10px;font-size:13px;color:${textColor};line-height:1.6;">
+          <strong>Labor:</strong> You averaged 25.2% — <span style="color:#22c55e;font-weight:600;">under your 26% target</span>, nice work. However, Saturday hit 27.1%. Cutting just 1 hour on Sat would have saved ~$18 and kept you under goal every day. Watch for over-scheduling on weekends when sales dip.
+        </p>
+        <p style="margin:0 0 10px;font-size:13px;color:${textColor};line-height:1.6;">
+          <strong>Cash:</strong> Net drawer variance was <span style="color:#ef4444;font-weight:600;">-$23.40</span> for the week. Thursday's -$17.65 short was the biggest outlier — worth reviewing who closed that night and whether a mid-shift pull was missed.
+        </p>
+        <p style="margin:0;font-size:13px;color:${textColor};line-height:1.6;">
+          <strong>Checklists:</strong> Food Safety was only completed 4 of 7 days. The 3 missed days were Thu, Sat, Sun — all evenings. Consider assigning a specific closer to own this checklist.
+        </p>
+      </div>
     </td></tr>
     ${getEmailFooter()}`);
 }
