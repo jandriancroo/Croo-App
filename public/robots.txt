@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://lmodeiyrpwvgyqcvjkjr.supabase.co/functions/v1/sitemap
