@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 // ============================================================================
 // BRAND CONSTANTS (canonical — these should match every edge function)
 // ============================================================================
-const primaryColor = "#0a7a8a";
+const primaryColor = "#3a8c9b";
 const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
@@ -75,7 +75,7 @@ function authPasswordReset(): string {
                   </div>
                 </td>
                 <td style="vertical-align:middle;padding-left:12px;">
-                  <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0;font-family:${systemFontStack};letter-spacing:-0.3px;">Reset Your Password</h1>
+                  <h1 style="color:#fff;font-size:16px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;">Reset Your Password</h1>
                 </td>
               </tr>
             </table>
