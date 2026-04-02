@@ -261,7 +261,7 @@ function weeklyScheduleEmployee(): string {
     ${getUnifiedHeader("Your Schedule")}
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hey Sarah! Your schedule for the week has been published.</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:16px;margin-bottom:20px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
         <table style="width:100%;">${shiftRows}</table>
       </div>
       <div style="text-align:center;margin-bottom:20px;">
