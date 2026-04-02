@@ -391,6 +391,28 @@ function formatNotificationContent(type: string | undefined, title: string, body
   }
 }
 
+// ============ Chat Throttle (3-minute per chat_id) ============
+
+const chatThrottleMap = new Map<string, number>();
+const CHAT_THROTTLE_MS = 3 * 60 * 1000; // 3 minutes
+
+function isChatThrottled(chatId: string): boolean {
+  const now = Date.now();
+  const lastSent = chatThrottleMap.get(chatId);
+  if (lastSent && now - lastSent < CHAT_THROTTLE_MS) {
+    return true;
+  }
+  chatThrottleMap.set(chatId, now);
+  // Cleanup old entries to prevent memory leak
+  if (chatThrottleMap.size > 500) {
+    const cutoff = now - CHAT_THROTTLE_MS;
+    for (const [key, ts] of chatThrottleMap) {
+      if (ts < cutoff) chatThrottleMap.delete(key);
+    }
+  }
+  return false;
+}
+
 // ============ Main Handler ============
 
 const handler = async (req: Request): Promise<Response> => {
@@ -405,6 +427,17 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
     const { user_ids: providedUserIds, roles, location_id, title, body, data, notification_type, badge_count, sender_id }: PushNotificationRequest = await req.json();
+
+    // Chat message throttle: max 1 push per chat per 3 minutes
+    if (notification_type === 'chat_messages' && data?.chat_id) {
+      if (isChatThrottled(data.chat_id)) {
+        console.log(`[chat-throttle] Skipping push for chat ${data.chat_id} (within 3-min window)`);
+        return new Response(
+          JSON.stringify({ message: "Throttled - chat push sent recently" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     const formattedContent = formatNotificationContent(notification_type, title, body);
     const notificationSound = getNotificationSound(notification_type);
