@@ -119,18 +119,57 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
     } else if (activate) {
       const brandItem = brandItems.find(bi => bi.id === brandItemId);
       if (!brandItem) throw new Error('Brand item not found');
-      const { error } = await supabase
+
+      // Try to find an existing unlinked local item that matches by name/keywords
+      const matchTerms = [
+        brandItem.product_name.toLowerCase(),
+        ...(brandItem.common_name ? [brandItem.common_name.toLowerCase()] : []),
+        ...(brandItem.match_keywords || []).map(k => k.toLowerCase()),
+      ];
+
+      const { data: unlinkeds } = await supabase
         .from('inventory_items')
-        .insert({
-          location_id: locationId,
-          name: brandItem.product_name,
-          brand_item_id: brandItemId,
-          category: brandItem.category,
-          common_name: brandItem.common_name,
-          is_active: true,
-          is_recipe: brandItem.is_recipe || false,
-        });
-      if (error) throw error;
+        .select('id, name, common_name')
+        .eq('location_id', locationId)
+        .is('brand_item_id', null);
+
+      const matchedLocal = unlinkeds?.find(local => {
+        const localName = (local.name || '').toLowerCase();
+        const localCommon = (local.common_name || '').toLowerCase();
+        return matchTerms.some(term =>
+          localName.includes(term) || term.includes(localName) ||
+          (localCommon && (localCommon.includes(term) || term.includes(localCommon)))
+        );
+      });
+
+      if (matchedLocal) {
+        // Link existing local item to brand template
+        const { error } = await supabase
+          .from('inventory_items')
+          .update({
+            brand_item_id: brandItemId,
+            category: brandItem.category,
+            common_name: brandItem.common_name || matchedLocal.common_name,
+            is_active: true,
+          })
+          .eq('id', matchedLocal.id);
+        if (error) throw error;
+        toast.info(`Linked existing "${matchedLocal.common_name || matchedLocal.name}" to brand item`);
+      } else {
+        // No match found — create new
+        const { error } = await supabase
+          .from('inventory_items')
+          .insert({
+            location_id: locationId,
+            name: brandItem.product_name,
+            brand_item_id: brandItemId,
+            category: brandItem.category,
+            common_name: brandItem.common_name,
+            is_active: true,
+            is_recipe: brandItem.is_recipe || false,
+          });
+        if (error) throw error;
+      }
     }
   };
 
