@@ -6,6 +6,59 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// ============================================================================
+// EMAIL BRANDING (matches hiring-email-service styles)
+// ============================================================================
+
+const primaryColor = "#0a7a8a";
+const accentColor = "#f58220";
+const backgroundColor = "#f0ebe1";
+const textColor = "#0f1215";
+const systemFontStack = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+function wrapEmail(content: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+}
+
+function getEmailFooter(): string {
+  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="croo" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+}
+
+async function queueEmailDirect(supabaseAdmin: any, opts: { from: string; to: string[]; subject: string; html: string; source: string; dedupKey?: string }) {
+  const { error } = await supabaseAdmin.from('email_queue').insert({
+    from_address: opts.from,
+    to_addresses: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    source: opts.source,
+    dedup_key: opts.dedupKey || null,
+    metadata: {},
+  });
+  if (error) {
+    console.error(`[user-service] Queue insert failed for "${opts.subject}":`, error);
+    throw error;
+  }
+  console.log(`[user-service] Queued email: "${opts.subject}" → ${opts.to.join(', ')}`);
+}
+
+async function getOrgBranding(supabaseAdmin: any, locationId?: string) {
+  let orgName = "your new team", locName = "", logoUrl = "", brandName = "";
+  if (locationId) {
+    const { data: loc } = await supabaseAdmin.from('locations').select('name, organization_id').eq('id', locationId).single();
+    if (loc) {
+      locName = loc.name;
+      if (loc.organization_id) {
+        const { data: org } = await supabaseAdmin.from('organizations').select('name, logo_url, brand_name').eq('id', loc.organization_id).single();
+        if (org) { orgName = org.name; logoUrl = org.logo_url || ""; brandName = org.brand_name || org.name; }
+      }
+    }
+  }
+  return { orgName, locName, logoUrl, displayName: brandName || orgName };
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -173,23 +226,44 @@ async function handleInvite(req: Request, supabaseAdmin: any, requestingUserId: 
 
   const resetLink = resetData?.properties?.action_link ?? null;
 
-  // Send branded invite email via hiring-email-service
+  // Send branded invite email directly via email_queue
   if (resetLink) {
     try {
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-      await fetch(`${supabaseUrl}/functions/v1/hiring-email-service`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({
-          action: 'send_invite',
-          payload: { to: email, fullName, locationId, resetLink },
-        }),
+      const branding = await getOrgBranding(supabaseAdmin, locationId);
+      const firstName = fullName.split(' ')[0];
+      const logoHtml = branding.logoUrl
+        ? `<img src="${branding.logoUrl}" alt="${branding.displayName}" style="max-height:40px;max-width:120px;border-radius:8px;"/>`
+        : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);" />`;
+
+      await queueEmailDirect(supabaseAdmin, {
+        from: "CrooHQ Hiring <hiring@croohq.email>",
+        to: [email],
+        subject: `Welcome to ${branding.displayName}${branding.locName ? ` - ${branding.locName}` : ''}!`,
+        html: wrapEmail(`
+          <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+            <table style="width:100%;border-collapse:collapse;"><tr>
+              <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml}</td>
+              <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Welcome to the Team!</h1></td>
+              <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${branding.displayName}</p>${branding.locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${branding.locName}</p>` : ''}</td>
+            </tr></table>
+          </td></tr>
+          <tr><td style="padding:28px 32px;">
+            <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
+            <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+            <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${branding.displayName}</strong>${branding.locName ? ` at the <strong>${branding.locName}</strong> location` : ''}.</p>
+            <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:24px;">
+              <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Next Steps</p>
+              <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">Click the button below to set your password and get started. Once you're in, your manager will add you to the schedule.</p>
+            </div>
+            <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
+            <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
+          </td></tr>
+          ${getEmailFooter()}`),
+        source: 'invite',
+        dedupKey: `invite_${email}_${Date.now()}`,
       });
     } catch (emailError) {
-      console.error("Failed to send invite email:", emailError);
+      console.error("Failed to queue invite email:", emailError);
     }
   }
 
@@ -263,22 +337,35 @@ async function handleResendInvite(req: Request, supabaseAdmin: any, requestingUs
     locationId = userLoc?.location_id || null;
   } catch (_) {}
 
-  // Send resend email via hiring-email-service (through Resend)
+  // Send resend email directly via email_queue
   try {
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    await fetch(`${supabaseUrl}/functions/v1/hiring-email-service`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
-      },
-      body: JSON.stringify({
-        action: 'resend_invite',
-        payload: { to: emailToUse, fullName: profile.full_name, resetLink, locationId },
-      }),
+    const branding = await getOrgBranding(supabaseAdmin, locationId);
+    const firstName = (profile.full_name || '').split(' ')[0] || 'there';
+
+    await queueEmailDirect(supabaseAdmin, {
+      from: "CrooHQ <hiring@croohq.email>",
+      to: [emailToUse],
+      subject: `Your CrooHQ Invite - ${branding.displayName}`,
+      html: wrapEmail(`
+        <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+          <table style="width:100%;border-collapse:collapse;"><tr>
+            <td style="vertical-align:middle;text-align:left;width:180px;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);" /></td>
+            <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Set Your Password</h1></td>
+            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${branding.displayName}</p>${branding.locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${branding.locName}</p>` : ''}</td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:28px 32px;">
+          <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+          <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Your manager has re-sent your invite to <strong style="color:${primaryColor};">${branding.displayName}</strong>. Click below to set your password and get started.</p>
+          <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
+          <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
+        </td></tr>
+        ${getEmailFooter()}`),
+      source: 'resend_invite',
+      dedupKey: `resend_invite_${emailToUse}_${Date.now()}`,
     });
   } catch (emailError) {
-    console.error("Failed to send resend email:", emailError);
+    console.error("Failed to queue resend email:", emailError);
   }
 
   return new Response(JSON.stringify({
