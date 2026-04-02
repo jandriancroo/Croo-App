@@ -123,20 +123,6 @@ async function notifySupportTicket(payload: any): Promise<Response> {
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        </div>
-
-        <div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div>
-      </td></tr>
-      ${getEmailFooter()}
-    `);
-    return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  if (!ticket_id || !event_type) {
-    return new Response(JSON.stringify({ error: "ticket_id and event_type required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   const { data: ticket, error: ticketError } = await supabase
     .from("support_tickets")
