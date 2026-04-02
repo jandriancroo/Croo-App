@@ -360,6 +360,7 @@ export default function EmailPreview() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string>(ALL_TEMPLATES[0].id);
   const [filterCat, setFilterCat] = useState<string | null>(null);
+  const [showLogoCompare, setShowLogoCompare] = useState(false);
 
   const filteredTemplates = filterCat
     ? ALL_TEMPLATES.filter((t) => t.category === filterCat)
