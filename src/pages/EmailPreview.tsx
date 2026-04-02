@@ -48,7 +48,7 @@ function getThreeColHeader(title: string, rightTop: string, rightBottom: string)
 }
 
 function getEmailFooter(): string {
-  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;border-radius:0 0 16px 16px;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:44px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+  return `<tr><td style="background-color:#f0ebe1;padding:14px 40px;border-top:1px solid #e8e5df;border-radius:0 0 16px 16px;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;"><div style="display:inline-flex;align-items:center;gap:8px;justify-content:center;margin-bottom:4px;"><span style="color:#3a5f7d;font-size:13px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:36px;" /></div><p style="color:#999;font-size:11px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
 }
 
 function getCTAButton(url: string, text: string): string {
@@ -63,7 +63,7 @@ function authPasswordReset(): string {
   const WHITE_LOGO = "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp";
   return wrapEmail(`
     <!-- MENUBAR-STYLE HEADER -->
-    <tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:10px 16px;position:relative;">
+    <tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:14px 16px;position:relative;">
       <div style="position:absolute;left:16px;top:50%;transform:translateY(-50%);">
         <div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;">
           <img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" />
