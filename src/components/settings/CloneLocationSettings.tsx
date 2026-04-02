@@ -212,7 +212,7 @@ export function CloneLocationSettings() {
           {/* Results */}
           {results.length > 0 && (
             <div className="space-y-2 pt-2">
-              <label className="text-sm font-medium text-green-600 flex items-center gap-1">
+              <label className="text-sm font-medium text-primary flex items-center gap-1">
                 <Check className="h-4 w-4" /> Clone Results
               </label>
               <div className="rounded-lg border divide-y text-sm max-h-[200px] overflow-y-auto">

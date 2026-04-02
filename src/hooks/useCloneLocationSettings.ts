@@ -42,7 +42,10 @@ export function useCloneLocationSettings() {
         end_time: t.end_time,
         position: t.position,
         color: t.color,
-        role_type: t.role_type,
+        role: t.role,
+        template_name: t.template_name,
+        allowed_roles: t.allowed_roles,
+        days_of_week: t.days_of_week,
       }));
       const { error: insertError } = await supabase.from('shift_templates').insert(rows);
       if (insertError) throw insertError;
