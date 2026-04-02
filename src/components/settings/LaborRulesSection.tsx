@@ -8,8 +8,9 @@ import { Switch } from '@/components/ui/switch';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Scale, Calendar, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, Scale, Calendar, Clock, Settings2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface LaborRulesSectionProps {
   locationId?: string;
@@ -54,12 +55,34 @@ interface LaborRulePreset {
   rest_break_duration: number | null;
 }
 
+const emptyPreset: Omit<LaborRulePreset, 'id'> = {
+  preset_name: '',
+  state_code: '',
+  daily_overtime_threshold: 8,
+  daily_double_time_threshold: 12,
+  weekly_overtime_threshold: 40,
+  overtime_multiplier: 1.5,
+  double_time_multiplier: 2.0,
+  meal_break_hours: null,
+  meal_break_duration: null,
+  rest_break_hours: null,
+  rest_break_duration: null,
+};
+
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   const [rules, setRules] = useState<LaborRule[]>([]);
   const [presets, setPresets] = useState<LaborRulePreset[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<LaborRule | null>(null);
   const [loading, setLoading] = useState(false);
+  const { isSuperAdmin } = useUserRole();
+
+  // Preset management state
+  const [presetDialogOpen, setPresetDialogOpen] = useState(false);
+  const [editingPreset, setEditingPreset] = useState<LaborRulePreset | null>(null);
+  const [presetForm, setPresetForm] = useState<Omit<LaborRulePreset, 'id'>>(emptyPreset);
+  const [presetFormOpen, setPresetFormOpen] = useState(false);
+  const [presetLoading, setPresetLoading] = useState(false);
 
   const emptyRule: LaborRule = {
     rule_name: '',
@@ -95,7 +118,6 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
       const { data, error } = await supabase
         .from('labor_rule_presets')
         .select('*')
-        .eq('is_system', true)
         .order('preset_name');
       if (error) throw error;
       setPresets(data || []);
@@ -163,7 +185,6 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
       setLoading(true);
 
       if (editingRule) {
-        // Update existing rule
         const { error } = await supabase
           .from('labor_rules')
           .update({
@@ -191,7 +212,6 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
         if (error) throw error;
         toast.success('Labor rule updated');
       } else {
-        // Create new rule
         const { error } = await supabase
           .from('labor_rules')
           .insert({
@@ -247,6 +267,111 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     }
   };
 
+  // ========== Preset Management ==========
+  const handleOpenPresetForm = (preset?: LaborRulePreset) => {
+    if (preset) {
+      setEditingPreset(preset);
+      setPresetForm({
+        preset_name: preset.preset_name,
+        state_code: preset.state_code,
+        daily_overtime_threshold: preset.daily_overtime_threshold,
+        daily_double_time_threshold: preset.daily_double_time_threshold,
+        weekly_overtime_threshold: preset.weekly_overtime_threshold,
+        overtime_multiplier: preset.overtime_multiplier,
+        double_time_multiplier: preset.double_time_multiplier,
+        meal_break_hours: preset.meal_break_hours,
+        meal_break_duration: preset.meal_break_duration,
+        rest_break_hours: preset.rest_break_hours,
+        rest_break_duration: preset.rest_break_duration,
+      });
+    } else {
+      setEditingPreset(null);
+      setPresetForm(emptyPreset);
+    }
+    setPresetFormOpen(true);
+  };
+
+  const handleSavePreset = async () => {
+    if (!presetForm.preset_name.trim() || !presetForm.state_code.trim()) {
+      toast.error('Please fill in preset name and state code');
+      return;
+    }
+
+    try {
+      setPresetLoading(true);
+
+      if (editingPreset) {
+        const { error } = await supabase
+          .from('labor_rule_presets')
+          .update({
+            preset_name: presetForm.preset_name,
+            state_code: presetForm.state_code,
+            daily_overtime_threshold: presetForm.daily_overtime_threshold,
+            daily_double_time_threshold: presetForm.daily_double_time_threshold,
+            weekly_overtime_threshold: presetForm.weekly_overtime_threshold,
+            overtime_multiplier: presetForm.overtime_multiplier,
+            double_time_multiplier: presetForm.double_time_multiplier,
+            meal_break_hours: presetForm.meal_break_hours,
+            meal_break_duration: presetForm.meal_break_duration,
+            rest_break_hours: presetForm.rest_break_hours,
+            rest_break_duration: presetForm.rest_break_duration,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingPreset.id);
+
+        if (error) throw error;
+        toast.success('Preset updated');
+      } else {
+        const { error } = await supabase
+          .from('labor_rule_presets')
+          .insert({
+            preset_name: presetForm.preset_name,
+            state_code: presetForm.state_code,
+            daily_overtime_threshold: presetForm.daily_overtime_threshold,
+            daily_double_time_threshold: presetForm.daily_double_time_threshold,
+            weekly_overtime_threshold: presetForm.weekly_overtime_threshold,
+            overtime_multiplier: presetForm.overtime_multiplier,
+            double_time_multiplier: presetForm.double_time_multiplier,
+            meal_break_hours: presetForm.meal_break_hours,
+            meal_break_duration: presetForm.meal_break_duration,
+            rest_break_hours: presetForm.rest_break_hours,
+            rest_break_duration: presetForm.rest_break_duration,
+            is_system: true,
+          });
+
+        if (error) throw error;
+        toast.success('Preset created');
+      }
+
+      setPresetFormOpen(false);
+      setEditingPreset(null);
+      fetchPresets();
+    } catch (error: any) {
+      console.error('Error saving preset:', error);
+      toast.error('Failed to save preset');
+    } finally {
+      setPresetLoading(false);
+    }
+  };
+
+  const handleDeletePreset = async (presetId: string) => {
+    if (!confirm('Are you sure you want to delete this preset? This won\'t affect locations already using these rules.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('labor_rule_presets')
+        .delete()
+        .eq('id', presetId);
+
+      if (error) throw error;
+      toast.success('Preset deleted');
+      fetchPresets();
+    } catch (error: any) {
+      console.error('Error deleting preset:', error);
+      toast.error('Failed to delete preset');
+    }
+  };
+
   if (!locationId) {
     return null;
   }
@@ -267,338 +392,494 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
               ⚠️ Labor rules are customized by the user and should be confirmed with local jurisdiction before applying.
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={() => handleOpenDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Rule
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingRule ? 'Edit Labor Rule' : 'Create Labor Rule'}</DialogTitle>
-                <DialogDescription>
-                  Configure labor calculation rules based on state requirements
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                {!editingRule && presets.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Apply a Preset</Label>
-                    <Select onValueChange={handleApplyPreset}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a preset to auto-fill..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {presets.map(p => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.preset_name} ({p.state_code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">Fills in all fields below — you can still customize before saving.</p>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="rule-name">Rule Name</Label>
-                    <Input
-                      id="rule-name"
-                      placeholder="e.g., California Rules"
-                      value={formData.rule_name}
-                      onChange={(e) => setFormData({...formData, rule_name: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="state-code">State Code</Label>
-                    <Input
-                      id="state-code"
-                      placeholder="e.g., CA"
-                      value={formData.state_code}
-                      onChange={(e) => setFormData({...formData, state_code: e.target.value.toUpperCase()})}
-                    />
-                  </div>
-                </div>
+          <div className="flex gap-2">
+            {isSuperAdmin && (
+              <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" onClick={() => { setPresetFormOpen(false); setPresetDialogOpen(true); }}>
+                    <Settings2 className="h-4 w-4 mr-2" />
+                    Manage Presets
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Manage Labor Rule Presets</DialogTitle>
+                    <DialogDescription>
+                      Global presets available to all locations. Changes here don't affect locations already using these rules.
+                    </DialogDescription>
+                  </DialogHeader>
 
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Daily Overtime Rules</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Daily overtime calculated after unpaid meal breaks are deducted
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="daily-ot-threshold">Daily Overtime After (hours)</Label>
-                      <Input
-                        id="daily-ot-threshold"
-                        type="number"
-                        step="0.5"
-                        value={formData.daily_overtime_threshold}
-                        onChange={(e) => setFormData({...formData, daily_overtime_threshold: parseFloat(e.target.value)})}
-                      />
-                      <p className="text-xs text-muted-foreground">Typically 8 hours/day</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="daily-dt-threshold">Daily Double Time After (hours)</Label>
-                      <Input
-                        id="daily-dt-threshold"
-                        type="number"
-                        step="0.5"
-                        value={formData.daily_double_time_threshold}
-                        onChange={(e) => setFormData({...formData, daily_double_time_threshold: parseFloat(e.target.value)})}
-                      />
-                      <p className="text-xs text-muted-foreground">Typically 12 hours/day</p>
-                    </div>
-                  </div>
-                </div>
+                  {presetFormOpen ? (
+                    <div className="space-y-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Preset Name</Label>
+                          <Input
+                            placeholder="e.g., California Rules"
+                            value={presetForm.preset_name}
+                            onChange={(e) => setPresetForm({...presetForm, preset_name: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>State Code</Label>
+                          <Input
+                            placeholder="e.g., CA"
+                            value={presetForm.state_code}
+                            onChange={(e) => setPresetForm({...presetForm, state_code: e.target.value.toUpperCase()})}
+                          />
+                        </div>
+                      </div>
 
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Weekly Overtime Rules</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Employee receives the higher of daily or weekly overtime
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="weekly-ot-threshold">Weekly Overtime After (hours)</Label>
-                      <Input
-                        id="weekly-ot-threshold"
-                        type="number"
-                        step="0.5"
-                        value={formData.weekly_overtime_threshold}
-                        onChange={(e) => setFormData({...formData, weekly_overtime_threshold: parseFloat(e.target.value)})}
-                      />
-                      <p className="text-xs text-muted-foreground">Typically 40 hours/week</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="ot-multiplier">Overtime Pay Multiplier</Label>
-                      <Input
-                        id="ot-multiplier"
-                        type="number"
-                        step="0.1"
-                        value={formData.overtime_multiplier}
-                        onChange={(e) => setFormData({...formData, overtime_multiplier: parseFloat(e.target.value)})}
-                      />
-                      <p className="text-xs text-muted-foreground">Typically 1.5x</p>
-                    </div>
-                  </div>
-                </div>
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold mb-3 text-sm">Overtime Thresholds</h4>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Daily OT (hrs)</Label>
+                            <Input type="number" step="0.5" value={presetForm.daily_overtime_threshold}
+                              onChange={(e) => setPresetForm({...presetForm, daily_overtime_threshold: parseFloat(e.target.value)})} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Daily DT (hrs)</Label>
+                            <Input type="number" step="0.5" value={presetForm.daily_double_time_threshold}
+                              onChange={(e) => setPresetForm({...presetForm, daily_double_time_threshold: parseFloat(e.target.value)})} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Weekly OT (hrs)</Label>
+                            <Input type="number" step="0.5" value={presetForm.weekly_overtime_threshold}
+                              onChange={(e) => setPresetForm({...presetForm, weekly_overtime_threshold: parseFloat(e.target.value)})} />
+                          </div>
+                        </div>
+                      </div>
 
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Pay Multipliers</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="dt-multiplier">Double Time Pay Multiplier</Label>
-                      <Input
-                        id="dt-multiplier"
-                        type="number"
-                        step="0.1"
-                        value={formData.double_time_multiplier}
-                        onChange={(e) => setFormData({...formData, double_time_multiplier: parseFloat(e.target.value)})}
-                      />
-                      <p className="text-xs text-muted-foreground">Typically 2.0x</p>
-                    </div>
-                  </div>
-                </div>
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold mb-3 text-sm">Pay Multipliers</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">OT Multiplier</Label>
+                            <Input type="number" step="0.1" value={presetForm.overtime_multiplier}
+                              onChange={(e) => setPresetForm({...presetForm, overtime_multiplier: parseFloat(e.target.value)})} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">DT Multiplier</Label>
+                            <Input type="number" step="0.1" value={presetForm.double_time_multiplier}
+                              onChange={(e) => setPresetForm({...presetForm, double_time_multiplier: parseFloat(e.target.value)})} />
+                          </div>
+                        </div>
+                      </div>
 
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Meal Break Requirements (Optional)</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="meal-hours">Required After (hours)</Label>
-                      <Input
-                        id="meal-hours"
-                        type="number"
-                        step="0.5"
-                        placeholder="e.g., 5"
-                        value={formData.meal_break_hours || ''}
-                        onChange={(e) => setFormData({...formData, meal_break_hours: e.target.value ? parseFloat(e.target.value) : null})}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="meal-duration">Break Duration (minutes)</Label>
-                      <Input
-                        id="meal-duration"
-                        type="number"
-                        placeholder="e.g., 30"
-                        value={formData.meal_break_duration || ''}
-                        onChange={(e) => setFormData({...formData, meal_break_duration: e.target.value ? parseInt(e.target.value) : null})}
-                      />
-                    </div>
-                  </div>
-                </div>
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold mb-3 text-sm">Break Requirements (Optional)</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Meal After (hrs)</Label>
+                            <Input type="number" step="0.5" placeholder="e.g., 5"
+                              value={presetForm.meal_break_hours || ''}
+                              onChange={(e) => setPresetForm({...presetForm, meal_break_hours: e.target.value ? parseFloat(e.target.value) : null})} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Meal Duration (min)</Label>
+                            <Input type="number" placeholder="e.g., 30"
+                              value={presetForm.meal_break_duration || ''}
+                              onChange={(e) => setPresetForm({...presetForm, meal_break_duration: e.target.value ? parseInt(e.target.value) : null})} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Rest After (hrs)</Label>
+                            <Input type="number" step="0.5" placeholder="e.g., 4"
+                              value={presetForm.rest_break_hours || ''}
+                              onChange={(e) => setPresetForm({...presetForm, rest_break_hours: e.target.value ? parseFloat(e.target.value) : null})} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Rest Duration (min)</Label>
+                            <Input type="number" placeholder="e.g., 10"
+                              value={presetForm.rest_break_duration || ''}
+                              onChange={(e) => setPresetForm({...presetForm, rest_break_duration: e.target.value ? parseInt(e.target.value) : null})} />
+                          </div>
+                        </div>
+                      </div>
 
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Rest Break Requirements (Optional)</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="rest-hours">Required After (hours)</Label>
-                      <Input
-                        id="rest-hours"
-                        type="number"
-                        step="0.5"
-                        placeholder="e.g., 4"
-                        value={formData.rest_break_hours || ''}
-                        onChange={(e) => setFormData({...formData, rest_break_hours: e.target.value ? parseFloat(e.target.value) : null})}
-                      />
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setPresetFormOpen(false)}>Back</Button>
+                        <Button onClick={handleSavePreset} disabled={presetLoading}>
+                          {presetLoading ? 'Saving...' : editingPreset ? 'Update Preset' : 'Create Preset'}
+                        </Button>
+                      </DialogFooter>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="rest-duration">Break Duration (minutes)</Label>
-                      <Input
-                        id="rest-duration"
-                        type="number"
-                        placeholder="e.g., 10"
-                        value={formData.rest_break_duration || ''}
-                        onChange={(e) => setFormData({...formData, rest_break_duration: e.target.value ? parseInt(e.target.value) : null})}
-                      />
-                    </div>
-                  </div>
-                </div>
+                  ) : (
+                    <div className="space-y-3 py-4">
+                      <Button size="sm" onClick={() => handleOpenPresetForm()} className="w-full">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add New Preset
+                      </Button>
 
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Pay Period Configuration
-                  </h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Define how pay periods are calculated for this location
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
+                      {presets.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No presets yet.</p>
+                      ) : (
+                        presets.map((preset) => (
+                          <div key={preset.id} className="border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-semibold text-sm">{preset.preset_name}</h4>
+                                <p className="text-xs text-muted-foreground">State: {preset.state_code}</p>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="sm" onClick={() => handleOpenPresetForm(preset)}>
+                                  <Edit className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleDeletePreset(preset.id)}
+                                  className="text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-x-4 text-xs text-muted-foreground">
+                              <span>Daily OT: {preset.daily_overtime_threshold}h</span>
+                              <span>Daily DT: {preset.daily_double_time_threshold}h</span>
+                              <span>Weekly OT: {preset.weekly_overtime_threshold}h</span>
+                              <span>OT: {preset.overtime_multiplier}x</span>
+                              <span>DT: {preset.double_time_multiplier}x</span>
+                              {preset.meal_break_hours && (
+                                <span>Meal: {preset.meal_break_duration}min/{preset.meal_break_hours}h</span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+            )}
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={() => handleOpenDialog()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Rule
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingRule ? 'Edit Labor Rule' : 'Create Labor Rule'}</DialogTitle>
+                  <DialogDescription>
+                    Configure labor calculation rules based on state requirements
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  {presets.length > 0 && (
                     <div className="space-y-2">
-                      <Label htmlFor="pay-period-type">Pay Period Type</Label>
-                      <Select
-                        value={formData.pay_period_type}
-                        onValueChange={(value) => setFormData({...formData, pay_period_type: value})}
-                      >
-                        <SelectTrigger id="pay-period-type">
-                          <SelectValue placeholder="Select pay period type" />
+                      <Label>Apply a Preset</Label>
+                      <Select onValueChange={handleApplyPreset}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a preset to auto-fill..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="biweekly">Biweekly (Every 2 Weeks)</SelectItem>
-                          <SelectItem value="semimonthly">Semi-Monthly (1st & 15th)</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
+                          {presets.map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.preset_name} ({p.state_code})
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">Fills in all fields below — you can still customize before saving.</p>
                     </div>
-                    {(formData.pay_period_type === 'weekly' || formData.pay_period_type === 'biweekly') && (
-                      <div className="space-y-2">
-                        <Label htmlFor="pay-period-start">Pay Period Start Date</Label>
-                        <Input
-                          id="pay-period-start"
-                          type="date"
-                          value={formData.pay_period_start_date || ''}
-                          onChange={(e) => setFormData({...formData, pay_period_start_date: e.target.value || null})}
-                        />
-                        <p className="text-xs text-muted-foreground">First day of a pay period</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Clock-In Restrictions
-                  </h4>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Control when employees can clock in at this location
-                  </p>
-                  
-                  <div className="space-y-4">
-                    {/* Clock In When Not Scheduled */}
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="allow-unscheduled" className="text-sm font-medium">
-                          Clock In When Not Scheduled
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                          Allow employees to clock in without a scheduled shift (flagged for payroll review)
-                        </p>
-                      </div>
-                      <Switch
-                        id="allow-unscheduled"
-                        checked={formData.allow_unscheduled_clock_in}
-                        onCheckedChange={(checked) => setFormData({...formData, allow_unscheduled_clock_in: checked})}
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="rule-name">Rule Name</Label>
+                      <Input
+                        id="rule-name"
+                        placeholder="e.g., California Rules"
+                        value={formData.rule_name}
+                        onChange={(e) => setFormData({...formData, rule_name: e.target.value})}
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="state-code">State Code</Label>
+                      <Input
+                        id="state-code"
+                        placeholder="e.g., CA"
+                        value={formData.state_code}
+                        onChange={(e) => setFormData({...formData, state_code: e.target.value.toUpperCase()})}
+                      />
+                    </div>
+                  </div>
 
-                    {/* Clock In Early */}
-                    <div className="p-3 bg-muted/50 rounded-lg space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="allow-early" className="text-sm font-medium">
-                            Clock In Early
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            Allow employees to clock in before their scheduled shift start time
-                          </p>
-                        </div>
-                        <Switch
-                          id="allow-early"
-                          checked={formData.allow_early_clock_in}
-                          onCheckedChange={(checked) => setFormData({...formData, allow_early_clock_in: checked})}
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3">Daily Overtime Rules</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Daily overtime calculated after unpaid meal breaks are deducted
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="daily-ot-threshold">Daily Overtime After (hours)</Label>
+                        <Input
+                          id="daily-ot-threshold"
+                          type="number"
+                          step="0.5"
+                          value={formData.daily_overtime_threshold}
+                          onChange={(e) => setFormData({...formData, daily_overtime_threshold: parseFloat(e.target.value)})}
+                        />
+                        <p className="text-xs text-muted-foreground">Typically 8 hours/day</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="daily-dt-threshold">Daily Double Time After (hours)</Label>
+                        <Input
+                          id="daily-dt-threshold"
+                          type="number"
+                          step="0.5"
+                          value={formData.daily_double_time_threshold}
+                          onChange={(e) => setFormData({...formData, daily_double_time_threshold: parseFloat(e.target.value)})}
+                        />
+                        <p className="text-xs text-muted-foreground">Typically 12 hours/day</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3">Weekly Overtime Rules</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Employee receives the higher of daily or weekly overtime
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="weekly-ot-threshold">Weekly Overtime After (hours)</Label>
+                        <Input
+                          id="weekly-ot-threshold"
+                          type="number"
+                          step="0.5"
+                          value={formData.weekly_overtime_threshold}
+                          onChange={(e) => setFormData({...formData, weekly_overtime_threshold: parseFloat(e.target.value)})}
+                        />
+                        <p className="text-xs text-muted-foreground">Typically 40 hours/week</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="ot-multiplier">Overtime Pay Multiplier</Label>
+                        <Input
+                          id="ot-multiplier"
+                          type="number"
+                          step="0.1"
+                          value={formData.overtime_multiplier}
+                          onChange={(e) => setFormData({...formData, overtime_multiplier: parseFloat(e.target.value)})}
+                        />
+                        <p className="text-xs text-muted-foreground">Typically 1.5x</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3">Pay Multipliers</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="dt-multiplier">Double Time Pay Multiplier</Label>
+                        <Input
+                          id="dt-multiplier"
+                          type="number"
+                          step="0.1"
+                          value={formData.double_time_multiplier}
+                          onChange={(e) => setFormData({...formData, double_time_multiplier: parseFloat(e.target.value)})}
+                        />
+                        <p className="text-xs text-muted-foreground">Typically 2.0x</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3">Meal Break Requirements (Optional)</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="meal-hours">Required After (hours)</Label>
+                        <Input
+                          id="meal-hours"
+                          type="number"
+                          step="0.5"
+                          placeholder="e.g., 5"
+                          value={formData.meal_break_hours || ''}
+                          onChange={(e) => setFormData({...formData, meal_break_hours: e.target.value ? parseFloat(e.target.value) : null})}
                         />
                       </div>
-                      
-                      {formData.allow_early_clock_in && (
-                        <div className="pt-2 border-t">
-                          <Label className="text-sm mb-2 block">How early can they clock in?</Label>
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            {EARLY_CLOCK_IN_PRESETS.map((mins) => (
-                              <Button
-                                key={mins}
-                                type="button"
-                                size="sm"
-                                variant={formData.early_clock_in_minutes === mins ? "default" : "outline"}
-                                onClick={() => setFormData({...formData, early_clock_in_minutes: mins})}
-                              >
-                                {mins} min
-                              </Button>
-                            ))}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Label htmlFor="custom-early" className="text-xs text-muted-foreground whitespace-nowrap">
-                              Custom:
-                            </Label>
-                            <Input
-                              id="custom-early"
-                              type="number"
-                              min="1"
-                              max="120"
-                              className="w-20"
-                              value={formData.early_clock_in_minutes}
-                              onChange={(e) => setFormData({...formData, early_clock_in_minutes: parseInt(e.target.value) || 30})}
-                            />
-                            <span className="text-xs text-muted-foreground">minutes</span>
-                          </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="meal-duration">Break Duration (minutes)</Label>
+                        <Input
+                          id="meal-duration"
+                          type="number"
+                          placeholder="e.g., 30"
+                          value={formData.meal_break_duration || ''}
+                          onChange={(e) => setFormData({...formData, meal_break_duration: e.target.value ? parseInt(e.target.value) : null})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3">Rest Break Requirements (Optional)</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="rest-hours">Required After (hours)</Label>
+                        <Input
+                          id="rest-hours"
+                          type="number"
+                          step="0.5"
+                          placeholder="e.g., 4"
+                          value={formData.rest_break_hours || ''}
+                          onChange={(e) => setFormData({...formData, rest_break_hours: e.target.value ? parseFloat(e.target.value) : null})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="rest-duration">Break Duration (minutes)</Label>
+                        <Input
+                          id="rest-duration"
+                          type="number"
+                          placeholder="e.g., 10"
+                          value={formData.rest_break_duration || ''}
+                          onChange={(e) => setFormData({...formData, rest_break_duration: e.target.value ? parseInt(e.target.value) : null})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Pay Period Configuration
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Define how pay periods are calculated for this location
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="pay-period-type">Pay Period Type</Label>
+                        <Select
+                          value={formData.pay_period_type}
+                          onValueChange={(value) => setFormData({...formData, pay_period_type: value})}
+                        >
+                          <SelectTrigger id="pay-period-type">
+                            <SelectValue placeholder="Select pay period type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="biweekly">Biweekly (Every 2 Weeks)</SelectItem>
+                            <SelectItem value="semimonthly">Semi-Monthly (1st & 15th)</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {(formData.pay_period_type === 'weekly' || formData.pay_period_type === 'biweekly') && (
+                        <div className="space-y-2">
+                          <Label htmlFor="pay-period-start">Pay Period Start Date</Label>
+                          <Input
+                            id="pay-period-start"
+                            type="date"
+                            value={formData.pay_period_start_date || ''}
+                            onChange={(e) => setFormData({...formData, pay_period_start_date: e.target.value || null})}
+                          />
+                          <p className="text-xs text-muted-foreground">First day of a pay period</p>
                         </div>
                       )}
                     </div>
                   </div>
-                </div>
 
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Auto Punch-Out</h4>
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <p className="text-sm text-muted-foreground">
-                      Auto punch-out is now automatically calculated as <strong>close time + 3 hours</strong> based on your Business Hours settings.
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Clock-In Restrictions
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Control when employees can clock in at this location
                     </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      This ensures a unified "business day" across all systems (time tracking, checklists, logbook, etc.)
-                    </p>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="allow-unscheduled" className="text-sm font-medium">
+                            Clock In When Not Scheduled
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Allow employees to clock in without a scheduled shift (flagged for payroll review)
+                          </p>
+                        </div>
+                        <Switch
+                          id="allow-unscheduled"
+                          checked={formData.allow_unscheduled_clock_in}
+                          onCheckedChange={(checked) => setFormData({...formData, allow_unscheduled_clock_in: checked})}
+                        />
+                      </div>
+
+                      <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="allow-early" className="text-sm font-medium">
+                              Clock In Early
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Allow employees to clock in before their scheduled shift start time
+                            </p>
+                          </div>
+                          <Switch
+                            id="allow-early"
+                            checked={formData.allow_early_clock_in}
+                            onCheckedChange={(checked) => setFormData({...formData, allow_early_clock_in: checked})}
+                          />
+                        </div>
+                        
+                        {formData.allow_early_clock_in && (
+                          <div className="pt-2 border-t">
+                            <Label className="text-sm mb-2 block">How early can they clock in?</Label>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {EARLY_CLOCK_IN_PRESETS.map((mins) => (
+                                <Button
+                                  key={mins}
+                                  type="button"
+                                  size="sm"
+                                  variant={formData.early_clock_in_minutes === mins ? "default" : "outline"}
+                                  onClick={() => setFormData({...formData, early_clock_in_minutes: mins})}
+                                >
+                                  {mins} min
+                                </Button>
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="custom-early" className="text-xs text-muted-foreground whitespace-nowrap">
+                                Custom:
+                              </Label>
+                              <Input
+                                id="custom-early"
+                                type="number"
+                                min="1"
+                                max="120"
+                                className="w-20"
+                                value={formData.early_clock_in_minutes}
+                                onChange={(e) => setFormData({...formData, early_clock_in_minutes: parseInt(e.target.value) || 30})}
+                              />
+                              <span className="text-xs text-muted-foreground">minutes</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold mb-3">Auto Punch-Out</h4>
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-sm text-muted-foreground">
+                        Auto punch-out is now automatically calculated as <strong>close time + 3 hours</strong> based on your Business Hours settings.
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        This ensures a unified "business day" across all systems (time tracking, checklists, logbook, etc.)
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={loading}>
-                  {loading ? 'Saving...' : 'Save Rule'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSave} disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Rule'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
