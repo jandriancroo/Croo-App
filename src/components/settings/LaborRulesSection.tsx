@@ -56,6 +56,9 @@ interface LaborRulePreset {
   meal_break_duration: number | null;
   rest_break_hours: number | null;
   rest_break_duration: number | null;
+  reporting_time_enabled: boolean;
+  reporting_time_min_hours: number | null;
+  reporting_time_max_hours: number | null;
 }
 
 const emptyPreset: Omit<LaborRulePreset, 'id'> = {
