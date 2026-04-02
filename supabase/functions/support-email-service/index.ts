@@ -619,11 +619,11 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
 <table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
 
   <!-- HEADER -->
-  <tr><td style="background-color:#0a7a8a;padding:24px 24px 20px;">
+  <tr><td style="background:${primaryColor};border-radius:16px 16px 0 0;padding:24px 24px 20px;">
     <table style="width:100%;border-collapse:collapse;">
       <tr>
         <td style="vertical-align:middle;text-align:left;">
-          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:40px;width:40px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
+          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:40px;width:40px;border-radius:10px;object-fit:contain;background:#fff;" />` : `<div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;"><img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" /></div>`}
         </td>
         <td style="vertical-align:middle;text-align:right;">
           <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
