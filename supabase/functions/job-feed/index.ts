@@ -179,7 +179,7 @@ function escapeXml(str: string): string {
 function toXmlFeed(listings: any[], supabaseUrl: string): string {
   const items = listings
     .map((listing) => {
-      const loc = listing.location;
+      const addr = parseAddress(listing.location?.address);
       const org = listing.organization;
       const applyUrl = getApplicationUrl(listing, supabaseUrl, "xml_feed");
 
@@ -189,10 +189,10 @@ function toXmlFeed(listings: any[], supabaseUrl: string): string {
       <referencenumber>${listing.id}</referencenumber>
       <url>${escapeXml(applyUrl)}</url>
       <company><![CDATA[${org?.brand_name || org?.name || ""}]]></company>
-      <city><![CDATA[${loc?.city || ""}]]></city>
-      <state><![CDATA[${loc?.state || ""}]]></state>
+      <city><![CDATA[${addr.city}]]></city>
+      <state><![CDATA[${addr.state}]]></state>
       <country>US</country>
-      <postalcode>${loc?.zip_code || ""}</postalcode>
+      <postalcode>${addr.zip}</postalcode>
       <description><![CDATA[${listing.description || listing.title}]]></description>
       <jobtype>${mapEmploymentTypeXml(listing.employment_type)}</jobtype>
       ${listing.pay_min ? `<salary>${listing.pay_min}${listing.pay_max ? `-${listing.pay_max}` : ""}</salary>` : ""}
