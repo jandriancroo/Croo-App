@@ -50,6 +50,7 @@ const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
 
 export default function PublicApplication() {
   const { orgSlug } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
   const turnstileRef = useRef<HTMLDivElement>(null);
