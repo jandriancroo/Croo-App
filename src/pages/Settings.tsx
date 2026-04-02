@@ -218,6 +218,10 @@ export default function Settings() {
       case 'notifications':
         return <UnifiedNotificationSettings />;
 
+      case 'clone-settings':
+        if (!isSuperAdmin) return null;
+        return <CloneLocationSettings />;
+
       case 'brands':
         if (!isSuperAdmin) return null;
         return (
