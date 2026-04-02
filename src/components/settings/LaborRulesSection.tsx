@@ -36,6 +36,9 @@ interface LaborRule {
   allow_unscheduled_clock_in: boolean;
   allow_early_clock_in: boolean;
   early_clock_in_minutes: number;
+  reporting_time_enabled: boolean;
+  reporting_time_min_hours: number | null;
+  reporting_time_max_hours: number | null;
 }
 
 const EARLY_CLOCK_IN_PRESETS = [5, 10, 15, 30];
