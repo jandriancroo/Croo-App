@@ -229,7 +229,7 @@ function writeupNotification(): string {
         <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Issue Description</p>
         <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">Employee was 15 minutes late to scheduled shift without prior notification.</p>
       </div>
-      <div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:20px;border-left:4px solid ${primaryColor};">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
         <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Next Steps</p>
         <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">Please set an alarm and arrive on time for all future shifts.</p>
       </div>
