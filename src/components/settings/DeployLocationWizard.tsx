@@ -474,7 +474,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                   </div>
                   <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <p className="text-xs text-muted-foreground">
-                      <strong>What happens next:</strong> Brand event categories will be auto-deployed. Only your Super Admin account will be assigned. 
+                      <strong>What happens next:</strong> Brand event categories and state-specific labor rules will be auto-deployed based on the address. Only your Super Admin account will be assigned. 
                       Switch to the new location to invite team members, set up checklists, configure inventory, and connect integrations.
                     </p>
                   </div>
