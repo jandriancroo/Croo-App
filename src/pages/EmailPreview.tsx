@@ -333,20 +333,27 @@ function dailyPulse(): string {
         </tr>
       </table>
       <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;"><tr>
-        <td style="vertical-align:top;width:50%;padding-right:16px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Safe Count</p>
-          <div style="margin-bottom:10px;"><span style="display:inline-block;background:#fef3c7;color:#78350f;border:1px solid #fcd34d;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">☀︎ AM</span> <span style="color:#22c55e;font-weight:600;font-size:13px;">Completed</span><p style="margin:4px 0 0;font-size:12px;color:#888;">John M. &middot; 8:30 AM</p></div>
-          <div><span style="display:inline-block;background:#312e81;color:#e0e7ff;border:1px solid #4338ca;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">☽ PM</span> <span style="color:#22c55e;font-weight:600;font-size:13px;">Completed</span><p style="margin:4px 0 0;font-size:12px;color:#888;">Sarah K. &middot; 9:45 PM</p></div>
-        </td>
-        <td style="vertical-align:top;border-left:1px solid #e8e5df;padding-left:16px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Drawer Count</p>
-          <p style="margin:0 0 2px;font-size:13px;color:${textColor};font-weight:600;">$482.35 / $500.00</p>
-          <p style="margin:0 0 2px;font-size:12px;"><span style="color:#ef4444;font-weight:600;">Under $17.65</span></p>
-          <p style="margin:0;font-size:11px;color:#888;">9:55 PM - Sarah K.</p>
-        </td>
-      </tr></table>
-      <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Cash Handling</p>
+      <table style="width:100%;border-collapse:collapse;background:#fafaf8;border-radius:12px;overflow:hidden;">
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Safe Count — AM</span></td>
+          <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:#22c55e;font-weight:600;">Completed</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">John M. · 8:30 AM</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Safe Count — PM</span></td>
+          <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:#22c55e;font-weight:600;">Completed</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">Sarah K. · 9:45 PM</span></td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#f59e0b;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">!</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Drawer Count</span></td>
+          <td style="padding:8px 4px;text-align:right;"><span style="font-size:11px;color:#ef4444;font-weight:600;">-$17.65</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#888;">Sarah K. · 9:55 PM</span></td>
+        </tr>
+      </table>
       <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Logbook 2 entries</p>
       <div style="background:#fafaf8;border-radius:12px;padding:10px 14px;margin-bottom:6px;">
         <p style="margin:0;font-size:13px;color:${textColor};font-weight:600;">Equipment Issue</p>
