@@ -10,7 +10,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
