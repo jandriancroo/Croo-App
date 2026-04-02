@@ -135,7 +135,7 @@ function interviewInvite(): string {
     <tr><td style="padding:28px 32px;">
       <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi Jane,</p>
       <p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>John Manager</strong> would like to invite you for an interview at <strong>Blaze Pizza</strong>.</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:24px;margin:0 0 24px;text-align:center;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin:0 0 24px;text-align:center;">
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Interview Details</p>
         <p style="color:${textColor};font-size:20px;font-weight:700;margin:0 0 4px;">Wednesday, February 19, 2026</p>
         <p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">2:00 PM</p>
