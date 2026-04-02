@@ -196,7 +196,44 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         }
       } catch (autoDeployError) {
         console.error('Auto-deploy event categories error:', autoDeployError);
-        // Non-blocking — location still deploys successfully
+      }
+
+      // 5. Auto-apply labor rule preset based on state in address
+      try {
+        const stateMatch = address.match(/\b([A-Z]{2})\s*\.?\s*\d{5}/i) 
+          || address.match(/,\s*([A-Z]{2})\s*$/i)
+          || address.match(/,\s*([A-Z]{2})\s+/i);
+        
+        if (stateMatch) {
+          const stateCode = stateMatch[1].toUpperCase();
+          const { data: preset } = await supabase
+            .from('labor_rule_presets')
+            .select('*')
+            .eq('state_code', stateCode)
+            .limit(1)
+            .maybeSingle();
+
+          if (preset) {
+            await supabase.from('labor_rules').insert({
+              location_id: locationId,
+              rule_name: preset.preset_name,
+              state_code: preset.state_code,
+              daily_overtime_threshold: preset.daily_overtime_threshold,
+              daily_double_time_threshold: preset.daily_double_time_threshold,
+              weekly_overtime_threshold: preset.weekly_overtime_threshold,
+              overtime_multiplier: preset.overtime_multiplier,
+              double_time_multiplier: preset.double_time_multiplier,
+              meal_break_hours: preset.meal_break_hours,
+              meal_break_duration: preset.meal_break_duration,
+              rest_break_hours: preset.rest_break_hours,
+              rest_break_duration: preset.rest_break_duration,
+            });
+            console.log(`Auto-applied ${preset.preset_name} labor rules for ${stateCode}`);
+          }
+        }
+      } catch (laborPresetError) {
+        console.error('Auto-apply labor preset error:', laborPresetError);
+        // Non-blocking
       }
 
       setDeployComplete(true);
@@ -437,7 +474,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                   </div>
                   <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <p className="text-xs text-muted-foreground">
-                      <strong>What happens next:</strong> Brand event categories will be auto-deployed. Only your Super Admin account will be assigned. 
+                      <strong>What happens next:</strong> Brand event categories and state-specific labor rules will be auto-deployed based on the address. Only your Super Admin account will be assigned. 
                       Switch to the new location to invite team members, set up checklists, configure inventory, and connect integrations.
                     </p>
                   </div>
