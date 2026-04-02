@@ -38,8 +38,9 @@ export const useUserRole = () => {
       return data as AppRole;
     },
     enabled: !!user?.id,
-    staleTime: Infinity, // Cache for entire session, clear on logout
+    staleTime: 5 * 60 * 1000, // 5 minutes — picks up role changes reasonably fast
     gcTime: 1 * 60 * 60 * 1000, // Keep in memory for 1 hour
+    refetchOnWindowFocus: true, // Refetch when user returns to app
   });
 
   // Helper checks - use cached role
