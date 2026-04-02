@@ -105,7 +105,7 @@ function employeeInvite(): string {
       <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
       <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey Jane!</p>
       <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">Blaze Pizza</strong> at the <strong>Downtown</strong> location.</p>
-      <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:24px;">
+      <div style="background:#fafaf8;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
         <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Next Steps</p>
         <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">Click the button below to set your password and get started. Once you're in, your manager will add you to the schedule.</p>
       </div>
