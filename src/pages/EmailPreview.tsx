@@ -382,45 +382,64 @@ function weeklyPulse(): string {
   return wrapEmail(`
     ${getUnifiedHeader("Weekly Pulse")}
     <tr><td style="padding:24px;">
-      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Sales Summary</p>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><tr>
-        <td style="vertical-align:top;width:50%;padding-right:20px;">
-          <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$18,420</strong></p>
-          <p style="color:#888;font-size:13px;margin:4px 0 0;">Weekly Target: $19,500</p>
-          <p style="color:#ef4444;font-size:13px;font-weight:600;margin:4px 0 0;">-$1,080 vs goal</p>
-        </td>
-        <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Avg Labor</p>
-          <p style="margin:0;"><strong style="color:#22c55e;font-size:28px;">25.2%</strong></p>
-          <p style="color:#888;font-size:13px;margin:4px 0 0;">$4,642 total labor</p>
-        </td>
-      </tr></table>
-      <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
-      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Daily Breakdown</p>
-      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;">
-        <tr style="border-bottom:2px solid #e8e5df;">
-          <td style="padding:8px 0;font-weight:700;color:${textColor};">Day</td>
-          <td style="padding:8px 0;text-align:right;font-weight:700;color:${textColor};">Sales</td>
-          <td style="padding:8px 0;text-align:right;font-weight:700;color:${textColor};">Labor%</td>
-          <td style="padding:8px 0;text-align:right;font-weight:700;color:${textColor};">vs Goal</td>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Sales Summary</p>
+      <table style="width:100%;border-collapse:collapse;background:#fafaf8;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:10px 12px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Total Sales</span></td>
+          <td style="padding:10px 12px;text-align:right;"><strong style="font-size:16px;color:${textColor};">$18,420</strong></td>
         </tr>
-        ${["Mon,$2,180,23.1%,+$80", "Tue,$2,420,24.5%,+$120", "Wed,$2,850,22.8%,+$350", "Thu,$2,540,26.2%,-$60", "Fri,$3,210,25.8%,+$510", "Sat,$3,080,27.1%,-$120", "Sun,$2,140,25.4%,-$360"].map(row => {
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;"><span style="font-size:13px;color:#888;">Weekly Target</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:#888;">$19,500</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;"><span style="font-size:13px;color:#888;">vs Goal</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:#ef4444;font-weight:600;">-$1,080</span></td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;"><span style="font-size:13px;color:#888;">Avg Labor</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:13px;color:#22c55e;font-weight:600;">25.2%</span> <span style="font-size:11px;color:#888;">($4,642)</span></td>
+        </tr>
+      </table>
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Daily Breakdown</p>
+      <table style="width:100%;border-collapse:collapse;background:#fafaf8;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+        <tr style="border-bottom:2px solid #e8e5df;">
+          <td style="padding:8px 12px;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Day</td>
+          <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Sales</td>
+          <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">Labor%</td>
+          <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:11px;color:#888;text-transform:uppercase;">vs Goal</td>
+        </tr>
+        ${["Mon,$2,180,23.1%,+$80", "Tue,$2,420,24.5%,+$120", "Wed,$2,850,22.8%,+$350", "Thu,$2,540,26.2%,-$60", "Fri,$3,210,25.8%,+$510", "Sat,$3,080,27.1%,-$120", "Sun,$2,140,25.4%,-$360"].map((row, i, arr) => {
           const [day, sales, labor, diff] = row.split(",");
           const isNeg = diff.startsWith("-");
-          return `<tr style="border-bottom:1px solid #f0ebe1;">
-            <td style="padding:8px 0;color:${textColor};">${day}</td>
-            <td style="padding:8px 0;text-align:right;color:${textColor};font-weight:600;">${sales}</td>
-            <td style="padding:8px 0;text-align:right;color:#888;">${labor}</td>
-            <td style="padding:8px 0;text-align:right;color:${isNeg ? '#ef4444' : '#22c55e'};font-weight:600;">${diff}</td>
+          const border = i < arr.length - 1 ? 'border-bottom:1px solid #e8e5df;' : '';
+          return `<tr style="${border}">
+            <td style="padding:8px 12px;font-size:13px;color:${textColor};font-weight:600;">${day}</td>
+            <td style="padding:8px 12px;text-align:right;font-size:13px;color:${textColor};">${sales}</td>
+            <td style="padding:8px 12px;text-align:right;font-size:11px;color:#888;">${labor}</td>
+            <td style="padding:8px 12px;text-align:right;font-size:13px;color:${isNeg ? '#ef4444' : '#22c55e'};font-weight:600;">${diff}</td>
           </tr>`;
         }).join("")}
       </table>
-      <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
-      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Checklist Completion</p>
-      <table style="width:100%;border-collapse:collapse;font-size:13px;">
-        <tr style="border-bottom:1px solid #e8e5df;"><td style="padding:6px 0;color:${textColor};font-weight:600;">Opening</td><td style="padding:6px 0;text-align:right;color:#22c55e;font-weight:700;">7/7 days</td></tr>
-        <tr style="border-bottom:1px solid #e8e5df;"><td style="padding:6px 0;color:${textColor};font-weight:600;">Closing</td><td style="padding:6px 0;text-align:right;color:#22c55e;font-weight:700;">7/7 days</td></tr>
-        <tr style="border-bottom:1px solid #e8e5df;"><td style="padding:6px 0;color:${textColor};font-weight:600;">Food Safety</td><td style="padding:6px 0;text-align:right;color:#ef4444;font-weight:700;">4/7 days</td></tr>
+      <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Checklists</p>
+      <table style="width:100%;border-collapse:collapse;background:#fafaf8;border-radius:12px;overflow:hidden;">
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Opening</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#22c55e;font-weight:600;">7/7 days</span></td>
+        </tr>
+        <tr style="border-bottom:1px solid #e8e5df;">
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#22c55e;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✓</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Closing</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#22c55e;font-weight:600;">7/7 days</span></td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;width:20px;"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ef4444;text-align:center;line-height:18px;color:#fff;font-size:11px;font-weight:700;">✗</span></td>
+          <td style="padding:8px 4px;"><span style="font-size:13px;color:${textColor};font-weight:600;">Food Safety</span></td>
+          <td style="padding:8px 12px;text-align:right;"><span style="font-size:11px;color:#ef4444;font-weight:600;">4/7 days</span></td>
+        </tr>
       </table>
     </td></tr>
     ${getEmailFooter()}`);
