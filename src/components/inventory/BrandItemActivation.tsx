@@ -23,6 +23,7 @@ interface BrandTemplate {
   category: string | null;
   is_recipe: boolean;
   recipe_ingredients: any;
+  match_keywords: string[];
 }
 
 export default function BrandItemActivation({ locationId, brandId }: BrandItemActivationProps) {
