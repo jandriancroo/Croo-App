@@ -416,6 +416,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       regularHours: monthlyLaborTotalHours,
       overtimeHours: 0
     } : null;
+    console.log('[SalesOverview] Built monthlyLabor:', { monthlyLaborTotalCost, monthlyLaborTotalHours, monthlyLaborMapSize: monthlyLaborMap.size, monthlySales, monthlyLabor: monthlyLabor ? 'has data' : 'null', monthStartStr, monthEndStr });
     
     return {
       daily: cached ? (Number(cached.net_sales) || 0) : 0,
