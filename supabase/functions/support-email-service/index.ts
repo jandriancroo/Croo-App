@@ -1213,12 +1213,14 @@ Data:
 
 Write concise insights about sales trends, labor efficiency, cash handling, and checklists. Use plain text, no markdown.`;
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const aiResponse = await fetch(`${supabaseUrl}/functions/v1/ai-proxy`, {
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) throw new Error('LOVABLE_API_KEY not set');
+
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
