@@ -191,7 +191,7 @@ function toXmlFeed(listings: any[], supabaseUrl: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <source>
   <publisher>CrooHQ</publisher>
-  <publisherurl>https://croohq.lovable.app</publisherurl>
+  <publisherurl>https://croohq.com</publisherurl>
   <lastBuildDate>${new Date().toISOString()}</lastBuildDate>
 ${items}
 </source>`;
