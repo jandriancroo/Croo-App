@@ -211,8 +211,8 @@ export function JobListings({ organizationId, orgSlug }: JobListingsProps) {
     setEditingId(null);
   };
 
-  const feedUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/job-feed?org=${orgSlug}`;
-  const feedJsonUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/job-feed?org=${orgSlug}&format=json`;
+  const feedUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/job-feed?format=xml`;
+  const feedJsonUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/job-feed?format=json`;
 
   const copyFeedUrl = (url: string) => {
     navigator.clipboard.writeText(url);
