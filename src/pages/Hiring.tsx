@@ -20,6 +20,7 @@ import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays, Mail, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
+import { JobListings } from '@/components/hiring/JobListings';
 import { RejectionEmailTemplates } from '@/components/hiring/RejectionEmailTemplates';
 import { RejectionEmailDialog } from '@/components/hiring/RejectionEmailDialog';
 import { BulkRejectionEmailDialog, type BulkRejectApplicant } from '@/components/hiring/BulkRejectionEmailDialog';
