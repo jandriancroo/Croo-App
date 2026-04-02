@@ -140,7 +140,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // Fetch daily data + week range + month range + labor data in parallel
     // For month, always fetch full month (1st to last day)
     // Fetch labor for the ENTIRE WEEK to show labor% in weekly chart
-    const [dailyResult, weekResult, monthResult, laborResult, weeklyLaborResult] = await Promise.all([
+    const [dailyResult, weekResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
+      // Daily sales
       supabase
         .from('sales_cache')
         .select('*')
@@ -173,11 +174,17 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
         .eq('location_id', currentLocation.id)
         .gte('labor_date', weekStartStr)
-        .lte('labor_date', weekEndStr)
+        .lte('labor_date', weekEndStr),
+      // Fetch labor for entire month range for monthly chart
+      supabase
+        .from('labor_cache')
+        .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
+        .eq('location_id', currentLocation.id)
+        .gte('labor_date', monthStartStr)
+        .lte('labor_date', monthEndStr)
     ]);
 
-    // If RLS blocks access (or any other DB error), surface it clearly.
-    const dbError = dailyResult.error || weekResult.error || monthResult.error || laborResult.error || weeklyLaborResult.error;
+    const dbError = dailyResult.error || weekResult.error || monthResult.error || laborResult.error || weeklyLaborResult.error || monthlyLaborResult.error;
     if (dbError) {
       console.error('[SalesOverview] sales_cache/labor_cache query error:', dbError);
       setDiagnosticInfo({
@@ -191,6 +198,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           monthError: monthResult.error,
           laborError: laborResult.error,
           weeklyLaborError: weeklyLaborResult.error
+          ,monthlyLaborError: monthlyLaborResult.error
         },
         error: dbError.message || String(dbError)
       });
@@ -290,7 +298,22 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     
     // Generate all days in the month
     const daysInMonth = monthEnd.getDate();
-    const monthlyBreakdownFull: { date: string; sales: number; projected: number; guestCount: number }[] = [];
+    // Build monthly labor map (same pattern as weekly)
+    const monthlyLaborData = monthlyLaborResult.data || [];
+    const monthlyLaborMap = new Map<string, { laborCost: number; laborHours: number }>();
+    for (const row of monthlyLaborData) {
+      const dateKey = row.labor_date;
+      const existing = monthlyLaborMap.get(dateKey);
+      // Prefer punch_clock source
+      if (!existing || row.source === 'punch_clock') {
+        monthlyLaborMap.set(dateKey, {
+          laborCost: Number(row.labor_cost) || 0,
+          laborHours: Number(row.labor_hours) || 0
+        });
+      }
+    }
+    
+    const monthlyBreakdownFull: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number }[] = [];
     
     for (let day = 1; day <= daysInMonth; day++) {
       const dayDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
@@ -301,12 +324,19 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       const resolved = resolveProjection(existingData as any);
       const actualSales = existingData ? Number(existingData.net_sales) || 0 : 0;
       
+      // Get labor data for this day
+      const dayLabor = monthlyLaborMap.get(dayStr);
+      const mLaborCost = dayLabor?.laborCost || 0;
+      const mLaborPercent = (mLaborCost > 0 && actualSales > 0) ? (mLaborCost / actualSales) * 100 : 0;
+      
       monthlyBreakdownFull.push({
         date: dayStr,
         sales: actualSales,
         // Use resolved projection if available, otherwise use actual sales as "projection"
         projected: resolved.value && resolved.value > 0 ? resolved.value : actualSales,
-        guestCount: existingData?.guest_count || 0
+        guestCount: existingData?.guest_count || 0,
+        laborPercent: mLaborPercent,
+        laborCost: mLaborCost,
       });
     }
     
@@ -376,6 +406,17 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     } : null;
     console.log('[SalesOverview] Built weeklyLabor:', weeklyLabor);
     
+    // Calculate monthly labor totals from monthlyLaborMap
+    const monthlyLaborTotalCost = monthlyBreakdownFull.reduce((sum, d) => sum + (d.laborCost || 0), 0);
+    const monthlyLaborTotalHours = Array.from(monthlyLaborMap.values()).reduce((sum, l) => sum + l.laborHours, 0);
+    const monthlyLabor = (monthlyLaborTotalCost > 0 || monthlyLaborTotalHours > 0) ? {
+      laborPercent: monthlySales > 0 ? (monthlyLaborTotalCost / monthlySales) * 100 : 0,
+      laborCost: monthlyLaborTotalCost,
+      hoursWorked: monthlyLaborTotalHours,
+      regularHours: monthlyLaborTotalHours,
+      overtimeHours: 0
+    } : null;
+    
     return {
       daily: cached ? (Number(cached.net_sales) || 0) : 0,
       weekly: weeklySales,
@@ -403,7 +444,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         monthStart: monthStartStr
       },
       labor: dailyLabor,
-      weeklyLabor
+      weeklyLabor,
+      monthlyLabor
     };
   };
 
