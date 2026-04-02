@@ -25,7 +25,7 @@ function wrapEmail(content: string): string {
 }
 
 function getEmailHeader(title: string): string {
-  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
+  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
 }
 
 function getThreeColHeader(title: string, rightTop: string, rightBottom: string): string {
@@ -33,7 +33,7 @@ function getThreeColHeader(title: string, rightTop: string, rightBottom: string)
     <table style="width:100%;border-collapse:collapse;">
       <tr>
         <td style="vertical-align:middle;text-align:left;width:180px;">
-          <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+          <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
         </td>
         <td style="vertical-align:middle;text-align:center;">
           <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">${title}</h1>
@@ -48,7 +48,7 @@ function getThreeColHeader(title: string, rightTop: string, rightBottom: string)
 }
 
 function getEmailFooter(): string {
-  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="croo" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
 }
 
 function getCTAButton(url: string, text: string): string {
@@ -62,7 +62,7 @@ function authPasswordReset(): string {
   const email = "john@example.com";
   return wrapEmail(`
     <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-      <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="CrooHQ" style="height:36px;margin-bottom:12px;filter:brightness(0) invert(1);" />
+      <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
       <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">Reset Your Password</h1>
     </td></tr>
     <tr><td style="padding:28px 32px;">
@@ -78,7 +78,7 @@ function authEmailConfirmation(): string {
   const email = "jane@example.com";
   return wrapEmail(`
     <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-      <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="CrooHQ" style="height:36px;margin-bottom:12px;filter:brightness(0) invert(1);" />
+      <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
       <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">Confirm Your Email</h1>
     </td></tr>
     <tr><td style="padding:28px 32px;">
@@ -92,7 +92,7 @@ function authEmailConfirmation(): string {
 function authMagicLink(): string {
   return wrapEmail(`
     <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-      <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="CrooHQ" style="height:36px;margin-bottom:12px;filter:brightness(0) invert(1);" />
+      <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
       <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">Sign In to CrooHQ</h1>
     </td></tr>
     <tr><td style="padding:28px 32px;">
@@ -106,7 +106,7 @@ function authMagicLink(): string {
 function authInvite(): string {
   return wrapEmail(`
     <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-      <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="CrooHQ" style="height:36px;margin-bottom:12px;filter:brightness(0) invert(1);" />
+      <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="CrooHQ" style="height:36px;margin-bottom:12px;" />
       <h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;font-family:${systemFontStack};">You're Invited!</h1>
     </td></tr>
     <tr><td style="padding:28px 32px;">
@@ -391,7 +391,7 @@ export default function EmailPreview() {
               { label: "Transparent (website)", src: "/croo-logo-transparent.webp", bg: "bg-white" },
               { label: "White (for dark headers)", src: "/croo-logo-white.webp", bg: "bg-[#0a7a8a]" },
               { label: "Standard colored", src: "/croo-logo.png", bg: "bg-white" },
-              { label: "Current (old Vite hash)", src: "https://croohq.com/assets/croo-logo-eWOfbANR.png", bg: "bg-white" },
+              { label: "Current (old Vite hash)", src: "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp", bg: "bg-white" },
             ].map((logo) => (
               <div key={logo.label} className="flex flex-col items-center gap-2">
                 <div className={`${logo.bg} rounded-xl p-4 w-full flex items-center justify-center h-24 border`}>

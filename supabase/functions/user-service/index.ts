@@ -24,7 +24,7 @@ function wrapEmail(content: string): string {
 }
 
 function getEmailFooter(): string {
-  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="croo" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
 }
 
 async function queueEmailDirect(supabaseAdmin: any, opts: { from: string; to: string[]; subject: string; html: string; source: string; dedupKey?: string }) {
@@ -233,7 +233,7 @@ async function handleInvite(req: Request, supabaseAdmin: any, requestingUserId: 
       const firstName = fullName.split(' ')[0];
       const logoHtml = branding.logoUrl
         ? `<img src="${branding.logoUrl}" alt="${branding.displayName}" style="max-height:40px;max-width:120px;border-radius:8px;"/>`
-        : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);" />`;
+        : `<img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="max-height:40px;max-width:120px;" />`;
 
       await queueEmailDirect(supabaseAdmin, {
         from: "CrooHQ Hiring <hiring@croohq.email>",
@@ -349,7 +349,7 @@ async function handleResendInvite(req: Request, supabaseAdmin: any, requestingUs
       html: wrapEmail(`
         <tr><td style="background-color:${primaryColor};padding:20px 32px;">
           <table style="width:100%;border-collapse:collapse;"><tr>
-            <td style="vertical-align:middle;text-align:left;width:180px;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);" /></td>
+            <td style="vertical-align:middle;text-align:left;width:180px;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="max-height:40px;max-width:120px;" /></td>
             <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Set Your Password</h1></td>
             <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${branding.displayName}</p>${branding.locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${branding.locName}</p>` : ''}</td>
           </tr></table>

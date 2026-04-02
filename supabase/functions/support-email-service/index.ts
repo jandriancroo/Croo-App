@@ -57,11 +57,11 @@ function wrapEmail(content: string): string {
 }
 
 function getEmailHeader(title: string): string {
-   return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
+   return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
 }
 
 function getEmailFooter(): string {
-   return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="croo" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+   return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;padding-bottom:12px;"><div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:24px;" /></div></td></tr><tr><td style="text-align:center;"><p style="color:#999;font-size:12px;margin:0;">&copy; 2026 Croo. All rights reserved.</p></td></tr></table></td></tr>`;
 }
 
 function getCTAButton(url: string, text: string): string {
@@ -82,7 +82,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="vertical-align:middle;text-align:left;width:180px;">
-              <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+              <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
             </td>
             <td style="vertical-align:middle;text-align:center;">
               <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Support Ticket</h1>
@@ -237,7 +237,7 @@ async function notifySupportTicket(payload: any): Promise<Response> {
        <table style="width:100%;border-collapse:collapse;">
          <tr>
            <td style="vertical-align:middle;text-align:left;width:180px;">
-             <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+             <img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:40px;" />
            </td>
            <td style="vertical-align:middle;text-align:center;">
              <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Support Ticket</h1>
@@ -304,7 +304,7 @@ async function sendSupportResolution(payload: any): Promise<Response> {
       from: "CrooHQ Support <support@croohq.email>",
       to: [userEmail],
       subject: `Your support ticket ${ticketNumber} has been resolved`,
-      html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Ticket Resolved</h1></td></tr><tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 16px;">Good news, ${firstName}!</p><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Your support ticket <strong style="color:${primaryColor};">${ticketNumber}</strong> has been resolved.</p><div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:24px;border-left:4px solid ${primaryColor};"><p style="color:#888;font-size:11px;text-transform:uppercase;margin:0 0 8px;font-weight:500;">Original Issue</p><p style="color:${textColor};font-size:14px;margin:0;">${ticket.description}</p></div><div style="text-align:center;"><a href="https://croohq.com" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Open Croo</a></div></td></tr>${getEmailFooter()}`),
+      html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:50px;margin-bottom:12px;"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Ticket Resolved</h1></td></tr><tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 16px;">Good news, ${firstName}!</p><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Your support ticket <strong style="color:${primaryColor};">${ticketNumber}</strong> has been resolved.</p><div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:24px;border-left:4px solid ${primaryColor};"><p style="color:#888;font-size:11px;text-transform:uppercase;margin:0 0 8px;font-weight:500;">Original Issue</p><p style="color:${textColor};font-size:14px;margin:0;">${ticket.description}</p></div><div style="text-align:center;"><a href="https://croohq.com" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Open Croo</a></div></td></tr>${getEmailFooter()}`),
       source: 'support_resolution',
       dedupKey: `support_resolution_${ticketId}`,
     });
@@ -817,7 +817,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   <tr><td style="background-color:#f0ebe1;padding:28px 32px;text-align:center;border-top:1px solid #e8e5df;">
     <table role="presentation" style="margin:0 auto;"><tr>
       <td style="padding-right:10px;vertical-align:middle;"><span style="color:#3a5f7d;font-size:15px;font-weight:400;">Powered by</span></td>
-      <td style="vertical-align:middle;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:28px;"/></td>
+      <td style="vertical-align:middle;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:28px;"/></td>
     </tr></table>
     <p style="color:#bbb;font-size:10px;margin:12px 0 0;">&copy; ${new Date().getFullYear()} Croo. All rights reserved.</p>
   </td></tr>
@@ -872,7 +872,7 @@ async function sendTestEmail(payload: any): Promise<Response> {
     from: "CrooHQ <hello@croohq.email>",
     to: [to],
     subject,
-    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:80px;margin-bottom:16px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;margin:0;">Welcome to Croo!</h1></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:16px;">Hey there! 👋</p><p style="color:${textColor};font-size:16px;">This is a test email from <strong style="color:${primaryColor};">Croo</strong>.</p></td></tr>`),
+    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:40px;text-align:center;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-white.webp" alt="Croo" style="height:80px;margin-bottom:16px;"/><h1 style="color:#fff;font-size:28px;margin:0;">Welcome to Croo!</h1></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:16px;">Hey there! 👋</p><p style="color:${textColor};font-size:16px;">This is a test email from <strong style="color:${primaryColor};">Croo</strong>.</p></td></tr>`),
   });
 
   return new Response(JSON.stringify({ success: true, data: emailResponse }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
@@ -1347,7 +1347,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
   <tr><td style="background-color:#f0ebe1;padding:28px 32px;text-align:center;border-top:1px solid #e8e5df;">
     <table role="presentation" style="margin:0 auto;"><tr>
       <td style="padding-right:10px;vertical-align:middle;"><span style="color:#3a5f7d;font-size:15px;font-weight:400;">Powered by</span></td>
-      <td style="vertical-align:middle;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:28px;"/></td>
+      <td style="vertical-align:middle;"><img src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp" alt="CrooHQ" style="height:28px;"/></td>
     </tr></table>
     <p style="color:#bbb;font-size:10px;margin:12px 0 0;">&copy; ${eYr} Croo. All rights reserved.</p>
   </td></tr>
