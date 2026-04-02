@@ -64,19 +64,13 @@ function authPasswordReset(): string {
   return wrapEmail(`
     <!-- MENUBAR-STYLE HEADER -->
     <tr><td style="padding:4px 4px 0;">
-      <div style="background:${primaryColor};border-radius:12px;padding:10px 16px;">
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td style="vertical-align:middle;width:40px;">
-              <div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;">
-                <img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" />
-              </div>
-            </td>
-            <td style="vertical-align:middle;padding-left:10px;">
-              <h1 style="color:#fff;font-size:15px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;">Reset Your Password</h1>
-            </td>
-          </tr>
-        </table>
+      <div style="background:${primaryColor};border-radius:12px;padding:10px 16px;position:relative;">
+        <div style="position:absolute;left:16px;top:50%;transform:translateY(-50%);">
+          <div style="width:36px;height:36px;background:#fff;border-radius:8px;text-align:center;line-height:36px;">
+            <img src="${WHITE_LOGO}" alt="CrooHQ" style="height:24px;vertical-align:middle;" />
+          </div>
+        </div>
+        <h1 style="color:#fff;font-size:15px;font-weight:500;margin:0;font-family:${systemFontStack};letter-spacing:-0.2px;text-align:center;padding:8px 0;">Reset Your Password</h1>
       </div>
     </td></tr>
     <tr><td style="padding:28px 32px;">
