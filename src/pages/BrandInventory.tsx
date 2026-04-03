@@ -614,7 +614,7 @@ export default function BrandInventory() {
 
       {/* Edit Template Dialog */}
       <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base">Edit Brand Item</DialogTitle>
           </DialogHeader>
