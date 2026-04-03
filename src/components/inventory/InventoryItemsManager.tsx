@@ -103,7 +103,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [storageLocationIds, setStorageLocationIds] = useState<Set<string>>(new Set());
   const [remapItem, setRemapItem] = useState<any>(null);
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
-  const [showInactive, setShowInactive] = useState(false);
+  
   const [linkTargetItemId, setLinkTargetItemId] = useState<string>("");
 
 
@@ -383,24 +383,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   });
 
-  // Fetch hidden items
-  const { data: hiddenItems } = useQuery({
-    queryKey: ["inventory-items-hidden", locationId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_items")
-        .select(`
-          *,
-          storage_location:inventory_locations(name)
-        `)
-        .eq("location_id", locationId)
-        .eq("user_hidden", true)
-        .order("name");
-      
-      if (error) throw error;
-      return data;
-    }
-  });
 
 
   // Fetch item-location shortcuts (junction table)
@@ -452,24 +434,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   });
 
-  // Unhide item mutation (also clears linked_item_id and blended_price)
-  const unhideItemMutation = useMutation({
-    mutationFn: async (itemId: string) => {
-      const { error } = await supabase
-        .from("inventory_items")
-        .update({ user_hidden: false, is_active: true, linked_item_id: null, blended_price: null } as any)
-        .eq("id", itemId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Item restored");
-      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-items-hidden", locationId] });
-    },
-    onError: () => {
-      toast.error("Failed to restore item");
-    }
-  });
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
@@ -1461,50 +1425,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         </div>
       </Card>
 
-      {/* Hidden / Inactive Items */}
-      {hiddenItems && hiddenItems.length > 0 && (
-        <Card>
-          <CardHeader className="cursor-pointer py-2 px-4" onClick={() => setShowInactive(!showInactive)}>
-            <CardTitle className="text-xs flex items-center gap-2 text-muted-foreground">
-              <EyeOff className="h-3.5 w-3.5" />
-              Hidden Items ({hiddenItems.length})
-              <ChevronDown className={`h-3.5 w-3.5 ml-auto transition-transform ${showInactive ? 'rotate-180' : ''}`} />
-            </CardTitle>
-          </CardHeader>
-          {showInactive && (
-            <CardContent className="pt-0">
-              <p className="text-xs text-muted-foreground mb-3">
-                These items are hidden from counts and won't reappear after syncing. Tap restore to bring them back.
-              </p>
-              <div className="grid gap-1 max-h-[300px] overflow-y-auto">
-                {hiddenItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/30 rounded text-sm">
-                    <div className="flex items-center gap-2 truncate flex-1">
-                      <EyeOff className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                      <span className="truncate text-muted-foreground">{(item as any).common_name || item.name}</span>
-                      {item.vendor_source && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
-                          {item.vendor_source === 'produce_alliance' ? 'PA' : item.vendor_source === 'pfg' ? 'PFG' : item.vendor_source}
-                        </Badge>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs px-2 text-primary"
-                      onClick={() => unhideItemMutation.mutate(item.id)}
-                      disabled={unhideItemMutation.isPending}
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      Restore
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          )}
-        </Card>
-      )}
       </>}
     </div>
 
@@ -1738,26 +1658,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 Hidden items won't reappear after syncing
               </p>
 
-              {/* Show linked hidden items (reverse lookup) */}
-              {hiddenItems && hiddenItems.filter(h => (h as any).linked_item_id === editingItem?.id).length > 0 && (
-                <div className="space-y-1 border-t pt-3">
-                  <Label className="text-xs font-medium">Linked Hidden Items</Label>
-                  <div className="space-y-1">
-                    {hiddenItems.filter(h => (h as any).linked_item_id === editingItem?.id).map(h => (
-                      <div key={h.id} className="flex items-center gap-2 text-sm bg-muted/50 rounded px-2 py-1.5">
-                        <EyeOff className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                        <span className="truncate">{(h as any).common_name || h.name}</span>
-                        {h.cost_per_unit && (
-                          <span className="text-xs text-primary ml-auto">${Number(h.cost_per_unit).toFixed(2)}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Prices from these items are blended into this item on sync.
-                  </p>
-                </div>
-              )}
 
               {/* Link to primary item for price blending */}
               {items && items.length > 1 && (
