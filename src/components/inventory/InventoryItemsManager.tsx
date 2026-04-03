@@ -434,24 +434,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   });
 
-  // Unhide item mutation (also clears linked_item_id and blended_price)
-  const unhideItemMutation = useMutation({
-    mutationFn: async (itemId: string) => {
-      const { error } = await supabase
-        .from("inventory_items")
-        .update({ user_hidden: false, is_active: true, linked_item_id: null, blended_price: null } as any)
-        .eq("id", itemId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Item restored");
-      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-items-hidden", locationId] });
-    },
-    onError: () => {
-      toast.error("Failed to restore item");
-    }
-  });
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
