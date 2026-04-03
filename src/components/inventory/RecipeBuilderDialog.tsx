@@ -601,13 +601,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         continue;
       }
 
-      let upc = item.count_units_per_case;
-      let nativeUnit = normalizeUnit(item.count_unit);
-      if ((!upc || !nativeUnit) && item.pack_size) {
-        const parsed = parsePackSize(item.pack_size);
-        if (parsed) { if (!upc) upc = parsed.count; if (!nativeUnit) nativeUnit = normalizeUnit(parsed.unit); }
-      }
-      nativeUnit = nativeUnit || "ea";
+      const eff = getEffectiveUnitsPerCase(item);
+      let upc = eff.upc;
+      let nativeUnit = eff.unit;
 
       if (ingUnit === "cs") {
         total += ing.quantity * caseCost;
