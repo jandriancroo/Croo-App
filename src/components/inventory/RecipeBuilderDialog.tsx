@@ -1323,11 +1323,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                           <span className="text-muted-foreground ml-2">
                             {item.cost_per_unit ? `$${item.cost_per_unit.toFixed(2)}/cs` : ""}
                             {(() => {
-                              const parsed = parsePackSize(item.pack_size || null);
-                              const unit = item.count_unit || parsed?.unit;
-                              const upc = item.count_units_per_case || parsed?.count;
+                              const eff = getEffectiveUnitsPerCase(item);
                               const cpc = parseCansPerCase(item.pack_size || null);
-                              return cpc ? ` · ${cpc} cn/cs` : unit ? ` · ${upc || "?"} ${unit}/cs` : "";
+                              return cpc ? ` · ${cpc} cn/cs` : eff.upc ? ` · ${eff.upc} ${eff.unit}/cs` : "";
                             })()}
                           </span>
                         )}
