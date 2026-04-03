@@ -88,7 +88,31 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
   const isPartial = bpCost?.isPartial || false;
 
   const vendorNameMap = new Map(vendorItems?.map(v => [v.id, v.common_name || v.name]) || []);
+  const vendorDataMap = new Map(vendorItems?.map(v => [v.id, v]) || []);
   const subBpNameMap = new Map(subBlueprints?.map(b => [b.id, b.name]) || []);
+
+  // Compute per-ingredient cost contribution
+  const getIngredientCost = (ing: BlueprintIngredient): number | null => {
+    if (ing.ingredient_type === "blueprint" && ing.sub_blueprint_id) {
+      const subCost = costResult?.get(ing.sub_blueprint_id);
+      if (!subCost) return null;
+      // Sub-recipe: batchCost / yield * quantity
+      // We need yield info — fetch from subBlueprints query
+      // For now use batchCost directly since yield=1 each is common
+      return subCost.batchCost * ing.quantity;
+    } else if (ing.vendor_item_id) {
+      const v = vendorDataMap.get(ing.vendor_item_id);
+      if (!v) return null;
+      const caseCost = v.blended_price ?? v.cost_per_unit ?? 0;
+      if (caseCost === 0) return 0;
+      const ingUnit = (ing.unit || "").trim().toLowerCase();
+      if (ingUnit === "cs" || ingUnit === "case") return caseCost * ing.quantity;
+      const unitsPerCase = v.pack_quantity_override || v.count_units_per_case || v.pack_quantity || 1;
+      const costPerUnit = caseCost / unitsPerCase;
+      return costPerUnit * ing.quantity;
+    }
+    return null;
+  };
 
   return (
     <div className="border-b border-border/40 last:border-0">
