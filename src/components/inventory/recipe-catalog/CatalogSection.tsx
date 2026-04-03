@@ -98,7 +98,7 @@ const CatalogSectionComponent = ({
             <>
               {section.bases.length > 0 && (
                 <div className="mb-1">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Base</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Foundation</p>
                   {section.bases.map(item => (
                     <RecipeRow
                       key={item.id}
