@@ -213,21 +213,29 @@ export async function fetchBlueprintCosts(
           const unitsPerCase = vendor.pack_quantity_override || vendor.count_units_per_case || vendor.pack_quantity || 1;
           const costPerNativeUnit = caseCost / unitsPerCase;
 
-          if (ingUnit === "ea" && nativeUnit === "ea") {
-            // Both "ea" — direct multiplication
-            totalBatchCost += costPerNativeUnit * ing.quantity;
-          } else if (ingUnit && nativeUnit && ingUnit === nativeUnit) {
-            // Same unit — no conversion needed
-            totalBatchCost += costPerNativeUnit * ing.quantity;
-          } else if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
-            // Convert ingredient quantity to native units
-            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
-            totalBatchCost += costPerNativeUnit * ingInNative;
-          } else if (!nativeUnit && ingUnit === "ea") {
-            // No native unit but ingredient is "ea" — assume direct count
+          // Determine effective native unit — fall back to pack_size parsing when count_unit is missing
+          let effectiveNativeUnit = nativeUnit;
+          let effectiveCostPerUnit = costPerNativeUnit;
+
+          if (!effectiveNativeUnit && TO_OZ[ingUnit]) {
+            // Try to derive total oz from pack_size
+            const totalOz = parsePackSizeToOz(vendor.pack_size);
+            if (totalOz && totalOz > 0) {
+              effectiveNativeUnit = "oz";
+              effectiveCostPerUnit = caseCost / totalOz;
+            }
+          }
+
+          if (ingUnit === "ea" && effectiveNativeUnit === "ea") {
+            totalBatchCost += effectiveCostPerUnit * ing.quantity;
+          } else if (ingUnit && effectiveNativeUnit && ingUnit === effectiveNativeUnit) {
+            totalBatchCost += effectiveCostPerUnit * ing.quantity;
+          } else if (ingUnit && effectiveNativeUnit && ingUnit !== effectiveNativeUnit && TO_OZ[ingUnit] && TO_OZ[effectiveNativeUnit]) {
+            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[effectiveNativeUnit];
+            totalBatchCost += effectiveCostPerUnit * ingInNative;
+          } else if (!effectiveNativeUnit && ingUnit === "ea") {
             totalBatchCost += costPerNativeUnit * ing.quantity;
           } else {
-            // Cannot convert units — treat as missing cost data
             missingItems.push(ing.vendor_item_id || "unknown");
           }
         }
