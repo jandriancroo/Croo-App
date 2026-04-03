@@ -749,6 +749,63 @@ export type Database = {
           },
         ]
       }
+      brand_vendor_mappings: {
+        Row: {
+          brand_template_id: string
+          created_at: string
+          id: string
+          pack_override_inner_qty: number | null
+          pack_override_inner_type: string | null
+          pack_override_outer_qty: number | null
+          pack_override_outer_type: string | null
+          source_location_id: string | null
+          territory: string | null
+          vendor: string
+          vendor_item_id: string
+        }
+        Insert: {
+          brand_template_id: string
+          created_at?: string
+          id?: string
+          pack_override_inner_qty?: number | null
+          pack_override_inner_type?: string | null
+          pack_override_outer_qty?: number | null
+          pack_override_outer_type?: string | null
+          source_location_id?: string | null
+          territory?: string | null
+          vendor: string
+          vendor_item_id: string
+        }
+        Update: {
+          brand_template_id?: string
+          created_at?: string
+          id?: string
+          pack_override_inner_qty?: number | null
+          pack_override_inner_type?: string | null
+          pack_override_outer_qty?: number | null
+          pack_override_outer_type?: string | null
+          source_location_id?: string | null
+          territory?: string | null
+          vendor?: string
+          vendor_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_vendor_mappings_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_vendor_mappings_source_location_id_fkey"
+            columns: ["source_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brands: {
         Row: {
           created_at: string
