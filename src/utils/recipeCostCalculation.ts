@@ -104,16 +104,32 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
       } else {
         // Raw ingredient: determine proper divisor based on unit
         const caseCost = ingItem.blended_price ?? ingItem.cost_per_unit ?? 0;
-        const ingUnit = ing.unit?.toLowerCase() || '';
+        const ingUnit = ing.unit?.toLowerCase().trim() || '';
+        const nativeUnit = ingItem.count_unit?.toLowerCase().trim() || '';
         
         // If the recipe unit is "cs" or "case", use full case cost (no division)
         if (ingUnit === 'cs' || ingUnit === 'case') {
           totalBatchCost += caseCost * ing.quantity;
         } else {
-          // Use count_units_per_case for sub-unit conversion, fallback to pack_quantity
           const unitsPerCase = ingItem.pack_quantity_override || ingItem.count_units_per_case || ingItem.pack_quantity || 1;
           const costPerSingleUnit = caseCost / unitsPerCase;
-          totalBatchCost += costPerSingleUnit * ing.quantity;
+
+          if (ingUnit === nativeUnit || (ingUnit === 'ea' && nativeUnit === 'ea')) {
+            totalBatchCost += costPerSingleUnit * ing.quantity;
+          } else if (ingUnit && nativeUnit && ingUnit !== nativeUnit) {
+            // Only add cost if we can actually convert
+            const TO_OZ: Record<string, number> = {
+              oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
+            };
+            if (TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
+              const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
+              totalBatchCost += costPerSingleUnit * ingInNative;
+            }
+            // else: can't convert — skip (treat as no cost data)
+          } else if (!nativeUnit && ingUnit === 'ea') {
+            totalBatchCost += costPerSingleUnit * ing.quantity;
+          }
+          // else: can't determine unit — skip
         }
       }
     }
