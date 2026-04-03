@@ -60,8 +60,8 @@ const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => 
     if (!blueprints) return [];
 
     const result: CatalogSection[] = [
-      { key: "md_pizza", label: '11" Pizzas (MD)', icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-      { key: "lg_pizza", label: '14" Pizzas (LG)', icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
+      { key: "md_pizza", label: '11" Pizzas', icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
+      { key: "lg_pizza", label: '14" Pizzas', icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
       { key: "half_pizza", label: "Half Pizzas", icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
       { key: "detroit", label: "Detroit Pizzas", icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
       { key: "salads", label: "Salads", icon: <Salad className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
