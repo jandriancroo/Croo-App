@@ -52,7 +52,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
       if (vendorItemIds.length === 0) return [];
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name")
+        .select("id, name, common_name, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size")
         .in("id", vendorItemIds);
       if (error) throw error;
       return data || [];
@@ -88,7 +88,31 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
   const isPartial = bpCost?.isPartial || false;
 
   const vendorNameMap = new Map(vendorItems?.map(v => [v.id, v.common_name || v.name]) || []);
+  const vendorDataMap = new Map(vendorItems?.map(v => [v.id, v]) || []);
   const subBpNameMap = new Map(subBlueprints?.map(b => [b.id, b.name]) || []);
+
+  // Compute per-ingredient cost contribution
+  const getIngredientCost = (ing: BlueprintIngredient): number | null => {
+    if (ing.ingredient_type === "blueprint" && ing.sub_blueprint_id) {
+      const subCost = costResult?.get(ing.sub_blueprint_id);
+      if (!subCost) return null;
+      // Sub-recipe: batchCost / yield * quantity
+      // We need yield info — fetch from subBlueprints query
+      // For now use batchCost directly since yield=1 each is common
+      return subCost.batchCost * ing.quantity;
+    } else if (ing.vendor_item_id) {
+      const v = vendorDataMap.get(ing.vendor_item_id);
+      if (!v) return null;
+      const caseCost = v.blended_price ?? v.cost_per_unit ?? 0;
+      if (caseCost === 0) return 0;
+      const ingUnit = (ing.unit || "").trim().toLowerCase();
+      if (ingUnit === "cs" || ingUnit === "case") return caseCost * ing.quantity;
+      const unitsPerCase = v.pack_quantity_override || v.count_units_per_case || v.pack_quantity || 1;
+      const costPerUnit = caseCost / unitsPerCase;
+      return costPerUnit * ing.quantity;
+    }
+    return null;
+  };
 
   return (
     <div className="border-b border-border/40 last:border-0">
@@ -190,6 +214,15 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
                   <span className="text-muted-foreground flex-shrink-0">
                     {ing.quantity} {ing.unit || ""}
                   </span>
+                  {(() => {
+                    const ingCost = getIngredientCost(ing);
+                    if (ingCost == null || ingCost <= 0) return null;
+                    return (
+                      <span className="text-emerald-600/70 flex-shrink-0 tabular-nums w-14 text-right">
+                        ${ingCost.toFixed(2)}
+                      </span>
+                    );
+                  })()}
                 </div>
               );
             })
