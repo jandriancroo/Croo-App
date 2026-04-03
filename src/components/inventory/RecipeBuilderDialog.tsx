@@ -1293,10 +1293,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                           } else if (item.is_recipe) {
                             setIngredientUnit(normalizeUnit(item.recipe_yield_unit || item.count_unit || "oz") || "oz");
                           } else {
-                            const parsed = parsePackSize(item.pack_size || null);
-                            const unit = normalizeUnit(item.count_unit || parsed?.unit || "ea") || "ea";
+                            const eff = getEffectiveUnitsPerCase(item);
                             const isCan = parseCansPerCase(item.pack_size || null) !== null;
-                            setIngredientUnit(isCan ? "cn" : unit);
+                            setIngredientUnit(isCan ? "cn" : eff.unit);
                           }
                         }}
                       >
