@@ -158,6 +158,21 @@ const parsePackSize = (packSize: string | null): { count: number; unit: string }
   return { count: parseInt(match[1]) * parseFloat(match[2]), unit };
 };
 
+/** Get effective units-per-case considering pack_quantity_override */
+const getEffectiveUnitsPerCase = (item: { pack_quantity_override?: number | null; count_units_per_case?: number | null; count_unit?: string | null; pack_size?: string | null }): { upc: number | null; unit: string } => {
+  const override = item.pack_quantity_override;
+  if (override && override > 0) {
+    return { upc: override, unit: "ea" };
+  }
+  let upc = item.count_units_per_case ?? null;
+  let unit = normalizeUnit(item.count_unit);
+  if ((!upc || !unit) && item.pack_size) {
+    const parsed = parsePackSize(item.pack_size as string);
+    if (parsed) { if (!upc) upc = parsed.count; if (!unit) unit = normalizeUnit(parsed.unit); }
+  }
+  return { upc, unit: unit || "ea" };
+};
+
 const convertYield = (qty: number, fromUnit: string, toUnit: string): number => {
   const fromFactor = TO_OZ[fromUnit] ?? 1;
   const toFactor = TO_OZ[toUnit] ?? 1;
