@@ -103,7 +103,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [storageLocationIds, setStorageLocationIds] = useState<Set<string>>(new Set());
   const [remapItem, setRemapItem] = useState<any>(null);
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
-  const [showInactive, setShowInactive] = useState(false);
+  
   const [linkTargetItemId, setLinkTargetItemId] = useState<string>("");
 
 
