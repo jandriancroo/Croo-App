@@ -75,7 +75,7 @@ const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => 
 
     for (const item of blueprints) {
       const name = item.name;
-      const lower = name.toLowerCase();
+      const lower = (name + " " + (item.r365_name || "")).toLowerCase();
       const cat = item.category?.toUpperCase() || "";
 
       // Manual override takes priority
