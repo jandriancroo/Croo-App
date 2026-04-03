@@ -30,7 +30,7 @@ interface ItemCostInfo {
 export async function fetchRecipeCosts(locationId: string): Promise<Map<string, number>> {
   const { data: recipeItems, error: recipeError } = await supabase
     .from("inventory_items")
-    .select("id, cost_per_unit, pack_quantity, count_units_per_case, count_unit, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
+    .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
     .eq("location_id", locationId)
     .eq("is_active", true);
 
