@@ -111,7 +111,7 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
           totalBatchCost += caseCost * ing.quantity;
         } else {
           // Use count_units_per_case for sub-unit conversion, fallback to pack_quantity
-          const unitsPerCase = ingItem.count_units_per_case || ingItem.pack_quantity || 1;
+          const unitsPerCase = ingItem.pack_quantity_override || ingItem.count_units_per_case || ingItem.pack_quantity || 1;
           const costPerSingleUnit = caseCost / unitsPerCase;
           totalBatchCost += costPerSingleUnit * ing.quantity;
         }
