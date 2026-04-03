@@ -213,12 +213,22 @@ export async function fetchBlueprintCosts(
           const unitsPerCase = vendor.pack_quantity_override || vendor.count_units_per_case || vendor.pack_quantity || 1;
           const costPerNativeUnit = caseCost / unitsPerCase;
 
-          // Convert ingredient quantity to native units if they differ
-          if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
+          if (ingUnit === "ea" && nativeUnit === "ea") {
+            // Both "ea" — direct multiplication
+            totalBatchCost += costPerNativeUnit * ing.quantity;
+          } else if (ingUnit && nativeUnit && ingUnit === nativeUnit) {
+            // Same unit — no conversion needed
+            totalBatchCost += costPerNativeUnit * ing.quantity;
+          } else if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
+            // Convert ingredient quantity to native units
             const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
             totalBatchCost += costPerNativeUnit * ingInNative;
-          } else {
+          } else if (!nativeUnit && ingUnit === "ea") {
+            // No native unit but ingredient is "ea" — assume direct count
             totalBatchCost += costPerNativeUnit * ing.quantity;
+          } else {
+            // Cannot convert units — treat as missing cost data
+            missingItems.push(ing.vendor_item_id || "unknown");
           }
         }
       }

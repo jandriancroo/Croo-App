@@ -11,6 +11,10 @@ import { fetchBlueprintCosts, type BlueprintCostResult } from "@/utils/blueprint
 import PosLinkIndicator from "./PosLinkIndicator";
 import type { PosItem } from "./usePosMapping";
 
+const TO_OZ: Record<string, number> = {
+  oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
+};
+
 interface RecipeRowProps {
   item: MenuItem;
   tagLabel?: string;
@@ -105,11 +109,25 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
       if (!v) return null;
       const caseCost = v.blended_price ?? v.cost_per_unit ?? 0;
       if (caseCost === 0) return 0;
-      const ingUnit = (ing.unit || "").trim().toLowerCase();
-      if (ingUnit === "cs" || ingUnit === "case") return caseCost * ing.quantity;
+      const ingUnit = (ing.unit || "").trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
+      const nativeUnit = (v.count_unit || "").trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
+      // Normalize common aliases
+      const normUnit = (u: string) => {
+        if (u.includes("oz")) return "oz";
+        if (u === "ea" || u === "each") return "ea";
+        return u;
+      };
+      const iu = normUnit(ingUnit);
+      const nu = normUnit(nativeUnit);
+      if (iu === "cs" || iu === "case") return caseCost * ing.quantity;
       const unitsPerCase = v.pack_quantity_override || v.count_units_per_case || v.pack_quantity || 1;
       const costPerUnit = caseCost / unitsPerCase;
-      return costPerUnit * ing.quantity;
+      if (iu === nu || (iu === "ea" && nu === "ea")) return costPerUnit * ing.quantity;
+      if (iu && nu && iu !== nu && TO_OZ[iu] && TO_OZ[nu]) {
+        return ((ing.quantity * TO_OZ[iu]) / TO_OZ[nu]) * costPerUnit;
+      }
+      if (!nu && iu === "ea") return costPerUnit * ing.quantity;
+      return null; // Can't convert — no cost
     }
     return null;
   };
