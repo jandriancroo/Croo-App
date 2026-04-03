@@ -383,24 +383,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   });
 
-  // Fetch hidden items
-  const { data: hiddenItems } = useQuery({
-    queryKey: ["inventory-items-hidden", locationId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_items")
-        .select(`
-          *,
-          storage_location:inventory_locations(name)
-        `)
-        .eq("location_id", locationId)
-        .eq("user_hidden", true)
-        .order("name");
-      
-      if (error) throw error;
-      return data;
-    }
-  });
 
 
   // Fetch item-location shortcuts (junction table)
