@@ -49,6 +49,7 @@ interface VendorItemInfo {
   count_unit: string | null;
   count_units_per_case: number | null;
   pack_quantity: number | null;
+  pack_quantity_override: number | null;
 }
 
 export interface BlueprintCostResult {
