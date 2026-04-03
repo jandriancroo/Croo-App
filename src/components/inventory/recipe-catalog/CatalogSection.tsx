@@ -118,7 +118,7 @@ const CatalogSectionComponent = ({
               )}
               {section.cores.length > 0 && (
                 <div className="mb-1">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Core Recipes</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Build</p>
                   {section.cores.map(item => (
                     <RecipeRow
                       key={item.id}
