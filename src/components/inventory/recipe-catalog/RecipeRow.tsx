@@ -133,7 +133,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
             "text-[9px] px-1.5 py-0 flex-shrink-0 uppercase tracking-wider",
             tagLabel === "R365" && "bg-blue-500/10 text-blue-600 border-blue-500/30"
           )}>
-            {tagLabel}
+            {tagLabel === "base" ? "FOUNDATION" : tagLabel === "core" ? "BUILD" : tagLabel}
           </Badge>
         )}
         {totalCost > 0 && (
