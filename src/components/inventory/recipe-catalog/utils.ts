@@ -45,7 +45,6 @@ export function getCleanDisplayName(name: string): string {
     .replace(/^(Core\s*-?\s*)/i, "")
     .replace(/^(Base\s*-?\s*)/i, "")
     .replace(/^(MI\s*-?\s*)/i, "")
-    .replace(/^(Half\s*)/i, "")
     .replace(/^(MD|LG)\s*-?\s*/i, "")
     .trim();
 }
