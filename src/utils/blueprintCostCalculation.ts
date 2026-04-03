@@ -205,7 +205,7 @@ export async function fetchBlueprintCosts(
           if (cansPerCase && cansPerCase > 0) {
             totalBatchCost += (ing.quantity / cansPerCase) * caseCost;
           } else {
-            const unitsPerCase = vendor.count_units_per_case || vendor.pack_quantity || 1;
+            const unitsPerCase = vendor.pack_quantity_override || vendor.count_units_per_case || vendor.pack_quantity || 1;
             totalBatchCost += (caseCost / unitsPerCase) * ing.quantity;
           }
         } else {
