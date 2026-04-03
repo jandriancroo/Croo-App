@@ -213,21 +213,29 @@ export async function fetchBlueprintCosts(
           const unitsPerCase = vendor.pack_quantity_override || vendor.count_units_per_case || vendor.pack_quantity || 1;
           const costPerNativeUnit = caseCost / unitsPerCase;
 
-          if (ingUnit === "ea" && nativeUnit === "ea") {
-            // Both "ea" — direct multiplication
-            totalBatchCost += costPerNativeUnit * ing.quantity;
-          } else if (ingUnit && nativeUnit && ingUnit === nativeUnit) {
-            // Same unit — no conversion needed
-            totalBatchCost += costPerNativeUnit * ing.quantity;
-          } else if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
-            // Convert ingredient quantity to native units
-            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
-            totalBatchCost += costPerNativeUnit * ingInNative;
-          } else if (!nativeUnit && ingUnit === "ea") {
-            // No native unit but ingredient is "ea" — assume direct count
+          // Determine effective native unit — fall back to pack_size parsing when count_unit is missing
+          let effectiveNativeUnit = nativeUnit;
+          let effectiveCostPerUnit = costPerNativeUnit;
+
+          if (!effectiveNativeUnit && TO_OZ[ingUnit]) {
+            // Try to derive total oz from pack_size
+            const totalOz = parsePackSizeToOz(vendor.pack_size);
+            if (totalOz && totalOz > 0) {
+              effectiveNativeUnit = "oz";
+              effectiveCostPerUnit = caseCost / totalOz;
+            }
+          }
+
+          if (ingUnit === "ea" && effectiveNativeUnit === "ea") {
+            totalBatchCost += effectiveCostPerUnit * ing.quantity;
+          } else if (ingUnit && effectiveNativeUnit && ingUnit === effectiveNativeUnit) {
+            totalBatchCost += effectiveCostPerUnit * ing.quantity;
+          } else if (ingUnit && effectiveNativeUnit && ingUnit !== effectiveNativeUnit && TO_OZ[ingUnit] && TO_OZ[effectiveNativeUnit]) {
+            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[effectiveNativeUnit];
+            totalBatchCost += effectiveCostPerUnit * ingInNative;
+          } else if (!effectiveNativeUnit && ingUnit === "ea") {
             totalBatchCost += costPerNativeUnit * ing.quantity;
           } else {
-            // Cannot convert units — treat as missing cost data
             missingItems.push(ing.vendor_item_id || "unknown");
           }
         }
@@ -263,7 +271,65 @@ export function getBlueprintUnitCost(batchCost: number, yieldQty: number | null)
 // Helper: parse cans per case from pack_size like "6/#10 CN"
 function parseCansPerCase(packSize: string | null): number | null {
   if (!packSize) return null;
-  const match = packSize.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]+)$/);
+  const match = packSize.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]*)$/);
   if (match) return parseInt(match[1]);
+  return null;
+}
+
+// Standard can sizes in fluid oz (approximate industry standard)
+const CAN_SIZE_OZ: Record<string, number> = {
+  "10": 106, "5": 56, "3": 33, "2.5": 26.5, "2": 20, "1": 11, "300": 14, "303": 16,
+};
+
+/**
+ * Parse pack_size string to derive total oz per case.
+ * Handles patterns like:
+ *   "6/#10"      → 6 cans × 106 oz = 636 oz
+ *   "6/#10 CN"   → same
+ *   "6/5 LB"     → 6 × 5 × 16 = 480 oz
+ *   "8/4 LB"     → 8 × 4 × 16 = 512 oz
+ *   "6/106 OZ"   → 6 × 106 = 636 oz
+ *   "10#"        → 10 lb = 160 oz
+ *   "4/2.5#"     → 4 × 2.5 lb = 160 oz
+ * Returns { totalOz, unit: "oz" } or null if unparseable.
+ */
+export function parsePackSizeToOz(packSize: string | null): number | null {
+  if (!packSize) return null;
+  const s = packSize.trim();
+
+  // Pattern: "6/#10" or "6/#10 CN" — cans
+  const canMatch = s.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]*)$/);
+  if (canMatch) {
+    const count = parseInt(canMatch[1]);
+    const canSize = canMatch[2];
+    const ozPerCan = CAN_SIZE_OZ[canSize];
+    if (ozPerCan) return count * ozPerCan;
+    return null;
+  }
+
+  // Pattern: "6/5 LB" or "8/2.2 LB"
+  const lbMatch = s.match(/^(\d+)\s*\/\s*(\d+\.?\d*)\s*LB$/i);
+  if (lbMatch) {
+    return parseInt(lbMatch[1]) * parseFloat(lbMatch[2]) * 16;
+  }
+
+  // Pattern: "6/106 OZ" or "4/32 OZ"
+  const ozMatch = s.match(/^(\d+)\s*\/\s*(\d+\.?\d*)\s*OZ$/i);
+  if (ozMatch) {
+    return parseInt(ozMatch[1]) * parseFloat(ozMatch[2]);
+  }
+
+  // Pattern: "10#" or "2.5#" — single weight in pounds
+  const poundMatch = s.match(/^(\d+\.?\d*)\s*#$/);
+  if (poundMatch) {
+    return parseFloat(poundMatch[1]) * 16;
+  }
+
+  // Pattern: "4/2.5#" — count/weight in pounds
+  const countPoundMatch = s.match(/^(\d+)\s*\/\s*(\d+\.?\d*)\s*#$/);
+  if (countPoundMatch) {
+    return parseInt(countPoundMatch[1]) * parseFloat(countPoundMatch[2]) * 16;
+  }
+
   return null;
 }

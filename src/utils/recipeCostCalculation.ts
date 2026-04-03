@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { parsePackSizeToOz } from "./blueprintCostCalculation";
 
 interface RecipeIngredient {
   recipe_item_id: string;
@@ -14,6 +15,7 @@ interface ItemCostInfo {
   pack_quantity_override: number | null;
   count_units_per_case: number | null;
   count_unit: string | null;
+  pack_size: string | null;
   is_recipe: boolean;
   recipe_yield_qty: number | null;
   recipe_yield_unit: string | null;
@@ -30,7 +32,7 @@ interface ItemCostInfo {
 export async function fetchRecipeCosts(locationId: string): Promise<Map<string, number>> {
   const { data: recipeItems, error: recipeError } = await supabase
     .from("inventory_items")
-    .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
+    .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
     .eq("location_id", locationId)
     .eq("is_active", true);
 
@@ -113,20 +115,27 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         } else {
           const unitsPerCase = ingItem.pack_quantity_override || ingItem.count_units_per_case || ingItem.pack_quantity || 1;
           const costPerSingleUnit = caseCost / unitsPerCase;
+          const TO_OZ: Record<string, number> = {
+            oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
+          };
 
-          if (ingUnit === nativeUnit || (ingUnit === 'ea' && nativeUnit === 'ea')) {
-            totalBatchCost += costPerSingleUnit * ing.quantity;
-          } else if (ingUnit && nativeUnit && ingUnit !== nativeUnit) {
-            // Only add cost if we can actually convert
-            const TO_OZ: Record<string, number> = {
-              oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
-            };
-            if (TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
-              const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
-              totalBatchCost += costPerSingleUnit * ingInNative;
+          // Determine effective native unit — fall back to pack_size parsing
+          let effNative = nativeUnit;
+          let effCostPerUnit = costPerSingleUnit;
+          if (!effNative && TO_OZ[ingUnit]) {
+            const totalOz = parsePackSizeToOz(ingItem.pack_size);
+            if (totalOz && totalOz > 0) {
+              effNative = 'oz';
+              effCostPerUnit = caseCost / totalOz;
             }
-            // else: can't convert — skip (treat as no cost data)
-          } else if (!nativeUnit && ingUnit === 'ea') {
+          }
+
+          if (ingUnit === effNative || (ingUnit === 'ea' && effNative === 'ea')) {
+            totalBatchCost += effCostPerUnit * ing.quantity;
+          } else if (ingUnit && effNative && ingUnit !== effNative && TO_OZ[ingUnit] && TO_OZ[effNative]) {
+            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[effNative];
+            totalBatchCost += effCostPerUnit * ingInNative;
+          } else if (!effNative && ingUnit === 'ea') {
             totalBatchCost += costPerSingleUnit * ing.quantity;
           }
           // else: can't determine unit — skip
