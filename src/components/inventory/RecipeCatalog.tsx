@@ -91,9 +91,9 @@ const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => 
 
       if (cat === "BASE") {
         if (lower.includes("detroit")) section = sectionMap.get("detroit");
-        else if (lower.includes("md pizza") || lower.includes('11"') || lower.includes("11\"")) section = sectionMap.get("md_pizza");
-        else if (lower.includes("lg pizza") || lower.includes('14"') || lower.includes("14\"")) section = sectionMap.get("lg_pizza");
-        else if (lower.includes("half pizza") || lower.includes("half kit")) section = sectionMap.get("half_pizza");
+        else if (lower.includes('11"') || lower.includes("md pizza")) section = sectionMap.get("md_pizza");
+        else if (lower.includes('14"') || lower.includes("lg pizza")) section = sectionMap.get("lg_pizza");
+        else if (lower.includes("half")) section = sectionMap.get("half_pizza");
         else if (lower.includes("salad")) section = sectionMap.get("salads");
         else if (lower.includes("cheesy bread") || lower.includes("fold") || lower.includes("drizzle")) section = sectionMap.get("sides");
         else section = sectionMap.get("other");
