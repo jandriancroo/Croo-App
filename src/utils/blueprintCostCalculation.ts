@@ -120,7 +120,7 @@ export async function fetchBlueprintCosts(
   if (vendorItemIds.length > 0) {
     const { data: vendorItems, error: vErr } = await supabase
       .from("inventory_items")
-      .select("id, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, pack_quantity")
+      .select("id, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, pack_quantity, pack_quantity_override")
       .in("id", vendorItemIds);
     if (vErr) throw vErr;
     vendorMap = new Map((vendorItems || []).map(v => [v.id, v as VendorItemInfo]));
