@@ -1425,50 +1425,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         </div>
       </Card>
 
-      {/* Hidden / Inactive Items */}
-      {hiddenItems && hiddenItems.length > 0 && (
-        <Card>
-          <CardHeader className="cursor-pointer py-2 px-4" onClick={() => setShowInactive(!showInactive)}>
-            <CardTitle className="text-xs flex items-center gap-2 text-muted-foreground">
-              <EyeOff className="h-3.5 w-3.5" />
-              Hidden Items ({hiddenItems.length})
-              <ChevronDown className={`h-3.5 w-3.5 ml-auto transition-transform ${showInactive ? 'rotate-180' : ''}`} />
-            </CardTitle>
-          </CardHeader>
-          {showInactive && (
-            <CardContent className="pt-0">
-              <p className="text-xs text-muted-foreground mb-3">
-                These items are hidden from counts and won't reappear after syncing. Tap restore to bring them back.
-              </p>
-              <div className="grid gap-1 max-h-[300px] overflow-y-auto">
-                {hiddenItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/30 rounded text-sm">
-                    <div className="flex items-center gap-2 truncate flex-1">
-                      <EyeOff className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                      <span className="truncate text-muted-foreground">{(item as any).common_name || item.name}</span>
-                      {item.vendor_source && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
-                          {item.vendor_source === 'produce_alliance' ? 'PA' : item.vendor_source === 'pfg' ? 'PFG' : item.vendor_source}
-                        </Badge>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs px-2 text-primary"
-                      onClick={() => unhideItemMutation.mutate(item.id)}
-                      disabled={unhideItemMutation.isPending}
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      Restore
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          )}
-        </Card>
-      )}
       </>}
     </div>
 
