@@ -13,22 +13,6 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
-/** Get effective units-per-case considering pack_quantity_override */
-const getEffectiveUnitsPerCase = (item: SearchableItem): { upc: number | null; unit: string } => {
-  // If there's a pack_quantity_override, it represents the total pieces per case
-  const override = item.pack_quantity_override;
-  if (override && override > 0) {
-    return { upc: override, unit: "ea" };
-  }
-  // Fall back to standard pack_size parsing
-  let upc = item.count_units_per_case;
-  let unit = normalizeUnit(item.count_unit);
-  if ((!upc || !unit) && item.pack_size) {
-    const parsed = parsePackSize(item.pack_size);
-    if (parsed) { if (!upc) upc = parsed.count; if (!unit) unit = normalizeUnit(parsed.unit); }
-  }
-  return { upc: upc ?? null, unit: unit || "ea" };
-};
 
 
 type BlueprintType = "MI" | "CORE" | "BASE" | "PREP" | "INGREDIENT";
