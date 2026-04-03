@@ -210,7 +210,7 @@ export async function fetchBlueprintCosts(
           }
         } else {
           // Sub-unit: divide case cost by units per case, with unit conversion
-          const unitsPerCase = vendor.count_units_per_case || vendor.pack_quantity || 1;
+          const unitsPerCase = vendor.pack_quantity_override || vendor.count_units_per_case || vendor.pack_quantity || 1;
           const costPerNativeUnit = caseCost / unitsPerCase;
 
           // Convert ingredient quantity to native units if they differ
