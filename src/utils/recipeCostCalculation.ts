@@ -15,6 +15,7 @@ interface ItemCostInfo {
   pack_quantity_override: number | null;
   count_units_per_case: number | null;
   count_unit: string | null;
+  pack_size: string | null;
   is_recipe: boolean;
   recipe_yield_qty: number | null;
   recipe_yield_unit: string | null;
