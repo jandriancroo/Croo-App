@@ -11,6 +11,10 @@ import { fetchBlueprintCosts, type BlueprintCostResult } from "@/utils/blueprint
 import PosLinkIndicator from "./PosLinkIndicator";
 import type { PosItem } from "./usePosMapping";
 
+const TO_OZ: Record<string, number> = {
+  oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
+};
+
 interface RecipeRowProps {
   item: MenuItem;
   tagLabel?: string;
