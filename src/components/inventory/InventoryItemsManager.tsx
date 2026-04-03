@@ -1658,26 +1658,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 Hidden items won't reappear after syncing
               </p>
 
-              {/* Show linked hidden items (reverse lookup) */}
-              {hiddenItems && hiddenItems.filter(h => (h as any).linked_item_id === editingItem?.id).length > 0 && (
-                <div className="space-y-1 border-t pt-3">
-                  <Label className="text-xs font-medium">Linked Hidden Items</Label>
-                  <div className="space-y-1">
-                    {hiddenItems.filter(h => (h as any).linked_item_id === editingItem?.id).map(h => (
-                      <div key={h.id} className="flex items-center gap-2 text-sm bg-muted/50 rounded px-2 py-1.5">
-                        <EyeOff className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                        <span className="truncate">{(h as any).common_name || h.name}</span>
-                        {h.cost_per_unit && (
-                          <span className="text-xs text-primary ml-auto">${Number(h.cost_per_unit).toFixed(2)}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Prices from these items are blended into this item on sync.
-                  </p>
-                </div>
-              )}
 
               {/* Link to primary item for price blending */}
               {items && items.length > 1 && (
