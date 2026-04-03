@@ -115,20 +115,27 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         } else {
           const unitsPerCase = ingItem.pack_quantity_override || ingItem.count_units_per_case || ingItem.pack_quantity || 1;
           const costPerSingleUnit = caseCost / unitsPerCase;
+          const TO_OZ: Record<string, number> = {
+            oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
+          };
 
-          if (ingUnit === nativeUnit || (ingUnit === 'ea' && nativeUnit === 'ea')) {
-            totalBatchCost += costPerSingleUnit * ing.quantity;
-          } else if (ingUnit && nativeUnit && ingUnit !== nativeUnit) {
-            // Only add cost if we can actually convert
-            const TO_OZ: Record<string, number> = {
-              oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
-            };
-            if (TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
-              const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
-              totalBatchCost += costPerSingleUnit * ingInNative;
+          // Determine effective native unit — fall back to pack_size parsing
+          let effNative = nativeUnit;
+          let effCostPerUnit = costPerSingleUnit;
+          if (!effNative && TO_OZ[ingUnit]) {
+            const totalOz = parsePackSizeToOz(ingItem.pack_size);
+            if (totalOz && totalOz > 0) {
+              effNative = 'oz';
+              effCostPerUnit = caseCost / totalOz;
             }
-            // else: can't convert — skip (treat as no cost data)
-          } else if (!nativeUnit && ingUnit === 'ea') {
+          }
+
+          if (ingUnit === effNative || (ingUnit === 'ea' && effNative === 'ea')) {
+            totalBatchCost += effCostPerUnit * ing.quantity;
+          } else if (ingUnit && effNative && ingUnit !== effNative && TO_OZ[ingUnit] && TO_OZ[effNative]) {
+            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[effNative];
+            totalBatchCost += effCostPerUnit * ingInNative;
+          } else if (!effNative && ingUnit === 'ea') {
             totalBatchCost += costPerSingleUnit * ing.quantity;
           }
           // else: can't determine unit — skip
