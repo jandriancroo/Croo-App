@@ -214,6 +214,15 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
                   <span className="text-muted-foreground flex-shrink-0">
                     {ing.quantity} {ing.unit || ""}
                   </span>
+                  {(() => {
+                    const ingCost = getIngredientCost(ing);
+                    if (ingCost == null || ingCost <= 0) return null;
+                    return (
+                      <span className="text-emerald-600/70 flex-shrink-0 tabular-nums w-14 text-right">
+                        ${ingCost.toFixed(2)}
+                      </span>
+                    );
+                  })()}
                 </div>
               );
             })
