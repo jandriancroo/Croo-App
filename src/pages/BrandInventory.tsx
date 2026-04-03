@@ -700,14 +700,49 @@ function EditTemplateForm({
   categories,
 }: {
   template: any;
-  onSave: (updates: { product_name?: string; category?: string }) => void;
+  onSave: (updates: Record<string, any>) => void;
   isPending: boolean;
   onCancel: () => void;
   categories: string[];
 }) {
   const [name, setName] = useState(template.product_name || '');
   const [category, setCategory] = useState(template.category || '');
-  
+
+  // Pack size override state
+  const [packOverrideEnabled, setPackOverrideEnabled] = useState(
+    !!template.pack_override_outer_type
+  );
+  const [outerType, setOuterType] = useState(template.pack_override_outer_type || 'Case');
+  const [outerQty, setOuterQty] = useState(template.pack_override_outer_qty?.toString() || '');
+  const [hasInnerLayer, setHasInnerLayer] = useState(!!template.pack_override_inner_type);
+  const [innerType, setInnerType] = useState(template.pack_override_inner_type || 'Sleeve');
+  const [innerQty, setInnerQty] = useState(template.pack_override_inner_qty?.toString() || '');
+
+  const CONTAINER_TYPES = ['Case', 'Box', 'Bag', 'Tray', 'Bucket', 'Jug', 'Carton'];
+  const INNER_TYPES = ['Sleeve', 'Pack', 'Roll', 'Pouch', 'Tray', 'Bag'];
+
+  const effectiveOverride = packOverrideEnabled && outerQty
+    ? (parseInt(outerQty) || 0) * (hasInnerLayer && innerQty ? (parseInt(innerQty) || 1) : 1)
+    : null;
+
+  const handleSave = () => {
+    const updates: Record<string, any> = {
+      product_name: name,
+      category: category || null,
+    };
+    if (packOverrideEnabled && outerQty) {
+      updates.pack_override_outer_type = outerType;
+      updates.pack_override_outer_qty = parseInt(outerQty);
+      updates.pack_override_inner_type = hasInnerLayer ? innerType : null;
+      updates.pack_override_inner_qty = hasInnerLayer && innerQty ? parseInt(innerQty) : null;
+    } else {
+      updates.pack_override_outer_type = null;
+      updates.pack_override_outer_qty = null;
+      updates.pack_override_inner_type = null;
+      updates.pack_override_inner_qty = null;
+    }
+    onSave(updates);
+  };
 
   return (
     <div className="space-y-4">
@@ -729,12 +764,99 @@ function EditTemplateForm({
           </SelectContent>
         </Select>
       </div>
+
+      {/* Pack Size Override */}
+      <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold">Pack Size Override</Label>
+          <Switch checked={packOverrideEnabled} onCheckedChange={setPackOverrideEnabled} />
+        </div>
+
+        {packOverrideEnabled && (
+          <div className="space-y-3 pt-1">
+            {/* Outer container */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Container Type</Label>
+                <Select value={outerType} onValueChange={setOuterType}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONTAINER_TYPES.map(t => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">
+                  {hasInnerLayer ? `${innerType}s per ${outerType}` : `Pieces per ${outerType}`}
+                </Label>
+                <Input
+                  type="number"
+                  className="h-8 text-xs"
+                  value={outerQty}
+                  onChange={e => setOuterQty(e.target.value)}
+                  placeholder="e.g. 2"
+                />
+              </div>
+            </div>
+
+            {/* Inner layer toggle */}
+            <div className="flex items-center gap-2">
+              <Switch checked={hasInnerLayer} onCheckedChange={setHasInnerLayer} />
+              <span className="text-xs text-muted-foreground">Has inner packaging</span>
+            </div>
+
+            {hasInnerLayer && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Inner Type</Label>
+                  <Select value={innerType} onValueChange={setInnerType}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INNER_TYPES.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">Pieces per {innerType}</Label>
+                  <Input
+                    type="number"
+                    className="h-8 text-xs"
+                    value={innerQty}
+                    onChange={e => setInnerQty(e.target.value)}
+                    placeholder="e.g. 32"
+                  />
+                </div>
+              </div>
+            )}
+
+            {effectiveOverride && effectiveOverride > 0 && (
+              <div className="text-xs text-center py-1.5 rounded-md bg-primary/10 text-primary font-medium">
+                Effective: {effectiveOverride} pieces per {outerType.toLowerCase()}
+                {hasInnerLayer && innerQty && ` (${outerQty} × ${innerQty})`}
+              </div>
+            )}
+          </div>
+        )}
+
+        <p className="text-[10px] text-muted-foreground">
+          Override vendor pack size for counting accuracy across all locations
+        </p>
+      </div>
+
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         <Button
           className="flex-1"
           disabled={isPending || !name.trim()}
-          onClick={() => onSave({ product_name: name, category: category || null } as any)}
+          onClick={handleSave}
         >
           {isPending ? 'Saving...' : 'Save'}
         </Button>
