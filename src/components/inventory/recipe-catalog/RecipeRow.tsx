@@ -126,8 +126,16 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
       if (iu && nu && iu !== nu && TO_OZ[iu] && TO_OZ[nu]) {
         return ((ing.quantity * TO_OZ[iu]) / TO_OZ[nu]) * costPerUnit;
       }
+      // Fallback: try parsing pack_size for total oz
+      if (!nu && TO_OZ[iu]) {
+        const totalOz = parsePackSizeToOz(v.pack_size || null);
+        if (totalOz && totalOz > 0) {
+          const cpu = caseCost / totalOz;
+          return ing.quantity * (TO_OZ[iu] / TO_OZ["oz"]) * cpu;
+        }
+      }
       if (!nu && iu === "ea") return costPerUnit * ing.quantity;
-      return null; // Can't convert — no cost
+      return null;
     }
     return null;
   };
