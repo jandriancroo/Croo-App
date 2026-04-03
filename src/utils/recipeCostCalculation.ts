@@ -11,6 +11,7 @@ interface ItemCostInfo {
   id: string;
   cost_per_unit: number | null;
   pack_quantity: number | null;
+  pack_quantity_override: number | null;
   count_units_per_case: number | null;
   count_unit: string | null;
   is_recipe: boolean;
@@ -29,7 +30,7 @@ interface ItemCostInfo {
 export async function fetchRecipeCosts(locationId: string): Promise<Map<string, number>> {
   const { data: recipeItems, error: recipeError } = await supabase
     .from("inventory_items")
-    .select("id, cost_per_unit, pack_quantity, count_units_per_case, count_unit, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
+    .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
     .eq("location_id", locationId)
     .eq("is_active", true);
 
@@ -110,7 +111,7 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
           totalBatchCost += caseCost * ing.quantity;
         } else {
           // Use count_units_per_case for sub-unit conversion, fallback to pack_quantity
-          const unitsPerCase = ingItem.count_units_per_case || ingItem.pack_quantity || 1;
+          const unitsPerCase = ingItem.pack_quantity_override || ingItem.count_units_per_case || ingItem.pack_quantity || 1;
           const costPerSingleUnit = caseCost / unitsPerCase;
           totalBatchCost += costPerSingleUnit * ing.quantity;
         }

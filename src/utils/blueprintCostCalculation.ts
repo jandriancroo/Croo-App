@@ -49,6 +49,7 @@ interface VendorItemInfo {
   count_unit: string | null;
   count_units_per_case: number | null;
   pack_quantity: number | null;
+  pack_quantity_override: number | null;
 }
 
 export interface BlueprintCostResult {
@@ -119,7 +120,7 @@ export async function fetchBlueprintCosts(
   if (vendorItemIds.length > 0) {
     const { data: vendorItems, error: vErr } = await supabase
       .from("inventory_items")
-      .select("id, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, pack_quantity")
+      .select("id, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, pack_quantity, pack_quantity_override")
       .in("id", vendorItemIds);
     if (vErr) throw vErr;
     vendorMap = new Map((vendorItems || []).map(v => [v.id, v as VendorItemInfo]));
@@ -204,12 +205,12 @@ export async function fetchBlueprintCosts(
           if (cansPerCase && cansPerCase > 0) {
             totalBatchCost += (ing.quantity / cansPerCase) * caseCost;
           } else {
-            const unitsPerCase = vendor.count_units_per_case || vendor.pack_quantity || 1;
+            const unitsPerCase = vendor.pack_quantity_override || vendor.count_units_per_case || vendor.pack_quantity || 1;
             totalBatchCost += (caseCost / unitsPerCase) * ing.quantity;
           }
         } else {
           // Sub-unit: divide case cost by units per case, with unit conversion
-          const unitsPerCase = vendor.count_units_per_case || vendor.pack_quantity || 1;
+          const unitsPerCase = vendor.pack_quantity_override || vendor.count_units_per_case || vendor.pack_quantity || 1;
           const costPerNativeUnit = caseCost / unitsPerCase;
 
           // Convert ingredient quantity to native units if they differ
