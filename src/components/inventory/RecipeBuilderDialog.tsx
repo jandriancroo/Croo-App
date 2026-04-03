@@ -299,6 +299,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         item_type: "vendor_item",
         cost_per_unit: v.cost_per_unit,
         pack_size: v.pack_size,
+        pack_quantity: (v as any).pack_quantity,
+        pack_quantity_override: (v as any).pack_quantity_override,
         count_unit: v.count_unit,
         count_units_per_case: v.count_units_per_case,
         is_recipe: v.is_recipe,
