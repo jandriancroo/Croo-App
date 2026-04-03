@@ -571,6 +571,10 @@ export type Database = {
           item_number: string | null
           match_keywords: string[]
           pa_item_id: string | null
+          pack_override_inner_qty: number | null
+          pack_override_inner_type: string | null
+          pack_override_outer_qty: number | null
+          pack_override_outer_type: string | null
           pan_baseline_key: string
           pan_enabled_keys: string[]
           pan_overrides: Json | null
@@ -607,6 +611,10 @@ export type Database = {
           item_number?: string | null
           match_keywords?: string[]
           pa_item_id?: string | null
+          pack_override_inner_qty?: number | null
+          pack_override_inner_type?: string | null
+          pack_override_outer_qty?: number | null
+          pack_override_outer_type?: string | null
           pan_baseline_key?: string
           pan_enabled_keys?: string[]
           pan_overrides?: Json | null
@@ -643,6 +651,10 @@ export type Database = {
           item_number?: string | null
           match_keywords?: string[]
           pa_item_id?: string | null
+          pack_override_inner_qty?: number | null
+          pack_override_inner_type?: string | null
+          pack_override_outer_qty?: number | null
+          pack_override_outer_type?: string | null
           pan_baseline_key?: string
           pan_enabled_keys?: string[]
           pan_overrides?: Json | null
