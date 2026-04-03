@@ -26,8 +26,8 @@ const BLUEPRINT_TYPE_OPTIONS: { value: BlueprintType; label: string; description
 ];
 
 const CATALOG_SECTION_OPTIONS = [
-  { value: "md_pizza", label: '11" Pizzas (MD)' },
-  { value: "lg_pizza", label: '14" Pizzas (LG)' },
+  { value: "md_pizza", label: '11" Pizzas' },
+  { value: "lg_pizza", label: '14" Pizzas' },
   { value: "half_pizza", label: "Half Pizzas" },
   { value: "detroit", label: "Detroit Pizzas" },
   { value: "salads", label: "Salads" },

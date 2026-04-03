@@ -16,8 +16,8 @@ interface BulkReassignBarProps {
 }
 
 const SECTION_OPTIONS: { value: SectionType; label: string }[] = [
-  { value: "md_pizza", label: '11" Pizzas (MD)' },
-  { value: "lg_pizza", label: '14" Pizzas (LG)' },
+  { value: "md_pizza", label: '11" Pizzas' },
+  { value: "lg_pizza", label: '14" Pizzas' },
   { value: "half_pizza", label: "Half Pizzas" },
   { value: "salads", label: "Salads" },
   { value: "sides", label: "Sides & Extras" },
