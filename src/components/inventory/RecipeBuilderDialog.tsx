@@ -1348,10 +1348,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                     const ryu = normalizeUnit(selectedItem.recipe_yield_unit) || "oz";
                     unitOptions = Array.from(new Set([ryu, "oz", "qt", "gal"]));
                   } else {
-                    const parsed = parsePackSize(selectedItem.pack_size || null);
-                    const nu = normalizeUnit(selectedItem.count_unit || parsed?.unit || "ea") || "ea";
+                    const eff = getEffectiveUnitsPerCase(selectedItem);
                     const isCan = parseCansPerCase(selectedItem.pack_size || null) !== null;
-                    unitOptions = Array.from(new Set([...(isCan ? ["cn"] : []), nu, "cs", "oz", "tbsp", "tsp"]));
+                    unitOptions = Array.from(new Set([...(isCan ? ["cn"] : []), eff.unit, "cs", "oz", "tbsp", "tsp"]));
                   }
                   return (
                     <div className="flex items-center gap-2">
