@@ -72,8 +72,12 @@ export function SortableChecklistItem({
       style={style}
     >
       <div
-        className="border rounded-lg p-3 hover:bg-accent/50 transition-colors cursor-pointer"
-        style={{ borderLeftWidth: 4, borderLeftColor: 'hsl(var(--primary))' }}
+        className={`border rounded-lg p-3 transition-colors cursor-pointer ${
+          !checklist.is_active 
+            ? 'opacity-40 border-dashed bg-muted/30' 
+            : 'hover:bg-accent/50'
+        }`}
+        style={{ borderLeftWidth: 4, borderLeftColor: checklist.is_active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}
         onClick={handleClick}
       >
         <div className="flex items-start justify-between gap-2">
