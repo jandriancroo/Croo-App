@@ -1162,13 +1162,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                             ingCost = ((ing.quantity * (TO_OZ[ingUnit] ?? 1)) / (yqv * (TO_OZ[ryu] ?? 1))) * caseCost;
                           }
                         } else {
-                          let upc = item!.count_units_per_case;
-                          let nu = normalizeUnit(item!.count_unit);
-                          if ((!upc || !nu) && item!.pack_size) {
-                            const p = parsePackSize(item!.pack_size);
-                            if (p) { if (!upc) upc = p.count; if (!nu) nu = normalizeUnit(p.unit); }
-                          }
-                          nu = nu || "ea";
+                          const eff = getEffectiveUnitsPerCase(item!);
+                          let upc = eff.upc;
+                          const nu = eff.unit;
                           if (ingUnit === "cs") ingCost = ing.quantity * caseCost;
                           else if (ingUnit === "cn") {
                             const cpc = parseCansPerCase(item!.pack_size);
