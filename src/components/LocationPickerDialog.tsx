@@ -42,22 +42,7 @@ interface LocationPickerDialogProps {
   currentLocationId?: string;
 }
 
-const RECENTS_THRESHOLD = 10;
-const RECENTS_STORAGE_KEY = 'croo-recent-locations';
-const MAX_RECENTS = 5;
-
-function getRecentLocationIds(): string[] {
-  try {
-    const raw = localStorage.getItem(RECENTS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function pushRecentLocation(id: string) {
-  const recents = getRecentLocationIds().filter(r => r !== id);
-  recents.unshift(id);
-  localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(recents.slice(0, MAX_RECENTS)));
-}
+// Recents removed — search handles discovery
 
 export function LocationPickerDialog({
   open,
