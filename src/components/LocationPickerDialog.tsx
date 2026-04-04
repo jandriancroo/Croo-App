@@ -32,6 +32,7 @@ interface Location {
   location_type: string;
   organization_id: string | null;
   org_name?: string;
+  org_raw_name?: string;
   store_number?: string | null;
 }
 
