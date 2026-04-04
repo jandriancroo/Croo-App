@@ -889,7 +889,15 @@ function VendorMappingsDisplay({ template }: { template: any }) {
   // Combine template-level IDs + mapping table
   const allIds: { vendor: string; itemId: string; territory?: string | null }[] = [];
   if (template.item_number) {
-    allIds.push({ vendor: 'PFG', itemId: template.item_number });
+    // Derive vendor label from vendor_source field
+    const vs = template.vendor_source || '';
+    let vendorLabel = 'PFG';
+    if (vs.startsWith('invoice:')) {
+      vendorLabel = vs.replace('invoice:', '').trim();
+    } else if (vs) {
+      vendorLabel = vs;
+    }
+    allIds.push({ vendor: vendorLabel, itemId: template.item_number });
   }
   if (template.pa_item_id) {
     allIds.push({ vendor: 'Produce Alliance', itemId: template.pa_item_id });
