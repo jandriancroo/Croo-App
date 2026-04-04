@@ -231,7 +231,6 @@ export function LocationPickerDialog({
 
   const tabs = useMemo(() => {
     const t: { id: string; label: string; icon?: 'clock' | 'building' }[] = [];
-    if (showRecents) t.push({ id: '__recents__', label: 'Recent', icon: 'clock' });
 
     // If brands exist (super_admin), use brands as tabs
     if (brands.length > 0) {
