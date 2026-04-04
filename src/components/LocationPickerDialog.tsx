@@ -228,8 +228,6 @@ export function LocationPickerDialog({
   const brands = pickerData?.brands || [];
 
   // Build tabs from available data
-  const recentIds = getRecentLocationIds();
-  const showRecents = locations.length >= RECENTS_THRESHOLD && recentIds.length >= 2;
 
   const tabs = useMemo(() => {
     const t: { id: string; label: string; icon?: 'clock' | 'building' }[] = [];
