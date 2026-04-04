@@ -192,7 +192,7 @@ export default function EditTabContent({
                           currentDay={currentDayIndex}
                           dayNames={dayNames}
                           onNavigate={navigate}
-                          onDeactivate={handleDeactivate}
+                          onDeactivate={handleToggleActive}
                           onDelete={handleDelete}
                           onCopyTo={handleCopyTo}
                           editMode={true}
