@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
-import { FileCheck, GripVertical, Pencil, EyeOff, Trash2, Copy, CalendarDays } from "lucide-react";
+import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
