@@ -637,19 +637,6 @@ export function EmployeeProfileDialog({
                 </div>
               </div>
 
-              {/* Schedule Visibility */}
-              {(isAdmin || isManager) && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
-                  <div>
-                    <Label className="text-sm font-medium text-foreground">Appear on Schedule</Label>
-                    <p className="text-xs text-muted-foreground">Show employee in schedule views</p>
-                  </div>
-                  <Switch
-                    checked={appearsOnSchedule}
-                    onCheckedChange={handleToggleScheduleVisibility}
-                  />
-                </div>
-              )}
 
               {/* Admin Actions */}
               {isAdmin && (
