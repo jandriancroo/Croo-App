@@ -208,6 +208,24 @@ async function handleInvite(req: Request, supabaseAdmin: any, requestingUserId: 
     await supabaseAdmin
       .from('user_locations')
       .upsert({ user_id: userId, location_id: locationId }, { onConflict: 'user_id,location_id' });
+
+    // If role is org_admin, auto-add to organization_members so they see the org in the picker
+    if (role === 'org_admin') {
+      const { data: locData } = await supabaseAdmin
+        .from('locations')
+        .select('organization_id')
+        .eq('id', locationId)
+        .single();
+      
+      if (locData?.organization_id) {
+        await supabaseAdmin
+          .from('organization_members')
+          .upsert(
+            { user_id: userId, organization_id: locData.organization_id, org_role: 'admin' },
+            { onConflict: 'user_id,organization_id' }
+          );
+      }
+    }
   }
 
   // Generate password reset link
