@@ -49,7 +49,13 @@ function isWithinBusinessHours(
   
   const currentMinutesTotal = currentHours * 60 + currentMinutes;
   const openMinutes = parseTimeToMinutes(openStr);
-  const closeMinutes = parseTimeToMinutes(closeStr) + 10;
+  let closeMinutes = parseTimeToMinutes(closeStr) + 10;
+  
+  // Handle midnight/past-midnight closing (e.g. 00:00 or 01:00 means next day)
+  if (closeMinutes <= openMinutes) {
+    // Close time wraps past midnight — treat as next-day (add 24h worth of minutes)
+    closeMinutes += 24 * 60;
+  }
   
   return currentMinutesTotal >= openMinutes && currentMinutesTotal <= closeMinutes;
 }
