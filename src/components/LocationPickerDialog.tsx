@@ -32,6 +32,7 @@ interface Location {
   location_type: string;
   organization_id: string | null;
   org_name?: string;
+  org_raw_name?: string;
   store_number?: string | null;
 }
 
@@ -117,6 +118,7 @@ export function LocationPickerDialog({
           ...(locsResult.data || []).map((loc: any) => ({
             ...loc,
             org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
+            org_raw_name: loc.organizations?.name,
           }))
         );
       } else if (isOrgLevel) {
@@ -151,6 +153,7 @@ export function LocationPickerDialog({
             ...(orgLocs || []).map((loc: any) => ({
               ...loc,
               org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
+              org_raw_name: loc.organizations?.name,
             }))
           );
         }
@@ -182,6 +185,7 @@ export function LocationPickerDialog({
             ...(orgLocs || []).map((loc: any) => ({
               ...loc,
               org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
+              org_raw_name: loc.organizations?.name,
             }))
           );
         }
@@ -212,6 +216,7 @@ export function LocationPickerDialog({
           ...mappedLocs.map((loc: any) => ({
             ...loc,
             org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
+            org_raw_name: loc.organizations?.name,
           }))
         );
       }
@@ -291,7 +296,8 @@ export function LocationPickerDialog({
       locs = locs.filter(l => 
         l.name.toLowerCase().includes(q) || 
         (l.store_number && l.store_number.toLowerCase().includes(q)) ||
-        (l.org_name && l.org_name.toLowerCase().includes(q))
+        (l.org_name && l.org_name.toLowerCase().includes(q)) ||
+        (l.org_raw_name && l.org_raw_name.toLowerCase().includes(q))
       );
     }
 
