@@ -72,18 +72,21 @@ export default function EditTabContent({
     }
   };
 
-  const handleDeactivate = async (checklistId: string) => {
+  const handleToggleActive = async (checklistId: string) => {
+    const checklist = checklists.find((c: any) => c.id === checklistId);
+    const newState = !(checklist?.is_active ?? true);
+    
     const { error } = await supabase
       .from('checklists')
-      .update({ is_active: false })
+      .update({ is_active: newState })
       .eq('id', checklistId);
 
     if (error) {
-      toast.error("Failed to deactivate checklist");
+      toast.error(`Failed to ${newState ? 'reactivate' : 'deactivate'} checklist`);
       return;
     }
 
-    toast.success("Checklist deactivated");
+    toast.success(newState ? "Checklist reactivated" : "Checklist deactivated");
     queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
   };
 
