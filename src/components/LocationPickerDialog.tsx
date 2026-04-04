@@ -296,7 +296,8 @@ export function LocationPickerDialog({
       locs = locs.filter(l => 
         l.name.toLowerCase().includes(q) || 
         (l.store_number && l.store_number.toLowerCase().includes(q)) ||
-        (l.org_name && l.org_name.toLowerCase().includes(q))
+        (l.org_name && l.org_name.toLowerCase().includes(q)) ||
+        (l.org_raw_name && l.org_raw_name.toLowerCase().includes(q))
       );
     }
 
