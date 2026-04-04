@@ -851,6 +851,9 @@ function EditTemplateForm({
         </p>
       </div>
 
+      {/* Vendor Mappings */}
+      <VendorMappingsDisplay template={template} />
+
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         <Button
@@ -865,6 +868,64 @@ function EditTemplateForm({
       {template.status === 'draft' && (
         <InlineLinkToExisting draft={template} onLinked={onCancel} />
       )}
+    </div>
+  );
+}
+
+// ─── Vendor Mappings Display ────────────────────────────────
+function VendorMappingsDisplay({ template }: { template: any }) {
+  const { data: mappings, isLoading } = useQuery({
+    queryKey: ['brand-vendor-mappings', template.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('brand_vendor_mappings')
+        .select('vendor, vendor_item_id, territory')
+        .eq('brand_template_id', template.id);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Combine template-level IDs + mapping table
+  const allIds: { vendor: string; itemId: string; territory?: string | null }[] = [];
+  if (template.item_number) {
+    allIds.push({ vendor: 'PFG', itemId: template.item_number });
+  }
+  if (template.pa_item_id) {
+    allIds.push({ vendor: 'Produce Alliance', itemId: template.pa_item_id });
+  }
+  for (const m of mappings || []) {
+    const isDup = allIds.some(a => a.vendor === m.vendor && a.itemId === m.vendor_item_id);
+    if (!isDup) {
+      allIds.push({ vendor: m.vendor, itemId: m.vendor_item_id, territory: m.territory });
+    }
+  }
+
+  if (isLoading) return null;
+  if (allIds.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border/60 p-3">
+        <p className="text-[11px] text-muted-foreground text-center">No vendor IDs linked</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/20 p-3">
+      <Label className="text-xs font-semibold">Vendor IDs</Label>
+      <div className="space-y-1">
+        {allIds.map((v, i) => (
+          <div key={i} className="flex items-center gap-2 text-xs">
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium shrink-0">
+              {v.vendor}
+            </Badge>
+            <span className="font-mono text-foreground">{v.itemId}</span>
+            {v.territory && (
+              <span className="text-muted-foreground">({v.territory})</span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
