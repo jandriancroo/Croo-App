@@ -273,10 +273,7 @@ export function LocationPickerDialog({
     let locs = locations;
 
     // Tab filtering
-    if (activeTab === '__recents__') {
-      const recentIds = getRecentLocationIds();
-      locs = recentIds.map(id => locations.find(l => l.id === id)).filter(Boolean) as Location[];
-    } else if (activeTab.startsWith('brand:')) {
+    if (activeTab.startsWith('brand:')) {
       const brandId = activeTab.replace('brand:', '');
       const brandOrgIds = new Set(organizations.filter(o => o.brand_id === brandId).map(o => o.id));
       locs = locations.filter(l => l.organization_id && brandOrgIds.has(l.organization_id));
