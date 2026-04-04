@@ -409,7 +409,7 @@ export function LocationPickerDialog({
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {tab.icon === 'clock' && <Clock className="h-3 w-3 flex-shrink-0" />}
+                  
                   <span className="truncate">{tab.label}</span>
                 </button>
               ))}
