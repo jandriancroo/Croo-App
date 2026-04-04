@@ -424,7 +424,7 @@ export function LocationPickerDialog({
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder={activeTab === '__recents__' ? 'Search recents...' : 'Search locations...'}
+              placeholder="Search by name, store #, or org..."
               className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-full"
             />
           </div>
