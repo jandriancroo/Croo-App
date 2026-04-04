@@ -851,6 +851,9 @@ function EditTemplateForm({
         </p>
       </div>
 
+      {/* Vendor Mappings */}
+      <VendorMappingsDisplay template={template} />
+
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         <Button
