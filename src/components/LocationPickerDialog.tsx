@@ -245,7 +245,7 @@ export function LocationPickerDialog({
     }
     // If only 1 org or no orgs, no tabs needed (just show flat list)
     return t;
-  }, [showRecents, brands, organizations, locations]);
+  }, [brands, organizations, locations]);
 
   // Set default active tab when data loads
   useEffect(() => {
