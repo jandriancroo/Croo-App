@@ -315,7 +315,7 @@ export function LocationPickerDialog({
   }, [filteredLocations, organizations, activeTab, search]);
 
   const handleSelectLocation = (location: Location) => {
-    pushRecentLocation(location.id);
+    
     onSelectLocation({
       id: location.id,
       name: location.name,
