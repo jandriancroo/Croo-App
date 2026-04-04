@@ -349,7 +349,7 @@ export function LocationPickerDialog({
     toast.success(newDefault ? 'Default location set' : 'Default location cleared');
   };
 
-  const hasTabs = tabs.length > 1 || (tabs.length === 1 && tabs[0].id === '__recents__');
+  const hasTabs = tabs.length > 1;
 
   const renderLocationRow = (loc: Location) => (
     <button
