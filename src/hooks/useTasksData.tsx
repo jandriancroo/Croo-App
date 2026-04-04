@@ -46,7 +46,6 @@ export function useTasksData() {
           checklist_role_tags(role),
           checklist_items(id, days_of_week)
         `)
-        .eq('is_active', true)
         .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true });
 
@@ -56,7 +55,11 @@ export function useTasksData() {
       const today = new Date();
 
       return data.filter(checklist => {
+        // Admins see everything (including inactive for edit tab)
         if (isAdmin) return true;
+
+        // Non-admins never see inactive checklists
+        if (!checklist.is_active) return false;
 
         const roleTags = checklist.checklist_role_tags;
         const roleMatch = roleTags.length === 0 || roleTags.some((tag: any) => tag.role === userRole);

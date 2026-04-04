@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
-import { FileCheck, GripVertical, Pencil, EyeOff, Trash2, Copy, CalendarDays } from "lucide-react";
+import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
@@ -72,8 +72,12 @@ export function SortableChecklistItem({
       style={style}
     >
       <div
-        className="border rounded-lg p-3 hover:bg-accent/50 transition-colors cursor-pointer"
-        style={{ borderLeftWidth: 4, borderLeftColor: 'hsl(var(--primary))' }}
+        className={`border rounded-lg p-3 transition-colors cursor-pointer ${
+          !checklist.is_active 
+            ? 'opacity-40 border-dashed bg-muted/30' 
+            : 'hover:bg-accent/50'
+        }`}
+        style={{ borderLeftWidth: 4, borderLeftColor: checklist.is_active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}
         onClick={handleClick}
       >
         <div className="flex items-start justify-between gap-2">
@@ -91,6 +95,11 @@ export function SortableChecklistItem({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-medium text-sm truncate">{checklist.title}</p>
+                {!checklist.is_active && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">
+                    Inactive
+                  </Badge>
+                )}
                 {isDynamic && (
                   <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5">
                     <CalendarDays className="h-2.5 w-2.5" />
@@ -129,8 +138,8 @@ export function SortableChecklistItem({
                   </>
                 )}
                 <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
-                  <EyeOff className="h-4 w-4 mr-2" />
-                  Make Inactive
+                  {checklist.is_active ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                  {checklist.is_active ? 'Make Inactive' : 'Reactivate'}
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => onDelete(checklist.id)}
