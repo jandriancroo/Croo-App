@@ -312,7 +312,7 @@ export function LocationPickerDialog({
       const orgId = loc.organization_id || '__none__';
       if (!orgMap.has(orgId)) {
         const org = organizations.find(o => o.id === orgId);
-        orgMap.set(orgId, { orgName: org?.name || 'Other', orgId, locs: [] });
+        orgMap.set(orgId, { orgName: org?.brand_name || org?.name || 'Other', orgId, locs: [] });
       }
       orgMap.get(orgId)!.locs.push(loc);
     }
