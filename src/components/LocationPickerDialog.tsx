@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { Building2, MapPin, ChevronRight, Star, ExternalLink, Layers, Search, Clock } from 'lucide-react';
+import { Building2, MapPin, ChevronRight, Star, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
@@ -42,22 +42,7 @@ interface LocationPickerDialogProps {
   currentLocationId?: string;
 }
 
-const RECENTS_THRESHOLD = 10;
-const RECENTS_STORAGE_KEY = 'croo-recent-locations';
-const MAX_RECENTS = 5;
-
-function getRecentLocationIds(): string[] {
-  try {
-    const raw = localStorage.getItem(RECENTS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function pushRecentLocation(id: string) {
-  const recents = getRecentLocationIds().filter(r => r !== id);
-  recents.unshift(id);
-  localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(recents.slice(0, MAX_RECENTS)));
-}
+// Recents removed — search handles discovery
 
 export function LocationPickerDialog({
   open,
@@ -243,12 +228,9 @@ export function LocationPickerDialog({
   const brands = pickerData?.brands || [];
 
   // Build tabs from available data
-  const recentIds = getRecentLocationIds();
-  const showRecents = locations.length >= RECENTS_THRESHOLD && recentIds.length >= 2;
 
   const tabs = useMemo(() => {
     const t: { id: string; label: string; icon?: 'clock' | 'building' }[] = [];
-    if (showRecents) t.push({ id: '__recents__', label: 'Recent', icon: 'clock' });
 
     // If brands exist (super_admin), use brands as tabs
     if (brands.length > 0) {
@@ -263,15 +245,14 @@ export function LocationPickerDialog({
     }
     // If only 1 org or no orgs, no tabs needed (just show flat list)
     return t;
-  }, [showRecents, brands, organizations, locations]);
+  }, [brands, organizations, locations]);
 
   // Set default active tab when data loads
   useEffect(() => {
     if (tabs.length > 0 && !activeTab) {
-      // Default to recents if available, otherwise first tab
-      setActiveTab(showRecents ? '__recents__' : tabs[0].id);
+      setActiveTab(tabs[0].id);
     }
-  }, [tabs, showRecents]);
+  }, [tabs]);
 
   // Reset search when dialog opens
   useEffect(() => {
@@ -292,10 +273,7 @@ export function LocationPickerDialog({
     let locs = locations;
 
     // Tab filtering
-    if (activeTab === '__recents__') {
-      const recentIds = getRecentLocationIds();
-      locs = recentIds.map(id => locations.find(l => l.id === id)).filter(Boolean) as Location[];
-    } else if (activeTab.startsWith('brand:')) {
+    if (activeTab.startsWith('brand:')) {
       const brandId = activeTab.replace('brand:', '');
       const brandOrgIds = new Set(organizations.filter(o => o.brand_id === brandId).map(o => o.id));
       locs = locations.filter(l => l.organization_id && brandOrgIds.has(l.organization_id));
@@ -337,7 +315,7 @@ export function LocationPickerDialog({
   }, [filteredLocations, organizations, activeTab, search]);
 
   const handleSelectLocation = (location: Location) => {
-    pushRecentLocation(location.id);
+    
     onSelectLocation({
       id: location.id,
       name: location.name,
@@ -371,7 +349,7 @@ export function LocationPickerDialog({
     toast.success(newDefault ? 'Default location set' : 'Default location cleared');
   };
 
-  const hasTabs = tabs.length > 1 || (tabs.length === 1 && tabs[0].id === '__recents__');
+  const hasTabs = tabs.length > 1;
 
   const renderLocationRow = (loc: Location) => (
     <button
@@ -431,7 +409,7 @@ export function LocationPickerDialog({
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {tab.icon === 'clock' && <Clock className="h-3 w-3 flex-shrink-0" />}
+                  
                   <span className="truncate">{tab.label}</span>
                 </button>
               ))}
@@ -446,7 +424,7 @@ export function LocationPickerDialog({
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder={activeTab === '__recents__' ? 'Search recents...' : 'Search locations...'}
+              placeholder="Search by name, store #, or org..."
               className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-full"
             />
           </div>
