@@ -185,6 +185,7 @@ export function LocationPickerDialog({
             ...(orgLocs || []).map((loc: any) => ({
               ...loc,
               org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
+              org_raw_name: loc.organizations?.name,
             }))
           );
         }
