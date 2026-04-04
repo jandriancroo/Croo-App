@@ -138,7 +138,7 @@ export function SortableChecklistItem({
                   </>
                 )}
                 <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
-                  <EyeOff className="h-4 w-4 mr-2" />
+                  {checklist.is_active ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
                   {checklist.is_active ? 'Make Inactive' : 'Reactivate'}
                 </DropdownMenuItem>
                 <DropdownMenuItem 
