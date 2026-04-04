@@ -272,7 +272,18 @@ export function LocationPickerDialog({
   const filteredLocations = useMemo(() => {
     let locs = locations;
 
-    // Tab filtering
+    // When searching, search ALL locations across tabs for discoverability
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      locs = locs.filter(l => 
+        l.name.toLowerCase().includes(q) || 
+        (l.store_number && l.store_number.toLowerCase().includes(q)) ||
+        (l.org_name && l.org_name.toLowerCase().includes(q))
+      );
+      return locs;
+    }
+
+    // Tab filtering (only when not searching)
     if (activeTab.startsWith('brand:')) {
       const brandId = activeTab.replace('brand:', '');
       const brandOrgIds = new Set(organizations.filter(o => o.brand_id === brandId).map(o => o.id));
@@ -283,16 +294,6 @@ export function LocationPickerDialog({
     } else if (activeTab === '__other__') {
       const brandedOrgIds = new Set(organizations.filter(o => o.brand_id).map(o => o.id));
       locs = locations.filter(l => !l.organization_id || !brandedOrgIds.has(l.organization_id));
-    }
-
-    // Search filtering
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      locs = locs.filter(l => 
-        l.name.toLowerCase().includes(q) || 
-        (l.store_number && l.store_number.toLowerCase().includes(q)) ||
-        (l.org_name && l.org_name.toLowerCase().includes(q))
-      );
     }
 
     return locs;
