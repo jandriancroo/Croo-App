@@ -250,10 +250,9 @@ export function LocationPickerDialog({
   // Set default active tab when data loads
   useEffect(() => {
     if (tabs.length > 0 && !activeTab) {
-      // Default to recents if available, otherwise first tab
-      setActiveTab(showRecents ? '__recents__' : tabs[0].id);
+      setActiveTab(tabs[0].id);
     }
-  }, [tabs, showRecents]);
+  }, [tabs]);
 
   // Reset search when dialog opens
   useEffect(() => {
