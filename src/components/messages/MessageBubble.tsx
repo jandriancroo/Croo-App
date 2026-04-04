@@ -193,7 +193,7 @@ export function MessageBubble({
       </div>
 
       <div
-        className={`flex flex-col min-w-0 max-w-[75%] overflow-hidden ${isOwnMessage ? 'items-end' : ''}`}
+        className={`flex flex-col min-w-0 ${isAnnouncement ? 'max-w-[90%]' : 'max-w-[75%]'} overflow-hidden ${isOwnMessage ? 'items-end' : ''}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
