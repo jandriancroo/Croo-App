@@ -142,7 +142,7 @@ const DAILY_FACTS = getDailyFacts();
 
 export default function PunchClock() {
   const { currentLocation } = useAppLocation();
-  const { timezone } = useLocationTimezone();
+  const { timezone, closeTime } = useLocationTimezone();
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -1536,6 +1536,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   userId={currentUser.id}
                   locationId={currentLocation?.id || ''}
                   timezone={timezone}
+                  closeTime={closeTime}
                   userRole={currentUserRole as any}
                   onDismiss={handlePostClockInDismiss}
                 />
@@ -1577,6 +1578,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
           <ManagerDashboardOverlay
             locationId={currentLocation.id}
             timezone={timezone}
+            closeTime={closeTime}
             onClose={() => setShowManagerDashboard(false)}
           />
         )}

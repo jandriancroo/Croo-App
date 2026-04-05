@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Utensils, Vault, Banknote, CheckCircle, Clock, ArrowRight } from 'lucide-react';
-import { getTodayInTimezone, getDayOfWeekInTimezone } from '@/utils/dateUtils';
+import { getBusinessDateInTimezone, getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { Progress } from '@/components/ui/progress';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import type { AppRole } from '@/hooks/useUserRole';
@@ -12,6 +12,7 @@ interface PostClockInTasksProps {
   userId: string;
   locationId: string;
   timezone: string;
+  closeTime?: string | null;
   userRole?: AppRole | null;
   onDismiss: () => void;
 }
@@ -25,7 +26,7 @@ interface Task {
   type: 'catering' | 'safe' | 'deposit' | 'event';
 }
 
-export function PostClockInTasks({ userId, locationId, timezone, userRole, onDismiss }: PostClockInTasksProps) {
+export function PostClockInTasks({ userId, locationId, timezone, closeTime, userRole, onDismiss }: PostClockInTasksProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState(8);
@@ -53,7 +54,7 @@ export function PostClockInTasks({ userId, locationId, timezone, userRole, onDis
   useEffect(() => {
     const fetchTasks = async () => {
       const allTasks: Task[] = [];
-      const today = getTodayInTimezone(timezone);
+      const today = getBusinessDateInTimezone(timezone, closeTime);
       const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
 
       try {
