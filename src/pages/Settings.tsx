@@ -233,9 +233,13 @@ export default function Settings() {
                 <Tag className="h-3 w-3 mr-1" />
                 Manage Brands
               </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate('/brands')} className="text-muted-foreground">
+              <Button variant="outline" size="sm" onClick={() => navigate('/brand/5f805404-cc7b-454b-a994-fe5901c32e6a/inventory')}>
                 <Package className="h-3 w-3 mr-1" />
-                Brand Inventory
+                Blaze Inventory
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/brand/164ed861-d3bd-426d-8993-0403aa390634/inventory')}>
+                <Package className="h-3 w-3 mr-1" />
+                BWW GO Inventory
               </Button>
             </div>
           </div>
