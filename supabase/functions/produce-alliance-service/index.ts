@@ -2107,6 +2107,7 @@ async function handleSaveCatalog(supabase: any, body: any): Promise<Response> {
     const chunk = items.slice(i, i + 50).map((item: any) => ({
       location_id: locationId,
       pa_item_id: String(item.pa_item_id || '').trim(),
+      pa_internal_id: item.pa_internal_id ? String(item.pa_internal_id).trim() : null,
       description: String(item.description || '').trim(),
       pack_size: item.pack_size || null,
       category: item.category || null,
