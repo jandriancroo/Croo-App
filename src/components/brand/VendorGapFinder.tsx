@@ -79,9 +79,10 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     },
   });
 
-  // Existing brand templates
+  // Existing brand templates — use distinct query key to avoid overwriting
+  // the full-select cache used by the parent catalog view
   const { data: templates = [] } = useQuery({
-    queryKey: ['brand-templates', brandId],
+    queryKey: ['brand-templates-gap-finder', brandId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('brand_inventory_templates')
