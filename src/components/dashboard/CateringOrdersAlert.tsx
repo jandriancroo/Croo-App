@@ -29,14 +29,14 @@ const AMBER_COLOR = "#f59e0b";
 
 export function CateringOrdersAlert() {
   const { currentLocation } = useLocation();
-  const { getTodayInTimezone, getDateInTimezoneOffset } = useLocationTimezone();
+  const { getBusinessDateInTimezone, getDateInTimezoneOffset } = useLocationTimezone();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const queryClient = useQueryClient();
   const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
   const [isTomorrowOrder, setIsTomorrowOrder] = useState(false);
 
   const canComplete = isShiftManager || isGeneralManager || isManager || isAdmin;
-  const today = getTodayInTimezone();
+  const today = getBusinessDateInTimezone();
   const tomorrow = getDateInTimezoneOffset(1);
 
   // Fetch today's orders with React Query

@@ -7,7 +7,6 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import {
-  getTodayInTimezone,
   getDateInTimezone,
   getDayOfWeekInTimezone,
   getDateDayOfWeekInTimezone,
@@ -17,7 +16,7 @@ export function useTasksData() {
   const { user } = useAuth();
   const { isAdmin, isManager } = useUserRole();
   const { currentLocation } = useAppLocation();
-  const { timezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
+  const { timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [historyDate, setHistoryDate] = useState(new Date());
 
@@ -92,7 +91,7 @@ export function useTasksData() {
     queryFn: async () => {
       if (!currentLocation?.id) return { today: 0, thisWeek: 0, thisMonth: 0 };
 
-      const todayStr = getTodayInTimezone(timezone);
+      const todayStr = getBusinessDateInTimezone();
       const today = new Date();
       const thisWeekStart = new Date(today);
       thisWeekStart.setDate(today.getDate() - today.getDay());
