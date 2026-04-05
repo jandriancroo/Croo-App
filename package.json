@@ -61,6 +61,7 @@
     "framer-motion": "^10.18.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
+    "luxon": "^3.7.2",
     "mapbox-gl": "^3.16.0",
     "next-themes": "^0.3.0",
     "qrcode.react": "^4.2.0",

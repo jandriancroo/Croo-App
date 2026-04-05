@@ -7,7 +7,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Package, RefreshCcw, Flame, Activity, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameWeek, isSameMonth } from 'date-fns';
+import { format } from 'date-fns';
+import { DateTime } from 'luxon';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -71,6 +72,34 @@ interface DiagnosticInfo {
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
   const { getBusinessDateInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
+  const locationZone = timezone || 'America/Los_Angeles';
+
+  const parseBusinessDate = useCallback((dateStr: string) => {
+    const parsed = DateTime.fromFormat(dateStr, 'yyyy-MM-dd', { zone: locationZone });
+    return parsed.isValid ? parsed.startOf('day') : DateTime.now().setZone(locationZone).startOf('day');
+  }, [locationZone]);
+
+  const formatBusinessDate = useCallback((dateStr: string, formatStr: string) => {
+    const parsed = parseBusinessDate(dateStr);
+    return parsed.isValid ? parsed.toFormat(formatStr) : dateStr;
+  }, [parseBusinessDate]);
+
+  const getWeekStartDate = useCallback((dateStr: string) => {
+    const parsed = parseBusinessDate(dateStr);
+    return parsed.minus({ days: parsed.weekday - 1 }).startOf('day');
+  }, [parseBusinessDate]);
+
+  const getWeekEndDate = useCallback((dateStr: string) => {
+    return getWeekStartDate(dateStr).plus({ days: 6 }).startOf('day');
+  }, [getWeekStartDate]);
+
+  const getMonthStartDate = useCallback((dateStr: string) => {
+    return parseBusinessDate(dateStr).startOf('month');
+  }, [parseBusinessDate]);
+
+  const getMonthEndDate = useCallback((dateStr: string) => {
+    return parseBusinessDate(dateStr).endOf('month').startOf('day');
+  }, [parseBusinessDate]);
 
   // Store target as a date STRING (yyyy-MM-dd) in the location's timezone
   // to avoid cross-timezone Date object mismatches.
@@ -79,11 +108,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   // Keep targetDateStr in sync when location/timezone changes
   useEffect(() => {
     setTargetDateStr(getBusinessDateInTimezone());
-  }, [timezone, currentLocation?.id]);
-
-  // Derive a safe Date object from the string for date-fns week/month math
-  // Using T12:00:00 to avoid DST boundary issues
-  const targetDate = useMemo(() => new Date(targetDateStr + 'T12:00:00'), [targetDateStr]);
+  }, [currentLocation?.id, getBusinessDateInTimezone]);
 
   const [activeTab, setActiveTab] = useState<string>('today');
   const [showProductMix, setShowProductMix] = useState(false);
@@ -133,22 +158,28 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   // Timezone-aware "today" string for comparisons
   const todayTzStr = getBusinessDateInTimezone();
   const isToday = targetDateStr === todayTzStr;
+  const targetDateTime = useMemo(() => parseBusinessDate(targetDateStr), [parseBusinessDate, targetDateStr]);
+  const todayDateTime = useMemo(() => parseBusinessDate(todayTzStr), [parseBusinessDate, todayTzStr]);
+  const targetWeekStart = useMemo(() => getWeekStartDate(targetDateStr), [getWeekStartDate, targetDateStr]);
+  const targetWeekEnd = useMemo(() => getWeekEndDate(targetDateStr), [getWeekEndDate, targetDateStr]);
+  const targetWeekStartStr = useMemo(() => targetWeekStart.toFormat('yyyy-MM-dd'), [targetWeekStart]);
+  const targetWeekEndStr = useMemo(() => targetWeekEnd.toFormat('yyyy-MM-dd'), [targetWeekEnd]);
+  const isCurrentWeek = useMemo(() => targetWeekStartStr === getWeekStartDate(todayTzStr).toFormat('yyyy-MM-dd'), [getWeekStartDate, targetWeekStartStr, todayTzStr]);
+  const isCurrentMonth = useMemo(() => targetDateTime.hasSame(todayDateTime, 'month'), [targetDateTime, todayDateTime]);
 
   // Check database cache for historical dates
   const checkDatabaseCache = async (dateStr: string): Promise<SalesData | null> => {
     if (!currentLocation?.id) return null;
     
-    // Get the target date for week/month calculations
-    const targetDateObj = new Date(dateStr + 'T00:00:00');
-    const weekStart = startOfWeek(targetDateObj, { weekStartsOn: 1 }); // Monday
-    const weekEnd = endOfWeek(targetDateObj, { weekStartsOn: 1 }); // Sunday
-    const monthStart = startOfMonth(targetDateObj);
-    const monthEnd = endOfMonth(targetDateObj);
-    
-    const weekStartStr = format(weekStart, 'yyyy-MM-dd');
-    const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
-    const monthStartStr = format(monthStart, 'yyyy-MM-dd');
-    const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
+    const weekStart = getWeekStartDate(dateStr);
+    const weekEnd = getWeekEndDate(dateStr);
+    const monthStart = getMonthStartDate(dateStr);
+    const monthEnd = getMonthEndDate(dateStr);
+
+    const weekStartStr = weekStart.toFormat('yyyy-MM-dd');
+    const weekEndStr = weekEnd.toFormat('yyyy-MM-dd');
+    const monthStartStr = monthStart.toFormat('yyyy-MM-dd');
+    const monthEndStr = monthEnd.toFormat('yyyy-MM-dd');
     
     // Fetch daily data + week range + month range + labor data in parallel
     // For month, always fetch full month (1st to last day)
@@ -272,8 +303,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // Build full 7-day breakdown with labor data
     const weeklyBreakdown: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number; projectionSource?: ProjectionSource }[] = [];
     for (let i = 0; i < 7; i++) {
-      const dayDate = addDays(weekStart, i);
-      const dayStr = format(dayDate, 'yyyy-MM-dd');
+      const dayStr = weekStart.plus({ days: i }).toFormat('yyyy-MM-dd');
       const existingData = weekDataMap.get(dayStr);
       
       // Use new projection resolution: override > living > initial > legacy
@@ -324,7 +354,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const monthDataMap = new Map(monthData.map(d => [d.sale_date, d]));
     
     // Generate all days in the month
-    const daysInMonth = monthEnd.getDate();
+    const daysInMonth = monthStart.daysInMonth;
     // Build monthly labor map (same pattern as weekly)
     const monthlyLaborData = monthlyLaborResult.data || [];
     const monthlyLaborMap = new Map<string, { laborCost: number; laborHours: number }>();
@@ -343,8 +373,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const monthlyBreakdownFull: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number }[] = [];
     
     for (let day = 1; day <= daysInMonth; day++) {
-      const dayDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
-      const dayStr = format(dayDate, 'yyyy-MM-dd');
+      const dayStr = monthStart.plus({ days: day - 1 }).toFormat('yyyy-MM-dd');
       
       const existingData = monthDataMap.get(dayStr);
       // Use new projection resolution: override > living > initial > legacy
@@ -601,8 +630,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         const todayStr = todayTzStr;
         const weekStartStr = salesData.dateRange?.weekStart
           ? salesData.dateRange.weekStart
-          : format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-        const weekEndStr = format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+          : targetWeekStartStr;
+        const weekEndStr = targetWeekEndStr;
 
         const [weekSalesRes, weekLaborRes] = await Promise.all([
           supabase
@@ -820,7 +849,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       },
       dateRange: { today: dateStr, weekStart: '', monthStart: '' },
     } as SalesData;
-  }, [isTodayQuery, currentLocation?.id, targetDate, queryClient]);
+  }, [isTodayQuery, currentLocation?.id, targetDateStr, queryClient]);
   
   const { data: rawSalesData, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, targetDateStr],
@@ -886,7 +915,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         isBackgroundRefreshing.current = false;
       });
     }
-  }, [currentLocation?.id, targetDate, refetch]);
+  }, [currentLocation?.id, isToday, refetch]);
 
   // Visibility-based auto-refresh: only refresh when dashboard is visible/focused
   // This prevents unnecessary API calls when user isn't looking at the dashboard
@@ -943,7 +972,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         clearInterval(visibilityRefreshInterval.current);
       }
     };
-  }, [currentLocation?.id, targetDate, refetch]);
+  }, [currentLocation?.id, isToday, refetch]);
 
   // Manual refresh handler
   const handleManualRefresh = useCallback(async () => {
@@ -1071,8 +1100,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) return [];
     
     // Get the month we're viewing
-    const viewingMonth = targetDate.getMonth();
-    const viewingYear = targetDate.getFullYear();
+    const viewingMonth = targetDateTime.month;
+    const viewingYear = targetDateTime.year;
     
     // Build a map of weeklyBreakdown projections for the current week (keyed by date string)
     // This ensures the month chart uses the same projection values as the week view
@@ -1084,20 +1113,20 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     }
     
     // Group by Monday-Sunday weeks, but only count days within the target month
-    const weeklyBuckets: Array<{ weekStart: Date; sales: number; projected: number; daysInMonth: number; firstDayInMonth: Date; lastDayInMonth: Date }> = [];
+    const weeklyBuckets: Array<{ weekStart: DateTime; sales: number; projected: number; daysInMonth: number; firstDayInMonth: DateTime; lastDayInMonth: DateTime }> = [];
     
     salesData.monthlyBreakdown.forEach(day => {
-      const date = new Date(day.date + 'T00:00:00');
+      const date = parseBusinessDate(day.date);
       
       // Only include days that are in the viewing month
-      if (date.getMonth() !== viewingMonth || date.getFullYear() !== viewingYear) {
+      if (date.month !== viewingMonth || date.year !== viewingYear) {
         return;
       }
       
-      const weekStart = startOfWeek(date, { weekStartsOn: 1 }); // Monday
+      const weekStart = date.minus({ days: date.weekday - 1 }).startOf('day');
       
       // Find existing bucket or create new one
-      let bucket = weeklyBuckets.find(b => b.weekStart.getTime() === weekStart.getTime());
+      let bucket = weeklyBuckets.find(b => b.weekStart.toMillis() === weekStart.toMillis());
       if (!bucket) {
         bucket = { 
           weekStart, 
@@ -1119,22 +1148,22 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       bucket.projected += projectedValue;
       
       bucket.daysInMonth += 1;
-      if (date < bucket.firstDayInMonth) bucket.firstDayInMonth = date;
-      if (date > bucket.lastDayInMonth) bucket.lastDayInMonth = date;
+      if (date.toMillis() < bucket.firstDayInMonth.toMillis()) bucket.firstDayInMonth = date;
+      if (date.toMillis() > bucket.lastDayInMonth.toMillis()) bucket.lastDayInMonth = date;
     });
     
     // Sort by week start date and format labels to show only dates within the month
     return weeklyBuckets
-      .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
+      .sort((a, b) => a.weekStart.toMillis() - b.weekStart.toMillis())
       .map((bucket, index) => ({
         label: `Week ${index + 1}`,
         sales: bucket.sales,
         projected: bucket.projected,
-        dateRange: bucket.firstDayInMonth.getTime() === bucket.lastDayInMonth.getTime()
-          ? format(bucket.firstDayInMonth, 'MMM d')
-          : `${format(bucket.firstDayInMonth, 'MMM d')} - ${format(bucket.lastDayInMonth, 'MMM d')}`
+        dateRange: bucket.firstDayInMonth.toMillis() === bucket.lastDayInMonth.toMillis()
+          ? bucket.firstDayInMonth.toFormat('MMM d')
+          : `${bucket.firstDayInMonth.toFormat('MMM d')} - ${bucket.lastDayInMonth.toFormat('MMM d')}`
       }));
-  }, [salesData?.monthlyBreakdown, salesData?.weeklyBreakdown, targetDate]);
+  }, [parseBusinessDate, salesData?.monthlyBreakdown, salesData?.weeklyBreakdown, targetDateTime]);
 
   const VIEW_MODES = ['today', 'week', 'month'] as const;
   const VIEW_LABELS: Record<string, string> = { today: 'Today', week: 'Week', month: 'Month' };
@@ -1148,17 +1177,19 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   const navigateDay = (direction: 'prev' | 'next') => {
     setTargetDateStr(prev => {
-      const d = new Date(prev + 'T12:00:00');
-      const next = direction === 'prev' ? subDays(d, 1) : addDays(d, 1);
-      return format(next, 'yyyy-MM-dd');
+      const next = direction === 'prev'
+        ? parseBusinessDate(prev).minus({ days: 1 })
+        : parseBusinessDate(prev).plus({ days: 1 });
+      return next.toFormat('yyyy-MM-dd');
     });
   };
 
   const navigateWeek = (direction: 'prev' | 'next') => {
     setTargetDateStr(prev => {
-      const d = new Date(prev + 'T12:00:00');
-      const next = direction === 'prev' ? subWeeks(d, 1) : addWeeks(d, 1);
-      return format(next, 'yyyy-MM-dd');
+      const next = direction === 'prev'
+        ? parseBusinessDate(prev).minus({ weeks: 1 })
+        : parseBusinessDate(prev).plus({ weeks: 1 });
+      return next.toFormat('yyyy-MM-dd');
     });
   };
 
@@ -1235,7 +1266,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return salesData?.projections?.monthProjected || 0;
     }
     
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayStr = todayTzStr;
     
     let total = 0;
     for (const day of salesData.monthlyBreakdown) {
@@ -1336,9 +1367,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setTargetDateStr(prev => {
-      const d = new Date(prev + 'T12:00:00');
-      const next = direction === 'prev' ? subMonths(d, 1) : addMonths(d, 1);
-      return format(next, 'yyyy-MM-dd');
+      const next = direction === 'prev'
+        ? parseBusinessDate(prev).minus({ months: 1 })
+        : parseBusinessDate(prev).plus({ months: 1 });
+      return next.toFormat('yyyy-MM-dd');
     });
   };
 
@@ -1478,8 +1510,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
                   setIsRepairingWeek(true);
                   try {
-                    const weekStart = startOfWeek(targetDate, { weekStartsOn: 1 });
-                    const dates = Array.from({ length: 7 }).map((_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'));
+                    const weekStart = targetWeekStart;
+                    const dates = Array.from({ length: 7 }).map((_, i) => weekStart.plus({ days: i }).toFormat('yyyy-MM-dd'));
 
                     const results = await Promise.allSettled(
                       dates.map((date) =>
@@ -1494,7 +1526,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     ).length;
 
                     toast.success('Re-synced week from source', {
-                      description: `${updatedCount}/7 days updated for ${format(weekStart, 'MMM d')}-${format(addDays(weekStart, 6), 'MMM d')}.`,
+                      description: `${updatedCount}/7 days updated for ${weekStart.toFormat('MMM d')}-${weekStart.plus({ days: 6 }).toFormat('MMM d')}.`,
                     });
                   } catch (e) {
                     toast.error('Week resync failed', {
@@ -1540,12 +1572,12 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 >
                   <span className="text-base md:text-lg text-primary-foreground font-semibold whitespace-nowrap">
                     {activeTab === 'today'
-                      ? (isToday ? 'Today' : format(new Date(targetDateStr + 'T00:00:00'), 'EEEE, MMM d'))
+                      ? (isToday ? 'Today' : formatBusinessDate(targetDateStr, 'cccc, MMM d'))
                       : activeTab === 'week'
-                        ? (isSameWeek(targetDate, new Date(todayTzStr + 'T12:00:00'), { weekStartsOn: 1 })
+                        ? (isCurrentWeek
                           ? 'This Week'
-                          : `${format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')} - ${format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')}`)
-                        : format(targetDate, 'MMMM yyyy')
+                          : `${targetWeekStart.toFormat('MMM d')} - ${targetWeekEnd.toFormat('MMM d')}`)
+                        : targetDateTime.toFormat('MMMM yyyy')
                     }
                   </span>
                 </button>
@@ -1559,8 +1591,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   }}
                   disabled={
                     activeTab === 'today' ? isToday
-                    : activeTab === 'week' ? isSameWeek(targetDate, new Date(todayTzStr + 'T12:00:00'), { weekStartsOn: 1 })
-                    : isSameMonth(targetDate, new Date(todayTzStr + 'T12:00:00'))
+                    : activeTab === 'week' ? isCurrentWeek
+                    : isCurrentMonth
                   }
                   className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
                 >
@@ -1604,7 +1636,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                           <>
                             {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
                             <span className="text-[9px] text-white font-medium">
-                              {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {format(targetDate, 'EEE')}
+                              {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {targetDateTime.toFormat('ccc')}
                             </span>
                           </>
                         );
@@ -1944,7 +1976,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
                   <ComposedChart data={salesData.weeklyBreakdown.map(d => ({
                     ...d,
-                    label: format(new Date(d.date + 'T00:00:00'), 'EEE')
+                    label: formatBusinessDate(d.date, 'ccc')
                   }))} barCategoryGap="20%">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                     <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} axisLine={false} tickLine={false} />
@@ -1956,7 +1988,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                         const hasWeeklyLabor = salesData?.weeklyLabor && salesData.weeklyLabor.laborPercent > 0;
                         return (
                           <div className="bg-card border border-border rounded-md p-2 shadow-lg">
-                            <p className="font-medium">{format(new Date(data?.date + 'T00:00:00'), 'EEEE, MMM d')}</p>
+                            <p className="font-medium">{data?.date ? formatBusinessDate(data.date, 'cccc, MMM d') : ''}</p>
                             <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
                             <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
                             {hasWeeklyLabor && data?.laborPercent !== undefined && data.laborPercent > 0 && (
@@ -2152,7 +2184,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   <ResponsiveContainer width="100%" height={280}>
                     <ComposedChart data={salesData.monthlyBreakdown.map(d => ({
                       ...d,
-                      label: format(new Date(d.date + 'T00:00:00'), 'd')
+                      label: formatBusinessDate(d.date, 'd')
                     }))} barCategoryGap="5%">
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                       <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} interval={2} axisLine={false} tickLine={false} />
@@ -2163,7 +2195,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                           const data = payload[0]?.payload;
                           return (
                             <div className="bg-card border border-border rounded-md p-2 shadow-lg">
-                              <p className="font-medium">{data?.date ? format(new Date(data.date + 'T00:00:00'), 'EEEE, MMM d') : ''}</p>
+                              <p className="font-medium">{data?.date ? formatBusinessDate(data.date, 'cccc, MMM d') : ''}</p>
                               <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
                               <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
                             </div>
