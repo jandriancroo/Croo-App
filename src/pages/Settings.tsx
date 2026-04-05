@@ -228,10 +228,20 @@ export default function Settings() {
         return (
           <div className="space-y-3">
             <CardDescription className="text-xs">Create and manage franchise brands</CardDescription>
-            <Button variant="outline" size="sm" onClick={() => navigate('/brands')}>
-              <Tag className="h-3 w-3 mr-1" />
-              Manage Brands
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate('/brands')}>
+                <Tag className="h-3 w-3 mr-1" />
+                Manage Brands
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/brand/5f805404-cc7b-454b-a994-fe5901c32e6a/inventory')}>
+                <Package className="h-3 w-3 mr-1" />
+                Blaze Inventory
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/brand/164ed861-d3bd-426d-8993-0403aa390634/inventory')}>
+                <Package className="h-3 w-3 mr-1" />
+                BWW GO Inventory
+              </Button>
+            </div>
           </div>
         );
 
