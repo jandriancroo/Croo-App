@@ -207,14 +207,15 @@ export function AiAssistantBubble() {
         )}
       </AnimatePresence>
 
-      {/* Chat overlay */}
+      {/* Chat overlay — genie effect from orb */}
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+            initial={{ opacity: 0, scale: 0.1, scaleX: 0.3, y: 100 }}
+            animate={{ opacity: 1, scale: 1, scaleX: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.1, scaleX: 0.3, y: 100 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28, mass: 0.8 }}
+            style={{ transformOrigin: 'bottom right' }}
             className="fixed inset-0 z-[60] flex flex-col bg-background md:inset-auto md:bottom-8 md:right-4 md:w-[420px] md:h-[580px] md:rounded-2xl md:border md:border-border/40 md:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] overflow-hidden"
           >
             {/* Header — glassmorphic */}
