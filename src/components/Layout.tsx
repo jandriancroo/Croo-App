@@ -251,8 +251,6 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
           </div>
         )}
       </div>
-      {/* Safe area spacer - minimal height, just extends background slightly */}
-      <div style={{ height: 'max(8px, calc(env(safe-area-inset-bottom, 0px) * 0.5))' }} />
     </div>
   );
 };

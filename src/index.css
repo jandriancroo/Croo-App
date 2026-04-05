@@ -534,6 +534,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   }
   html[data-standalone="true"] {
     min-height: -webkit-fill-available;
+    overscroll-behavior: none;
   }
   html[data-standalone="true"] body {
     min-height: 100dvh;
