@@ -525,7 +525,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     html {
       min-height: -webkit-fill-available;
       /* Only block native pull-to-refresh bounce, preserve momentum scrolling */
-      overscroll-behavior-y: none;
+      overscroll-behavior-y: contain;
     }
     body {
       min-height: 100dvh;
@@ -534,7 +534,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   }
   html[data-standalone="true"] {
     min-height: -webkit-fill-available;
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: contain;
   }
   html[data-standalone="true"] body {
     min-height: 100dvh;
@@ -815,6 +815,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     right: 0;
     z-index: 50;
     padding-bottom: env(safe-area-inset-bottom);
+    contain: layout style;
   }
 
   /* Dock button — no GPU hacks to prevent iOS compositing detach */
