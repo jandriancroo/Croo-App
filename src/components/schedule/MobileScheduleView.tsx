@@ -798,7 +798,7 @@ export function MobileScheduleView({
   );
 
   return (
-    <div className="flex flex-col h-full bg-background -mx-[max(1rem,env(safe-area-inset-left))] -mt-1">
+    <div className="flex flex-col h-full bg-background -mx-[max(1rem,env(safe-area-inset-left))]">
       {/* Admin/Manager view */}
       {(isAdmin || isManager) ? (
         (
