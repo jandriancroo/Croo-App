@@ -228,10 +228,16 @@ export default function Settings() {
         return (
           <div className="space-y-3">
             <CardDescription className="text-xs">Create and manage franchise brands</CardDescription>
-            <Button variant="outline" size="sm" onClick={() => navigate('/brands')}>
-              <Tag className="h-3 w-3 mr-1" />
-              Manage Brands
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate('/brands')}>
+                <Tag className="h-3 w-3 mr-1" />
+                Manage Brands
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/brands')} className="text-muted-foreground">
+                <Package className="h-3 w-3 mr-1" />
+                Brand Inventory
+              </Button>
+            </div>
           </div>
         );
 
