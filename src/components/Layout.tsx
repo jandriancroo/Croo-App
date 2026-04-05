@@ -331,6 +331,24 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     toast('Theme updated');
   };
 
+  const textSizes = [
+    { value: 'small', label: 'Small' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'large', label: 'Large' },
+  ];
+
+  const handleTextSizeChange = (value: string) => {
+    setTextSize(value);
+    localStorage.setItem('app-text-size', value);
+    document.documentElement.setAttribute('data-text-size', value);
+  };
+
+  // Apply saved text size on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('app-text-size');
+    if (saved) document.documentElement.setAttribute('data-text-size', saved);
+  }, []);
+
   // Auto-show update toast when new version detected
   useEffect(() => {
     const showUpdateToast = () => {
