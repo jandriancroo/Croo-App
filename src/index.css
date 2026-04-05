@@ -817,15 +817,8 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Dock button with GPU-accelerated bounce animation */
+  /* Dock button — no GPU hacks to prevent iOS compositing detach */
   .dock-nav-button {
-    /* Promote to GPU layer for smooth 60/120fps animations */
-    -webkit-transform: translate3d(0, 0, 0);
-    transform: translate3d(0, 0, 0);
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    will-change: transform;
-    /* Contain layout to prevent reflow */
     contain: layout style;
   }
 
