@@ -983,9 +983,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return { ...rawSalesData, hourly: scaleHourlyForOverride(completeHourly) };
     }
     
-    // If locationSettings is still loading (undefined), strip out empty hours
-    // to avoid showing a 24-hour window while business hours load
-    if (locationSettings === undefined && rawSalesData.hourly) {
+    // If locationSettings is loading (undefined) or not configured (null),
+    // strip out empty hours to avoid showing a 24-hour window
+    if ((!locationSettings || !locationSettings.hours_open || !locationSettings.hours_close) && rawSalesData.hourly) {
       const filtered = rawSalesData.hourly.filter(h => 
         (h.sales && h.sales > 0) || (h.projected && h.projected > 0)
       );
@@ -1000,7 +1000,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       }
     }
     
-    // Business hours explicitly not configured — show raw hourly data in 12-hour format
+    // Fallback — show raw hourly data in 12-hour format
     if (rawSalesData.hourly) {
       const converted = rawSalesData.hourly.map(h => ({
         ...h,
