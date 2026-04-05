@@ -815,8 +815,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     right: 0;
     z-index: 50;
     padding-bottom: env(safe-area-inset-bottom);
-    /* Prevent iOS visual viewport shifts from detaching the dock */
-    contain: layout style size;
+    contain: layout style;
   }
 
   /* Dock button — no GPU hacks to prevent iOS compositing detach */
