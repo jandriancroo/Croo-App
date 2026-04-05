@@ -524,8 +524,8 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   @media (display-mode: standalone) {
     html {
       min-height: -webkit-fill-available;
-      /* Kill native rubber-band bounce — our custom PullToRefresh handles refresh */
-      overscroll-behavior: none;
+      /* Only block native pull-to-refresh bounce, preserve momentum scrolling */
+      overscroll-behavior-y: none;
     }
     body {
       min-height: 100dvh;
@@ -534,7 +534,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   }
   html[data-standalone="true"] {
     min-height: -webkit-fill-available;
-    overscroll-behavior: none;
+    overscroll-behavior-y: none;
   }
   html[data-standalone="true"] body {
     min-height: 100dvh;
@@ -817,15 +817,8 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Dock button with GPU-accelerated bounce animation */
+  /* Dock button — no GPU hacks to prevent iOS compositing detach */
   .dock-nav-button {
-    /* Promote to GPU layer for smooth 60/120fps animations */
-    -webkit-transform: translate3d(0, 0, 0);
-    transform: translate3d(0, 0, 0);
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    will-change: transform;
-    /* Contain layout to prevent reflow */
     contain: layout style;
   }
 
@@ -835,13 +828,13 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 
   @keyframes dock-bounce-gpu {
     0% {
-      transform: translate3d(0, 0, 0) scale(1);
+      transform: scale(1);
     }
     40% {
-      transform: translate3d(0, 0, 0) scale(1.2);
+      transform: scale(1.2);
     }
     100% {
-      transform: translate3d(0, 0, 0) scale(1);
+      transform: scale(1);
     }
   }
 
