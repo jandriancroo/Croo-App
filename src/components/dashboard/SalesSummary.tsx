@@ -1540,9 +1540,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 >
                   <span className="text-base md:text-lg text-primary-foreground font-semibold whitespace-nowrap">
                     {activeTab === 'today'
-                      ? (isToday ? 'Today' : format(targetDate, 'EEEE, MMM d'))
+                      ? (isToday ? 'Today' : format(new Date(targetDateStr + 'T00:00:00'), 'EEEE, MMM d'))
                       : activeTab === 'week'
-                        ? (isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })
+                        ? (isSameWeek(targetDate, new Date(todayTzStr + 'T12:00:00'), { weekStartsOn: 1 })
                           ? 'This Week'
                           : `${format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')} - ${format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')}`)
                         : format(targetDate, 'MMMM yyyy')
@@ -1559,8 +1559,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   }}
                   disabled={
                     activeTab === 'today' ? isToday
-                    : activeTab === 'week' ? isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })
-                    : isSameMonth(targetDate, new Date())
+                    : activeTab === 'week' ? isSameWeek(targetDate, new Date(todayTzStr + 'T12:00:00'), { weekStartsOn: 1 })
+                    : isSameMonth(targetDate, new Date(todayTzStr + 'T12:00:00'))
                   }
                   className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
                 >
