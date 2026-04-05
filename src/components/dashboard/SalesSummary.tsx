@@ -70,8 +70,21 @@ interface DiagnosticInfo {
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
-  const { getBusinessDateInTimezone, getDateInTimezone } = useLocationTimezone();
-  const [targetDate, setTargetDate] = useState<Date>(new Date());
+  const { getBusinessDateInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
+
+  // Store target as a date STRING (yyyy-MM-dd) in the location's timezone
+  // to avoid cross-timezone Date object mismatches.
+  const [targetDateStr, setTargetDateStr] = useState<string>(() => getBusinessDateInTimezone());
+
+  // Keep targetDateStr in sync when location/timezone changes
+  useEffect(() => {
+    setTargetDateStr(getBusinessDateInTimezone());
+  }, [timezone, currentLocation?.id]);
+
+  // Derive a safe Date object from the string for date-fns week/month math
+  // Using T12:00:00 to avoid DST boundary issues
+  const targetDate = useMemo(() => new Date(targetDateStr + 'T12:00:00'), [targetDateStr]);
+
   const [activeTab, setActiveTab] = useState<string>('today');
   const [showProductMix, setShowProductMix] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
