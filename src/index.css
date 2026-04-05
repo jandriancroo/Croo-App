@@ -512,6 +512,11 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     margin-bottom: 0.25rem !important;
   }
 
+  /* Text size scaling */
+  html[data-text-size="small"] { font-size: 14px; }
+  html[data-text-size="medium"] { font-size: 16px; }
+  html[data-text-size="large"] { font-size: 18px; }
+
   body {
     @apply bg-background text-foreground font-manrope;
     font-weight: 500;

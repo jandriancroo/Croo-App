@@ -2,7 +2,7 @@ import { ReactNode, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, Wallet, MapPin, Briefcase, Building2, User, Gamepad2, LayoutDashboard, Check, X, Save, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw } from 'lucide-react';
+import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -298,6 +298,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const [showOrgBubble, setShowOrgBubble] = useState(false); // Popup bubble for long-press
   const [showCompactDashboard, setShowCompactDashboard] = useState(false); // Swipe-up compact dashboard
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
+  const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');
+  const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
 
   // Show version toast after "Update App" reload
   useEffect(() => {
@@ -328,6 +330,24 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     document.documentElement.setAttribute('data-theme', value);
     toast('Theme updated');
   };
+
+  const textSizes = [
+    { value: 'small', label: 'Small' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'large', label: 'Large' },
+  ];
+
+  const handleTextSizeChange = (value: string) => {
+    setTextSize(value);
+    localStorage.setItem('app-text-size', value);
+    document.documentElement.setAttribute('data-text-size', value);
+  };
+
+  // Apply saved text size on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('app-text-size');
+    if (saved) document.documentElement.setAttribute('data-text-size', saved);
+  }, []);
 
   // Auto-show update toast when new version detected
   useEffect(() => {
@@ -1019,87 +1039,157 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       navigate('/alerts');
                       setMenuOpen(false);
                     }} 
-                    className="justify-start gap-3 h-11"
+                    className="justify-start gap-2 h-9"
                   >
-                    <span className="relative flex h-5 w-5 items-center justify-center">
-                      <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-destructive opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                    <span className="relative flex h-4 w-4 items-center justify-center">
+                      <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-destructive opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive"></span>
                     </span>
-                    <span className="text-base">Live Alerts</span>
+                    <span className="text-sm">Live Alerts</span>
                   </Button>
                 )}
 
-                {/* Time collapsible section */}
-                {mobileTimeItems.length > 0 && (
-                  <div className="space-y-1">
+                {/* Time + Users row (2 columns) */}
+                <div className="grid grid-cols-2 gap-2">
+                  {mobileTimeItems.length > 0 && (
                     <Button 
                       variant="outline" 
                       onClick={() => setTimeMenuExpanded(!timeMenuExpanded)}
-                      className="justify-between w-full h-11"
+                      className="justify-between h-9 px-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <Clock className="h-5 w-5" />
-                        <span className="text-base">Time</span>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        <span className="text-sm">Time</span>
                       </div>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
                     </Button>
-                    {timeMenuExpanded && (
-                      <div className="pl-4 space-y-1">
-                        {mobileTimeItems.map(item => {
-                          const Icon = item.icon;
-                          const isActive = location.pathname === item.path;
-                          return (
-                            <Button 
-                              key={item.path} 
-                              variant={isActive ? 'secondary' : 'ghost'} 
-                              onClick={() => {
-                                if (isOnOrgDash) {
-                                  setPendingNavPath(item.path);
-                                  setLocationDialogOpen(true);
-                                  setMenuOpen(false);
-                                } else {
-                                  navigate(item.path);
-                                  setMenuOpen(false);
-                                }
-                              }}
-                              className="justify-start gap-3 h-10 w-full"
-                            >
-                              <Icon className="h-4 w-4" />
-                              <span className="text-sm">{item.label}</span>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    )}
+                  )}
+                  {mobileMenuItems.filter(i => i.path === '/users' || i.path === '/my-team').map(item => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Button 
+                        key={item.path} 
+                        variant={isActive ? 'secondary' : 'outline'} 
+                        onClick={() => {
+                          navigate(item.path);
+                          setMenuOpen(false);
+                        }}
+                        className="justify-start gap-2 h-9 px-3"
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span className="text-sm">{item.label}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                {/* Time sub-items (expanded) */}
+                {timeMenuExpanded && mobileTimeItems.length > 0 && (
+                  <div className="pl-4 grid gap-1">
+                    {mobileTimeItems.map(item => {
+                      const Icon = item.icon;
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <Button 
+                          key={item.path} 
+                          variant={isActive ? 'secondary' : 'ghost'} 
+                          onClick={() => {
+                            if (isOnOrgDash) {
+                              setPendingNavPath(item.path);
+                              setLocationDialogOpen(true);
+                              setMenuOpen(false);
+                            } else {
+                              navigate(item.path);
+                              setMenuOpen(false);
+                            }
+                          }}
+                          className="justify-start gap-2 h-8 w-full"
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          <span className="text-xs">{item.label}</span>
+                        </Button>
+                      );
+                    })}
                   </div>
                 )}
 
-                {mobileMenuItems.map(item => {
+                {/* Hiring + Inventory row (2 columns) */}
+                {(() => {
+                  const pairItems = mobileMenuItems.filter(i => 
+                    i.path === '/hiring' || i.path.startsWith('/inventory')
+                  );
+                  if (pairItems.length === 0) return null;
+                  return (
+                    <div className="grid grid-cols-2 gap-2">
+                      {pairItems.map(item => {
+                        const Icon = item.icon;
+                        const isActive = location.pathname === item.path;
+                        return (
+                          <Button 
+                            key={item.path} 
+                            variant={isActive ? 'secondary' : 'outline'} 
+                            onClick={() => {
+                              const orgLevelPaths = ['/hiring', '/my-team'];
+                              if (location.pathname === '/org-dash' && !orgLevelPaths.includes(item.path)) {
+                                setPendingNavPath(item.path);
+                                setLocationDialogOpen(true);
+                                setMenuOpen(false);
+                              } else {
+                                navigate(item.path);
+                                setMenuOpen(false);
+                              }
+                            }}
+                            className="justify-start gap-2 h-9 px-3"
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span className="text-sm">{item.label}</span>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
+                {/* Settings (full width) */}
+                {mobileMenuItems.filter(i => i.path === '/settings').map(item => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.path;
-                  const showBadge = item.path === '/messages' && unreadCount > 0;
                   return (
                     <Button 
                       key={item.path} 
                       variant={isActive ? 'secondary' : 'outline'} 
                       onClick={() => {
-                        // Org-level pages (Hiring, My Team) don't need picker — navigate directly
-                        const orgLevelPaths = ['/hiring', '/my-team'];
-                        if (location.pathname === '/org-dash' && !orgLevelPaths.includes(item.path)) {
-                          setPendingNavPath(item.path);
-                          setLocationDialogOpen(true);
-                          setMenuOpen(false);
-                        } else {
-                          navigate(item.path);
-                          setMenuOpen(false);
-                        }
+                        navigate(item.path);
+                        setMenuOpen(false);
                       }}
-                      className="justify-start gap-3 h-11 relative"
+                      className="justify-start gap-2 h-9"
                     >
-                      <Icon className="h-5 w-5" />
-                      <span className="text-base">{item.label}</span>
+                      <Icon className="h-4 w-4" />
+                      <span className="text-sm">{item.label}</span>
+                    </Button>
+                  );
+                })}
+
+                {/* Messages badge (if exists in menu items) */}
+                {mobileMenuItems.filter(i => i.path === '/messages').map(item => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  const showBadge = unreadCount > 0;
+                  return (
+                    <Button 
+                      key={item.path} 
+                      variant={isActive ? 'secondary' : 'outline'} 
+                      onClick={() => {
+                        navigate(item.path);
+                        setMenuOpen(false);
+                      }}
+                      className="justify-start gap-2 h-9 relative"
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="text-sm">{item.label}</span>
                       {showBadge && (
-                        <Badge variant="destructive" className="ml-auto h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
+                        <Badge variant="destructive" className="ml-auto h-4 min-w-4 flex items-center justify-center p-0 text-[9px] rounded-full">
                           {unreadCount > 99 ? '99+' : unreadCount}
                         </Badge>
                       )}
@@ -1107,40 +1197,78 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   );
                 })}
 
-                {/* Theme Selector */}
-                <div className="flex items-center gap-3 h-11 px-4 border rounded-md">
-                  <Palette className="h-5 w-5 text-muted-foreground" />
-                  <Select value={theme} onValueChange={handleThemeChange}>
-                    <SelectTrigger className="flex-1 border-0 h-9 px-0 focus:ring-0">
-                      <SelectValue placeholder="Theme" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {themes.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>
-                          {t.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* Display Settings - Theme + Text Size */}
+                <div className="border rounded-md overflow-hidden">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setDisplaySettingsOpen(!displaySettingsOpen)}
+                    className="justify-between w-full h-9 px-3 rounded-none"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Display</span>
+                    </div>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${displaySettingsOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+                  {displaySettingsOpen && (
+                    <div className="px-3 pb-3 pt-1 space-y-2 border-t">
+                      <div className="flex items-center gap-2">
+                        <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Theme</span>
+                        <Select value={theme} onValueChange={handleThemeChange}>
+                          <SelectTrigger className="flex-1 h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {themes.map((t) => (
+                              <SelectItem key={t.value} value={t.value}>
+                                {t.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Type className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Text</span>
+                        <Select value={textSize} onValueChange={handleTextSizeChange}>
+                          <SelectTrigger className="flex-1 h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {textSizes.map((t) => (
+                              <SelectItem key={t.value} value={t.value}>
+                                {t.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <Button variant="outline" onClick={() => {
-                  setMenuOpen(false);
-                  const prevVersion = getCurrentAppVersion();
-                  sessionStorage.setItem('pre_update_version', prevVersion);
-                  toast.info('Updating app...');
-                  setTimeout(() => window.location.reload(), 500);
-                }} className="justify-start gap-3 h-11">
-                  <RefreshCw className="h-5 w-5" />
-                  <span className="text-base">Update App</span>
-                </Button>
 
-                <Button variant="outline" onClick={() => {
-                  signOut();
-                  setMenuOpen(false);
-                }} className="justify-start gap-3 h-11 text-destructive hover:text-destructive">
-                  <DoorOpen className="h-5 w-5" />
-                  <span className="text-base">Sign Out</span>
-                </Button>
+                {/* Update App + Sign Out row */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => {
+                    setMenuOpen(false);
+                    const prevVersion = getCurrentAppVersion();
+                    sessionStorage.setItem('pre_update_version', prevVersion);
+                    toast.info('Updating app...');
+                    setTimeout(() => window.location.reload(), 500);
+                  }} className="justify-start gap-2 h-9 px-3">
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="text-sm">Update</span>
+                  </Button>
+
+                  <Button variant="outline" onClick={() => {
+                    signOut();
+                    setMenuOpen(false);
+                  }} className="justify-start gap-2 h-9 px-3 text-destructive hover:text-destructive">
+                    <DoorOpen className="h-4 w-4" />
+                    <span className="text-sm">Sign Out</span>
+                  </Button>
+                </div>
               </div>
             </SheetContent>
           </Sheet>
