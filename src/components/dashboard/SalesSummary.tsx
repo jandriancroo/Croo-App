@@ -70,8 +70,21 @@ interface DiagnosticInfo {
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
-  const { getBusinessDateInTimezone, getDateInTimezone } = useLocationTimezone();
-  const [targetDate, setTargetDate] = useState<Date>(new Date());
+  const { getBusinessDateInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
+
+  // Store target as a date STRING (yyyy-MM-dd) in the location's timezone
+  // to avoid cross-timezone Date object mismatches.
+  const [targetDateStr, setTargetDateStr] = useState<string>(() => getBusinessDateInTimezone());
+
+  // Keep targetDateStr in sync when location/timezone changes
+  useEffect(() => {
+    setTargetDateStr(getBusinessDateInTimezone());
+  }, [timezone, currentLocation?.id]);
+
+  // Derive a safe Date object from the string for date-fns week/month math
+  // Using T12:00:00 to avoid DST boundary issues
+  const targetDate = useMemo(() => new Date(targetDateStr + 'T12:00:00'), [targetDateStr]);
+
   const [activeTab, setActiveTab] = useState<string>('today');
   const [showProductMix, setShowProductMix] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -119,7 +132,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   // Timezone-aware "today" string for comparisons
   const todayTzStr = getBusinessDateInTimezone();
-  const isToday = getDateString(targetDate) === todayTzStr;
+  const isToday = targetDateStr === todayTzStr;
 
   // Check database cache for historical dates
   const checkDatabaseCache = async (dateStr: string): Promise<SalesData | null> => {
@@ -488,8 +501,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   // Fetch fresh data from API
   const fetchSalesData = async (): Promise<SalesData | null> => {
-    const dateStr = getDateString(targetDate);
-    const isTodayCheck = getDateString(targetDate) === todayTzStr;
+    const dateStr = targetDateStr;
+    const isTodayCheck = targetDateStr === todayTzStr;
     
     // For historical dates, use database cache only
     // Don't call the edge function for past dates - it won't have data
@@ -689,7 +702,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // The localStorage cache may contain stale labor data from the edge function response
     if (isTodayCheck && currentLocation?.id && salesData) {
       try {
-        const todayStr = getDateString(targetDate);
+        const todayStr = targetDateStr;
         const { data: freshLabor } = await supabase
           .from('labor_cache')
           .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
@@ -764,7 +777,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   // Historical dates: always fresh from DB cache (staleTime: 0)
   // Today: use 5-minute stale time for live data
-  const isTodayQuery = getDateString(targetDate) === todayTzStr;
+  const isTodayQuery = targetDateStr === todayTzStr;
   
   // Get initial data from cache for instant render - computed directly in useMemo
   const initialData = useMemo(() => {
@@ -789,7 +802,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   // Build placeholder from prefetched sales_cache data so dashboard renders instantly
   const placeholderFromCache = useMemo(() => {
     if (!isTodayQuery || !currentLocation?.id) return undefined;
-    const dateStr = getDateString(targetDate);
+    const dateStr = targetDateStr;
     const cachedRow = queryClient.getQueryData(['sales-cache-today', currentLocation.id, dateStr]) as any;
     if (!cachedRow) return undefined;
     const resolved = resolveProjection(cachedRow);
@@ -810,7 +823,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   }, [isTodayQuery, currentLocation?.id, targetDate, queryClient]);
   
   const { data: rawSalesData, isLoading, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
+    queryKey: ["qubeyond-sales", currentLocation?.id, targetDateStr],
     queryFn: async () => {
       // For today, check if we have fresh cached data (< 3 min old)
       // If so, skip the API call entirely - this applies to ALL loads including manual refresh
@@ -1134,11 +1147,19 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   };
 
   const navigateDay = (direction: 'prev' | 'next') => {
-    setTargetDate(prev => direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1));
+    setTargetDateStr(prev => {
+      const d = new Date(prev + 'T12:00:00');
+      const next = direction === 'prev' ? subDays(d, 1) : addDays(d, 1);
+      return format(next, 'yyyy-MM-dd');
+    });
   };
 
   const navigateWeek = (direction: 'prev' | 'next') => {
-    setTargetDate(prev => direction === 'prev' ? subWeeks(prev, 1) : addWeeks(prev, 1));
+    setTargetDateStr(prev => {
+      const d = new Date(prev + 'T12:00:00');
+      const next = direction === 'prev' ? subWeeks(d, 1) : addWeeks(d, 1);
+      return format(next, 'yyyy-MM-dd');
+    });
   };
 
   // Calculate Target EOW (AI Goal): sum of all daily projections for the week
@@ -1314,7 +1335,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   ]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
-    setTargetDate(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
+    setTargetDateStr(prev => {
+      const d = new Date(prev + 'T12:00:00');
+      const next = direction === 'prev' ? subMonths(d, 1) : addMonths(d, 1);
+      return format(next, 'yyyy-MM-dd');
+    });
   };
 
   const getChangePercent = (current: number, previous: number) => {
@@ -1515,9 +1540,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 >
                   <span className="text-base md:text-lg text-primary-foreground font-semibold whitespace-nowrap">
                     {activeTab === 'today'
-                      ? (isToday ? 'Today' : format(targetDate, 'EEEE, MMM d'))
+                      ? (isToday ? 'Today' : format(new Date(targetDateStr + 'T00:00:00'), 'EEEE, MMM d'))
                       : activeTab === 'week'
-                        ? (isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })
+                        ? (isSameWeek(targetDate, new Date(todayTzStr + 'T12:00:00'), { weekStartsOn: 1 })
                           ? 'This Week'
                           : `${format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')} - ${format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')}`)
                         : format(targetDate, 'MMMM yyyy')
@@ -1534,8 +1559,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   }}
                   disabled={
                     activeTab === 'today' ? isToday
-                    : activeTab === 'week' ? isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })
-                    : isSameMonth(targetDate, new Date())
+                    : activeTab === 'week' ? isSameWeek(targetDate, new Date(todayTzStr + 'T12:00:00'), { weekStartsOn: 1 })
+                    : isSameMonth(targetDate, new Date(todayTzStr + 'T12:00:00'))
                   }
                   className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
                 >
