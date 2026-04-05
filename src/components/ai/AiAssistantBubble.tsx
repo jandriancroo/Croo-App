@@ -188,7 +188,7 @@ export function AiAssistantBubble() {
   return createPortal(
     <>
       {/* Floating bubble */}
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {!open && (
           <motion.button
             initial={{ scale: 0, opacity: 0 }}
