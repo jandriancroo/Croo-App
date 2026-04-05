@@ -809,13 +809,13 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     left: 0;
     right: 0;
     z-index: 50;
-    padding-bottom: env(safe-area-inset-bottom);
-    contain: layout style;
+    
+    
   }
 
   /* Dock button — no GPU hacks to prevent iOS compositing detach */
   .dock-nav-button {
-    contain: layout style;
+    
   }
 
   .dock-nav-button.dock-bouncing {
