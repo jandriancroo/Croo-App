@@ -896,14 +896,18 @@ async function fetchCurrentPricesCatalog(session: PASession): Promise<Array<{
 
         const parsedPack = parsePackFromName(name);
 
+        // Use masterProductCode (guide ID like 8515) as pa_item_id
+        // Fall back to masterProductId (internal DB key like 1310) if no code available
+        const guideId = item.masterProductCode ? String(item.masterProductCode) : '';
+        const internalId = item.masterProductId ? String(item.masterProductId) : '';
+
         allItems.push({
-          pa_item_id: String(item.masterProductId || ''),
+          pa_item_id: guideId || internalId,
+          pa_internal_id: internalId || null,
           description: name,
           pack_size: parsedPack.packSize,
           category: 'Produce',
           unit_price: item.pricePerCase != null ? Number(item.pricePerCase) : null,
-          master_product_code: item.masterProductCode || null,
-          distributor_product_id: item.distributorProductId || null,
         });
       }
 
