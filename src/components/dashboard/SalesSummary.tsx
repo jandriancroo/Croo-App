@@ -155,6 +155,20 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         .gte('sale_date', weekStartStr)
         .lte('sale_date', weekEndStr)
         .order('sale_date'),
+      // Week payments data for payment cubes
+      supabase
+        .from('sales_cache')
+        .select('sale_date, payments_data')
+        .eq('location_id', currentLocation.id)
+        .gte('sale_date', weekStartStr)
+        .lte('sale_date', weekEndStr),
+      // Month payments data for payment cubes
+      supabase
+        .from('sales_cache')
+        .select('sale_date, payments_data')
+        .eq('location_id', currentLocation.id)
+        .gte('sale_date', monthStartStr)
+        .lte('sale_date', monthEndStr),
       supabase
         .from('sales_cache')
         .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
