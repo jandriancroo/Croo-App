@@ -286,60 +286,113 @@ async function fetchProductMix(
   }
 }
 
-// Fetch payment method breakdown (cash, credit, etc.)
+// Fetch payment method breakdown with multi-endpoint fallback (mirrors fetch-qubeyond-sales)
 async function fetchPaymentsData(
   tokenGw: string,
   dateStr: string,
   qbLocationId: string
-): Promise<{ tenderType: string; amount: number; count: number }[]> {
+): Promise<{ paymentType: string; amount: number }[]> {
   console.log(`[sales-service] Fetching payments data for ${dateStr}`);
 
-  try {
-    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main', {
-      method: 'POST',
-      headers: getV4Headers(tokenGw),
-      body: JSON.stringify({
-        fields: [
-          { fieldName: "tenderType" },
-          { fieldName: "amount" },
-          { fieldName: "count" }
-        ],
+  const candidates = [
+    {
+      name: 'payments/main',
+      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main',
+      payload: {
+        fields: [{ fieldName: 'paymentType' }, { fieldName: 'amount' }, { fieldName: 'checkCount' }],
         filters: {
-          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          date: { from: null, to: null, values: [dateStr], type: 'custom' },
           singleLocation: parseInt(qbLocationId),
-          location: { operationalUnits: [parseInt(qbLocationId)] }
+          location: { operationalUnits: [parseInt(qbLocationId)] },
         },
-        params: {
-          sectionId: "main",
-          pageNumber: 1,
-          pageSize: 50,
-          totalRecords: null,
-          sort: null,
-          showTotals: true
-        }
-      }),
-    });
+        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
+      },
+    },
+    {
+      name: 'payment-types/main',
+      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/payment-types/sections/main',
+      payload: {
+        fields: [{ fieldName: 'paymentType' }, { fieldName: 'amount' }, { fieldName: 'checkCount' }],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: 'custom' },
+          singleLocation: parseInt(qbLocationId),
+          location: { operationalUnits: [parseInt(qbLocationId)] },
+        },
+        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
+      },
+    },
+    {
+      name: 'summary/payments',
+      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/payments',
+      payload: {
+        fields: [{ fieldName: 'paymentType' }, { fieldName: 'total' }],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: 'custom' },
+          location: { operationalUnits: [parseInt(qbLocationId)] },
+        },
+        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
+      },
+    },
+  ];
 
-    if (!response.ok) {
-      console.error('[sales-service] Payments fetch failed:', response.status);
-      return [];
+  const parsePayments = (data: any): { paymentType: string; amount: number }[] => {
+    const payments: { paymentType: string; amount: number }[] = [];
+    const items = Array.isArray(data?.items) ? data.items : [];
+    for (const item of items) {
+      let rawName = item.paymentType ?? item.tenderType ?? item.tenderName ?? item.name ?? item.metric ?? item.type ?? '';
+      // Handle nested objects (e.g. { name: "Cash" } from summary/payments endpoint)
+      if (rawName && typeof rawName === 'object') {
+        rawName = rawName.name ?? rawName.label ?? rawName.value ?? rawName.metric ?? JSON.stringify(rawName);
+      }
+      const paymentType = String(rawName || '').trim();
+      if (!paymentType || paymentType === 'Total' || paymentType === 'Totals') continue;
+      const rawAmount = item.amount ?? item.total ?? item.value ?? item.netSales ?? 0;
+      const amount = parseFloat(String(rawAmount).replace(/[$,]/g, '')) || 0;
+      payments.push({ paymentType, amount });
     }
+    return payments;
+  };
 
-    const data = await response.json();
-    const payments: { tenderType: string; amount: number; count: number }[] = [];
+  try {
+    const results = await Promise.allSettled(
+      candidates.map(async (c) => {
+        const resp = await fetch(c.url, {
+          method: 'POST',
+          headers: getV4Headers(tokenGw),
+          body: JSON.stringify(c.payload),
+        });
+        if (!resp.ok) {
+          const txt = await resp.text().catch(() => '');
+          console.error(`[sales-service] Payments ${c.name} failed: ${resp.status} ${txt.substring(0, 120)}`);
+          return { name: c.name, parsed: [] as { paymentType: string; amount: number }[], valid: false };
+        }
+        const data = await resp.json();
+        const parsed = parsePayments(data);
+        const looksLikePaymentMethods = parsed.some((p) =>
+          /(cash|credit|card|visa|master|amex|doordash|uber|olo|delivery|online|grub|gift)/i.test(p.paymentType)
+        );
+        console.log(`[sales-service] Payments ${c.name} ok: parsed=${parsed.length}, valid=${looksLikePaymentMethods}`);
+        return { name: c.name, parsed, valid: looksLikePaymentMethods };
+      })
+    );
 
-    if (data.items && Array.isArray(data.items)) {
-      for (const item of data.items) {
-        const tenderType = item.tenderType || item.paymentType || item.name || '';
-        if (!tenderType || tenderType === 'Totals') continue;
-        const amount = parseFloat(String(item.amount || item.netAmount || '0').replace(/[$,]/g, '')) || 0;
-        const count = parseInt(String(item.count || item.quantity || '0').replace(/,/g, '')) || 0;
-        payments.push({ tenderType, amount, count });
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value.valid) {
+        console.log(`[sales-service] Payments: using ${result.value.name} with ${result.value.parsed.length} types`);
+        return result.value.parsed;
       }
     }
 
-    console.log(`[sales-service] Payments: ${payments.length} tender types`);
-    return payments;
+    // Fallback: use any result with data
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value.parsed.length > 0) {
+        console.log(`[sales-service] Payments: fallback to ${result.value.name} with ${result.value.parsed.length} types`);
+        return result.value.parsed;
+      }
+    }
+
+    console.error('[sales-service] Payments: all endpoints failed or empty');
+    return [];
   } catch (error) {
     console.error('[sales-service] Payments error:', error);
     return [];

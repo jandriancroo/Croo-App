@@ -140,7 +140,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // Fetch daily data + week range + month range + labor data in parallel
     // For month, always fetch full month (1st to last day)
     // Fetch labor for the ENTIRE WEEK to show labor% in weekly chart
-    const [dailyResult, weekResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
+    const [dailyResult, weekResult, weekPaymentsResult, monthPaymentsResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
       // Daily sales
       supabase
         .from('sales_cache')
@@ -155,6 +155,20 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         .gte('sale_date', weekStartStr)
         .lte('sale_date', weekEndStr)
         .order('sale_date'),
+      // Week payments data for payment cubes
+      supabase
+        .from('sales_cache')
+        .select('sale_date, payments_data')
+        .eq('location_id', currentLocation.id)
+        .gte('sale_date', weekStartStr)
+        .lte('sale_date', weekEndStr),
+      // Month payments data for payment cubes
+      supabase
+        .from('sales_cache')
+        .select('sale_date, payments_data')
+        .eq('location_id', currentLocation.id)
+        .gte('sale_date', monthStartStr)
+        .lte('sale_date', monthEndStr),
       supabase
         .from('sales_cache')
         .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
@@ -418,6 +432,26 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     } : null;
     console.log('[SalesOverview] Built monthlyLabor:', { monthlyLaborTotalCost, monthlyLaborTotalHours, monthlyLaborMapSize: monthlyLaborMap.size, monthlySales, monthlyLabor: monthlyLabor ? 'has data' : 'null', monthStartStr, monthEndStr });
     
+    // Build payments data from cache for cubes
+    const aggregatePayments = (rows: any[]): Array<{ paymentType: string; amount: number }> => {
+      const map = new Map<string, number>();
+      for (const row of rows) {
+        if (row.payments_data && Array.isArray(row.payments_data)) {
+          for (const p of row.payments_data as { paymentType: string; amount: number }[]) {
+            const current = map.get(p.paymentType) || 0;
+            map.set(p.paymentType, current + (Number(p.amount) || 0));
+          }
+        }
+      }
+      return Array.from(map.entries()).map(([paymentType, amount]) => ({ paymentType, amount }));
+    };
+
+    const dailyPayments = cached?.payments_data && Array.isArray(cached.payments_data)
+      ? (cached.payments_data as Array<{ paymentType: string; amount: number }>)
+      : [];
+    const weeklyPayments = aggregatePayments(weekPaymentsResult.data || []);
+    const monthlyPayments = aggregatePayments(monthPaymentsResult.data || []);
+
     return {
       daily: cached ? (Number(cached.net_sales) || 0) : 0,
       weekly: weeklySales,
@@ -432,8 +466,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       },
       avgTicket: cached?.avg_ticket ? Number(cached.avg_ticket) : undefined,
       pizzaCount: cached?.pizza_count || 0,
+      payments: (dailyPayments.length > 0 || weeklyPayments.length > 0 || monthlyPayments.length > 0)
+        ? { daily: dailyPayments, weekly: weeklyPayments, monthly: monthlyPayments }
+        : null,
       projections: {
-        // Use new projection resolution for today's projection
         todayProjected: cached ? (resolveProjection(cached as any).value || 0) : 0,
         todaySource: cached ? resolveProjection(cached as any).source : null,
         weekProjected: weeklyProjected,
