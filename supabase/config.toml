@@ -90,3 +90,6 @@ verify_jwt = true
 
 [functions.job-feed]
 verify_jwt = false
+
+[functions.jobs-seo]
+verify_jwt = false

@@ -36,6 +36,15 @@ Deno.serve(async (req) => {
     <lastmod>${now.split("T")[0]}</lastmod>
   </url>`);
 
+    // Server-rendered jobs page with JSON-LD for Google Jobs
+    const seoUrl = supabaseUrl.replace('//', '//') + "/functions/v1/jobs-seo";
+    urls.push(`  <url>
+    <loc>${seoUrl}</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <lastmod>${now.split("T")[0]}</lastmod>
+  </url>`);
+
     // Individual job listing apply pages
     for (const listing of listings || []) {
       const orgSlug = (listing as any).organization?.slug;
