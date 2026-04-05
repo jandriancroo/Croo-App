@@ -19,10 +19,49 @@ const TIMEZONES = [
   { value: 'America/Denver', label: 'Mountain Time (MT)' },
   { value: 'America/Chicago', label: 'Central Time (CT)' },
   { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Indiana/Indianapolis', label: 'Indiana (ET, no DST history)' },
   { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
   { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
   { value: 'America/Phoenix', label: 'Arizona (no DST)' },
 ];
+
+// Auto-detect timezone from US state abbreviation
+const STATE_TIMEZONE_MAP: Record<string, string> = {
+  // Pacific
+  CA: 'America/Los_Angeles', WA: 'America/Los_Angeles', OR: 'America/Los_Angeles', NV: 'America/Los_Angeles',
+  // Mountain
+  CO: 'America/Denver', MT: 'America/Denver', WY: 'America/Denver', UT: 'America/Denver',
+  NM: 'America/Denver', ID: 'America/Denver',
+  // Central
+  TX: 'America/Chicago', IL: 'America/Chicago', MN: 'America/Chicago', WI: 'America/Chicago',
+  IA: 'America/Chicago', MO: 'America/Chicago', AR: 'America/Chicago', LA: 'America/Chicago',
+  MS: 'America/Chicago', AL: 'America/Chicago', TN: 'America/Chicago', KS: 'America/Chicago',
+  NE: 'America/Chicago', SD: 'America/Chicago', ND: 'America/Chicago', OK: 'America/Chicago',
+  // Eastern
+  NY: 'America/New_York', FL: 'America/New_York', PA: 'America/New_York', OH: 'America/New_York',
+  GA: 'America/New_York', NC: 'America/New_York', SC: 'America/New_York', VA: 'America/New_York',
+  NJ: 'America/New_York', MA: 'America/New_York', MD: 'America/New_York', CT: 'America/New_York',
+  MI: 'America/New_York', ME: 'America/New_York', NH: 'America/New_York', RI: 'America/New_York',
+  VT: 'America/New_York', DE: 'America/New_York', WV: 'America/New_York', DC: 'America/New_York',
+  KY: 'America/New_York',
+  // Indiana — special case
+  IN: 'America/Indiana/Indianapolis',
+  // Arizona — no DST
+  AZ: 'America/Phoenix',
+  // Alaska & Hawaii
+  AK: 'America/Anchorage', HI: 'Pacific/Honolulu',
+};
+
+function detectTimezoneFromAddress(addr: string): string | null {
+  const stateMatch = addr.match(/\b([A-Z]{2})\s*\.?\s*\d{5}/i)
+    || addr.match(/,\s*([A-Z]{2})\s*$/i)
+    || addr.match(/,\s*([A-Z]{2})\s+/i);
+  if (stateMatch) {
+    const code = stateMatch[1].toUpperCase();
+    return STATE_TIMEZONE_MAP[code] || null;
+  }
+  return null;
+}
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Sunday', short: 'Sun' },
