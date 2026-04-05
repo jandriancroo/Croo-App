@@ -22,12 +22,12 @@ import { AiAssistantBubble } from '@/components/ai/AiAssistantBubble';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
+import { getCurrentAppVersion } from '@/hooks/useForceReload';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
-
 
 interface LayoutProps {
   children: ReactNode;
@@ -298,6 +298,20 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const [showOrgBubble, setShowOrgBubble] = useState(false); // Popup bubble for long-press
   const [showCompactDashboard, setShowCompactDashboard] = useState(false); // Swipe-up compact dashboard
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
+
+  // Show version toast after "Update App" reload
+  useEffect(() => {
+    const prevVersion = sessionStorage.getItem('pre_update_version');
+    if (prevVersion) {
+      sessionStorage.removeItem('pre_update_version');
+      const newVersion = getCurrentAppVersion();
+      if (newVersion !== 'unknown' && prevVersion !== newVersion) {
+        toast.success(`Updated from v${prevVersion} to v${newVersion}`);
+      } else {
+        toast.info(`Already on latest version (v${newVersion})`);
+      }
+    }
+  }, []);
 
   const themes = [
     { value: 'default', label: 'Default' },
@@ -1111,11 +1125,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 </div>
                 <Button variant="outline" onClick={() => {
                   setMenuOpen(false);
-                  toast.info('Checking for updates...');
+                  const prevVersion = getCurrentAppVersion();
+                  sessionStorage.setItem('pre_update_version', prevVersion);
+                  toast.info('Updating app...');
                   setTimeout(() => window.location.reload(), 500);
                 }} className="justify-start gap-3 h-11">
                   <RefreshCw className="h-5 w-5" />
-                  <span className="text-base">Check for Update</span>
+                  <span className="text-base">Update App</span>
                 </Button>
 
                 <Button variant="outline" onClick={() => {
