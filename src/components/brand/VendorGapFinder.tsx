@@ -172,8 +172,8 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     );
 
     let newOutliers: OutlierItem[] = [];
-    let pfgMatchCount = 0;
-    let pfgTotal = 0;
+    let totalVendorItems = 0;
+    let totalMatched = 0;
     let discrepancies: { itemNumber: string; name: string }[] = [];
 
     try {
