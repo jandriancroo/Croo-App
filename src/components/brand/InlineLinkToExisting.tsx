@@ -12,6 +12,7 @@ interface InlineLinkToExistingProps {
     product_name: string;
     brand_id: string;
     item_number?: string | null;
+    pa_item_id?: string | null;
     match_keywords?: string[];
     vendor_source?: string | null;
   };
@@ -80,25 +81,43 @@ export default function InlineLinkToExisting({ draft, onLinked }: InlineLinkToEx
   const handleLink = async (targetId: string, targetName: string) => {
     setLinking(true);
     try {
-      const { data: target } = await supabase
-        .from("brand_inventory_templates")
-        .select("match_keywords")
-        .eq("id", targetId)
-        .single();
+      // Step 1: Copy vendor IDs to brand_vendor_mappings on the target live item
+      const vendorMappingsToAdd: { vendor: string; vendor_item_id: string }[] = [];
 
-      const newKeywords = new Set<string>(target?.match_keywords || []);
-      newKeywords.add(draft.product_name.toLowerCase().trim());
-      if (draft.item_number) newKeywords.add(draft.item_number.toLowerCase().trim());
-      if (draft.match_keywords) {
-        draft.match_keywords.forEach(kw => newKeywords.add(kw.toLowerCase().trim()));
+      // If draft has a PFG item_number, add as a PFG mapping
+      if (draft.item_number) {
+        vendorMappingsToAdd.push({ vendor: 'pfg', vendor_item_id: draft.item_number });
       }
 
-      const { error: updateErr } = await supabase
-        .from("brand_inventory_templates")
-        .update({ match_keywords: Array.from(newKeywords), updated_at: new Date().toISOString() })
-        .eq("id", targetId);
-      if (updateErr) throw updateErr;
+      // If draft has a PA item ID, add as a PA mapping
+      if (draft.pa_item_id) {
+        vendorMappingsToAdd.push({ vendor: 'produce_alliance', vendor_item_id: draft.pa_item_id });
+      }
 
+      // Insert vendor mappings (skip duplicates)
+      for (const mapping of vendorMappingsToAdd) {
+        // Check if mapping already exists
+        const { data: existing } = await supabase
+          .from("brand_vendor_mappings")
+          .select("id")
+          .eq("brand_template_id", targetId)
+          .eq("vendor", mapping.vendor)
+          .eq("vendor_item_id", mapping.vendor_item_id)
+          .maybeSingle();
+
+        if (!existing) {
+          const { error: mapErr } = await supabase
+            .from("brand_vendor_mappings")
+            .insert({
+              brand_template_id: targetId,
+              vendor: mapping.vendor,
+              vendor_item_id: mapping.vendor_item_id,
+            });
+          if (mapErr) console.error("Vendor mapping insert error:", mapErr);
+        }
+      }
+
+      // Step 2: Re-point any invoice items and staging rows to the live item
       const { error: relinkErr } = await supabase
         .from("vendor_invoice_items")
         .update({ matched_template_id: targetId, match_status: "matched" })
@@ -110,6 +129,7 @@ export default function InlineLinkToExisting({ draft, onLinked }: InlineLinkToEx
         .update({ matched_template_id: targetId, status: "matched" })
         .eq("matched_template_id", draft.id);
 
+      // Step 3: Delete the draft template
       const { error: deleteErr } = await supabase
         .from("brand_inventory_templates")
         .delete()
