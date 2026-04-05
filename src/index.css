@@ -529,8 +529,6 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   @media (display-mode: standalone) {
     html {
       min-height: -webkit-fill-available;
-      /* Block native pull-to-refresh entirely — custom PullToRefresh handles it */
-      overscroll-behavior-y: none;
     }
     body {
       min-height: 100dvh;
@@ -539,7 +537,6 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   }
   html[data-standalone="true"] {
     min-height: -webkit-fill-available;
-    overscroll-behavior-y: none;
   }
   html[data-standalone="true"] body {
     min-height: 100dvh;
