@@ -529,6 +529,37 @@ export const useUserManagementData = () => {
     }
   };
 
+  const handleUpdateAllOutdatedGlobal = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      setUpdatingOutdated(true);
+      const cv = getCurrentAppVersion();
+      const { data: allProfiles } = await supabase
+        .from('profiles')
+        .select('id, app_version')
+        .eq('is_active', true)
+        .not('app_version', 'is', null)
+        .not('app_version', 'eq', 'unknown');
+      
+      const globalOutdated = (allProfiles || []).filter(p => 
+        p.app_version && p.app_version.localeCompare(cv, undefined, { numeric: true }) < 0
+      );
+      
+      if (globalOutdated.length === 0) {
+        toast({ title: 'All up to date', description: 'No users across any location are running an outdated version.' });
+        return;
+      }
+      
+      await Promise.all(globalOutdated.map(u => triggerForceReload(u.id)));
+      toast({ title: 'Global update sent', description: `Force update triggered for ${globalOutdated.length} user(s) across all locations.` });
+    } catch (error: any) {
+      console.error('Error global updating:', error);
+      toast({ title: 'Error', description: 'Failed to send global update signals', variant: 'destructive' });
+    } finally {
+      setUpdatingOutdated(false);
+    }
+  };
+
   const handleBulkWageUpdate = async (wage: number, effectiveDate: Date, notes: string) => {
     try {
       setBulkUpdating(true);
@@ -645,7 +676,7 @@ export const useUserManagementData = () => {
     isBulkDeactivateOpen, setIsBulkDeactivateOpen, handleBulkDeactivate,
     isBulkWageOpen, setIsBulkWageOpen, handleBulkWageUpdate,
     isBulkI9Open, setIsBulkI9Open,
-    handleBulkForceUpdate, handleUpdateAllOutdated,
+    handleBulkForceUpdate, handleUpdateAllOutdated, handleUpdateAllOutdatedGlobal,
     // Test users
     creatingTestUser, handleCreateTestEmployee,
     // Other handlers
