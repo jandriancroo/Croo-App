@@ -1,0 +1,1 @@
+ALTER TABLE public.pa_catalog_items ADD COLUMN pa_internal_id text;

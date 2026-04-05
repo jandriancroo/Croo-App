@@ -5138,6 +5138,7 @@ export type Database = {
           id: string
           last_seen_at: string
           location_id: string
+          pa_internal_id: string | null
           pa_item_id: string
           pack_size: string | null
           unit_price: number | null
@@ -5149,6 +5150,7 @@ export type Database = {
           id?: string
           last_seen_at?: string
           location_id: string
+          pa_internal_id?: string | null
           pa_item_id: string
           pack_size?: string | null
           unit_price?: number | null
@@ -5160,6 +5162,7 @@ export type Database = {
           id?: string
           last_seen_at?: string
           location_id?: string
+          pa_internal_id?: string | null
           pa_item_id?: string
           pack_size?: string | null
           unit_price?: number | null
