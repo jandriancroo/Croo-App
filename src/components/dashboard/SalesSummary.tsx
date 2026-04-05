@@ -132,7 +132,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   // Timezone-aware "today" string for comparisons
   const todayTzStr = getBusinessDateInTimezone();
-  const isToday = getDateString(targetDate) === todayTzStr;
+  const isToday = targetDateStr === todayTzStr;
 
   // Check database cache for historical dates
   const checkDatabaseCache = async (dateStr: string): Promise<SalesData | null> => {
