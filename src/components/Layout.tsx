@@ -251,8 +251,6 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
           </div>
         )}
       </div>
-      {/* Safe area spacer - minimal height, just extends background slightly */}
-      <div style={{ height: 'max(8px, calc(env(safe-area-inset-bottom, 0px) * 0.5))' }} />
     </div>
   );
 };
@@ -925,10 +923,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         </div>
       </header>
 
-      {/* Mobile Header — Full Bleed + Bottom Curve */}
+      {/* Mobile Header — Full Bleed + Bottom Curve (fixed to prevent pull-to-refresh detach) */}
       <header
         ref={mobileHeaderRef}
-        className={`sticky top-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`}
+        className={`fixed top-0 left-0 right-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`}
         style={{ paddingTop: 'calc(env(safe-area-inset-top) - 6px)', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: '0 4px 12px hsl(0 0% 0% / 0.15)' }}
       >
         <div className="flex items-center relative h-14 px-4">
@@ -1124,7 +1122,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </Sheet>
         </div>
       </header>
-      <main className={`container max-w-7xl mx-auto flex-1 px-safe pt-1 pb-0 relative ${isMobile ? 'pb-24' : 'py-8 pb-8'}`}>
+      <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+3rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
         {children}
       </main>
       
