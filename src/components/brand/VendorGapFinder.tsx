@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Search, RefreshCw, PackagePlus, AlertTriangle, CheckCircle2,
-  Loader2, Filter,
+  Loader2, Filter, Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -19,6 +19,7 @@ interface VendorGapFinderProps {
 }
 
 interface OutlierItem {
+  id?: string; // DB id from vendor_gap_alerts
   itemNumber: string;
   name: string;
   fullDescription: string;
@@ -27,6 +28,7 @@ interface OutlierItem {
   categoryName: string;
   price: number | null;
   vendorSource: 'pfg' | 'pa';
+  status?: string;
 }
 
 export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
@@ -34,19 +36,43 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [scanResult, setScanResult] = useState<{
-    outliers: OutlierItem[];
+  const [isScanning, setIsScanning] = useState(false);
+  const [lastScanStats, setLastScanStats] = useState<{
     matchCount: number;
     totalBid: number;
     discrepancies: { itemNumber: string; name: string }[];
   } | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
+
+  // Load persisted outliers from vendor_gap_alerts
+  const { data: persistedOutliers = [], refetch: refetchOutliers } = useQuery({
+    queryKey: ['vendor-gap-alerts', brandId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('vendor_gap_alerts' as any)
+        .select('*')
+        .eq('brand_id', brandId)
+        .eq('status', 'new')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map((d: any) => ({
+        id: d.id,
+        itemNumber: d.item_number,
+        name: d.vendor_name || d.item_number,
+        fullDescription: d.vendor_description || d.vendor_name || '',
+        brand: '',
+        packSize: d.pack_size || '',
+        categoryName: d.category_name || 'Uncategorized',
+        price: null,
+        vendorSource: d.vendor_source as 'pfg' | 'pa',
+        status: d.status,
+      })) as OutlierItem[];
+    },
+  });
 
   // Get locations with PFG integration for this brand
   const { data: pfgLocations = [] } = useQuery({
     queryKey: ['brand-pfg-locations', brandId],
     queryFn: async () => {
-      // Get all locations in brand
       const { data: orgs } = await supabase
         .from('organizations')
         .select('id')
@@ -93,7 +119,23 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     },
   });
 
-  // Get brand location IDs for PA order lookup
+  // Get ALL vendor mappings for this brand (the key fix!)
+  const { data: vendorMappings = [] } = useQuery({
+    queryKey: ['brand-vendor-mappings-gap', brandId],
+    queryFn: async () => {
+      const templateIds = templates.map(t => t.id);
+      if (!templateIds.length) return [];
+      const { data, error } = await supabase
+        .from('brand_vendor_mappings')
+        .select('vendor_item_id, vendor')
+        .in('brand_template_id', templateIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: templates.length > 0,
+  });
+
+  // Get brand location IDs for PA catalog lookup
   const { data: brandLocationIds = [] } = useQuery({
     queryKey: ['brand-location-ids', brandId],
     queryFn: async () => {
@@ -112,8 +154,9 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
 
   const runScan = async () => {
     setIsScanning(true);
-    setScanResult(null);
+    setLastScanStats(null);
 
+    // Build comprehensive exclusion sets
     const existingNumbers = new Set(
       templates.map(t => t.item_number).filter(Boolean)
     );
@@ -123,14 +166,18 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     const existingPaIds = new Set(
       templates.map(t => (t as any).pa_item_id).filter(Boolean).map((id: string) => id.trim())
     );
+    // FIX #2: Also exclude all vendor_item_ids from brand_vendor_mappings
+    const existingVendorIds = new Set(
+      vendorMappings.map(m => String(m.vendor_item_id || '').trim()).filter(Boolean)
+    );
 
-    let allOutliers: OutlierItem[] = [];
+    let newOutliers: OutlierItem[] = [];
     let pfgMatchCount = 0;
     let pfgTotal = 0;
     let discrepancies: { itemNumber: string; name: string }[] = [];
 
     try {
-      // --- PFG Scan ---
+      // --- PFG Scan (Bid Guide) ---
       const loc = pfgLocations[0];
       if (loc) {
         const { data, error } = await supabase.functions.invoke('pfg-service', {
@@ -148,7 +195,14 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         pfgTotal = bidProducts.length;
 
         const pfgOutliers: OutlierItem[] = bidProducts
-          .filter(p => !existingNumbers.has(p.itemNumber) && !existingNames.has((p.fullDescription || p.name || '').toLowerCase()))
+          .filter(p => {
+            const itemNum = String(p.itemNumber || '').trim();
+            const itemName = (p.fullDescription || p.name || '').toLowerCase();
+            // Check templates AND vendor mappings
+            return !existingNumbers.has(itemNum) &&
+                   !existingVendorIds.has(itemNum) &&
+                   !existingNames.has(itemName);
+          })
           .map(p => ({
             itemNumber: p.itemNumber,
             name: p.name || p.fullDescription,
@@ -161,20 +215,26 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
           }));
 
         pfgMatchCount = pfgTotal - pfgOutliers.length;
-        allOutliers.push(...pfgOutliers);
+        newOutliers.push(...pfgOutliers);
 
-        // Discrepancies (in catalog but not in bid)
-        const bidNumbers = new Set(bidProducts.map((p: any) => p.itemNumber));
+        // Discrepancies (in catalog but not in bid) — only PFG-sourced items
+        const bidNumbers = new Set(bidProducts.map((p: any) => String(p.itemNumber || '').trim()));
         discrepancies = templates
           .filter(t => t.item_number && !bidNumbers.has(t.item_number) && t.status === 'live')
+          .filter(t => {
+            // Only flag PFG items, not heimark/other vendor items
+            const mapping = vendorMappings.find(m => 
+              m.vendor_item_id === t.item_number && m.vendor !== 'pfg'
+            );
+            return !mapping;
+          })
           .map(t => ({ itemNumber: t.item_number!, name: t.product_name }));
       }
 
-      // --- PA Scan (from pa_catalog_items populated by nightly GitHub Action) ---
+      // --- PA Scan (Catalog only — no order history fallback) ---
       if (brandLocationIds.length > 0) {
         const seenPaItems = new Map<string, any>();
 
-        // Primary: pa_catalog_items (scraped from restaurantOrderSort.jsp)
         for (const locId of brandLocationIds) {
           const { data: catalogItems } = await supabase
             .from('pa_catalog_items' as any)
@@ -183,33 +243,10 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
 
           for (const item of (catalogItems || []) as any[]) {
             const paId = String(item.pa_item_id || '').trim();
-            if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
+            if (!paId || existingPaIds.has(paId) || existingVendorIds.has(paId) || seenPaItems.has(paId)) continue;
             const itemName = (item.description || '').toLowerCase();
             if (itemName && existingNames.has(itemName)) continue;
             seenPaItems.set(paId, item);
-          }
-        }
-
-        // Fallback: order history if catalog is empty
-        if (seenPaItems.size === 0) {
-          const { data: paOrders } = await supabase
-            .from('produce_alliance_orders' as any)
-            .select('items')
-            .in('location_id', brandLocationIds)
-            .not('items', 'is', null)
-            .order('delivery_date', { ascending: false })
-            .limit(30);
-
-          for (const order of (paOrders || []) as any[]) {
-            const items = order.items as any[];
-            if (!Array.isArray(items)) continue;
-            for (const item of items) {
-              const paId = String(item.itemId || item.item_id || '').trim();
-              if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
-              const itemName = (item.description || item.name || '').toLowerCase();
-              if (itemName && existingNames.has(itemName)) continue;
-              seenPaItems.set(paId, item);
-            }
           }
         }
 
@@ -224,17 +261,50 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
           vendorSource: 'pa' as const,
         }));
 
-        allOutliers.push(...paOutliers);
+        newOutliers.push(...paOutliers);
       }
 
-      setScanResult({
-        outliers: allOutliers,
-        matchCount: pfgMatchCount,
-        totalBid: pfgTotal,
-        discrepancies,
-      });
+      // FIX #3: Persist outliers to vendor_gap_alerts
+      if (newOutliers.length > 0) {
+        const upserts = newOutliers.map(item => ({
+          brand_id: brandId,
+          vendor_source: item.vendorSource,
+          item_number: item.itemNumber,
+          vendor_name: item.name,
+          vendor_description: item.fullDescription || '',
+          pack_size: item.packSize || '',
+          category_name: item.categoryName || '',
+          status: 'new',
+        }));
 
-      toast.success(`Scan complete: ${allOutliers.length} new items found`);
+        // Batch upsert in chunks of 50
+        for (let i = 0; i < upserts.length; i += 50) {
+          await supabase
+            .from('vendor_gap_alerts' as any)
+            .upsert(upserts.slice(i, i + 50), { onConflict: 'brand_id,vendor_source,item_number' });
+        }
+      }
+
+      // Clean up alerts that are now matched (no longer outliers)
+      const currentOutlierKeys = new Set(newOutliers.map(o => `${o.vendorSource}:${o.itemNumber}`));
+      const staleAlerts = persistedOutliers.filter(
+        p => !currentOutlierKeys.has(`${p.vendorSource}:${p.itemNumber}`)
+      );
+      if (staleAlerts.length > 0) {
+        const staleIds = staleAlerts.map(a => a.id).filter(Boolean);
+        if (staleIds.length > 0) {
+          await supabase
+            .from('vendor_gap_alerts' as any)
+            .update({ status: 'resolved' })
+            .in('id', staleIds);
+        }
+      }
+
+      // Refresh from DB
+      await refetchOutliers();
+
+      setLastScanStats({ matchCount: pfgMatchCount, totalBid: pfgTotal, discrepancies });
+      toast.success(`Scan complete: ${newOutliers.length} outliers found`);
     } catch (err: any) {
       toast.error('Scan failed: ' + (err.message || 'Unknown error'));
     } finally {
@@ -259,34 +329,57 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         .from('brand_inventory_templates')
         .upsert(inserts as any, { onConflict: 'brand_id,product_name', ignoreDuplicates: true });
       if (error) throw error;
+
+      // Mark alerts as promoted
+      const alertIds = items.map(i => i.id).filter(Boolean);
+      if (alertIds.length > 0) {
+        await supabase
+          .from('vendor_gap_alerts' as any)
+          .update({ status: 'promoted' })
+          .in('id', alertIds);
+      }
     },
     onSuccess: (_, items) => {
       toast.success(`${items.length} items added as drafts`);
       setSelectedIds(new Set());
       queryClient.invalidateQueries({ queryKey: ['brand-templates', brandId] });
-      // Remove promoted items from scan result
-      if (scanResult) {
-        const promotedNumbers = new Set(items.map(i => i.itemNumber));
-        setScanResult({
-          ...scanResult,
-          outliers: scanResult.outliers.filter(o => !promotedNumbers.has(o.itemNumber)),
-          matchCount: scanResult.matchCount + items.length,
-        });
-      }
+      refetchOutliers();
     },
     onError: (err: any) => {
       toast.error('Failed to promote: ' + (err.message || 'Unknown'));
     },
   });
 
+  // Dismiss selected outliers
+  const dismissMutation = useMutation({
+    mutationFn: async (items: OutlierItem[]) => {
+      const alertIds = items.map(i => i.id).filter(Boolean);
+      if (alertIds.length > 0) {
+        await supabase
+          .from('vendor_gap_alerts' as any)
+          .update({ status: 'dismissed' })
+          .in('id', alertIds);
+      }
+    },
+    onSuccess: (_, items) => {
+      toast.success(`${items.length} items dismissed`);
+      setSelectedIds(new Set());
+      refetchOutliers();
+    },
+    onError: (err: any) => {
+      toast.error('Failed to dismiss: ' + (err.message || 'Unknown'));
+    },
+  });
+
+  // Use persisted outliers as the display source
+  const outliers = persistedOutliers;
+
   const categories = useMemo(() => {
-    if (!scanResult) return [];
-    return [...new Set(scanResult.outliers.map(o => o.categoryName))].sort();
-  }, [scanResult]);
+    return [...new Set(outliers.map(o => o.categoryName))].sort();
+  }, [outliers]);
 
   const filteredOutliers = useMemo(() => {
-    if (!scanResult) return [];
-    let items = scanResult.outliers;
+    let items = outliers;
     if (categoryFilter !== 'all') {
       items = items.filter(o => o.categoryName === categoryFilter);
     }
@@ -299,7 +392,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       );
     }
     return items;
-  }, [scanResult, categoryFilter, searchQuery]);
+  }, [outliers, categoryFilter, searchQuery]);
 
   const toggleSelect = (itemNumber: string) => {
     setSelectedIds(prev => {
@@ -319,9 +412,15 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
   };
 
   const handlePromote = () => {
-    const items = scanResult?.outliers.filter(o => selectedIds.has(o.itemNumber)) || [];
+    const items = outliers.filter(o => selectedIds.has(o.itemNumber));
     if (items.length === 0) return;
     promoteMutation.mutate(items);
+  };
+
+  const handleDismiss = () => {
+    const items = outliers.filter(o => selectedIds.has(o.itemNumber));
+    if (items.length === 0) return;
+    dismissMutation.mutate(items);
   };
 
   return (
@@ -336,7 +435,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                 Vendor Gap Finder
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Compare PFG Bid List &amp; PA order history against your catalog
+                Compare PFG Bid List &amp; PA catalog against your catalog
               </p>
             </div>
             <Button
@@ -359,32 +458,34 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
             </p>
           )}
 
-          {(pfgLocations.length > 0 || brandLocationIds.length > 0) && !scanResult && !isScanning && (
+          {(pfgLocations.length > 0 || brandLocationIds.length > 0) && !isScanning && (
             <p className="text-xs text-muted-foreground mt-2">
-              Will scan{pfgLocations.length > 0 ? ` PFG bid list via ${pfgLocations[0].name}` : ''}{pfgLocations.length > 0 && brandLocationIds.length > 0 ? ' + ' : ''}{brandLocationIds.length > 0 ? 'PA order history' : ''}.
+              {outliers.length > 0
+                ? `${outliers.length} unresolved outliers. Run scan to refresh.`
+                : 'Click Run Scan to check for new vendor items.'}
             </p>
           )}
         </CardContent>
       </Card>
 
-      {/* Results Summary */}
-      {scanResult && (
+      {/* Results Summary (shown after scan or when outliers exist) */}
+      {(lastScanStats || outliers.length > 0) && (
         <div className="grid grid-cols-3 gap-2">
           <Card>
             <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-primary">{scanResult.totalBid}</div>
+              <div className="text-2xl font-bold text-primary">{lastScanStats?.totalBid ?? '—'}</div>
               <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Bid Items</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-green-600">{scanResult.matchCount}</div>
+              <div className="text-2xl font-bold text-green-600">{lastScanStats?.matchCount ?? '—'}</div>
               <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Matched</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 text-center">
-              <div className="text-2xl font-bold text-amber-600">{scanResult.outliers.length}</div>
+              <div className="text-2xl font-bold text-amber-600">{outliers.length}</div>
               <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Outliers</div>
             </CardContent>
           </Card>
@@ -392,17 +493,17 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       )}
 
       {/* Discrepancies */}
-      {scanResult && scanResult.discrepancies.length > 0 && (
+      {lastScanStats && lastScanStats.discrepancies.length > 0 && (
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
           <CardHeader className="pb-2 pt-3 px-4">
             <CardTitle className="text-xs flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-3.5 w-3.5" />
-              {scanResult.discrepancies.length} catalog items not on bid list
+              {lastScanStats.discrepancies.length} catalog items not on bid list
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-3">
             <div className="flex flex-wrap gap-1">
-              {scanResult.discrepancies.map(d => (
+              {lastScanStats.discrepancies.map(d => (
                 <Badge key={d.itemNumber} variant="outline" className="text-[10px]">
                   {d.name}
                 </Badge>
@@ -413,7 +514,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       )}
 
       {/* Outliers List */}
-      {scanResult && scanResult.outliers.length > 0 && (
+      {outliers.length > 0 && (
         <Card>
           <CardHeader className="pb-2 pt-3 px-4">
             <div className="flex items-center justify-between">
@@ -422,19 +523,31 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                 Outliers — Not in Catalog
               </CardTitle>
               {selectedIds.size > 0 && (
-                <Button
-                  size="sm"
-                  onClick={handlePromote}
-                  disabled={promoteMutation.isPending}
-                  className="h-7 text-xs"
-                >
-                  {promoteMutation.isPending ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <PackagePlus className="h-3 w-3 mr-1" />
-                  )}
-                  Add {selectedIds.size} as Draft
-                </Button>
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDismiss}
+                    disabled={dismissMutation.isPending}
+                    className="h-7 text-xs"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Dismiss
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handlePromote}
+                    disabled={promoteMutation.isPending}
+                    className="h-7 text-xs"
+                  >
+                    {promoteMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <PackagePlus className="h-3 w-3 mr-1" />
+                    )}
+                    Add {selectedIds.size} as Draft
+                  </Button>
+                </div>
               )}
             </div>
           </CardHeader>
@@ -481,7 +594,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
               <div className="space-y-1">
                 {filteredOutliers.map(item => (
                   <div
-                    key={item.itemNumber}
+                    key={`${item.vendorSource}-${item.itemNumber}`}
                     className={`flex items-start gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
                       selectedIds.has(item.itemNumber)
                         ? 'bg-primary/5 border-primary/30'
@@ -519,13 +632,13 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       )}
 
       {/* Empty state */}
-      {scanResult && scanResult.outliers.length === 0 && (
+      {outliers.length === 0 && !isScanning && (
         <Card>
           <CardContent className="p-8 text-center">
             <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-2" />
-            <p className="font-medium">Catalog is fully synced</p>
+            <p className="font-medium">No unresolved outliers</p>
             <p className="text-xs text-muted-foreground mt-1">
-              All {scanResult.totalBid} bid items are accounted for in your catalog.
+              Run a scan to check for new vendor items not in your catalog.
             </p>
           </CardContent>
         </Card>
