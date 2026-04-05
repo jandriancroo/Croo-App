@@ -12,6 +12,7 @@ interface InlineLinkToExistingProps {
     product_name: string;
     brand_id: string;
     item_number?: string | null;
+    pa_item_id?: string | null;
     match_keywords?: string[];
     vendor_source?: string | null;
   };
