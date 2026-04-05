@@ -22,14 +22,15 @@ Six frontend components and one backend SQL function use raw calendar date (`get
 - **Logbook and Dashboard checklist logic** — already using business date
 
 ### Technical Details
-- All six frontend files will swap `getTodayInTimezone()` calls for `getBusinessDateInTimezone()` from `useLocationTimezone()` hook (or the direct util with timezone + closeTime args where the hook isn't available)
+- All six frontend files swap `getTodayInTimezone()` calls for `getBusinessDateInTimezone()` from the `useLocationTimezone()` hook (or the direct util with timezone + closeTime args where the hook isn't available)
 - The SQL pulse function will parse the `hourly_projections` JSONB array to calculate Goal (full sum) and Pace (actuals + remaining projections), matching the frontend Sales Summary logic
+- If `closeTime` is null for any location, business date falls back to raw calendar date — identical to current behavior
 
 ### Risk
-Low. `getBusinessDateInTimezone()` is already battle-tested in Dashboard and Logbook. If `closeTime` is null, it falls back to raw calendar date (identical to current behavior). No schema changes required.
+Low. `getBusinessDateInTimezone()` is already battle-tested in Dashboard and Logbook. No schema changes required.
 
 ### After Implementation
-Update the project knowledge timezone rule from "All dates/times use America/Los_Angeles for Blaze locations" to:
+Update the project knowledge timezone rule from "All dates/times use America/Los_Angeles for Blaze locations" to reflect:
 - Each location uses its own timezone (auto-detected from address on creation)
 - "Today" means the **business date** — doesn't roll over until after store close + buffer
 - Only schedule/punch-clock features use raw calendar dates
