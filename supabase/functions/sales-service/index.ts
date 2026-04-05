@@ -494,18 +494,20 @@ async function fetchAllSalesData(
   yoyHourlyData: any[] | null;
   yoySaleDate: string | null;
 }> {
-  // Fetch API data + YOY from cache in parallel
-  const [hourlyData, pmResult, paymentsData, yoyData] = await Promise.all([
+  // Fetch API data + YOY + existing cache (for projection preservation) in parallel
+  const [hourlyData, pmResult, paymentsData, yoyData, existingCache] = await Promise.all([
     fetchHourlySales(tokenGw, dateStr, qbLocationId),
     fetchProductMix(tokenGw, dateStr, qbLocationId),
     fetchPaymentsData(tokenGw, dateStr, qbLocationId),
     getYOYFromCache(supabase, locationId, dateStr),
+    supabase.from('sales_cache').select('hourly_data').eq('location_id', locationId).eq('sale_date', dateStr).maybeSingle(),
   ]);
 
   const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
   const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
   const avgTicket = guestCount > 0 ? netSales / guestCount : null;
-  const formattedHourly = formatHourlyTo24(hourlyData);
+  const existingHourly = existingCache?.data?.hourly_data as any[] | undefined;
+  const formattedHourly = formatHourlyTo24(hourlyData, existingHourly);
 
   return {
     netSales,
