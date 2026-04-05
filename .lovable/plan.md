@@ -19,23 +19,20 @@ Six frontend components and one backend SQL function use raw calendar date (`get
 
 **6. ManagerDashboardOverlay.tsx** — Use business date for the overlay's sales data, labor cuts key, and event display.
 
-**7. send_hourly_sales_pulse SQL function** — Rewrite Goal/Pace to sum from `hourly_projections` JSONB instead of stale single-value columns. This is the pulse notification fix we already discussed.
+**7. send_hourly_sales_pulse SQL function** — Rewrite Goal/Pace to sum from `hourly_projections` JSONB instead of stale single-value columns (the pulse notification fix).
 
 ### What Stays the Same
-- Schedule, punch clock, and QuickPunchDialog — these correctly use calendar dates.
-- Logbook and Dashboard checklist logic — already on business date.
+- Schedule, punch clock, QuickPunchDialog — correctly use calendar dates
+- Logbook and Dashboard checklist logic — already on business date
 
 ### Risk
-- Low. `getBusinessDateInTimezone()` is already proven in Dashboard/Logbook.
-- Fallback: if `closeTime` is null, it defaults to raw calendar date (same as current behavior).
+- Low — `getBusinessDateInTimezone()` is already proven in Dashboard/Logbook
+- Fallback: if `closeTime` is null, defaults to raw calendar date (same as now)
 
 ### After Implementation: Update Project Knowledge
-Replace the current timezone rule:
-> "All dates/times in CrooHQ use America/Los_Angeles (PST/PDT) for Blaze locations."
-
-With a rule that reflects:
+Replace the outdated timezone rule ("All dates/times use America/Los_Angeles for Blaze locations") with:
 - Each location has its own timezone (auto-detected from address)
-- "Today" means the **business date** (doesn't roll over until after close + buffer), not the raw calendar date
+- "Today" means the **business date** — doesn't roll over until after close + buffer
 - Only schedule/punch-clock features use raw calendar dates
-- `getBusinessDateInTimezone()` is the standard for all "what day is it at this store?" logic
+- `getBusinessDateInTimezone()` is the standard for "what day is it at this store?"
 
