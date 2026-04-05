@@ -22,6 +22,7 @@ import { AiAssistantBubble } from '@/components/ai/AiAssistantBubble';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
+import { getCurrentAppVersion } from '@/hooks/useForceReload';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
