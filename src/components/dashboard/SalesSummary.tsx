@@ -501,8 +501,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   // Fetch fresh data from API
   const fetchSalesData = async (): Promise<SalesData | null> => {
-    const dateStr = getDateString(targetDate);
-    const isTodayCheck = getDateString(targetDate) === todayTzStr;
+    const dateStr = targetDateStr;
+    const isTodayCheck = targetDateStr === todayTzStr;
     
     // For historical dates, use database cache only
     // Don't call the edge function for past dates - it won't have data
@@ -702,7 +702,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // The localStorage cache may contain stale labor data from the edge function response
     if (isTodayCheck && currentLocation?.id && salesData) {
       try {
-        const todayStr = getDateString(targetDate);
+        const todayStr = targetDateStr;
         const { data: freshLabor } = await supabase
           .from('labor_cache')
           .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
@@ -777,7 +777,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   // Historical dates: always fresh from DB cache (staleTime: 0)
   // Today: use 5-minute stale time for live data
-  const isTodayQuery = getDateString(targetDate) === todayTzStr;
+  const isTodayQuery = targetDateStr === todayTzStr;
   
   // Get initial data from cache for instant render - computed directly in useMemo
   const initialData = useMemo(() => {
@@ -802,7 +802,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   // Build placeholder from prefetched sales_cache data so dashboard renders instantly
   const placeholderFromCache = useMemo(() => {
     if (!isTodayQuery || !currentLocation?.id) return undefined;
-    const dateStr = getDateString(targetDate);
+    const dateStr = targetDateStr;
     const cachedRow = queryClient.getQueryData(['sales-cache-today', currentLocation.id, dateStr]) as any;
     if (!cachedRow) return undefined;
     const resolved = resolveProjection(cachedRow);
@@ -823,7 +823,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   }, [isTodayQuery, currentLocation?.id, targetDate, queryClient]);
   
   const { data: rawSalesData, isLoading, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
+    queryKey: ["qubeyond-sales", currentLocation?.id, targetDateStr],
     queryFn: async () => {
       // For today, check if we have fresh cached data (< 3 min old)
       // If so, skip the API call entirely - this applies to ALL loads including manual refresh
