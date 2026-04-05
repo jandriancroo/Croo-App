@@ -30,7 +30,7 @@ Six frontend components and one backend SQL function use raw calendar date (`get
 Low. `getBusinessDateInTimezone()` is already battle-tested in Dashboard and Logbook. No schema changes required.
 
 ### After Implementation
-Update the project knowledge timezone rule from "All dates/times use America/Los_Angeles for Blaze locations" to reflect:
+Update project knowledge timezone rule from "All dates/times use America/Los_Angeles for Blaze locations" to:
 - Each location uses its own timezone (auto-detected from address on creation)
 - "Today" means the **business date** — doesn't roll over until after store close + buffer
 - Only schedule/punch-clock features use raw calendar dates
