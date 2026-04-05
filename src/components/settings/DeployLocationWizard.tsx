@@ -159,9 +159,19 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
   };
 
   const canProceed = () => {
-    if (step === 0) return name.trim().length > 0 && orgId.length > 0;
+    if (step === 0) return name.trim().length > 0 && orgId.length > 0 && address.trim().length > 0;
     return true;
   };
+
+  // Auto-detect timezone when address changes
+  useEffect(() => {
+    if (address.trim().length > 5) {
+      const detected = detectTimezoneFromAddress(address);
+      if (detected) {
+        setTimezone(detected);
+      }
+    }
+  }, [address]);
 
   const handleDeploy = async () => {
     setDeploying(true);
