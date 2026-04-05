@@ -2645,6 +2645,7 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
     const chunk = items.slice(i, i + 50).map(item => ({
       location_id: locationId,
       pa_item_id: item.pa_item_id,
+      pa_internal_id: (item as any).pa_internal_id || null,
       description: item.description,
       pack_size: item.pack_size,
       category: item.category,
