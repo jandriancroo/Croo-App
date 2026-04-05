@@ -192,7 +192,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         if (error) throw error;
 
         const bidProducts: any[] = data?.data?.products || [];
-        pfgTotal = bidProducts.length;
+        totalVendorItems += bidProducts.length;
 
         const pfgOutliers: OutlierItem[] = bidProducts
           .filter(p => {
@@ -214,7 +214,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
             vendorSource: 'pfg' as const,
           }));
 
-        pfgMatchCount = pfgTotal - pfgOutliers.length;
+        totalMatched += bidProducts.length - pfgOutliers.length;
         newOutliers.push(...pfgOutliers);
 
         // Discrepancies (in catalog but not in bid) — only PFG-sourced items
