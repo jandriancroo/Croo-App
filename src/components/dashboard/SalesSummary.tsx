@@ -70,7 +70,7 @@ interface DiagnosticInfo {
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
-  const { getTodayInTimezone, getDateInTimezone } = useLocationTimezone();
+  const { getBusinessDateInTimezone, getDateInTimezone } = useLocationTimezone();
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState<string>('today');
   const [showProductMix, setShowProductMix] = useState(false);
@@ -118,7 +118,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   };
 
   // Timezone-aware "today" string for comparisons
-  const todayTzStr = getTodayInTimezone();
+  const todayTzStr = getBusinessDateInTimezone();
   const isToday = getDateString(targetDate) === todayTzStr;
 
   // Check database cache for historical dates

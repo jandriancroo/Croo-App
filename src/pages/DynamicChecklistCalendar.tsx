@@ -380,8 +380,8 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpd
   });
 
   // Calculate the date for this day of the week using the location timezone
-  const { getTodayInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
-  const todayStr = getTodayInTimezone();
+  const { getBusinessDateInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
+  const todayStr = getBusinessDateInTimezone();
   const [year, month, day] = todayStr.split('-').map(Number);
   const baseDate = new Date(year, month - 1, day);
 
@@ -488,8 +488,8 @@ export default function DynamicChecklistCalendar() {
   const fetchHolidaysAndBlackouts = async () => {
     try {
       // Fetch holidays for the current week using the location timezone
-      const { getTodayInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
-      const todayStr = getTodayInTimezone();
+      const { getBusinessDateInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
+      const todayStr = getBusinessDateInTimezone();
       const [year, month, day] = todayStr.split('-').map(Number);
       const baseDate = new Date(year, month - 1, day);
 

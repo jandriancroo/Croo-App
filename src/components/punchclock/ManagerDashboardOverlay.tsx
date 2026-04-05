@@ -48,7 +48,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
-import { getTodayInTimezone, getDayOfWeekInTimezone, getTimezoneOffset, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
+import { getBusinessDateInTimezone, getDayOfWeekInTimezone, getTimezoneOffset, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
@@ -60,6 +60,7 @@ import { TeamTasksView } from './TeamTasksView';
 interface ManagerDashboardOverlayProps {
   locationId: string;
   timezone: string;
+  closeTime?: string | null;
   onClose: () => void;
 }
 
@@ -199,7 +200,8 @@ function formatShiftTime(time: string | undefined): string {
 
 export function ManagerDashboardOverlay({ 
   locationId, 
-  timezone, 
+  timezone,
+  closeTime,
   onClose 
 }: ManagerDashboardOverlayProps) {
   
@@ -213,8 +215,8 @@ export function ManagerDashboardOverlay({
 
   // Build storage key for labor cuts persistence
   const laborCutsStorageKey = useMemo(() => 
-    `labor-cuts-${locationId}-${getTodayInTimezone(timezone)}`, 
-    [locationId, timezone]
+    `labor-cuts-${locationId}-${getBusinessDateInTimezone(timezone, closeTime)}`, 
+    [locationId, timezone, closeTime]
   );
 
   // Load labor cuts and saved state from localStorage on mount
@@ -259,7 +261,7 @@ export function ManagerDashboardOverlay({
   // Shared clock tick — every second for live duration display
   const currentTime = useClock(1000);
 
-  const todayStr = useMemo(() => getTodayInTimezone(timezone), [timezone]);
+  const todayStr = useMemo(() => getBusinessDateInTimezone(timezone, closeTime), [timezone, closeTime]);
 
   // Fetch sales data from sales_cache — shared key with CompactDashboard + prefetch
   const { data: salesData } = useQuery({
