@@ -140,7 +140,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // Fetch daily data + week range + month range + labor data in parallel
     // For month, always fetch full month (1st to last day)
     // Fetch labor for the ENTIRE WEEK to show labor% in weekly chart
-    const [dailyResult, weekResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
+    const [dailyResult, weekResult, weekPaymentsResult, monthPaymentsResult, monthResult, laborResult, weeklyLaborResult, monthlyLaborResult] = await Promise.all([
       // Daily sales
       supabase
         .from('sales_cache')
