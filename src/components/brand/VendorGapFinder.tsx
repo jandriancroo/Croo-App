@@ -482,7 +482,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
           <Card>
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-primary">{lastScanStats?.totalBid ?? '—'}</div>
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Bid Items</div>
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Vendor Items</div>
             </CardContent>
           </Card>
           <Card>
