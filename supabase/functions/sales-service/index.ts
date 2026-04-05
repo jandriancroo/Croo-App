@@ -435,16 +435,39 @@ async function getYOYFromCache(
 // HELPER: Build formatted 24-hour array from hourly data
 // ============================================================================
 
-function formatHourlyTo24(hourlyData: { hour: string; sales: number; checksCount: number }[]): { hour: string; sales: number; checksCount: number }[] {
+function formatHourlyTo24(
+  hourlyData: { hour: string; sales: number; checksCount: number }[],
+  existingHourly?: any[]
+): any[] {
+  // Build lookup of existing projected/laborPercent/laborCost values
+  const existingMap = new Map<string, any>();
+  if (existingHourly) {
+    for (const h of existingHourly) {
+      if (h?.hour) existingMap.set(h.hour, h);
+    }
+  }
+  
   const formatted = [];
   for (let h = 0; h < 24; h++) {
     const hourStr = `${h.toString().padStart(2, '0')}:00`;
     const hourData = hourlyData.find(hd => hd.hour === hourStr);
-    formatted.push({
+    const existing = existingMap.get(hourStr);
+    const entry: any = {
       hour: hourStr,
       sales: hourData?.sales || 0,
       checksCount: hourData?.checksCount || 0
-    });
+    };
+    // Preserve projected values from existing cache (set by fetch-qubeyond-sales)
+    if (existing?.projected != null && existing.projected > 0) {
+      entry.projected = existing.projected;
+    }
+    if (existing?.laborPercent != null) {
+      entry.laborPercent = existing.laborPercent;
+    }
+    if (existing?.laborCost != null) {
+      entry.laborCost = existing.laborCost;
+    }
+    formatted.push(entry);
   }
   return formatted;
 }
@@ -471,18 +494,20 @@ async function fetchAllSalesData(
   yoyHourlyData: any[] | null;
   yoySaleDate: string | null;
 }> {
-  // Fetch API data + YOY from cache in parallel
-  const [hourlyData, pmResult, paymentsData, yoyData] = await Promise.all([
+  // Fetch API data + YOY + existing cache (for projection preservation) in parallel
+  const [hourlyData, pmResult, paymentsData, yoyData, existingCache] = await Promise.all([
     fetchHourlySales(tokenGw, dateStr, qbLocationId),
     fetchProductMix(tokenGw, dateStr, qbLocationId),
     fetchPaymentsData(tokenGw, dateStr, qbLocationId),
     getYOYFromCache(supabase, locationId, dateStr),
+    supabase.from('sales_cache').select('hourly_data').eq('location_id', locationId).eq('sale_date', dateStr).maybeSingle(),
   ]);
 
   const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
   const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
   const avgTicket = guestCount > 0 ? netSales / guestCount : null;
-  const formattedHourly = formatHourlyTo24(hourlyData);
+  const existingHourly = existingCache?.data?.hourly_data as any[] | undefined;
+  const formattedHourly = formatHourlyTo24(hourlyData, existingHourly);
 
   return {
     netSales,
