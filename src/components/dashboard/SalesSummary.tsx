@@ -1147,11 +1147,19 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   };
 
   const navigateDay = (direction: 'prev' | 'next') => {
-    setTargetDate(prev => direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1));
+    setTargetDateStr(prev => {
+      const d = new Date(prev + 'T12:00:00');
+      const next = direction === 'prev' ? subDays(d, 1) : addDays(d, 1);
+      return format(next, 'yyyy-MM-dd');
+    });
   };
 
   const navigateWeek = (direction: 'prev' | 'next') => {
-    setTargetDate(prev => direction === 'prev' ? subWeeks(prev, 1) : addWeeks(prev, 1));
+    setTargetDateStr(prev => {
+      const d = new Date(prev + 'T12:00:00');
+      const next = direction === 'prev' ? subWeeks(d, 1) : addWeeks(d, 1);
+      return format(next, 'yyyy-MM-dd');
+    });
   };
 
   // Calculate Target EOW (AI Goal): sum of all daily projections for the week
@@ -1327,7 +1335,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   ]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
-    setTargetDate(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
+    setTargetDateStr(prev => {
+      const d = new Date(prev + 'T12:00:00');
+      const next = direction === 'prev' ? subMonths(d, 1) : addMonths(d, 1);
+      return format(next, 'yyyy-MM-dd');
+    });
   };
 
   const getChangePercent = (current: number, previous: number) => {
