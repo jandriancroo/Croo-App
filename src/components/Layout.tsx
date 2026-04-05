@@ -298,6 +298,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const [showOrgBubble, setShowOrgBubble] = useState(false); // Popup bubble for long-press
   const [showCompactDashboard, setShowCompactDashboard] = useState(false); // Swipe-up compact dashboard
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
+  const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');
+  const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
 
   // Show version toast after "Update App" reload
   useEffect(() => {
