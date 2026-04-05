@@ -17,10 +17,8 @@ import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCach
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { DateNavigator } from '@/components/ui/date-navigator';
 import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
-import { ProjectionTag } from '@/components/ui/projection-tag';
 
 interface SalesData {
   daily: number;
@@ -71,35 +69,13 @@ interface DiagnosticInfo {
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
-  const { getBusinessDateInTimezone, getDateInTimezone, timezone } = useLocationTimezone();
+  const { getBusinessDateInTimezone, timezone } = useLocationTimezone();
   const locationZone = timezone || 'America/Los_Angeles';
 
-  const parseBusinessDate = useCallback((dateStr: string) => {
+  const toBusinessDateTime = useCallback((dateStr: string) => {
     const parsed = DateTime.fromFormat(dateStr, 'yyyy-MM-dd', { zone: locationZone });
     return parsed.isValid ? parsed.startOf('day') : DateTime.now().setZone(locationZone).startOf('day');
   }, [locationZone]);
-
-  const formatBusinessDate = useCallback((dateStr: string, formatStr: string) => {
-    const parsed = parseBusinessDate(dateStr);
-    return parsed.isValid ? parsed.toFormat(formatStr) : dateStr;
-  }, [parseBusinessDate]);
-
-  const getWeekStartDate = useCallback((dateStr: string) => {
-    const parsed = parseBusinessDate(dateStr);
-    return parsed.minus({ days: parsed.weekday - 1 }).startOf('day');
-  }, [parseBusinessDate]);
-
-  const getWeekEndDate = useCallback((dateStr: string) => {
-    return getWeekStartDate(dateStr).plus({ days: 6 }).startOf('day');
-  }, [getWeekStartDate]);
-
-  const getMonthStartDate = useCallback((dateStr: string) => {
-    return parseBusinessDate(dateStr).startOf('month');
-  }, [parseBusinessDate]);
-
-  const getMonthEndDate = useCallback((dateStr: string) => {
-    return parseBusinessDate(dateStr).endOf('month').startOf('day');
-  }, [parseBusinessDate]);
 
   // Store target as a date STRING (yyyy-MM-dd) in the location's timezone
   // to avoid cross-timezone Date object mismatches.
@@ -129,7 +105,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return stored ? new Date(stored) : null;
     } catch { return null; }
   });
-  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const visibilityRefreshInterval = useRef<NodeJS.Timeout | null>(null);
 
   const formatCurrency = (amount: number) => {
@@ -150,31 +125,28 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     }).format(amount);
   };
 
-  // Timezone-aware date string: uses location timezone, NOT browser local time
-  const getDateString = (date: Date) => {
-    return getDateInTimezone(date);
-  };
-
   // Timezone-aware "today" string for comparisons
   const todayTzStr = getBusinessDateInTimezone();
   const isToday = targetDateStr === todayTzStr;
-  const targetDateTime = useMemo(() => parseBusinessDate(targetDateStr), [parseBusinessDate, targetDateStr]);
-  const todayDateTime = useMemo(() => parseBusinessDate(todayTzStr), [parseBusinessDate, todayTzStr]);
-  const targetWeekStart = useMemo(() => getWeekStartDate(targetDateStr), [getWeekStartDate, targetDateStr]);
-  const targetWeekEnd = useMemo(() => getWeekEndDate(targetDateStr), [getWeekEndDate, targetDateStr]);
+  const targetDateTime = useMemo(() => toBusinessDateTime(targetDateStr), [targetDateStr, toBusinessDateTime]);
+  const todayDateTime = useMemo(() => toBusinessDateTime(todayTzStr), [todayTzStr, toBusinessDateTime]);
+  const targetWeekStart = useMemo(() => targetDateTime.minus({ days: targetDateTime.weekday - 1 }).startOf('day'), [targetDateTime]);
+  const targetWeekEnd = useMemo(() => targetWeekStart.plus({ days: 6 }).startOf('day'), [targetWeekStart]);
   const targetWeekStartStr = useMemo(() => targetWeekStart.toFormat('yyyy-MM-dd'), [targetWeekStart]);
   const targetWeekEndStr = useMemo(() => targetWeekEnd.toFormat('yyyy-MM-dd'), [targetWeekEnd]);
-  const isCurrentWeek = useMemo(() => targetWeekStartStr === getWeekStartDate(todayTzStr).toFormat('yyyy-MM-dd'), [getWeekStartDate, targetWeekStartStr, todayTzStr]);
+  const todayWeekStartStr = useMemo(() => todayDateTime.minus({ days: todayDateTime.weekday - 1 }).toFormat('yyyy-MM-dd'), [todayDateTime]);
+  const isCurrentWeek = useMemo(() => targetWeekStartStr === todayWeekStartStr, [targetWeekStartStr, todayWeekStartStr]);
   const isCurrentMonth = useMemo(() => targetDateTime.hasSame(todayDateTime, 'month'), [targetDateTime, todayDateTime]);
 
   // Check database cache for historical dates
   const checkDatabaseCache = async (dateStr: string): Promise<SalesData | null> => {
     if (!currentLocation?.id) return null;
     
-    const weekStart = getWeekStartDate(dateStr);
-    const weekEnd = getWeekEndDate(dateStr);
-    const monthStart = getMonthStartDate(dateStr);
-    const monthEnd = getMonthEndDate(dateStr);
+    const targetDateTime = toBusinessDateTime(dateStr);
+    const weekStart = targetDateTime.minus({ days: targetDateTime.weekday - 1 }).startOf('day');
+    const weekEnd = weekStart.plus({ days: 6 }).startOf('day');
+    const monthStart = targetDateTime.startOf('month');
+    const monthEnd = targetDateTime.endOf('month').startOf('day');
 
     const weekStartStr = weekStart.toFormat('yyyy-MM-dd');
     const weekEndStr = weekEnd.toFormat('yyyy-MM-dd');
@@ -851,7 +823,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     } as SalesData;
   }, [isTodayQuery, currentLocation?.id, targetDateStr, queryClient]);
   
-  const { data: rawSalesData, isLoading, refetch, dataUpdatedAt } = useQuery({
+  const { data: rawSalesData, isLoading, refetch } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, targetDateStr],
     queryFn: async () => {
       // For today, check if we have fresh cached data (< 3 min old)
@@ -973,21 +945,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       }
     };
   }, [currentLocation?.id, isToday, refetch]);
-
-  // Manual refresh handler
-  const handleManualRefresh = useCallback(async () => {
-    if (isManualRefreshing) return;
-    
-    setIsManualRefreshing(true);
-    try {
-      await refetch();
-      toast.success('Sales data refreshed');
-    } catch (error) {
-      console.error('Manual refresh failed:', error);
-    } finally {
-      setIsManualRefreshing(false);
-    }
-  }, [refetch, isManualRefreshing]);
 
   // Calculate how long ago data was fetched
   const dataAgeText = useMemo(() => {
@@ -1116,7 +1073,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const weeklyBuckets: Array<{ weekStart: DateTime; sales: number; projected: number; daysInMonth: number; firstDayInMonth: DateTime; lastDayInMonth: DateTime }> = [];
     
     salesData.monthlyBreakdown.forEach(day => {
-      const date = parseBusinessDate(day.date);
+      const date = toBusinessDateTime(day.date);
       
       // Only include days that are in the viewing month
       if (date.month !== viewingMonth || date.year !== viewingYear) {
@@ -1163,10 +1120,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           ? bucket.firstDayInMonth.toFormat('MMM d')
           : `${bucket.firstDayInMonth.toFormat('MMM d')} - ${bucket.lastDayInMonth.toFormat('MMM d')}`
       }));
-  }, [parseBusinessDate, salesData?.monthlyBreakdown, salesData?.weeklyBreakdown, targetDateTime]);
+  }, [salesData?.monthlyBreakdown, salesData?.weeklyBreakdown, targetDateTime, toBusinessDateTime]);
 
   const VIEW_MODES = ['today', 'week', 'month'] as const;
-  const VIEW_LABELS: Record<string, string> = { today: 'Today', week: 'Week', month: 'Month' };
   const cycleView = (direction: 'prev' | 'next') => {
     const idx = VIEW_MODES.indexOf(activeTab as any);
     const next = direction === 'next'
@@ -1178,8 +1134,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const navigateDay = (direction: 'prev' | 'next') => {
     setTargetDateStr(prev => {
       const next = direction === 'prev'
-        ? parseBusinessDate(prev).minus({ days: 1 })
-        : parseBusinessDate(prev).plus({ days: 1 });
+        ? toBusinessDateTime(prev).minus({ days: 1 })
+        : toBusinessDateTime(prev).plus({ days: 1 });
       return next.toFormat('yyyy-MM-dd');
     });
   };
@@ -1187,8 +1143,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const navigateWeek = (direction: 'prev' | 'next') => {
     setTargetDateStr(prev => {
       const next = direction === 'prev'
-        ? parseBusinessDate(prev).minus({ weeks: 1 })
-        : parseBusinessDate(prev).plus({ weeks: 1 });
+        ? toBusinessDateTime(prev).minus({ weeks: 1 })
+        : toBusinessDateTime(prev).plus({ weeks: 1 });
       return next.toFormat('yyyy-MM-dd');
     });
   };
@@ -1240,10 +1196,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected, salesData?.projections?.todayPaceAdjusted, isToday]);
 
   // Calculate accumulated week delta: Pace - Target (the difference between trending and goal)
-  const accumulatedWeekDelta = useMemo(() => {
-    return calculatedWeekPace - calculatedWeekProjected;
-  }, [calculatedWeekPace, calculatedWeekProjected]);
-
   // Calculate Month Projected (Goal): sum of all daily projections
   const calculatedMonthProjected = useMemo(() => {
     if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) {
@@ -1288,10 +1240,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   }, [salesData?.monthlyBreakdown, salesData?.projections?.monthProjected, salesData?.projections?.todayPaceAdjusted, isToday]);
 
   // Calculate accumulated month delta: Pace - Target (the difference between trending and goal)
-  const accumulatedMonthDelta = useMemo(() => {
-    return calculatedMonthPace - calculatedMonthProjected;
-  }, [calculatedMonthPace, calculatedMonthProjected]);
-
   // Notify parent component when sales data changes (for data cubes to use)
   // Include pace-adjusted values that are calculated in the useMemo hooks above.
   // Also avoid infinite update loops by only emitting when the underlying values change.
@@ -1368,8 +1316,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const navigateMonth = (direction: 'prev' | 'next') => {
     setTargetDateStr(prev => {
       const next = direction === 'prev'
-        ? parseBusinessDate(prev).minus({ months: 1 })
-        : parseBusinessDate(prev).plus({ months: 1 });
+        ? toBusinessDateTime(prev).minus({ months: 1 })
+        : toBusinessDateTime(prev).plus({ months: 1 });
       return next.toFormat('yyyy-MM-dd');
     });
   };
@@ -1377,35 +1325,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const getChangePercent = (current: number, previous: number) => {
     if (previous === 0) return null; // Can't calculate % change from 0
     return ((current - previous) / previous) * 100;
-  };
-
-  const ComparisonBadge = ({ current, previous, label, previousFullDay }: { current: number; previous: number; label: string; previousFullDay?: number }) => {
-    // Try to calculate change - prefer previous, fall back to previousFullDay for historical days
-    let change = getChangePercent(current, previous);
-    
-    // If previous is 0 but we have full day data, use that for comparison
-    if (change === null && previousFullDay && previousFullDay > 0 && current > 0) {
-      change = getChangePercent(current, previousFullDay);
-    }
-    
-    // Don't show badge if we can't calculate a meaningful change
-    if (change === null) return null;
-    
-    const isPositive = change >= 0;
-    
-    return (
-      <div className="flex items-center gap-1 text-xs whitespace-nowrap">
-        {isPositive ? (
-          <TrendingUp className="h-3 w-3 text-green-500 flex-shrink-0" />
-        ) : (
-          <TrendingDown className="h-3 w-3 text-red-500 flex-shrink-0" />
-        )}
-        <span className={isPositive ? "text-green-500" : "text-red-500"}>
-          {isPositive ? "+" : ""}{change.toFixed(1)}%
-        </span>
-        <span className="text-muted-foreground">vs {label}</span>
-      </div>
-    );
   };
 
   const hasLaborData = !!(salesData?.labor && salesData.labor.laborPercent > 0);
@@ -1572,7 +1491,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 >
                   <span className="text-base md:text-lg text-primary-foreground font-semibold whitespace-nowrap">
                     {activeTab === 'today'
-                      ? (isToday ? 'Today' : formatBusinessDate(targetDateStr, 'cccc, MMM d'))
+                      ? (isToday ? 'Today' : targetDateTime.toFormat('cccc, MMM d'))
                       : activeTab === 'week'
                         ? (isCurrentWeek
                           ? 'This Week'
@@ -1976,7 +1895,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
                   <ComposedChart data={salesData.weeklyBreakdown.map(d => ({
                     ...d,
-                    label: formatBusinessDate(d.date, 'ccc')
+                    label: toBusinessDateTime(d.date).toFormat('ccc')
                   }))} barCategoryGap="20%">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                     <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} axisLine={false} tickLine={false} />
@@ -1988,7 +1907,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                         const hasWeeklyLabor = salesData?.weeklyLabor && salesData.weeklyLabor.laborPercent > 0;
                         return (
                           <div className="bg-card border border-border rounded-md p-2 shadow-lg">
-                            <p className="font-medium">{data?.date ? formatBusinessDate(data.date, 'cccc, MMM d') : ''}</p>
+                            <p className="font-medium">{data?.date ? toBusinessDateTime(data.date).toFormat('cccc, MMM d') : ''}</p>
                             <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
                             <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
                             {hasWeeklyLabor && data?.laborPercent !== undefined && data.laborPercent > 0 && (
@@ -2184,7 +2103,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   <ResponsiveContainer width="100%" height={280}>
                     <ComposedChart data={salesData.monthlyBreakdown.map(d => ({
                       ...d,
-                      label: formatBusinessDate(d.date, 'd')
+                      label: toBusinessDateTime(d.date).toFormat('d')
                     }))} barCategoryGap="5%">
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                       <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} interval={2} axisLine={false} tickLine={false} />
@@ -2195,7 +2114,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                           const data = payload[0]?.payload;
                           return (
                             <div className="bg-card border border-border rounded-md p-2 shadow-lg">
-                              <p className="font-medium">{data?.date ? formatBusinessDate(data.date, 'cccc, MMM d') : ''}</p>
+                              <p className="font-medium">{data?.date ? toBusinessDateTime(data.date).toFormat('cccc, MMM d') : ''}</p>
                               <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
                               <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
                             </div>
