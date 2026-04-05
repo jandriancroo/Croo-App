@@ -411,13 +411,14 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Address</Label>
+                    <Label>Address *</Label>
                     <Textarea
                       placeholder="123 Main St, City, State ZIP"
                       value={address}
                       onChange={e => setAddress(e.target.value)}
                       rows={2}
                     />
+                    <p className="text-[10px] text-muted-foreground">Required — used to auto-detect timezone and labor rules</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Timezone</Label>
