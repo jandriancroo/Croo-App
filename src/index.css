@@ -523,11 +523,9 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 
   @media (display-mode: standalone) {
     html {
-      /* Use min-height, NOT height — a fixed height on <html> prevents
-         body content from overflowing and scrolling naturally on iOS. */
       min-height: -webkit-fill-available;
-      /* No overscroll-behavior-y: none — keep native iOS rubber-band bounce.
-         PullToRefresh component handles the pull-down refresh gesture. */
+      /* Kill native rubber-band bounce — our custom PullToRefresh handles refresh */
+      overscroll-behavior: none;
     }
     body {
       min-height: 100dvh;
@@ -815,12 +813,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     left: 0;
     right: 0;
     z-index: 50;
-    /* Use GPU acceleration for stable positioning */
-    -webkit-transform: translate3d(0, 0, 0);
-    transform: translate3d(0, 0, 0);
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    will-change: transform;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   /* Dock button with GPU-accelerated bounce animation */
