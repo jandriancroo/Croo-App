@@ -1111,11 +1111,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 </div>
                 <Button variant="outline" onClick={() => {
                   setMenuOpen(false);
-                  toast.info('Checking for updates...');
+                  const prevVersion = getCurrentAppVersion();
+                  sessionStorage.setItem('pre_update_version', prevVersion);
+                  toast.info('Updating app...');
                   setTimeout(() => window.location.reload(), 500);
                 }} className="justify-start gap-3 h-11">
                   <RefreshCw className="h-5 w-5" />
-                  <span className="text-base">Check for Update</span>
+                  <span className="text-base">Update App</span>
                 </Button>
 
                 <Button variant="outline" onClick={() => {
