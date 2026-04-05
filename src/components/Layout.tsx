@@ -29,20 +29,6 @@ import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
 
-  // Show version toast after "Update App" reload
-  useEffect(() => {
-    const prevVersion = sessionStorage.getItem('pre_update_version');
-    if (prevVersion) {
-      sessionStorage.removeItem('pre_update_version');
-      const newVersion = getCurrentAppVersion();
-      if (newVersion !== 'unknown' && prevVersion !== newVersion) {
-        toast.success(`Updated from v${prevVersion} to v${newVersion}`);
-      } else {
-        toast.info(`Already on latest version (v${newVersion})`);
-      }
-    }
-  }, []);
-
 interface LayoutProps {
   children: ReactNode;
 }
