@@ -2,7 +2,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
-import { Loader2, UserPlus, FlaskConical, RefreshCw } from 'lucide-react';
+import { Loader2, UserPlus, FlaskConical, RefreshCw, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserManagementData } from '@/hooks/useUserManagementData';
 import { UserManagementTable } from '@/components/users/UserManagementTable';
@@ -41,7 +41,13 @@ export default function UserManagement() {
                       <span className="hidden sm:inline">Add Test Employee</span>
                     </Button>
                   )}
-                  {data.outdatedUsers.length > 0 && (
+                  {data.isSuperAdmin && (
+                    <Button variant="outline" className="gap-2" onClick={data.handleUpdateAllOutdatedGlobal} disabled={data.updatingOutdated}>
+                      {data.updatingOutdated ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                      <span className="hidden sm:inline">Update All Users</span>
+                    </Button>
+                  )}
+                  {data.outdatedUsers.length > 0 && !data.isSuperAdmin && (
                     <Button variant="outline" className="gap-2" onClick={data.handleUpdateAllOutdated} disabled={data.updatingOutdated}>
                       {data.updatingOutdated ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                       <span className="hidden sm:inline">Update {data.outdatedUsers.length} Outdated</span>
