@@ -17,7 +17,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get all active brands
     const { data: brands } = await supabase
       .from("brands")
       .select("id, name")
@@ -35,9 +34,10 @@ serve(async (req) => {
       // Get existing templates for this brand
       const { data: templates } = await supabase
         .from("brand_inventory_templates")
-        .select("item_number, pa_item_id")
+        .select("id, item_number, pa_item_id")
         .eq("brand_id", brand.id);
 
+      const templateIds = (templates || []).map(t => t.id);
       const existingPfgNumbers = new Set(
         (templates || []).map(t => t.item_number).filter(Boolean)
       );
@@ -45,10 +45,21 @@ serve(async (req) => {
         (templates || []).map(t => t.pa_item_id).filter(Boolean)
       );
 
+      // Also check brand_vendor_mappings for ALL mapped vendor IDs
+      let existingVendorIds = new Set<string>();
+      if (templateIds.length > 0) {
+        const { data: mappings } = await supabase
+          .from("brand_vendor_mappings")
+          .select("vendor_item_id")
+          .in("brand_template_id", templateIds);
+        existingVendorIds = new Set(
+          (mappings || []).map(m => String(m.vendor_item_id || "").trim()).filter(Boolean)
+        );
+      }
+
       let newItemCount = 0;
 
-      // --- PFG Scan ---
-      // Find a location with PFG credentials for this brand
+      // --- PFG Scan (Bid Guide) ---
       const { data: orgs } = await supabase
         .from("organizations")
         .select("id")
@@ -79,7 +90,6 @@ serve(async (req) => {
 
             if (accessToken && customerId) {
               try {
-                // Call PFG API for bid guide
                 const bidRes = await fetch(
                   `https://www3.pfgc.com/api/ecommerce/v3/customers/${customerId}/bidguide?pageSize=500&currentPage=1`,
                   {
@@ -96,9 +106,10 @@ serve(async (req) => {
 
                   for (const item of bidItems) {
                     const itemNumber = String(item.itemNumber || "").trim();
-                    if (!itemNumber || existingPfgNumbers.has(itemNumber)) continue;
+                    if (!itemNumber) continue;
+                    // Check all three sources
+                    if (existingPfgNumbers.has(itemNumber) || existingVendorIds.has(itemNumber)) continue;
 
-                    // Upsert into vendor_gap_alerts
                     const { error } = await supabase
                       .from("vendor_gap_alerts")
                       .upsert(
@@ -125,24 +136,10 @@ serve(async (req) => {
               }
             }
           }
-        }
-      }
 
-      // --- PA Scan ---
-      // Read from pa_catalog_items table (populated by headless scraper from restaurantOrderSort.jsp)
-      // Falls back to DB order history if no catalog data exists
-      if (orgs?.length) {
-        const orgIds = orgs.map(o => o.id);
-        const { data: locs } = await supabase
-          .from("locations")
-          .select("id")
-          .in("organization_id", orgIds);
-
-        if (locs?.length) {
-          const locIds = locs.map(l => l.id);
+          // --- PA Scan (Catalog only — no order history fallback) ---
           const seenPaItems = new Map<string, any>();
 
-          // Primary source: pa_catalog_items (scraped from restaurantOrderSort.jsp)
           for (const locId of locIds) {
             const { data: catalogItems } = await supabase
               .from("pa_catalog_items")
@@ -150,60 +147,20 @@ serve(async (req) => {
               .eq("location_id", locId);
 
             if (catalogItems?.length) {
-              console.log(`[vendor-gap-scan] PA catalog has ${catalogItems.length} items for location ${locId}`);
               for (const item of catalogItems) {
                 const paId = String(item.pa_item_id || "").trim();
-                if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
+                if (!paId || existingPaIds.has(paId) || existingVendorIds.has(paId) || seenPaItems.has(paId)) continue;
                 seenPaItems.set(paId, {
-                  itemId: paId,
                   description: item.description,
-                  packSize: item.pack_size,
+                  pack_size: item.pack_size,
                   category: item.category,
-                  unitPrice: item.unit_price,
+                  unit_price: item.unit_price,
                 });
               }
             }
           }
 
-          // Fallback: also check DB orders for any items the catalog didn't have
-          const { data: paOrders } = await supabase
-            .from("produce_alliance_orders")
-            .select("items")
-            .in("location_id", locIds)
-            .not("items", "is", null)
-            .order("delivery_date", { ascending: false })
-            .limit(100);
-
-          for (const order of paOrders || []) {
-            const items = order.items as any[];
-            if (!Array.isArray(items)) continue;
-            for (const item of items) {
-              const paId = String(item.itemId || item.item_id || "").trim();
-              if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
-              seenPaItems.set(paId, item);
-            }
-          }
-
-          // Also check pa_orders table
-          const { data: paOrdersV2 } = await supabase
-            .from("pa_orders")
-            .select("items")
-            .in("location_id", locIds)
-            .not("items", "is", null)
-            .order("delivery_date", { ascending: false })
-            .limit(100);
-
-          for (const order of paOrdersV2 || []) {
-            const items = order.items as any[];
-            if (!Array.isArray(items)) continue;
-            for (const item of items) {
-              const paId = String(item.itemId || item.item_id || item.pa_product_id || "").trim();
-              if (!paId || existingPaIds.has(paId) || seenPaItems.has(paId)) continue;
-              seenPaItems.set(paId, item);
-            }
-          }
-
-          console.log(`[vendor-gap-scan] PA total unique items found: ${seenPaItems.size}`);
+          console.log(`[vendor-gap-scan] PA catalog unique items: ${seenPaItems.size}`);
 
           for (const [paId, item] of seenPaItems) {
             const { error } = await supabase
@@ -213,9 +170,9 @@ serve(async (req) => {
                   brand_id: brand.id,
                   vendor_source: "pa",
                   item_number: paId,
-                  vendor_name: item.description || item.name || "",
+                  vendor_name: item.description || "",
                   vendor_description: item.description || "",
-                  pack_size: item.packSize || item.pack_size || "",
+                  pack_size: item.pack_size || "",
                   category_name: item.category || "",
                   status: "new",
                 },
