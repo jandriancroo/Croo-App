@@ -170,18 +170,25 @@ export default function InventoryCountTab({
               const cogsPct = count._stats?.cogsPct;
               
 
+              const isMonthly = count.period_type === "monthly";
+
               return (
                 <div key={count.id} className="flex flex-col items-center" data-active={isActive}
-                  style={{ minWidth: 88, flex: "0 0 88px" }}>
+                  style={{ minWidth: isMonthly ? 78 : 88, flex: isMonthly ? "0 0 78px" : "0 0 88px" }}>
                   <button
                     onClick={() => setSelectedIdx(idx)}
                     className={`
-                      w-full px-1.5 py-1.5 rounded-xl border transition-all duration-200 relative h-[54px]
+                      w-full px-1.5 rounded-xl border transition-all duration-200 relative
+                      ${isMonthly ? "py-2.5 h-[68px]" : "py-1.5 h-[54px]"}
                       ${isActive
                         ? "bg-primary text-primary-foreground border-primary shadow-md"
-                        : isCompleted
-                          ? "bg-muted/60 text-muted-foreground border-border/30"
-                          : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
+                        : isMonthly
+                          ? isCompleted
+                            ? "bg-muted/80 text-muted-foreground border-border/50 shadow-sm"
+                            : "bg-card text-foreground border-border/60 hover:bg-muted/40 shadow-sm"
+                          : isCompleted
+                            ? "bg-muted/60 text-muted-foreground border-border/30"
+                            : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
                       }
                     `}
                   >
