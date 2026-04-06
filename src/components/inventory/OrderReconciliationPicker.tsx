@@ -154,6 +154,9 @@ export default function OrderReconciliationPicker({
           boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
             ? periodLabelMap.get(o.bound_to_count_id)
             : undefined,
+          boundPeriodType: o.bound_to_count_id && o.bound_to_count_id !== countId
+            ? periodTypeMap.get(o.bound_to_count_id)
+            : undefined,
         })),
         ...(paResult.data || []).map((o: any) => ({
           id: `pa_${o.id}`,
@@ -166,6 +169,9 @@ export default function OrderReconciliationPicker({
           isInheritedFromChild: !!o.bound_to_count_id && inheritedChildCountIds.has(o.bound_to_count_id),
           boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
             ? periodLabelMap.get(o.bound_to_count_id)
+            : undefined,
+          boundPeriodType: o.bound_to_count_id && o.bound_to_count_id !== countId
+            ? periodTypeMap.get(o.bound_to_count_id)
             : undefined,
         })),
         ...(invResult.data || []).map((o: any) => ({
@@ -180,6 +186,9 @@ export default function OrderReconciliationPicker({
           isInheritedFromChild: !!o.inventory_count_id && inheritedChildCountIds.has(o.inventory_count_id),
           boundPeriodLabel: o.inventory_count_id && o.inventory_count_id !== countId
             ? periodLabelMap.get(o.inventory_count_id)
+            : undefined,
+          boundPeriodType: o.inventory_count_id && o.inventory_count_id !== countId
+            ? periodTypeMap.get(o.inventory_count_id)
             : undefined,
         })),
       ];
