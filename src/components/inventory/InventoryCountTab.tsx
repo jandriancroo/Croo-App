@@ -157,7 +157,7 @@ export default function InventoryCountTab({
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
 
-          <div ref={tabsRef} className="flex gap-0 overflow-x-auto flex-1 items-end" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <div ref={tabsRef} className="flex gap-1 overflow-x-auto flex-1 items-end" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {filteredCounts.map((count, idx) => {
               const isActive = idx === safeIdx;
               const effectiveEnd = getEffectivePeriodEndDate(count) || count.period_end_date;
@@ -166,7 +166,6 @@ export default function InventoryCountTab({
               const isInProgress = count.status === "in_progress" && hasCountedItems;
               const isCompleted = count.status === "completed";
               const isUpcoming = !!count._isUpcoming || (count.status === "in_progress" && !hasCountedItems);
-              const cogsPct = count._stats?.cogsPct;
               const isMonthly = count.period_type === "monthly";
 
               return (
@@ -174,49 +173,46 @@ export default function InventoryCountTab({
                   key={count.id}
                   data-active={isActive}
                   onClick={() => setSelectedIdx(idx)}
-                  animate={{ height: isActive ? 64 : isMonthly ? 54 : 46 }}
+                  animate={{
+                    height: isActive ? 68 : isMonthly ? 58 : 48,
+                  }}
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   className={`
-                    flex-shrink-0 transition-colors flex items-center justify-center relative
+                    flex-shrink-0 transition-colors flex items-center justify-center relative rounded-t-xl
                     ${isActive
-                      ? "bg-card text-foreground rounded-t-2xl min-w-[100px] px-3 shadow-md z-10 border-2 border-b-0 border-primary -mb-[5px] pb-[5px]"
-                      : "bg-muted/30 text-muted-foreground rounded-t-lg min-w-[72px] px-2 hover:bg-muted/50 border-b border-border/20"
+                      ? "bg-card text-foreground border border-border border-b-0 shadow-sm -mb-[1px] z-10 min-w-[108px] px-3"
+                      : isMonthly
+                        ? "bg-muted/40 text-muted-foreground border border-border/30 border-b-0 min-w-[72px] px-2"
+                        : "bg-muted/30 text-muted-foreground border border-border/20 border-b-0 min-w-[80px] px-2 hover:bg-muted/50"
                     }
-                    ${isMonthly && !isActive ? "min-w-[68px] bg-muted/50" : ""}
                   `}
                 >
                   {/* Left accent bar for upcoming/in-progress */}
                   {(isUpcoming || isInProgress) && !isActive && (
-                    <div className={`absolute left-1 top-2 bottom-2 w-[2.5px] rounded-full ${
+                    <div className={`absolute left-1.5 top-2 bottom-2 w-[2.5px] rounded-full ${
                       isInProgress ? "bg-amber-400" : "bg-emerald-400"
                     } animate-pulse`} />
                   )}
 
-                  <div className="flex flex-col items-center gap-0">
+                  <div className="flex flex-col items-center gap-0.5">
                     <span className={`text-[8px] uppercase font-bold tracking-widest ${
-                      isActive ? "text-primary/50" : "text-muted-foreground/40"
+                      isActive ? "text-primary" : "text-muted-foreground/40"
                     }`}>
-                      {isMonthly ? "Mo" : "Wk"}
+                      {isMonthly ? "Month" : "Week"}
                     </span>
-                    <span className={`text-xs font-bold whitespace-nowrap flex items-center gap-0.5 ${
-                      isActive ? "text-sm text-foreground" : isCompleted ? "text-muted-foreground" : ""
+                    <span className={`text-sm font-bold whitespace-nowrap flex items-center gap-0.5 ${
+                      !isActive && isCompleted ? "text-muted-foreground/60" : ""
                     }`}>
                       {isMonthly ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
-                      {isCompleted && !isActive && (
-                        <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500/40 flex-shrink-0" />
-                      )}
                     </span>
-                    {isActive && cogsPct != null && (
-                      <span className="text-[10px] font-semibold text-primary/70">
-                        {cogsPct.toFixed(1)}%
-                      </span>
+                    {!isActive && isCompleted && (
+                      <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500/30" />
                     )}
                   </div>
                 </motion.button>
               );
             })}
           </div>
-
           <button
             onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: 200, behavior: "smooth" }); }}
             className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
