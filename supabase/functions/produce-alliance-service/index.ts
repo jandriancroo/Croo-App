@@ -2127,7 +2127,111 @@ async function handleSaveCatalog(supabase: any, body: any): Promise<Response> {
   }
 
   console.log(`[PA Catalog] ✅ Saved ${saved} catalog items`);
+
+  // Auto-seed alternate PA IDs into brand_vendor_mappings
+  await autoSeedPaVendorMappings(supabase, items);
+
   return jsonResponse({ success: true, saved });
+}
+
+
+// ── Auto-seed PA catalog IDs into brand_vendor_mappings ─────────
+async function autoSeedPaVendorMappings(supabase: any, items: Array<{ pa_item_id: string; description: string; [key: string]: any }>) {
+  try {
+    if (!items?.length) return;
+
+    // Get all live PA brand templates
+    const { data: templates } = await supabase
+      .from('brand_inventory_templates')
+      .select('id, product_name, pa_item_id')
+      .eq('vendor_source', 'produce_alliance')
+      .eq('status', 'live');
+
+    if (!templates?.length) return;
+
+    // Get existing vendor mappings to avoid duplicates
+    const templateIds = templates.map((t: any) => t.id);
+    const { data: existingMappings } = await supabase
+      .from('brand_vendor_mappings')
+      .select('brand_template_id, vendor_item_id')
+      .eq('vendor', 'pa')
+      .in('brand_template_id', templateIds);
+
+    const existingSet = new Set(
+      (existingMappings || []).map((m: any) => `${m.brand_template_id}:${m.vendor_item_id}`)
+    );
+
+    // Build name-matching map (brand product_name → template)
+    // Include common PA naming convention mappings
+    const nameMap = new Map<string, { id: string; pa_item_id: string }>();
+    for (const t of templates) {
+      nameMap.set(t.product_name.toLowerCase(), t);
+    }
+
+    // PA uses "Category, Description" format — build reverse lookup patterns
+    const paNamePatterns: Array<{ pattern: string; templateName: string }> = [
+      { pattern: 'lettuce, romaine', templateName: 'romaine' },
+      { pattern: 'lettuce, arcadian', templateName: 'spring mix' },
+      { pattern: 'herbs, basil', templateName: 'fresh basil' },
+      { pattern: 'spinach, flat leaf', templateName: 'baby spinach' },
+      { pattern: 'tomatoes, grape', templateName: 'grape tomatoes' },
+      { pattern: 'tomatoes, cherry', templateName: 'cherry tomatoes' },
+      { pattern: 'peppers, green', templateName: 'green bell peppers' },
+      { pattern: 'onions, red', templateName: 'red onions' },
+      { pattern: 'mushrooms, sliced', templateName: 'sliced mushrooms' },
+      { pattern: 'pineapple, tidbit', templateName: 'pineapple tidbits' },
+      { pattern: 'broccoli, florets', templateName: 'roasted broccoli' },
+      { pattern: 'squash, zucchini', templateName: 'diced zucchini' },
+    ];
+
+    const inserts: Array<{ brand_template_id: string; vendor: string; vendor_item_id: string }> = [];
+
+    for (const item of items) {
+      const paId = String(item.pa_item_id || '').trim();
+      if (!paId) continue;
+
+      const desc = (item.description || '').toLowerCase();
+      const firstName = desc.split(',')[0]?.trim() || '';
+
+      // Try direct name match first
+      let matched = nameMap.get(firstName);
+
+      // Then try PA naming convention patterns
+      if (!matched) {
+        for (const { pattern, templateName } of paNamePatterns) {
+          if (desc.startsWith(pattern)) {
+            matched = nameMap.get(templateName);
+            if (matched) break;
+          }
+        }
+      }
+
+      if (!matched) continue;
+      // Skip if this is the primary PA ID
+      if (paId === matched.pa_item_id) continue;
+      // Skip if already exists
+      const key = `${matched.id}:${paId}`;
+      if (existingSet.has(key)) continue;
+
+      existingSet.add(key);
+      inserts.push({ brand_template_id: matched.id, vendor: 'pa', vendor_item_id: paId });
+    }
+
+    if (inserts.length > 0) {
+      for (let i = 0; i < inserts.length; i += 50) {
+        const chunk = inserts.slice(i, i + 50);
+        const { error } = await supabase
+          .from('brand_vendor_mappings')
+          .upsert(chunk, { onConflict: 'brand_template_id,vendor,vendor_item_id', ignoreDuplicates: true });
+        if (error) {
+          console.error('[PA Auto-Seed] Upsert error:', error);
+        }
+      }
+      console.log(`[PA Auto-Seed] ✅ Seeded ${inserts.length} alternate PA IDs into brand_vendor_mappings`);
+    }
+  } catch (err) {
+    console.error('[PA Auto-Seed] Error:', err);
+  }
 }
 
 
@@ -2665,6 +2769,10 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   }
 
   console.log(`[PA Catalog Live] ✅ Saved ${saved} items for location ${locationId}`);
+
+  // Auto-seed alternate PA IDs into brand_vendor_mappings
+  await autoSeedPaVendorMappings(supabase, items);
+
   return jsonResponse({ success: true, saved, total: items.length });
 }
 
