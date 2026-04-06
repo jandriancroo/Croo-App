@@ -179,7 +179,7 @@ export default function InventoryCountTab({
                   className={`
                     flex-shrink-0 transition-colors flex items-center justify-center relative
                     ${isActive
-                      ? "bg-card text-foreground rounded-t-2xl min-w-[100px] px-3 shadow-md z-10 border-2 border-b-0 border-primary -mb-[3px] pb-[3px]"
+                      ? "bg-card text-foreground rounded-t-2xl min-w-[100px] px-3 shadow-md z-10 border-2 border-b-0 border-primary -mb-[5px] pb-[5px]"
                       : "bg-muted/30 text-muted-foreground rounded-t-lg min-w-[72px] px-2 hover:bg-muted/50 border-b border-border/20"
                     }
                     ${isMonthly && !isActive ? "min-w-[68px] bg-muted/50" : ""}
@@ -224,7 +224,7 @@ export default function InventoryCountTab({
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
-        <div className="border-t-[3px] border-t-primary -mt-[3px] relative z-0" />
+        
 
         {/* In-progress resume banner (compact, inside detail area) */}
         {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && selectedCount?.id === inProgressWithStats.id && (
@@ -256,7 +256,7 @@ export default function InventoryCountTab({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="[&>div]:rounded-t-none [&>div]:border-t-0"
+              className="border-t-[3px] border-t-primary [&_div.space-y-4>div:first-child]:rounded-t-none [&_div.space-y-4>div:first-child]:border-t-0 [&_div.space-y-4>div:first-child]:-mt-px"
             >
               <PeriodDetailPanel
                 count={selectedCount}
