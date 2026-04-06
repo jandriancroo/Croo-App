@@ -249,7 +249,8 @@ export default function InventoryCountTab({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="[&_div.space-y-4>div:first-child]:rounded-t-none"
+              className="period-detail-flush [&_.rounded-lg]:first:[&>div>div]:rounded-t-none"
+              style={{ marginTop: -1 }}
             >
               <PeriodDetailPanel
                 count={selectedCount}
