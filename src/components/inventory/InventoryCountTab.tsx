@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Plus, ArrowRight, ChevronLeft, ChevronRight,
-  ArrowRightLeft,
+  ArrowRightLeft, Check,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getEffectivePeriodEndDate } from "@/utils/periodLabelUtils";
@@ -149,7 +149,7 @@ export default function InventoryCountTab({
 
       {/* Flush strip + elevated active tabs */}
       <div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-end gap-1 pt-6">
           <button
             onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" }); }}
             className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
@@ -180,10 +180,10 @@ export default function InventoryCountTab({
                   className={`
                     flex-shrink-0 transition-colors flex items-center justify-center relative rounded-t-xl
                     ${isActive
-                      ? "bg-card text-foreground border border-border border-b-0 shadow-sm -mb-[3px] pb-[3px] z-10 min-w-[108px] px-3"
+                      ? "bg-card text-foreground border-2 border-border border-b-0 shadow-sm -mb-[3px] pb-[3px] z-10 min-w-[108px] px-3"
                       : isMonthly
-                        ? "bg-muted/40 text-muted-foreground border border-border/30 border-b-0 min-w-[72px] px-2"
-                        : "bg-muted/30 text-muted-foreground border border-border/20 border-b-0 min-w-[80px] px-2 hover:bg-muted/50"
+                        ? "bg-muted/40 text-muted-foreground border border-border/40 border-b-0 min-w-[72px] px-2"
+                        : "bg-muted/30 text-muted-foreground border border-border/40 border-b-0 min-w-[80px] px-2 hover:bg-muted/50"
                     }
                   `}
                 >
@@ -206,9 +206,9 @@ export default function InventoryCountTab({
                       {isMonthly ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
                     </span>
                   </div>
-                  {/* Green bottom bar for completed periods */}
+                  {/* Checkmark for completed periods */}
                   {!isActive && isCompleted && (
-                    <div className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-emerald-400/50" />
+                    <Check className="absolute top-1 right-1 h-3 w-3 text-emerald-500/60" strokeWidth={3} />
                   )}
                 </motion.button>
               );
