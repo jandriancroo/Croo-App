@@ -231,7 +231,9 @@ export default function OrderReconciliationPicker({
   const toggle = (id: string) => {
     if (!editable) return;
     const order = orders?.find((o) => o.id === id);
-    if (order?.boundToCountId && order.boundToCountId !== countId && !order.isInheritedFromChild) return;
+    // Only lock if bound to another count of the SAME period type
+    if (order?.boundToCountId && order.boundToCountId !== countId && !order.isInheritedFromChild
+      && order.boundPeriodType === currentPeriodType) return;
 
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -253,8 +255,9 @@ export default function OrderReconciliationPicker({
       const invUnbind: string[] = [];
 
       for (const o of orders) {
-        // Skip orders locked to a different (non-child) count
-        if (o.boundToCountId && o.boundToCountId !== countId && !o.isInheritedFromChild) continue;
+        // Skip orders locked to a different count of the SAME period type
+        if (o.boundToCountId && o.boundToCountId !== countId && !o.isInheritedFromChild
+          && o.boundPeriodType === currentPeriodType) continue;
 
         const realId = o.id.replace(/^(pfg_|pa_|inv_)/, "");
         const isSelected = selectedIds.has(o.id);
