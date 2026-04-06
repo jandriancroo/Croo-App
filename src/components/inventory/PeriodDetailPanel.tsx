@@ -355,7 +355,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       }
 
       // For monthly/yearly: aggregate orders from all child weekly counts in the period
-      // For weekly: also include orders bound to a parent monthly count that overlaps
+      // For weekly: do NOT pull orders from parent monthly counts — they are separate accounting periods
       const isAggregatingPeriod = count.period_type === "monthly" || count.period_type === "yearly";
       let relatedCountIds: string[] = [];
       if (isAggregatingPeriod) {
@@ -367,29 +367,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           .gte("period_end_date", periodRange.startStr)
           .lte("period_end_date", periodRange.endStr);
         relatedCountIds = (childCounts || []).map(c => c.id);
-      } else if (count.period_type === "weekly") {
-        // Find parent monthly counts whose period overlaps this weekly period
-        const { data: parentCounts } = await supabase
-          .from("inventory_counts")
-          .select("id, period_end_date, status, counted_at, completed_at")
-          .eq("location_id", locationId)
-          .eq("period_type", "monthly")
-          .eq("status", "completed");
-
-        for (const pc of parentCounts || []) {
-          const effectiveEnd = getEffectivePeriodEndDate(pc) || pc.period_end_date;
-          if (!effectiveEnd) continue;
-          const monthEnd = new Date(effectiveEnd + "T12:00:00");
-          const monthStart = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), 1);
-          const monthStartStr = format(monthStart, "yyyy-MM-dd");
-          // If the weekly period overlaps the monthly period, include parent count
-          if (periodRange.startStr <= effectiveEnd && periodRange.endStr >= monthStartStr) {
-            relatedCountIds.push(pc.id);
-          }
-        }
       }
 
-      // All count IDs to fetch orders for (this count + related counts)
+      // All count IDs to fetch orders for (this count + related child counts for monthly)
       const allCountIds = [count.id, ...relatedCountIds];
 
       // Fetch purchases: PREFER bound orders, fallback to date-range
