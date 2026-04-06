@@ -384,7 +384,10 @@ export default function OrderReconciliationPicker({
             <div className="divide-y divide-border/40">
               {group.items.map((order) => {
                 const isBoundElsewhere = !!order.boundPeriodLabel;
-                const isLockedElsewhere = isBoundElsewhere && !order.isInheritedFromChild;
+                // Only lock if bound to another count of the SAME period type
+                // Cross-type bindings (e.g., monthly→weekly) are labeled but reassignable
+                const isLockedElsewhere = isBoundElsewhere && !order.isInheritedFromChild
+                  && order.boundPeriodType === currentPeriodType;
                 const isSelected = selectedIds.has(order.id);
                 const inPeriod = periodStartDate && periodEndDate
                   ? order.deliveryDate >= periodStartDate && order.deliveryDate <= periodEndDate
