@@ -31,6 +31,7 @@ interface VendorOrder {
   totalAmount: number;
   boundToCountId: string | null;
   boundPeriodLabel?: string;
+  boundPeriodType?: string;
   isInheritedFromChild?: boolean;
 }
 
