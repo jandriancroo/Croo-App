@@ -179,7 +179,7 @@ export default function InventoryCountTab({
                   className={`
                     flex-shrink-0 transition-colors flex items-center justify-center relative
                     ${isActive
-                      ? "bg-primary text-primary-foreground rounded-t-2xl min-w-[100px] px-3 shadow-md z-10 border-b-0"
+                      ? "bg-card text-foreground rounded-t-2xl min-w-[100px] px-3 shadow-md z-10 border-2 border-b-0 border-primary"
                       : "bg-muted/30 text-muted-foreground rounded-t-lg min-w-[72px] px-2 hover:bg-muted/50 border-b border-border/20"
                     }
                     ${isMonthly && !isActive ? "min-w-[68px] bg-muted/50" : ""}
@@ -194,12 +194,12 @@ export default function InventoryCountTab({
 
                   <div className="flex flex-col items-center gap-0">
                     <span className={`text-[8px] uppercase font-bold tracking-widest ${
-                      isActive ? "text-primary-foreground/50" : "text-muted-foreground/40"
+                      isActive ? "text-primary/50" : "text-muted-foreground/40"
                     }`}>
                       {isMonthly ? "Mo" : "Wk"}
                     </span>
                     <span className={`text-xs font-bold whitespace-nowrap flex items-center gap-0.5 ${
-                      isActive ? "text-sm text-primary-foreground" : isCompleted ? "text-muted-foreground" : ""
+                      isActive ? "text-sm text-foreground" : isCompleted ? "text-muted-foreground" : ""
                     }`}>
                       {isMonthly ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
                       {isCompleted && !isActive && (
@@ -207,7 +207,7 @@ export default function InventoryCountTab({
                       )}
                     </span>
                     {isActive && cogsPct != null && (
-                      <span className="text-[10px] font-semibold text-primary-foreground/70">
+                      <span className="text-[10px] font-semibold text-primary/70">
                         {cogsPct.toFixed(1)}%
                       </span>
                     )}
