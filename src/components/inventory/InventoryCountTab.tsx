@@ -149,7 +149,7 @@ export default function InventoryCountTab({
 
       {/* Flush strip + elevated active tabs */}
       <div>
-        <div className="flex items-end gap-1 pt-6">
+        <div className="flex items-end gap-1 pt-6" style={{ overflow: "visible" }}>
           <button
             onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" }); }}
             className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
@@ -157,7 +157,7 @@ export default function InventoryCountTab({
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
 
-          <div ref={tabsRef} className="flex gap-1 overflow-x-auto flex-1 items-end" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <div ref={tabsRef} className="flex gap-1 flex-1 items-end overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none", paddingTop: 24, marginTop: -24 }}>
             {filteredCounts.map((count, idx) => {
               const isActive = idx === safeIdx;
               const effectiveEnd = getEffectivePeriodEndDate(count) || count.period_end_date;
