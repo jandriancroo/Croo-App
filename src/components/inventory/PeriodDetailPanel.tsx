@@ -397,19 +397,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       const pa = paResult.data || [];
       const vendorInv = vendorResult.data || [];
 
-      // Use bound orders if any exist, otherwise fallback to date-range unbound
-      // Deduplicate by id in case of overlapping queries
-      const dedup = (arr: any[]) => {
-        const seen = new Set<string>();
-        return arr.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
-      };
-      const hasBoundOrders = (pfgBound.data?.length || 0) + (paBound.data?.length || 0) + (vendorBound.data?.length || 0) > 0;
-      const pfg = hasBoundOrders ? dedup(pfgBound.data || []) : (pfgDateRange.data || []);
-      const pa = hasBoundOrders ? dedup(paBound.data || []) : (paDateRange.data || []);
-      const vendorInv = hasBoundOrders ? dedup(vendorBound.data || []) : (vendorDateRange.data || []).filter((vi: any) => {
-        const d = vi.delivery_date || vi.invoice_date;
-        return d && d >= periodRange.startStr && d <= periodRange.endStr;
-      });
       
       const purchasesTotal = [...pfg, ...pa, ...vendorInv].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
 
