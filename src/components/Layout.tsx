@@ -1274,7 +1274,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </Sheet>
         </div>
       </header>
-      <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+3rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
+      <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+3.75rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
         {children}
       </main>
       
