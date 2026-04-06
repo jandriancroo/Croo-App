@@ -194,12 +194,12 @@ export default function InventoryCountTab({
 
                   <div className="flex flex-col items-center gap-0">
                     <span className={`text-[8px] uppercase font-bold tracking-widest ${
-                      isActive ? "text-primary-foreground/50" : "text-muted-foreground/40"
+                      isActive ? "text-primary/50" : "text-muted-foreground/40"
                     }`}>
                       {isMonthly ? "Mo" : "Wk"}
                     </span>
                     <span className={`text-xs font-bold whitespace-nowrap flex items-center gap-0.5 ${
-                      isActive ? "text-sm text-primary-foreground" : isCompleted ? "text-muted-foreground" : ""
+                      isActive ? "text-sm text-foreground" : isCompleted ? "text-muted-foreground" : ""
                     }`}>
                       {isMonthly ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
                       {isCompleted && !isActive && (
@@ -207,7 +207,7 @@ export default function InventoryCountTab({
                       )}
                     </span>
                     {isActive && cogsPct != null && (
-                      <span className="text-[10px] font-semibold text-primary-foreground/70">
+                      <span className="text-[10px] font-semibold text-primary/70">
                         {cogsPct.toFixed(1)}%
                       </span>
                     )}
