@@ -147,9 +147,8 @@ export default function InventoryCountTab({
 
       <TransferDialog open={showTransferDialog} onClose={() => setShowTransferDialog(false)} locationId={locationId} />
 
-      {/* Notch tabs + detail panel */}
+      {/* Flush strip + elevated active tabs */}
       <div>
-        {/* Tab strip with inline chevrons */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" }); }}
@@ -158,7 +157,7 @@ export default function InventoryCountTab({
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
 
-          <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto flex-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <div ref={tabsRef} className="flex gap-0 overflow-x-auto flex-1 items-end" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {filteredCounts.map((count, idx) => {
               const isActive = idx === safeIdx;
               const effectiveEnd = getEffectivePeriodEndDate(count) || count.period_end_date;
@@ -168,69 +167,52 @@ export default function InventoryCountTab({
               const isCompleted = count.status === "completed";
               const isUpcoming = !!count._isUpcoming || (count.status === "in_progress" && !hasCountedItems);
               const cogsPct = count._stats?.cogsPct;
-              
-
               const isMonthly = count.period_type === "monthly";
 
               return (
-                <div key={count.id} className="flex flex-col items-center" data-active={isActive}
-                  style={{ minWidth: isMonthly ? 78 : 88, flex: isMonthly ? "0 0 78px" : "0 0 88px" }}>
-                  <button
-                    onClick={() => setSelectedIdx(idx)}
-                    className={`
-                      w-full px-1.5 rounded-xl border transition-all duration-200 relative
-                      ${isMonthly ? "py-2.5 h-[68px]" : "py-1.5 h-[54px]"}
-                      ${isActive
-                        ? "bg-primary text-primary-foreground border-primary shadow-md"
-                        : isMonthly
-                          ? isCompleted
-                            ? "bg-muted/80 text-muted-foreground border-border/50 shadow-sm"
-                            : "bg-card text-foreground border-border/60 hover:bg-muted/40 shadow-sm"
-                          : isCompleted
-                            ? "bg-muted/60 text-muted-foreground border-border/30"
-                            : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
-                      }
-                    `}
-                  >
-                    {/* Left accent bar for upcoming/in-progress */}
-                    {(isUpcoming || isInProgress) && (
-                      <div className={`absolute left-1 top-2 bottom-2 w-[2.5px] rounded-full ${
-                        isInProgress ? "bg-amber-400" : "bg-emerald-400"
-                      } ${!isActive ? "animate-pulse" : ""}`} />
-                    )}
-
-                    <div className="flex flex-col items-center gap-0 justify-center h-full">
-                      <span className={`text-[9px] uppercase font-bold tracking-wider leading-none ${
-                        isActive ? "text-primary-foreground/60" : "text-muted-foreground/60"
-                      }`}>
-                        {count.period_type === "monthly" ? "Mo" : "Wk"} Ending
-                      </span>
-                      <span className={`text-sm font-bold leading-tight whitespace-nowrap flex items-center gap-0.5 ${
-                        isCompleted && !isActive ? "text-muted-foreground" : ""
-                      }`}>
-                        {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
-                        {isCompleted && !isActive && (
-                          <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500/50 flex-shrink-0" />
-                        )}
-                      </span>
-                      <span className={`text-[10px] tabular-nums font-semibold leading-none ${
-                        cogsPct != null
-                          ? (isActive ? "text-primary-foreground/70"
-                              : cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70")
-                          : "invisible"
-                      }`}>
-                        {cogsPct != null ? `${cogsPct.toFixed(1)}%` : "—"}
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* Notch arrow — only on active */}
-                  {isActive ? (
-                    <div className="w-0 h-0 border-l-[7px] border-r-[7px] border-t-[7px] border-l-transparent border-r-transparent border-t-primary -mb-px relative z-10" />
-                  ) : (
-                    <div className="h-[7px]" />
+                <motion.button
+                  key={count.id}
+                  data-active={isActive}
+                  onClick={() => setSelectedIdx(idx)}
+                  animate={{ height: isActive ? 64 : isMonthly ? 54 : 46 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  className={`
+                    flex-shrink-0 transition-colors flex items-center justify-center relative
+                    ${isActive
+                      ? "bg-primary text-primary-foreground rounded-t-2xl min-w-[100px] px-3 shadow-md z-10 border-b-0"
+                      : "bg-muted/30 text-muted-foreground rounded-t-lg min-w-[72px] px-2 hover:bg-muted/50 border-b border-border/20"
+                    }
+                    ${isMonthly && !isActive ? "min-w-[68px] bg-muted/50" : ""}
+                  `}
+                >
+                  {/* Left accent bar for upcoming/in-progress */}
+                  {(isUpcoming || isInProgress) && !isActive && (
+                    <div className={`absolute left-1 top-2 bottom-2 w-[2.5px] rounded-full ${
+                      isInProgress ? "bg-amber-400" : "bg-emerald-400"
+                    } animate-pulse`} />
                   )}
-                </div>
+
+                  <div className="flex flex-col items-center gap-0">
+                    <span className={`text-[8px] uppercase font-bold tracking-widest ${
+                      isActive ? "text-primary-foreground/50" : "text-muted-foreground/40"
+                    }`}>
+                      {isMonthly ? "Mo" : "Wk"}
+                    </span>
+                    <span className={`text-xs font-bold whitespace-nowrap flex items-center gap-0.5 ${
+                      isActive ? "text-sm text-primary-foreground" : isCompleted ? "text-muted-foreground" : ""
+                    }`}>
+                      {isMonthly ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
+                      {isCompleted && !isActive && (
+                        <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500/40 flex-shrink-0" />
+                      )}
+                    </span>
+                    {isActive && cogsPct != null && (
+                      <span className="text-[10px] font-semibold text-primary-foreground/70">
+                        {cogsPct.toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                </motion.button>
               );
             })}
           </div>
@@ -242,6 +224,7 @@ export default function InventoryCountTab({
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
+        <div className="border-t-[3px] border-t-primary" />
 
         {/* In-progress resume banner (compact, inside detail area) */}
         {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && selectedCount?.id === inProgressWithStats.id && (
