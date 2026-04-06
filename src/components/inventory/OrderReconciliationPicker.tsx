@@ -48,6 +48,16 @@ export default function OrderReconciliationPicker({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [initialized, setInitialized] = useState(false);
 
+  const { data: countMeta } = useQuery({
+    queryKey: ["count-period-type", countId],
+    queryFn: async () => {
+      const { data } = await supabase.from("inventory_counts").select("period_type").eq("id", countId).maybeSingle();
+      return data;
+    },
+    enabled: !!countId,
+  });
+  const currentPeriodType = countMeta?.period_type;
+
   const { data: orders, isLoading } = useQuery({
     queryKey: ["order-reconciliation-v1", locationId, countId, periodStartDate, periodEndDate],
     queryFn: async () => {
