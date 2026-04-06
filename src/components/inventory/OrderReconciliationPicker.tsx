@@ -120,6 +120,7 @@ export default function OrderReconciliationPicker({
       }
 
       let periodLabelMap = new Map<string, string>();
+      let periodTypeMap = new Map<string, string>();
       if (otherCountIds.size > 0) {
         const { data: counts } = await supabase
           .from("inventory_counts")
@@ -136,6 +137,7 @@ export default function OrderReconciliationPicker({
               : `WE ${format(endDate, "MMM d")}`
             : "Other count";
           periodLabelMap.set(c.id, label);
+          periodTypeMap.set(c.id, c.period_type);
         }
       }
 
