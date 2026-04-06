@@ -179,7 +179,7 @@ export default function InventoryCountTab({
                   className={`
                     flex-shrink-0 transition-colors flex items-center justify-center relative
                     ${isActive
-                      ? "bg-card text-foreground rounded-t-2xl min-w-[100px] px-3 shadow-md z-10 border-2 border-b-0 border-primary -mb-[3px] pb-[3px]"
+                      ? "bg-card text-foreground rounded-t-2xl min-w-[100px] px-3 shadow-md z-10 border-2 border-b-0 border-primary -mb-[5px] pb-[5px]"
                       : "bg-muted/30 text-muted-foreground rounded-t-lg min-w-[72px] px-2 hover:bg-muted/50 border-b border-border/20"
                     }
                     ${isMonthly && !isActive ? "min-w-[68px] bg-muted/50" : ""}
