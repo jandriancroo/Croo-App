@@ -48,7 +48,7 @@ export default function OrderReconciliationPicker({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [initialized, setInitialized] = useState(false);
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: queryData, isLoading } = useQuery({
     queryKey: ["order-reconciliation-v1", locationId, countId, periodStartDate, periodEndDate],
     queryFn: async () => {
       const windowStart = periodStartDate
