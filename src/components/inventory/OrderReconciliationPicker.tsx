@@ -31,6 +31,7 @@ interface VendorOrder {
   totalAmount: number;
   boundToCountId: string | null;
   boundPeriodLabel?: string;
+  boundPeriodType?: string;
   isInheritedFromChild?: boolean;
 }
 
@@ -46,6 +47,16 @@ export default function OrderReconciliationPicker({
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [initialized, setInitialized] = useState(false);
+
+  const { data: countMeta } = useQuery({
+    queryKey: ["count-period-type", countId],
+    queryFn: async () => {
+      const { data } = await supabase.from("inventory_counts").select("period_type").eq("id", countId).maybeSingle();
+      return data;
+    },
+    enabled: !!countId,
+  });
+  const currentPeriodType = countMeta?.period_type;
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["order-reconciliation-v1", locationId, countId, periodStartDate, periodEndDate],
@@ -91,9 +102,10 @@ export default function OrderReconciliationPicker({
       const isAggregatingPeriod =
         currentPeriodType === "monthly" || currentPeriodType === "yearly";
 
+      // Monthly/yearly: child weekly orders are inherited (shown as read-only)
+      // Weekly: NO inheritance from parent monthly — they are separate accounting periods
       let inheritedChildCountIds = new Set<string>();
       if (isAggregatingPeriod && periodStartDate && periodEndDate) {
-        // Monthly/yearly: inherit orders from child weekly counts within range
         const { data: childCounts } = await supabase
           .from("inventory_counts")
           .select("id")
@@ -103,26 +115,6 @@ export default function OrderReconciliationPicker({
           .lte("period_end_date", periodEndDate);
 
         inheritedChildCountIds = new Set((childCounts || []).map((c) => c.id));
-      } else if (currentPeriodType === "weekly" && periodStartDate && periodEndDate) {
-        // Weekly: inherit orders from parent monthly counts that overlap this period
-        const { data: parentCounts } = await supabase
-          .from("inventory_counts")
-          .select("id, period_end_date, status, counted_at, completed_at")
-          .eq("location_id", locationId)
-          .eq("period_type", "monthly")
-          .eq("status", "completed");
-
-        for (const pc of parentCounts || []) {
-          const effectiveEnd = getEffectivePeriodEndDate(pc) || pc.period_end_date;
-          if (!effectiveEnd) continue;
-          const monthEnd = new Date(effectiveEnd + "T12:00:00");
-          const monthStart = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), 1);
-          const monthStartStr = format(monthStart, "yyyy-MM-dd");
-          // If the weekly period overlaps the monthly period, treat as inherited
-          if (periodStartDate <= effectiveEnd && periodEndDate >= monthStartStr) {
-            inheritedChildCountIds.add(pc.id);
-          }
-        }
       }
 
       const otherCountIds = new Set<string>();
@@ -138,6 +130,7 @@ export default function OrderReconciliationPicker({
       }
 
       let periodLabelMap = new Map<string, string>();
+      let periodTypeMap = new Map<string, string>();
       if (otherCountIds.size > 0) {
         const { data: counts } = await supabase
           .from("inventory_counts")
@@ -154,6 +147,7 @@ export default function OrderReconciliationPicker({
               : `WE ${format(endDate, "MMM d")}`
             : "Other count";
           periodLabelMap.set(c.id, label);
+          periodTypeMap.set(c.id, c.period_type);
         }
       }
 
@@ -170,6 +164,9 @@ export default function OrderReconciliationPicker({
           boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
             ? periodLabelMap.get(o.bound_to_count_id)
             : undefined,
+          boundPeriodType: o.bound_to_count_id && o.bound_to_count_id !== countId
+            ? periodTypeMap.get(o.bound_to_count_id)
+            : undefined,
         })),
         ...(paResult.data || []).map((o: any) => ({
           id: `pa_${o.id}`,
@@ -182,6 +179,9 @@ export default function OrderReconciliationPicker({
           isInheritedFromChild: !!o.bound_to_count_id && inheritedChildCountIds.has(o.bound_to_count_id),
           boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
             ? periodLabelMap.get(o.bound_to_count_id)
+            : undefined,
+          boundPeriodType: o.bound_to_count_id && o.bound_to_count_id !== countId
+            ? periodTypeMap.get(o.bound_to_count_id)
             : undefined,
         })),
         ...(invResult.data || []).map((o: any) => ({
@@ -196,6 +196,9 @@ export default function OrderReconciliationPicker({
           isInheritedFromChild: !!o.inventory_count_id && inheritedChildCountIds.has(o.inventory_count_id),
           boundPeriodLabel: o.inventory_count_id && o.inventory_count_id !== countId
             ? periodLabelMap.get(o.inventory_count_id)
+            : undefined,
+          boundPeriodType: o.inventory_count_id && o.inventory_count_id !== countId
+            ? periodTypeMap.get(o.inventory_count_id)
             : undefined,
         })),
       ];
@@ -228,7 +231,9 @@ export default function OrderReconciliationPicker({
   const toggle = (id: string) => {
     if (!editable) return;
     const order = orders?.find((o) => o.id === id);
-    if (order?.boundToCountId && order.boundToCountId !== countId && !order.isInheritedFromChild) return;
+    // Only lock if bound to another count of the SAME period type
+    if (order?.boundToCountId && order.boundToCountId !== countId && !order.isInheritedFromChild
+      && order.boundPeriodType === currentPeriodType) return;
 
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -250,8 +255,9 @@ export default function OrderReconciliationPicker({
       const invUnbind: string[] = [];
 
       for (const o of orders) {
-        // Skip orders locked to a different (non-child) count
-        if (o.boundToCountId && o.boundToCountId !== countId && !o.isInheritedFromChild) continue;
+        // Skip orders locked to a different count of the SAME period type
+        if (o.boundToCountId && o.boundToCountId !== countId && !o.isInheritedFromChild
+          && o.boundPeriodType === currentPeriodType) continue;
 
         const realId = o.id.replace(/^(pfg_|pa_|inv_)/, "");
         const isSelected = selectedIds.has(o.id);
@@ -391,7 +397,10 @@ export default function OrderReconciliationPicker({
             <div className="divide-y divide-border/40">
               {group.items.map((order) => {
                 const isBoundElsewhere = !!order.boundPeriodLabel;
-                const isLockedElsewhere = isBoundElsewhere && !order.isInheritedFromChild;
+                // Only lock if bound to another count of the SAME period type
+                // Cross-type bindings (e.g., monthly→weekly) are labeled but reassignable
+                const isLockedElsewhere = isBoundElsewhere && !order.isInheritedFromChild
+                  && order.boundPeriodType === currentPeriodType;
                 const isSelected = selectedIds.has(order.id);
                 const inPeriod = periodStartDate && periodEndDate
                   ? order.deliveryDate >= periodStartDate && order.deliveryDate <= periodEndDate
