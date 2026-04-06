@@ -572,6 +572,12 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 }
 
 @layer utilities {
+  /* Period detail flush: remove top border/rounding from first card */
+  .period-detail-flush > div > div:first-child {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    border-top-color: transparent !important;
+  }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 1rem);
   }
