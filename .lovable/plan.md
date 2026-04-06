@@ -1,19 +1,9 @@
 
-## Part A: Fix PA Alternate IDs (Gap Finder false positives)
+## Part A: Fix PA Alternate IDs (Gap Finder false positives) ✅
 
-### A1. One-time backfill — Seed alternate PA IDs into `brand_vendor_mappings`
-- Query all `pa_catalog_items` that match existing live brand templates by name
-- For each alternate PA ID (not the primary `pa_item_id` on the template), insert into `brand_vendor_mappings` with `vendor = 'pa'`
-- This eliminates the 29 false-positive outliers immediately
-
-### A2. Future-proof — Update PA sync to auto-seed mappings
-- In the `produce-alliance-service` edge function, after upserting to `pa_catalog_items`:
-  - Match each catalog item against `brand_inventory_templates` by name
-  - If matched and the PA ID isn't the primary `pa_item_id`, auto-insert into `brand_vendor_mappings`
-- This ensures new alternate IDs from future syncs are captured automatically
-
-### A3. Resolve stale gap alerts
-- After seeding, mark the 28 false-positive `vendor_gap_alerts` as resolved
+### A1. One-time backfill — Seed alternate PA IDs into `brand_vendor_mappings` ✅
+### A2. Future-proof — Update PA sync to auto-seed mappings ✅
+### A3. Resolve stale gap alerts ✅
 
 ---
 
@@ -35,3 +25,13 @@
 ### B3. Auto-activate-all on new location deployment
 - In the Deploy Location Wizard, after creating the location, activate all live brand templates as local inventory items
 - Manager then deactivates items they don't carry
+
+---
+
+## Part C: Brand Name Propagation
+
+### C1. Auto-propagate brand name changes
+- When `brand_inventory_templates.product_name` is updated, automatically push the new name to:
+  - All `inventory_items` linked to that template (via `brand_inventory_deployments`)
+  - All `recipe_blueprints` that reference those items (via `produces_item_id` or ingredient references)
+- Implemented as a database trigger on `brand_inventory_templates` for `product_name` updates
