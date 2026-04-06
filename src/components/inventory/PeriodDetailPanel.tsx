@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { formatPeriodLabel } from "@/utils/periodLabelUtils";
+import { formatPeriodLabel, getEffectivePeriodEndDate } from "@/utils/periodLabelUtils";
 import { useInventoryTransfers, getTransferTotalsForPeriod } from "@/hooks/useInventoryTransfers";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
