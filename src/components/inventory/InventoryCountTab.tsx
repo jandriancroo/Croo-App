@@ -88,8 +88,13 @@ export default function InventoryCountTab({
       ? [currentPeriodEntry, ...base]
       : [...base];
 
-    // Sort by period_end_date descending (newest first)
-    return combined.sort((a, b) => (b.period_end_date || "").localeCompare(a.period_end_date || ""));
+    // Sort by effective period_end_date descending (newest first)
+    // Uses the monthly close safeguard so ME counts sort by their real month
+    return combined.sort((a, b) => {
+      const aEnd = getEffectivePeriodEndDate(a) || a.period_end_date || "";
+      const bEnd = getEffectivePeriodEndDate(b) || b.period_end_date || "";
+      return bEnd.localeCompare(aEnd);
+    });
   }, [completedCounts, typeFilter, currentPeriodEntry]);
 
   const safeIdx = Math.min(selectedIdx, Math.max(filteredCounts.length - 1, 0));
