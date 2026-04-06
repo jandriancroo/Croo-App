@@ -2127,6 +2127,10 @@ async function handleSaveCatalog(supabase: any, body: any): Promise<Response> {
   }
 
   console.log(`[PA Catalog] ✅ Saved ${saved} catalog items`);
+
+  // Auto-seed alternate PA IDs into brand_vendor_mappings
+  await autoSeedPaVendorMappings(supabase, items);
+
   return jsonResponse({ success: true, saved });
 }
 
