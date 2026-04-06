@@ -57,11 +57,15 @@ export default function BrandCatalogSection({
     }
   }, []);
 
+  const isUncategorized = category === 'Uncategorized';
+
   return (
     <div>
       <button
         type="button"
-        className="w-full flex items-center gap-2 px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+        className={`w-full flex items-center gap-2 px-4 py-3 hover:bg-muted/30 transition-colors text-left ${
+          isUncategorized ? 'bg-amber-500/5 border-l-2 border-amber-500' : ''
+        }`}
         onClick={() => setIsOpen(!isOpen)}
       >
         {isOpen ? (
@@ -69,9 +73,13 @@ export default function BrandCatalogSection({
         ) : (
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         )}
-        <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="font-semibold text-sm">{category}</span>
-        <Badge variant="secondary" className="text-[10px] tabular-nums">
+        <Tag className={`h-3.5 w-3.5 ${isUncategorized ? 'text-amber-500' : 'text-muted-foreground'}`} />
+        <span className={`font-semibold text-sm ${isUncategorized ? 'text-amber-700 dark:text-amber-400' : ''}`}>
+          {category}
+        </span>
+        <Badge variant="secondary" className={`text-[10px] tabular-nums ${
+          isUncategorized ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : ''
+        }`}>
           {items.length} items
         </Badge>
         {recipeCount > 0 && (
