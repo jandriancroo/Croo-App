@@ -224,7 +224,7 @@ export default function InventoryCountTab({
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
-        <div className="border-t-[3px] border-t-primary -mt-[3px] relative z-0" />
+        
 
         {/* In-progress resume banner (compact, inside detail area) */}
         {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && selectedCount?.id === inProgressWithStats.id && (
