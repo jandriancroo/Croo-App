@@ -2669,6 +2669,10 @@ async function handleScrapeCatalogLive(supabase: any, body: any): Promise<Respon
   }
 
   console.log(`[PA Catalog Live] ✅ Saved ${saved} items for location ${locationId}`);
+
+  // Auto-seed alternate PA IDs into brand_vendor_mappings
+  await autoSeedPaVendorMappings(supabase, items);
+
   return jsonResponse({ success: true, saved, total: items.length });
 }
 
