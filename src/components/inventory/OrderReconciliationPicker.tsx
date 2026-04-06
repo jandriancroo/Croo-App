@@ -7,6 +7,7 @@ import { Loader2, Check, Truck, Lock, UtensilsCrossed, Carrot, Receipt } from "l
 import { format, subDays, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { getEffectivePeriodEndDate } from "@/utils/periodLabelUtils";
 
 
 
@@ -118,11 +119,12 @@ export default function OrderReconciliationPicker({
       if (otherCountIds.size > 0) {
         const { data: counts } = await supabase
           .from("inventory_counts")
-          .select("id, period_type, period_end_date")
+          .select("id, period_type, period_end_date, status, counted_at, completed_at")
           .in("id", [...otherCountIds]);
         for (const c of counts || []) {
-          const endDate = c.period_end_date
-            ? new Date(c.period_end_date + "T12:00:00")
+          const effectiveEnd = getEffectivePeriodEndDate(c) || c.period_end_date;
+          const endDate = effectiveEnd
+            ? new Date(effectiveEnd + "T12:00:00")
             : null;
           const label = endDate
             ? c.period_type === "monthly"
