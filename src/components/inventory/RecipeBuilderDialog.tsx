@@ -225,7 +225,7 @@ const dedupeAndSortIngredients = (
       return (blueprints?.find((b: any) => b.id === ing.ref_id)?.name || "").toLowerCase();
     }
     const v = vendorItems?.find((v: any) => v.id === ing.ref_id);
-    return (v?.common_name || v?.name || "").toLowerCase();
+    return (v?.name || v?.common_name || ing.displayName || "").toLowerCase();
   };
 
   return Array.from(merged.values()).sort((a, b) => {
@@ -311,7 +311,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       if (editRecipeId && v.id === editRecipeId) return;
       items.push({
         id: v.id,
-        name: (v as any).common_name || v.name,
+        name: v.name || (v as any).common_name,
         item_type: "vendor_item",
         cost_per_unit: v.cost_per_unit,
         pack_size: v.pack_size,
@@ -436,7 +436,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         const vItem = !isBp ? vendorItems?.find((v: any) => v.id === refId) : null;
         const name = isBp
           ? otherBlueprints?.find((b: any) => b.id === refId)?.name
-          : (vItem?.common_name || vItem?.name);
+          : (vItem?.name || vItem?.common_name);
         return {
           type: isBp ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
@@ -447,7 +447,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         };
       }), vendorItems, otherBlueprints));
     }
-  }, [drilledBlueprint, drillBlueprintId]);
+  }, [drilledBlueprint, drillBlueprintId, vendorItems, otherBlueprints]);
 
   // ========== AUTO-YIELD CALCULATION ==========
 
@@ -506,7 +506,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         const isBlueprintIng = i.ingredient_type === "blueprint";
         const refId = isBlueprintIng ? i.sub_blueprint_id : i.vendor_item_id;
         const vItem2 = !isBlueprintIng ? vendorItems?.find((v: any) => v.id === refId) : null;
-        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : (vItem2?.common_name || vItem2?.name);
+        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : (vItem2?.name || vItem2?.common_name);
         return {
           type: isBlueprintIng ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
@@ -517,7 +517,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         };
       }), vendorItems, otherBlueprints));
     }
-  }, [existingBlueprint]);
+  }, [existingBlueprint, vendorItems, otherBlueprints]);
 
   // Legacy recipe edit (inventory_items)
   useEffect(() => {
@@ -930,7 +930,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       return name || `ingredient-${ing.ref_id.slice(0, 6)}`;
     }
     const item = vendorItems?.find(i => i.id === ing.ref_id);
-    const name = (item as any)?.common_name || item?.name || ing.displayName;
+    const name = item?.name || (item as any)?.common_name || ing.displayName;
     return name || `ingredient-${ing.ref_id.slice(0, 6)}`;
   };
 
