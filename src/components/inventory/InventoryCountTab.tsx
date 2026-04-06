@@ -180,7 +180,7 @@ export default function InventoryCountTab({
                   className={`
                     flex-shrink-0 transition-colors flex items-center justify-center relative rounded-t-xl
                     ${isActive
-                      ? "bg-card text-foreground border border-border border-b-0 shadow-sm -mb-[1px] z-10 min-w-[108px] px-3"
+                      ? "bg-card text-foreground border border-border border-b-0 shadow-sm -mb-[3px] pb-[3px] z-10 min-w-[108px] px-3"
                       : isMonthly
                         ? "bg-muted/40 text-muted-foreground border border-border/30 border-b-0 min-w-[72px] px-2"
                         : "bg-muted/30 text-muted-foreground border border-border/20 border-b-0 min-w-[80px] px-2 hover:bg-muted/50"
@@ -205,9 +205,6 @@ export default function InventoryCountTab({
                     }`}>
                       {isMonthly ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
                     </span>
-                    {!isActive && isCompleted && (
-                      <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500/30" />
-                    )}
                   </div>
                 </motion.button>
               );
