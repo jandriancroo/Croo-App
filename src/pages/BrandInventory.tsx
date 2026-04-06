@@ -888,10 +888,27 @@ function VendorMappingsDisplay({ template }: { template: any }) {
     },
   });
 
-  // Combine template-level IDs + mapping table
+  // Normalize vendor label for display
+  const normalizeVendorLabel = (raw: string) => {
+    const lower = raw.toLowerCase().trim();
+    if (lower === 'pa' || lower === 'produce_alliance' || lower === 'produce alliance') return 'Produce Alliance';
+    if (lower === 'pfg') return 'PFG';
+    // Capitalize first letter of each word for invoice vendors
+    return raw.replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  // Combine template-level IDs + mapping table, deduplicating by normalized vendor + itemId
+  const seenIds = new Set<string>();
   const allIds: { vendor: string; itemId: string; territory?: string | null }[] = [];
+
+  const addId = (vendor: string, itemId: string, territory?: string | null) => {
+    const key = `${normalizeVendorLabel(vendor)}:${itemId}`;
+    if (seenIds.has(key)) return;
+    seenIds.add(key);
+    allIds.push({ vendor: normalizeVendorLabel(vendor), itemId, territory });
+  };
+
   if (template.item_number) {
-    // Derive vendor label from vendor_source field
     const vs = template.vendor_source || '';
     let vendorLabel = 'PFG';
     if (vs.startsWith('invoice:')) {
@@ -899,16 +916,13 @@ function VendorMappingsDisplay({ template }: { template: any }) {
     } else if (vs) {
       vendorLabel = vs;
     }
-    allIds.push({ vendor: vendorLabel, itemId: template.item_number });
+    addId(vendorLabel, template.item_number);
   }
   if (template.pa_item_id) {
-    allIds.push({ vendor: 'Produce Alliance', itemId: template.pa_item_id });
+    addId('Produce Alliance', template.pa_item_id);
   }
   for (const m of mappings || []) {
-    const isDup = allIds.some(a => a.vendor === m.vendor && a.itemId === m.vendor_item_id);
-    if (!isDup) {
-      allIds.push({ vendor: m.vendor, itemId: m.vendor_item_id, territory: m.territory });
-    }
+    addId(m.vendor, m.vendor_item_id, m.territory);
   }
 
   if (isLoading) return null;
