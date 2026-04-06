@@ -1304,7 +1304,9 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   // Also fetch recent orders for persistence (COGS reconciliation)
   const now = new Date();
   const pad2 = (n: number) => String(n).padStart(2, '0');
-  const startDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`;
+  // Fetch from the 1st of the PRIOR month to catch orders near month boundaries
+  const priorMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const startDate = `${priorMonth.getFullYear()}-${pad2(priorMonth.getMonth() + 1)}-01`;
   const endDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   
   const orderList = await fetchOrderList(session, startDate, endDate);
