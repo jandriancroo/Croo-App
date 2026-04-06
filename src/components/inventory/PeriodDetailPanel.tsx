@@ -421,7 +421,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         netSales,
         cogsPct,
         hasBeginning: !!beginCount,
-        hasBoundOrders,
+        hasBoundOrders: pfg.length + pa.length + vendorInv.length > 0,
         purchases: [
           ...pfg.map((o: any) => {
             const rawId = o.pfg_order_id || '';
