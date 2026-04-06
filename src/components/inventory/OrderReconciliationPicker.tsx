@@ -91,9 +91,10 @@ export default function OrderReconciliationPicker({
       const isAggregatingPeriod =
         currentPeriodType === "monthly" || currentPeriodType === "yearly";
 
+      // Monthly/yearly: child weekly orders are inherited (shown as read-only)
+      // Weekly: NO inheritance from parent monthly — they are separate accounting periods
       let inheritedChildCountIds = new Set<string>();
       if (isAggregatingPeriod && periodStartDate && periodEndDate) {
-        // Monthly/yearly: inherit orders from child weekly counts within range
         const { data: childCounts } = await supabase
           .from("inventory_counts")
           .select("id")
@@ -103,26 +104,6 @@ export default function OrderReconciliationPicker({
           .lte("period_end_date", periodEndDate);
 
         inheritedChildCountIds = new Set((childCounts || []).map((c) => c.id));
-      } else if (currentPeriodType === "weekly" && periodStartDate && periodEndDate) {
-        // Weekly: inherit orders from parent monthly counts that overlap this period
-        const { data: parentCounts } = await supabase
-          .from("inventory_counts")
-          .select("id, period_end_date, status, counted_at, completed_at")
-          .eq("location_id", locationId)
-          .eq("period_type", "monthly")
-          .eq("status", "completed");
-
-        for (const pc of parentCounts || []) {
-          const effectiveEnd = getEffectivePeriodEndDate(pc) || pc.period_end_date;
-          if (!effectiveEnd) continue;
-          const monthEnd = new Date(effectiveEnd + "T12:00:00");
-          const monthStart = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), 1);
-          const monthStartStr = format(monthStart, "yyyy-MM-dd");
-          // If the weekly period overlaps the monthly period, treat as inherited
-          if (periodStartDate <= effectiveEnd && periodEndDate >= monthStartStr) {
-            inheritedChildCountIds.add(pc.id);
-          }
-        }
       }
 
       const otherCountIds = new Set<string>();
