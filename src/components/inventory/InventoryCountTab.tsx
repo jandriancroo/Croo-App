@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Plus, ArrowRight, ChevronLeft, ChevronRight,
-  CheckCircle2, ArrowRightLeft,
+  ArrowRightLeft,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getEffectivePeriodEndDate } from "@/utils/periodLabelUtils";
