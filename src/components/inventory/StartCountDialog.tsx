@@ -855,27 +855,12 @@ const StartCountDialog = ({
       const monthEnd = endOfMonth(today);
       const monthEndStr = format(monthEnd, "yyyy-MM-dd");
       const monthStart = startOfMonth(today);
-      const isEarlyMonth = todayStr < monthEndStr;
+      const dayOfMonth = today.getDate();
+      const isEarlyMonth = dayOfMonth <= 3;
 
       const existingMonthCount = existingCounts?.find(
         (c) => c.period_type === "monthly" && c.period_end_date === monthEndStr
       );
-
-      options.push({
-        id: `flex-monthly-current`,
-        type: "monthly",
-        label: `${format(today, "MMMM")} Month End`,
-        description: existingMonthCount?.status === "completed"
-          ? `Already counted — re-count as flex`
-          : isEarlyMonth 
-          ? `Early — period ends ${format(monthEnd, "MMM d")}`
-          : `${format(monthStart, "MMM d")} - ${format(monthEnd, "MMM d, yyyy")}`,
-        periodEndDate: monthEndStr,
-        periodStartDate: format(monthStart, "yyyy-MM-dd"),
-        icon: <Calendar className="h-5 w-5" />,
-        isConfigured: true,
-        isLateClose: false,
-      });
 
       const prevMonth = subDays(monthStart, 1);
       const prevMonthEnd = endOfMonth(prevMonth);
@@ -886,19 +871,67 @@ const StartCountDialog = ({
         (c) => c.period_type === "monthly" && c.period_end_date === prevMonthEndStr
       );
 
-      options.push({
-        id: `flex-monthly-prev`,
-        type: "monthly",
-        label: `${format(prevMonth, "MMMM")} Month End`,
-        description: existingPrevMonthCount?.status === "completed"
-          ? `Already counted — re-count as flex`
-          : `Late — period ended ${format(prevMonthEnd, "MMM d")}`,
-        periodEndDate: prevMonthEndStr,
-        periodStartDate: format(prevMonthStart, "yyyy-MM-dd"),
-        icon: <Calendar className="h-5 w-5" />,
-        isConfigured: true,
-        isLateClose: true,
-      });
+      // Monthly Close Safeguard: in the first 3 days of a new month,
+      // show previous month as the primary option (not marked as late)
+      if (isEarlyMonth) {
+        options.push({
+          id: `flex-monthly-prev`,
+          type: "monthly",
+          label: `${format(prevMonth, "MMMM")} Month End`,
+          description: existingPrevMonthCount?.status === "completed"
+            ? `Already counted — re-count as flex`
+            : `${format(prevMonthStart, "MMM d")} - ${format(prevMonthEnd, "MMM d, yyyy")}`,
+          periodEndDate: prevMonthEndStr,
+          periodStartDate: format(prevMonthStart, "yyyy-MM-dd"),
+          icon: <Calendar className="h-5 w-5" />,
+          isConfigured: true,
+          isLateClose: false,
+        });
+
+        options.push({
+          id: `flex-monthly-current`,
+          type: "monthly",
+          label: `${format(today, "MMMM")} Month End`,
+          description: existingMonthCount?.status === "completed"
+            ? `Already counted — re-count as flex`
+            : `Early — period ends ${format(monthEnd, "MMM d")}`,
+          periodEndDate: monthEndStr,
+          periodStartDate: format(monthStart, "yyyy-MM-dd"),
+          icon: <Calendar className="h-5 w-5" />,
+          isConfigured: true,
+          isLateClose: false,
+        });
+      } else {
+        options.push({
+          id: `flex-monthly-current`,
+          type: "monthly",
+          label: `${format(today, "MMMM")} Month End`,
+          description: existingMonthCount?.status === "completed"
+            ? `Already counted — re-count as flex`
+            : todayStr < monthEndStr 
+            ? `Early — period ends ${format(monthEnd, "MMM d")}`
+            : `${format(monthStart, "MMM d")} - ${format(monthEnd, "MMM d, yyyy")}`,
+          periodEndDate: monthEndStr,
+          periodStartDate: format(monthStart, "yyyy-MM-dd"),
+          icon: <Calendar className="h-5 w-5" />,
+          isConfigured: true,
+          isLateClose: false,
+        });
+
+        options.push({
+          id: `flex-monthly-prev`,
+          type: "monthly",
+          label: `${format(prevMonth, "MMMM")} Month End`,
+          description: existingPrevMonthCount?.status === "completed"
+            ? `Already counted — re-count as flex`
+            : `Late — period ended ${format(prevMonthEnd, "MMM d")}`,
+          periodEndDate: prevMonthEndStr,
+          periodStartDate: format(prevMonthStart, "yyyy-MM-dd"),
+          icon: <Calendar className="h-5 w-5" />,
+          isConfigured: true,
+          isLateClose: true,
+        });
+      }
     }
 
     // Sort: monthly above weekly within same month, descending by date
