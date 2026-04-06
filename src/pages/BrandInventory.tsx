@@ -446,6 +446,10 @@ export default function BrandInventory() {
                   </Card>
                 ) : (
                   <Card>
+                    <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
+                      <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">By Category</span>
+                    </div>
                     <div className="divide-y divide-border">
                       {Object.entries(groupedTemplates)
                         .sort(([a], [b]) => {
