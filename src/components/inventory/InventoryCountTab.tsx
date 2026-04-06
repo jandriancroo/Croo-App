@@ -200,12 +200,16 @@ export default function InventoryCountTab({
                     }`}>
                       {isMonthly ? "Month" : "Week"}
                     </span>
-                    <span className={`text-sm font-bold whitespace-nowrap flex items-center gap-0.5 ${
+                    <span className={`text-sm font-bold whitespace-nowrap ${
                       !isActive && isCompleted ? "text-muted-foreground/60" : ""
                     }`}>
                       {isMonthly ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
                     </span>
                   </div>
+                  {/* Green bottom bar for completed periods */}
+                  {!isActive && isCompleted && (
+                    <div className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-emerald-400/50" />
+                  )}
                 </motion.button>
               );
             })}
@@ -249,8 +253,7 @@ export default function InventoryCountTab({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="period-detail-flush [&_.rounded-lg]:first:[&>div>div]:rounded-t-none"
-              style={{ marginTop: -1 }}
+              className="period-detail-flush"
             >
               <PeriodDetailPanel
                 count={selectedCount}
