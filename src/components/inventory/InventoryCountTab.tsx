@@ -149,7 +149,7 @@ export default function InventoryCountTab({
 
       {/* Flush strip + elevated active tabs */}
       <div>
-        <div className="flex items-end gap-1 pt-6" style={{ overflow: "visible" }}>
+        <div className="flex items-end gap-1 pt-2" style={{ overflow: "visible" }}>
           <button
             onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" }); }}
             className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
