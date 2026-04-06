@@ -157,7 +157,7 @@ export default function InventoryCountTab({
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
 
-          <div ref={tabsRef} className="flex gap-1 overflow-x-auto flex-1 items-end" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <div ref={tabsRef} className="flex gap-1 overflow-x-auto overflow-y-visible flex-1 items-end" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {filteredCounts.map((count, idx) => {
               const isActive = idx === safeIdx;
               const effectiveEnd = getEffectivePeriodEndDate(count) || count.period_end_date;
