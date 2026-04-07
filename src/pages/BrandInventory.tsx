@@ -544,6 +544,7 @@ export default function BrandInventory() {
               <TheoMappingTab
                 brandId={brandId}
                 excludedCategories={brand.pos_excluded_categories || []}
+                includedOverrides={(brand as any).pos_included_overrides || []}
                 locations={locations || []}
               />
             )}

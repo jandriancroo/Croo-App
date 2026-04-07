@@ -91,7 +91,7 @@ export async function calculateVarianceReport(
   // Parallel data fetches — split into two Promise.all calls to stay within TS overload limits (max 10)
   const vendorMappingsP = fetchVendorMappings();
   const deploymentsP = fetchDeployments(locationId);
-  const excludedCategoriesP = fetchExcludedCategories(locationId);
+  const brandFiltersP = fetchBrandPosFilters(locationId);
 
   const [endingItems, beginningItems, salesData, pfgOrders, paOrders, inventoryItems, posMappings, blueprints, allIngredients] =
     await Promise.all([
@@ -106,7 +106,7 @@ export async function calculateVarianceReport(
       fetchAllIngredients(locationId),
     ]);
 
-  const [vendorMappings, deployments, excludedCategories] = await Promise.all([vendorMappingsP, deploymentsP, excludedCategoriesP]);
+  const [vendorMappings, deployments, { excludedCategories, includedOverrides }] = await Promise.all([vendorMappingsP, deploymentsP, brandFiltersP]);
 
   const netSales = salesData.totalNetSales;
 
@@ -537,14 +537,15 @@ export async function calculateVarianceReport(
 
   const totalVariance = totalActual - totalTheoretical;
 
-  // Build unmapped POS items list, filtering out excluded categories
+  // Build unmapped POS items list, filtering out excluded categories (with item-level overrides)
   const excludedSet = new Set(excludedCategories.map(c => c.toLowerCase()));
+  const overrideSet = new Set((includedOverrides || []).map(i => i.toLowerCase()));
   const unmappedPosItems: UnmappedPosItem[] = [];
   for (const [itemName, info] of allPosItemsSold) {
     if (!matchedPosItemNames.has(itemName) && info.quantity > 0) {
       const cat = info.category || "Uncategorized";
-      // Skip items in excluded categories
-      if (excludedSet.has(cat.toLowerCase())) continue;
+      // Skip items in excluded categories unless they have an item-level override
+      if (excludedSet.has(cat.toLowerCase()) && !overrideSet.has(itemName.toLowerCase())) continue;
       unmappedPosItems.push({
         itemName,
         category: cat,
@@ -707,29 +708,31 @@ async function fetchDeployments(locationId: string) {
   return (data || []) as Array<{ template_id: string; inventory_item_id: string }>;
 }
 
-async function fetchExcludedCategories(locationId: string): Promise<string[]> {
-  // Location → Organization → Brand to get pos_excluded_categories
+async function fetchBrandPosFilters(locationId: string): Promise<{ excludedCategories: string[]; includedOverrides: string[] }> {
   const { data: loc } = await supabase
     .from("locations")
     .select("organization_id")
     .eq("id", locationId)
     .maybeSingle();
-  if (!loc?.organization_id) return [];
+  if (!loc?.organization_id) return { excludedCategories: [], includedOverrides: [] };
 
   const { data: org } = await supabase
     .from("organizations")
     .select("brand_id")
     .eq("id", loc.organization_id)
     .maybeSingle();
-  if (!org?.brand_id) return [];
+  if (!org?.brand_id) return { excludedCategories: [], includedOverrides: [] };
 
   const { data: brand } = await supabase
     .from("brands")
-    .select("pos_excluded_categories")
+    .select("pos_excluded_categories, pos_included_overrides")
     .eq("id", org.brand_id)
     .maybeSingle();
 
-  return brand?.pos_excluded_categories || [];
+  return {
+    excludedCategories: brand?.pos_excluded_categories || [],
+    includedOverrides: (brand as any)?.pos_included_overrides || [],
+  };
 }
 
 function round2(n: number): number {
