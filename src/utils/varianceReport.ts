@@ -89,6 +89,22 @@ export async function calculateVarianceReport(
   periodEndDate: string
 ): Promise<VarianceReportData> {
   // Parallel data fetches
+  const [baseResults, vendorMappings, deployments] = await Promise.all([
+    Promise.all([
+      fetchCountItems(endingCountId),
+      fetchCountItems(beginningCountId),
+      fetchSalesData(locationId, periodStartDate, periodEndDate),
+      fetchPfgOrders(locationId, periodStartDate, periodEndDate),
+      fetchPaOrders(locationId, periodStartDate, periodEndDate),
+      fetchAllInventoryItems(locationId),
+      fetchPosMappings(locationId),
+      fetchBlueprints(locationId),
+      fetchAllIngredients(locationId),
+    ]),
+    fetchVendorMappings(),
+    fetchDeployments(locationId),
+  ]);
+
   const [
     endingItems,
     beginningItems,
@@ -99,21 +115,7 @@ export async function calculateVarianceReport(
     posMappings,
     blueprints,
     allIngredients,
-    vendorMappings,
-    deployments,
-  ] = await Promise.all([
-    fetchCountItems(endingCountId),
-    fetchCountItems(beginningCountId),
-    fetchSalesData(locationId, periodStartDate, periodEndDate),
-    fetchPfgOrders(locationId, periodStartDate, periodEndDate),
-    fetchPaOrders(locationId, periodStartDate, periodEndDate),
-    fetchAllInventoryItems(locationId),
-    fetchPosMappings(locationId),
-    fetchBlueprints(locationId),
-    fetchAllIngredients(locationId),
-    fetchVendorMappings(),
-    fetchDeployments(locationId),
-  ]);
+  ] = baseResults;
 
   const netSales = salesData.totalNetSales;
 
