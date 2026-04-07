@@ -48,7 +48,7 @@ function isWeightBased(packSize: string | null): boolean {
 }
 
 /** Generate match keywords from item name, common name, item number, and brand */
-function generateKeywords(name: string, commonName: string | null, itemNumber: string | null, brand: string | null): string[] {
+function generateKeywords(name: string, itemNumber: string | null, brand: string | null): string[] {
   const words = new Set<string>();
   const addWords = (s: string) => {
     s.toLowerCase()
@@ -59,7 +59,7 @@ function generateKeywords(name: string, commonName: string | null, itemNumber: s
       .forEach(w => words.add(w));
   };
   addWords(name);
-  if (commonName) addWords(commonName);
+  if (brand) addWords(brand);
   if (brand) addWords(brand);
   if (itemNumber) {
     const cleanNum = itemNumber.trim().toLowerCase();
@@ -71,7 +71,7 @@ function generateKeywords(name: string, commonName: string | null, itemNumber: s
 interface ItemForExport {
   id: string;
   name: string;
-  common_name: string | null;
+  pack_size: string | null;
   pack_size: string | null;
   pack_quantity: number | null;
   pan_sizes: any;
@@ -97,7 +97,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, category, vendor_source, item_number, pa_item_id, brand, storage_location_id, is_recipe, recipe_yield_qty, recipe_yield_unit")
+        .select("id, name, pack_size, pack_quantity, pan_sizes, category, vendor_source, item_number, pa_item_id, brand, storage_location_id, is_recipe, recipe_yield_qty, recipe_yield_unit")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -211,8 +211,8 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         const perUnitWeight = parsePerUnitWeight(item.pack_size);
         const weightBased = isWeightBased(item.pack_size);
         const packQty = item.pack_quantity || 1;
-        const productName = item.common_name || item.name;
-        const keywords = generateKeywords(item.name, item.common_name, item.item_number, item.brand);
+        const productName = item.name;
+        const keywords = generateKeywords(item.name, item.item_number, item.brand);
 
         // Pan size calculations (only if configured)
         let panUnitsPerLb: number | null = null;
@@ -250,7 +250,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
               .map(ri => {
                 const ingItem = items.find(i => i.id === ri.ingredient_item_id);
                 return {
-                  ingredient_name: ingItem ? (ingItem.common_name || ingItem.name) : 'Unknown',
+                  ingredient_name: ingItem ? ingItem.name : 'Unknown',
                   ingredient_item_number: ingItem?.item_number || null,
                   ingredient_pa_item_id: ingItem?.pa_item_id || null,
                   ingredient_vendor_source: ingItem?.vendor_source || null,
@@ -263,7 +263,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         return {
           brand_id: brandId,
           product_name: productName,
-          common_name: item.common_name,
+          category: item.category,
           category: item.category,
           pan_baseline_key: panBaselineKey,
           pan_units_per_lb: panUnitsPerLb,
@@ -339,7 +339,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
   const getFeatureBadges = (item: ItemForExport) => {
     const badges: string[] = [];
     if (item.pan_sizes?.enabled) badges.push("Pan Sizes");
-    if (item.common_name) badges.push("Common Name");
+    if (item.category) badges.push("Category");
     if (item.category) badges.push("Category");
     if (item.storage_location_id && storageMap.has(item.storage_location_id)) badges.push("Storage");
     const shortcuts = shortcutMap.get(item.id);
@@ -406,7 +406,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">
-                        {item.common_name || item.name}
+                        {item.name}
                       </p>
                       <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                         {badges.map(b => (
