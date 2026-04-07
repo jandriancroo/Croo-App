@@ -72,7 +72,6 @@ interface ItemForExport {
   id: string;
   name: string;
   pack_size: string | null;
-  pack_size: string | null;
   pack_quantity: number | null;
   pan_sizes: any;
   category: string | null;
@@ -263,7 +262,6 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         return {
           brand_id: brandId,
           product_name: productName,
-          category: item.category,
           category: item.category,
           pan_baseline_key: panBaselineKey,
           pan_units_per_lb: panUnitsPerLb,
