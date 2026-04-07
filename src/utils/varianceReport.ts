@@ -201,7 +201,7 @@ export async function calculateVarianceReport(
     const items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
     for (const li of items) {
       const paProductId = String(li.pa_product_id || li.item_code);
-      const mappedItemId = vendorIdToLocalItem.get(`pa:${paProductId}`);
+      const mappedItemId = vendorIdToLocalItem.get(`produce_alliance:${paProductId}`);
       const fallbackItemId = !mappedItemId ? itemByPaId.get(paProductId) : null;
       const invItemId = mappedItemId || fallbackItemId;
       if (invItemId) {
