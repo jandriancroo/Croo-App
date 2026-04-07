@@ -929,7 +929,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
               {ALL_FEATURES.map(f => {
                 const hasData = templates?.some(t => {
                   if (f === 'pan_sizes') return t.pan_units_per_lb != null || t.pan_units_per_unit != null;
-                  if (f === 'common_names') return !!t.common_name;
                   if (f === 'categories') return !!t.category;
                   if (f === 'storage_locations') return !!t.storage_location_name;
                   if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);
@@ -939,7 +938,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                 });
                 const count = templates?.filter(t => {
                   if (f === 'pan_sizes') return t.pan_units_per_lb != null || t.pan_units_per_unit != null;
-                  if (f === 'categories') return !!t.category;
                   if (f === 'categories') return !!t.category;
                   if (f === 'storage_locations') return !!t.storage_location_name;
                   if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);
