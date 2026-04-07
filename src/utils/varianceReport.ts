@@ -708,14 +708,27 @@ async function fetchDeployments(locationId: string) {
 }
 
 async function fetchExcludedCategories(locationId: string): Promise<string[]> {
-  const { data, error } = await supabase
+  // Location → Organization → Brand to get pos_excluded_categories
+  const { data: loc } = await supabase
     .from("locations")
-    .select("organizations!inner(brands!inner(pos_excluded_categories))")
+    .select("organization_id")
     .eq("id", locationId)
     .maybeSingle();
-  if (error || !data) return [];
-  const org = (data as any).organizations;
-  const brand = org?.brands;
+  if (!loc?.organization_id) return [];
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("brand_id")
+    .eq("id", loc.organization_id)
+    .maybeSingle();
+  if (!org?.brand_id) return [];
+
+  const { data: brand } = await supabase
+    .from("brands")
+    .select("pos_excluded_categories")
+    .eq("id", org.brand_id)
+    .maybeSingle();
+
   return brand?.pos_excluded_categories || [];
 }
 
