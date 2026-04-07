@@ -97,7 +97,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [editRecipeId, setEditRecipeId] = useState<string | null>(null);
   const [categoryValue, setCategoryValue] = useState<string>("");
   const [storageLocationValue, setStorageLocationValue] = useState<string>("");
-  const [storageLocationValue, setStorageLocationValue] = useState<string>("");
   const [storageLocationIds, setStorageLocationIds] = useState<Set<string>>(new Set());
   const [remapItem, setRemapItem] = useState<any>(null);
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
