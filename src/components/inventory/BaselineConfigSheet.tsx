@@ -21,7 +21,6 @@ interface BaselineConfigSheetProps {
   item: {
     id: string;
     name: string;
-    common_name?: string | null;
     pan_sizes: PanSizesConfig | null;
     pack_quantity?: number | null;
     pack_quantity_override?: number | null;
@@ -66,7 +65,7 @@ export default function BaselineConfigSheet({
     }
   }, [open, item?.id, tappedPanKey]);
 
-  const displayName = item?.common_name || item?.name || "";
+  const displayName = item?.name || "";
   const baselineContainer = ALL_CONTAINERS.find(c => c.key === baselineKey);
   const unitsNum = parseFloat(baselineUnits) || 0;
 

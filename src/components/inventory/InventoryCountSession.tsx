@@ -123,7 +123,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const itemColumns = `
           id,
           name,
-          common_name,
+           
           unit,
           par_level,
           cost_per_unit,
@@ -254,7 +254,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
           result.push({
             item_id: item.id,
-            item_name: (item as any).common_name || item.name,
+            item_name: item.name,
             unit: isRecipe ? ((item as any).recipe_yield_unit || item.unit) : item.unit,
             storage_location: isRecipe 
               ? (locId ? (locNameMap.get(locId) || "Recipes") : "Recipes")

@@ -57,13 +57,13 @@ export const useInventoryTransfers = (locationId: string | undefined) => {
         supabase.from("locations").select("id, name").in("id", locationIds),
         supabase.from("profiles").select("id, full_name").in("id", profileIds),
         itemIds.length > 0
-          ? supabase.from("inventory_items").select("id, name, common_name").in("id", itemIds)
+          ? supabase.from("inventory_items").select("id, name").in("id", itemIds)
           : { data: [] },
       ]);
 
       const locMap = new Map((locResult.data || []).map(l => [l.id, l.name]));
       const profileMap = new Map((profileResult.data || []).map(p => [p.id, p.full_name]));
-      const itemMap = new Map(((itemResult as any).data || []).map((i: any) => [i.id, i.common_name || i.name]));
+      const itemMap = new Map(((itemResult as any).data || []).map((i: any) => [i.id, i.name]));
 
       return data.map(t => ({
         ...t,

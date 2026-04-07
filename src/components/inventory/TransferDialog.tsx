@@ -45,7 +45,7 @@ export default function TransferDialog({ open, onClose, locationId }: TransferDi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, cost_per_unit, blended_price, pack_quantity, count_units_per_case, category")
+        .select("id, name, cost_per_unit, blended_price, pack_quantity, count_units_per_case, category")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -60,7 +60,7 @@ export default function TransferDialog({ open, onClose, locationId }: TransferDi
     const q = search.toLowerCase();
     return inventoryItems
       .filter(i => {
-        const displayName = i.common_name || i.name;
+        const displayName = i.name;
         return displayName.toLowerCase().includes(q);
       })
       .slice(0, 15);
@@ -78,7 +78,7 @@ export default function TransferDialog({ open, onClose, locationId }: TransferDi
         quantity: 1,
         unit_type: "case" as const,
         cost_per_unit: caseCost,  // stored as case-level cost, same as DB
-        name: item.common_name || item.name,
+        name: item.name,
         packQty,
       },
     ]);
@@ -177,7 +177,7 @@ export default function TransferDialog({ open, onClose, locationId }: TransferDi
                       disabled={already}
                     >
                       <div>
-                        <p className="text-sm font-medium">{item.common_name || item.name}</p>
+                        <p className="text-sm font-medium">{item.name}</p>
                         <p className="text-[10px] text-muted-foreground">{item.category}</p>
                       </div>
                       {already ? (

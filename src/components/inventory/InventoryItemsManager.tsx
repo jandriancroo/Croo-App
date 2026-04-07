@@ -62,7 +62,6 @@ interface EditingItem {
   pack_quantity: number | null;
   pack_quantity_override: number | null;
   category: string | null;
-  common_name: string | null;
   storage_location_id: string | null;
   cost_per_unit: number | null;
   unit: string | null;
@@ -97,8 +96,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [showRecipeDialog, setShowRecipeDialog] = useState(false);
   const [editRecipeId, setEditRecipeId] = useState<string | null>(null);
   const [categoryValue, setCategoryValue] = useState<string>("");
-  const [editingCommonName, setEditingCommonName] = useState(false);
-  const [commonNameValue, setCommonNameValue] = useState("");
   const [storageLocationValue, setStorageLocationValue] = useState<string>("");
   const [storageLocationIds, setStorageLocationIds] = useState<Set<string>>(new Set());
   const [remapItem, setRemapItem] = useState<any>(null);
@@ -437,10 +434,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
-    mutationFn: async ({ itemId, override, category, common_name, storage_location_id, pan_sizes, is_daily_tracked }: { itemId: string; override: number | null; category: string | null; common_name: string | null; storage_location_id: string | null; pan_sizes: PanSizesConfig | null; is_daily_tracked?: boolean }) => {
+    mutationFn: async ({ itemId, override, category, storage_location_id, pan_sizes, is_daily_tracked }: { itemId: string; override: number | null; category: string | null; storage_location_id: string | null; pan_sizes: PanSizesConfig | null; is_daily_tracked?: boolean }) => {
       const { error } = await supabase
         .from("inventory_items")
-        .update({ pack_quantity_override: override, category, common_name, storage_location_id, pan_sizes: pan_sizes as any, is_daily_tracked: is_daily_tracked ?? false } as any)
+        .update({ pack_quantity_override: override, category, storage_location_id, pan_sizes: pan_sizes as any, is_daily_tracked: is_daily_tracked ?? false } as any)
         .eq("id", itemId);
       
       if (error) throw error;
@@ -521,7 +518,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       pack_quantity: item.pack_quantity,
       pack_quantity_override: item.pack_quantity_override,
       category: item.category,
-      common_name: item.common_name || null,
       storage_location_id: item.storage_location_id || null,
       cost_per_unit: item.cost_per_unit ? Number(item.cost_per_unit) : null,
       unit: item.unit || null,
@@ -531,8 +527,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     setIsDailyTracked(!!item.is_daily_tracked);
     setOverrideValue(item.pack_quantity_override?.toString() || "");
     setCategoryValue(item.category || "");
-    setEditingCommonName(false);
-    setCommonNameValue(item.common_name || "");
+    setStorageLocationValue(item.storage_location_id || "");
     setStorageLocationValue(item.storage_location_id || "");
     setPanSizesConfig(item.pan_sizes ? (item.pan_sizes as PanSizesConfig) : null);
 
@@ -555,10 +550,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     if (!editingItem) return;
     const override = overrideValue.trim() === "" ? null : parseInt(overrideValue);
     const category = categoryValue || null;
-    const common_name = commonNameValue.trim() || null;
     const storage_location_id = storageLocationValue || null;
 
-    updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id, pan_sizes: panSizesConfig, is_daily_tracked: isDailyTracked });
+    updateItemMutation.mutate({ itemId: editingItem.id, override, category, storage_location_id, pan_sizes: panSizesConfig, is_daily_tracked: isDailyTracked });
   };
 
 
@@ -1101,7 +1095,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                       {remapItems.map((item) => (
                         <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-destructive/10 border border-destructive/20 rounded text-sm group">
                           <div className="flex items-center gap-2 truncate flex-1">
-                            <span className="truncate">{(item as any).common_name || item.name}</span>
+                            <span className="truncate">{item.name}</span>
                             <Badge variant="destructive" className="text-[10px] px-1.5 py-0 flex-shrink-0">
                               Remap
                             </Badge>
@@ -1312,7 +1306,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                     } else if (isShortcut) {
                                       setShortcutConfigItem({
                                         itemId: item.id,
-                                        itemName: (item as any).common_name || item.name,
+                                        itemName: item.name,
                                         storageLocationId: loc.id,
                                         storageLocationName: loc.name,
                                       });
@@ -1439,45 +1433,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 {!!editingItem.brand_item_id && (
                   <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2.5 py-1.5">
                     <Tag className="h-3 w-3" />
-                    Brand managed — category &amp; common name controlled by brand catalog
+                    Brand managed — category controlled by brand catalog
                   </div>
                 )}
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 pr-6 min-w-0 max-w-full">
-                   {editingCommonName ? (
-                     <Input
-                       autoFocus
-                       className="h-7 text-sm font-medium flex-1"
-                       placeholder="Common name (e.g. Spring Mix)"
-                       value={commonNameValue}
-                       onChange={(e) => setCommonNameValue(e.target.value)}
-                       onBlur={() => setEditingCommonName(false)}
-                       onKeyDown={(e) => {
-                         if (e.key === "Enter") setEditingCommonName(false);
-                         if (e.key === "Escape") {
-                           setCommonNameValue(editingItem.common_name || "");
-                           setEditingCommonName(false);
-                         }
-                       }}
-                       disabled={!canEditCommonNames || !!editingItem.brand_item_id}
-                     />
-                   ) : (
-                     <>
-                       <p className="text-sm font-medium min-w-0 flex-1 break-all line-clamp-2">
-                         {commonNameValue || editingItem.name}
-                       </p>
-                       {canEditCommonNames && !editingItem.brand_item_id && (
-                         <Button
-                           variant="ghost"
-                           size="icon"
-                           className="h-5 w-5 flex-shrink-0 text-muted-foreground hover:text-foreground"
-                           onClick={() => setEditingCommonName(true)}
-                         >
-                           <Pencil className="h-3 w-3" />
-                         </Button>
-                       )}
-                     </>
-                   )}
+                    <p className="text-sm font-medium min-w-0 flex-1 break-all line-clamp-2">
+                      {editingItem.name}
+                    </p>
                    <Select
                      value={categoryValue || "__none__"}
                      onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
@@ -1494,9 +1457,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                      </SelectContent>
                    </Select>
                  </div>
-                 {commonNameValue ? (
-                   <p className="text-[10px] text-muted-foreground break-words">{editingItem.name}</p>
-                 ) : null}
               </div>
 
               {/* Storage Location */}
@@ -1670,7 +1630,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                   >
                     <option value="">No link</option>
                     {items.filter(i => i.id !== editingItem?.id).map(i => (
-                      <option key={i.id} value={i.id}>{(i as any).common_name || i.name}</option>
+                      <option key={i.id} value={i.id}>{i.name}</option>
                     ))}
                   </select>
                   <p className="text-[10px] text-muted-foreground">

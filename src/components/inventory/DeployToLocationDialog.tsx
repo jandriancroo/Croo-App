@@ -72,7 +72,6 @@ interface Template {
 interface TargetItem {
   id: string;
   name: string;
-  common_name: string | null;
   pack_size: string | null;
   pack_quantity: number | null;
   pan_sizes: any;
@@ -96,11 +95,10 @@ interface MatchResult {
   autoCreate: boolean;
 }
 
-type DeployFeature = 'pan_sizes' | 'common_names' | 'categories' | 'storage_locations' | 'shortcuts' | 'product_groups' | 'recipes';
+type DeployFeature = 'pan_sizes' | 'categories' | 'storage_locations' | 'shortcuts' | 'product_groups' | 'recipes';
 
 const FEATURE_LABELS: Record<DeployFeature, string> = {
   pan_sizes: "Pan Sizes",
-  common_names: "Common Names",
   categories: "Categories",
   storage_locations: "Storage Locations",
   shortcuts: "Shortcuts",
@@ -110,7 +108,6 @@ const FEATURE_LABELS: Record<DeployFeature, string> = {
 
 const FEATURE_DESCRIPTIONS: Record<DeployFeature, string> = {
   pan_sizes: "Pan size configurations & volume conversions",
-  common_names: "Friendly display names for items",
   categories: "Item categories (Produce, Dairy, etc.)",
   storage_locations: "Where items are stored (auto-creates missing)",
   shortcuts: "All shortcuts placed in a 'Shortcuts (Review)' location for you to sort or delete",
@@ -118,8 +115,8 @@ const FEATURE_DESCRIPTIONS: Record<DeployFeature, string> = {
   recipes: "Recipe definitions with ingredients & yields",
 };
 
-const DEFAULT_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'product_groups', 'recipes'];
-const ALL_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'shortcuts', 'product_groups', 'recipes'];
+const DEFAULT_FEATURES: DeployFeature[] = ['pan_sizes', 'categories', 'storage_locations', 'product_groups', 'recipes'];
+const ALL_FEATURES: DeployFeature[] = ['pan_sizes', 'categories', 'storage_locations', 'shortcuts', 'product_groups', 'recipes'];
 
 /** Parse per-unit weight from pack_size */
 function parsePerUnitWeight(packSize: string | null): number | null {
@@ -163,7 +160,6 @@ function findBestMatch(template: Template, items: TargetItem[], usedIds: Set<str
     !usedIds.has(i.id) &&
     !(template.is_recipe && (i.item_number || i.pa_item_id)) && // vendor items can't become recipes
     (
-      (i.common_name || i.name).toLowerCase() === template.product_name.toLowerCase() ||
       i.name.toLowerCase() === template.product_name.toLowerCase()
     )
   );
@@ -265,7 +261,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, vendor_source, item_number, pa_item_id, is_recipe")
+        .select("id, name, pack_size, pack_quantity, pan_sizes, vendor_source, item_number, pa_item_id, is_recipe")
         .eq("location_id", targetLocationId)
         .eq("is_active", true)
         .order("name");
@@ -285,7 +281,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     // Filter templates to only those that have data for selected features
     const relevantTemplates = templates.filter(tmpl => {
       if (selectedFeatures.has('pan_sizes') && (tmpl.pan_units_per_lb != null || tmpl.pan_units_per_unit != null)) return true;
-      if (selectedFeatures.has('common_names') && tmpl.common_name) return true;
+      if (selectedFeatures.has('categories') && tmpl.category) return true;
       if (selectedFeatures.has('categories') && tmpl.category) return true;
       if (selectedFeatures.has('storage_locations') && tmpl.storage_location_name) return true;
       if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) return true;
@@ -388,7 +384,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
   const getFeatureIndicators = (tmpl: Template) => {
     const indicators: string[] = [];
     if (selectedFeatures.has('pan_sizes') && (tmpl.pan_units_per_lb != null || tmpl.pan_units_per_unit != null)) indicators.push("Pan");
-    if (selectedFeatures.has('common_names') && tmpl.common_name) indicators.push("Name");
+    if (selectedFeatures.has('categories') && tmpl.category) indicators.push("Cat");
     if (selectedFeatures.has('categories') && tmpl.category) indicators.push("Cat");
     if (selectedFeatures.has('storage_locations') && tmpl.storage_location_name) indicators.push("Stor");
     if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) indicators.push(`${tmpl.shortcut_location_names.length} SC`);
@@ -627,7 +623,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
             .insert({
               location_id: targetLocationId,
               name: tmpl.product_name,
-              common_name: tmpl.common_name,
               category: tmpl.category,
               storage_location_id: unassignedId,
               is_active: true,
@@ -662,9 +657,8 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
           };
         }
 
-        // Common name
-        if (selectedFeatures.has('common_names') && tmpl.common_name) {
-          updateData.common_name = tmpl.common_name;
+        // Category
+        if (selectedFeatures.has('categories') && tmpl.category) {
         }
 
         // Category
@@ -727,7 +721,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
         // Fetch ALL target items (including newly created) for ingredient matching
         const { data: allTargetItems } = await supabase
           .from("inventory_items")
-          .select("id, name, common_name, item_number, pa_item_id, vendor_source, is_recipe")
+          .select("id, name, item_number, pa_item_id, vendor_source, is_recipe")
           .eq("location_id", targetLocationId)
           .eq("is_active", true);
 
@@ -770,7 +764,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
             // Tier 2: name match
             if (!ingredientItemId && ing.ingredient_name) {
               const match = targetItemsList.find(i =>
-                (i.common_name || i.name).toLowerCase() === ing.ingredient_name.toLowerCase() ||
                 i.name.toLowerCase() === ing.ingredient_name.toLowerCase()
               );
               if (match) ingredientItemId = match.id;
@@ -936,7 +929,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
               {ALL_FEATURES.map(f => {
                 const hasData = templates?.some(t => {
                   if (f === 'pan_sizes') return t.pan_units_per_lb != null || t.pan_units_per_unit != null;
-                  if (f === 'common_names') return !!t.common_name;
                   if (f === 'categories') return !!t.category;
                   if (f === 'storage_locations') return !!t.storage_location_name;
                   if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);
@@ -946,7 +938,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                 });
                 const count = templates?.filter(t => {
                   if (f === 'pan_sizes') return t.pan_units_per_lb != null || t.pan_units_per_unit != null;
-                  if (f === 'common_names') return !!t.common_name;
                   if (f === 'categories') return !!t.category;
                   if (f === 'storage_locations') return !!t.storage_location_name;
                   if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);

@@ -19,7 +19,6 @@ interface DailySpotCountProps {
 interface TrackedItem {
   id: string;
   name: string;
-  common_name: string | null;
   unit: string;
   category: string | null;
   par_level: number | null;
@@ -55,7 +54,7 @@ const DailySpotCount = ({ locationId, onSaved }: DailySpotCountProps) => {
       const { data: items, error } = await supabase
         .from("inventory_items")
         .select(`
-          id, name, common_name, unit, category, par_level, pack_quantity, pack_size, pan_sizes, cost_per_unit,
+          id, name, unit, category, par_level, pack_quantity, pack_size, pan_sizes, cost_per_unit,
           storage_location_id,
           storage_location:inventory_locations!inventory_items_storage_location_id_fkey(name)
         `)
@@ -110,7 +109,6 @@ const DailySpotCount = ({ locationId, onSaved }: DailySpotCountProps) => {
         return {
           id: item.id,
           name: item.name,
-          common_name: item.common_name,
           unit: item.unit,
           category: item.category,
           par_level: item.par_level,
@@ -384,7 +382,7 @@ const DailySpotCount = ({ locationId, onSaved }: DailySpotCountProps) => {
           const totalQty = getTotalQuantity(item.id, item);
           const prevQty = yesterdayMap[item.id];
           const delta = prevQty != null ? totalQty - prevQty : null;
-          const displayName = item.common_name || item.name;
+          const displayName = item.name;
           const showCases = countBy === "cases_only" || countBy === "cases_and_units";
           const showUnits = countBy === "units_only" || countBy === "cases_and_units";
           const showSimple = countBy === "inherit" || (!showCases && !showUnits);
@@ -634,7 +632,7 @@ const DailySpotCount = ({ locationId, onSaved }: DailySpotCountProps) => {
                   {trackedItems?.map((item) => (
                     <tr key={item.id} className="border-b border-border/50">
                       <td className="py-1 pr-2 font-medium truncate max-w-[120px]">
-                        {item.common_name || item.name}
+                        {item.name}
                       </td>
                       {recentHistory.map((day: any) => {
                         const entry = (day.items as any[])?.find((i: any) => i.item_id === item.id);

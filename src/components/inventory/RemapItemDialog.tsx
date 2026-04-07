@@ -20,7 +20,6 @@ interface RemapItemDialogProps {
     pack_size: string | null;
     storage_location_id: string | null;
     category: string | null;
-    common_name: string | null;
   } | null;
   locationId: string;
   bidGuideHeaderId: string;
@@ -135,7 +134,7 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
         if (updateError) throw updateError;
         if (!updatedItem) throw new Error("Update in place could not be applied to this item.");
 
-        toast.success(`Remapped "${item.common_name || item.name}" → "${newProduct.name}"`);
+        toast.success(`Remapped "${item.name}" → "${newProduct.name}"`);
       } else {
         // Deactivate old + create new
         const { data: deactivatedItem, error: deactivateError } = await supabase
@@ -163,7 +162,6 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
             image_url: newProduct.imageUrl,
             storage_location_id: item.storage_location_id,
             category: item.category,
-            common_name: item.common_name,
             is_active: true,
             vendor_source: "pfg",
             remap_status: null,
@@ -172,7 +170,7 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
 
         if (insertError) throw insertError;
 
-        toast.success(`Replaced "${item.common_name || item.name}" with "${newProduct.name}"`);
+        toast.success(`Replaced "${item.name}" with "${newProduct.name}"`);
       }
 
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
@@ -206,7 +204,7 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen && item) {
       // Use common name or first two words of name as search seed
-      const seed = item.common_name || item.name.split(" ").slice(0, 2).join(" ");
+      const seed = item.name.split(" ").slice(0, 2).join(" ");
       setSearchQuery(seed);
       setResults([]);
       setHasSearched(false);
@@ -229,10 +227,7 @@ const RemapItemDialog = ({ open, onOpenChange, item, locationId, bidGuideHeaderI
             {/* Current item info */}
             <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
               <p className="text-xs font-medium text-destructive mb-1">Current Item (needs remap)</p>
-              <p className="text-sm font-medium">{item.common_name || item.name}</p>
-              {item.common_name && (
-                <p className="text-xs text-muted-foreground">{item.name}</p>
-              )}
+              <p className="text-sm font-medium">{item.name}</p>
               <div className="flex gap-2 mt-1">
                 {item.brand && <Badge variant="outline" className="text-[10px]">{item.brand}</Badge>}
                 {item.item_number && <Badge variant="outline" className="text-[10px]">#{item.item_number}</Badge>}
