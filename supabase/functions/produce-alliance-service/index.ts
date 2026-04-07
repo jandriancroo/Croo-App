@@ -1351,14 +1351,52 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     return jsonResponse({ success: true, message: ordersPersisted > 0 ? `${ordersPersisted} orders saved` : 'No items found', synced: 0, ordersPersisted });
   }
 
+  // Build brand_vendor_mappings → brand_inventory_deployments lookup for this location
+  // Step 4: Smart matching through the mapping table
+  const { data: vmRows } = await supabase
+    .from('brand_vendor_mappings')
+    .select('brand_template_id, vendor_item_id')
+    .eq('vendor', 'pa');
+
+  const { data: deployRows } = await supabase
+    .from('brand_inventory_deployments')
+    .select('template_id, inventory_item_id')
+    .eq('location_id', locationId);
+
+  // template_id → local inventory_item_id
+  const deployByTemplate = new Map<string, string>();
+  for (const d of (deployRows || [])) {
+    deployByTemplate.set(d.template_id, d.inventory_item_id);
+  }
+  // pa vendor_item_id → local inventory_item_id (via template)
+  const paIdToLocalItem = new Map<string, string>();
+  for (const vm of (vmRows || [])) {
+    const localId = deployByTemplate.get(vm.brand_template_id);
+    if (localId) paIdToLocalItem.set(vm.vendor_item_id, localId);
+  }
+
+  console.log('[PA Sync] Built mapping lookup:', paIdToLocalItem.size, 'PA IDs → local items');
+
   // Sync items to inventory
   let synced = 0;
   for (const [, item] of allItems) {
     const parsedPack = parsePackFromName(item.description);
-    
-    // Check if item exists by pa_item_id
-    let existingItem = null;
-    if (item.pa_product_id) {
+
+    // Step 4: Try brand_vendor_mappings → deployment first
+    let existingItemId = item.pa_product_id ? paIdToLocalItem.get(item.pa_product_id) : null;
+    let existingItem: { id: string; user_hidden: boolean } | null = null;
+
+    if (existingItemId) {
+      const { data } = await supabase
+        .from('inventory_items')
+        .select('id, user_hidden')
+        .eq('id', existingItemId)
+        .maybeSingle();
+      existingItem = data;
+    }
+
+    // Fallback: direct pa_item_id match on local item
+    if (!existingItem && item.pa_product_id) {
       const { data } = await supabase
         .from('inventory_items')
         .select('id, user_hidden')
@@ -1367,6 +1405,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
         .maybeSingle();
       existingItem = data;
     }
+
+    // Fallback: name match
     if (!existingItem) {
       const { data } = await supabase
         .from('inventory_items')
@@ -1378,8 +1418,6 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     }
 
     const itemData = {
-      name: item.description.trim(),
-      unit: 'case',
       cost_per_unit: item.unit_price,
       pack_size: parsedPack.packSize,
       pack_quantity: parsedPack.packQuantity,
@@ -1389,14 +1427,18 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     };
 
     if (existingItem) {
-      const updateData = { ...itemData };
+      const updateData: any = { ...itemData };
       if (existingItem.user_hidden) {
-        delete (updateData as any).is_active;
+        delete updateData.is_active;
       }
+      // Don't overwrite the product name if item is linked to a brand template
+      // (brand name propagation handles that)
       await supabase.from('inventory_items').update(updateData).eq('id', existingItem.id);
     } else {
       await supabase.from('inventory_items').insert({
         location_id: locationId,
+        name: item.description.trim(),
+        unit: 'case',
         pa_item_id: item.pa_product_id || null,
         storage_location_id: null,
         ...itemData,
