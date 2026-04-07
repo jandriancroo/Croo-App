@@ -128,6 +128,13 @@ export async function calculateVarianceReport(
     }
   }
 
+  // Build brand template → local item lookup for recipe ingredient resolution
+  // Recipe ingredients reference brand_inventory_templates IDs, not local inventory_items
+  const templateToLocalItem = new Map<string, string>();
+  for (const d of deployments) {
+    templateToLocalItem.set(d.template_id, d.inventory_item_id);
+  }
+
   // ─── Match-source logging ───
   const matchLog = { pfg: { mapping: 0, fallback: 0, unmatched: 0 }, pa: { mapping: 0, fallback: 0, unmatched: 0 } };
 
