@@ -91,6 +91,7 @@ export async function calculateVarianceReport(
   // Parallel data fetches — split into two Promise.all calls to stay within TS overload limits (max 10)
   const vendorMappingsP = fetchVendorMappings();
   const deploymentsP = fetchDeployments(locationId);
+  const excludedCategoriesP = fetchExcludedCategories(locationId);
 
   const [endingItems, beginningItems, salesData, pfgOrders, paOrders, inventoryItems, posMappings, blueprints, allIngredients] =
     await Promise.all([
@@ -105,7 +106,7 @@ export async function calculateVarianceReport(
       fetchAllIngredients(locationId),
     ]);
 
-  const [vendorMappings, deployments] = await Promise.all([vendorMappingsP, deploymentsP]);
+  const [vendorMappings, deployments, excludedCategories] = await Promise.all([vendorMappingsP, deploymentsP, excludedCategoriesP]);
 
   const netSales = salesData.totalNetSales;
 
