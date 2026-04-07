@@ -128,6 +128,9 @@ export async function calculateVarianceReport(
     }
   }
 
+  // ─── Match-source logging ───
+  const matchLog = { pfg: { mapping: 0, fallback: 0, unmatched: 0 }, pa: { mapping: 0, fallback: 0, unmatched: 0 } };
+
   // ─── Per-item tracking ───
   const itemActual = new Map<string, { beginning: number; purchases: number; ending: number; beginningQty: number; endingQty: number }>();
   const getOrCreateItem = (itemId: string) => {
@@ -175,14 +178,14 @@ export async function calculateVarianceReport(
     const items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
     for (const li of items) {
       const vendorItemId = String(li.itemNumber || li.productId);
-      // Try mapping table first (Step 4 smart match)
       const mappedItemId = vendorIdToLocalItem.get(`pfg:${vendorItemId}`);
-      // Fallback to direct item_number match on local item
-      const invItemId = mappedItemId || itemByNumber.get(vendorItemId);
+      const fallbackItemId = !mappedItemId ? itemByNumber.get(vendorItemId) : null;
+      const invItemId = mappedItemId || fallbackItemId;
       if (invItemId) {
+        if (mappedItemId) matchLog.pfg.mapping++; else matchLog.pfg.fallback++;
         getOrCreateItem(invItemId).purchases += Number(li.total) || 0;
       } else {
-        // Unmatched PFG item — add to a generic "Other" bucket
+        matchLog.pfg.unmatched++;
         const key = `__pfg_unmatched_${vendorItemId}`;
         if (!itemActual.has(key)) {
           itemActual.set(key, { beginning: 0, purchases: 0, ending: 0, beginningQty: 0, endingQty: 0 });
@@ -198,15 +201,19 @@ export async function calculateVarianceReport(
     const items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
     for (const li of items) {
       const paProductId = String(li.pa_product_id || li.item_code);
-      // Try mapping table first (Step 4 smart match)
       const mappedItemId = vendorIdToLocalItem.get(`pa:${paProductId}`);
-      // Fallback to direct pa_item_id match on local item
-      const invItemId = mappedItemId || itemByPaId.get(paProductId);
+      const fallbackItemId = !mappedItemId ? itemByPaId.get(paProductId) : null;
+      const invItemId = mappedItemId || fallbackItemId;
       if (invItemId) {
+        if (mappedItemId) matchLog.pa.mapping++; else matchLog.pa.fallback++;
         getOrCreateItem(invItemId).purchases += Number(li.total) || 0;
+      } else {
+        matchLog.pa.unmatched++;
       }
     }
   }
+
+  console.log('[Variance] Match-source audit:', JSON.stringify(matchLog));
 
   // ─── 2. THEORETICAL USAGE by item (blueprint tree-walk) ───
   const bpMap = new Map(blueprints.map(b => [b.id, b]));
