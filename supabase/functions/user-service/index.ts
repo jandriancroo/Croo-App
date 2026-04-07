@@ -139,10 +139,9 @@ function getRedirectUrl(req: Request, supabaseUrl: string): string {
 // ACTION: invite
 // ============================================================================
 
-async function handleInvite(req: Request, supabaseAdmin: any, requestingUserId: string): Promise<Response> {
+async function handleInvite(payload: InviteUserPayload, req: Request, supabaseAdmin: any, requestingUserId: string): Promise<Response> {
   await verifyAdminRole(supabaseAdmin, requestingUserId);
   
-  const payload: InviteUserPayload = await req.json();
   const { email, fullName, role, profilePhotoUrl, locationId, phoneNumber, hourlyWage, birthday } = payload;
 
   if (!email || !fullName || !role) {
