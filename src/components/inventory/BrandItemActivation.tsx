@@ -162,7 +162,6 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
             brand_item_id: brandItemId,
             category: brandItem.category,
             is_active: true,
-            is_active: true,
             is_recipe: brandItem.is_recipe || false,
           });
         if (error) throw error;
