@@ -129,16 +129,14 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
 
       const { data: unlinkeds } = await supabase
         .from('inventory_items')
-        .select('id, name, common_name')
+        .select('id, name')
         .eq('location_id', locationId)
         .is('brand_item_id', null);
 
       const matchedLocal = unlinkeds?.find(local => {
         const localName = (local.name || '').toLowerCase();
-        const localCommon = (local.common_name || '').toLowerCase();
         return matchTerms.some(term =>
-          localName.includes(term) || term.includes(localName) ||
-          (localCommon && (localCommon.includes(term) || term.includes(localCommon)))
+          localName.includes(term) || term.includes(localName)
         );
       });
 
@@ -149,12 +147,11 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
           .update({
             brand_item_id: brandItemId,
             category: brandItem.category,
-            common_name: brandItem.common_name || matchedLocal.common_name,
             is_active: true,
           })
           .eq('id', matchedLocal.id);
         if (error) throw error;
-        toast.info(`Linked existing "${matchedLocal.common_name || matchedLocal.name}" to brand item`);
+        toast.info(`Linked existing "${matchedLocal.name}" to brand item`);
       } else {
         // No match found — create new
         const { error } = await supabase
@@ -164,7 +161,7 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
             name: brandItem.product_name,
             brand_item_id: brandItemId,
             category: brandItem.category,
-            common_name: brandItem.common_name,
+            is_active: true,
             is_active: true,
             is_recipe: brandItem.is_recipe || false,
           });
