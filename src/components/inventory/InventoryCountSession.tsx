@@ -123,7 +123,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const itemColumns = `
           id,
           name,
-          common_name,
+           common_name,
           unit,
           par_level,
           cost_per_unit,
