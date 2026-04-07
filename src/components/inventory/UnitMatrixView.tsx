@@ -250,7 +250,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
       if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        const name = ((item as any).common_name || item.name).toLowerCase();
+        const name = item.name.toLowerCase();
         return name.includes(q);
       }
       return true;
@@ -340,7 +340,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                     </td>
                   </tr>
                   {rows.map(({ item, cells }, idx) => {
-                    const displayName = (item as any).common_name || item.name;
+                    const displayName = item.name;
                     const hasIssue = !item.cost_per_unit && !item.blended_price;
                     
                     return (
