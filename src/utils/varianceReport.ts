@@ -177,17 +177,21 @@ export async function calculateVarianceReport(
     entry.ending += ci.quantity * getItemUnitValue(ci.item_id);
   }
 
-  // Purchases - match PFG items by item_number
+  // Purchases - match PFG items via brand_vendor_mappings first, then fallback to local item_number
   for (const order of pfgOrders) {
     if (!order.items) continue;
     const items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
     for (const li of items) {
-      const invItemId = itemByNumber.get(String(li.itemNumber || li.productId));
+      const vendorItemId = String(li.itemNumber || li.productId);
+      // Try mapping table first (Step 4 smart match)
+      const mappedItemId = vendorIdToLocalItem.get(`pfg:${vendorItemId}`);
+      // Fallback to direct item_number match on local item
+      const invItemId = mappedItemId || itemByNumber.get(vendorItemId);
       if (invItemId) {
         getOrCreateItem(invItemId).purchases += Number(li.total) || 0;
       } else {
         // Unmatched PFG item — add to a generic "Other" bucket
-        const key = `__pfg_unmatched_${li.itemNumber || li.productId}`;
+        const key = `__pfg_unmatched_${vendorItemId}`;
         if (!itemActual.has(key)) {
           itemActual.set(key, { beginning: 0, purchases: 0, ending: 0, beginningQty: 0, endingQty: 0 });
         }
@@ -196,12 +200,16 @@ export async function calculateVarianceReport(
     }
   }
 
-  // Purchases - match PA items by pa_product_id
+  // Purchases - match PA items via brand_vendor_mappings first, then fallback to local pa_item_id
   for (const order of paOrders) {
     if (!order.items) continue;
     const items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
     for (const li of items) {
-      const invItemId = itemByPaId.get(String(li.pa_product_id || li.item_code));
+      const paProductId = String(li.pa_product_id || li.item_code);
+      // Try mapping table first (Step 4 smart match)
+      const mappedItemId = vendorIdToLocalItem.get(`pa:${paProductId}`);
+      // Fallback to direct pa_item_id match on local item
+      const invItemId = mappedItemId || itemByPaId.get(paProductId);
       if (invItemId) {
         getOrCreateItem(invItemId).purchases += Number(li.total) || 0;
       }
