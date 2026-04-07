@@ -106,7 +106,7 @@ export async function calculateVarianceReport(
       fetchAllIngredients(locationId),
     ]);
 
-  const [vendorMappings, deployments, excludedCategories] = await Promise.all([vendorMappingsP, deploymentsP, excludedCategoriesP]);
+  const [vendorMappings, deployments, { excludedCategories, includedOverrides }] = await Promise.all([vendorMappingsP, deploymentsP, brandFiltersP]);
 
   const netSales = salesData.totalNetSales;
 
@@ -708,29 +708,31 @@ async function fetchDeployments(locationId: string) {
   return (data || []) as Array<{ template_id: string; inventory_item_id: string }>;
 }
 
-async function fetchExcludedCategories(locationId: string): Promise<string[]> {
-  // Location → Organization → Brand to get pos_excluded_categories
+async function fetchBrandPosFilters(locationId: string): Promise<{ excludedCategories: string[]; includedOverrides: string[] }> {
   const { data: loc } = await supabase
     .from("locations")
     .select("organization_id")
     .eq("id", locationId)
     .maybeSingle();
-  if (!loc?.organization_id) return [];
+  if (!loc?.organization_id) return { excludedCategories: [], includedOverrides: [] };
 
   const { data: org } = await supabase
     .from("organizations")
     .select("brand_id")
     .eq("id", loc.organization_id)
     .maybeSingle();
-  if (!org?.brand_id) return [];
+  if (!org?.brand_id) return { excludedCategories: [], includedOverrides: [] };
 
   const { data: brand } = await supabase
     .from("brands")
-    .select("pos_excluded_categories")
+    .select("pos_excluded_categories, pos_included_overrides")
     .eq("id", org.brand_id)
     .maybeSingle();
 
-  return brand?.pos_excluded_categories || [];
+  return {
+    excludedCategories: brand?.pos_excluded_categories || [],
+    includedOverrides: (brand as any)?.pos_included_overrides || [],
+  };
 }
 
 function round2(n: number): number {
