@@ -678,6 +678,23 @@ async function fetchAllIngredients(_locationId: string) {
   return all;
 }
 
+async function fetchVendorMappings() {
+  const { data, error } = await supabase
+    .from("brand_vendor_mappings")
+    .select("brand_template_id, vendor, vendor_item_id");
+  if (error) throw error;
+  return (data || []) as Array<{ brand_template_id: string; vendor: string; vendor_item_id: string }>;
+}
+
+async function fetchDeployments(locationId: string) {
+  const { data, error } = await supabase
+    .from("brand_inventory_deployments")
+    .select("template_id, inventory_item_id")
+    .eq("location_id", locationId);
+  if (error) throw error;
+  return (data || []) as Array<{ template_id: string; inventory_item_id: string }>;
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
