@@ -1379,12 +1379,15 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
 
   // Sync items to inventory
   let synced = 0;
+  const syncMatchLog = { mapping: 0, fallback_pa_id: 0, fallback_name: 0, new_item: 0 };
+
   for (const [, item] of allItems) {
     const parsedPack = parsePackFromName(item.description);
 
     // Step 4: Try brand_vendor_mappings → deployment first
     let existingItemId = item.pa_product_id ? paIdToLocalItem.get(item.pa_product_id) : null;
     let existingItem: { id: string; user_hidden: boolean } | null = null;
+    let matchSource = 'new';
 
     if (existingItemId) {
       const { data } = await supabase
@@ -1393,6 +1396,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
         .eq('id', existingItemId)
         .maybeSingle();
       existingItem = data;
+      if (existingItem) matchSource = 'mapping';
     }
 
     // Fallback: direct pa_item_id match on local item
@@ -1404,6 +1408,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
         .eq('pa_item_id', item.pa_product_id)
         .maybeSingle();
       existingItem = data;
+      if (existingItem) matchSource = 'fallback_pa_id';
     }
 
     // Fallback: name match
@@ -1415,7 +1420,13 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
         .ilike('name', item.description)
         .maybeSingle();
       existingItem = data;
+      if (existingItem) matchSource = 'fallback_name';
     }
+
+    if (matchSource === 'mapping') syncMatchLog.mapping++;
+    else if (matchSource === 'fallback_pa_id') syncMatchLog.fallback_pa_id++;
+    else if (matchSource === 'fallback_name') syncMatchLog.fallback_name++;
+    else syncMatchLog.new_item++;
 
     const itemData = {
       cost_per_unit: item.unit_price,
@@ -1446,6 +1457,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     }
     synced++;
   }
+
+  console.log('[PA Sync] Match-source audit:', JSON.stringify(syncMatchLog));
 
   // Blended price calculation for linked items
   const { data: linkedItems } = await supabase
