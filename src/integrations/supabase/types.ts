@@ -814,6 +814,7 @@ export type Database = {
           logo_url: string | null
           name: string
           pos_excluded_categories: string[]
+          pos_included_overrides: string[]
           slug: string
           updated_at: string
         }
@@ -824,6 +825,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           pos_excluded_categories?: string[]
+          pos_included_overrides?: string[]
           slug: string
           updated_at?: string
         }
@@ -834,6 +836,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           pos_excluded_categories?: string[]
+          pos_included_overrides?: string[]
           slug?: string
           updated_at?: string
         }
