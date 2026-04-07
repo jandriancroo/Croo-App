@@ -61,7 +61,7 @@ export default function TheoMappingTab({ brandId, excludedCategories, includedOv
         if (!Array.isArray(mix)) continue;
         for (const item of mix) {
           const cat = item.category || "Uncategorized";
-          const name = item.name;
+          const name = item.itemName || item.name;
           // Skip aggregate/totals rows (no name or "Totals")
           if (!name || name === "Totals") continue;
           if (!catMap.has(cat)) catMap.set(cat, new Map());
