@@ -711,6 +711,31 @@ function EditTemplateForm({
   onCancel: () => void;
   categories: string[];
 }) {
+  // Fetch live recipe ingredients from source location
+  const { data: liveIngredients = [] } = useQuery({
+    queryKey: ['brand-template-recipe-ingredients', template.source_item_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory_recipe_ingredients')
+        .select('quantity, unit, ingredient_item_id')
+        .eq('recipe_item_id', template.source_item_id);
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
+      const itemIds = data.map(d => d.ingredient_item_id);
+      const { data: items } = await supabase
+        .from('inventory_items')
+        .select('id, name, is_recipe')
+        .in('id', itemIds);
+      const itemMap = new Map((items || []).map(i => [i.id, i]));
+      return data.map(d => ({
+        name: itemMap.get(d.ingredient_item_id)?.name || 'Unknown',
+        quantity: d.quantity,
+        unit: d.unit,
+        isSubRecipe: itemMap.get(d.ingredient_item_id)?.is_recipe || false,
+      }));
+    },
+    enabled: !!template.is_recipe && !!template.source_item_id,
+  });
   const [name, setName] = useState(template.product_name || '');
   const [category, setCategory] = useState(template.category || '');
 
