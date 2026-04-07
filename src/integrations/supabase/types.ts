@@ -813,6 +813,7 @@ export type Database = {
           is_active: boolean
           logo_url: string | null
           name: string
+          pos_excluded_categories: string[]
           slug: string
           updated_at: string
         }
@@ -822,6 +823,7 @@ export type Database = {
           is_active?: boolean
           logo_url?: string | null
           name: string
+          pos_excluded_categories?: string[]
           slug: string
           updated_at?: string
         }
@@ -831,6 +833,7 @@ export type Database = {
           is_active?: boolean
           logo_url?: string | null
           name?: string
+          pos_excluded_categories?: string[]
           slug?: string
           updated_at?: string
         }
