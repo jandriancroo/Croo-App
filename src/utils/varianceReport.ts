@@ -89,31 +89,20 @@ export async function calculateVarianceReport(
   periodEndDate: string
 ): Promise<VarianceReportData> {
   // Parallel data fetches
-  const [
-    endingItems,
-    beginningItems,
-    salesData,
-    pfgOrders,
-    paOrders,
-    inventoryItems,
-    posMappings,
-    blueprints,
-    allIngredients,
-    vendorMappings,
-    deployments,
-  ] = await Promise.all([
-    fetchCountItems(endingCountId),
-    fetchCountItems(beginningCountId),
-    fetchSalesData(locationId, periodStartDate, periodEndDate),
-    fetchPfgOrders(locationId, periodStartDate, periodEndDate),
-    fetchPaOrders(locationId, periodStartDate, periodEndDate),
-    fetchAllInventoryItems(locationId),
-    fetchPosMappings(locationId),
-    fetchBlueprints(locationId),
-    fetchAllIngredients(locationId),
-    fetchVendorMappings(),
-    fetchDeployments(locationId),
-  ] as const);
+  const endingItemsP = fetchCountItems(endingCountId);
+  const beginningItemsP = fetchCountItems(beginningCountId);
+  const salesDataP = fetchSalesData(locationId, periodStartDate, periodEndDate);
+  const pfgOrdersP = fetchPfgOrders(locationId, periodStartDate, periodEndDate);
+  const paOrdersP = fetchPaOrders(locationId, periodStartDate, periodEndDate);
+  const inventoryItemsP = fetchAllInventoryItems(locationId);
+  const posMappingsP = fetchPosMappings(locationId);
+  const blueprintsP = fetchBlueprints(locationId);
+  const allIngredientsP = fetchAllIngredients(locationId);
+  const vendorMappingsP = fetchVendorMappings();
+  const deploymentsP = fetchDeployments(locationId);
+
+  const [endingItems, beginningItems, salesData, pfgOrders, paOrders, inventoryItems, posMappings, blueprints, allIngredients, vendorMappings, deployments] =
+    await Promise.all([endingItemsP, beginningItemsP, salesDataP, pfgOrdersP, paOrdersP, inventoryItemsP, posMappingsP, blueprintsP, allIngredientsP, vendorMappingsP, deploymentsP]);
 
   const netSales = salesData.totalNetSales;
 
