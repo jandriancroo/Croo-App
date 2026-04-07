@@ -109,7 +109,6 @@ const DailySpotCount = ({ locationId, onSaved }: DailySpotCountProps) => {
         return {
           id: item.id,
           name: item.name,
-          name: item.name,
           unit: item.unit,
           category: item.category,
           par_level: item.par_level,
