@@ -537,14 +537,15 @@ export async function calculateVarianceReport(
 
   const totalVariance = totalActual - totalTheoretical;
 
-  // Build unmapped POS items list, filtering out excluded categories
+  // Build unmapped POS items list, filtering out excluded categories (with item-level overrides)
   const excludedSet = new Set(excludedCategories.map(c => c.toLowerCase()));
+  const overrideSet = new Set((includedOverrides || []).map(i => i.toLowerCase()));
   const unmappedPosItems: UnmappedPosItem[] = [];
   for (const [itemName, info] of allPosItemsSold) {
     if (!matchedPosItemNames.has(itemName) && info.quantity > 0) {
       const cat = info.category || "Uncategorized";
-      // Skip items in excluded categories
-      if (excludedSet.has(cat.toLowerCase())) continue;
+      // Skip items in excluded categories unless they have an item-level override
+      if (excludedSet.has(cat.toLowerCase()) && !overrideSet.has(itemName.toLowerCase())) continue;
       unmappedPosItems.push({
         itemName,
         category: cat,
