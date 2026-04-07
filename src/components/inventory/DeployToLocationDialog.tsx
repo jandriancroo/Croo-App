@@ -73,7 +73,6 @@ interface TargetItem {
   id: string;
   name: string;
   pack_size: string | null;
-  pack_size: string | null;
   pack_quantity: number | null;
   pan_sizes: any;
   vendor_source: string | null;
@@ -625,7 +624,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
             .from("inventory_items")
             .insert({
               location_id: targetLocationId,
-              name: tmpl.product_name,
               name: tmpl.product_name,
               category: tmpl.category,
               storage_location_id: unassignedId,
