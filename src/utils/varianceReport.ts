@@ -537,13 +537,17 @@ export async function calculateVarianceReport(
 
   const totalVariance = totalActual - totalTheoretical;
 
-  // Build unmapped POS items list
+  // Build unmapped POS items list, filtering out excluded categories
+  const excludedSet = new Set(excludedCategories.map(c => c.toLowerCase()));
   const unmappedPosItems: UnmappedPosItem[] = [];
   for (const [itemName, info] of allPosItemsSold) {
     if (!matchedPosItemNames.has(itemName) && info.quantity > 0) {
+      const cat = info.category || "Uncategorized";
+      // Skip items in excluded categories
+      if (excludedSet.has(cat.toLowerCase())) continue;
       unmappedPosItems.push({
         itemName,
-        category: info.category || "Uncategorized",
+        category: cat,
         unitsSold: info.quantity,
       });
     }
@@ -701,6 +705,18 @@ async function fetchDeployments(locationId: string) {
     .eq("location_id", locationId);
   if (error) throw error;
   return (data || []) as Array<{ template_id: string; inventory_item_id: string }>;
+}
+
+async function fetchExcludedCategories(locationId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("locations")
+    .select("organizations!inner(brands!inner(pos_excluded_categories))")
+    .eq("id", locationId)
+    .maybeSingle();
+  if (error || !data) return [];
+  const org = (data as any).organizations;
+  const brand = org?.brands;
+  return brand?.pos_excluded_categories || [];
 }
 
 function round2(n: number): number {
