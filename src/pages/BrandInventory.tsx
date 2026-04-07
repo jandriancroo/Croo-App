@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, ScanSearch,
+  RefreshCw, Shield, FileText, ScanSearch, Filter,
 } from 'lucide-react';
 
 import { useUserRole } from '@/hooks/useUserRole';
@@ -28,6 +28,7 @@ import BrandCatalogBulkBar from '@/components/brand/BrandCatalogBulkBar';
 import BrandCategoryEditor from '@/components/brand/BrandCategoryEditor';
 import VendorGapFinder from '@/components/brand/VendorGapFinder';
 import InlineLinkToExisting from '@/components/brand/InlineLinkToExisting';
+import TheoMappingTab from '@/components/brand/TheoMappingTab';
 
 const FALLBACK_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
@@ -355,6 +356,15 @@ export default function BrandInventory() {
               <ChefHat className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Recipes</span>
             </TabsTrigger>
+            <TabsTrigger value="theo" className="gap-1.5">
+              <Filter className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Theo</span>
+              {(brand?.pos_excluded_categories?.length ?? 0) > 0 && (
+                <Badge variant="secondary" className="text-[10px] tabular-nums ml-0.5">
+                  {brand.pos_excluded_categories.length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="locations" className="gap-1.5">
               <Building2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Locations</span>
@@ -525,6 +535,17 @@ export default function BrandInventory() {
                   <p className="text-sm text-muted-foreground">Select a source location to view recipes</p>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
+
+          {/* ===== THEO MAPPING TAB ===== */}
+          <TabsContent value="theo" className="space-y-4">
+            {brandId && brand && (
+              <TheoMappingTab
+                brandId={brandId}
+                excludedCategories={brand.pos_excluded_categories || []}
+                locations={locations || []}
+              />
             )}
           </TabsContent>
 
