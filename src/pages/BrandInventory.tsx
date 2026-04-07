@@ -752,6 +752,20 @@ function EditTemplateForm({
 
   return (
     <div className="space-y-4">
+      {/* Template ID */}
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/40 rounded-md">
+        <span className="text-[10px] text-muted-foreground font-mono">ID:</span>
+        <span className="text-[10px] text-muted-foreground font-mono select-all">{template.id}</span>
+      </div>
+
+      {/* Recipe badge */}
+      {template.is_recipe && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-md">
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">🧪 Prep Recipe</span>
+          <span className="text-[10px] text-muted-foreground ml-auto">Countable produced item</span>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label>Product Name</Label>
         <Input value={name} onChange={e => setName(e.target.value)} />
