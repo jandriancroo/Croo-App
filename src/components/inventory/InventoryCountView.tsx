@@ -76,7 +76,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
           count_storage_location:inventory_locations(name, display_order),
           item:inventory_items(
             name,
-            common_name,
+            name,
             unit,
             cost_per_unit,
             pack_quantity,
@@ -123,7 +123,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
       // First get the count item IDs for this count
       const { data: countItemIds, error: itemError } = await supabase
         .from("inventory_count_items")
-        .select("id, item:inventory_items(name, common_name)")
+        .select("id, item:inventory_items(name)")
         .eq("count_id", countId);
       
       if (itemError) throw itemError;
@@ -148,7 +148,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
       if (error) throw error;
       
       // Map item names to edits
-      const itemNameMap = new Map(countItemIds?.map(ci => [ci.id, (ci.item as any)?.common_name || (ci.item as any)?.name || "Unknown"]) || []);
+      const itemNameMap = new Map(countItemIds?.map(ci => [ci.id, (ci.item as any)?.name || "Unknown"]) || []);
       
       // Group edits by count_item_id for inline display
       const editsByItem = new Map<string, EditRecord[]>();
@@ -358,7 +358,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                           )}
                                           <div className="min-w-0">
                                             <div className="flex items-center gap-1">
-                                              <p className="font-medium truncate text-sm">{(item.item as any)?.common_name || item.item?.name}</p>
+                                              <p className="font-medium truncate text-sm">{item.item?.name}</p>
                                               {hasEdits && (
                                                 <Badge variant="outline" className="text-xs py-0 px-1 flex-shrink-0">
                                                   <History className="h-3 w-3" />
