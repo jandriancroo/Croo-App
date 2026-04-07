@@ -124,8 +124,13 @@ export default function BrandCatalogSection({
                 />
               )}
               <span className="truncate flex-1 font-medium">
-                {item.product_name}
+                {item.common_name || item.product_name}
               </span>
+              {item.common_name && item.common_name !== item.product_name && (
+                <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+                  ({item.product_name})
+                </span>
+              )}
               {!item.is_recipe && recipeUsageMap && recipeUsageMap.has(item.id) && (
                 <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20">
                   {recipeUsageMap.get(item.id)} recipe{recipeUsageMap.get(item.id)! > 1 ? 's' : ''}
