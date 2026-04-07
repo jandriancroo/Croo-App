@@ -2869,7 +2869,6 @@ export type Database = {
           brand: string | null
           brand_item_id: string | null
           category: string | null
-          common_name: string | null
           cost_per_unit: number | null
           count_unit: string | null
           count_units_per_case: number | null
@@ -2908,7 +2907,6 @@ export type Database = {
           brand?: string | null
           brand_item_id?: string | null
           category?: string | null
-          common_name?: string | null
           cost_per_unit?: number | null
           count_unit?: string | null
           count_units_per_case?: number | null
@@ -2947,7 +2945,6 @@ export type Database = {
           brand?: string | null
           brand_item_id?: string | null
           category?: string | null
-          common_name?: string | null
           cost_per_unit?: number | null
           count_unit?: string | null
           count_units_per_case?: number | null

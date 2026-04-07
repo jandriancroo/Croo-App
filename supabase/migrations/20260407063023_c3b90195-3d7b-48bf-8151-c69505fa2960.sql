@@ -1,0 +1,1 @@
+ALTER TABLE public.inventory_items DROP COLUMN IF EXISTS common_name;
