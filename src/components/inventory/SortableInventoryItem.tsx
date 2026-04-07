@@ -114,13 +114,8 @@ export function SortableInventoryItem({
       {/* Name */}
       <div className="flex items-center gap-2 truncate flex-1 min-w-0">
         <span className={`truncate ${isShortcut ? "text-muted-foreground" : ""}`}>
-          {(item as any).common_name || item.name}
+          {item.name}
         </span>
-        {(item as any).common_name && !isShortcut && (
-          <span className="text-[10px] text-muted-foreground truncate max-w-[100px]" title={item.name}>
-            ({item.name})
-          </span>
-        )}
         {isShortcut && (
           <Badge
             variant="outline"
@@ -164,7 +159,7 @@ export function ItemDragOverlay({ item }: { item: any }) {
       <div className="flex items-center gap-2 truncate flex-1">
         <div className="w-3.5 h-3.5 rounded-full bg-primary flex-shrink-0" />
         <span className="truncate font-medium">
-          {(item as any).common_name || item.name}
+          {item.name}
         </span>
       </div>
       <span className="text-xs text-muted-foreground">{item.pack_size || item.unit || "ea"}</span>
@@ -205,7 +200,7 @@ export function BulkReorderGroup({ items, onMoveUp, onMoveDown, isFirst, isLast 
             {items.length} items
           </Badge>
           <span className="text-xs text-muted-foreground truncate">
-            {items.slice(0, 3).map(i => (i as any).common_name || i.name).join(", ")}
+            {items.slice(0, 3).map(i => i.name).join(", ")}
             {items.length > 3 ? ` +${items.length - 3} more` : ""}
           </span>
         </div>

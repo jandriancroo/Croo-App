@@ -66,7 +66,7 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, is_recipe, recipe_yield_qty, recipe_yield_unit, cost_per_unit, storage_location_id, source, countable")
+        .select("id, name, is_recipe, recipe_yield_qty, recipe_yield_unit, cost_per_unit, storage_location_id, source, countable")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .eq("is_recipe", true)
@@ -145,7 +145,7 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
   legacyItems?.forEach(item => {
     allRecipes.push({
       id: item.id,
-      name: item.common_name || item.name,
+      name: item.name,
       type: "legacy",
       yield_qty: item.recipe_yield_qty,
       yield_unit: item.recipe_yield_unit,

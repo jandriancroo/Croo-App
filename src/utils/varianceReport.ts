@@ -420,7 +420,7 @@ export async function calculateVarianceReport(
 
     const cat = getItemCategory(itemId);
     const item = itemMap.get(itemId);
-    const itemName = item?.common_name || item?.name || itemId;
+    const itemName = item?.name || itemId;
     const theo = itemTheoretical.get(itemId) || 0;
     const actualUsage = actual.beginning + actual.purchases - actual.ending;
 
@@ -459,7 +459,7 @@ export async function calculateVarianceReport(
     if (itemActual.has(itemId)) continue; // already handled above
     const cat = getItemCategory(itemId);
     const item = itemMap.get(itemId);
-    const itemName = item?.common_name || item?.name || itemId;
+    const itemName = item?.name || itemId;
 
     if (!catMap.has(cat)) catMap.set(cat, { items: new Map() });
     catMap.get(cat)!.items.set(itemId, {
@@ -624,7 +624,7 @@ async function fetchPaOrders(locationId: string, start: string, end: string) {
 async function fetchAllInventoryItems(locationId: string) {
   const { data, error } = await supabase
     .from("inventory_items")
-    .select("id, name, common_name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active")
+    .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active")
     .eq("location_id", locationId);
   if (error) throw error;
   return data || [];
