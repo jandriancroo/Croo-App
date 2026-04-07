@@ -88,28 +88,24 @@ export async function calculateVarianceReport(
   periodStartDate: string,
   periodEndDate: string
 ): Promise<VarianceReportData> {
-  // Parallel data fetches
-  const [
-    endingItems,
-    beginningItems,
-    salesData,
-    pfgOrders,
-    paOrders,
-    inventoryItems,
-    posMappings,
-    blueprints,
-    allIngredients,
-  ] = await Promise.all([
-    fetchCountItems(endingCountId),
-    fetchCountItems(beginningCountId),
-    fetchSalesData(locationId, periodStartDate, periodEndDate),
-    fetchPfgOrders(locationId, periodStartDate, periodEndDate),
-    fetchPaOrders(locationId, periodStartDate, periodEndDate),
-    fetchAllInventoryItems(locationId),
-    fetchPosMappings(locationId),
-    fetchBlueprints(locationId),
-    fetchAllIngredients(locationId),
-  ]);
+  // Parallel data fetches — split into two Promise.all calls to stay within TS overload limits (max 10)
+  const vendorMappingsP = fetchVendorMappings();
+  const deploymentsP = fetchDeployments(locationId);
+
+  const [endingItems, beginningItems, salesData, pfgOrders, paOrders, inventoryItems, posMappings, blueprints, allIngredients] =
+    await Promise.all([
+      fetchCountItems(endingCountId),
+      fetchCountItems(beginningCountId),
+      fetchSalesData(locationId, periodStartDate, periodEndDate),
+      fetchPfgOrders(locationId, periodStartDate, periodEndDate),
+      fetchPaOrders(locationId, periodStartDate, periodEndDate),
+      fetchAllInventoryItems(locationId),
+      fetchPosMappings(locationId),
+      fetchBlueprints(locationId),
+      fetchAllIngredients(locationId),
+    ]);
+
+  const [vendorMappings, deployments] = await Promise.all([vendorMappingsP, deploymentsP]);
 
   const netSales = salesData.totalNetSales;
 
@@ -117,6 +113,20 @@ export async function calculateVarianceReport(
   const itemMap = new Map(inventoryItems.map(i => [i.id, i]));
   const itemByNumber = new Map(inventoryItems.filter(i => i.item_number).map(i => [i.item_number!, i.id]));
   const itemByPaId = new Map(inventoryItems.filter(i => i.pa_item_id).map(i => [i.pa_item_id!, i.id]));
+
+  // Build vendor mapping lookup: vendor_item_id → local inventory_item_id (via brand template → deployment)
+  // This is the Step 4 "smart matching" through brand_vendor_mappings
+  const deploymentByTemplate = new Map<string, string>();
+  for (const d of deployments) {
+    deploymentByTemplate.set(d.template_id, d.inventory_item_id);
+  }
+  const vendorIdToLocalItem = new Map<string, string>();
+  for (const vm of vendorMappings) {
+    const localItemId = deploymentByTemplate.get(vm.brand_template_id);
+    if (localItemId) {
+      vendorIdToLocalItem.set(`${vm.vendor}:${vm.vendor_item_id}`, localItemId);
+    }
+  }
 
   // ─── Per-item tracking ───
   const itemActual = new Map<string, { beginning: number; purchases: number; ending: number; beginningQty: number; endingQty: number }>();
@@ -159,17 +169,21 @@ export async function calculateVarianceReport(
     entry.ending += ci.quantity * getItemUnitValue(ci.item_id);
   }
 
-  // Purchases - match PFG items by item_number
+  // Purchases - match PFG items via brand_vendor_mappings first, then fallback to local item_number
   for (const order of pfgOrders) {
     if (!order.items) continue;
     const items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
     for (const li of items) {
-      const invItemId = itemByNumber.get(String(li.itemNumber || li.productId));
+      const vendorItemId = String(li.itemNumber || li.productId);
+      // Try mapping table first (Step 4 smart match)
+      const mappedItemId = vendorIdToLocalItem.get(`pfg:${vendorItemId}`);
+      // Fallback to direct item_number match on local item
+      const invItemId = mappedItemId || itemByNumber.get(vendorItemId);
       if (invItemId) {
         getOrCreateItem(invItemId).purchases += Number(li.total) || 0;
       } else {
         // Unmatched PFG item — add to a generic "Other" bucket
-        const key = `__pfg_unmatched_${li.itemNumber || li.productId}`;
+        const key = `__pfg_unmatched_${vendorItemId}`;
         if (!itemActual.has(key)) {
           itemActual.set(key, { beginning: 0, purchases: 0, ending: 0, beginningQty: 0, endingQty: 0 });
         }
@@ -178,12 +192,16 @@ export async function calculateVarianceReport(
     }
   }
 
-  // Purchases - match PA items by pa_product_id
+  // Purchases - match PA items via brand_vendor_mappings first, then fallback to local pa_item_id
   for (const order of paOrders) {
     if (!order.items) continue;
     const items = typeof order.items === "string" ? JSON.parse(order.items) : order.items;
     for (const li of items) {
-      const invItemId = itemByPaId.get(String(li.pa_product_id || li.item_code));
+      const paProductId = String(li.pa_product_id || li.item_code);
+      // Try mapping table first (Step 4 smart match)
+      const mappedItemId = vendorIdToLocalItem.get(`pa:${paProductId}`);
+      // Fallback to direct pa_item_id match on local item
+      const invItemId = mappedItemId || itemByPaId.get(paProductId);
       if (invItemId) {
         getOrCreateItem(invItemId).purchases += Number(li.total) || 0;
       }
@@ -648,6 +666,23 @@ async function fetchAllIngredients(_locationId: string) {
     offset += PAGE;
   }
   return all;
+}
+
+async function fetchVendorMappings() {
+  const { data, error } = await supabase
+    .from("brand_vendor_mappings")
+    .select("brand_template_id, vendor, vendor_item_id");
+  if (error) throw error;
+  return (data || []) as Array<{ brand_template_id: string; vendor: string; vendor_item_id: string }>;
+}
+
+async function fetchDeployments(locationId: string) {
+  const { data, error } = await supabase
+    .from("brand_inventory_deployments")
+    .select("template_id, inventory_item_id")
+    .eq("location_id", locationId);
+  if (error) throw error;
+  return (data || []) as Array<{ template_id: string; inventory_item_id: string }>;
 }
 
 function round2(n: number): number {
