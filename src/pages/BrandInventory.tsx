@@ -711,6 +711,31 @@ function EditTemplateForm({
   onCancel: () => void;
   categories: string[];
 }) {
+  // Fetch live recipe ingredients from source location
+  const { data: liveIngredients = [] } = useQuery({
+    queryKey: ['brand-template-recipe-ingredients', template.source_item_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory_recipe_ingredients')
+        .select('quantity, unit, ingredient_item_id')
+        .eq('recipe_item_id', template.source_item_id);
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
+      const itemIds = data.map(d => d.ingredient_item_id);
+      const { data: items } = await supabase
+        .from('inventory_items')
+        .select('id, name, is_recipe')
+        .in('id', itemIds);
+      const itemMap = new Map((items || []).map(i => [i.id, i]));
+      return data.map(d => ({
+        name: itemMap.get(d.ingredient_item_id)?.name || 'Unknown',
+        quantity: d.quantity,
+        unit: d.unit,
+        isSubRecipe: itemMap.get(d.ingredient_item_id)?.is_recipe || false,
+      }));
+    },
+    enabled: !!template.is_recipe && !!template.source_item_id,
+  });
   const [name, setName] = useState(template.product_name || '');
   const [category, setCategory] = useState(template.category || '');
 
@@ -773,26 +798,29 @@ function EditTemplateForm({
             </div>
           )}
 
-          {/* Ingredients list */}
-          {Array.isArray(template.recipe_ingredients) && template.recipe_ingredients.length > 0 && (
+          {/* Live Ingredients from source location */}
+          {liveIngredients.length > 0 && (
             <div className="space-y-1 pt-1 border-t border-amber-500/20">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Ingredients</span>
-              {(template.recipe_ingredients as any[]).map((ing: any, idx: number) => {
-                const isSubRecipe = !ing.ingredient_item_number && ing.ingredient_vendor_source === 'manual';
-                return (
-                  <div key={idx} className="flex items-center gap-2 text-xs py-0.5">
-                    <span className="font-medium truncate flex-1">{ing.ingredient_name}</span>
-                    {isSubRecipe && (
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
-                        PREP
-                      </Badge>
-                    )}
-                    <span className="text-muted-foreground tabular-nums shrink-0">
-                      {ing.quantity} {ing.unit}
-                    </span>
-                  </div>
-                );
-              })}
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Ingredients (from source location)</span>
+              {liveIngredients.map((ing: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-2 text-xs py-0.5">
+                  <span className="font-medium truncate flex-1">{ing.name}</span>
+                  {ing.isSubRecipe && (
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
+                      PREP
+                    </Badge>
+                  )}
+                  <span className="text-muted-foreground tabular-nums shrink-0">
+                    {ing.quantity} {ing.unit}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {template.is_recipe && !template.source_item_id && (
+            <div className="text-[10px] text-muted-foreground italic pt-1 border-t border-amber-500/20">
+              No source location linked — deploy to populate recipe data
             </div>
           )}
         </div>
