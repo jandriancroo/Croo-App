@@ -43,12 +43,15 @@ export default function TheoMappingTab({ brandId, excludedCategories, includedOv
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const startDate = thirtyDaysAgo.toISOString().split("T")[0];
 
+      // Fetch from first location only to avoid 1000-row limit; POS categories are brand-wide
+      const primaryLocationId = locationIds[0];
       const { data, error } = await supabase
         .from("sales_cache")
         .select("product_mix")
-        .in("location_id", locationIds)
+        .eq("location_id", primaryLocationId)
         .gte("sale_date", startDate)
-        .not("product_mix", "is", null);
+        .not("product_mix", "is", null)
+        .limit(60);
 
       if (error) throw error;
 
