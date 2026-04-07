@@ -711,27 +711,50 @@ function EditTemplateForm({
   onCancel: () => void;
   categories: string[];
 }) {
-  // Fetch live recipe ingredients from source location
+  // Fetch live recipe ingredients from source location via blueprint
   const { data: liveIngredients = [] } = useQuery({
     queryKey: ['brand-template-recipe-ingredients', template.source_item_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory_recipe_ingredients')
-        .select('quantity, unit, ingredient_item_id')
-        .eq('recipe_item_id', template.source_item_id);
+      // Find the blueprint that produces this source item
+      const { data: bp } = await supabase
+        .from('recipe_blueprints')
+        .select('id')
+        .eq('produces_item_id', template.source_item_id)
+        .limit(1)
+        .maybeSingle();
+      if (!bp) return [];
+
+      // Fetch blueprint ingredients
+      const { data: ings, error } = await supabase
+        .from('recipe_blueprint_ingredients' as any)
+        .select('quantity, unit, ingredient_type, vendor_item_id, sub_blueprint_id')
+        .eq('blueprint_id', bp.id);
       if (error) throw error;
-      if (!data || data.length === 0) return [];
-      const itemIds = data.map(d => d.ingredient_item_id);
-      const { data: items } = await supabase
-        .from('inventory_items')
-        .select('id, name, is_recipe')
-        .in('id', itemIds);
-      const itemMap = new Map((items || []).map(i => [i.id, i]));
-      return data.map(d => ({
-        name: itemMap.get(d.ingredient_item_id)?.name || 'Unknown',
-        quantity: d.quantity,
-        unit: d.unit,
-        isSubRecipe: itemMap.get(d.ingredient_item_id)?.is_recipe || false,
+      if (!ings || ings.length === 0) return [];
+
+      // Resolve names for vendor items
+      const vendorIds = (ings as any[]).filter((i: any) => i.vendor_item_id).map((i: any) => i.vendor_item_id);
+      const subBpIds = (ings as any[]).filter((i: any) => i.sub_blueprint_id).map((i: any) => i.sub_blueprint_id);
+
+      const [vendorRes, subBpRes] = await Promise.all([
+        vendorIds.length > 0
+          ? supabase.from('inventory_items').select('id, name').in('id', vendorIds)
+          : { data: [] },
+        subBpIds.length > 0
+          ? supabase.from('recipe_blueprints').select('id, name').in('id', subBpIds)
+          : { data: [] },
+      ]);
+
+      const vendorMap = new Map((vendorRes.data || []).map((i: any) => [i.id, i.name]));
+      const bpMap = new Map((subBpRes.data || []).map((i: any) => [i.id, i.name]));
+
+      return (ings as any[]).map((i: any) => ({
+        name: i.sub_blueprint_id
+          ? bpMap.get(i.sub_blueprint_id) || 'Sub-recipe'
+          : vendorMap.get(i.vendor_item_id) || 'Unknown',
+        quantity: i.quantity,
+        unit: i.unit,
+        isSubRecipe: i.ingredient_type === 'blueprint',
       }));
     },
     enabled: !!template.is_recipe && !!template.source_item_id,
