@@ -56,7 +56,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
       if (vendorItemIds.length === 0) return [];
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size")
+        .select("id, name, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size")
         .in("id", vendorItemIds);
       if (error) throw error;
       return data || [];
@@ -91,7 +91,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
   const totalCost = bpCost?.batchCost || 0;
   const isPartial = bpCost?.isPartial || false;
 
-  const vendorNameMap = new Map(vendorItems?.map(v => [v.id, v.common_name || v.name]) || []);
+  const vendorNameMap = new Map(vendorItems?.map(v => [v.id, v.name]) || []);
   const vendorDataMap = new Map(vendorItems?.map(v => [v.id, v]) || []);
   const subBpNameMap = new Map(subBlueprints?.map(b => [b.id, b.name]) || []);
 

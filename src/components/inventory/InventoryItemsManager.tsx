@@ -62,7 +62,6 @@ interface EditingItem {
   pack_quantity: number | null;
   pack_quantity_override: number | null;
   category: string | null;
-  common_name: string | null;
   storage_location_id: string | null;
   cost_per_unit: number | null;
   unit: string | null;
@@ -437,10 +436,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
-    mutationFn: async ({ itemId, override, category, common_name, storage_location_id, pan_sizes, is_daily_tracked }: { itemId: string; override: number | null; category: string | null; common_name: string | null; storage_location_id: string | null; pan_sizes: PanSizesConfig | null; is_daily_tracked?: boolean }) => {
+    mutationFn: async ({ itemId, override, category, storage_location_id, pan_sizes, is_daily_tracked }: { itemId: string; override: number | null; category: string | null; storage_location_id: string | null; pan_sizes: PanSizesConfig | null; is_daily_tracked?: boolean }) => {
       const { error } = await supabase
         .from("inventory_items")
-        .update({ pack_quantity_override: override, category, common_name, storage_location_id, pan_sizes: pan_sizes as any, is_daily_tracked: is_daily_tracked ?? false } as any)
+        .update({ pack_quantity_override: override, category, storage_location_id, pan_sizes: pan_sizes as any, is_daily_tracked: is_daily_tracked ?? false } as any)
         .eq("id", itemId);
       
       if (error) throw error;
@@ -521,7 +520,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       pack_quantity: item.pack_quantity,
       pack_quantity_override: item.pack_quantity_override,
       category: item.category,
-      common_name: item.common_name || null,
+      storage_location_id: item.storage_location_id || null,
       storage_location_id: item.storage_location_id || null,
       cost_per_unit: item.cost_per_unit ? Number(item.cost_per_unit) : null,
       unit: item.unit || null,
