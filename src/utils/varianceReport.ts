@@ -340,7 +340,10 @@ export async function calculateVarianceReport(
           breakdown.set(itemId, (breakdown.get(itemId) || 0) + cost * scale);
         }
       } else if (ing.vendor_item_id) {
-        const vendor = itemMap.get(ing.vendor_item_id);
+        // vendor_item_id may reference a brand_inventory_template ID or a local inventory_item ID
+        // Resolve through deployment mapping first, then fall back to direct lookup
+        const resolvedItemId = templateToLocalItem.get(ing.vendor_item_id) || ing.vendor_item_id;
+        const vendor = itemMap.get(resolvedItemId);
         if (!vendor || !vendor.cost_per_unit) continue;
         // Skip inactive items (e.g. old R365 imports) — they shouldn't contribute to theoretical
         if (vendor.is_active === false) continue;
@@ -372,7 +375,7 @@ export async function calculateVarianceReport(
           }
         }
 
-        breakdown.set(ing.vendor_item_id, (breakdown.get(ing.vendor_item_id) || 0) + cost);
+        breakdown.set(resolvedItemId, (breakdown.get(resolvedItemId) || 0) + cost);
       }
     }
 
