@@ -316,7 +316,7 @@ export const useUserManagementData = () => {
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase.functions.invoke('user-service?action=toggle-status', { body: { userId, isActive: !currentStatus } });
+      const { error } = await supabase.functions.invoke('user-service', { body: { action: 'toggle-status', userId, isActive: !currentStatus } });
       if (error) throw error;
       toast({ title: 'Success', description: `User ${!currentStatus ? 'activated' : 'deactivated'} successfully` });
       fetchUsers();
@@ -376,8 +376,8 @@ export const useUserManagementData = () => {
         toast({ title: 'Validation Error', description: 'Please provide a valid email address.', variant: 'destructive' });
         return;
       }
-      const { data, error } = await supabase.functions.invoke('user-service?action=resend-invite', {
-        body: { userId: resendUser.id, newEmail: emailChanged ? newEmail.trim() : undefined },
+      const { data, error } = await supabase.functions.invoke('user-service', {
+        body: { action: 'resend-invite', userId: resendUser.id, newEmail: emailChanged ? newEmail.trim() : undefined },
       });
       if (error) throw error;
       const response = data as { resetLink?: string | null } | null;
@@ -402,7 +402,7 @@ export const useUserManagementData = () => {
 
   const handleResetPassword = async (userId: string, userName: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('user-service?action=resend-invite', { body: { userId } });
+      const { data, error } = await supabase.functions.invoke('user-service', { body: { action: 'resend-invite', userId } });
       if (error) throw error;
       const response = data as { resetLink?: string | null } | null;
       const resetLink = response?.resetLink ?? null;
@@ -428,8 +428,8 @@ export const useUserManagementData = () => {
     }
     try {
       setSettingTempPassword(true);
-      const { data, error } = await supabase.functions.invoke('user-service?action=set-password', {
-        body: { userId: tempPasswordUser.id, password: tempPassword },
+      const { data, error } = await supabase.functions.invoke('user-service', {
+        body: { action: 'set-password', userId: tempPasswordUser.id, password: tempPassword },
       });
       if (error) throw error;
       toast({ title: 'Success', description: 'Temporary password set. User can now log in and change it.' });
@@ -484,7 +484,7 @@ export const useUserManagementData = () => {
     try {
       setBulkUpdating(true);
       for (const userId of selectedUsers) {
-        await supabase.functions.invoke('user-service?action=toggle-status', { body: { userId, isActive: false } });
+        await supabase.functions.invoke('user-service', { body: { action: 'toggle-status', userId, isActive: false } });
       }
       toast({ title: 'Success', description: `${selectedUsers.size} user(s) deactivated` });
       setSelectedUsers(new Set());
@@ -594,8 +594,8 @@ export const useUserManagementData = () => {
     }
     try {
       setInviting(true);
-      const { data, error } = await supabase.functions.invoke('user-service?action=invite', {
-        body: { email: inviteEmail.trim(), fullName: inviteFullName.trim(), role: inviteRole, profilePhotoUrl: inviteProfilePhoto, locationId: currentLocation?.id },
+      const { data, error } = await supabase.functions.invoke('user-service', {
+        body: { action: 'invite', email: inviteEmail.trim(), fullName: inviteFullName.trim(), role: inviteRole, profilePhotoUrl: inviteProfilePhoto, locationId: currentLocation?.id },
       });
       if (error) throw error;
       const response = data as { resetLink?: string | null } | null;
