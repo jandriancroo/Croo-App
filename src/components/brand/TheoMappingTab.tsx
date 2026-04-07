@@ -4,34 +4,41 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Filter, Eye, EyeOff, Info } from "lucide-react";
+import { Loader2, Filter, Eye, EyeOff, Info, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface TheoMappingTabProps {
   brandId: string;
   excludedCategories: string[];
+  includedOverrides: string[];
   locations: { id: string; name: string; store_number?: string }[];
+}
+
+interface PosItemInfo {
+  name: string;
+  quantity: number;
 }
 
 interface PosCategoryInfo {
   category: string;
   totalQuantity: number;
-  itemCount: number;
+  items: PosItemInfo[];
 }
 
-export default function TheoMappingTab({ brandId, excludedCategories, locations }: TheoMappingTabProps) {
+export default function TheoMappingTab({ brandId, excludedCategories, includedOverrides, locations }: TheoMappingTabProps) {
   const queryClient = useQueryClient();
-  const [savingCategory, setSavingCategory] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
 
-  // Pull distinct POS categories from recent product_mix across all brand locations
+  // Pull distinct POS categories + items from recent product_mix
   const { data: posCategories = [], isLoading } = useQuery({
     queryKey: ["pos-categories-for-brand", brandId, locations.map(l => l.id).join(",")],
     queryFn: async () => {
       const locationIds = locations.map(l => l.id);
       if (locationIds.length === 0) return [];
 
-      // Fetch recent 30 days of product_mix from all locations
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const startDate = thirtyDaysAgo.toISOString().split("T")[0];
@@ -45,68 +52,98 @@ export default function TheoMappingTab({ brandId, excludedCategories, locations 
 
       if (error) throw error;
 
-      // Aggregate categories
-      const catMap = new Map<string, { quantity: number; items: Set<string> }>();
+      const catMap = new Map<string, Map<string, number>>();
       for (const row of data || []) {
         const mix = row.product_mix as any[];
         if (!Array.isArray(mix)) continue;
         for (const item of mix) {
           const cat = item.category || "Uncategorized";
-          const existing = catMap.get(cat);
-          if (existing) {
-            existing.quantity += Number(item.quantity) || 0;
-            existing.items.add(item.name);
-          } else {
-            catMap.set(cat, { quantity: Number(item.quantity) || 0, items: new Set([item.name]) });
-          }
+          const name = item.name || "Unknown";
+          if (!catMap.has(cat)) catMap.set(cat, new Map());
+          const items = catMap.get(cat)!;
+          items.set(name, (items.get(name) || 0) + (Number(item.quantity) || 0));
         }
       }
 
       const result: PosCategoryInfo[] = [];
-      for (const [category, info] of catMap) {
-        result.push({
-          category,
-          totalQuantity: info.quantity,
-          itemCount: info.items.size,
-        });
+      for (const [category, itemsMap] of catMap) {
+        const items: PosItemInfo[] = [];
+        let totalQuantity = 0;
+        for (const [name, quantity] of itemsMap) {
+          items.push({ name, quantity });
+          totalQuantity += quantity;
+        }
+        items.sort((a, b) => b.quantity - a.quantity);
+        result.push({ category, totalQuantity, items });
       }
 
-      // Sort by quantity descending
       result.sort((a, b) => b.totalQuantity - a.totalQuantity);
       return result;
     },
     enabled: locations.length > 0,
   });
 
-  const toggleCategory = useMutation({
-    mutationFn: async ({ category, exclude }: { category: string; exclude: boolean }) => {
-      setSavingCategory(category);
-      const newList = exclude
-        ? [...excludedCategories, category]
-        : excludedCategories.filter(c => c !== category);
+  const excludedSet = useMemo(() => new Set(excludedCategories.map(c => c.toLowerCase())), [excludedCategories]);
+  const overrideSet = useMemo(() => new Set(includedOverrides.map(i => i.toLowerCase())), [includedOverrides]);
 
+  const saveBrand = async (newExcluded: string[], newOverrides: string[]) => {
+    setSaving(true);
+    try {
       const { error } = await supabase
         .from("brands")
-        .update({ pos_excluded_categories: newList })
+        .update({
+          pos_excluded_categories: newExcluded,
+          pos_included_overrides: newOverrides,
+        })
         .eq("id", brandId);
-
       if (error) throw error;
-      return newList;
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-detail", brandId] });
-      toast.success("Updated");
-    },
-    onError: (err: any) => {
-      toast.error(err.message || "Failed to update");
-    },
-    onSettled: () => setSavingCategory(null),
-  });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const excludedSet = useMemo(() => new Set(excludedCategories), [excludedCategories]);
+  const toggleCategory = async (category: string, exclude: boolean) => {
+    let newExcluded: string[];
+    let newOverrides = [...includedOverrides];
 
-  const includedCategories = posCategories.filter(c => !excludedSet.has(c.category));
-  const ignoredCategories = posCategories.filter(c => excludedSet.has(c.category));
+    if (exclude) {
+      newExcluded = [...excludedCategories, category];
+      // Remove any item-level overrides for this category since the whole cat is now excluded
+      const catItems = posCategories.find(c => c.category === category)?.items || [];
+      const catItemNames = new Set(catItems.map(i => i.name.toLowerCase()));
+      newOverrides = newOverrides.filter(o => !catItemNames.has(o.toLowerCase()));
+    } else {
+      newExcluded = excludedCategories.filter(c => c !== category);
+      // Also remove any overrides for items in this category (no longer needed)
+      const catItems = posCategories.find(c => c.category === category)?.items || [];
+      const catItemNames = new Set(catItems.map(i => i.name.toLowerCase()));
+      newOverrides = newOverrides.filter(o => !catItemNames.has(o.toLowerCase()));
+    }
+
+    await saveBrand(newExcluded, newOverrides);
+  };
+
+  const toggleItem = async (itemName: string, include: boolean) => {
+    let newOverrides: string[];
+    if (include) {
+      newOverrides = [...includedOverrides, itemName];
+    } else {
+      newOverrides = includedOverrides.filter(o => o.toLowerCase() !== itemName.toLowerCase());
+    }
+    await saveBrand([...excludedCategories], newOverrides);
+  };
+
+  const toggleExpand = (cat: string) => {
+    setExpandedCats(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -124,8 +161,8 @@ export default function TheoMappingTab({ brandId, excludedCategories, locations 
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <Filter className="h-10 w-10 text-muted-foreground mb-3 opacity-50" />
-          <p className="text-sm text-muted-foreground">No POS sales data found for this brand's locations</p>
-          <p className="text-xs text-muted-foreground mt-1">Categories will appear once sales data is synced</p>
+          <p className="text-sm text-muted-foreground">No POS sales data found</p>
+          <p className="text-xs text-muted-foreground mt-1">Categories appear once sales data syncs</p>
         </CardContent>
       </Card>
     );
@@ -142,8 +179,8 @@ export default function TheoMappingTab({ brandId, excludedCategories, locations 
                 POS Category Filter
               </CardTitle>
               <CardDescription className="text-xs mt-1">
-                Exclude modifier categories from the Unmatched section of your variance report. 
-                Ingredients in these categories are already accounted for in parent recipe blueprints.
+                Toggle categories OFF to exclude modifier items from the Unmatched section.
+                Expand a category to re-include specific items as exceptions.
               </CardDescription>
             </div>
             <TooltipProvider>
@@ -151,105 +188,116 @@ export default function TheoMappingTab({ brandId, excludedCategories, locations 
                 <TooltipTrigger>
                   <Badge variant="outline" className="text-[10px] gap-1 shrink-0">
                     <Info className="h-3 w-3" />
-                    Safe to change
+                    Diagnostic only
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-[240px] text-xs">
-                  This only affects the "Unmatched" diagnostic section. It does not impact actual or theoretical COGS calculations. Clear all to reset.
+                  This only filters the "Unmatched" diagnostic list. It does not impact actual or theoretical COGS. Clear all to reset.
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Included (active) categories */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Included ({includedCategories.length})
-              </span>
-            </div>
-            <div className="space-y-1">
-              {includedCategories.map(cat => (
-                <CategoryRow
-                  key={cat.category}
-                  category={cat}
-                  excluded={false}
-                  saving={savingCategory === cat.category}
-                  onToggle={(exclude) => toggleCategory.mutate({ category: cat.category, exclude })}
-                />
-              ))}
-            </div>
-          </div>
+        <CardContent className="p-0">
+          <div className="divide-y divide-border">
+            {posCategories.map(cat => {
+              const isExcluded = excludedSet.has(cat.category.toLowerCase());
+              const isExpanded = expandedCats.has(cat.category);
+              const overrideCount = isExcluded
+                ? cat.items.filter(i => overrideSet.has(i.name.toLowerCase())).length
+                : 0;
 
-          {/* Ignored categories */}
-          {ignoredCategories.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Ignored ({ignoredCategories.length})
-                </span>
-              </div>
-              <div className="space-y-1">
-                {ignoredCategories.map(cat => (
-                  <CategoryRow
-                    key={cat.category}
-                    category={cat}
-                    excluded={true}
-                    saving={savingCategory === cat.category}
-                    onToggle={(exclude) => toggleCategory.mutate({ category: cat.category, exclude })}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+              return (
+                <div key={cat.category}>
+                  {/* Category row */}
+                  <div
+                    className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
+                      isExcluded ? "bg-muted/30" : ""
+                    }`}
+                  >
+                    <button
+                      className="shrink-0 p-0.5 hover:bg-muted rounded transition-colors"
+                      onClick={() => toggleExpand(cat.category)}
+                    >
+                      <ChevronDown
+                        className={`h-4 w-4 text-muted-foreground transition-transform ${
+                          isExpanded ? "" : "-rotate-90"
+                        }`}
+                      />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm font-medium ${isExcluded ? "text-muted-foreground" : ""}`}>
+                        {cat.category}
+                      </span>
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] tabular-nums shrink-0">
+                      {cat.items.length} items
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] tabular-nums shrink-0">
+                      {cat.totalQuantity.toLocaleString()} sold
+                    </Badge>
+                    {isExcluded && overrideCount > 0 && (
+                      <Badge variant="default" className="text-[10px] tabular-nums shrink-0">
+                        {overrideCount} exception{overrideCount !== 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                    {isExcluded ? (
+                      <EyeOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    )}
+                    <Switch
+                      checked={!isExcluded}
+                      onCheckedChange={(checked) => toggleCategory(cat.category, !checked)}
+                      disabled={saving}
+                      className="scale-75 shrink-0"
+                    />
+                  </div>
+
+                  {/* Expanded items */}
+                  {isExpanded && (
+                    <div className="border-t border-border/50 bg-muted/10">
+                      {cat.items.map(item => {
+                        const itemExcluded = isExcluded && !overrideSet.has(item.name.toLowerCase());
+                        return (
+                          <div
+                            key={item.name}
+                            className={`flex items-center gap-3 pl-12 pr-4 py-1.5 text-xs transition-colors ${
+                              itemExcluded ? "opacity-40" : ""
+                            }`}
+                          >
+                            <span className={`flex-1 min-w-0 truncate ${itemExcluded ? "line-through text-muted-foreground" : ""}`}>
+                              {item.name}
+                            </span>
+                            <span className="text-muted-foreground tabular-nums shrink-0">
+                              {item.quantity.toLocaleString()}
+                            </span>
+                            {isExcluded && (
+                              <Switch
+                                checked={!itemExcluded}
+                                onCheckedChange={(checked) => toggleItem(item.name, checked)}
+                                disabled={saving}
+                                className="scale-[0.6] shrink-0"
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
-    </div>
-  );
-}
 
-function CategoryRow({
-  category,
-  excluded,
-  saving,
-  onToggle,
-}: {
-  category: PosCategoryInfo;
-  excluded: boolean;
-  saving: boolean;
-  onToggle: (exclude: boolean) => void;
-}) {
-  return (
-    <div
-      className={`flex items-center gap-3 px-3 py-2 rounded-md border transition-colors ${
-        excluded ? "bg-muted/30 border-border/50 opacity-60" : "bg-background border-border"
-      }`}
-    >
-      <div className="flex-1 min-w-0">
-        <span className={`text-sm font-medium ${excluded ? "line-through text-muted-foreground" : ""}`}>
-          {category.category}
-        </span>
-      </div>
-      <Badge variant="secondary" className="text-[10px] tabular-nums shrink-0">
-        {category.itemCount} items
-      </Badge>
-      <Badge variant="outline" className="text-[10px] tabular-nums shrink-0">
-        {category.totalQuantity.toLocaleString()} sold
-      </Badge>
-      <div className="flex items-center gap-1.5">
-        {saving ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-        ) : (
-          <Switch
-            checked={!excluded}
-            onCheckedChange={(checked) => onToggle(!checked)}
-            className="scale-75"
-          />
-        )}
-      </div>
+      {saving && (
+        <div className="flex items-center justify-center gap-2 text-muted-foreground text-xs py-2">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Saving...
+        </div>
+      )}
     </div>
   );
 }
