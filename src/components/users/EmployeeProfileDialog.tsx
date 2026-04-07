@@ -312,8 +312,8 @@ export function EmployeeProfileDialog({
     if (!user) return;
 
     try {
-      const { error } = await supabase.functions.invoke('user-service?action=toggle-status', {
-        body: { userId: user.id, isActive: !isActive },
+      const { error } = await supabase.functions.invoke('user-service', {
+        body: { action: 'toggle-status', userId: user.id, isActive: !isActive },
       });
 
       if (error) throw error;

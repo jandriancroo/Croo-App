@@ -139,10 +139,9 @@ function getRedirectUrl(req: Request, supabaseUrl: string): string {
 // ACTION: invite
 // ============================================================================
 
-async function handleInvite(req: Request, supabaseAdmin: any, requestingUserId: string): Promise<Response> {
+async function handleInvite(payload: InviteUserPayload, req: Request, supabaseAdmin: any, requestingUserId: string): Promise<Response> {
   await verifyAdminRole(supabaseAdmin, requestingUserId);
   
-  const payload: InviteUserPayload = await req.json();
   const { email, fullName, role, profilePhotoUrl, locationId, phoneNumber, hourlyWage, birthday } = payload;
 
   if (!email || !fullName || !role) {
@@ -537,8 +536,22 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // Parse body once - action can come from query string OR body
     const url = new URL(req.url);
-    const action = url.searchParams.get('action') || 'invite';
+    const queryAction = url.searchParams.get('action');
+    
+    // Clone request so body can be read by handlers too
+    const bodyText = await req.text();
+    const body = bodyText ? JSON.parse(bodyText) : {};
+    const action = queryAction || body.action || 'invite';
+    
+    // Create a new request with the same body for handlers that call req.json()
+    const clonedReq = new Request(req.url, {
+      method: req.method,
+      headers: req.headers,
+      body: bodyText,
+    });
+
     const authHeader = req.headers.get("Authorization");
     const requestingUserId = getRequestingUserId(authHeader);
 
@@ -546,23 +559,23 @@ serve(async (req) => {
 
     switch (action) {
       case 'invite':
-        return await handleInvite(req, supabaseAdmin, requestingUserId);
+        return await handleInvite(body as InviteUserPayload, clonedReq, supabaseAdmin, requestingUserId);
       
       case 'resend-invite':
-        return await handleResendInvite(req, supabaseAdmin, requestingUserId);
+        return await handleResendInvite(clonedReq, supabaseAdmin, requestingUserId);
       
       case 'delete':
-        return await handleDelete(req, supabaseAdmin, requestingUserId);
+        return await handleDelete(clonedReq, supabaseAdmin, requestingUserId);
       
       case 'toggle-status':
-        return await handleToggleStatus(req, supabaseAdmin, requestingUserId);
+        return await handleToggleStatus(clonedReq, supabaseAdmin, requestingUserId);
       
       case 'set-password':
-        return await handleSetPassword(req, supabaseAdmin, requestingUserId);
+        return await handleSetPassword(clonedReq, supabaseAdmin, requestingUserId);
       
       case 'delete-auth-user': {
         await verifyAdminRole(supabaseAdmin, requestingUserId);
-        const { userId } = await req.json();
+        const { userId } = body;
         if (!userId) throw new Error("userId is required");
         const { error: authDelErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
         if (authDelErr && !authDelErr.message.includes('not found')) throw authDelErr;
