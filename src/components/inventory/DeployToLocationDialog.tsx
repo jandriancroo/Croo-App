@@ -72,7 +72,7 @@ interface Template {
 interface TargetItem {
   id: string;
   name: string;
-  common_name: string | null;
+  pack_size: string | null;
   pack_size: string | null;
   pack_quantity: number | null;
   pan_sizes: any;
@@ -163,7 +163,6 @@ function findBestMatch(template: Template, items: TargetItem[], usedIds: Set<str
     !usedIds.has(i.id) &&
     !(template.is_recipe && (i.item_number || i.pa_item_id)) && // vendor items can't become recipes
     (
-      (i.common_name || i.name).toLowerCase() === template.product_name.toLowerCase() ||
       i.name.toLowerCase() === template.product_name.toLowerCase()
     )
   );
@@ -265,7 +264,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, vendor_source, item_number, pa_item_id, is_recipe")
+        .select("id, name, pack_size, pack_quantity, pan_sizes, vendor_source, item_number, pa_item_id, is_recipe")
         .eq("location_id", targetLocationId)
         .eq("is_active", true)
         .order("name");
@@ -627,7 +626,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
             .insert({
               location_id: targetLocationId,
               name: tmpl.product_name,
-              common_name: tmpl.common_name,
+              name: tmpl.product_name,
               category: tmpl.category,
               storage_location_id: unassignedId,
               is_active: true,
@@ -662,9 +661,8 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
           };
         }
 
-        // Common name
-        if (selectedFeatures.has('common_names') && tmpl.common_name) {
-          updateData.common_name = tmpl.common_name;
+        // Category
+        if (selectedFeatures.has('categories') && tmpl.category) {
         }
 
         // Category
@@ -727,7 +725,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
         // Fetch ALL target items (including newly created) for ingredient matching
         const { data: allTargetItems } = await supabase
           .from("inventory_items")
-          .select("id, name, common_name, item_number, pa_item_id, vendor_source, is_recipe")
+          .select("id, name, item_number, pa_item_id, vendor_source, is_recipe")
           .eq("location_id", targetLocationId)
           .eq("is_active", true);
 
@@ -770,7 +768,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
             // Tier 2: name match
             if (!ingredientItemId && ing.ingredient_name) {
               const match = targetItemsList.find(i =>
-                (i.common_name || i.name).toLowerCase() === ing.ingredient_name.toLowerCase() ||
                 i.name.toLowerCase() === ing.ingredient_name.toLowerCase()
               );
               if (match) ingredientItemId = match.id;
