@@ -6196,13 +6196,6 @@ export type Database = {
             referencedRelation: "recipe_blueprints"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "recipe_blueprint_ingredients_vendor_item_id_fkey"
-            columns: ["vendor_item_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_items"
-            referencedColumns: ["id"]
-          },
         ]
       }
       recipe_blueprints: {
