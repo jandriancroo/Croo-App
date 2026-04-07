@@ -760,9 +760,41 @@ function EditTemplateForm({
 
       {/* Recipe badge */}
       {template.is_recipe && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-md">
-          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">🧪 Prep Recipe</span>
-          <span className="text-[10px] text-muted-foreground ml-auto">Countable produced item</span>
+        <div className="space-y-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-md">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-400">🧪 Prep Recipe</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">Countable produced item</span>
+          </div>
+
+          {/* Yield */}
+          {template.recipe_yield_qty && (
+            <div className="text-[10px] text-muted-foreground">
+              Yields: <span className="font-medium text-foreground">{template.recipe_yield_qty} {template.recipe_yield_unit || 'ea'}</span>
+            </div>
+          )}
+
+          {/* Ingredients list */}
+          {Array.isArray(template.recipe_ingredients) && template.recipe_ingredients.length > 0 && (
+            <div className="space-y-1 pt-1 border-t border-amber-500/20">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Ingredients</span>
+              {(template.recipe_ingredients as any[]).map((ing: any, idx: number) => {
+                const isSubRecipe = !ing.ingredient_item_number && ing.ingredient_vendor_source === 'manual';
+                return (
+                  <div key={idx} className="flex items-center gap-2 text-xs py-0.5">
+                    <span className="font-medium truncate flex-1">{ing.ingredient_name}</span>
+                    {isSubRecipe && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
+                        PREP
+                      </Badge>
+                    )}
+                    <span className="text-muted-foreground tabular-nums shrink-0">
+                      {ing.quantity} {ing.unit}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
