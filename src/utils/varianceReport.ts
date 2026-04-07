@@ -99,6 +99,8 @@ export async function calculateVarianceReport(
     posMappings,
     blueprints,
     allIngredients,
+    vendorMappings,
+    deployments,
   ] = await Promise.all([
     fetchCountItems(endingCountId),
     fetchCountItems(beginningCountId),
@@ -109,6 +111,8 @@ export async function calculateVarianceReport(
     fetchPosMappings(locationId),
     fetchBlueprints(locationId),
     fetchAllIngredients(locationId),
+    fetchVendorMappings(),
+    fetchDeployments(locationId),
   ]);
 
   const netSales = salesData.totalNetSales;
@@ -117,6 +121,20 @@ export async function calculateVarianceReport(
   const itemMap = new Map(inventoryItems.map(i => [i.id, i]));
   const itemByNumber = new Map(inventoryItems.filter(i => i.item_number).map(i => [i.item_number!, i.id]));
   const itemByPaId = new Map(inventoryItems.filter(i => i.pa_item_id).map(i => [i.pa_item_id!, i.id]));
+
+  // Build vendor mapping lookup: vendor_item_id → local inventory_item_id (via brand template → deployment)
+  // This is the Step 4 "smart matching" through brand_vendor_mappings
+  const deploymentByTemplate = new Map<string, string>();
+  for (const d of deployments) {
+    deploymentByTemplate.set(d.template_id, d.inventory_item_id);
+  }
+  const vendorIdToLocalItem = new Map<string, string>();
+  for (const vm of vendorMappings) {
+    const localItemId = deploymentByTemplate.get(vm.brand_template_id);
+    if (localItemId) {
+      vendorIdToLocalItem.set(`${vm.vendor}:${vm.vendor_item_id}`, localItemId);
+    }
+  }
 
   // ─── Per-item tracking ───
   const itemActual = new Map<string, { beginning: number; purchases: number; ending: number; beginningQty: number; endingQty: number }>();
