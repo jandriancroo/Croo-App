@@ -1,37 +1,31 @@
+## Step 5: Hemet In-Place Cleanup
 
-## Part A: Fix PA Alternate IDs (Gap Finder false positives) ✅
+### Current State
+- 143 active items already have `brand_item_id` set ✅
+- 31 active items have NO brand link (mostly PA produce like Arugula, Blueberries, Romaine, etc.)
+- 0 deployment records exist
 
-### A1. One-time backfill — Seed alternate PA IDs into `brand_vendor_mappings` ✅
-### A2. Future-proof — Update PA sync to auto-seed mappings ✅
-### A3. Resolve stale gap alerts ✅
+### Plan
 
----
+**Phase 1: Snapshot** (safety net)
+- Run `takeSnapshot('12c977c7-...')` to capture all storage locations, display orders, categories, shortcuts, daily tracking configs
 
-## Part B: Re-sync Preservation Logic (Phase 4 prep)
+**Phase 2: Link the 31 orphans**
+- Auto-match by `pa_item_id` or name to existing brand templates
+- Any items that can't be matched → flag for manual review (you decide: create brand template or deactivate)
 
-### B1. Snapshot function
-- Before a location wipe, capture all active `inventory_items` for that location:
-  - `vendor_number` / linked brand template ID → used as the match key
-  - `storage_location_id` → which physical group (Freezer, Walk In, etc.)
-  - `display_order` → position within that group
-  - `category` → item category
-- Store snapshot in a temp table or JSON blob
+**Phase 3: Create deployment records**
+- For all ~174 active items with brand links, insert rows into `brand_inventory_deployments`
+- This is the bridge that makes vendor syncs, variance reports, and future deployments work through the mapping table
 
-### B2. Restore-on-activation logic  
-- When re-activating items from brand catalog, look up each item in the snapshot by vendor ID
-- Apply the saved `storage_location_id`, `display_order`, and `category`
-- Net-new items (no snapshot match) get appended at bottom with high `display_order`
+**Phase 4: Verify**
+- Confirm all active items have deployment records
+- Confirm recipe page still loads correctly
+- Confirm no storage location / display order changes
 
-### B3. Auto-activate-all on new location deployment
-- In the Deploy Location Wizard, after creating the location, activate all live brand templates as local inventory items
-- Manager then deactivates items they don't carry
-
----
-
-## Part C: Brand Name Propagation
-
-### C1. Auto-propagate brand name changes
-- When `brand_inventory_templates.product_name` is updated, automatically push the new name to:
-  - All `inventory_items` linked to that template (via `brand_inventory_deployments`)
-  - All `recipe_blueprints` that reference those items (via `produces_item_id` or ingredient references)
-- Implemented as a database trigger on `brand_inventory_templates` for `product_name` updates
+### What WON'T change
+- No items deleted
+- No storage locations moved
+- No display order changes
+- No historical count data affected
+- Count sheet looks identical before and after
