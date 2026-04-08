@@ -3059,7 +3059,7 @@ export type Database = {
           display_order: number | null
           id: string
           is_active: boolean | null
-          location_id: string
+          location_id: string | null
           mapping_type: string
           name: string
           pos_categories: string[] | null
@@ -3075,7 +3075,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           is_active?: boolean | null
-          location_id: string
+          location_id?: string | null
           mapping_type?: string
           name: string
           pos_categories?: string[] | null
@@ -3091,7 +3091,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           is_active?: boolean | null
-          location_id?: string
+          location_id?: string | null
           mapping_type?: string
           name?: string
           pos_categories?: string[] | null
