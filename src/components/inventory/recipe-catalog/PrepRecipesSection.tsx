@@ -54,8 +54,8 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
 
       // Merge: brand as base, local overrides on top
       const merged = new Map<string, any>();
-      for (const bp of (brandRes.data || [])) merged.set(bp.id, bp);
-      for (const bp of (localRes.data || [])) merged.set(bp.id, bp);
+      for (const bp of ((brandRes.data || []) as any[])) merged.set(bp.id, bp);
+      for (const bp of ((localRes.data || []) as any[])) merged.set(bp.id, bp);
 
       return Array.from(merged.values()).sort((a: any, b: any) =>
         (a.name || "").localeCompare(b.name || "")
