@@ -48,6 +48,8 @@ interface RecipeBuilderDialogProps {
 interface BuilderIngredient {
   type: "vendor_item" | "blueprint";
   ref_id: string;
+  /** brand_inventory_templates ID — used for DB writes to recipe_blueprint_ingredients.vendor_item_id */
+  brand_item_id?: string;
   quantity: number;
   unit: string;
   displayName?: string;
