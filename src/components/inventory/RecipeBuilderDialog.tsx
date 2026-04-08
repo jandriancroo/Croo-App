@@ -243,7 +243,7 @@ const dedupeAndSortIngredients = (
   });
 };
 
-const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, editBlueprintId }: RecipeBuilderDialogProps) => {
+const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, editBlueprintId, brandId }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
   const [category, setCategory] = useState("");
