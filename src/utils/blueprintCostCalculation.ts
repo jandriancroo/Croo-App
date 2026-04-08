@@ -68,14 +68,43 @@ export interface BlueprintCostResult {
 export async function fetchBlueprintCosts(
   locationId: string
 ): Promise<Map<string, BlueprintCostResult>> {
-  // 1. Fetch all active blueprints
-  const { data: blueprints, error: bpErr } = await supabase
+  // 1. Fetch all active blueprints — try location-specific first, fall back to brand-level
+  let blueprints: any[] | null = null;
+
+  const { data: localBp, error: localBpErr } = await supabase
     .from("recipe_blueprints" as any)
     .select("id, yield_qty, yield_unit, produces_item_id")
     .eq("location_id", locationId)
     .eq("is_active", true);
+  if (localBpErr) throw localBpErr;
 
-  if (bpErr) throw bpErr;
+  if (localBp && localBp.length > 0) {
+    blueprints = localBp;
+  } else {
+    // Fallback: resolve brand_id via location → org → brand chain
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("organization_id")
+      .eq("id", locationId)
+      .maybeSingle();
+    if (loc?.organization_id) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("brand_id")
+        .eq("id", loc.organization_id)
+        .maybeSingle();
+      if (org?.brand_id) {
+        const { data: brandBp, error: brandBpErr } = await supabase
+          .from("recipe_blueprints" as any)
+          .select("id, yield_qty, yield_unit, produces_item_id")
+          .eq("brand_id", org.brand_id)
+          .eq("is_active", true);
+        if (brandBpErr) throw brandBpErr;
+        blueprints = brandBp;
+      }
+    }
+  }
+
   if (!blueprints?.length) return new Map();
 
   const bpList = blueprints as unknown as BlueprintInfo[];
