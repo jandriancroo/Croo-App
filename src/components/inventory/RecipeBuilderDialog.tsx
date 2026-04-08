@@ -285,6 +285,24 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     enabled: open,
   });
 
+  // Fetch brand templates for name resolution fallback (when no local item exists)
+  const { data: brandTemplates } = useQuery({
+    queryKey: ["brand-templates-for-recipe", locationId],
+    queryFn: async () => {
+      const { resolveBrandId } = await import("@/utils/resolveBrandId");
+      const brandId = await resolveBrandId(locationId);
+      if (!brandId) return [];
+      const { data, error } = await supabase
+        .from("brand_inventory_templates")
+        .select("id, product_name")
+        .eq("brand_id", brandId)
+        .eq("status", "active");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
+
   // Fetch other blueprints (for sub-recipe selection)
   const { data: otherBlueprints } = useQuery({
     queryKey: ["blueprints-for-recipe", locationId, editBlueprintId],
