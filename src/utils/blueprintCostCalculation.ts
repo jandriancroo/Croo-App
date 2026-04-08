@@ -91,11 +91,14 @@ export async function fetchBlueprintCosts(
   if (localBpRes.error) throw localBpRes.error;
   if (brandBpRes.error) throw brandBpRes.error;
 
-  const mergedBlueprints = new Map<string, any>();
-  for (const bp of (brandBpRes.data || [])) {
+  const mergedBlueprints = new Map<string, BlueprintInfo>();
+  const brandBlueprints = ((brandBpRes.data || []) as unknown) as BlueprintInfo[];
+  const localBlueprints = ((localBpRes.data || []) as unknown) as BlueprintInfo[];
+
+  for (const bp of brandBlueprints) {
     mergedBlueprints.set(bp.id, bp);
   }
-  for (const bp of (localBpRes.data || [])) {
+  for (const bp of localBlueprints) {
     mergedBlueprints.set(bp.id, bp);
   }
 

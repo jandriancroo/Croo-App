@@ -51,12 +51,15 @@ export async function fetchBlueprintsForLocation(
   if (localRes.error) throw localRes.error;
   if (brandRes.error) throw brandRes.error;
 
-  const merged = new Map<string, any>();
-  for (const bp of (brandRes.data || [])) {
-    merged.set(bp.id, bp);
+  const merged = new Map<string, Record<string, any>>();
+  const brandBlueprints = ((brandRes.data || []) as unknown) as Array<Record<string, any>>;
+  const localBlueprints = ((localRes.data || []) as unknown) as Array<Record<string, any>>;
+
+  for (const bp of brandBlueprints) {
+    merged.set(String(bp.id), bp);
   }
-  for (const bp of (localRes.data || [])) {
-    merged.set(bp.id, bp);
+  for (const bp of localBlueprints) {
+    merged.set(String(bp.id), bp);
   }
 
   return Array.from(merged.values());
