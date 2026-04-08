@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -94,6 +94,9 @@ export default function TheoMappingTab({ brandId, excludedCategories, includedOv
       return result;
     },
     enabled: locations.length > 0,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const excludedSet = useMemo(() => new Set(excludedCategories.map(c => c.toLowerCase())), [excludedCategories]);
@@ -158,7 +161,7 @@ export default function TheoMappingTab({ brandId, excludedCategories, includedOv
     });
   };
 
-  if (isLoading) {
+  if (isLoading && posCategories.length === 0) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
@@ -169,7 +172,7 @@ export default function TheoMappingTab({ brandId, excludedCategories, includedOv
     );
   }
 
-  if (posCategories.length === 0) {
+  if (!isLoading && posCategories.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
