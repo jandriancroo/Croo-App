@@ -289,18 +289,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
   const { data: otherBlueprints } = useQuery({
     queryKey: ["blueprints-for-recipe", locationId, editBlueprintId],
     queryFn: async () => {
-      let query = supabase
-        .from("recipe_blueprints" as any)
-        .select("id, name, yield_qty, yield_unit, category")
-        .eq("location_id", locationId)
-        .eq("is_active", true)
-        .order("name");
+      const { fetchBlueprintsForLocation } = await import("@/utils/resolveBrandId");
+      const allData = await fetchBlueprintsForLocation(locationId, "id, name, yield_qty, yield_unit, category");
+      let results = (allData || []) as unknown as { id: string; name: string; yield_qty: number | null; yield_unit: string | null; category: string | null }[];
       if (editBlueprintId) {
-        query = query.neq("id", editBlueprintId);
+        results = results.filter(r => r.id !== editBlueprintId);
       }
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []) as unknown as { id: string; name: string; yield_qty: number | null; yield_unit: string | null; category: string | null }[];
+      return results;
     },
     enabled: open,
   });
