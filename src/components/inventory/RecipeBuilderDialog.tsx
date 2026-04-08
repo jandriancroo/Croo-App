@@ -455,7 +455,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         const refId = isBp ? i.sub_blueprint_id : (localItem?.id || brandTemplateId);
         const name = isBp
           ? otherBlueprints?.find((b: any) => b.id === i.sub_blueprint_id)?.name
-          : (localItem?.name);
+          : (localItem?.name || brandTemplates?.find((t: any) => t.id === brandTemplateId)?.product_name);
         return {
           type: isBp ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
@@ -467,7 +467,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         };
       }), vendorItems, otherBlueprints));
     }
-  }, [drilledBlueprint, drillBlueprintId, vendorItems, otherBlueprints]);
+  }, [drilledBlueprint, drillBlueprintId, vendorItems, otherBlueprints, brandTemplates]);
 
   // ========== AUTO-YIELD CALCULATION ==========
 
