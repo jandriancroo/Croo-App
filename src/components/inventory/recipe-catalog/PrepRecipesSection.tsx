@@ -25,18 +25,41 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
   const [isPurging, setIsPurging] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch blueprints (new architecture)
+  // Fetch blueprints using inheritance merge: brand catalog + local overrides
   const { data: blueprints } = useQuery({
     queryKey: ["blueprint-recipes", locationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("recipe_blueprints" as any)
-        .select("id, name, category, yield_qty, yield_unit, produces_item_id, source")
-        .eq("location_id", locationId)
-        .eq("is_active", true)
-        .order("name");
-      if (error) throw error;
-      return (data || []) as unknown as {
+      const { resolveBrandId } = await import("@/utils/resolveBrandId");
+      const brandId = await resolveBrandId(locationId);
+
+      const fields = "id, name, category, yield_qty, yield_unit, produces_item_id, source";
+      const [localRes, brandRes] = await Promise.all([
+        supabase
+          .from("recipe_blueprints" as any)
+          .select(fields)
+          .eq("location_id", locationId)
+          .eq("is_active", true)
+          .order("name"),
+        brandId
+          ? supabase
+              .from("recipe_blueprints" as any)
+              .select(fields)
+              .eq("brand_id", brandId)
+              .eq("is_active", true)
+              .order("name")
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (localRes.error) throw localRes.error;
+      if (brandRes.error) throw brandRes.error;
+
+      // Merge: brand as base, local overrides on top
+      const merged = new Map<string, any>();
+      for (const bp of ((brandRes.data || []) as any[])) merged.set(bp.id, bp);
+      for (const bp of ((localRes.data || []) as any[])) merged.set(bp.id, bp);
+
+      return Array.from(merged.values()).sort((a: any, b: any) =>
+        (a.name || "").localeCompare(b.name || "")
+      ) as {
         id: string; name: string; category: string | null;
         yield_qty: number | null; yield_unit: string | null;
         produces_item_id: string | null; source: string | null;
