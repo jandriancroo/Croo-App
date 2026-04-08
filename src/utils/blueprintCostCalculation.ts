@@ -68,46 +68,40 @@ export interface BlueprintCostResult {
 export async function fetchBlueprintCosts(
   locationId: string
 ): Promise<Map<string, BlueprintCostResult>> {
-  // 1. Fetch all active blueprints — try location-specific first, fall back to brand-level
-  let blueprints: any[] | null = null;
+  // 1. Fetch all active blueprints using inheritance merge:
+  // brand-level blueprints are the base catalog, and local blueprints layer on top.
+  const { resolveBrandId } = await import("@/utils/resolveBrandId");
+  const brandId = await resolveBrandId(locationId);
 
-  const { data: localBp, error: localBpErr } = await supabase
-    .from("recipe_blueprints" as any)
-    .select("id, yield_qty, yield_unit, produces_item_id")
-    .eq("location_id", locationId)
-    .eq("is_active", true);
-  if (localBpErr) throw localBpErr;
-
-  if (localBp && localBp.length > 0) {
-    blueprints = localBp;
-  } else {
-    // Fallback: resolve brand_id via location → org → brand chain
-    const { data: loc } = await supabase
-      .from("locations")
-      .select("organization_id")
-      .eq("id", locationId)
-      .maybeSingle();
-    if (loc?.organization_id) {
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("brand_id")
-        .eq("id", loc.organization_id)
-        .maybeSingle();
-      if (org?.brand_id) {
-        const { data: brandBp, error: brandBpErr } = await supabase
+  const [localBpRes, brandBpRes] = await Promise.all([
+    supabase
+      .from("recipe_blueprints" as any)
+      .select("id, yield_qty, yield_unit, produces_item_id")
+      .eq("location_id", locationId)
+      .eq("is_active", true),
+    brandId
+      ? supabase
           .from("recipe_blueprints" as any)
           .select("id, yield_qty, yield_unit, produces_item_id")
-          .eq("brand_id", org.brand_id)
-          .eq("is_active", true);
-        if (brandBpErr) throw brandBpErr;
-        blueprints = brandBp;
-      }
-    }
+          .eq("brand_id", brandId)
+          .eq("is_active", true)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (localBpRes.error) throw localBpRes.error;
+  if (brandBpRes.error) throw brandBpRes.error;
+
+  const mergedBlueprints = new Map<string, any>();
+  for (const bp of (brandBpRes.data || [])) {
+    mergedBlueprints.set(bp.id, bp);
+  }
+  for (const bp of (localBpRes.data || [])) {
+    mergedBlueprints.set(bp.id, bp);
   }
 
-  if (!blueprints?.length) return new Map();
+  const bpList = Array.from(mergedBlueprints.values()) as unknown as BlueprintInfo[];
+  if (!bpList.length) return new Map();
 
-  const bpList = blueprints as unknown as BlueprintInfo[];
   const bpMap = new Map<string, BlueprintInfo>(bpList.map(b => [b.id, b]));
   const blueprintIds = bpList.map(b => b.id);
 
