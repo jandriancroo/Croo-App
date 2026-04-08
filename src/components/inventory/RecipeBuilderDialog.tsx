@@ -437,14 +437,16 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setYieldManuallyEdited(true);
       setIngredients(dedupeAndSortIngredients(drilledBlueprint.ingredients.map((i: any) => {
         const isBp = i.ingredient_type === "blueprint";
-        const refId = isBp ? i.sub_blueprint_id : i.vendor_item_id;
-        const vItem = !isBp ? vendorItems?.find((v: any) => v.id === refId) : null;
+        const brandTemplateId = isBp ? null : i.vendor_item_id;
+        const localItem = !isBp ? vendorItems?.find((v: any) => v.brand_item_id === brandTemplateId) : null;
+        const refId = isBp ? i.sub_blueprint_id : (localItem?.id || brandTemplateId);
         const name = isBp
-          ? otherBlueprints?.find((b: any) => b.id === refId)?.name
-          : (vItem?.name);
+          ? otherBlueprints?.find((b: any) => b.id === i.sub_blueprint_id)?.name
+          : (localItem?.name);
         return {
           type: isBp ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
+          brand_item_id: brandTemplateId || undefined,
           quantity: Number(i.quantity),
           unit: normalizeUnit(i.unit) || "oz",
           displayName: name || i.source_name || undefined,
@@ -509,12 +511,14 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       setPanSizesConfig(existingBlueprint.producedItem?.pan_sizes || null);
       setIngredients(dedupeAndSortIngredients(existingBlueprint.ingredients.map((i: any) => {
         const isBlueprintIng = i.ingredient_type === "blueprint";
-        const refId = isBlueprintIng ? i.sub_blueprint_id : i.vendor_item_id;
-        const vItem2 = !isBlueprintIng ? vendorItems?.find((v: any) => v.id === refId) : null;
-        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === refId)?.name : (vItem2?.name);
+        const brandTemplateId = isBlueprintIng ? null : i.vendor_item_id;
+        const localItem = !isBlueprintIng ? vendorItems?.find((v: any) => v.brand_item_id === brandTemplateId) : null;
+        const refId = isBlueprintIng ? i.sub_blueprint_id : (localItem?.id || brandTemplateId);
+        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === i.sub_blueprint_id)?.name : (localItem?.name);
         return {
           type: isBlueprintIng ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
+          brand_item_id: brandTemplateId || undefined,
           quantity: Number(i.quantity),
           unit: normalizeUnit(i.unit) || "oz",
           displayName: bpName || i.source_name || undefined,
@@ -698,7 +702,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         const ingInserts = ingredients.map(ing => ({
           blueprint_id: editBlueprintId,
           ingredient_type: ing.type,
-          vendor_item_id: ing.type === "vendor_item" ? ing.ref_id : null,
+          vendor_item_id: ing.type === "vendor_item" ? (ing.brand_item_id || vendorItems?.find(v => v.id === ing.ref_id)?.brand_item_id || ing.ref_id) : null,
           sub_blueprint_id: ing.type === "blueprint" ? ing.ref_id : null,
           quantity: ing.quantity,
           unit: normalizeUnit(ing.unit) || ing.unit,
@@ -769,7 +773,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         const ingInserts = ingredients.map(ing => ({
           blueprint_id: blueprintId,
           ingredient_type: ing.type,
-          vendor_item_id: ing.type === "vendor_item" ? ing.ref_id : null,
+          vendor_item_id: ing.type === "vendor_item" ? (ing.brand_item_id || vendorItems?.find(v => v.id === ing.ref_id)?.brand_item_id || ing.ref_id) : null,
           sub_blueprint_id: ing.type === "blueprint" ? ing.ref_id : null,
           quantity: ing.quantity,
           unit: normalizeUnit(ing.unit) || ing.unit,
@@ -916,6 +920,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     setIngredients(prev => [...prev, {
       type: selectedItem.item_type,
       ref_id: selectedItem.id,
+      brand_item_id: selectedItem.brand_item_id || undefined,
       quantity: parseFloat(ingredientQty),
       unit: normalizeUnit(ingredientUnit) || ingredientUnit,
     }]);
