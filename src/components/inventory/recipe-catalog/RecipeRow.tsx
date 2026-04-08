@@ -81,8 +81,18 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
       if (localItemsRes.error) throw localItemsRes.error;
       if (brandTemplatesRes.error) throw brandTemplatesRes.error;
 
-      const localItems = localItemsRes.data || [];
-      const brandTemplates = brandTemplatesRes.data || [];
+      const localItems = (localItemsRes.data || []) as Array<{
+        id: string;
+        name: string;
+        cost_per_unit: number | null;
+        blended_price: number | null;
+        pack_quantity: number | null;
+        pack_quantity_override: number | null;
+        count_units_per_case: number | null;
+        count_unit: string | null;
+        pack_size: string | null;
+      }>;
+      const brandTemplates = (brandTemplatesRes.data || []) as Array<{ id: string; product_name: string | null }>;
       const localById = new Map(localItems.map(i => [i.id, i]));
       const brandById = new Map(brandTemplates.map(t => [t.id, t]));
 
