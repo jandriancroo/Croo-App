@@ -141,11 +141,12 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
       });
 
       if (matchedLocal) {
-        // Link existing local item to brand template
+        // Link existing local item to brand template + sync name from brand authority
         const { error } = await supabase
           .from('inventory_items')
           .update({
             brand_item_id: brandItemId,
+            name: brandItem.product_name,
             category: brandItem.category,
             is_active: true,
           })
