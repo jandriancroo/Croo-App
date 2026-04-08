@@ -661,13 +661,39 @@ async function fetchPosMappings(locationId: string) {
 }
 
 async function fetchBlueprints(locationId: string) {
-  const { data, error } = await supabase
+  // First try location-specific blueprints
+  const { data: localData, error: localErr } = await supabase
     .from("recipe_blueprints" as any)
     .select("id, yield_qty, yield_unit, produces_item_id")
     .eq("location_id", locationId)
     .eq("is_active", true);
-  if (error) throw error;
-  return (data || []) as unknown as Array<{ id: string; yield_qty: number | null; yield_unit: string | null; produces_item_id: string | null }>;
+  if (localErr) throw localErr;
+  if (localData && localData.length > 0) {
+    return localData as unknown as Array<{ id: string; yield_qty: number | null; yield_unit: string | null; produces_item_id: string | null }>;
+  }
+
+  // Fallback: resolve brand_id via location → org → brand chain, then fetch brand-level blueprints
+  const { data: loc } = await supabase
+    .from("locations")
+    .select("organization_id")
+    .eq("id", locationId)
+    .maybeSingle();
+  if (!loc?.organization_id) return [];
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("brand_id")
+    .eq("id", loc.organization_id)
+    .maybeSingle();
+  if (!org?.brand_id) return [];
+
+  const { data: brandData, error: brandErr } = await supabase
+    .from("recipe_blueprints" as any)
+    .select("id, yield_qty, yield_unit, produces_item_id")
+    .eq("brand_id", org.brand_id)
+    .eq("is_active", true);
+  if (brandErr) throw brandErr;
+  return (brandData || []) as unknown as Array<{ id: string; yield_qty: number | null; yield_unit: string | null; produces_item_id: string | null }>;
 }
 
 async function fetchAllIngredients(_locationId: string) {
