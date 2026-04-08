@@ -31,13 +31,11 @@ const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => 
   const { data: blueprints } = useQuery({
     queryKey: ["recipe-catalog-blueprints", locationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("recipe_blueprints" as any)
-        .select("id, name, r365_name, category, yield_qty, yield_unit, source, catalog_section")
-        .eq("location_id", locationId)
-        .eq("is_active", true)
-        .order("name");
-      if (error) throw error;
+      const { fetchBlueprintsForLocation } = await import("@/utils/resolveBrandId");
+      const data = await fetchBlueprintsForLocation(
+        locationId,
+        "id, name, r365_name, category, yield_qty, yield_unit, source, catalog_section"
+      );
       return (data || []) as unknown as MenuItem[];
     },
   });
