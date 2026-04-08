@@ -43,6 +43,7 @@ interface RecipeBuilderDialogProps {
   locationId: string;
   editRecipeId?: string | null;
   editBlueprintId?: string | null;
+  brandId?: string;
 }
 
 interface BuilderIngredient {
