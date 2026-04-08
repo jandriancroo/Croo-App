@@ -124,10 +124,10 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
       if (subBpIds.length === 0) return [];
       const { data, error } = await supabase
         .from("recipe_blueprints" as any)
-        .select("id, name")
+        .select("id, name, yield_qty, yield_unit")
         .in("id", subBpIds);
       if (error) throw error;
-      return (data || []) as unknown as { id: string; name: string }[];
+      return (data || []) as unknown as { id: string; name: string; yield_qty: number | null; yield_unit: string | null }[];
     },
     enabled: subBpIds.length > 0,
   });
