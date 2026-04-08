@@ -3053,6 +3053,7 @@ export type Database = {
       inventory_product_groups: {
         Row: {
           blueprint_id: string | null
+          brand_id: string | null
           created_at: string
           description: string | null
           display_order: number | null
@@ -3068,6 +3069,7 @@ export type Database = {
         }
         Insert: {
           blueprint_id?: string | null
+          brand_id?: string | null
           created_at?: string
           description?: string | null
           display_order?: number | null
@@ -3083,6 +3085,7 @@ export type Database = {
         }
         Update: {
           blueprint_id?: string | null
+          brand_id?: string | null
           created_at?: string
           description?: string | null
           display_order?: number | null
@@ -3102,6 +3105,13 @@ export type Database = {
             columns: ["blueprint_id"]
             isOneToOne: false
             referencedRelation: "recipe_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_product_groups_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
             referencedColumns: ["id"]
           },
           {
