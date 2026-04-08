@@ -647,13 +647,56 @@ async function fetchAllInventoryItems(locationId: string) {
 }
 
 async function fetchPosMappings(locationId: string) {
-  const { data, error } = await supabase
+  // Resolve brand_id via location → org → brand chain
+  const { data: loc } = await supabase
+    .from("locations")
+    .select("organization_id")
+    .eq("id", locationId)
+    .maybeSingle();
+  const orgId = loc?.organization_id;
+  let brandId: string | null = null;
+  if (orgId) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("brand_id")
+      .eq("id", orgId)
+      .maybeSingle();
+    brandId = org?.brand_id || null;
+  }
+
+  // Fetch brand-level mappings as the base
+  let brandMappings: any[] = [];
+  if (brandId) {
+    const { data, error } = await supabase
+      .from("inventory_product_groups")
+      .select("id, name, blueprint_id, pos_categories, pos_items, mapping_type, reconciliation_group")
+      .eq("brand_id", brandId)
+      .eq("is_active", true);
+    if (error) throw error;
+    brandMappings = data || [];
+  }
+
+  // Fetch location-specific mappings (overrides / additions)
+  const { data: localData, error: localErr } = await supabase
     .from("inventory_product_groups")
     .select("id, name, blueprint_id, pos_categories, pos_items, mapping_type, reconciliation_group")
     .eq("location_id", locationId)
+    .is("brand_id", null)
     .eq("is_active", true);
-  if (error) throw error;
-  return (data || []).map(d => ({
+  if (localErr) throw localErr;
+  const localMappings = localData || [];
+
+  // Merge: start with brand mappings, then layer local on top.
+  // Local wins on conflicts (matched by name).
+  const merged = new Map<string, any>();
+  for (const m of brandMappings) {
+    merged.set(m.name.toLowerCase(), m);
+  }
+  for (const m of localMappings) {
+    merged.set(m.name.toLowerCase(), m); // local overrides brand
+  }
+
+  return Array.from(merged.values()).map(d => ({
     ...d,
     mapping_type: (d as any).mapping_type || "direct",
     reconciliation_group: (d as any).reconciliation_group || null,

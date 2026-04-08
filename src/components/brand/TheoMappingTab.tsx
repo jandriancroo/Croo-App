@@ -55,7 +55,7 @@ export default function TheoMappingTab({ brandId, excludedCategories, includedOv
           .limit(30);
         if (!locError && data?.length) {
           allData.push(...data);
-          break; // POS categories are brand-wide; stop once we find a location with data
+          // Don't break — aggregate POS categories across ALL brand locations
         }
       }
       const data = allData;
