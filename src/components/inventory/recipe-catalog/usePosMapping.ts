@@ -64,21 +64,49 @@ export function usePosMapping(locationId: string): PosMappingState {
     },
   });
 
-  // Fetch distinct POS items from last 60 days of sales for full coverage
+  // Fetch distinct POS items from last 60 days — aggregate across ALL brand locations
   const { data: posData } = useQuery({
     queryKey: ["pos-items-for-mapping", locationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales_cache")
-        .select("product_mix")
-        .eq("location_id", locationId)
-        .not("product_mix", "is", null)
-        .order("sale_date", { ascending: false })
-        .limit(60);
-      if (error) throw error;
+      const { resolveBrandId } = await import("@/utils/resolveBrandId");
+      const brandId = await resolveBrandId(locationId);
+
+      // Get all location IDs for this brand
+      let locationIds = [locationId];
+      if (brandId) {
+        const { data: orgs } = await supabase
+          .from("organizations")
+          .select("id")
+          .eq("brand_id", brandId);
+        if (orgs?.length) {
+          const orgIds = orgs.map(o => o.id);
+          const { data: locs } = await supabase
+            .from("locations")
+            .select("id")
+            .in("organization_id", orgIds);
+          if (locs?.length) {
+            locationIds = locs.map(l => l.id);
+          }
+        }
+      }
+
+      // Fetch from all brand locations
+      const allRows: any[] = [];
+      for (const locId of locationIds) {
+        const { data, error } = await supabase
+          .from("sales_cache")
+          .select("product_mix")
+          .eq("location_id", locId)
+          .not("product_mix", "is", null)
+          .order("sale_date", { ascending: false })
+          .limit(60);
+        if (!error && data?.length) {
+          allRows.push(...data);
+        }
+      }
 
       const items = new Map<string, string>();
-      for (const row of data || []) {
+      for (const row of allRows) {
         const mix = row.product_mix as any[];
         if (Array.isArray(mix)) {
           for (const item of mix) {
