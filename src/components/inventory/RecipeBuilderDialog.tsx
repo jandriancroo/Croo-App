@@ -317,6 +317,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         id: v.id,
         name: v.name,
         item_type: "vendor_item",
+        brand_item_id: v.brand_item_id,
         cost_per_unit: v.cost_per_unit,
         pack_size: v.pack_size,
         pack_quantity: (v as any).pack_quantity,
