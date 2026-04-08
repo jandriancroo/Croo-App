@@ -92,7 +92,7 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
         count_unit: string | null;
         pack_size: string | null;
       }>;
-      const brandTemplates = (brandTemplatesRes.data || []) as Array<{ id: string; product_name: string | null }>;
+      const brandTemplates = ((brandTemplatesRes.data || []) as unknown) as Array<{ id: string; product_name: string | null }>;
       const localById = new Map(localItems.map(i => [i.id, i]));
       const brandById = new Map(brandTemplates.map(t => [t.id, t]));
 
