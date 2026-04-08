@@ -127,6 +127,7 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
         .from('brand_inventory_deployments')
         .select('inventory_item_id')
         .eq('template_id', brandItemId)
+        .order('deployed_at', { ascending: true })
         .limit(1)
         .maybeSingle();
       if (existingDeploy?.inventory_item_id) {
