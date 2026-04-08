@@ -209,9 +209,6 @@ export async function fetchBlueprintCosts(
           missingItems.push(ing.vendor_item_id);
           continue;
         }
-          missingItems.push(ing.vendor_item_id);
-          continue;
-        }
 
         const caseCost = vendor.blended_price ?? vendor.cost_per_unit ?? 0;
         if (caseCost === 0) {
