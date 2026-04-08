@@ -31,17 +31,36 @@ export interface PosMappingState {
 export function usePosMapping(locationId: string): PosMappingState {
   const qc = useQueryClient();
 
-  // Fetch existing product_group → blueprint mappings
+  // Fetch existing product_group → blueprint mappings using inheritance merge
   const { data: groups } = useQuery({
     queryKey: ["pos-mapping-groups", locationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_product_groups")
-        .select("id, name, blueprint_id, pos_items, mapping_type, reconciliation_group")
-        .eq("location_id", locationId)
-        .not("blueprint_id", "is", null);
-      if (error) throw error;
-      return data || [];
+      const { resolveBrandId } = await import("@/utils/resolveBrandId");
+      const brandId = await resolveBrandId(locationId);
+
+      const fields = "id, name, blueprint_id, pos_items, mapping_type, reconciliation_group";
+      const [localRes, brandRes] = await Promise.all([
+        supabase
+          .from("inventory_product_groups")
+          .select(fields)
+          .eq("location_id", locationId)
+          .not("blueprint_id", "is", null),
+        brandId
+          ? supabase
+              .from("inventory_product_groups")
+              .select(fields)
+              .eq("brand_id", brandId)
+              .not("blueprint_id", "is", null)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (localRes.error) throw localRes.error;
+      if (brandRes.error) throw brandRes.error;
+
+      // Merge: brand as base, local overrides on top (by blueprint_id)
+      const merged = new Map<string, any>();
+      for (const g of (brandRes.data || [])) merged.set(g.blueprint_id, g);
+      for (const g of (localRes.data || [])) merged.set(g.blueprint_id, g);
+      return Array.from(merged.values());
     },
   });
 
