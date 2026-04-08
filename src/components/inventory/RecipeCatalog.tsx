@@ -18,6 +18,7 @@ import { usePosMapping } from "./recipe-catalog/usePosMapping";
 interface RecipeCatalogProps {
   locationId: string;
   readOnly?: boolean;
+  brandId?: string;
 }
 
 const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => {
