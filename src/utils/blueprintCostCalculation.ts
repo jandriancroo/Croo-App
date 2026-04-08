@@ -84,6 +84,7 @@ export async function fetchBlueprintCosts(
           .from("recipe_blueprints" as any)
           .select("id, yield_qty, yield_unit, produces_item_id")
           .eq("brand_id", brandId)
+          .is("location_id", null)
           .eq("is_active", true)
       : Promise.resolve({ data: [], error: null }),
   ]);

@@ -45,6 +45,7 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
               .from("recipe_blueprints" as any)
               .select(fields)
               .eq("brand_id", brandId)
+              .is("location_id", null)
               .eq("is_active", true)
               .order("name")
           : Promise.resolve({ data: [], error: null }),
