@@ -202,9 +202,13 @@ export async function fetchBlueprintCosts(
           totalBatchCost += costPerYieldUnit * ing.quantity;
         }
       } else if (ing.vendor_item_id) {
-        // Vendor item: resolve cost from live pricing
-        const vendor = vendorMap.get(ing.vendor_item_id);
+        // Vendor item: resolve brand template ID → local inventory item for cost
+        const localId = templateToLocalId.get(ing.vendor_item_id);
+        const vendor = localId ? vendorMap.get(localId) : undefined;
         if (!vendor) {
+          missingItems.push(ing.vendor_item_id);
+          continue;
+        }
           missingItems.push(ing.vendor_item_id);
           continue;
         }
