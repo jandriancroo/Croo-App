@@ -1481,7 +1481,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
               <>
                 <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
                 <Button className="flex-1" onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending || !recipeName.trim() || (ingredients.length === 0 && blueprintType !== "INGREDIENT")}>
+                  disabled={saveMutation.isPending || !recipeName.trim()}>
                   {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> :
                     (editBlueprintId || editRecipeId) ? "Update Recipe" : `Create ${blueprintType === "MI" ? "Menu Item" : blueprintType === "INGREDIENT" ? "Ingredient" : "Recipe"}`}
                 </Button>
