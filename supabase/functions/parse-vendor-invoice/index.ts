@@ -227,7 +227,7 @@ Return ONLY valid JSON, no markdown.`,
 
     const insertItems: any[] = [];
     const newDrafts: any[] = [];
-    const priceUpdates: { id: string; cost: number }[] = [];
+    const priceUpdates: { id: string; cost: number; pack_size?: string | null }[] = [];
 
     for (const li of parsed.line_items || []) {
       // Auto-assign item_number if vendor didn't provide one
@@ -252,7 +252,11 @@ Return ONLY valid JSON, no markdown.`,
       };
 
       if (match && li.unit_price && li.unit_price > 0) {
-        priceUpdates.push({ id: match.id, cost: li.unit_price });
+        priceUpdates.push({
+          id: match.id,
+          cost: li.unit_price,
+          pack_size: li.pack_size || li.unit || null,
+        });
       }
 
       // For unmatched items: check if brand template already exists (dedup)
@@ -300,11 +304,15 @@ Return ONLY valid JSON, no markdown.`,
       if (itemsErr) console.error("Error inserting invoice items:", itemsErr);
     }
 
-    // Update matched item costs
+    // Update matched item costs and pack metadata
     for (const update of priceUpdates) {
+      const updateData: Record<string, any> = { cost_per_unit: update.cost };
+      if (update.pack_size) {
+        updateData.pack_size = update.pack_size;
+      }
       await admin
         .from("inventory_items")
-        .update({ cost_per_unit: update.cost })
+        .update(updateData)
         .eq("id", update.id);
     }
 
