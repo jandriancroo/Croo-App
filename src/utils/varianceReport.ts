@@ -687,13 +687,20 @@ async function fetchPosMappings(locationId: string) {
   const localMappings = localData || [];
 
   // Merge: start with brand mappings, then layer local on top.
-  // Local wins on conflicts (matched by name).
+  // Local wins on conflicts (matched by name) ONLY if local has a blueprint_id,
+  // otherwise keep the brand mapping which has the recipe link.
   const merged = new Map<string, any>();
   for (const m of brandMappings) {
     merged.set(m.name.toLowerCase(), m);
   }
   for (const m of localMappings) {
-    merged.set(m.name.toLowerCase(), m); // local overrides brand
+    const key = m.name.toLowerCase();
+    const existing = merged.get(key);
+    // Local overrides brand only if: (a) no brand mapping exists, or (b) local has a blueprint
+    if (!existing || m.blueprint_id) {
+      merged.set(key, m);
+    }
+    // If local has no blueprint but brand does, keep brand — local is a stale/incomplete mapping
   }
 
   return Array.from(merged.values()).map(d => ({
