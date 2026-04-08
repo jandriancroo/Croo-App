@@ -70,6 +70,8 @@ interface SearchableItem {
   id: string;
   name: string;
   item_type: "vendor_item" | "blueprint";
+  /** brand_inventory_templates ID for vendor items */
+  brand_item_id?: string | null;
   // vendor fields
   cost_per_unit?: number | null;
   pack_size?: string | null;
