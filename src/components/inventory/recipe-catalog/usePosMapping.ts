@@ -28,7 +28,7 @@ export interface PosMappingState {
   isLinking: boolean;
 }
 
-export function usePosMapping(locationId: string): PosMappingState {
+export function usePosMapping(locationId: string, brandId?: string): PosMappingState {
   const qc = useQueryClient();
 
   // Fetch existing product_group → blueprint mappings using inheritance merge
@@ -152,33 +152,40 @@ export function usePosMapping(locationId: string): PosMappingState {
           .eq("id", existing.groupId);
         if (error) throw error;
       } else {
-        // Check if a group with this name already exists at this location
-        const { data: existingByName } = await supabase
+        // Check if a group with this name already exists
+        const baseQuery = supabase
           .from("inventory_product_groups")
           .select("id")
-          .eq("location_id", locationId)
-          .eq("name", blueprintName)
-          .maybeSingle();
+          .eq("name", blueprintName);
+        
+        const { data: existingByName } = brandId
+          ? await baseQuery.eq("brand_id", brandId).maybeSingle()
+          : await baseQuery.eq("location_id", locationId).maybeSingle();
+
+        const writePayload: any = {
+          name: blueprintName,
+          blueprint_id: blueprintId,
+          pos_items: posItemNames,
+          mapping_type: mt,
+          reconciliation_group: rg,
+        };
+        if (brandId) {
+          writePayload.brand_id = brandId;
+        } else {
+          writePayload.location_id = locationId;
+        }
 
         if (existingByName) {
-          // Update existing group to link this blueprint
           const { error } = await supabase
             .from("inventory_product_groups")
-            .update({ blueprint_id: blueprintId, pos_items: posItemNames, mapping_type: mt, reconciliation_group: rg } as any)
+            .update(writePayload)
             .eq("id", existingByName.id);
           if (error) throw error;
         } else {
+          writePayload.display_order = (groups?.length || 0);
           const { error } = await supabase
             .from("inventory_product_groups")
-            .insert({
-              location_id: locationId,
-              name: blueprintName,
-              blueprint_id: blueprintId,
-              pos_items: posItemNames,
-              mapping_type: mt,
-              reconciliation_group: rg,
-              display_order: (groups?.length || 0),
-            } as any);
+            .insert(writePayload);
           if (error) throw error;
         }
       }

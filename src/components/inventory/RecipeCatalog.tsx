@@ -18,15 +18,16 @@ import { usePosMapping } from "./recipe-catalog/usePosMapping";
 interface RecipeCatalogProps {
   locationId: string;
   readOnly?: boolean;
+  brandId?: string;
 }
 
-const RecipeCatalog = ({ locationId, readOnly = false }: RecipeCatalogProps) => {
+const RecipeCatalog = ({ locationId, readOnly = false, brandId }: RecipeCatalogProps) => {
   
   const [editBlueprintId, setEditBlueprintId] = useState<string | null>(null);
   const [showBuilderDialog, setShowBuilderDialog] = useState(false);
   const [reassignMode, setReassignMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const posMap = usePosMapping(locationId);
+  const posMap = usePosMapping(locationId, brandId);
 
   const { data: blueprints } = useQuery({
     queryKey: ["recipe-catalog-blueprints", locationId],

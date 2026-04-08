@@ -527,7 +527,7 @@ export default function BrandInventory() {
             </Card>
 
             {sourceLocationId ? (
-              <RecipeCatalog locationId={sourceLocationId} />
+              <RecipeCatalog locationId={sourceLocationId} brandId={brandId} />
             ) : (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
