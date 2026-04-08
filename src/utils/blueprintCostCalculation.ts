@@ -112,18 +112,39 @@ export async function fetchBlueprintCosts(
   }
 
   // 3. Fetch vendor items for pricing
-  const vendorItemIds = [
+  // vendor_item_id in recipe_blueprint_ingredients references brand_inventory_templates,
+  // so we need to resolve those to local inventory_items via brand_inventory_deployments.
+  const brandTemplateIds = [
     ...new Set(ingList.filter(i => i.vendor_item_id).map(i => i.vendor_item_id!)),
   ];
 
   let vendorMap = new Map<string, VendorItemInfo>();
-  if (vendorItemIds.length > 0) {
-    const { data: vendorItems, error: vErr } = await supabase
-      .from("inventory_items")
-      .select("id, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, pack_quantity, pack_quantity_override")
-      .in("id", vendorItemIds);
-    if (vErr) throw vErr;
-    vendorMap = new Map((vendorItems || []).map(v => [v.id, v as VendorItemInfo]));
+  // Map from brand_template_id → local inventory_item for cost lookup
+  const templateToLocalId = new Map<string, string>();
+
+  if (brandTemplateIds.length > 0) {
+    // Resolve brand templates → local inventory items via deployments
+    const { data: deployments, error: depErr } = await supabase
+      .from("brand_inventory_deployments")
+      .select("template_id, inventory_item_id")
+      .eq("location_id", locationId)
+      .in("template_id", brandTemplateIds);
+    if (depErr) throw depErr;
+
+    const localItemIds: string[] = [];
+    for (const dep of (deployments || [])) {
+      templateToLocalId.set(dep.template_id, dep.inventory_item_id);
+      localItemIds.push(dep.inventory_item_id);
+    }
+
+    if (localItemIds.length > 0) {
+      const { data: vendorItems, error: vErr } = await supabase
+        .from("inventory_items")
+        .select("id, cost_per_unit, blended_price, pack_size, count_unit, count_units_per_case, pack_quantity, pack_quantity_override")
+        .in("id", localItemIds);
+      if (vErr) throw vErr;
+      vendorMap = new Map((vendorItems || []).map(v => [v.id, v as VendorItemInfo]));
+    }
   }
 
   // 4. Group ingredients by blueprint
