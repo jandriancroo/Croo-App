@@ -527,7 +527,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         const brandTemplateId = isBlueprintIng ? null : i.vendor_item_id;
         const localItem = !isBlueprintIng ? vendorItems?.find((v: any) => v.brand_item_id === brandTemplateId) : null;
         const refId = isBlueprintIng ? i.sub_blueprint_id : (localItem?.id || brandTemplateId);
-        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === i.sub_blueprint_id)?.name : (localItem?.name);
+        const bpName = isBlueprintIng
+          ? otherBlueprints?.find((b: any) => b.id === i.sub_blueprint_id)?.name
+          : (localItem?.name || brandTemplates?.find((t: any) => t.id === brandTemplateId)?.product_name);
         return {
           type: isBlueprintIng ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
