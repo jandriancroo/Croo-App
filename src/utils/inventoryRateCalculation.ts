@@ -178,14 +178,47 @@ export async function calculateUsageRates(
       }
     }
 
-    // 6. Get product groups with POS category mappings
-    const { data: productGroups } = await supabase
+    // 6. Get product groups with POS category mappings (merge brand + location)
+    // Resolve brand_id
+    const { data: locData } = await supabase
+      .from("locations")
+      .select("organization_id")
+      .eq("id", locationId)
+      .maybeSingle();
+    let brandId: string | null = null;
+    if (locData?.organization_id) {
+      const { data: orgData } = await supabase
+        .from("organizations")
+        .select("brand_id")
+        .eq("id", locData.organization_id)
+        .maybeSingle();
+      brandId = orgData?.brand_id || null;
+    }
+
+    let brandGroups: any[] = [];
+    if (brandId) {
+      const { data } = await supabase
+        .from("inventory_product_groups")
+        .select("id, name, pos_categories, pos_items")
+        .eq("brand_id", brandId)
+        .eq("is_active", true);
+      brandGroups = data || [];
+    }
+
+    const { data: localGroups } = await supabase
       .from("inventory_product_groups")
       .select("id, name, pos_categories, pos_items")
       .eq("location_id", locationId)
+      .is("brand_id", null)
       .eq("is_active", true);
 
-    if (!productGroups || productGroups.length === 0) {
+    // Merge: brand base + local overrides (local wins by name)
+    const mergedMap = new Map<string, any>();
+    for (const g of brandGroups) mergedMap.set(g.name.toLowerCase(), g);
+    for (const g of (localGroups || [])) mergedMap.set(g.name.toLowerCase(), g);
+    const productGroups = Array.from(mergedMap.values());
+
+    if (productGroups.length === 0) {
       console.log("No product groups configured — skipping rate calculation");
       return { calculated: 0, skipped: 0 };
     }
