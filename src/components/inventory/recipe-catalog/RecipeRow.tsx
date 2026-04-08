@@ -124,10 +124,10 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
       if (subBpIds.length === 0) return [];
       const { data, error } = await supabase
         .from("recipe_blueprints" as any)
-        .select("id, name")
+        .select("id, name, yield_qty, yield_unit")
         .in("id", subBpIds);
       if (error) throw error;
-      return (data || []) as unknown as { id: string; name: string }[];
+      return (data || []) as unknown as { id: string; name: string; yield_qty: number | null; yield_unit: string | null }[];
     },
     enabled: subBpIds.length > 0,
   });
@@ -146,16 +146,26 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
   const vendorNameMap = new Map(vendorItems?.map(v => [v.id, v.name]) || []);
   const vendorDataMap = new Map(vendorItems?.map(v => [v.id, v]) || []);
   const subBpNameMap = new Map(subBlueprints?.map(b => [b.id, b.name]) || []);
+  const subBpDataMap = new Map(subBlueprints?.map(b => [b.id, b]) || []);
 
   // Compute per-ingredient cost contribution
   const getIngredientCost = (ing: BlueprintIngredient): number | null => {
     if (ing.ingredient_type === "blueprint" && ing.sub_blueprint_id) {
       const subCost = costResult?.get(ing.sub_blueprint_id);
       if (!subCost) return null;
-      // Sub-recipe: batchCost / yield * quantity
-      // We need yield info — fetch from subBlueprints query
-      // For now use batchCost directly since yield=1 each is common
-      return subCost.batchCost * ing.quantity;
+      const subBp = subBpDataMap.get(ing.sub_blueprint_id);
+      const subYield = subBp?.yield_qty || 1;
+      const subYieldUnit = (subBp?.yield_unit || "").trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
+      const ingUnit = (ing.unit || "").trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
+      const normSub = subYieldUnit.includes("oz") ? "oz" : subYieldUnit;
+      const normIng = ingUnit.includes("oz") ? "oz" : ingUnit;
+      const costPerYieldUnit = subCost.batchCost / subYield;
+      // Convert ingredient qty to yield units if different
+      if (normIng && normSub && normIng !== normSub && TO_OZ[normIng] && TO_OZ[normSub]) {
+        const ingInYieldUnits = (ing.quantity * TO_OZ[normIng]) / TO_OZ[normSub];
+        return costPerYieldUnit * ingInYieldUnits;
+      }
+      return costPerYieldUnit * ing.quantity;
     } else if (ing.vendor_item_id) {
       const v = vendorDataMap.get(ing.vendor_item_id);
       if (!v) return null;
