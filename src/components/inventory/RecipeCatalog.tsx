@@ -267,6 +267,7 @@ const RecipeCatalog = ({ locationId, readOnly = false, brandId }: RecipeCatalogP
         }}
         locationId={locationId}
         editBlueprintId={editBlueprintId}
+        brandId={brandId}
       />
     </>
   );
