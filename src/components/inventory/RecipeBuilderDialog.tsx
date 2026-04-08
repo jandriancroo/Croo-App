@@ -663,7 +663,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     mutationFn: async () => {
       if (!recipeName.trim()) throw new Error("Name required");
       if (!yieldQty || parseFloat(yieldQty) <= 0) throw new Error("Yield required");
-      if (ingredients.length === 0 && blueprintType !== "INGREDIENT") throw new Error("Add at least one ingredient");
+      if (ingredients.length === 0 && blueprintType !== "INGREDIENT" && blueprintType !== "MI") throw new Error("Add at least one ingredient");
 
       // === LEGACY RECIPE MODE (inventory_items) ===
       if (editRecipeId && !editBlueprintId) {
