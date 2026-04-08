@@ -285,6 +285,24 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     enabled: open,
   });
 
+  // Fetch brand templates for name resolution fallback (when no local item exists)
+  const { data: brandTemplates } = useQuery({
+    queryKey: ["brand-templates-for-recipe", locationId],
+    queryFn: async () => {
+      const { resolveBrandId } = await import("@/utils/resolveBrandId");
+      const brandId = await resolveBrandId(locationId);
+      if (!brandId) return [];
+      const { data, error } = await supabase
+        .from("brand_inventory_templates")
+        .select("id, product_name")
+        .eq("brand_id", brandId)
+        .eq("status", "active");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
+
   // Fetch other blueprints (for sub-recipe selection)
   const { data: otherBlueprints } = useQuery({
     queryKey: ["blueprints-for-recipe", locationId, editBlueprintId],
@@ -437,7 +455,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         const refId = isBp ? i.sub_blueprint_id : (localItem?.id || brandTemplateId);
         const name = isBp
           ? otherBlueprints?.find((b: any) => b.id === i.sub_blueprint_id)?.name
-          : (localItem?.name);
+          : (localItem?.name || brandTemplates?.find((t: any) => t.id === brandTemplateId)?.product_name);
         return {
           type: isBp ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
@@ -449,7 +467,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         };
       }), vendorItems, otherBlueprints));
     }
-  }, [drilledBlueprint, drillBlueprintId, vendorItems, otherBlueprints]);
+  }, [drilledBlueprint, drillBlueprintId, vendorItems, otherBlueprints, brandTemplates]);
 
   // ========== AUTO-YIELD CALCULATION ==========
 
@@ -509,7 +527,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         const brandTemplateId = isBlueprintIng ? null : i.vendor_item_id;
         const localItem = !isBlueprintIng ? vendorItems?.find((v: any) => v.brand_item_id === brandTemplateId) : null;
         const refId = isBlueprintIng ? i.sub_blueprint_id : (localItem?.id || brandTemplateId);
-        const bpName = isBlueprintIng ? otherBlueprints?.find((b: any) => b.id === i.sub_blueprint_id)?.name : (localItem?.name);
+        const bpName = isBlueprintIng
+          ? otherBlueprints?.find((b: any) => b.id === i.sub_blueprint_id)?.name
+          : (localItem?.name || brandTemplates?.find((t: any) => t.id === brandTemplateId)?.product_name);
         return {
           type: isBlueprintIng ? "blueprint" as const : "vendor_item" as const,
           ref_id: refId || i.id,
@@ -521,7 +541,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         };
       }), vendorItems, otherBlueprints));
     }
-  }, [existingBlueprint, vendorItems, otherBlueprints]);
+  }, [existingBlueprint, vendorItems, otherBlueprints, brandTemplates]);
 
   // Legacy recipe edit (inventory_items)
   useEffect(() => {
