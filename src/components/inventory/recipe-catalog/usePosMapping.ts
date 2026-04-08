@@ -28,7 +28,7 @@ export interface PosMappingState {
   isLinking: boolean;
 }
 
-export function usePosMapping(locationId: string): PosMappingState {
+export function usePosMapping(locationId: string, brandId?: string): PosMappingState {
   const qc = useQueryClient();
 
   // Fetch existing product_group → blueprint mappings using inheritance merge
