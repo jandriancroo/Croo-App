@@ -120,6 +120,31 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
       const brandItem = brandItems.find(bi => bi.id === brandItemId);
       if (!brandItem) throw new Error('Brand item not found');
 
+      // Fetch pack metadata from an existing deployment (source location's item)
+      // This ensures count_unit, count_units_per_case, and pack_size propagate on activation
+      let packMeta: { count_unit?: string; count_units_per_case?: number; pack_size?: string; pack_quantity?: number } = {};
+      const { data: existingDeploy } = await supabase
+        .from('brand_inventory_deployments')
+        .select('inventory_item_id')
+        .eq('template_id', brandItemId)
+        .limit(1)
+        .maybeSingle();
+      if (existingDeploy?.inventory_item_id) {
+        const { data: sourceItem } = await supabase
+          .from('inventory_items')
+          .select('count_unit, count_units_per_case, pack_size, pack_quantity')
+          .eq('id', existingDeploy.inventory_item_id)
+          .maybeSingle();
+        if (sourceItem) {
+          packMeta = {
+            ...(sourceItem.count_unit ? { count_unit: sourceItem.count_unit } : {}),
+            ...(sourceItem.count_units_per_case ? { count_units_per_case: sourceItem.count_units_per_case } : {}),
+            ...(sourceItem.pack_size ? { pack_size: sourceItem.pack_size } : {}),
+            ...(sourceItem.pack_quantity ? { pack_quantity: sourceItem.pack_quantity } : {}),
+          };
+        }
+      }
+
       // Try to find an existing unlinked local item that matches by name/keywords
       const matchTerms = [
         brandItem.product_name.toLowerCase(),
@@ -141,7 +166,7 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
       });
 
       if (matchedLocal) {
-        // Link existing local item to brand template + sync name from brand authority
+        // Link existing local item to brand template + sync name, category, and pack metadata
         const { error } = await supabase
           .from('inventory_items')
           .update({
@@ -149,12 +174,13 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
             name: brandItem.product_name,
             category: brandItem.category,
             is_active: true,
+            ...packMeta,
           })
           .eq('id', matchedLocal.id);
         if (error) throw error;
         toast.info(`Linked existing "${matchedLocal.name}" to brand item`);
       } else {
-        // No match found — create new
+        // No match found — create new with pack metadata from source
         const { error } = await supabase
           .from('inventory_items')
           .insert({
@@ -164,6 +190,7 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
             category: brandItem.category,
             is_active: true,
             is_recipe: brandItem.is_recipe || false,
+            ...packMeta,
           });
         if (error) throw error;
       }
