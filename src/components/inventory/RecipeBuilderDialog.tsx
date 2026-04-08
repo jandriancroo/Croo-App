@@ -773,7 +773,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         const { data: newBp, error: bpErr } = await supabase
           .from("recipe_blueprints" as any)
           .insert({
-            location_id: locationId,
+            ...(brandId ? { brand_id: brandId } : { location_id: locationId }),
             name: recipeName.trim(),
             category: effectiveCategory,
             yield_qty: parseFloat(yieldQty),
