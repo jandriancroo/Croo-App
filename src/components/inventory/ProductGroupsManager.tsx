@@ -62,14 +62,8 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
   const { data: recipes } = useQuery({
     queryKey: ["blueprints-for-product-groups", locationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("recipe_blueprints" as any)
-        .select("id, name, category")
-        .eq("location_id", locationId)
-        .eq("is_active", true)
-        .order("name");
-
-      if (error) throw error;
+      const { fetchBlueprintsForLocation } = await import("@/utils/resolveBrandId");
+      const data = await fetchBlueprintsForLocation(locationId, "id, name, category");
       return (data || []) as unknown as BlueprintItem[];
     },
   });
