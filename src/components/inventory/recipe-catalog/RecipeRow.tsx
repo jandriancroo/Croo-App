@@ -48,18 +48,60 @@ const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posIt
     enabled: isExpanded,
   });
 
-  // Fetch vendor item names for display
+  // Fetch ingredient display names by resolving brand template IDs -> local inventory items
   const vendorItemIds = ingredients?.filter(i => i.vendor_item_id).map(i => i.vendor_item_id!) || [];
   const { data: vendorItems } = useQuery({
-    queryKey: ["blueprint-row-vendor-names", vendorItemIds.sort().join(",")],
+    queryKey: ["blueprint-row-vendor-names", locationId, vendorItemIds.sort().join(",")],
     queryFn: async () => {
       if (vendorItemIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("inventory_items")
-        .select("id, name, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size")
-        .in("id", vendorItemIds);
-      if (error) throw error;
-      return data || [];
+
+      const { data: deployments, error: depErr } = await supabase
+        .from("brand_inventory_deployments")
+        .select("template_id, inventory_item_id")
+        .eq("location_id", locationId)
+        .in("template_id", vendorItemIds);
+      if (depErr) throw depErr;
+
+      const localItemIds = (deployments || []).map(d => d.inventory_item_id);
+      const templateToLocalId = new Map((deployments || []).map(d => [d.template_id, d.inventory_item_id]));
+
+      const [localItemsRes, brandTemplatesRes] = await Promise.all([
+        localItemIds.length > 0
+          ? supabase
+              .from("inventory_items")
+              .select("id, name, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size")
+              .in("id", localItemIds)
+          : Promise.resolve({ data: [], error: null }),
+        supabase
+          .from("brand_inventory_templates" as any)
+          .select("id, product_name")
+          .in("id", vendorItemIds),
+      ]);
+
+      if (localItemsRes.error) throw localItemsRes.error;
+      if (brandTemplatesRes.error) throw brandTemplatesRes.error;
+
+      const localItems = localItemsRes.data || [];
+      const brandTemplates = brandTemplatesRes.data || [];
+      const localById = new Map(localItems.map(i => [i.id, i]));
+      const brandById = new Map(brandTemplates.map(t => [t.id, t]));
+
+      return vendorItemIds.map(templateId => {
+        const localId = templateToLocalId.get(templateId);
+        const localItem = localId ? localById.get(localId) : null;
+        const brandTemplate = brandById.get(templateId);
+        return {
+          id: templateId,
+          name: localItem?.name || brandTemplate?.product_name || null,
+          cost_per_unit: localItem?.cost_per_unit ?? null,
+          blended_price: localItem?.blended_price ?? null,
+          pack_quantity: localItem?.pack_quantity ?? null,
+          pack_quantity_override: localItem?.pack_quantity_override ?? null,
+          count_units_per_case: localItem?.count_units_per_case ?? null,
+          count_unit: localItem?.count_unit ?? null,
+          pack_size: localItem?.pack_size ?? null,
+        };
+      });
     },
     enabled: vendorItemIds.length > 0,
   });
