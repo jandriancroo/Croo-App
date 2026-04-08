@@ -153,19 +153,14 @@ export function usePosMapping(locationId: string, brandId?: string): PosMappingS
         if (error) throw error;
       } else {
         // Check if a group with this name already exists
-        const query = supabase
+        const baseQuery = supabase
           .from("inventory_product_groups")
           .select("id")
-          .eq("name", blueprintName)
-          .maybeSingle();
+          .eq("name", blueprintName);
         
-        if (brandId) {
-          query.eq("brand_id", brandId);
-        } else {
-          query.eq("location_id", locationId);
-        }
-
-        const { data: existingByName } = await query;
+        const { data: existingByName } = brandId
+          ? await baseQuery.eq("brand_id", brandId).maybeSingle()
+          : await baseQuery.eq("location_id", locationId).maybeSingle();
 
         const writePayload: any = {
           name: blueprintName,
