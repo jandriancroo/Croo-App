@@ -541,7 +541,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         };
       }), vendorItems, otherBlueprints));
     }
-  }, [existingBlueprint, vendorItems, otherBlueprints]);
+  }, [existingBlueprint, vendorItems, otherBlueprints, brandTemplates]);
 
   // Legacy recipe edit (inventory_items)
   useEffect(() => {
