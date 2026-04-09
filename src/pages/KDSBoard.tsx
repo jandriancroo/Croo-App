@@ -309,9 +309,10 @@ function DarkBreakdown({ title, data }: { title: string; data: Record<string, nu
 
 function DarkOrderRow({ order }: { order: Order }) {
   const isOpen = order.state === 'Open';
-  const isOLO = order.channel === 'OLO';
-  // 3PD orders (OLO channel) should show "Delivery" instead of "Take-Out" etc.
-  const displayType = isOLO ? 'Delivery' : order.orderType;
+  const is3PD = order.channel === 'OLO' || order.channel.toLowerCase().includes('doordash') || order.channel.toLowerCase().includes('ubereats') || order.channel.toLowerCase().includes('grubhub');
+  // 3PD orders should show "Delivery" instead of "Carry Out" / "Take-Out"
+  const displayType = is3PD ? 'Delivery' : order.orderType;
+  const displayChannel = is3PD ? order.channel : order.channel;
 
   return (
     <div className={cn(
