@@ -272,17 +272,24 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   }, [locationKdsData]);
 
   useEffect(() => {
-    if (ovationIntegration) {
+    // Load credentials from per-location mapping first, fall back to brand integration
+    if (ovationMapping) {
+      setOvationLocationId(ovationMapping.ovation_location_id || '');
+      if ((ovationMapping as any).cognito_username) {
+        setOvationEmail((ovationMapping as any).cognito_username || '');
+        setOvationPassword((ovationMapping as any).cognito_password || '');
+        setOvationCompanyId((ovationMapping as any).company_id || '');
+      } else if (ovationIntegration) {
+        setOvationEmail((ovationIntegration as any).cognito_username || '');
+        setOvationPassword((ovationIntegration as any).cognito_password || '');
+        setOvationCompanyId(ovationIntegration.company_id || '');
+      }
+    } else if (ovationIntegration) {
       setOvationEmail((ovationIntegration as any).cognito_username || '');
       setOvationPassword((ovationIntegration as any).cognito_password || '');
       setOvationCompanyId(ovationIntegration.company_id || '');
     }
-  }, [ovationIntegration]);
-
-  useEffect(() => {
-    if (ovationMapping) {
-      setOvationLocationId(ovationMapping.ovation_location_id || '');
-    }
+  }, [ovationMapping, ovationIntegration]);
   }, [ovationMapping]);
   // ── Handlers (unchanged logic) ──
 
