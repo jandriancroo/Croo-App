@@ -505,19 +505,28 @@ serve(async (req) => {
         const moduleType = item.type || "UNKNOWN";
         const coverUrl = item.coverImage?.imageUrls?.original || item.coverImage?.imageUrls?.thumb || "";
         const mediaUrl = item.trainingResource?.publishedVersion?.media?.mediaUrls?.en || "";
+        const resourceType = item.trainingResource?.publishedVersion?.type || "";
+        const description = item.description?.en || "";
+        const tags = (item.contentTagMemberships || [])
+          .map((t: any) => t.tag?.nameTranslations?.en)
+          .filter(Boolean)
+          .join(", ");
 
         const content = [
-          `[OPUS Training Module] ${moduleName}`,
+          `[OPUS Training Resource] ${moduleName}`,
+          description ? `Description: ${description}` : "",
           ``,
           `Type: ${moduleType}`,
+          resourceType ? `Resource Type: ${resourceType}` : "",
           `OPUS ID: ${item.id}`,
+          tags ? `Tags: ${tags}` : "",
           coverUrl ? `Cover Image: ${coverUrl}` : "",
           item.path?.id ? `Path ID: ${item.path.id}` : "",
           item.course?.id ? `Course ID: ${item.course.id}` : "",
           mediaUrl ? `Media URL: ${mediaUrl}` : "",
           ``,
           `Source: OPUS LMS (LibraryItems)`,
-          `This is a training module available in the OPUS Learning Management System.`,
+          mediaUrl ? `Content has not been extracted yet. Use fetch_resource_content to parse this document.` : "",
         ].filter(Boolean).join("\n");
 
         const topic = `opus_training_${moduleType.toLowerCase()}`;
