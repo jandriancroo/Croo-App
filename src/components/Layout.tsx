@@ -292,6 +292,7 @@ export const Layout = ({
   // Wait for role to load before checking - prevents flash of missing nav items
   const canAccessLogs = !roleLoading && isShiftManager; // Shift managers and above can access logbook
   const canAccessHiring = !roleLoading && (isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring'));
+  const canViewOvation = !roleLoading && (isManager || hasPermission('view_ovation_reviews'));
   const [hasFBCAccess, setHasFBCAccess] = useState(false);
   const [hasMultiLocationAccess, setHasMultiLocationAccess] = useState(false);
 const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
@@ -885,7 +886,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               )}
               
               {/* Desktop Ovation Score - only on dashboard */}
-              {currentLocation && location.pathname === '/dashboard' && (
+              {canViewOvation && currentLocation && location.pathname === '/dashboard' && (
                 <OvationScorePopover key={`ovation-desktop-${currentLocation.id}`} />
               )}
 
@@ -1292,7 +1293,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       )}
 
       {/* Ovation score tab + popover hanging below mobile header - only on dashboard */}
-      {isMobile && currentLocation && location.pathname === '/dashboard' && (
+      {isMobile && canViewOvation && currentLocation && location.pathname === '/dashboard' && (
         <div 
           key={`ovation-mobile-${currentLocation.id}`}
           className="fixed left-1/2 -translate-x-1/2 z-[48] flex flex-col items-center"
