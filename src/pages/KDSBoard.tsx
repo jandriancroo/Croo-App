@@ -222,7 +222,11 @@ export default function KDSBoard() {
             </div>
             <div className="space-y-1">
               <AnimatePresence mode="popLayout">
-                {orders.map((order, idx) => (
+                {[...orders].sort((a, b) => {
+                  // Most recent first by date string
+                  if (a.date && b.date) return b.date.localeCompare(a.date);
+                  return 0;
+                }).map((order, idx) => (
                   <motion.div
                     key={`${order.checkNumber}-${idx}`}
                     initial={{ opacity: 0, y: 6 }}
