@@ -210,6 +210,17 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     enabled: !!locationId
   });
 
+  const { data: opusIntegration } = useQuery({
+    queryKey: ['location-integration', locationId, 'opus'],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'opus').maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
+
   // OvationUp — get brand_id from location's organization, then fetch integration
   const { data: ovationBrandId } = useQuery({
     queryKey: ['location-brand-id', locationId],
