@@ -298,6 +298,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [showOrgBubble, setShowOrgBubble] = useState(false); // Popup bubble for long-press
   const [showCompactDashboard, setShowCompactDashboard] = useState(false); // Swipe-up compact dashboard
+  const [ovationExpanded, setOvationExpanded] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');
   const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
@@ -1285,7 +1286,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           className="fixed left-1/2 -translate-x-1/2 z-[48]"
           style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)' }}
         >
-          <OvationScorePopover />
+          <OvationScorePopover expanded={ovationExpanded} onToggle={() => setOvationExpanded(prev => !prev)} />
         </div>
       )}
       
