@@ -8,7 +8,39 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const OPUS_GRAPHQL = "https://api.opus.so/graphql";
+
+/** Generate a 768-dim embedding via Lovable AI tool-calling */
+async function generateEmbedding(text: string): Promise<number[] | null> {
+  try {
+    const resp = await fetch(AI_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: "You are an embedding generator." },
+          { role: "user", content: `Generate a 768-dimensional embedding vector for: "${text.substring(0, 500)}". Return ONLY the raw JSON array of 768 floats.` },
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "store_embedding",
+            description: "Store a 768-dimensional embedding vector",
+            parameters: { type: "object", properties: { embedding: { type: "array", items: { type: "number" } } }, required: ["embedding"], additionalProperties: false },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "store_embedding" } },
+      }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const args = JSON.parse(data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments || "{}");
+    return Array.isArray(args.embedding) && args.embedding.length === 768 ? args.embedding : null;
+  } catch { return null; }
+}
 
 const OPUS_HEADERS = (sessionId: string) => ({
   "Content-Type": "application/json",
@@ -411,8 +443,9 @@ serve(async (req) => {
       const data = await resp.json();
       const objects = data?.data?.LibraryItems?.objects || [];
 
-      // Inject each training module into theo_knowledge
+      // Inject each training module into theo_knowledge WITH embeddings
       let injected = 0;
+      let embeddingsGenerated = 0;
       for (const item of objects) {
         const moduleName = item.name?.en || "Untitled Module";
         const moduleType = item.type || "UNKNOWN";
@@ -433,19 +466,47 @@ serve(async (req) => {
           `This is a training module available in the OPUS Learning Management System.`,
         ].filter(Boolean).join("\n");
 
-        const { error } = await supabase
-          .from("theo_knowledge")
-          .upsert({
-            location_id: location_id,
-            topic: `opus_training_${moduleType.toLowerCase()}`,
-            content: content,
-            created_by: userId,
-          }, {
-            onConflict: "location_id,topic,content",
-            ignoreDuplicates: true,
-          });
+        const topic = `opus_training_${moduleType.toLowerCase()}`;
+        const contentHash = content; // md5 handled by unique index
 
-        if (!error) injected++;
+        // Check if already exists (avoid re-embedding)
+        const { data: existing } = await supabase
+          .from("theo_knowledge")
+          .select("id, embedding")
+          .eq("location_id", location_id)
+          .eq("topic", topic)
+          .ilike("content", `%${moduleName}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (existing?.id && existing?.embedding) {
+          // Already exists with embedding — skip
+          injected++;
+          continue;
+        }
+
+        // Generate embedding for semantic search
+        const embedding = await generateEmbedding(`${moduleName} - ${moduleType} training module from OPUS LMS`);
+        if (embedding) embeddingsGenerated++;
+
+        const insertData: any = {
+          location_id: location_id,
+          topic: topic,
+          content: content,
+          created_by: userId,
+        };
+        if (embedding) {
+          insertData.embedding = JSON.stringify(embedding);
+        }
+
+        if (existing?.id) {
+          // Update existing record with embedding
+          await supabase.from("theo_knowledge").update({ embedding: JSON.stringify(embedding) }).eq("id", existing.id);
+        } else {
+          // Insert new
+          const { error } = await supabase.from("theo_knowledge").insert(insertData);
+          if (!error) injected++;
+        }
       }
 
       return new Response(JSON.stringify({
@@ -453,6 +514,7 @@ serve(async (req) => {
         total_in_opus: objects.length,
         resources_found: objects.length,
         injected_to_theo: injected,
+        embeddings_generated: embeddingsGenerated,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
