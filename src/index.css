@@ -416,6 +416,11 @@ html[data-theme="beach"] body.beach-dashboard .bg-card {
   background-color: hsl(42 30% 96% / 0.85) !important;
 }
 
+/* Boost quick-task card opacity on beach so they're readable over the background */
+html[data-theme="beach"] body.beach-dashboard .rounded-xl[style*="background-color"] {
+  background-color: hsl(0 0% 100% / 0.82) !important;
+}
+
 /* Force opaque popover/dropdown/select/sheet overlays on beach dashboard */
 html[data-theme="beach"] body.beach-dashboard [data-radix-popper-content-wrapper] *,
 html[data-theme="beach"] body.beach-dashboard [role="listbox"],
