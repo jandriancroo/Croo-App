@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -34,6 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { cn } from '@/lib/utils';
 
 interface CateringOrder {
   id: string;
@@ -99,6 +100,18 @@ export default function Dashboard() {
     currentLocation?.id ? getSectionOrder(currentLocation.id) : ['data-cubes', 'checklists', 'sales-chart']
   );
   const queryClient = useQueryClient();
+
+  // Read Ovation score from the same query cache as OvationReviewsCube
+  const { data: reviewsData } = useQuery<{ wtdAverage: number | null; wtdCount: number; error?: string; expired?: boolean }>({
+    queryKey: ['ovation-reviews', currentLocation?.id],
+    queryFn: async () => {
+      // This is a cache-only read — OvationReviewsCube does the actual fetch
+      // Return stale data from cache, don't refetch here
+      return queryClient.getQueryData(['ovation-reviews', currentLocation?.id]) || { wtdAverage: null, wtdCount: 0 };
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: Infinity, // Never refetch from here, rely on OvationReviewsCube
+  });
   
   // Light DB reads — always refetch on pull
   const ALWAYS_REFRESH_KEYS = [
