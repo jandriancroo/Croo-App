@@ -1367,11 +1367,17 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
                     {opusMappings.map((mapping, idx) => (
                       <div key={mapping.opus_id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive shrink-0"
+                          onClick={() => setOpusMappings(prev => prev.filter(m => m.opus_id !== mapping.opus_id))}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{mapping.name}</p>
-                          <p className="text-[10px] text-muted-foreground">OPUS #{mapping.opus_id}</p>
+                          <p className="text-[10px] text-muted-foreground">#{mapping.opus_id}</p>
                         </div>
-                        <span className="text-[10px] text-muted-foreground">→</span>
                         <Select
                           value={mapping.croo_user_id || '__none__'}
                           onValueChange={(val) => {
@@ -1380,7 +1386,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                             setOpusMappings(updated);
                           }}
                         >
-                          <SelectTrigger className="h-7 text-[11px] w-[140px]">
+                          <SelectTrigger className="h-7 text-[11px] w-[130px]">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent>
