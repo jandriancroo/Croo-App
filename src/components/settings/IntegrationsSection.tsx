@@ -637,20 +637,58 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 <div className="border-t pt-3">
                   <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full">
                     <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180" />
-                    <span>Advanced: Order Guide IDs</span>
+                    <span>Bid List / Order Guide</span>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-3 pt-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Fetch available lists */}
+                    <Button size="sm" variant="outline" onClick={fetchPfgGuides} disabled={pfgIsFetchingGuides} className="w-full">
+                      {pfgIsFetchingGuides ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+                      {pfgAvailableGuides.length > 0 ? 'Refresh Lists' : 'Load Available Lists'}
+                    </Button>
+
+                    {/* Dropdown when guides are loaded */}
+                    {pfgAvailableGuides.length > 0 && (
                       <div className="space-y-1.5">
-                        <Label htmlFor="pfg-guide-id" className="text-sm">Product List Header ID</Label>
-                        <Input id="pfg-guide-id" value={pfgOrderGuideId} onChange={(e) => setPfgOrderGuideId(e.target.value)} placeholder="e.g., b4680e1a-4815-..." className="h-9 text-xs font-mono" />
+                        <Label className="text-sm">Select Product List</Label>
+                        <Select
+                          value={pfgOrderGuideId}
+                          onValueChange={(val) => setPfgOrderGuideId(val)}
+                        >
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue placeholder="Choose a list..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pfgAvailableGuides.map((guide) => (
+                              <SelectItem key={guide.id} value={guide.id} className="text-xs">
+                                {guide.name}{guide.type ? ` (${guide.type})` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="pfg-customer-id" className="text-sm">Customer ID</Label>
-                        <Input id="pfg-customer-id" value={pfgCustomerId} onChange={(e) => setPfgCustomerId(e.target.value)} placeholder="e.g., 73094123-ab82-..." className="h-9 text-xs font-mono" />
-                      </div>
-                    </div>
-                    <Button size="sm" onClick={savePfgGuideSettings} disabled={pfgIsSavingGuide}>
+                    )}
+
+                    {/* Fallback manual entry */}
+                    <Collapsible>
+                      <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <Settings2 className="h-3 w-3" />
+                        <span>Manual IDs</span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-2">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="pfg-guide-id" className="text-xs text-muted-foreground">Product List Header ID</Label>
+                            <Input id="pfg-guide-id" value={pfgOrderGuideId} onChange={(e) => setPfgOrderGuideId(e.target.value)} placeholder="e.g., b4680e1a-4815-..." className="h-8 text-xs font-mono" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="pfg-customer-id" className="text-xs text-muted-foreground">Customer ID</Label>
+                            <Input id="pfg-customer-id" value={pfgCustomerId} onChange={(e) => setPfgCustomerId(e.target.value)} placeholder="e.g., 73094123-ab82-..." className="h-8 text-xs font-mono" />
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <Button size="sm" onClick={savePfgGuideSettings} disabled={pfgIsSavingGuide || !pfgOrderGuideId.trim()}>
                       {pfgIsSavingGuide ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
                       Save Guide
                     </Button>
