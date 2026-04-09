@@ -78,41 +78,68 @@ serve(async (req) => {
         });
       }
 
-      // Query OPUS GraphQL for employee training progress
-      const graphqlQuery = {
-        query: `
-          query TeamProgress {
-            employees {
-              edges {
-                node {
-                  id
-                  name
-                  email
-                  assignedModules {
-                    edges {
-                      node {
-                        id
-                        title
-                        completionPercentage
-                        completed
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        `,
-      };
+      // Step 1: Get location employees from OPUS using AdminLocation
+      // We need the OPUS location ID — stored in credentials or we use a known one
+      const opusLocationId = creds?.opus_location_id;
 
-      const opusResp = await fetch(OPUS_GRAPHQL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Cookie": `sessionid=${sessionId}`,
-        },
-        body: JSON.stringify(graphqlQuery),
-      });
+      // Step 2: For each matched Croo profile, query their Assignments count
+      // Get all profiles at this location for matching
+      const { data: locationProfiles } = await supabase
+        .from("user_locations")
+        .select("user_id, profiles:user_id(id, full_name, email)")
+        .eq("location_id", location_id);
+
+      const profilesList = (locationProfiles || []).map((lp: any) => ({
+        id: lp.profiles?.id,
+        name: (lp.profiles?.full_name || "").toLowerCase().trim(),
+        email: (lp.profiles?.email || "").toLowerCase().trim(),
+      })).filter((p: any) => p.id);
+
+      // Query OPUS for each employee's incomplete assignments using the confirmed schema
+      let syncedCount = 0;
+      let tasksCreated = 0;
+      const unmatchedNames: string[] = [];
+
+      // If we have opus_employee_mappings in credentials, use those
+      const employeeMappings = creds?.employee_mappings || [];
+      // Format: [{ opus_id: 1541347, croo_user_id: "uuid" }, ...]
+
+      for (const mapping of employeeMappings) {
+        const { opus_id, croo_user_id, name: empName } = mapping;
+        
+        // Query assignments for this OPUS employee
+        const assignmentsQuery = {
+          operationName: "UserAssignments",
+          query: `query UserAssignments($id: Int!) {
+  pathAssignments: Assignments(
+    input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH]}, accessTypes: {value: [ASSIGNMENT]}}}
+  ) {
+    objects {
+      id
+      status
+      __typename
+    }
+    __typename
+  }
+  courseAssignments: Assignments(
+    input: {filters: {userId: {value: $id}, contentTypes: {value: [COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}
+  ) {
+    objects {
+      id
+      status
+      __typename
+    }
+    __typename
+  }
+}`,
+          variables: { id: opus_id },
+        };
+
+        const opusResp = await fetch(OPUS_GRAPHQL, {
+          method: "POST",
+          headers: OPUS_HEADERS(sessionId),
+          body: JSON.stringify(assignmentsQuery),
+        });
 
       if (!opusResp.ok) {
         const errText = await opusResp.text();
