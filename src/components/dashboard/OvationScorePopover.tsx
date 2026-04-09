@@ -75,7 +75,7 @@ export function useOvationData() {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ locationId: currentLocation.id, days: 7, pageSize: 50 }),
+          body: JSON.stringify({ locationId: currentLocation.id, days: 14, pageSize: 50 }),
         }
       );
       return (await response.json()) as OvationReviewsData;
@@ -112,7 +112,7 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
       <span className={cn('text-sm font-bold', desktop ? 'text-white' : scoreColor)}>
         {reviewsData.wtdAverage.toFixed(1)}
       </span>
-      <span className={cn('text-[9px]', desktop ? 'text-white/60' : 'text-muted-foreground')}>7d</span>
+      <span className={cn('text-[9px]', desktop ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
       <ChevronDown className={cn(
         'h-3 w-3 transition-transform duration-300',
         desktop ? 'text-white/60' : 'text-muted-foreground/60',
@@ -155,7 +155,7 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
                 <div>
                   <p className="text-xs font-semibold leading-tight">OvationUp</p>
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    Last 7 days · {reviewsData.wtdCount} reviews
+                    Last 14 days · {reviewsData.wtdCount} reviews
                   </p>
                 </div>
               </div>
