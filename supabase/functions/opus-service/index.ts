@@ -355,28 +355,35 @@ serve(async (req) => {
         });
       }
 
-      // Confirmed working AdminLibrary query — returns all training modules with names & cover images
+      // Parameterized AdminLibrary query (OPUS requires variables, not inline params)
       const libraryQuery = {
         operationName: "GetAdminLibrary",
-        query: `query GetAdminLibrary {
-  AdminLibrary(input: {pagination: {page: 1, pageSize: 500}}) {
+        variables: { input: { pagination: { page: 1, pageSize: 500 } } },
+        query: `query GetAdminLibrary($input: AdminLibraryInput!) {
+  AdminLibrary(input: $input) {
     totalCount
     objects {
       id
       type
       name {
         en
+        __typename
       }
       coverImage {
         imageUrls {
           original
           thumb
+          __typename
         }
+        __typename
       }
       path {
         id
+        __typename
       }
+      __typename
     }
+    __typename
   }
 }`,
       };
