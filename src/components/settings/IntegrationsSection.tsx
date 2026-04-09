@@ -309,6 +309,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setOvationCompanyId(ovationIntegration.company_id || '');
     }
   }, [ovationMapping, ovationIntegration]);
+
+  // Load OPUS session from integration
+  useEffect(() => {
+    if (opusIntegration) {
+      const creds = opusIntegration.credentials as any;
+      setOpusSessionId(creds?.sessionid || '');
+    }
+  }, [opusIntegration]);
   
   // ── Handlers (unchanged logic) ──
 
