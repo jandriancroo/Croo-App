@@ -437,6 +437,24 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_ovation_reviews",
+      description: "Query OvationUp guest reviews and feedback scores for this location. Returns recent reviews with ratings, customer names, feedback text, and whether the review was responded to. Also returns the average score and review count. Use for questions about guest reviews, customer feedback, Ovation scores, review trends, or guest satisfaction. When a review mentions an employee by name, cross-reference with team members at the location and tag matches with [[employee:Full Name]].",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          days: { type: "number", description: "Number of days to look back (default 7)" },
+          min_rating: { type: "number", description: "Filter reviews with rating >= this value" },
+          max_rating: { type: "number", description: "Filter reviews with rating <= this value" },
+          search_keyword: { type: "string", description: "Search feedback text for a keyword" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
