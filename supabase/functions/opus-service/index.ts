@@ -21,7 +21,7 @@ const OPUS_HEADERS = (sessionId: string) => ({
   "Sec-Fetch-Dest": "empty",
   "Sec-Fetch-Mode": "cors",
   "Sec-Fetch-Site": "same-site",
-  "x-dashboard-url": "https://dashboard.opus.so/library/modules",
+  "x-dashboard-url": "https://dashboard.opus.so/library/modules?org=1491-Blaze+Pizza",
 });
 
 /** Helper: get OPUS session from location_integrations */
