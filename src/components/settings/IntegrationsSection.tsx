@@ -156,6 +156,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [opusIsTesting, setOpusIsTesting] = useState(false);
   const [opusTestResult, setOpusTestResult] = useState<'success' | 'error' | null>(null);
   const [opusIsSyncing, setOpusIsSyncing] = useState(false);
+  const [opusShowSession, setOpusShowSession] = useState(false);
 
   // OvationUp state
   const [ovationEmail, setOvationEmail] = useState('');
