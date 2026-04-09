@@ -258,45 +258,33 @@ serve(async (req) => {
         });
       }
 
-      const fullHeaders = {
-        ...OPUS_HEADERS(sessionid),
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
-      };
+      const headers = OPUS_HEADERS(sessionid);
 
-      // Test with AdminEmployee (confirmed working) and parameterized AdminLibrary
+      // Quick auth check via AdminEmployee
       const testEmployee = {
         operationName: "TestEmployee",
         query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
       };
-      // Try inline params (browser might not use variables for LibraryItems)
-      const libTests = [
-        { label: "inline_LibraryItems", body: { operationName: "GetLibraryItems", query: `query GetLibraryItems { LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { objects { id type name { en __typename } __typename } __typename } }` } },
-        { label: "inline_no_opname", body: { query: `{ LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { objects { id type name { en } } } }` } },
-        { label: "inline_with_vars_empty", body: { operationName: "GetLibraryItems", variables: {}, query: `query GetLibraryItems { LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { objects { id type name { en __typename } __typename } __typename } }` } },
-      ];
-      const libResults: any[] = [];
-      for (const t of libTests) {
-        const r = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(t.body) });
-        const txt = await r.text();
-        console.log(`[opus-service] ${t.label}: status=${r.status} body=${txt.substring(0, 300)}`);
-        let parsed: any;
-        try { parsed = JSON.parse(txt); } catch { parsed = { raw: txt }; }
-        libResults.push({ label: t.label, status: r.status, data: parsed });
-      }
-      const libraryCount = null;
-
-      // Test employee (reliable auth check)
-      const empResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testEmployee) });
+      const empResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers, body: JSON.stringify(testEmployee) });
       const empData = await empResp.json();
       const authenticated = !!empData?.data?.AdminEmployee?.id;
+
+      // Quick library check
+      const libQuery = {
+        operationName: "GetAdminLibrary",
+        variables: { input: {}, pagination: { limit: 1, offset: 0 } },
+        query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) { AdminLibrary(input: $input, pagination: $pagination) { objects { id name { en __typename } __typename } __typename } }`,
+      };
+      const libResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers, body: JSON.stringify(libQuery) });
+      const libData = await libResp.json();
+      const libraryOk = !!libData?.data?.AdminLibrary?.objects;
 
       console.log("[opus-service] test_connection: employee=", JSON.stringify(empData));
 
       return new Response(JSON.stringify({
         authenticated,
         employee: empData?.data?.AdminEmployee || null,
-        library_items: libraryCount,
-        library_tests: libResults,
+        library_ok: libraryOk,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
