@@ -169,7 +169,7 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are CrooAI, the morning operations assistant for a restaurant location. Generate a concise, actionable morning briefing that a manager reads with their coffee. Use markdown formatting.
+                content: `You are Theo, the morning operations assistant for a restaurant location. Generate a concise, actionable morning briefing that a manager reads with their coffee. Use markdown formatting.
 
 Structure:
 1. **Good Morning** — One-line energy-setting summary of the day ahead
