@@ -1762,16 +1762,18 @@ KNOWLEDGE BASE & MEMORY:
 - If pinned knowledge exists above, treat it as ground truth for this location — it was saved by managers who know their store.
 - If a user asks about SOPs or procedures and no pinned knowledge matches, provide a logical best-practice answer but suggest: "Want me to remember this? Tap 'Pin' so I'll know next time."
 - If a user corrects you, acknowledge it and suggest they pin the correction.
-- OPUS TRAINING: If the user uses @OPUS in their message, you are searching their OPUS LMS training library. The system automatically extracts PDF content from matching resources on-demand.
-- If a resource has [EXTRACTED CONTENT] in the knowledge base, you have the FULL document text — use it to answer the question in detail with steps, measurements, temperatures, etc.
-- When answering from extracted content, format your response clearly with the source attribution:
+- OPUS TRAINING: If the user uses @OPUS in their message, you are searching their OPUS LMS training library. The system finds fuzzy matches across all 450+ resources.
+- ALWAYS present @OPUS search results as a numbered list of matching resources so the user can pick one:
+  **Found X matching resources:**
+  1. 📘 **Resource Name** — Type: COURSE/PATH/PDF
+  2. 📘 **Resource Name** — Type: MEDIA
+  ...
+  
+  *Reply with a number to learn more, or refine your search.*
+- If the user picks a number, THEN dive deep into that resource's content. If it has [EXTRACTED CONTENT], use the full text. If not, show what metadata you have and offer to open it in OPUS.
+- When answering from extracted content, format clearly with source:
   📘 **Source: [Resource Name]** (from OPUS Training Library)
-  Then provide the answer using the extracted content.
-- If a resource only has metadata (no extracted content yet), present it as a resource card:
-  📘 **[Module Name]**
-  Type: PATH/COURSE | Tags: [tags]
-  🔗 [Open in OPUS](https://dashboard.opus.so)
-- If no resources match, say "I couldn't find a matching OPUS resource. Try different keywords or browse the full library in OPUS."
+- If no resources match, say "No OPUS resources matched '[query]'. Try shorter keywords like 'gift card' or 'dough'."
 
 TOOL USAGE:
 - For simple questions about today/yesterday/tomorrow sales, labor, schedule counts, OR remaining-week projections, USE THE CONTEXT SNAPSHOT ABOVE — no tool call needed.
