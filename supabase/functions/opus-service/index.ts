@@ -196,9 +196,16 @@ serve(async (req) => {
           continue;
         }
 
+        // Debug: log status/module breakdown
+        const rawAll = respData.data.Assignments.objects || [];
+        const throughModule = rawAll.filter((a: any) => a.isCurrentInstanceAssignedThroughModule);
+        const directAssign = rawAll.filter((a: any) => !a.isCurrentInstanceAssignedThroughModule);
+        const statusCounts: Record<string, number> = {};
+        rawAll.forEach((a: any) => { statusCounts[a.status] = (statusCounts[a.status] || 0) + 1; });
+        console.log(`[opus-service] ${empName}: raw=${rawAll.length} direct=${directAssign.length} throughModule=${throughModule.length} statuses=${JSON.stringify(statusCounts)}`);
+
         // Filter out sub-module assignments (courses assigned through a Path)
-        const allAssignments = (respData.data.Assignments.objects || [])
-          .filter((a: any) => !a.isCurrentInstanceAssignedThroughModule);
+        const allAssignments = directAssign;
         const assignedCount = allAssignments.length;
         const completedAssignments = allAssignments.filter((a: any) => a.status === "completed" || a.status === "COMPLETED");
         const incompleteAssignments = allAssignments.filter((a: any) => a.status !== "completed" && a.status !== "COMPLETED");
