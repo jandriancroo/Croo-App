@@ -37,6 +37,8 @@ serve(async (req) => {
     switch (action) {
       case 'save_config':
         return await handleSaveConfig(req, supabase)
+      case 'test_survey_skip':
+        return await handleTestSurveySkip(req, supabase)
       case 'save_location_mapping':
         return await handleSaveLocationMapping(req, supabase)
       case 'test_connection':
