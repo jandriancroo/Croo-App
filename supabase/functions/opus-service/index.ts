@@ -526,10 +526,41 @@ serve(async (req) => {
 
       // Batch insert in chunks of 50
       let injected = existingNames.size;
+      const insertedKnowledgeIds: { title: string; opus_id: string; resource_type: string; theo_knowledge_id?: string }[] = [];
       for (let i = 0; i < toInsert.length; i += 50) {
         const chunk = toInsert.slice(i, i + 50);
-        const { error } = await supabase.from("theo_knowledge").insert(chunk);
-        if (!error) injected += chunk.length;
+        const { data: inserted, error } = await supabase.from("theo_knowledge").insert(chunk).select("id, content");
+        if (!error && inserted) {
+          injected += inserted.length;
+          // Extract metadata for index
+          for (const row of inserted) {
+            const titleMatch = row.content.match(/\[OPUS Training (?:Resource|Module)\] (.+)/);
+            const opusIdMatch = row.content.match(/OPUS ID: ([a-f0-9-]+)/);
+            const typeMatch = row.content.match(/Resource Type: (.+)/);
+            if (titleMatch && opusIdMatch) {
+              insertedKnowledgeIds.push({
+                title: titleMatch[1].trim(),
+                opus_id: opusIdMatch[1],
+                resource_type: typeMatch?.[1]?.trim() || 'TRAINING_RESOURCE',
+                theo_knowledge_id: row.id,
+              });
+            }
+          }
+        }
+      }
+
+      // Populate opus_resource_index for fast title search
+      if (insertedKnowledgeIds.length > 0) {
+        const indexRows = insertedKnowledgeIds.map(r => ({
+          location_id,
+          title: r.title,
+          resource_type: r.resource_type,
+          opus_id: r.opus_id,
+          theo_knowledge_id: r.theo_knowledge_id,
+        }));
+        for (let i = 0; i < indexRows.length; i += 50) {
+          await supabase.from("opus_resource_index").upsert(indexRows.slice(i, i + 50), { onConflict: "location_id,opus_id" });
+        }
       }
 
       return new Response(JSON.stringify({
