@@ -1590,27 +1590,50 @@ serve(async (req) => {
 
         // Fallback: text-based search
         if (relevant.length === 0) {
-          let query = supabaseAdmin
-            .from("theo_knowledge")
-            .select("topic, content")
-            .eq("location_id", location_id);
-          
-          // If @OPUS tag, filter to only OPUS training topics and fetch more
-          if (isOpusQuery) {
-            query = query.ilike("topic", "opus_training_%");
-          }
-          
-          const { data: memories } = await query.limit(isOpusQuery ? 100 : 20);
-          
-          if (memories && memories.length > 0) {
-            const queryLower = cleanQuery.toLowerCase();
-            const queryWords = queryLower.split(/\s+/).filter((w: string) => w.length > 3);
-            relevant = memories.filter((m: any) => {
-              const contentLower = m.content.toLowerCase();
-              const topicLower = m.topic.toLowerCase();
-              if (isOpusQuery) return true; // Show all OPUS results when @OPUS is used
-              return queryWords.some((w: string) => contentLower.includes(w) || topicLower.includes(w));
-            }).slice(0, 5);
+          if (isOpusQuery && cleanQuery.length > 0) {
+            // For @OPUS queries, search by content text matching (name is in the content field)
+            const searchWords = cleanQuery.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
+            // Use ilike for each word against content
+            let query = supabaseAdmin
+              .from("theo_knowledge")
+              .select("topic, content")
+              .eq("location_id", location_id)
+              .ilike("topic", "opus_training_%");
+            
+            // Add content search for each word
+            for (const word of searchWords.slice(0, 3)) {
+              query = query.ilike("content", `%${word}%`);
+            }
+            
+            const { data: memories } = await query.limit(10);
+            relevant = memories || [];
+          } else if (isOpusQuery) {
+            // @OPUS with no search term — return a sample of resources
+            const { data: memories } = await supabaseAdmin
+              .from("theo_knowledge")
+              .select("topic, content")
+              .eq("location_id", location_id)
+              .ilike("topic", "opus_training_%")
+              .limit(10);
+            relevant = memories || [];
+          } else {
+            // Regular (non-OPUS) search
+            let query = supabaseAdmin
+              .from("theo_knowledge")
+              .select("topic, content")
+              .eq("location_id", location_id);
+            
+            const { data: memories } = await query.limit(20);
+            
+            if (memories && memories.length > 0) {
+              const queryLower = cleanQuery.toLowerCase();
+              const queryWords = queryLower.split(/\s+/).filter((w: string) => w.length > 3);
+              relevant = memories.filter((m: any) => {
+                const contentLower = m.content.toLowerCase();
+                const topicLower = m.topic.toLowerCase();
+                return queryWords.some((w: string) => contentLower.includes(w) || topicLower.includes(w));
+              }).slice(0, 5);
+            }
           }
         }
 
