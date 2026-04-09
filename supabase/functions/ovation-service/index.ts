@@ -867,6 +867,16 @@ async function handleFetchReviews(req: Request, supabase: any) {
 
     const data = await response.json()
     const surveys = data?.data?.surveys || []
+    if (surveys[0]) {
+      console.log('[ovation-service] survey sample fields', JSON.stringify({
+        id: surveys[0]?._id,
+        location: surveys[0]?.location,
+        locationId: surveys[0]?.locationId,
+        location_id: surveys[0]?.location_id,
+        store: surveys[0]?.store,
+        restaurant: surveys[0]?.restaurant,
+      }))
+    }
 
     const reviews = surveys.map((s: any) => ({
       id: s._id,
