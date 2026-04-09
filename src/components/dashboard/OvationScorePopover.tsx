@@ -136,7 +136,7 @@ export function OvationScorePopover() {
             </div>
             <div className="flex items-center gap-1 text-gray-400">
               <MessageSquare className="h-3.5 w-3.5" />
-              <span className="text-[10px]">{reviewsData.totalCount}</span>
+              <span className="text-[10px]">{reviewsData.wtdCount}</span>
             </div>
           </div>
         </div>
