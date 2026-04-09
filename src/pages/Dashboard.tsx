@@ -944,27 +944,24 @@ export default function Dashboard() {
         <div className="space-y-2.5">
           <div>
             <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold">Dash</h1>
-              {/* Inline Ovation Score */}
-              {reviewsData && !reviewsData.error && reviewsData.wtdAverage && (
-                <div className="flex items-center gap-1.5 ml-3 px-2.5 py-1 rounded-full bg-muted/50 backdrop-blur-sm">
-                  <img 
-                    src="/ovation-logo.png" 
-                    alt="OvationUp" 
-                    className="h-4 w-4 object-contain"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  <span className={cn(
-                    'text-sm font-bold',
-                    reviewsData.wtdAverage >= 4.5 ? 'text-green-500' :
-                    reviewsData.wtdAverage >= 3.5 ? 'text-yellow-500' :
-                    reviewsData.wtdAverage >= 2.5 ? 'text-orange-500' : 'text-red-500'
-                  )}>
-                    {reviewsData.wtdAverage.toFixed(1)}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">WTD</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl font-bold">Dash</h1>
+                {/* Inline Ovation Score */}
+                {reviewsData && !reviewsData.error && reviewsData.wtdAverage && (
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60">
+                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                    <span className={cn(
+                      'text-sm font-bold',
+                      reviewsData.wtdAverage >= 4.5 ? 'text-green-500' :
+                      reviewsData.wtdAverage >= 3.5 ? 'text-yellow-500' :
+                      reviewsData.wtdAverage >= 2.5 ? 'text-orange-500' : 'text-red-500'
+                    )}>
+                      {reviewsData.wtdAverage.toFixed(1)}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">WTD</span>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2 items-center">
                 {/* Hide edit button for role-based cube users (cubes locked by Org Admin) */}
                 {!shouldUseRoleCubes && (
