@@ -147,7 +147,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
       'certifications', 'holidays', 'events', 'availability', 'user-checklists',
       'checklist-submissions', 'labor-cache', 'shift-templates', 'hiring',
       'completion-history', 'submission-stats', 'completed-temp-tasks',
-      'location-timezone',
+      'location-timezone', 'ovation-reviews',
     ];
 
     const locationPredicate = (query: { queryKey: readonly unknown[] }) => {
