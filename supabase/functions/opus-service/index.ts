@@ -266,14 +266,11 @@ serve(async (req) => {
         "x-dashboard-loaded-at": new Date().toISOString(),
       };
       const queries = [
-        {
-          label: "introspect_query_type",
-          body: { query: `{ __schema { queryType { fields { name } } } }` },
-        },
-        {
-          label: "introspect_AdminLibrary",
-          body: { query: `{ __type(name: "AdminLibraryInput") { inputFields { name type { name kind ofType { name } } } } }` },
-        },
+        { label: "Modules", body: { operationName: "Modules", query: `query Modules { Modules(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "LibraryItems", body: { operationName: "LibraryItems", query: `query LibraryItems { LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "AdminModules", body: { operationName: "AdminModules", query: `query AdminModules { AdminModules(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "AdminContent", body: { operationName: "AdminContent", query: `query AdminContent { AdminContent(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "Content", body: { operationName: "Content", query: `query Content { Content(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
       ];
 
       const results: any[] = [];
