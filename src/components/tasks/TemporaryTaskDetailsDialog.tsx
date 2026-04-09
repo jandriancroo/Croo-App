@@ -493,15 +493,25 @@ export function TemporaryTaskDetailsDialog({
           )}
         </div>
 
-        {/* Complete Task Button */}
-        <Button 
-          onClick={handleCompleteTask}
-          disabled={!allSubtasksComplete || isCompleting}
-          className="w-full gap-2"
-        >
-          <Check className="h-4 w-4" />
-          {isCompleting ? "Completing..." : "Complete Task"}
-        </Button>
+        {/* OPUS tasks get a GO button instead of Complete */}
+        {task?.icon_name === "opus_logo" ? (
+          <Button 
+            className="w-full gap-2"
+            onClick={() => window.open("https://app.opus.so", "_blank")}
+          >
+            <ExternalLink className="h-4 w-4" />
+            GO — Open OPUS
+          </Button>
+        ) : (
+          <Button 
+            onClick={handleCompleteTask}
+            disabled={!allSubtasksComplete || isCompleting}
+            className="w-full gap-2"
+          >
+            <Check className="h-4 w-4" />
+            {isCompleting ? "Completing..." : "Complete Task"}
+          </Button>
+        )}
       </DialogContent>
     </Dialog>
   );
