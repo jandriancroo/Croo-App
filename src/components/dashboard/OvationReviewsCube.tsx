@@ -111,6 +111,11 @@ export function OvationReviewsCube() {
     refetchInterval: 10 * 60 * 1000, // Refresh every 10 minutes
   });
 
+  // Reset review index when location changes
+  useEffect(() => {
+    setCurrentReviewIndex(0);
+  }, [currentLocation?.id]);
+
   // Auto-scroll through reviews with feedback
   const reviewsWithFeedback = reviewsData?.reviews?.filter(r => r.feedback) || [];
 
