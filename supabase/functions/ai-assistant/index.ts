@@ -1428,15 +1428,18 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             name: tp.profiles.full_name,
           })).filter((t: any) => t.name);
           
-          // Cross-reference reviews with team members
+          // Cross-reference reviews with team members — only match against active employees, NOT customer names
           const enrichedReviews = reviews.map((r: any) => {
             const matched: string[] = [];
             if (r.feedback) {
               const feedbackLower = r.feedback.toLowerCase();
+              const customerNameLower = (r.customer_name || "").toLowerCase();
               for (const member of teamMembers) {
                 const nameParts = member.name.toLowerCase().split(/\s+/);
                 const firstName = nameParts[0];
-                // Match first name (3+ chars) or full name
+                // Skip if the employee first name matches the customer name (it's the reviewer, not a team member mention)
+                if (firstName && customerNameLower.includes(firstName)) continue;
+                // Match first name (3+ chars) in feedback text
                 if (firstName && firstName.length >= 3 && feedbackLower.includes(firstName)) {
                   matched.push(member.name);
                 }

@@ -197,7 +197,7 @@ export function AiAssistantBubble() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={() => setOpen(true)}
-            className="crooai-orb crooai-orb-floating z-[55] h-14 w-14 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center"
+            className="crooai-orb-floating z-[55] h-14 w-14 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center overflow-hidden border-2 border-primary/40"
             aria-label="Open Theo"
           >
             <img src={theoAvatar} alt="Theo" className="h-full w-full rounded-full object-cover" />
