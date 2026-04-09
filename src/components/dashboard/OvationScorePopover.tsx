@@ -98,7 +98,7 @@ export function OvationScorePopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted/60 hover:bg-muted transition-colors">
+        <button className="flex items-center gap-1.5 px-3 py-1 rounded-b-xl bg-background shadow-md hover:bg-muted transition-colors border border-t-0 border-border/40">
           <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 object-contain" />
           <span className={cn('text-sm font-bold', scoreColor)}>
             {reviewsData.wtdAverage.toFixed(1)}
