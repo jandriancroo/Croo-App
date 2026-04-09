@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Clock, DollarSign, ShoppingBag, Truck, Store, Utensils, CreditCard, ArrowLeft } from 'lucide-react';
+import { RefreshCw, Clock, DollarSign, ShoppingBag, Truck, Store, Utensils, CreditCard, ArrowLeft, Zap, TrendingUp, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Order {
   checkNumber: string;
@@ -33,8 +34,8 @@ interface Payment {
 }
 
 const STORES = [
-  { id: '5280', label: 'Palm Springs' },
-  { id: '5448', label: 'Hemet' },
+  { id: '5280', label: 'Palm Springs', emoji: '🌴' },
+  { id: '5448', label: 'Hemet', emoji: '🏔️' },
 ];
 
 export default function KDSBoard() {
@@ -67,37 +68,34 @@ export default function KDSBoard() {
     fetchOrders();
   }, [fetchOrders]);
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(fetchOrders, 30000);
     return () => clearInterval(interval);
   }, [autoRefresh, fetchOrders]);
 
-  const storeName = STORES.find(s => s.id === storeId)?.label || '';
+  const store = STORES.find(s => s.id === storeId);
+  const storeName = store?.label || '';
 
-  // Stats
   const totalOrders = orders.length;
   const openOrders = orders.filter(o => o.state === 'Open').length;
   const totalSales = orders.reduce((sum, o) => sum + o.grossSales, 0);
   const totalTips = orders.reduce((sum, o) => sum + o.tips, 0);
   const oloOrders = orders.filter(o => o.channel === 'OLO').length;
   const inStoreOrders = orders.filter(o => o.channel === 'In Store').length;
+  const avgTicket = totalOrders > 0 ? totalSales / totalOrders : 0;
 
-  // Delivery partner payments
-  const deliveryPayments = payments.filter(p => 
-    p.name.toLowerCase().includes('doordash') || 
-    p.name.toLowerCase().includes('ubereats') || 
+  const deliveryPayments = payments.filter(p =>
+    p.name.toLowerCase().includes('doordash') ||
+    p.name.toLowerCase().includes('ubereats') ||
     p.name.toLowerCase().includes('grubhub')
   );
 
-  // Group by order type
   const ordersByType: Record<string, number> = {};
   orders.forEach(o => {
     ordersByType[o.orderType] = (ordersByType[o.orderType] || 0) + 1;
   });
 
-  // Group by daypart
   const ordersByDaypart: Record<string, number> = {};
   orders.forEach(o => {
     ordersByDaypart[o.daypart] = (ordersByDaypart[o.daypart] || 0) + 1;
@@ -105,126 +103,138 @@ export default function KDSBoard() {
 
   return (
     <Layout>
-      <div className="p-4 space-y-4 max-w-7xl mx-auto">
+      <div className="p-3 sm:p-4 space-y-3 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="rounded-xl">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Live KDS Board</h1>
-              <p className="text-xs text-muted-foreground">
-                {lastRefresh ? `Updated ${lastRefresh.toLocaleTimeString()}` : 'Loading...'}
-                {autoRefresh && ' · Auto-refresh ON'}
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-foreground tracking-tight">Live Orders</h1>
+                <div className={cn(
+                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                  autoRefresh ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                )}>
+                  <Zap className="h-2.5 w-2.5" />
+                  {autoRefresh ? 'LIVE' : 'PAUSED'}
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {lastRefresh ? `${lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Connecting...'}
+                {' · '}{store?.emoji} {storeName}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Select value={storeId} onValueChange={setStoreId}>
-              <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectTrigger className="w-[130px] h-8 text-xs rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {STORES.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>{s.emoji} {s.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Button
               variant={autoRefresh ? "default" : "outline"}
               size="sm"
-              className="h-8 text-xs"
+              className="h-8 text-xs rounded-xl px-3"
               onClick={() => setAutoRefresh(!autoRefresh)}
             >
-              {autoRefresh ? 'Auto' : 'Manual'}
+              {autoRefresh ? '● Live' : '○ Paused'}
             </Button>
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={fetchOrders} disabled={loading}>
-              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-xl" onClick={fetchOrders} disabled={loading}>
+              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             </Button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          <StatCard icon={<ShoppingBag className="h-4 w-4" />} label="Total Orders" value={totalOrders} />
-          <StatCard icon={<Clock className="h-4 w-4" />} label="Open" value={openOrders} highlight={openOrders > 0} />
-          <StatCard icon={<DollarSign className="h-4 w-4" />} label="Sales" value={`$${totalSales.toFixed(0)}`} />
-          <StatCard icon={<DollarSign className="h-4 w-4" />} label="Tips" value={`$${totalTips.toFixed(0)}`} />
-          <StatCard icon={<Truck className="h-4 w-4" />} label="OLO" value={oloOrders} />
-          <StatCard icon={<Store className="h-4 w-4" />} label="In Store" value={inStoreOrders} />
+        {/* Hero Stats */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          <HeroStat icon={<ShoppingBag />} label="Orders" value={totalOrders} />
+          <HeroStat icon={<Clock />} label="Open" value={openOrders} accent={openOrders > 0} />
+          <HeroStat icon={<DollarSign />} label="Sales" value={`$${totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
+          <HeroStat icon={<TrendingUp />} label="Avg Ticket" value={`$${avgTicket.toFixed(2)}`} />
+          <HeroStat icon={<Truck />} label="Online" value={oloOrders} />
+          <HeroStat icon={<Store />} label="In Store" value={inStoreOrders} />
         </div>
 
-        {/* Delivery Partner Breakdown */}
-        {deliveryPayments.length > 0 && (
-          <Card className="border-border/50">
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Truck className="h-4 w-4 text-primary" />
-                Delivery Partners Today — {storeName}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3">
-              <div className="flex flex-wrap gap-3">
-                {deliveryPayments.map(p => (
-                  <div key={p.name} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-medium text-foreground">{p.name.replace('OLO ', '')}</span>
-                      <span className="text-lg font-bold text-primary">${p.total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* All Payments Breakdown */}
-        {payments.length > 0 && (
-          <Card className="border-border/50">
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-primary" />
-                Payment Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3">
-              <div className="flex flex-wrap gap-2">
-                {payments.map(p => (
-                  <Badge key={p.name} variant="outline" className="text-xs py-1 px-2">
-                    {p.name}: ${p.total.toFixed(2)}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Order Type & Daypart Breakdown */}
+        {/* Delivery + Payments Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <Card className="border-border/50">
-            <CardHeader className="py-2 px-4">
-              <CardTitle className="text-xs font-semibold text-muted-foreground">By Order Type</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3">
-              <div className="flex flex-wrap gap-2">
+          {deliveryPayments.length > 0 && (
+            <Card className="border-border/30 overflow-hidden">
+              <CardHeader className="py-2.5 px-4 border-b border-border/20 bg-muted/30">
+                <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+                  <Truck className="h-3.5 w-3.5 text-primary" />
+                  Delivery Partners
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {deliveryPayments.map(p => (
+                    <div key={p.name} className="flex items-center gap-3 bg-gradient-to-br from-muted/40 to-muted/20 rounded-xl p-3 border border-border/20">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Truck className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-medium text-muted-foreground block truncate">
+                          {p.name.replace('OLO ', '')}
+                        </span>
+                        <span className="text-base font-bold text-foreground">${p.total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {payments.length > 0 && (
+            <Card className="border-border/30 overflow-hidden">
+              <CardHeader className="py-2.5 px-4 border-b border-border/20 bg-muted/30">
+                <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+                  <CreditCard className="h-3.5 w-3.5 text-primary" />
+                  All Payments
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {payments.map(p => (
+                    <div key={p.name} className="flex items-center gap-1.5 bg-muted/40 rounded-lg px-2.5 py-1.5 border border-border/20">
+                      <span className="text-[10px] text-muted-foreground">{p.name}</span>
+                      <span className="text-xs font-bold text-foreground">${p.total.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Order Type & Daypart Pills */}
+        <div className="grid grid-cols-2 gap-2">
+          <Card className="border-border/30">
+            <CardContent className="p-3">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">By Type</span>
+              <div className="flex flex-wrap gap-1.5">
                 {Object.entries(ordersByType).map(([type, count]) => (
-                  <Badge key={type} variant="secondary" className="text-xs">
-                    {type}: {count}
+                  <Badge key={type} variant="secondary" className="text-[11px] rounded-lg px-2.5 py-1 font-medium">
+                    {type} <span className="ml-1 font-bold text-primary">{count}</span>
                   </Badge>
                 ))}
               </div>
             </CardContent>
           </Card>
-          <Card className="border-border/50">
-            <CardHeader className="py-2 px-4">
-              <CardTitle className="text-xs font-semibold text-muted-foreground">By Daypart</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3">
-              <div className="flex flex-wrap gap-2">
+          <Card className="border-border/30">
+            <CardContent className="p-3">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">By Daypart</span>
+              <div className="flex flex-wrap gap-1.5">
                 {Object.entries(ordersByDaypart).map(([dp, count]) => (
-                  <Badge key={dp} variant="secondary" className="text-xs">
-                    {dp}: {count}
+                  <Badge key={dp} variant="secondary" className="text-[11px] rounded-lg px-2.5 py-1 font-medium">
+                    {dp} <span className="ml-1 font-bold text-primary">{count}</span>
                   </Badge>
                 ))}
               </div>
@@ -233,17 +243,37 @@ export default function KDSBoard() {
         </div>
 
         {/* Order Feed */}
-        <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Utensils className="h-4 w-4" />
-            Order Feed — {storeName} ({orders.length})
-          </h2>
-          <div className="space-y-1.5">
-            {orders.map((order, idx) => (
-              <OrderCard key={`${order.checkNumber}-${idx}`} order={order} />
-            ))}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <Utensils className="h-3.5 w-3.5 text-primary" />
+              Order Feed ({orders.length})
+            </h2>
+            {openOrders > 0 && (
+              <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] animate-pulse">
+                {openOrders} active
+              </Badge>
+            )}
+          </div>
+          <div className="space-y-1">
+            <AnimatePresence mode="popLayout">
+              {orders.map((order, idx) => (
+                <motion.div
+                  key={`${order.checkNumber}-${idx}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2, delay: idx * 0.01 }}
+                >
+                  <OrderCard order={order} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
             {orders.length === 0 && !loading && (
-              <p className="text-center text-sm text-muted-foreground py-8">No orders found for today</p>
+              <div className="text-center py-12">
+                <Utensils className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No orders yet today</p>
+              </div>
             )}
           </div>
         </div>
@@ -252,13 +282,22 @@ export default function KDSBoard() {
   );
 }
 
-function StatCard({ icon, label, value, highlight }: { icon: React.ReactNode; label: string; value: string | number; highlight?: boolean }) {
+function HeroStat({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string | number; accent?: boolean }) {
   return (
-    <Card className={cn("border-border/50", highlight && "border-primary/50 bg-primary/5")}>
-      <CardContent className="p-3 flex flex-col items-center text-center gap-1">
-        <div className={cn("text-muted-foreground", highlight && "text-primary")}>{icon}</div>
-        <span className={cn("text-lg font-bold", highlight && "text-primary")}>{value}</span>
-        <span className="text-[10px] text-muted-foreground">{label}</span>
+    <Card className={cn(
+      "border-border/30 transition-all",
+      accent && "border-primary/30 bg-primary/5 shadow-[0_0_12px_-4px_hsl(var(--primary)/0.3)]"
+    )}>
+      <CardContent className="p-2.5 flex flex-col items-center text-center gap-0.5">
+        <div className={cn(
+          "w-7 h-7 rounded-lg flex items-center justify-center mb-0.5",
+          accent ? "bg-primary/15 text-primary" : "bg-muted/60 text-muted-foreground",
+          "[&>svg]:h-3.5 [&>svg]:w-3.5"
+        )}>
+          {icon}
+        </div>
+        <span className={cn("text-lg font-bold leading-none", accent && "text-primary")}>{value}</span>
+        <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
       </CardContent>
     </Card>
   );
@@ -270,16 +309,16 @@ function OrderCard({ order }: { order: Order }) {
 
   return (
     <div className={cn(
-      "flex items-center gap-3 p-3 rounded-lg border transition-colors",
-      isOpen ? "border-primary/40 bg-primary/5" : "border-border/30 bg-card"
+      "flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all",
+      isOpen
+        ? "border-primary/30 bg-gradient-to-r from-primary/5 to-transparent shadow-[0_0_8px_-3px_hsl(var(--primary)/0.2)]"
+        : "border-border/20 bg-card/60 hover:bg-card"
     )}>
-      {/* Status indicator */}
       <div className={cn(
         "w-2 h-2 rounded-full shrink-0",
-        isOpen ? "bg-green-500 animate-pulse" : "bg-muted-foreground/30"
+        isOpen ? "bg-primary shadow-[0_0_6px_2px_hsl(var(--primary)/0.4)] animate-pulse" : "bg-muted-foreground/20"
       )} />
 
-      {/* Order info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-mono font-bold text-sm text-foreground">#{order.checkNumber}</span>
@@ -288,30 +327,31 @@ function OrderCard({ order }: { order: Order }) {
           )}
         </div>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          <Badge variant={isOLO ? "default" : "outline"} className="text-[10px] h-4 px-1.5">
+          <Badge variant={isOLO ? "default" : "outline"} className={cn(
+            "text-[10px] h-4 px-1.5 rounded-md",
+            isOLO && "bg-primary/80"
+          )}>
             {order.channel}
           </Badge>
-          <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+          <Badge variant="outline" className="text-[10px] h-4 px-1.5 rounded-md">
             {order.orderType}
           </Badge>
           {order.employee && (
-            <span className="text-[10px] text-muted-foreground">{order.employee}</span>
+            <span className="text-[10px] text-muted-foreground/70">{order.employee}</span>
           )}
         </div>
       </div>
 
-      {/* Right side */}
       <div className="text-right shrink-0">
-        <span className="text-sm font-semibold text-foreground">${order.grossSales.toFixed(2)}</span>
-        <div className="text-[10px] text-muted-foreground">
+        <span className="text-sm font-bold text-foreground">${order.grossSales.toFixed(2)}</span>
+        <div className="text-[10px] text-muted-foreground/60">
           {order.date?.split(' ').slice(1).join(' ')}
         </div>
       </div>
 
-      {/* State badge */}
       <Badge variant={isOpen ? "default" : "secondary"} className={cn(
-        "text-[10px] h-5 shrink-0",
-        isOpen && "bg-green-600 hover:bg-green-700"
+        "text-[10px] h-5 shrink-0 rounded-md font-semibold",
+        isOpen && "bg-primary shadow-sm"
       )}>
         {order.state}
       </Badge>
