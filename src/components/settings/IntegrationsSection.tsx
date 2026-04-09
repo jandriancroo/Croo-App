@@ -310,6 +310,15 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           type: g.ListType || g.ProductListType || g.Type || '',
         }));
         setPfgAvailableGuides(guides);
+        // Auto-select the Blaze Bid list
+        const blazeBid = guides.find((g: any) => {
+          const n = (g.name || '').toUpperCase();
+          return n.includes('BLAZE') && n.includes('BID');
+        });
+        if (blazeBid && !pfgBidListId) {
+          setPfgBidListId(blazeBid.id);
+          toast.success(`Auto-selected: ${blazeBid.name}`);
+        }
         // Auto-set customer ID if returned
         if (result.data.customerId && !pfgCustomerId) {
           setPfgCustomerId(result.data.customerId);
