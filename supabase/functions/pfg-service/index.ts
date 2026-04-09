@@ -1838,6 +1838,7 @@ serve(async (req) => {
       case 'customer_info':
         return await handleCustomerInfo(supabase, body);
       
+      case 'list_guides':
       case 'fetch':
       default:
         return await handleFetchAction(supabase, body);
