@@ -1180,9 +1180,19 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   if (!ovationLocationId.trim()) {
                     try {
                       toast.info('Auto-mapping location...');
-                      const { data: mapResult } = await supabase.functions.invoke('ovation-service?action=auto_map_locations', {
-                        body: { brandId: ovationBrandId },
-                      });
+                      const mapResp = await fetch(
+                        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ovation-service?action=auto_map_locations`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.data.session?.access_token}`,
+                            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                          },
+                          body: JSON.stringify({ brandId: ovationBrandId }),
+                        }
+                      );
+                      const mapResult = await mapResp.json();
                       if (mapResult?.mapped > 0) {
                         toast.success(`Auto-mapped ${mapResult.mapped} location${mapResult.mapped > 1 ? 's' : ''}`);
                         const { data: newMapping } = await supabase
