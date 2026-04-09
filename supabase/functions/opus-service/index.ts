@@ -268,9 +268,9 @@ serve(async (req) => {
         query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
       };
       const testLibrary = {
-        operationName: "GetAdminLibrary",
+        operationName: "GetLibraryItems",
         variables: { input: { pagination: { page: 1, pageSize: 1 } } },
-        query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }`,
+        query: `query GetLibraryItems($input: LibraryItemsInput!) { LibraryItems(input: $input) { objects { id type name { en __typename } __typename } __typename } }`,
       };
 
       // Test employee first (reliable auth check)
@@ -281,7 +281,8 @@ serve(async (req) => {
       // Try library too
       const libResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testLibrary) });
       const libData = await libResp.json();
-      const libraryCount = libData?.data?.AdminLibrary?.totalCount;
+      const libraryItems = libData?.data?.LibraryItems?.objects;
+      const libraryCount = libraryItems?.length ?? null;
 
       console.log("[opus-service] test_connection: employee=", JSON.stringify(empData), "library=", JSON.stringify(libData));
 
@@ -339,7 +340,7 @@ serve(async (req) => {
     }
 
     // ── ACTION: fetch_library ──
-    // Fetches OPUS AdminLibrary (training modules catalog) and injects into Theo knowledge
+    // Fetches OPUS LibraryItems (training modules catalog) and injects into Theo knowledge
     if (action === "fetch_library") {
       const { location_id } = body;
       if (!location_id) {
@@ -355,30 +356,38 @@ serve(async (req) => {
         });
       }
 
-      // Parameterized AdminLibrary query (OPUS requires variables, not inline params)
+      // Real OPUS query — uses LibraryItems (not AdminLibrary)
       const libraryQuery = {
-        operationName: "GetAdminLibrary",
+        operationName: "GetLibraryItems",
         variables: { input: { pagination: { page: 1, pageSize: 500 } } },
-        query: `query GetAdminLibrary($input: AdminLibraryInput!) {
-  AdminLibrary(input: $input) {
-    totalCount
+        query: `query GetLibraryItems($input: LibraryItemsInput!) {
+  LibraryItems(input: $input) {
     objects {
       id
       type
-      name {
-        en
-        __typename
-      }
-      coverImage {
-        imageUrls {
-          original
-          thumb
+      path { id __typename }
+      course { id __typename }
+      trainingResource {
+        id
+        publishedVersion {
+          id
+          media {
+            id
+            mediaUrls { en __typename }
+            imageUrls { original thumb __typename }
+            unoptimizedUrl
+            __typename
+          }
           __typename
         }
         __typename
       }
-      path {
+      name { en __typename }
+      coverImage {
         id
+        emojiIcon
+        background
+        imageUrls { original wide thumb __typename }
         __typename
       }
       __typename
@@ -396,7 +405,7 @@ serve(async (req) => {
 
       if (!resp.ok) {
         const errText = await resp.text();
-        console.error("[opus-service] AdminLibrary fetch failed:", resp.status, errText);
+        console.error("[opus-service] LibraryItems fetch failed:", resp.status, errText);
         return new Response(JSON.stringify({ 
           error: "OPUS library fetch failed",
           hint: resp.status === 401 ? "Session expired" : undefined,
@@ -406,8 +415,7 @@ serve(async (req) => {
       }
 
       const data = await resp.json();
-      const objects = data?.data?.AdminLibrary?.objects || [];
-      const totalCount = data?.data?.AdminLibrary?.totalCount || 0;
+      const objects = data?.data?.LibraryItems?.objects || [];
 
       // Inject each training module into theo_knowledge
       let injected = 0;
@@ -415,6 +423,7 @@ serve(async (req) => {
         const moduleName = item.name?.en || "Untitled Module";
         const moduleType = item.type || "UNKNOWN";
         const coverUrl = item.coverImage?.imageUrls?.original || item.coverImage?.imageUrls?.thumb || "";
+        const mediaUrl = item.trainingResource?.publishedVersion?.media?.mediaUrls?.en || "";
 
         const content = [
           `[OPUS Training Module] ${moduleName}`,
@@ -423,8 +432,10 @@ serve(async (req) => {
           `OPUS ID: ${item.id}`,
           coverUrl ? `Cover Image: ${coverUrl}` : "",
           item.path?.id ? `Path ID: ${item.path.id}` : "",
+          item.course?.id ? `Course ID: ${item.course.id}` : "",
+          mediaUrl ? `Media URL: ${mediaUrl}` : "",
           ``,
-          `Source: OPUS LMS (AdminLibrary)`,
+          `Source: OPUS LMS (LibraryItems)`,
           `This is a training module available in the OPUS Learning Management System.`,
         ].filter(Boolean).join("\n");
 
@@ -445,7 +456,7 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({
         success: true,
-        total_in_opus: totalCount,
+        total_in_opus: objects.length,
         resources_found: objects.length,
         injected_to_theo: injected,
       }), {
