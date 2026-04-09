@@ -267,11 +267,13 @@ serve(async (req) => {
         operationName: "TestEmployee",
         query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
       };
-      // Try inline params (browser might not use variables for LibraryItems)
+      // Confirmed schema: AdminLibrary with AdminLibraryInput! + separate PaginationInput
       const libTests = [
-        { label: "inline_LibraryItems", body: { operationName: "GetLibraryItems", query: `query GetLibraryItems { LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { objects { id type name { en __typename } __typename } __typename } }` } },
-        { label: "inline_no_opname", body: { query: `{ LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { objects { id type name { en } } } }` } },
-        { label: "inline_with_vars_empty", body: { operationName: "GetLibraryItems", variables: {}, query: `query GetLibraryItems { LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { objects { id type name { en __typename } __typename } __typename } }` } },
+        { label: "AdminLibrary_parameterized", body: {
+          operationName: "GetAdminLibrary",
+          variables: { input: {}, pagination: { limit: 3, offset: 0 } },
+          query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) { AdminLibrary(input: $input, pagination: $pagination) { objects { id type name { en __typename } coverImage { id imageUrls { original thumb __typename } __typename } __typename } __typename } }`
+        }},
       ];
       const libResults: any[] = [];
       for (const t of libTests) {
@@ -361,12 +363,15 @@ serve(async (req) => {
         });
       }
 
-      // Real OPUS query — uses LibraryItems (not AdminLibrary)
+      // Confirmed OPUS schema: root=AdminLibrary, type=AdminLibraryInput!, pagination is separate PaginationInput
       const libraryQuery = {
-        operationName: "GetLibraryItems",
-        variables: { input: { pagination: { page: 1, pageSize: 500 } } },
-        query: `query GetLibraryItems($input: LibraryItemsInput!) {
-  LibraryItems(input: $input) {
+        operationName: "GetAdminLibrary",
+        variables: {
+          input: {},
+          pagination: { limit: 500, offset: 0 },
+        },
+        query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) {
+  AdminLibrary(input: $input, pagination: $pagination) {
     objects {
       id
       type
@@ -379,7 +384,7 @@ serve(async (req) => {
           media {
             id
             mediaUrls { en __typename }
-            imageUrls { original thumb __typename }
+            imageUrls { id thumb original __typename }
             unoptimizedUrl
             __typename
           }
@@ -392,9 +397,10 @@ serve(async (req) => {
         id
         emojiIcon
         background
-        imageUrls { original wide thumb __typename }
+        imageUrls { id original wide thumb __typename }
         __typename
       }
+      openedAt
       __typename
     }
     __typename
