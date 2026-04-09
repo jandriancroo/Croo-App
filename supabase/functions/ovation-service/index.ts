@@ -945,24 +945,24 @@ async function handleFetchReviews(req: Request, supabase: any) {
   const now = new Date()
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 
-  // The Ovation API has broken pagination — returns same 50 surveys on every page.
-  // Workaround: query in 2-day time windows to reach all data within the range.
+  // Use skip/limit pagination (matching Ovation's own web app pattern)
   const matchingSurveys: any[] = []
   const seenIds = new Set<string>()
-  const windowMs = 2 * 24 * 60 * 60 * 1000
+  const BATCH_SIZE = 50
+  const MAX_SKIP = 500 // Safety cap
 
   try {
-    let windowEnd = now.getTime()
-    const absoluteStart = startDate.getTime()
+    const filters: any = {
+      companyIds: [companyId],
+      createdAtRange: [startDate.toISOString(), now.toISOString()],
+      ...(ovationLocationIds.length > 0 ? { locationIds: ovationLocationIds } : {}),
+    }
 
-    while (windowEnd > absoluteStart) {
-      const windowStart = Math.max(windowEnd - windowMs, absoluteStart)
-      const windowFilters: any = {
-        companyIds: [companyId],
-        createdAtRange: [new Date(windowStart).toISOString(), new Date(windowEnd).toISOString()],
-        ...(ovationLocationIds.length > 0 ? { locationIds: ovationLocationIds } : {}),
-      }
+    let skip = 0
+    let totalCount = 0
+    let emptyBatches = 0
 
+    while (skip < MAX_SKIP) {
       const response = await fetch(`${OVATION_API}/survey/list`, {
         method: 'POST',
         headers: {
@@ -970,7 +970,7 @@ async function handleFetchReviews(req: Request, supabase: any) {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ filters: windowFilters, page: 1, pageSize: 50 }),
+        body: JSON.stringify({ filters, skip, limit: BATCH_SIZE }),
       })
 
       if (response.status === 401) {
@@ -980,12 +980,14 @@ async function handleFetchReviews(req: Request, supabase: any) {
       if (!response.ok) {
         const text = await response.text()
         console.error('[ovation-service] survey/list error:', response.status, text)
-        windowEnd = windowStart
-        continue
+        break
       }
 
       const data = await response.json()
       const surveys = data?.data?.surveys || []
+      totalCount = data?.data?.count || totalCount
+
+      if (surveys.length === 0) break
 
       const newSurveys = surveys.filter((s: any) => {
         const id = s._id || s.id
@@ -994,14 +996,21 @@ async function handleFetchReviews(req: Request, supabase: any) {
         return true
       })
 
+      if (newSurveys.length === 0) {
+        emptyBatches++
+        if (emptyBatches >= 2) break // API returning dupes, stop
+      } else {
+        emptyBatches = 0
+      }
+
       const pageMatches = newSurveys.filter((survey: any) => surveyMatchesAllowedLocations(survey, ovationLocationIds))
       matchingSurveys.push(...pageMatches)
 
-      if (ovationLocationIds.length > 0 && newSurveys.length > 0) {
-        console.log(`[ovation-service] Window ${new Date(windowStart).toISOString().slice(0,10)}→${new Date(windowEnd).toISOString().slice(0,10)}: ${pageMatches.length}/${surveys.length} matched (${newSurveys.length} new) for ${JSON.stringify(ovationLocationIds)}`)
-      }
+      console.log(`[ovation-service] skip=${skip}: ${pageMatches.length}/${surveys.length} matched (${newSurveys.length} new, total API count=${totalCount})`)
 
-      windowEnd = windowStart
+      // If we've fetched all available, stop
+      if (skip + BATCH_SIZE >= totalCount) break
+      skip += BATCH_SIZE
     }
 
     const offset = Math.max(0, (page - 1) * pageSize)
