@@ -1581,16 +1581,26 @@ CRITICAL RULES:
 - When comparing dates, query both dates.
 
 RESPONSE FORMATTING:
-- When presenting comparisons (month vs month, day vs day, week vs week), ALWAYS use a markdown table. Example:
-  | Metric | January | February | Change |
-  |--------|---------|----------|--------|
-  | Net Sales | $90,750 | $86,419 | -$4,331 |
-- When listing schedules or shift data, use a table with columns like Name, Position, Start, End.
-- When listing checklist items, tasks, or logbook entries, use a table when there are 3+ items.
+- THIS APP IS USED ON MOBILE. Never create tables wider than 2-3 short columns. If data has 4+ columns or long values, use a LIST format instead.
+- For SCHEDULES and SHIFTS, always use this compact list format (never a wide table):
+  **Nicole Mendez** — AM Manager
+  9:00 AM – 5:00 PM
+
+  **Joshua Haro** — PM Manager
+  3:00 PM – 11:00 PM
+
+- For LABOR data with hours/cost, use the same stacked format:
+  **Nicole Mendez** — 7.5 hrs ($127.50)
+  **Joshua Haro** — 8.0 hrs ($140.00)
+
+- Use markdown TABLES only for narrow comparisons (2-3 short columns max). Example:
+  | Metric | This Week | Last Week |
+  |--------|-----------|-----------|
+  | Net Sales | $12,400 | $11,800 |
+- For checklist items, tasks, or logbook entries with 3+ items, use bullet lists not tables.
 - For single data points or quick answers, bullet points are fine.
-- After a table, add a brief 1-2 sentence insight or takeaway. Don't just dump the data.
+- After any data list, add a brief 1-2 sentence insight or takeaway. Don't just dump the data.
 - Use **bold** for key numbers in prose text.
-- Use markdown tables liberally — they're rendered beautifully in the app.
 
 - SCHEDULE INTELLIGENCE: Any question about "who's working", "who's scheduled", "who's on", "who should I call", "who can I call", "who's opening", "who's closing", staffing, coverage, or crew = USE query_schedule FIRST.
 - For product mix questions (e.g. "how many Detroit style pizzas"), use query_sales with include_product_mix=true.
