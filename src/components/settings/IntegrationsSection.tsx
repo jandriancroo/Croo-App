@@ -660,7 +660,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                           <SelectContent>
                             {pfgAvailableGuides.map((guide) => (
                               <SelectItem key={guide.id} value={guide.id} className="text-xs">
-                                {guide.name}{guide.type ? ` (${guide.type})` : ''}
+                                {guide.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
