@@ -6,6 +6,7 @@ import { Star, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import ovationLogo from '@/assets/ovation-logo.png';
 
 interface OvationReview {
   id: string;
@@ -97,42 +98,52 @@ export function OvationScorePopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 hover:bg-muted transition-colors">
-          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+        <button className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted/60 hover:bg-muted transition-colors">
+          <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 object-contain" />
           <span className={cn('text-sm font-bold', scoreColor)}>
             {reviewsData.wtdAverage.toFixed(1)}
           </span>
           <span className="text-[9px] text-muted-foreground">7d</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-0" sideOffset={8}>
+      <PopoverContent
+        align="start"
+        sideOffset={12}
+        className="w-72 p-0 bg-white text-gray-900 border border-gray-200 rounded-2xl shadow-lg relative"
+      >
+        {/* Chat bubble arrow */}
+        <div className="absolute -top-2 left-6 w-4 h-4 bg-white border-l border-t border-gray-200 rotate-45" />
+        
         {/* Header */}
-        <div className="px-3 pt-3 pb-2 flex items-center justify-between border-b border-border/50">
+        <div className="relative z-10 px-3 pt-3 pb-2 flex items-center justify-between border-b border-gray-100 rounded-t-2xl bg-white">
           <div className="flex items-center gap-2">
-            <div className={cn(
-              'flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm',
-              reviewsData.wtdAverage >= 4.5 ? 'bg-green-500/10' :
-              reviewsData.wtdAverage >= 3.5 ? 'bg-yellow-500/10' :
-              reviewsData.wtdAverage >= 2.5 ? 'bg-orange-500/10' : 'bg-red-500/10'
-            )}>
-              <span className={scoreColor}>{reviewsData.wtdAverage.toFixed(1)}</span>
-            </div>
+            <img src={ovationLogo} alt="OvationUp" className="h-7 w-7 object-contain" />
             <div>
-              <p className="text-xs font-semibold leading-tight">OvationUp</p>
-              <p className="text-[10px] text-muted-foreground leading-tight">
+              <p className="text-xs font-semibold leading-tight text-gray-900">OvationUp</p>
+              <p className="text-[10px] text-gray-500 leading-tight">
                 Last 7 days · {reviewsData.wtdCount} reviews
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <MessageSquare className="h-3.5 w-3.5" />
-            <span className="text-[10px]">{reviewsData.totalCount}</span>
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              'flex items-center justify-center px-2 py-0.5 rounded-md font-bold text-sm',
+              reviewsData.wtdAverage >= 4.5 ? 'bg-green-50 text-green-600' :
+              reviewsData.wtdAverage >= 3.5 ? 'bg-yellow-50 text-yellow-600' :
+              reviewsData.wtdAverage >= 2.5 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'
+            )}>
+              {reviewsData.wtdAverage.toFixed(1)}
+            </div>
+            <div className="flex items-center gap-1 text-gray-400">
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="text-[10px]">{reviewsData.totalCount}</span>
+            </div>
           </div>
         </div>
 
         {/* Reviews carousel */}
         {reviewsWithFeedback.length > 0 ? (
-          <div className="px-3 py-3 min-h-[60px]">
+          <div className="relative z-10 px-3 py-3 min-h-[60px] bg-white rounded-b-2xl">
             <AnimatePresence mode="wait">
               <motion.div
                 key={reviewsWithFeedback[reviewIndex]?.id}
@@ -143,14 +154,14 @@ export function OvationScorePopover() {
               >
                 <div className="flex items-center gap-2 mb-1">
                   <StarRating rating={reviewsWithFeedback[reviewIndex]?.rating || 0} />
-                  <span className="text-[10px] text-muted-foreground truncate">
+                  <span className="text-[10px] text-gray-500 truncate">
                     {reviewsWithFeedback[reviewIndex]?.customerName}
                   </span>
                   {reviewsWithFeedback[reviewIndex]?.hasResponse && (
                     <span className="text-[9px] text-green-500 font-medium">✓ replied</span>
                   )}
                 </div>
-                <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">
+                <p className="text-[11px] text-gray-600 leading-snug line-clamp-3">
                   {reviewsWithFeedback[reviewIndex]?.feedback}
                 </p>
               </motion.div>
@@ -163,7 +174,7 @@ export function OvationScorePopover() {
                     key={idx}
                     className={cn(
                       'w-1 h-1 rounded-full transition-all',
-                      idx === reviewIndex ? 'bg-primary w-2' : 'bg-muted-foreground/30'
+                      idx === reviewIndex ? 'bg-blue-500 w-2' : 'bg-gray-300'
                     )}
                     onClick={() => setReviewIndex(idx)}
                   />
@@ -172,8 +183,8 @@ export function OvationScorePopover() {
             )}
           </div>
         ) : (
-          <div className="px-3 py-3">
-            <p className="text-[11px] text-muted-foreground italic">
+          <div className="relative z-10 px-3 py-3 bg-white rounded-b-2xl">
+            <p className="text-[11px] text-gray-500 italic">
               {reviewsData.reviews.length} ratings (no written feedback)
             </p>
           </div>
