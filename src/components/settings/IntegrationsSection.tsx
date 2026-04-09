@@ -546,7 +546,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
         <IntegrationCard
           title="OvationUp"
           description="Guest reviews & feedback"
-          connected={false}
+          connected={!!ovationIntegration && !!ovationMapping}
+          connectedLabel={ovationEmail || 'Connected'}
           setupLabel="Setup OvationUp"
           onEdit={() => setEditingIntegration('ovation')}
         />
