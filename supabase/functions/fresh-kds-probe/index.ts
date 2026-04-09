@@ -30,48 +30,50 @@ serve(async (req) => {
     const token = await getFreshToken();
     const brandId = Deno.env.get('FRESH_KDS_BRAND_ID') || '';
     const locationId = 'a49a6059-e5c2-4992-aa0f-48bdbc35f860';
-    
+    const deviceId = 'b3ed98da-4919-4333-ac2a-b66760bc8f42';
+    const accessToken = 'd4c8e886-b63d-4a2f-abae-5e7f14680c51';
+
     const commonHeaders = {
       'Authorization': `Bearer ${token}`,
       'x-brand-id': brandId,
       'Accept': 'application/json',
     };
 
-    // The Fresh KDS web app is a React SPA. It likely calls an API to get Explo config.
-    // Let's probe various patterns that SPA analytics dashboards use
     const tests = [
-      // Explo embed token endpoints on brand-api
-      { name: 'explo-token', url: `https://brand-api.ftservices.cloud/explo/token`, headers: commonHeaders },
-      { name: 'explo-embed-token', url: `https://brand-api.ftservices.cloud/explo/embed-token`, headers: commonHeaders },
-      { name: 'embed-token', url: `https://brand-api.ftservices.cloud/embed/token`, headers: commonHeaders },
-      { name: 'analytics-token', url: `https://brand-api.ftservices.cloud/analytics/token`, headers: commonHeaders },
+      // Try device-level endpoints on kds-api - this is how actual KDS screens get orders
+      { name: 'kds-device-orders', url: `https://kds-api.ftservices.cloud/devices/${deviceId}/orders`, headers: commonHeaders },
+      { name: 'kds-device-orders-active', url: `https://kds-api.ftservices.cloud/devices/${deviceId}/orders/active`, headers: commonHeaders },
+      { name: 'kds-device-config', url: `https://kds-api.ftservices.cloud/devices/${deviceId}`, headers: commonHeaders },
+      { name: 'kds-device-queue', url: `https://kds-api.ftservices.cloud/devices/${deviceId}/queue`, headers: commonHeaders },
       
-      // Maybe under a different API host
-      { name: 'kds-explo', url: `https://kds-api.ftservices.cloud/explo/token`, headers: commonHeaders },
-      { name: 'kds-embed', url: `https://kds-api.ftservices.cloud/embed/token`, headers: commonHeaders },
+      // Try with access token as auth instead
+      { name: 'kds-device-access-token', url: `https://kds-api.ftservices.cloud/devices/${deviceId}/orders`, headers: { 'Authorization': `Bearer ${accessToken}`, 'x-brand-id': brandId, 'Accept': 'application/json' } },
       
-      // Maybe it's a POST to get the token
-      { name: 'brand-explo-post', url: `https://brand-api.ftservices.cloud/explo/token`, method: 'POST', body: JSON.stringify({ brandId, locationId }), headers: { ...commonHeaders, 'Content-Type': 'application/json' } },
+      // Try location-level order endpoints
+      { name: 'kds-location-orders', url: `https://kds-api.ftservices.cloud/locations/${locationId}/orders`, headers: commonHeaders },
+      { name: 'kds-location-orders-active', url: `https://kds-api.ftservices.cloud/locations/${locationId}/orders/active`, headers: commonHeaders },
+      { name: 'kds-location-queue', url: `https://kds-api.ftservices.cloud/locations/${locationId}/queue`, headers: commonHeaders },
       
-      // Try fido-api since Explo mentioned "fido-key"
-      { name: 'fido-api', url: `https://fido-api.ftservices.cloud/`, headers: commonHeaders },
-      { name: 'fido-api-token', url: `https://fido-api.ftservices.cloud/token`, headers: commonHeaders },
+      // Try the orders endpoint directly
+      { name: 'kds-orders', url: `https://kds-api.ftservices.cloud/orders?locationId=${locationId}`, headers: commonHeaders },
+      { name: 'kds-orders-active', url: `https://kds-api.ftservices.cloud/orders/active?locationId=${locationId}`, headers: commonHeaders },
       
-      // Try reporting-api
-      { name: 'reporting-api', url: `https://reporting-api.ftservices.cloud/`, headers: commonHeaders },
+      // Try brand-api device/location endpoints
+      { name: 'brand-location-devices', url: `https://brand-api.ftservices.cloud/locations/${locationId}/devices`, headers: commonHeaders },
+      { name: 'brand-location-orders', url: `https://brand-api.ftservices.cloud/locations/${locationId}/orders`, headers: commonHeaders },
+      { name: 'brand-devices', url: `https://brand-api.ftservices.cloud/devices/${deviceId}`, headers: commonHeaders },
       
-      // Try data-api
-      { name: 'data-api', url: `https://data-api.ftservices.cloud/`, headers: commonHeaders },
+      // Try the integrations API with device access token
+      { name: 'integrations-device-token', url: `https://integrations-api.ftservices.cloud/integrators/kds-orders/active`, headers: { 'Authorization': `Bearer ${accessToken}`, 'x-location-id': locationId, 'Accept': 'application/json' } },
       
-      // The Explo namespace URL suggests "fido" might be the internal name
-      // Try Explo's own JWT endpoint
-      { name: 'explo-jwt', url: `https://us-east-1.data.explo.co/v1/namespaces/bbe60577-a294-416b-a11e-010d29dabe46/jwt`, headers: commonHeaders },
+      // Try user-api for device auth
+      { name: 'user-device-auth', url: `https://user-api.ftservices.cloud/auth`, method: 'POST', body: JSON.stringify({ audience: 'fresh-kds-device', deviceId, accessToken }), headers: { 'Content-Type': 'application/json' } },
       
-      // The KDS metrics API already works - try more metric endpoints
-      { name: 'kds-metrics-orders-list', url: `https://kds-api.ftservices.cloud/metrics/orders/?locationId=${locationId}&dateFrom=2026-04-09T08:00:00.000Z&dateTo=2026-04-09T23:59:59.999Z`, headers: commonHeaders },
-      { name: 'kds-metrics-orders-details', url: `https://kds-api.ftservices.cloud/metrics/orders/details/?locationId=${locationId}&dateFrom=2026-04-09T08:00:00.000Z&dateTo=2026-04-09T23:59:59.999Z`, headers: commonHeaders },
-      { name: 'kds-metrics-orders-list-raw', url: `https://kds-api.ftservices.cloud/metrics/orders/list/?locationId=${locationId}&dateFrom=2026-04-09T08:00:00.000Z&dateTo=2026-04-09T23:59:59.999Z`, headers: commonHeaders },
-      { name: 'kds-metrics-orders-items', url: `https://kds-api.ftservices.cloud/metrics/orders/items/?locationId=${locationId}&dateFrom=2026-04-09T08:00:00.000Z&dateTo=2026-04-09T23:59:59.999Z`, headers: commonHeaders },
+      // Try kds-api root to discover endpoints
+      { name: 'kds-api-root', url: `https://kds-api.ftservices.cloud/`, headers: commonHeaders },
+      { name: 'kds-api-health', url: `https://kds-api.ftservices.cloud/health`, headers: commonHeaders },
+      { name: 'kds-api-swagger', url: `https://kds-api.ftservices.cloud/swagger`, headers: commonHeaders },
+      { name: 'kds-api-docs', url: `https://kds-api.ftservices.cloud/api-docs`, headers: commonHeaders },
     ];
 
     const results: Record<string, any> = {};
@@ -85,10 +87,10 @@ serve(async (req) => {
         const res = await fetch(t.url, opts);
         const text = await res.text();
         let body;
-        try { body = JSON.parse(text); } catch { body = text.substring(0, 300); }
+        try { body = JSON.parse(text); } catch { body = text.substring(0, 500); }
         results[t.name] = { 
           status: res.status, 
-          body: typeof body === 'string' ? body : JSON.stringify(body).substring(0, 500) 
+          body: typeof body === 'string' ? body : JSON.stringify(body).substring(0, 800) 
         };
       } catch (e) {
         results[t.name] = { error: e.message };
