@@ -144,58 +144,90 @@ serve(async (req) => {
       for (const mapping of employeeMappings) {
         const { opus_id, croo_user_id, name: empName } = mapping;
         
-        // Query OPUS for this employee's incomplete PATH + COURSE assignments (confirmed working schema)
-        const assignmentsQuery = {
-          operationName: "UserAssignments",
-          query: `query UserAssignments($id: Int!) {
-  pathAssignments: Assignments(
-    input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH]}, accessTypes: {value: [ASSIGNMENT]}}}
-  ) {
-    objects { id status name { en __typename } __typename }
-    __typename
-  }
-  courseAssignments: Assignments(
-    input: {filters: {userId: {value: $id}, contentTypes: {value: [COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}
-  ) {
-    objects { id status name { en __typename } __typename }
-    __typename
-  }
-}`,
-          variables: { id: opus_id },
-        };
+        // Try multiple query patterns to find one that works
+        const queryPatterns = [
+          {
+            name: "AdminEmployee_introspect",
+            body: {
+              operationName: "EmpProgress",
+              query: `query EmpProgress($id: Int!) { AdminEmployee(id: $id) { id name firstName lastName email completionPercentage overallProgress __typename } }`,
+              variables: { id: opus_id },
+            },
+          },
+          {
+            name: "EmployeeProgress",
+            body: {
+              operationName: "EmployeeProgress",
+              query: `query EmployeeProgress($employeeId: Int!) { AdminEmployeeProgress(employeeId: $employeeId) { totalAssignments completedAssignments paths { id name status completionPercentage __typename } courses { id name status completionPercentage __typename } __typename } }`,
+              variables: { employeeId: opus_id },
+            },
+          },
+          {
+            name: "AdminAssignments",
+            body: {
+              operationName: "GetAssignments",
+              query: `query GetAssignments($input: AdminAssignmentsInput!, $pagination: PaginationInput) { AdminAssignments(input: $input, pagination: $pagination) { objects { id status contentType name { en __typename } completionPercentage __typename } __typename } }`,
+              variables: { input: { filters: { employeeIds: [opus_id] } }, pagination: { limit: 100, offset: 0 } },
+            },
+          },
+        ];
 
-        const opusResp = await fetch(OPUS_GRAPHQL, {
-          method: "POST",
-          headers: OPUS_HEADERS(sessionId),
-          body: JSON.stringify(assignmentsQuery),
-        });
+        let assignmentData: any = null;
+        let workingPattern = "";
 
-        if (!opusResp.ok) {
-          const errText = await opusResp.text();
-          console.error(`[opus-service] Assignment fetch failed for ${empName}:`, opusResp.status, errText);
-          if (opusResp.status === 401) {
-            return new Response(JSON.stringify({ 
-              error: "OPUS session expired", 
-              hint: "Paste a fresh sessionid in OPUS integration settings" 
-            }), {
-              status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+        for (const pattern of queryPatterns) {
+          const testResp = await fetch(OPUS_GRAPHQL, {
+            method: "POST",
+            headers: OPUS_HEADERS(sessionId),
+            body: JSON.stringify(pattern.body),
+          });
+          const testData = await testResp.json();
+          console.log(`[opus-service] ${pattern.name} for ${empName}: status=${testResp.status} response=${JSON.stringify(testData).substring(0, 300)}`);
+          
+          if (testResp.ok && testData?.data && !testData?.errors?.length) {
+            assignmentData = testData;
+            workingPattern = pattern.name;
+            break;
           }
-          errors.push(`${empName}: API error ${opusResp.status}`);
+        }
+
+        if (!assignmentData) {
+          errors.push(`${empName}: No working assignment query found`);
           continue;
         }
 
-        const opusData = await opusResp.json();
-        const pathAssignments = opusData?.data?.pathAssignments?.objects || [];
-        const courseAssignments = opusData?.data?.courseAssignments?.objects || [];
-        const allAssignments = [...pathAssignments, ...courseAssignments];
+        // Parse results based on which pattern worked
+        console.log(`[opus-service] Working pattern for ${empName}: ${workingPattern}`);
         
-        const incompleteAssignments = allAssignments.filter((a: any) => a.status === "incomplete");
-        const incompleteCount = incompleteAssignments.length;
-        const incompleteNames = incompleteAssignments
-          .map((a: any) => a.name?.en || "Untitled")
-          .slice(0, 5); // Show up to 5 names
-        const totalCount = allAssignments.length;
+        let incompleteCount = 0;
+        let incompleteNames: string[] = [];
+        let totalCount = 0;
+
+        if (workingPattern === "AdminEmployee_introspect") {
+          const emp = assignmentData?.data?.AdminEmployee;
+          const pct = emp?.completionPercentage || emp?.overallProgress || 0;
+          totalCount = 1;
+          incompleteCount = pct < 100 ? 1 : 0;
+          incompleteNames = pct < 100 ? [`Overall: ${pct}% complete`] : [];
+        } else if (workingPattern === "EmployeeProgress") {
+          const progress = assignmentData?.data?.AdminEmployeeProgress;
+          totalCount = progress?.totalAssignments || 0;
+          const completed = progress?.completedAssignments || 0;
+          incompleteCount = totalCount - completed;
+          const allItems = [...(progress?.paths || []), ...(progress?.courses || [])];
+          incompleteNames = allItems
+            .filter((a: any) => a.status !== "completed" && a.completionPercentage < 100)
+            .map((a: any) => a.name || "Untitled")
+            .slice(0, 5);
+        } else if (workingPattern === "AdminAssignments") {
+          const objects = assignmentData?.data?.AdminAssignments?.objects || [];
+          totalCount = objects.length;
+          const incomplete = objects.filter((a: any) => a.status !== "completed" && a.status !== "COMPLETED");
+          incompleteCount = incomplete.length;
+          incompleteNames = incomplete
+            .map((a: any) => a.name?.en || "Untitled")
+            .slice(0, 5);
+        }
         const completedCount = totalCount - incompleteCount;
 
         syncedCount++;
@@ -394,12 +426,12 @@ serve(async (req) => {
         });
       }
 
-      // Real OPUS query — uses LibraryItems (not AdminLibrary)
+      // Confirmed working OPUS query — uses AdminLibrary with AdminLibraryInput
       const libraryQuery = {
-        operationName: "GetLibraryItems",
-        variables: { input: { pagination: { page: 1, pageSize: 500 } } },
-        query: `query GetLibraryItems($input: LibraryItemsInput!) {
-  LibraryItems(input: $input) {
+        operationName: "GetAdminLibrary",
+        variables: { input: { sort: { column: "openedAt", descending: true, nullsLast: true } }, pagination: { limit: 500, offset: 0 } },
+        query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) {
+  LibraryItems: AdminLibrary(input: $input, pagination: $pagination) {
     objects {
       id
       type
