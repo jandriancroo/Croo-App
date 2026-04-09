@@ -345,6 +345,7 @@ export function AiAssistantBubble() {
                           </button>
                         )}
                       </div>
+                      </div>
                     </motion.div>
                   ))}
 
