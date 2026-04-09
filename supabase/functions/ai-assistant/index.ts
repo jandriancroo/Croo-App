@@ -1518,6 +1518,7 @@ serve(async (req) => {
       });
     }
 
+    const userRole = roleData.role;
     const { messages, location_id, location_name } = await req.json();
     const timezone = "America/Los_Angeles";
     const today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
