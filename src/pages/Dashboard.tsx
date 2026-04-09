@@ -101,17 +101,9 @@ export default function Dashboard() {
   );
   const queryClient = useQueryClient();
 
-  // Read Ovation score from the same query cache as OvationReviewsCube
-  const { data: reviewsData } = useQuery<{ wtdAverage: number | null; wtdCount: number; error?: string; expired?: boolean }>({
-    queryKey: ['ovation-reviews', currentLocation?.id],
-    queryFn: async () => {
-      // This is a cache-only read — OvationReviewsCube does the actual fetch
-      // Return stale data from cache, don't refetch here
-      return queryClient.getQueryData(['ovation-reviews', currentLocation?.id]) || { wtdAverage: null, wtdCount: 0 };
-    },
-    enabled: !!currentLocation?.id,
-    staleTime: Infinity, // Never refetch from here, rely on OvationReviewsCube
-  });
+  // Read Ovation score from OvationReviewsCube's query cache (partial key match)
+  const ovationCacheEntries = queryClient.getQueriesData<{ wtdAverage: number | null; wtdCount: number; error?: string; expired?: boolean }>({ queryKey: ['ovation-reviews'] });
+  const reviewsData = ovationCacheEntries.find(([key]) => key[1] === currentLocation?.id)?.[1] ?? null;
   
   // Light DB reads — always refetch on pull
   const ALWAYS_REFRESH_KEYS = [
