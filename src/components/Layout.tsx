@@ -1280,6 +1280,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         </div>
       </header>
       
+      {/* Ovation backdrop blur */}
+      {isMobile && ovationExpanded && (
+        <div 
+          className="fixed inset-0 z-[47] bg-black/20 backdrop-blur-sm"
+          style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)', bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}
+          onClick={() => setOvationExpanded(false)}
+        />
+      )}
+
       {/* Ovation score tab + popover hanging below mobile header */}
       {isMobile && currentLocation && (
         <div 
