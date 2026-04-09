@@ -7,6 +7,7 @@ const corsHeaders = {
 }
 
 const OVATION_API = 'https://api.ovationup.com/app-services/v2'
+const OVATION_APP_API = 'https://apis.ovationup.com/app/v1'
 const COGNITO_REGION = 'us-east-1'
 const COGNITO_USER_POOL = 'us-east-1_ddNUtzgDs'
 const COGNITO_CLIENT_ID = '45rj7fb9l3bmjv2fkvp3s4qnr9'
