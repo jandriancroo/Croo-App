@@ -1195,14 +1195,15 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
 
       {/* ── OPUS LMS Dialog ── */}
       <Dialog open={editingIntegration === 'opus'} onOpenChange={(open) => !open && setEditingIntegration(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plug className="h-5 w-5" /> OPUS LMS
             </DialogTitle>
-            <DialogDescription>Paste your active OPUS session cookie to enable training sync</DialogDescription>
+            <DialogDescription>Connect OPUS training to sync employee progress</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Session Cookie Input */}
             <div className="space-y-1.5">
               <Label htmlFor="opus-session" className="text-sm">Session ID (Cookie)</Label>
               <div className="relative">
@@ -1251,7 +1252,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     setOpusTestResult(data?.authenticated ? 'success' : 'error');
                     if (data?.authenticated) toast.success('OPUS session verified!');
                     else toast.error('Session invalid: ' + (data?.error || 'Check cookie'));
-                  } catch (e) {
+                  } catch (_e) {
                     setOpusTestResult('error');
                     toast.error('Test failed');
                   } finally { setOpusIsTesting(false); }
@@ -1266,31 +1267,37 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   try {
                     const { data: existing } = await supabase
                       .from('location_integrations')
-                      .select('id')
+                      .select('id, credentials')
                       .eq('location_id', locationId)
                       .eq('integration_type', 'opus')
                       .maybeSingle();
 
-                    const payload = {
-                      location_id: locationId,
-                      integration_type: 'opus',
-                      credentials: { sessionid: opusSessionId },
-                      is_active: true,
+                    // Preserve existing mappings when saving session
+                    const existingCreds = (existing?.credentials as any) || {};
+                    const credentials = {
+                      ...existingCreds,
+                      sessionid: opusSessionId,
+                      employee_mappings: opusMappings.length > 0 ? opusMappings : existingCreds.employee_mappings,
                     };
 
                     if (existing) {
                       await supabase.from('location_integrations').update({
-                        credentials: payload.credentials,
+                        credentials,
                         is_active: true,
                         updated_at: new Date().toISOString(),
                       }).eq('id', existing.id);
                     } else {
-                      await supabase.from('location_integrations').insert(payload);
+                      await supabase.from('location_integrations').insert({
+                        location_id: locationId,
+                        integration_type: 'opus',
+                        credentials,
+                        is_active: true,
+                      });
                     }
 
                     queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'opus'] });
                     toast.success('OPUS session saved!');
-                  } catch (e) {
+                  } catch (_e) {
                     toast.error('Save failed');
                   } finally { setOpusIsSaving(false); }
                 }}>
@@ -1299,30 +1306,142 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
               </Button>
             </div>
 
+            {/* ── Employee Mapping Section ── */}
             {opusIntegration?.is_active && (
-              <Button variant="outline" size="sm" className="w-full h-8 text-xs" disabled={opusIsSyncing}
-                onClick={async () => {
-                  setOpusIsSyncing(true);
-                  try {
-                    const { data, error } = await supabase.functions.invoke('opus-service', {
-                      body: { action: 'sync_training', location_id: locationId },
-                    });
-                    if (error) throw error;
-                    if (data?.success) {
-                      toast.success(`Synced ${data.synced} modules, created ${data.tasks_created} tasks`);
-                      if (data.unmatched_employees?.length > 0) {
-                        toast.info(`Unmatched: ${data.unmatched_employees.join(', ')}`);
+              <div className="space-y-3 border-t pt-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Employee Mapping</Label>
+                  <Button variant="outline" size="sm" className="h-7 text-[11px]" disabled={opusIsFetchingEmployees}
+                    onClick={async () => {
+                      setOpusIsFetchingEmployees(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke('opus-service', {
+                          body: { action: 'fetch_employees', location_id: locationId },
+                        });
+                        if (error) throw error;
+                        if (data?.employees) {
+                          setOpusEmployees(data.employees);
+                          // Auto-create mapping entries for new employees
+                          const existing = new Set(opusMappings.map(m => m.opus_id));
+                          const newMappings = [...opusMappings];
+                          for (const emp of data.employees) {
+                            if (!existing.has(emp.opus_id)) {
+                              // Try auto-match by name
+                              const match = (locationTeamMembers || []).find(
+                                (tm: any) => tm.name.toLowerCase() === emp.name.toLowerCase()
+                              );
+                              newMappings.push({
+                                opus_id: emp.opus_id,
+                                name: emp.name,
+                                croo_user_id: match?.id || '',
+                              });
+                            }
+                          }
+                          setOpusMappings(newMappings);
+                          toast.success(`Found ${data.employees.length} OPUS employees`);
+                        }
+                      } catch (_e) {
+                        toast.error('Failed to fetch OPUS employees');
+                      } finally { setOpusIsFetchingEmployees(false); }
+                    }}>
+                    {opusIsFetchingEmployees ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Fetch from OPUS
+                  </Button>
+                </div>
+
+                {opusMappings.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Click "Fetch from OPUS" to load employees, then map them to your team members.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {opusMappings.map((mapping, idx) => (
+                      <div key={mapping.opus_id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{mapping.name}</p>
+                          <p className="text-[10px] text-muted-foreground">OPUS #{mapping.opus_id}</p>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">→</span>
+                        <Select
+                          value={mapping.croo_user_id || '__none__'}
+                          onValueChange={(val) => {
+                            const updated = [...opusMappings];
+                            updated[idx] = { ...mapping, croo_user_id: val === '__none__' ? '' : val };
+                            setOpusMappings(updated);
+                          }}
+                        >
+                          <SelectTrigger className="h-7 text-[11px] w-[140px]">
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__" className="text-[11px]">— Not mapped —</SelectItem>
+                            {(locationTeamMembers || []).map((tm: any) => (
+                              <SelectItem key={tm.id} value={tm.id} className="text-[11px]">
+                                {tm.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {opusMappings.length > 0 && (
+                  <Button size="sm" className="w-full h-8 text-xs" disabled={opusIsSaving}
+                    onClick={async () => {
+                      if (!locationId) return;
+                      setOpusIsSaving(true);
+                      try {
+                        const activeMappings = opusMappings.filter(m => m.croo_user_id);
+                        const { data: existing } = await supabase
+                          .from('location_integrations')
+                          .select('id, credentials')
+                          .eq('location_id', locationId)
+                          .eq('integration_type', 'opus')
+                          .maybeSingle();
+
+                        if (existing) {
+                          const creds = (existing.credentials as any) || {};
+                          await supabase.from('location_integrations').update({
+                            credentials: { ...creds, employee_mappings: activeMappings },
+                            updated_at: new Date().toISOString(),
+                          }).eq('id', existing.id);
+                        }
+
+                        queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'opus'] });
+                        toast.success(`Saved ${activeMappings.length} employee mapping${activeMappings.length !== 1 ? 's' : ''}`);
+                      } catch (_e) {
+                        toast.error('Save failed');
+                      } finally { setOpusIsSaving(false); }
+                    }}>
+                    <Save className="h-3.5 w-3.5 mr-1" />
+                    Save Mappings ({opusMappings.filter(m => m.croo_user_id).length} mapped)
+                  </Button>
+                )}
+
+                {/* Sync Button */}
+                <Button variant="outline" size="sm" className="w-full h-8 text-xs" disabled={opusIsSyncing || opusMappings.filter(m => m.croo_user_id).length === 0}
+                  onClick={async () => {
+                    setOpusIsSyncing(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke('opus-service', {
+                        body: { action: 'sync_training', location_id: locationId },
+                      });
+                      if (error) throw error;
+                      if (data?.success) {
+                        toast.success(`Synced ${data.employees_synced} employees, created ${data.tasks_created} tasks`);
+                      } else {
+                        toast.error(data?.error || 'Sync failed');
                       }
-                    } else {
-                      toast.error(data?.error || 'Sync failed');
-                    }
-                  } catch (e) {
-                    toast.error('Sync failed');
-                  } finally { setOpusIsSyncing(false); }
-                }}>
-                {opusIsSyncing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
-                Sync Training Now
-              </Button>
+                    } catch (_e) {
+                      toast.error('Sync failed');
+                    } finally { setOpusIsSyncing(false); }
+                  }}>
+                  {opusIsSyncing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                  Sync Training Now
+                </Button>
+              </div>
             )}
           </div>
         </DialogContent>
