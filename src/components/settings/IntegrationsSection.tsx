@@ -150,7 +150,15 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [kdsIsSaving, setKdsIsSaving] = useState(false);
   const [kdsIsSyncing, setKdsIsSyncing] = useState(false);
 
-  // ── Queries ──
+  // OvationUp state
+  const [ovationEmail, setOvationEmail] = useState('');
+  const [ovationPassword, setOvationPassword] = useState('');
+  const [ovationCompanyId, setOvationCompanyId] = useState('');
+  const [ovationLocationId, setOvationLocationId] = useState('');
+  const [ovationShowPassword, setOvationShowPassword] = useState(false);
+  const [ovationIsSaving, setOvationIsSaving] = useState(false);
+  const [ovationIsTesting, setOvationIsTesting] = useState(false);
+  const [ovationTestResult, setOvationTestResult] = useState<'success' | 'error' | null>(null);
   const { data: integration, isLoading } = useQuery({
     queryKey: ['location-integration', locationId, 'qubeyond'],
     queryFn: async () => {
