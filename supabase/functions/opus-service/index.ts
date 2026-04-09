@@ -15,6 +15,7 @@ const OPUS_HEADERS = (sessionId: string) => ({
   "Cookie": `sessionid=${sessionId}`,
   "Origin": "https://dashboard.opus.so",
   "Referer": "https://dashboard.opus.so/",
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
   "x-opus-role": "admin",
   "Accept": "*/*",
   "Accept-Language": "en-US,en;q=0.9",
@@ -257,47 +258,33 @@ serve(async (req) => {
         });
       }
 
-      const fullHeaders = {
-        ...OPUS_HEADERS(sessionid),
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
-      };
+      const headers = OPUS_HEADERS(sessionid);
 
-      // Test with AdminEmployee (confirmed working) and parameterized AdminLibrary
+      // Quick auth check via AdminEmployee
       const testEmployee = {
         operationName: "TestEmployee",
         query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
       };
-      // Confirmed schema: AdminLibrary with AdminLibraryInput! + separate PaginationInput
-      const libTests = [
-        { label: "AdminLibrary_parameterized", body: {
-          operationName: "GetAdminLibrary",
-          variables: { input: {}, pagination: { limit: 3, offset: 0 } },
-          query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) { AdminLibrary(input: $input, pagination: $pagination) { objects { id type name { en __typename } coverImage { id imageUrls { original thumb __typename } __typename } __typename } __typename } }`
-        }},
-      ];
-      const libResults: any[] = [];
-      for (const t of libTests) {
-        const r = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(t.body) });
-        const txt = await r.text();
-        console.log(`[opus-service] ${t.label}: status=${r.status} body=${txt.substring(0, 300)}`);
-        let parsed: any;
-        try { parsed = JSON.parse(txt); } catch { parsed = { raw: txt }; }
-        libResults.push({ label: t.label, status: r.status, data: parsed });
-      }
-      const libraryCount = null;
-
-      // Test employee (reliable auth check)
-      const empResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testEmployee) });
+      const empResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers, body: JSON.stringify(testEmployee) });
       const empData = await empResp.json();
       const authenticated = !!empData?.data?.AdminEmployee?.id;
+
+      // Quick library check
+      const libQuery = {
+        operationName: "GetAdminLibrary",
+        variables: { input: {}, pagination: { limit: 1, offset: 0 } },
+        query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) { AdminLibrary(input: $input, pagination: $pagination) { objects { id name { en __typename } __typename } __typename } }`,
+      };
+      const libResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers, body: JSON.stringify(libQuery) });
+      const libData = await libResp.json();
+      const libraryOk = !!libData?.data?.AdminLibrary?.objects;
 
       console.log("[opus-service] test_connection: employee=", JSON.stringify(empData));
 
       return new Response(JSON.stringify({
         authenticated,
         employee: empData?.data?.AdminEmployee || null,
-        library_items: libraryCount,
-        library_tests: libResults,
+        library_ok: libraryOk,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -363,15 +350,12 @@ serve(async (req) => {
         });
       }
 
-      // Confirmed OPUS schema: root=AdminLibrary, type=AdminLibraryInput!, pagination is separate PaginationInput
+      // Real OPUS query — uses LibraryItems (not AdminLibrary)
       const libraryQuery = {
-        operationName: "GetAdminLibrary",
-        variables: {
-          input: {},
-          pagination: { limit: 500, offset: 0 },
-        },
-        query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) {
-  AdminLibrary(input: $input, pagination: $pagination) {
+        operationName: "GetLibraryItems",
+        variables: { input: { pagination: { page: 1, pageSize: 500 } } },
+        query: `query GetLibraryItems($input: LibraryItemsInput!) {
+  LibraryItems(input: $input) {
     objects {
       id
       type
@@ -384,7 +368,7 @@ serve(async (req) => {
           media {
             id
             mediaUrls { en __typename }
-            imageUrls { id thumb original __typename }
+            imageUrls { original thumb __typename }
             unoptimizedUrl
             __typename
           }
@@ -397,10 +381,9 @@ serve(async (req) => {
         id
         emojiIcon
         background
-        imageUrls { id original wide thumb __typename }
+        imageUrls { original wide thumb __typename }
         __typename
       }
-      openedAt
       __typename
     }
     __typename
@@ -426,7 +409,7 @@ serve(async (req) => {
       }
 
       const data = await resp.json();
-      const objects = data?.data?.AdminLibrary?.objects || [];
+      const objects = data?.data?.LibraryItems?.objects || [];
 
       // Inject each training module into theo_knowledge
       let injected = 0;
@@ -470,6 +453,60 @@ serve(async (req) => {
         total_in_opus: objects.length,
         resources_found: objects.length,
         injected_to_theo: injected,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── ACTION: fetch_employees ──
+    // Fetches all employees from OPUS for mapping UI
+    if (action === "fetch_employees") {
+      const { location_id } = body;
+      if (!location_id) {
+        return new Response(JSON.stringify({ error: "Missing location_id" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const sessionId = await getOpusSession(supabase, location_id);
+      if (!sessionId) {
+        return new Response(JSON.stringify({ error: "OPUS session not configured" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Fetch employees list from OPUS
+      const employeesQuery = {
+        operationName: "GetEmployees",
+        variables: { input: { pagination: { page: 1, pageSize: 500 }, filters: { deactivatedAt: { exists: false } } } },
+        query: `query GetEmployees($input: AdminEmployeesInput!) {
+  AdminEmployees(input: $input) {
+    objects { id name firstName lastName __typename }
+    __typename
+  }
+}`,
+      };
+
+      const resp = await fetch(OPUS_GRAPHQL, {
+        method: "POST",
+        headers: OPUS_HEADERS(sessionId),
+        body: JSON.stringify(employeesQuery),
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error("[opus-service] fetch_employees failed:", resp.status, errText);
+        return new Response(JSON.stringify({ error: "Failed to fetch OPUS employees", status: resp.status }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const data = await resp.json();
+      const employees = data?.data?.AdminEmployees?.objects || [];
+
+      return new Response(JSON.stringify({
+        success: true,
+        employees: employees.map((e: any) => ({ opus_id: e.id, name: e.name, firstName: e.firstName, lastName: e.lastName })),
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
