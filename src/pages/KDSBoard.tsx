@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Clock, DollarSign, ShoppingBag, Truck, Store, Utensils, CreditCard, ArrowLeft, Zap, TrendingUp, Users } from 'lucide-react';
+import { RefreshCw, Clock, DollarSign, ShoppingBag, Truck, Store, Utensils, CreditCard, ArrowLeft, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -34,8 +34,8 @@ interface Payment {
 }
 
 const STORES = [
-  { id: '5280', label: 'Palm Springs', emoji: '🌴' },
-  { id: '5448', label: 'Hemet', emoji: '🏔️' },
+  { id: '5280', label: 'Palm Springs' },
+  { id: '5448', label: 'Hemet' },
 ];
 
 export default function KDSBoard() {
@@ -64,9 +64,7 @@ export default function KDSBoard() {
     }
   }, [storeId]);
 
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -74,8 +72,7 @@ export default function KDSBoard() {
     return () => clearInterval(interval);
   }, [autoRefresh, fetchOrders]);
 
-  const store = STORES.find(s => s.id === storeId);
-  const storeName = store?.label || '';
+  const storeName = STORES.find(s => s.id === storeId)?.label || '';
 
   const totalOrders = orders.length;
   const openOrders = orders.filter(o => o.state === 'Open').length;
@@ -92,167 +89,119 @@ export default function KDSBoard() {
   );
 
   const ordersByType: Record<string, number> = {};
-  orders.forEach(o => {
-    ordersByType[o.orderType] = (ordersByType[o.orderType] || 0) + 1;
-  });
+  orders.forEach(o => { ordersByType[o.orderType] = (ordersByType[o.orderType] || 0) + 1; });
 
   const ordersByDaypart: Record<string, number> = {};
-  orders.forEach(o => {
-    ordersByDaypart[o.daypart] = (ordersByDaypart[o.daypart] || 0) + 1;
-  });
+  orders.forEach(o => { ordersByDaypart[o.daypart] = (ordersByDaypart[o.daypart] || 0) + 1; });
 
   return (
     <Layout>
-      <div className="p-3 sm:p-4 space-y-3 max-w-7xl mx-auto">
+      <div className="p-3 sm:p-5 space-y-4 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="rounded-xl">
-              <ArrowLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="rounded-xl h-9 w-9">
+              <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-foreground tracking-tight">Live Orders</h1>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-lg font-bold text-foreground tracking-tight">Order Board</h1>
                 <div className={cn(
-                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
-                  autoRefresh ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                )}>
-                  <Zap className="h-2.5 w-2.5" />
-                  {autoRefresh ? 'LIVE' : 'PAUSED'}
-                </div>
+                  "h-2 w-2 rounded-full",
+                  autoRefresh ? "bg-green-500 animate-pulse shadow-[0_0_8px_2px_rgba(34,197,94,0.4)]" : "bg-muted-foreground/30"
+                )} />
               </div>
               <p className="text-[11px] text-muted-foreground">
-                {lastRefresh ? `${lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Connecting...'}
-                {' · '}{store?.emoji} {storeName}
+                {storeName} · {lastRefresh ? lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Connecting...'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
             <Select value={storeId} onValueChange={setStoreId}>
-              <SelectTrigger className="w-[130px] h-8 text-xs rounded-xl">
+              <SelectTrigger className="w-[130px] h-8 text-xs rounded-xl border-border/40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {STORES.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.emoji} {s.label}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Button
               variant={autoRefresh ? "default" : "outline"}
               size="sm"
-              className="h-8 text-xs rounded-xl px-3"
+              className="h-8 text-[11px] rounded-xl px-3 font-medium"
               onClick={() => setAutoRefresh(!autoRefresh)}
             >
-              {autoRefresh ? '● Live' : '○ Paused'}
+              {autoRefresh ? 'Live' : 'Paused'}
             </Button>
-            <Button variant="outline" size="icon" className="h-8 w-8 rounded-xl" onClick={fetchOrders} disabled={loading}>
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-xl border-border/40" onClick={fetchOrders} disabled={loading}>
               <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             </Button>
           </div>
         </div>
 
-        {/* Hero Stats */}
+        {/* Stats Row */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-          <HeroStat icon={<ShoppingBag />} label="Orders" value={totalOrders} />
-          <HeroStat icon={<Clock />} label="Open" value={openOrders} accent={openOrders > 0} />
-          <HeroStat icon={<DollarSign />} label="Sales" value={`$${totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
-          <HeroStat icon={<TrendingUp />} label="Avg Ticket" value={`$${avgTicket.toFixed(2)}`} />
-          <HeroStat icon={<Truck />} label="Online" value={oloOrders} />
-          <HeroStat icon={<Store />} label="In Store" value={inStoreOrders} />
+          <StatTile icon={<ShoppingBag />} label="Total" value={totalOrders} />
+          <StatTile icon={<Clock />} label="Open" value={openOrders} accent={openOrders > 0} />
+          <StatTile icon={<DollarSign />} label="Sales" value={`$${totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
+          <StatTile icon={<TrendingUp />} label="Avg" value={`$${avgTicket.toFixed(2)}`} />
+          <StatTile icon={<Truck />} label="Online" value={oloOrders} />
+          <StatTile icon={<Store />} label="Walk-in" value={inStoreOrders} />
         </div>
 
-        {/* Delivery + Payments Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {deliveryPayments.length > 0 && (
-            <Card className="border-border/30 overflow-hidden">
-              <CardHeader className="py-2.5 px-4 border-b border-border/20 bg-muted/30">
-                <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
-                  <Truck className="h-3.5 w-3.5 text-primary" />
-                  Delivery Partners
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3">
+        {/* Delivery + Payments */}
+        {(deliveryPayments.length > 0 || payments.length > 0) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {deliveryPayments.length > 0 && (
+              <SectionCard icon={<Truck />} title="Delivery Partners">
                 <div className="grid grid-cols-2 gap-2">
                   {deliveryPayments.map(p => (
-                    <div key={p.name} className="flex items-center gap-3 bg-gradient-to-br from-muted/40 to-muted/20 rounded-xl p-3 border border-border/20">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <Truck className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[11px] font-medium text-muted-foreground block truncate">
-                          {p.name.replace('OLO ', '')}
-                        </span>
-                        <span className="text-base font-bold text-foreground">${p.total.toFixed(2)}</span>
-                      </div>
+                    <div key={p.name} className="rounded-xl bg-muted/30 border border-border/15 p-3 flex flex-col gap-0.5">
+                      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+                        {p.name.replace('OLO ', '')}
+                      </span>
+                      <span className="text-lg font-bold text-foreground tabular-nums">${p.total.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {payments.length > 0 && (
-            <Card className="border-border/30 overflow-hidden">
-              <CardHeader className="py-2.5 px-4 border-b border-border/20 bg-muted/30">
-                <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
-                  <CreditCard className="h-3.5 w-3.5 text-primary" />
-                  All Payments
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3">
+              </SectionCard>
+            )}
+            {payments.length > 0 && (
+              <SectionCard icon={<CreditCard />} title="Payment Methods">
                 <div className="flex flex-wrap gap-1.5">
                   {payments.map(p => (
-                    <div key={p.name} className="flex items-center gap-1.5 bg-muted/40 rounded-lg px-2.5 py-1.5 border border-border/20">
-                      <span className="text-[10px] text-muted-foreground">{p.name}</span>
-                      <span className="text-xs font-bold text-foreground">${p.total.toFixed(2)}</span>
-                    </div>
+                    <span key={p.name} className="inline-flex items-center gap-1.5 text-[11px] bg-muted/30 border border-border/15 rounded-lg px-2.5 py-1.5">
+                      <span className="text-muted-foreground">{p.name}</span>
+                      <span className="font-semibold text-foreground tabular-nums">${p.total.toFixed(2)}</span>
+                    </span>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+              </SectionCard>
+            )}
+          </div>
+        )}
 
-        {/* Order Type & Daypart Pills */}
-        <div className="grid grid-cols-2 gap-2">
-          <Card className="border-border/30">
-            <CardContent className="p-3">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">By Type</span>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.entries(ordersByType).map(([type, count]) => (
-                  <Badge key={type} variant="secondary" className="text-[11px] rounded-lg px-2.5 py-1 font-medium">
-                    {type} <span className="ml-1 font-bold text-primary">{count}</span>
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/30">
-            <CardContent className="p-3">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">By Daypart</span>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.entries(ordersByDaypart).map(([dp, count]) => (
-                  <Badge key={dp} variant="secondary" className="text-[11px] rounded-lg px-2.5 py-1 font-medium">
-                    {dp} <span className="ml-1 font-bold text-primary">{count}</span>
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Type + Daypart */}
+        {(Object.keys(ordersByType).length > 0 || Object.keys(ordersByDaypart).length > 0) && (
+          <div className="grid grid-cols-2 gap-3">
+            <MiniBreakdown title="By Type" data={ordersByType} />
+            <MiniBreakdown title="By Daypart" data={ordersByDaypart} />
+          </div>
+        )}
 
         {/* Order Feed */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <div className="flex items-center justify-between mb-2.5">
+            <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
               <Utensils className="h-3.5 w-3.5 text-primary" />
-              Order Feed ({orders.length})
+              Orders ({orders.length})
             </h2>
             {openOrders > 0 && (
-              <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] animate-pulse">
+              <span className="text-[10px] font-semibold text-primary animate-pulse">
                 {openOrders} active
-              </Badge>
+              </span>
             )}
           </div>
           <div className="space-y-1">
@@ -260,19 +209,19 @@ export default function KDSBoard() {
               {orders.map((order, idx) => (
                 <motion.div
                   key={`${order.checkNumber}-${idx}`}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2, delay: idx * 0.01 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, delay: Math.min(idx * 0.008, 0.3) }}
                 >
-                  <OrderCard order={order} />
+                  <OrderRow order={order} />
                 </motion.div>
               ))}
             </AnimatePresence>
             {orders.length === 0 && !loading && (
-              <div className="text-center py-12">
-                <Utensils className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No orders yet today</p>
+              <div className="text-center py-16 opacity-40">
+                <Utensils className="h-6 w-6 mx-auto mb-2" />
+                <p className="text-sm">No orders yet</p>
               </div>
             )}
           </div>
@@ -282,41 +231,72 @@ export default function KDSBoard() {
   );
 }
 
-function HeroStat({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string | number; accent?: boolean }) {
+/* ─── Sub-components ─── */
+
+function StatTile({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string | number; accent?: boolean }) {
   return (
-    <Card className={cn(
-      "border-border/30 transition-all",
-      accent && "border-primary/30 bg-primary/5 shadow-[0_0_12px_-4px_hsl(var(--primary)/0.3)]"
+    <div className={cn(
+      "rounded-xl border p-2.5 flex flex-col items-center text-center gap-0.5 transition-all",
+      accent
+        ? "border-primary/30 bg-primary/5 shadow-[0_0_12px_-3px_hsl(var(--primary)/0.25)]"
+        : "border-border/20 bg-card/80"
     )}>
-      <CardContent className="p-2.5 flex flex-col items-center text-center gap-0.5">
-        <div className={cn(
-          "w-7 h-7 rounded-lg flex items-center justify-center mb-0.5",
-          accent ? "bg-primary/15 text-primary" : "bg-muted/60 text-muted-foreground",
-          "[&>svg]:h-3.5 [&>svg]:w-3.5"
-        )}>
+      <div className={cn(
+        "rounded-lg w-6 h-6 flex items-center justify-center [&>svg]:h-3 [&>svg]:w-3",
+        accent ? "bg-primary/15 text-primary" : "bg-muted/50 text-muted-foreground"
+      )}>
+        {icon}
+      </div>
+      <span className={cn("text-base font-bold tabular-nums leading-tight", accent && "text-primary")}>{value}</span>
+      <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
+    </div>
+  );
+}
+
+function SectionCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return (
+    <Card className="border-border/20">
+      <CardHeader className="py-2.5 px-4 border-b border-border/10">
+        <CardTitle className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-2 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-primary">
           {icon}
-        </div>
-        <span className={cn("text-lg font-bold leading-none", accent && "text-primary")}>{value}</span>
-        <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
-      </CardContent>
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-3">{children}</CardContent>
     </Card>
   );
 }
 
-function OrderCard({ order }: { order: Order }) {
+function MiniBreakdown({ title, data }: { title: string; data: Record<string, number> }) {
+  return (
+    <div className="rounded-xl border border-border/20 bg-card/80 p-3">
+      <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest mb-2 block">{title}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {Object.entries(data).map(([key, count]) => (
+          <span key={key} className="inline-flex items-center gap-1 text-[11px] bg-muted/30 border border-border/15 rounded-lg px-2 py-1">
+            <span className="text-muted-foreground">{key}</span>
+            <span className="font-bold text-foreground">{count}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OrderRow({ order }: { order: Order }) {
   const isOpen = order.state === 'Open';
   const isOLO = order.channel === 'OLO';
 
   return (
     <div className={cn(
-      "flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all",
+      "flex items-center gap-3 px-3.5 py-2.5 rounded-xl border transition-all",
       isOpen
-        ? "border-primary/30 bg-gradient-to-r from-primary/5 to-transparent shadow-[0_0_8px_-3px_hsl(var(--primary)/0.2)]"
-        : "border-border/20 bg-card/60 hover:bg-card"
+        ? "border-primary/25 bg-gradient-to-r from-primary/[0.04] to-transparent"
+        : "border-border/15 bg-card/50 hover:bg-card/80"
     )}>
       <div className={cn(
-        "w-2 h-2 rounded-full shrink-0",
-        isOpen ? "bg-primary shadow-[0_0_6px_2px_hsl(var(--primary)/0.4)] animate-pulse" : "bg-muted-foreground/20"
+        "w-1.5 h-8 rounded-full shrink-0 transition-all",
+        isOpen ? "bg-primary shadow-[0_0_6px_1px_hsl(var(--primary)/0.35)]" : "bg-border/40"
       )} />
 
       <div className="flex-1 min-w-0">
@@ -326,35 +306,37 @@ function OrderCard({ order }: { order: Order }) {
             <span className="text-xs text-muted-foreground truncate">{order.customerName}</span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+        <div className="flex items-center gap-1.5 mt-0.5">
           <Badge variant={isOLO ? "default" : "outline"} className={cn(
-            "text-[10px] h-4 px-1.5 rounded-md",
-            isOLO && "bg-primary/80"
+            "text-[10px] h-4 px-1.5 rounded-md font-medium",
+            isOLO && "bg-primary/80 hover:bg-primary/70"
           )}>
             {order.channel}
           </Badge>
-          <Badge variant="outline" className="text-[10px] h-4 px-1.5 rounded-md">
+          <Badge variant="outline" className="text-[10px] h-4 px-1.5 rounded-md font-medium border-border/30">
             {order.orderType}
           </Badge>
           {order.employee && (
-            <span className="text-[10px] text-muted-foreground/70">{order.employee}</span>
+            <span className="text-[10px] text-muted-foreground/60 truncate">{order.employee}</span>
           )}
         </div>
       </div>
 
       <div className="text-right shrink-0">
-        <span className="text-sm font-bold text-foreground">${order.grossSales.toFixed(2)}</span>
-        <div className="text-[10px] text-muted-foreground/60">
+        <span className="text-sm font-bold text-foreground tabular-nums">${order.grossSales.toFixed(2)}</span>
+        <div className="text-[10px] text-muted-foreground/50 tabular-nums">
           {order.date?.split(' ').slice(1).join(' ')}
         </div>
       </div>
 
-      <Badge variant={isOpen ? "default" : "secondary"} className={cn(
-        "text-[10px] h-5 shrink-0 rounded-md font-semibold",
-        isOpen && "bg-primary shadow-sm"
+      <span className={cn(
+        "text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0",
+        isOpen
+          ? "bg-primary/15 text-primary"
+          : "bg-muted/50 text-muted-foreground"
       )}>
         {order.state}
-      </Badge>
+      </span>
     </div>
   );
 }
