@@ -98,7 +98,7 @@ export function OvationReviewsCube() {
            body: JSON.stringify({
              locationId: currentLocation.id,
              days: 14,
-             pageSize: 50,
+             pageSize: 500,
            }),
         }
       );
