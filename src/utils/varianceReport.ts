@@ -741,6 +741,7 @@ async function fetchBlueprints(locationId: string) {
     .from("recipe_blueprints" as any)
     .select("id, yield_qty, yield_unit, produces_item_id")
     .eq("brand_id", org.brand_id)
+    .is("location_id", null)
     .eq("is_active", true);
   if (brandErr) throw brandErr;
   return (brandData || []) as unknown as Array<{ id: string; yield_qty: number | null; yield_unit: string | null; produces_item_id: string | null }>;
