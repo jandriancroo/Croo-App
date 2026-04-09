@@ -530,8 +530,8 @@ serve(async (req) => {
         ];
         const content = contentParts.filter(Boolean).join("\n");
 
-        const topic = `opus_training_${moduleType.toLowerCase()}`;
-        const contentHash = content; // md5 handled by unique index
+        const topic = "opus_training_" + moduleType.toLowerCase();
+        const contentHash = content;
 
         // Check if already exists (avoid re-embedding)
         const { data: existing } = await supabase
@@ -539,7 +539,7 @@ serve(async (req) => {
           .select("id, embedding")
           .eq("location_id", location_id)
           .eq("topic", topic)
-          .ilike("content", `%${moduleName}%`)
+          .ilike("content", "%" + moduleName + "%")
           .limit(1)
           .maybeSingle();
 
@@ -550,7 +550,7 @@ serve(async (req) => {
         }
 
         // Generate embedding for semantic search
-        const embedding = await generateEmbedding(`${moduleName} - ${moduleType} training module from OPUS LMS`);
+        const embedding = await generateEmbedding(moduleName + " - " + moduleType + " training resource from OPUS LMS");
         if (embedding) embeddingsGenerated++;
 
         const insertData: any = {
