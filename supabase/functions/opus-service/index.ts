@@ -144,20 +144,27 @@ serve(async (req) => {
       for (const mapping of employeeMappings) {
         const { opus_id, croo_user_id, name: empName } = mapping;
         
-        // Query OPUS for this employee's incomplete PATH + COURSE assignments (confirmed working schema)
+        // Query OPUS for this employee's training progress via AdminEmployee
         const assignmentsQuery = {
-          operationName: "UserAssignments",
-          query: `query UserAssignments($id: Int!) {
-  pathAssignments: Assignments(
-    input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH]}, accessTypes: {value: [ASSIGNMENT]}}}
-  ) {
-    objects { id status name { en __typename } __typename }
-    __typename
-  }
-  courseAssignments: Assignments(
-    input: {filters: {userId: {value: $id}, contentTypes: {value: [COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}
-  ) {
-    objects { id status name { en __typename } __typename }
+          operationName: "EmployeeTrainingProgress",
+          query: `query EmployeeTrainingProgress($id: Int!) {
+  AdminEmployee(id: $id) {
+    id
+    name
+    assignedPaths {
+      id
+      path { id name { en __typename } __typename }
+      completionPercentage
+      status
+      __typename
+    }
+    assignedCourses {
+      id
+      course { id name { en __typename } __typename }
+      completionPercentage
+      status
+      __typename
+    }
     __typename
   }
 }`,
@@ -186,16 +193,26 @@ serve(async (req) => {
         }
 
         const opusData = await opusResp.json();
-        const pathAssignments = opusData?.data?.pathAssignments?.objects || [];
-        const courseAssignments = opusData?.data?.courseAssignments?.objects || [];
-        const allAssignments = [...pathAssignments, ...courseAssignments];
+        const employee = opusData?.data?.AdminEmployee;
         
-        const incompleteAssignments = allAssignments.filter((a: any) => a.status === "incomplete");
+        if (!employee) {
+          console.warn(`[opus-service] No AdminEmployee data for ${empName} (id: ${opus_id})`);
+          errors.push(`${empName}: No data returned from OPUS`);
+          continue;
+        }
+
+        // Extract paths and courses from AdminEmployee
+        const assignedPaths = employee.assignedPaths || [];
+        const assignedCourses = employee.assignedCourses || [];
+        
+        const incompletePaths = assignedPaths.filter((a: any) => a.completionPercentage < 100 || a.status === "incomplete");
+        const incompleteCourses = assignedCourses.filter((a: any) => a.completionPercentage < 100 || a.status === "incomplete");
+        const incompleteAssignments = [...incompletePaths, ...incompleteCourses];
         const incompleteCount = incompleteAssignments.length;
         const incompleteNames = incompleteAssignments
-          .map((a: any) => a.name?.en || "Untitled")
-          .slice(0, 5); // Show up to 5 names
-        const totalCount = allAssignments.length;
+          .map((a: any) => a.path?.name?.en || a.course?.name?.en || "Untitled")
+          .slice(0, 5);
+        const totalCount = assignedPaths.length + assignedCourses.length;
         const completedCount = totalCount - incompleteCount;
 
         syncedCount++;
@@ -394,12 +411,12 @@ serve(async (req) => {
         });
       }
 
-      // Real OPUS query — uses LibraryItems (not AdminLibrary)
+      // Confirmed working OPUS query — uses AdminLibrary with AdminLibraryInput
       const libraryQuery = {
-        operationName: "GetLibraryItems",
-        variables: { input: { pagination: { page: 1, pageSize: 500 } } },
-        query: `query GetLibraryItems($input: LibraryItemsInput!) {
-  LibraryItems(input: $input) {
+        operationName: "GetAdminLibrary",
+        variables: { input: { sort: { column: "openedAt", descending: true, nullsLast: true } }, pagination: { limit: 500, offset: 0 } },
+        query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) {
+  LibraryItems: AdminLibrary(input: $input, pagination: $pagination) {
     objects {
       id
       type
