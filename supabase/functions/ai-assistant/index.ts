@@ -93,14 +93,8 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       .eq("shift_date", tomorrow)
       .not("user_id", "is", null);
 
-    // Fetch week-to-date sales
-    const { data: weekRows } = await supabase
-      .from("sales_cache")
-      .select("sale_date, net_sales, override_projection, initial_projection, projected_sales")
-      .eq("location_id", locationId)
-      .gte("sale_date", weekStart)
-      .lte("sale_date", today)
-      .order("sale_date");
+    // Week-to-date rows derived from the full-week sales fetch above
+    const weekRows = (salesRows || []).filter((r: any) => r.sale_date >= weekStart && r.sale_date <= today);
 
     // Fetch today's tips
     const { data: tipsRow } = await supabase
