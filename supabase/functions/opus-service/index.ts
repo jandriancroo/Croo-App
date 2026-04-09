@@ -521,9 +521,9 @@ serve(async (req) => {
     }
 
     // ── ACTION: fetch_employees ──
-    // Fetches all employees from OPUS for mapping UI
+    // Single lookup by OPUS ID OR auto-discover all employees
     if (action === "fetch_employees") {
-      const { location_id } = body;
+      const { location_id, opus_id } = body;
       if (!location_id) {
         return new Response(JSON.stringify({ error: "Missing location_id" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -537,31 +537,124 @@ serve(async (req) => {
         });
       }
 
-      // Look up a single employee by OPUS ID (AdminEmployee works confirmed)
-      const { opus_id } = body;
-      if (!opus_id) {
-        return new Response(JSON.stringify({ error: "Missing opus_id" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // If opus_id provided, do single lookup
+      if (opus_id) {
+        const empQuery = {
+          operationName: "LookupEmployee",
+          query: `query LookupEmployee { AdminEmployee(id: ${Number(opus_id)}) { id name firstName lastName __typename } }`,
+        };
+        const resp = await fetch(OPUS_GRAPHQL, {
+          method: "POST",
+          headers: OPUS_HEADERS(sessionId),
+          body: JSON.stringify(empQuery),
+        });
+        const data = await resp.json();
+        const emp = data?.data?.AdminEmployee;
+        return new Response(JSON.stringify({
+          success: !!emp,
+          employee: emp ? { opus_id: emp.id, name: emp.name, firstName: emp.firstName, lastName: emp.lastName } : null,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const empQuery = {
-        operationName: "LookupEmployee",
-        query: `query LookupEmployee { AdminEmployee(id: ${Number(opus_id)}) { id name firstName lastName __typename } }`,
-      };
+      // Auto-discover: try multiple known query patterns for bulk employee list
+      const queries = [
+        {
+          name: "AdminEmployees_v1",
+          body: {
+            operationName: "GetAdminEmployees",
+            variables: { input: { pagination: { page: 1, pageSize: 200 } } },
+            query: `query GetAdminEmployees($input: AdminEmployeesInput!) {
+  AdminEmployees(input: $input) {
+    totalCount
+    objects { id name firstName lastName email __typename }
+    __typename
+  }
+}`,
+          },
+        },
+        {
+          name: "AdminEmployees_v2",
+          body: {
+            operationName: "GetAdminEmployees",
+            variables: { pagination: { page: 1, pageSize: 200 } },
+            query: `query GetAdminEmployees($pagination: PaginationInput) {
+  AdminEmployees(pagination: $pagination) {
+    totalCount
+    objects { id name firstName lastName email __typename }
+    __typename
+  }
+}`,
+          },
+        },
+        {
+          name: "AdminEmployees_v3",
+          body: {
+            operationName: "GetEmployees",
+            variables: { input: {} , pagination: { limit: 200, offset: 0 } },
+            query: `query GetEmployees($input: AdminEmployeesInput!, $pagination: PaginationInput) {
+  AdminEmployees(input: $input, pagination: $pagination) {
+    totalCount
+    objects { id name firstName lastName email __typename }
+    __typename
+  }
+}`,
+          },
+        },
+        {
+          name: "Employees_simple",
+          body: {
+            operationName: "GetEmployees",
+            query: `query GetEmployees {
+  AdminEmployees {
+    totalCount
+    objects { id name firstName lastName email __typename }
+    __typename
+  }
+}`,
+          },
+        },
+      ];
 
-      const resp = await fetch(OPUS_GRAPHQL, {
-        method: "POST",
-        headers: OPUS_HEADERS(sessionId),
-        body: JSON.stringify(empQuery),
-      });
-
-      const data = await resp.json();
-      const emp = data?.data?.AdminEmployee;
+      const results: any[] = [];
+      for (const q of queries) {
+        try {
+          const resp = await fetch(OPUS_GRAPHQL, {
+            method: "POST",
+            headers: OPUS_HEADERS(sessionId),
+            body: JSON.stringify(q.body),
+          });
+          const data = await resp.json();
+          console.log(`[opus-service] ${q.name}: status=${resp.status} hasData=${!!data?.data?.AdminEmployees}`);
+          
+          const employees = data?.data?.AdminEmployees?.objects;
+          if (employees && employees.length > 0) {
+            return new Response(JSON.stringify({
+              success: true,
+              query_used: q.name,
+              total: data.data.AdminEmployees.totalCount || employees.length,
+              employees: employees.map((e: any) => ({
+                opus_id: e.id,
+                name: e.name || `${e.firstName} ${e.lastName}`.trim(),
+                firstName: e.firstName,
+                lastName: e.lastName,
+                email: e.email,
+              })),
+            }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          results.push({ query: q.name, status: resp.status, hasData: false, errors: data?.errors });
+        } catch (e: any) {
+          results.push({ query: q.name, error: e.message });
+        }
+      }
 
       return new Response(JSON.stringify({
-        success: !!emp,
-        employee: emp ? { opus_id: emp.id, name: emp.name, firstName: emp.firstName, lastName: emp.lastName } : null,
+        success: false,
+        message: "No working employee list query found. All attempts logged.",
+        attempts: results,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
