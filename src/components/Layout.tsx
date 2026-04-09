@@ -980,7 +980,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           
           {/* Mobile Location Picker - centered */}
           {(currentLocation || isOnOrgDash) && (
-            <div className="absolute left-1/2 -translate-x-1/2" ref={headerLocationRef}>
+            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" ref={headerLocationRef}>
               <Button 
                 variant="ghost" 
                 className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
