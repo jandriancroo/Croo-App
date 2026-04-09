@@ -261,16 +261,24 @@ serve(async (req) => {
         });
       }
 
-      // Use introspection to discover available queries
+      // Test with known OPUS queries
       const testQuery = {
-        operationName: "IntrospectionQuery",
-        query: `query IntrospectionQuery {
-          __schema {
-            queryType {
-              fields {
-                name
-                args { name type { name kind ofType { name } } }
-              }
+        operationName: "DiscoverEmployees",
+        query: `query DiscoverEmployees {
+          AdminEmployee(id: 1541347) {
+            id
+            name
+            firstName
+            lastName
+            roles { id name }
+            locations { id name }
+          }
+          Assignments(input: {filters: {userId: {value: 1541347}, contentTypes: {value: [PATH, COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) {
+            objects {
+              id
+              status
+              content { id name description }
+              progress { completionPercentage totalSteps completedSteps }
             }
           }
         }`,
@@ -291,7 +299,7 @@ serve(async (req) => {
       const data = await resp.json();
       
       return new Response(JSON.stringify({
-        authenticated: resp.ok && !data?.errors?.length,
+        authenticated: resp.ok,
         raw: data,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
