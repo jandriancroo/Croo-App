@@ -1275,6 +1275,17 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </Sheet>
         </div>
       </header>
+      
+      {/* Ovation score tab hanging below mobile header */}
+      {isMobile && currentLocation && (
+        <div 
+          className="fixed left-1/2 -translate-x-1/2 z-[49]"
+          style={{ top: 'calc(env(safe-area-inset-top) + 3rem)' }}
+        >
+          <OvationScorePopover />
+        </div>
+      )}
+      
       <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+3.75rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
         {children}
       </main>
