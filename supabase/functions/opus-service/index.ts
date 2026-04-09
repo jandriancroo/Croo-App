@@ -257,25 +257,29 @@ serve(async (req) => {
         });
       }
 
-      // Test with AdminLibrary (confirmed working)
+      // Test with AdminLibrary (confirmed working in browser)
       const testQuery = {
         operationName: "TestConnection",
-        query: `query TestConnection {
-  AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) {
-    totalCount
-    objects { id type name { en } __typename }
-    __typename
-  }
-}`,
+        query: `query TestConnection { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }`,
       };
 
       const resp = await fetch(OPUS_GRAPHQL, {
         method: "POST",
-        headers: OPUS_HEADERS(sessionid),
+        headers: {
+          "Content-Type": "application/json",
+          "Cookie": `sessionid=${sessionid}`,
+          "Origin": "https://dashboard.opus.so",
+          "Referer": "https://dashboard.opus.so/",
+          "x-opus-role": "admin",
+        },
         body: JSON.stringify(testQuery),
       });
 
-      const data = await resp.json();
+      const rawText = await resp.text();
+      console.log("[opus-service] AdminLibrary status:", resp.status, "body:", rawText);
+      
+      let data: any;
+      try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
       const totalCount = data?.data?.AdminLibrary?.totalCount;
 
       if (totalCount !== undefined) {
