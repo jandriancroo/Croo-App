@@ -151,13 +151,13 @@ serve(async (req) => {
   pathAssignments: Assignments(
     input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH]}, accessTypes: {value: [ASSIGNMENT]}}}
   ) {
-    objects { id status __typename }
+    objects { id status name { en __typename } __typename }
     __typename
   }
   courseAssignments: Assignments(
     input: {filters: {userId: {value: $id}, contentTypes: {value: [COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}
   ) {
-    objects { id status __typename }
+    objects { id status name { en __typename } __typename }
     __typename
   }
 }`,
@@ -190,7 +190,11 @@ serve(async (req) => {
         const courseAssignments = opusData?.data?.courseAssignments?.objects || [];
         const allAssignments = [...pathAssignments, ...courseAssignments];
         
-        const incompleteCount = allAssignments.filter((a: any) => a.status === "incomplete").length;
+        const incompleteAssignments = allAssignments.filter((a: any) => a.status === "incomplete");
+        const incompleteCount = incompleteAssignments.length;
+        const incompleteNames = incompleteAssignments
+          .map((a: any) => a.name?.en || "Untitled")
+          .slice(0, 5); // Show up to 5 names
         const totalCount = allAssignments.length;
         const completedCount = totalCount - incompleteCount;
 
@@ -219,6 +223,12 @@ serve(async (req) => {
           continue;
         }
 
+        // Build task description with module names
+        const moduleList = incompleteNames.length > 0
+          ? incompleteNames.map((n: string) => `• ${n}`).join("\n") + (incompleteCount > 5 ? `\n• ...and ${incompleteCount - 5} more` : "")
+          : "";
+        const taskDescription = `${incompleteCount} incomplete module${incompleteCount > 1 ? 's' : ''}:\n${moduleList}`;
+
         // Auto-create/resolve aggregated Quick Task
         if (incompleteCount > 0) {
           if (!upserted.task_id) {
@@ -227,9 +237,9 @@ serve(async (req) => {
               .insert({
                 location_id: location_id,
                 title: `OPUS: ${incompleteCount} Incomplete Module${incompleteCount > 1 ? 's' : ''}`,
-                description: `You have ${incompleteCount} incomplete training module${incompleteCount > 1 ? 's' : ''} on OPUS. Tap GO to open OPUS and complete your training.`,
-                icon_name: "GraduationCap",
-                accent_color: "#8B5CF6",
+                description: taskDescription,
+                icon_name: "opus_logo",
+                accent_color: "#1A5C5C",
                 is_active: true,
                 show_on_dashboard: true,
                 task_style: "default",
@@ -247,12 +257,14 @@ serve(async (req) => {
               tasksCreated++;
             }
           } else {
-            // Update existing task description with current count
+            // Update existing task with current module names
             await supabase
               .from("temporary_tasks")
               .update({
                 title: `OPUS: ${incompleteCount} Incomplete Module${incompleteCount > 1 ? 's' : ''}`,
-                description: `You have ${incompleteCount} incomplete training module${incompleteCount > 1 ? 's' : ''} on OPUS. Tap GO to open OPUS and complete your training.`,
+                description: taskDescription,
+                icon_name: "opus_logo",
+                accent_color: "#1A5C5C",
               })
               .eq("id", upserted.task_id);
           }

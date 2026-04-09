@@ -534,7 +534,7 @@ export function AssignedTemporaryTasks({
             id={task.id}
             title={task.title}
             subtitle={task.description || undefined}
-            icon={getIconComponent(task.icon_name || "ClipboardList")}
+            icon={getIconComponent(task.icon_name === "opus_logo" ? "GraduationCap" : (task.icon_name || "ClipboardList"))}
             accentColor={task.accent_color || "#8B5CF6"}
             buttonLabel={task.write_up_id ? "Sign" : undefined}
             onAction={() => setSelectedTask(task)}
@@ -542,6 +542,7 @@ export function AssignedTemporaryTasks({
             showShare={!!task.shareable}
             subtasksCompleted={counts?.completed}
             subtasksTotal={counts?.total}
+            isOpusTask={task.icon_name === "opus_logo"}
           />
         );
       })}

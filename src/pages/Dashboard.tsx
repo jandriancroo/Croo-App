@@ -14,7 +14,7 @@ import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
-import { OpusTrainingAlert } from '@/components/dashboard/OpusTrainingAlert';
+import { OpusBackgroundSync } from '@/components/dashboard/OpusBackgroundSync';
 
 import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
 import { PendingDocumentsCard } from '@/components/dashboard/PendingDocumentsCard';
@@ -668,8 +668,8 @@ export default function Dashboard() {
       {/* Hiring Documents - Secure Document Requests */}
       <I9UploadCard />
       
-      {/* OPUS Training Modules */}
-      <OpusTrainingAlert />
+      {/* OPUS Background Sync — keeps session warm + Theo's brain fresh */}
+      <OpusBackgroundSync />
 
       {/* Assigned Temporary Tasks + Event Daily Tasks — cash handling inserted between events & tasks */}
       <AssignedTemporaryTasks
