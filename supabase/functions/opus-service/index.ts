@@ -540,7 +540,7 @@ serve(async (req) => {
         }
 
         // Generate embedding for semantic search
-        const embedding = await generateEmbedding(moduleName + " - " + moduleType + " training resource from OPUS LMS");
+        const embedding = await generateEmbedding(moduleName + " - " + resourceType + " training resource from OPUS LMS");
         if (embedding) embeddingsGenerated++;
 
         const insertData: any = {
