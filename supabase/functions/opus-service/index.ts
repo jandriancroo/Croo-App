@@ -267,11 +267,28 @@ serve(async (req) => {
         operationName: "TestEmployee",
         query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
       };
-      const testLibrary = {
-        operationName: "GetLibraryItems",
-        variables: { input: { pagination: { page: 1, pageSize: 1 } } },
-        query: `query GetLibraryItems($input: LibraryItemsInput!) { LibraryItems(input: $input) { objects { id type name { en __typename } __typename } __typename } }`,
-      };
+      // Try different input type names for LibraryItems
+      const typeTests = [
+        { label: "LibraryItemsInput", type: "LibraryItemsInput!" },
+        { label: "LibraryInput", type: "LibraryInput!" },
+        { label: "AdminLibraryInput", type: "AdminLibraryInput!" },
+        { label: "ListLibraryItemsInput", type: "ListLibraryItemsInput!" },
+      ];
+      const libResults: any[] = [];
+      for (const t of typeTests) {
+        const q = {
+          operationName: "GetLibraryItems",
+          variables: { input: { pagination: { page: 1, pageSize: 1 } } },
+          query: `query GetLibraryItems($input: ${t.type}) { LibraryItems(input: $input) { objects { id type name { en __typename } __typename } __typename } }`,
+        };
+        const r = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(q) });
+        const txt = await r.text();
+        console.log(`[opus-service] ${t.label}: status=${r.status} body=${txt.substring(0, 300)}`);
+        let parsed: any;
+        try { parsed = JSON.parse(txt); } catch { parsed = { raw: txt }; }
+        libResults.push({ label: t.label, status: r.status, data: parsed });
+      }
+      const libraryCount = null;
 
       // Test employee first (reliable auth check)
       const empResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testEmployee) });
