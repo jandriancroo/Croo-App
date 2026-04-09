@@ -163,6 +163,23 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       lines.push(`Week-to-date (${weekStart} → ${today}): Sales $${wtdSales.toLocaleString()} | Goal $${wtdGoal.toLocaleString()} (${wtdGoal > 0 ? ((wtdSales / wtdGoal - 1) * 100).toFixed(1) : 'N/A'}%)`);
     }
 
+    // Remaining week projections (days after today through Sunday)
+    const futureDays = (salesRows || []).filter((r: any) => r.sale_date > today && r.sale_date <= weekEnd);
+    if (futureDays.length > 0) {
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const futureLines = futureDays.map((r: any) => {
+        const d = new Date(r.sale_date + "T12:00:00");
+        const dayName = dayNames[d.getDay()];
+        const proj = r.override_projection || r.initial_projection || r.projected_sales || 0;
+        return `${dayName} ${r.sale_date}: $${proj.toLocaleString()}`;
+      });
+      lines.push(`Remaining Week Projections: ${futureLines.join(" | ")}`);
+      const totalRemaining = futureDays.reduce((s: number, r: any) => s + (r.override_projection || r.initial_projection || r.projected_sales || 0), 0);
+      const wtdSales = weekRows ? weekRows.reduce((s: number, r: any) => s + (r.net_sales || 0), 0) : 0;
+      const fullWeekProj = (weekRows ? weekRows.reduce((s: number, r: any) => s + (r.override_projection || r.initial_projection || r.projected_sales || 0), 0) : 0) + totalRemaining;
+      lines.push(`Full Week Projection: $${fullWeekProj.toLocaleString()} (Remaining: $${totalRemaining.toLocaleString()})`);
+    }
+
     // Tips
     if (tipsRow) {
       lines.push(`Today's Tips: CC $${tipsRow.total_cc_tips?.toLocaleString() || 0} | Cash $${tipsRow.total_cash_tips?.toLocaleString() || 0}`);
