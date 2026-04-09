@@ -290,24 +290,18 @@ serve(async (req) => {
       }
       const libraryCount = null;
 
-      // Test employee first (reliable auth check)
+      // Test employee (reliable auth check)
       const empResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testEmployee) });
       const empData = await empResp.json();
       const authenticated = !!empData?.data?.AdminEmployee?.id;
 
-      // Try library too
-      const libResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testLibrary) });
-      const libData = await libResp.json();
-      const libraryItems = libData?.data?.LibraryItems?.objects;
-      const libraryCount = libraryItems?.length ?? null;
-
-      console.log("[opus-service] test_connection: employee=", JSON.stringify(empData), "library=", JSON.stringify(libData));
+      console.log("[opus-service] test_connection: employee=", JSON.stringify(empData));
 
       return new Response(JSON.stringify({
         authenticated,
         employee: empData?.data?.AdminEmployee || null,
-        library_items: libraryCount ?? null,
-        library_status: libResp.status,
+        library_items: libraryCount,
+        library_tests: libResults,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
