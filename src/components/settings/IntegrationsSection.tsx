@@ -1020,7 +1020,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button size="sm" disabled={ovationIsSaving || !ovationEmail || !ovationPassword || !ovationCompanyId} onClick={async () => {
+              <Button size="sm" disabled={ovationIsSaving || !ovationEmail || !ovationPassword} onClick={async () => {
                 setOvationIsSaving(true);
                 try {
                   if (!ovationBrandId) { toast.error('Could not determine brand'); return; }
