@@ -57,16 +57,22 @@ export function TemporaryTaskCard({
 }: TemporaryTaskCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const hasSubtasks = subtasksTotal !== undefined && subtasksTotal > 0;
-  const subtaskProgress = hasSubtasks ? (subtasksCompleted || 0) / subtasksTotal : 0;
+  const isBeachDashboard =
+    typeof document !== "undefined" &&
+    document.documentElement.dataset.theme === "beach" &&
+    document.body.classList.contains("beach-dashboard");
   
-  // Smart button label: "Start" for subtasks, "Done" for simple tasks
-  const resolvedButtonLabel = buttonLabel ?? (hasSubtasks ? "Start" : "Done");
-
   return (
     <>
       <div
         className="quick-task-card flex items-center gap-2.5 rounded-xl overflow-hidden cursor-pointer active:opacity-80 transition-opacity"
-        style={{ backgroundColor: `${accentColor}10` }}
+        style={isBeachDashboard
+          ? {
+              backgroundColor: "hsl(var(--card) / 0.96)",
+              border: "1px solid hsl(var(--border) / 0.55)",
+              boxShadow: "0 8px 24px hsl(195 35% 30% / 0.12)",
+            }
+          : { backgroundColor: `${accentColor}10` }}
       >
         {/* Inset rounded accent stripe */}
         <div 
