@@ -105,7 +105,7 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
         'flex items-center gap-2 px-3.5 py-1.5 transition-all',
         desktop
           ? 'rounded-lg bg-white/15 hover:bg-white/25 border-0'
-          : cn('min-h-10 bg-muted/85 shadow-sm hover:bg-muted border border-t-0 border-border/30', expanded ? 'rounded-none' : 'rounded-b-xl')
+          : 'min-h-10 bg-muted/85 shadow-sm hover:bg-muted border border-t-0 border-border/30 rounded-b-xl'
       )}
     >
       <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 sm:h-4 sm:w-4 object-contain" />
