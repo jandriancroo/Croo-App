@@ -261,35 +261,7 @@ serve(async (req) => {
         });
       }
 
-      // Test with exact OPUS query format — fetch assignments + try employee list
-      const assignmentsQuery = {
-        operationName: "TestAssignments",
-        variables: { id: 1541347 },
-        query: `query TestAssignments($id: Int!) {
-  AdminEmployee(id: $id) {
-    id
-    name
-    __typename
-  }
-  Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH, COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) {
-    objects {
-      id
-      status
-      __typename
-    }
-    __typename
-  }
-  CheckIns: Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [SKILL]}, accessTypes: {value: [ASSIGNMENT]}}}) {
-    objects {
-      id
-      status
-      __typename
-    }
-    __typename
-  }
-}`,
-      };
-
+      // Discover: get assignment details + employee list
       const opusHeaders = {
         "Content-Type": "application/json",
         "Cookie": `sessionid=${sessionid}`,
@@ -298,17 +270,57 @@ serve(async (req) => {
         "x-opus-role": "admin",
       };
 
-      const resp = await fetch(OPUS_GRAPHQL, {
-        method: "POST",
-        headers: opusHeaders,
-        body: JSON.stringify(assignmentsQuery),
-      });
+      // Query 1: Get assignment details with content names
+      const detailQuery = {
+        operationName: "AssignmentDetails",
+        variables: { id: 1541347 },
+        query: `query AssignmentDetails($id: Int!) {
+  Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH, COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) {
+    objects {
+      id
+      status
+      completedAt
+      assignedAt
+      content {
+        id
+        name
+        type
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+}`,
+      };
 
-      const data = await resp.json();
+      // Query 2: Try to get employee list
+      const listQuery = {
+        operationName: "EmployeeList",
+        query: `query EmployeeList {
+  AdminEmployees(input: {pagination: {page: 1, pageSize: 5}}) {
+    objects {
+      id
+      name
+      __typename
+    }
+    totalCount
+    __typename
+  }
+}`,
+      };
+
+      const [detailResp, listResp] = await Promise.all([
+        fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(detailQuery) }),
+        fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(listQuery) }),
+      ]);
+
+      const [detailData, listData] = await Promise.all([detailResp.json(), listResp.json()]);
       
       return new Response(JSON.stringify({
-        authenticated: resp.ok && !!data?.data,
-        raw: data,
+        authenticated: true,
+        assignments: detailData,
+        employeeList: listData,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
