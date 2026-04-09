@@ -277,7 +277,7 @@ async function cognitoSrpAuthFull(username: string, password: string): Promise<{
   }
 }
 
-// Helper: Get or refresh auth token for a brand
+// Helper: Get or refresh auth token for a brand (legacy, still used by fetch_scores etc.)
 async function getAuthToken(supabase: any, brandId: string): Promise<string | null> {
   const { data: integration } = await supabase
     .from('ovation_integrations')
@@ -288,25 +288,19 @@ async function getAuthToken(supabase: any, brandId: string): Promise<string | nu
 
   if (!integration) return null
 
-  // Check if existing token is still valid (less than 20 hours old)
   if (integration.auth_token && integration.token_updated_at) {
     const ageHours = (Date.now() - new Date(integration.token_updated_at).getTime()) / 3600000
     if (ageHours < 20) return integration.auth_token
   }
 
-  // Need fresh token — use stored credentials
   const username = integration.cognito_username
   const password = integration.cognito_password
   if (!username || !password) {
-    console.log('[ovation-service] No credentials stored, falling back to existing token')
     return integration.auth_token || null
   }
 
   try {
-    console.log(`[ovation-service] Authenticating with Cognito for brand ${brandId}...`)
     const tokens = await cognitoSrpAuth(username, password)
-    
-    // Save new token
     await supabase
       .from('ovation_integrations')
       .update({
@@ -315,13 +309,51 @@ async function getAuthToken(supabase: any, brandId: string): Promise<string | nu
         updated_at: new Date().toISOString(),
       })
       .eq('id', integration.id)
-
-    console.log(`[ovation-service] Token refreshed via SRP for brand ${brandId}`)
     return tokens.IdToken
   } catch (error: any) {
     console.error(`[ovation-service] SRP auth failed:`, error.message)
-    // Fall back to existing token if available
     return integration.auth_token || null
+  }
+}
+
+// Helper: Get or refresh auth token for a specific location (per-location credentials)
+async function getAuthTokenForLocation(supabase: any, locationId: string): Promise<{ token: string; companyId: string; ovationLocationId: string } | null> {
+  const { data: mapping } = await supabase
+    .from('ovation_location_mappings')
+    .select('*')
+    .eq('location_id', locationId)
+    .maybeSingle()
+
+  if (!mapping || !mapping.cognito_username || !mapping.cognito_password) {
+    // Fall back to brand-level credentials
+    return null
+  }
+
+  // Check if existing token is still valid (less than 20 hours old)
+  if (mapping.auth_token && mapping.token_updated_at) {
+    const ageHours = (Date.now() - new Date(mapping.token_updated_at).getTime()) / 3600000
+    if (ageHours < 20) {
+      return { token: mapping.auth_token, companyId: mapping.company_id, ovationLocationId: mapping.ovation_location_id }
+    }
+  }
+
+  try {
+    console.log(`[ovation-service] Authenticating with Cognito for location ${locationId}...`)
+    const tokens = await cognitoSrpAuth(mapping.cognito_username, mapping.cognito_password)
+    await supabase
+      .from('ovation_location_mappings')
+      .update({
+        auth_token: tokens.IdToken,
+        token_updated_at: new Date().toISOString(),
+      })
+      .eq('id', mapping.id)
+    return { token: tokens.IdToken, companyId: mapping.company_id, ovationLocationId: mapping.ovation_location_id }
+  } catch (error: any) {
+    console.error(`[ovation-service] Location SRP auth failed:`, error.message)
+    if (mapping.auth_token) {
+      return { token: mapping.auth_token, companyId: mapping.company_id, ovationLocationId: mapping.ovation_location_id }
+    }
+    return null
   }
 }
 
