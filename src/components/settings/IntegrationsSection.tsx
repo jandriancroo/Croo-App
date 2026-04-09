@@ -271,6 +271,19 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     if (locationKdsData) setKdsLocationId(locationKdsData.fresh_kds_location_id || '');
   }, [locationKdsData]);
 
+  useEffect(() => {
+    if (ovationIntegration) {
+      setOvationEmail((ovationIntegration as any).cognito_username || '');
+      setOvationPassword((ovationIntegration as any).cognito_password || '');
+      setOvationCompanyId(ovationIntegration.company_id || '');
+    }
+  }, [ovationIntegration]);
+
+  useEffect(() => {
+    if (ovationMapping) {
+      setOvationLocationId(ovationMapping.ovation_location_id || '');
+    }
+  }, [ovationMapping]);
   // ── Handlers (unchanged logic) ──
 
   const testPaConnection = async () => {
