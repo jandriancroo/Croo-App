@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CircleCheck, LucideIcon, AlarmClock, Send, ListChecks } from "lucide-react";
 import { ShareTaskDialog } from "./ShareTaskDialog";
+import opusLogo from "@/assets/opus-logo.png";
 
 export interface TemporaryTaskCardProps {
   /** Unique identifier for the task */
@@ -37,6 +38,8 @@ export interface TemporaryTaskCardProps {
   subtasksCompleted?: number;
   /** Subtask progress - total count */
   subtasksTotal?: number;
+  /** Whether this is an OPUS training task (shows OPUS logo) */
+  isOpusTask?: boolean;
 }
 
 export function TemporaryTaskCard({
@@ -54,6 +57,7 @@ export function TemporaryTaskCard({
   shareDetails,
   subtasksCompleted,
   subtasksTotal,
+  isOpusTask = false,
 }: TemporaryTaskCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const hasSubtasks = subtasksTotal !== undefined && subtasksTotal > 0;
@@ -80,6 +84,9 @@ export function TemporaryTaskCard({
           style={{ backgroundColor: accentColor }}
         />
         <div className="flex-1 flex items-center gap-2 py-2 pr-2.5 min-w-0">
+          {isOpusTask && (
+            <img src={opusLogo} alt="OPUS" className="h-5 w-auto shrink-0 opacity-80" loading="lazy" />
+          )}
           <span className="font-medium text-sm truncate flex-1">{title}</span>
           {taskStyle === "alarm" && (
             <span 
