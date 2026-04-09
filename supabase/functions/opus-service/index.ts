@@ -582,14 +582,60 @@ serve(async (req) => {
         });
       }
 
-      // Find the resource in theo_knowledge to get its Media URL
-      const { data: knowledgeRows } = await supabase
+      // Find the resource in theo_knowledge — first try current location, then brand-wide fallback
+      let knowledgeRows: any[] | null = null;
+
+      // Step 1: Search current location
+      const { data: localRows } = await supabase
         .from("theo_knowledge")
         .select("id, content, topic")
         .eq("location_id", location_id)
         .ilike("topic", "opus_training_%")
         .ilike("content", "%" + resource_name + "%")
         .limit(5);
+
+      knowledgeRows = localRows;
+
+      // Step 2: Brand-wide fallback — OPUS resources are shared across locations
+      if (!knowledgeRows || knowledgeRows.length === 0) {
+        console.log("[opus-service] Resource not found at location " + location_id + ", trying brand-wide search...");
+        // Get all location IDs across the same brand (may span multiple orgs)
+        const { data: loc } = await supabase
+          .from("locations")
+          .select("organization_id")
+          .eq("id", location_id)
+          .single();
+        if (loc) {
+          const { data: org } = await supabase
+            .from("organizations")
+            .select("brand_id")
+            .eq("id", loc.organization_id)
+            .single();
+          if (org?.brand_id) {
+            const { data: brandOrgs } = await supabase
+              .from("organizations")
+              .select("id")
+              .eq("brand_id", org.brand_id);
+            if (brandOrgs && brandOrgs.length > 0) {
+              const { data: brandLocs } = await supabase
+                .from("locations")
+                .select("id")
+                .in("organization_id", brandOrgs.map((o: any) => o.id));
+              if (brandLocs && brandLocs.length > 0) {
+                const brandLocIds = brandLocs.map((l: any) => l.id);
+                const { data: brandRows } = await supabase
+                  .from("theo_knowledge")
+                  .select("id, content, topic")
+                  .in("location_id", brandLocIds)
+                  .ilike("topic", "opus_training_%")
+                  .ilike("content", "%" + resource_name + "%")
+                  .limit(5);
+                knowledgeRows = brandRows;
+              }
+            }
+          }
+        }
+      }
 
       if (!knowledgeRows || knowledgeRows.length === 0) {
         return new Response(JSON.stringify({ error: "Resource not found in knowledge base", resource_name }), {
