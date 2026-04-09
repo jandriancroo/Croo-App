@@ -21,7 +21,7 @@ const OPUS_HEADERS = (sessionId: string) => ({
   "Sec-Fetch-Dest": "empty",
   "Sec-Fetch-Mode": "cors",
   "Sec-Fetch-Site": "same-site",
-  "x-dashboard-url": "https://dashboard.opus.so/library/modules",
+  "x-dashboard-url": "https://dashboard.opus.so/library/modules?org=1491-Blaze+Pizza",
 });
 
 /** Helper: get OPUS session from location_integrations */
@@ -257,30 +257,40 @@ serve(async (req) => {
         });
       }
 
-      // Test with AdminLibrary (confirmed working in browser)
-      const testQuery = {
-        operationName: "TestConnection",
-        query: `query TestConnection { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }`,
+      // Try multiple query formats to find what OPUS accepts
+      const fullHeaders = {
+        ...OPUS_HEADERS(sessionid),
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
+        "x-dashboard-current-assets-commit-sha": "71a29ce4b13dbf8b51557aa59861e02740b6de3e",
+        "x-dashboard-latest-deployed-commit-sha": "null",
+        "x-dashboard-loaded-at": new Date().toISOString(),
       };
+      const queries = [
+        { label: "with_orgId_1491", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 }, filters: { organizationId: { value: 1491 } } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "with_orgId_string", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 }, filters: { organizationId: { value: "1491" } } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "with_org_filter", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 }, organizationId: 1491 } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
+      ];
 
-      const resp = await fetch(OPUS_GRAPHQL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Cookie": `sessionid=${sessionid}`,
-          "Origin": "https://dashboard.opus.so",
-          "Referer": "https://dashboard.opus.so/",
-          "x-opus-role": "admin",
-        },
-        body: JSON.stringify(testQuery),
-      });
+      const results: any[] = [];
+      for (const q of queries) {
+        try {
+          const r = await fetch(OPUS_GRAPHQL, {
+            method: "POST",
+            headers: fullHeaders,
+            body: JSON.stringify(q.body),
+          });
+          const txt = await r.text();
+          console.log(`[opus-service] ${q.label}: status=${r.status} body=${txt.substring(0, 500)}`);
+          let parsed: any;
+          try { parsed = JSON.parse(txt); } catch { parsed = { raw: txt }; }
+          results.push({ label: q.label, status: r.status, data: parsed });
+        } catch (e: any) {
+          results.push({ label: q.label, error: e.message });
+        }
+      }
 
-      const rawText = await resp.text();
-      console.log("[opus-service] AdminLibrary status:", resp.status, "body:", rawText);
-      
-      let data: any;
-      try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
-      const totalCount = data?.data?.AdminLibrary?.totalCount;
+      const successLib = results.find(r => r.data?.data?.AdminLibrary?.totalCount !== undefined);
+      const totalCount = successLib?.data?.data?.AdminLibrary?.totalCount;
 
       if (totalCount !== undefined) {
         return new Response(JSON.stringify({ 
@@ -293,9 +303,9 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ 
-        authenticated: false, 
-        raw: data,
-        hint: "Session may be expired — grab a fresh sessionid from OPUS" 
+        authenticated: results.some(r => r.status === 200 && r.data?.data),
+        results,
+        hint: "See results array for each query attempt" 
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
