@@ -146,7 +146,21 @@ export function AiAssistantBubble() {
     setInput('');
   };
 
-  const sendMessage = async (text: string) => {
+  const handlePin = async (msgIndex: number, content: string) => {
+    if (!currentLocation) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('theo-memory', {
+        body: { action: 'save', location_id: currentLocation.id, content, topic: 'general' },
+      });
+      if (error) throw error;
+      setPinnedIndices(prev => new Set(prev).add(msgIndex));
+      toast.success('Pinned to Theo\'s memory');
+    } catch (e) {
+      console.error('Pin error:', e);
+      toast.error('Failed to save to memory');
+    }
+  };
+
     if (!text.trim() || loading || !currentLocation) return;
     if (isListening) toggleListening();
 
