@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, Loader2, Sparkles, Mic, MicOff, RotateCcw } from 'lucide-react';
+import { X, Send, Loader2, Mic, MicOff, RotateCcw } from 'lucide-react';
+import theoAvatar from '@/assets/theo-avatar.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -197,9 +198,9 @@ export function AiAssistantBubble() {
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={() => setOpen(true)}
             className="crooai-orb crooai-orb-floating z-[55] h-14 w-14 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center"
-            aria-label="Open AI Assistant"
+            aria-label="Open Theo"
           >
-            <Sparkles className="h-5 w-5 text-[hsl(43_80%_62%)] drop-shadow-[0_0_6px_hsl(43_80%_55%/0.6)]" style={{ animation: 'crooai-thinking 4s ease-in-out infinite' }} />
+            <img src={theoAvatar} alt="Theo" className="h-full w-full rounded-full object-cover" />
             {hasUnreadBriefing && (
               <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-destructive border-2 border-background animate-pulse" />
             )}
@@ -221,11 +222,11 @@ export function AiAssistantBubble() {
             {/* Header — glassmorphic */}
             <div className="relative flex items-center justify-between px-4 py-3 border-b border-border/30 crooai-header-bg">
               <div className="flex items-center gap-3">
-                <div className="crooai-header-icon h-9 w-9 rounded-xl flex items-center justify-center">
-                  <Sparkles className="h-4 w-4 text-[hsl(43_80%_62%)]" />
+                <div className="h-9 w-9 rounded-xl overflow-hidden">
+                  <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-foreground tracking-tight">CrooAI</h3>
+                  <h3 className="text-sm font-bold text-foreground tracking-tight">Ask Theo</h3>
                   <div className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     <p className="text-[10px] text-muted-foreground font-medium">{currentLocation?.name || 'Assistant'}</p>
@@ -256,8 +257,8 @@ export function AiAssistantBubble() {
               {messages.length === 0 && (
                 <div className="px-5 pt-10 pb-4 space-y-5">
                   <div className="text-center space-y-2">
-                    <div className="crooai-empty-icon mx-auto h-14 w-14 rounded-2xl flex items-center justify-center mb-3">
-                      <Sparkles className="h-7 w-7 text-[hsl(43_80%_62%)]" />
+                    <div className="mx-auto h-14 w-14 rounded-2xl overflow-hidden mb-3">
+                      <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
                     </div>
                     <p className="text-base font-semibold text-foreground">What can I help with?</p>
                     <p className="text-xs text-muted-foreground leading-relaxed max-w-[260px] mx-auto">
@@ -293,8 +294,8 @@ export function AiAssistantBubble() {
                       className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
                     >
                       {msg.role === 'assistant' && (
-                        <div className="crooai-avatar h-6 w-6 rounded-lg flex items-center justify-center mr-2 mt-1 shrink-0">
-                          <Sparkles className="h-3 w-3 text-[hsl(43_80%_62%)]" />
+                      <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0">
+                          <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
                         </div>
                       )}
                       <div
@@ -320,8 +321,8 @@ export function AiAssistantBubble() {
                       animate={{ opacity: 1, y: 0 }}
                       className="flex justify-start"
                     >
-                      <div className="crooai-avatar h-6 w-6 rounded-lg flex items-center justify-center mr-2 mt-1 shrink-0">
-                        <Sparkles className="h-3 w-3 text-[hsl(43_80%_62%)]" />
+                      <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0">
+                        <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
                       </div>
                       <div className="crooai-ai-bubble rounded-2xl rounded-bl-md px-4 py-3">
                         <div className="flex items-center gap-1.5">
@@ -362,7 +363,7 @@ export function AiAssistantBubble() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={isListening ? "Listening..." : "Ask CrooAI anything..."}
+                  placeholder={isListening ? "Listening..." : "Ask Theo anything..."}
                   className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none min-w-0"
                   disabled={loading}
                 />
