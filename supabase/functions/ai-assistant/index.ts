@@ -1559,27 +1559,75 @@ serve(async (req) => {
     try {
       const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
       if (lastUserMsg?.content) {
-        // Quick text-based search (embedding search done via theo-memory edge function is heavier)
-        const { data: memories } = await supabaseAdmin
-          .from("theo_knowledge")
-          .select("topic, content")
-          .eq("location_id", location_id)
-          .limit(5);
+        const queryText = lastUserMsg.content;
+        const isOpusQuery = /@opus\b/i.test(queryText);
+        const cleanQuery = queryText.replace(/@opus\b/i, "").trim();
+
+        // Try vector search first if we have the RPC
+        let relevant: any[] = [];
         
-        if (memories && memories.length > 0) {
-          const queryLower = lastUserMsg.content.toLowerCase();
-          const relevant = memories.filter((m: any) => {
-            const contentLower = m.content.toLowerCase();
-            const topicLower = m.topic.toLowerCase();
-            // Simple keyword overlap check
-            const queryWords = queryLower.split(/\s+/).filter((w: string) => w.length > 3);
-            return queryWords.some((w: string) => contentLower.includes(w) || topicLower.includes(w));
-          }).slice(0, 3);
-          
-          if (relevant.length > 0) {
-            memoryContext = "\n\nTHEO'S PINNED KNOWLEDGE (facts saved by managers at this location — treat as ground truth):\n" +
-              relevant.map((m: any) => `- [${m.topic}]: ${m.content}`).join("\n");
+        // Attempt embedding-based search via theo-memory
+        try {
+          const memResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/theo-memory`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              action: "search",
+              location_id: location_id,
+              query: cleanQuery,
+            }),
+          });
+          if (memResp.ok) {
+            const memData = await memResp.json();
+            relevant = memData.results || [];
           }
+        } catch (e) {
+          console.error("Vector memory search failed, falling back to text:", e);
+        }
+
+        // Fallback: text-based search
+        if (relevant.length === 0) {
+          let query = supabaseAdmin
+            .from("theo_knowledge")
+            .select("topic, content")
+            .eq("location_id", location_id);
+          
+          // If @OPUS tag, filter to only OPUS training topics
+          if (isOpusQuery) {
+            query = query.ilike("topic", "opus_training_%");
+          }
+          
+          const { data: memories } = await query.limit(20);
+          
+          if (memories && memories.length > 0) {
+            const queryLower = cleanQuery.toLowerCase();
+            const queryWords = queryLower.split(/\s+/).filter((w: string) => w.length > 3);
+            relevant = memories.filter((m: any) => {
+              const contentLower = m.content.toLowerCase();
+              const topicLower = m.topic.toLowerCase();
+              if (isOpusQuery) return true; // Show all OPUS results when @OPUS is used
+              return queryWords.some((w: string) => contentLower.includes(w) || topicLower.includes(w));
+            }).slice(0, 5);
+          }
+        }
+
+        // If @OPUS query, filter results to OPUS content only
+        if (isOpusQuery && relevant.length > 0) {
+          relevant = relevant.filter((m: any) => 
+            (m.topic && m.topic.startsWith("opus_training_")) || 
+            (m.content && m.content.includes("[OPUS Training Module]"))
+          );
+        }
+        
+        if (relevant.length > 0) {
+          const header = isOpusQuery 
+            ? "\n\nOPUS TRAINING LIBRARY (filtered by @OPUS tag — these are training modules from your LMS):\n"
+            : "\n\nTHEO'S PINNED KNOWLEDGE (facts saved by managers at this location — treat as ground truth):\n";
+          memoryContext = header +
+            relevant.map((m: any) => `- [${m.topic}]: ${m.content}`).join("\n");
         }
       }
     } catch (e) {
