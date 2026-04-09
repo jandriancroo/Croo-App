@@ -1591,22 +1591,35 @@ serve(async (req) => {
         // Fallback: text-based search
         if (relevant.length === 0) {
           if (isOpusQuery && cleanQuery.length > 0) {
-            // For @OPUS queries, search by content text matching (name is in the content field)
+            // Fuzzy search: split into words, search for ANY match in content
             const searchWords = cleanQuery.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
-            // Use ilike for each word against content
-            let query = supabaseAdmin
+            
+            // Fetch a broader set and score by relevance
+            const { data: memories } = await supabaseAdmin
               .from("theo_knowledge")
               .select("topic, content")
               .eq("location_id", location_id)
-              .ilike("topic", "opus_training_%");
+              .ilike("topic", "opus_training_%")
+              .limit(500);
             
-            // Add content search for each word
-            for (const word of searchWords.slice(0, 3)) {
-              query = query.ilike("content", `%${word}%`);
+            if (memories && memories.length > 0) {
+              // Score each result by how many search words match
+              const scored = memories.map((m: any) => {
+                const contentLower = m.content.toLowerCase();
+                let score = 0;
+                for (const word of searchWords) {
+                  if (contentLower.includes(word)) score += 1;
+                  // Bonus for name-line match (first line is the resource name)
+                  const firstLine = contentLower.split('\n')[0];
+                  if (firstLine.includes(word)) score += 2;
+                }
+                return { ...m, score };
+              }).filter((m: any) => m.score > 0)
+                .sort((a: any, b: any) => b.score - a.score)
+                .slice(0, 8);
+              
+              relevant = scored;
             }
-            
-            const { data: memories } = await query.limit(10);
-            relevant = memories || [];
           } else if (isOpusQuery) {
             // @OPUS with no search term — return a sample of resources
             const { data: memories } = await supabaseAdmin
@@ -1614,16 +1627,16 @@ serve(async (req) => {
               .select("topic, content")
               .eq("location_id", location_id)
               .ilike("topic", "opus_training_%")
-              .limit(10);
+              .order("created_at", { ascending: false })
+              .limit(8);
             relevant = memories || [];
           } else {
             // Regular (non-OPUS) search
-            let query = supabaseAdmin
+            const { data: memories } = await supabaseAdmin
               .from("theo_knowledge")
               .select("topic, content")
-              .eq("location_id", location_id);
-            
-            const { data: memories } = await query.limit(20);
+              .eq("location_id", location_id)
+              .limit(20);
             
             if (memories && memories.length > 0) {
               const queryLower = cleanQuery.toLowerCase();
