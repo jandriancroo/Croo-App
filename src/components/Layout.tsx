@@ -28,6 +28,7 @@ import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
+import { OvationScorePopover } from '@/components/dashboard/OvationScorePopover';
 
 interface LayoutProps {
   children: ReactNode;
