@@ -196,22 +196,16 @@ serve(async (req) => {
           continue;
         }
 
-        // Debug: log status/module breakdown
-        const rawAll = respData.data.Assignments.objects || [];
-        const throughModule = rawAll.filter((a: any) => a.isCurrentInstanceAssignedThroughModule);
-        const directAssign = rawAll.filter((a: any) => !a.isCurrentInstanceAssignedThroughModule);
-        const statusCounts: Record<string, number> = {};
-        rawAll.forEach((a: any) => { statusCounts[a.status] = (statusCounts[a.status] || 0) + 1; });
-        console.log(`[opus-service] ${empName}: raw=${rawAll.length} direct=${directAssign.length} throughModule=${throughModule.length} statuses=${JSON.stringify(statusCounts)}`);
-
-        // Filter out sub-module assignments (courses assigned through a Path)
-        const allAssignments = directAssign;
+        // Use ALL assignments (including through-module) to match OPUS's Assigned vs Completed counts
+        const allAssignments = respData.data.Assignments.objects || [];
         const assignedCount = allAssignments.length;
-        const completedAssignments = allAssignments.filter((a: any) => a.status === "completed" || a.status === "COMPLETED");
-        const incompleteAssignments = allAssignments.filter((a: any) => a.status !== "completed" && a.status !== "COMPLETED");
+        const completedAssignments = allAssignments.filter((a: any) => a.status === "complete" || a.status === "completed" || a.status === "COMPLETED");
+        const incompleteAssignments = allAssignments.filter((a: any) => a.status !== "complete" && a.status !== "completed" && a.status !== "COMPLETED");
         const completedCount = completedAssignments.length;
         const incompleteCount = incompleteAssignments.length;
+        // Only show top-level incomplete names (not sub-modules)
         const incompleteNames: string[] = incompleteAssignments
+          .filter((a: any) => !a.isCurrentInstanceAssignedThroughModule)
           .map((a: any) => a.libraryItem?.name?.en || "Untitled")
           .slice(0, 8);
 
