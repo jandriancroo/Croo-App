@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Check, Clock, User, Users, Camera, Image, Loader2 } from "lucide-react";
+import { Check, Clock, User, Users, Camera, Image, Loader2, ExternalLink } from "lucide-react";
 import opusLogo from "@/assets/opus-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
