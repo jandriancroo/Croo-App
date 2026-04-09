@@ -583,6 +583,121 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: fetch_resource_content ──
+    // Downloads a specific OPUS resource PDF and extracts content via AI
+    if (action === "fetch_resource_content") {
+      const { location_id, resource_name } = body;
+      if (!location_id || !resource_name) {
+        return new Response(JSON.stringify({ error: "Missing location_id or resource_name" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Find the resource in theo_knowledge to get its Media URL
+      const { data: knowledgeRows } = await supabase
+        .from("theo_knowledge")
+        .select("id, content, topic")
+        .eq("location_id", location_id)
+        .ilike("topic", "opus_training_%")
+        .ilike("content", `%${resource_name}%`)
+        .limit(5);
+
+      if (!knowledgeRows || knowledgeRows.length === 0) {
+        return new Response(JSON.stringify({ error: "Resource not found in knowledge base", resource_name }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if already has extracted content
+      const row = knowledgeRows[0];
+      if (row.content.includes("[EXTRACTED CONTENT]")) {
+        return new Response(JSON.stringify({
+          success: true,
+          already_extracted: true,
+          content: row.content,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Extract Media URL from the content
+      const mediaUrlMatch = row.content.match(/Media URL: (https:\/\/[^\n]+)/);
+      if (!mediaUrlMatch) {
+        return new Response(JSON.stringify({ error: "No media URL found for this resource" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const pdfUrl = mediaUrlMatch[1].trim();
+      console.log(`[opus-service] Extracting content from: ${pdfUrl}`);
+
+      // Use Gemini to extract content from the PDF URL
+      try {
+        const aiResp = await fetch(AI_URL, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "system",
+                content: "You are a document content extractor. Extract ALL text content from the provided document. Preserve structure, headings, bullet points, and recipe steps. Be thorough — include every detail, measurement, temperature, and instruction. Output clean formatted text.",
+              },
+              {
+                role: "user",
+                content: `Extract the complete text content from this training document PDF: ${pdfUrl}\n\nDocument title: ${resource_name}\n\nProvide the full extracted text with proper formatting.`,
+              },
+            ],
+          }),
+        });
+
+        if (!aiResp.ok) {
+          const errText = await aiResp.text();
+          console.error("[opus-service] AI extraction failed:", aiResp.status, errText);
+          return new Response(JSON.stringify({ error: "AI content extraction failed", status: aiResp.status }), {
+            status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const aiData = await aiResp.json();
+        const extractedContent = aiData.choices?.[0]?.message?.content || "";
+
+        if (!extractedContent || extractedContent.length < 50) {
+          return new Response(JSON.stringify({ error: "Extraction returned insufficient content" }), {
+            status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Update theo_knowledge with extracted content
+        const updatedContent = row.content.replace(
+          /Content has not been extracted yet\..*/,
+          `[EXTRACTED CONTENT]\n${extractedContent}`
+        );
+
+        // Generate new embedding with actual content
+        const embedding = await generateEmbedding(`${resource_name} - ${extractedContent.substring(0, 400)}`);
+
+        const updateData: any = { content: updatedContent };
+        if (embedding) updateData.embedding = JSON.stringify(embedding);
+
+        await supabase.from("theo_knowledge").update(updateData).eq("id", row.id);
+
+        return new Response(JSON.stringify({
+          success: true,
+          resource_name,
+          content_length: extractedContent.length,
+          has_embedding: !!embedding,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e: any) {
+        console.error("[opus-service] PDF extraction error:", e);
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // ── ACTION: fetch_employees ──
     // Single lookup by OPUS ID OR auto-discover all employees
     if (action === "fetch_employees") {
