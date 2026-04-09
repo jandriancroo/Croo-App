@@ -490,15 +490,15 @@ serve(async (req) => {
       }
 
       const data = await resp.json();
-      const objects = data?.data?.LibraryItems?.objects || [];
+      const objects = data?.data?.AdminLibrary?.objects || [];
 
-      // Inject each training module into theo_knowledge WITH embeddings
+      // Inject each training resource into theo_knowledge WITH embeddings
       let injected = 0;
       let embeddingsGenerated = 0;
       for (const item of objects) {
-        const moduleName = item.name?.en || "Untitled Module";
-        const moduleType = item.type || "UNKNOWN";
-        const coverUrl = item.coverImage?.imageUrls?.original || item.coverImage?.imageUrls?.thumb || "";
+        const moduleName = item.name?.en || "Untitled Resource";
+        const mediaUrl = item.trainingResource?.publishedVersion?.media?.mediaUrls?.en || "";
+        const resourceType = item.trainingResource?.publishedVersion?.type || "";
         const mediaUrl = item.trainingResource?.publishedVersion?.media?.mediaUrls?.en || "";
         const resourceType = item.trainingResource?.publishedVersion?.type || "";
         const description = item.description?.en || "";
