@@ -406,3 +406,38 @@ async function processBackfillSales(
   return result;
 }
 
+// ============================================================================
+// OPUS BULK EXTRACT — calls opus-service bulk_extract
+// ============================================================================
+async function processOpusBulkExtract(supabaseUrl: string, supabaseKey: string, task: any) {
+  const response = await fetch(`${supabaseUrl}/functions/v1/opus-service`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({
+      action: "bulk_extract",
+      location_id: task.location_id,
+      batch_size: 5,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
+
+  const result = await response.json();
+  
+  // If there are still remaining items, queue another batch
+  if (result.remaining > 0) {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    await supabase.from("maintenance_queue").insert({
+      task_type: "opus_bulk_extract",
+      location_id: task.location_id,
+      status: "pending",
+    });
+    console.log(`[QUEUE] Queued next opus_bulk_extract batch for ${task.location_id}, ${result.remaining} remaining`);
+  }
+
+  if (result.error) throw new Error(result.error);
+  return result;
+}
