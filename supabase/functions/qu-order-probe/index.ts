@@ -135,11 +135,10 @@ serve(async (req) => {
         }),
       }
     );
-    if (itemDetailRes.ok) {
-      const itemDetailData = await itemDetailRes.json();
-      results['item-detail'] = { status: itemDetailRes.status, itemCount: itemDetailData.items?.length, first5: itemDetailData.items?.slice(0, 5) };
-    } else {
-      results['item-detail'] = { status: itemDetailRes.status };
+    {
+      const text = await itemDetailRes.text();
+      try { const d = JSON.parse(text); results['item-detail'] = { status: itemDetailRes.status, itemCount: d.items?.length, first5: d.items?.slice(0, 5) }; }
+      catch { results['item-detail'] = { status: itemDetailRes.status, body: text.substring(0, 500) }; }
     }
 
     // 4. Try "sales-detail" report
