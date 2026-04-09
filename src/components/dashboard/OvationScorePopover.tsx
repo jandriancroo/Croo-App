@@ -144,7 +144,7 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
           className="overflow-hidden flex justify-center -mt-1 mb-2"
         >
-          <div className="w-72 bg-background border border-border/30 rounded-b-2xl shadow-lg">
+          <div className="w-72 bg-white dark:bg-card border border-border/30 rounded-b-2xl shadow-lg mt-6">
             {/* Header */}
             <div className="px-3 pt-2 pb-2 flex items-center justify-between border-b border-border/20">
               <div className="flex items-center gap-2">
