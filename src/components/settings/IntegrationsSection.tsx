@@ -306,7 +306,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       if (result?.data?.guides) {
         const guides = result.data.guides.map((g: any) => ({
           id: g.ProductListHeaderId || g.Id || g.id || '',
-          name: g.ProductListName || g.Name || g.ListName || g.Description || 'Unnamed List',
+          name: g.ProductListTitle || g.ProductListName || g.Name || g.ListName || g.Description || 'Unnamed List',
           type: g.ListType || g.ProductListType || g.Type || '',
         }));
         setPfgAvailableGuides(guides);
