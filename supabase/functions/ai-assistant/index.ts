@@ -1619,6 +1619,7 @@ serve(async (req) => {
               .sort((a: any, b: any) => b._score - a._score)
               .slice(0, 8);
               
+              console.log(`[ai-assistant] @OPUS search: ${searchWords.join(',')} → ${scored.length} results from ${allOpus.length} total`);
               relevant = scored;
             } else {
               relevant = [];
