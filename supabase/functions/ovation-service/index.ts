@@ -931,45 +931,35 @@ async function handleFetchReviews(req: Request, supabase: any) {
   }
   if (!companyId) return jsonResponse({ error: 'No company ID configured', reviews: [] })
 
-  // Extract ovation userId from the JWT token
-  const ovationUserId = extractOvationUserId(authToken!)
-  if (!ovationUserId) {
-    console.error('[ovation-service] Could not extract ovation user ID from token')
-    return jsonResponse({ error: 'Could not extract user ID', reviews: [] })
-  }
-
   const now = new Date()
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 
-  // Use the conversation/list endpoint (apis.ovationup.com/app/v1) with real skip/limit pagination
-  const allConversations: any[] = []
+  // Use survey/list with skip/limit pagination (matching Ovation's dashboard pattern)
+  const matchingSurveys: any[] = []
   const seenIds = new Set<string>()
   const BATCH_SIZE = 50
-  const MAX_TOTAL = 500
+  const MAX_SKIP = 500
 
   try {
+    const filters: any = {
+      companyIds: [companyId],
+      createdAtRange: [startDate.toISOString(), now.toISOString()],
+      ...(ovationLocationIds.length > 0 ? { locationIds: ovationLocationIds } : {}),
+    }
+
     let skip = 0
     let totalCount = 0
+    let emptyBatches = 0
 
-    while (skip < MAX_TOTAL) {
-      const body: any = {
-        userId: ovationUserId,
-        companyId: companyId,
-        filters: {},
-        skip,
-        limit: BATCH_SIZE,
-      }
-
-      console.log(`[ovation-service] conversation/list skip=${skip} limit=${BATCH_SIZE}`)
-
-      const response = await fetch(`${OVATION_APP_API}/conversation/list`, {
+    while (skip < MAX_SKIP) {
+      const response = await fetch(`${OVATION_API}/survey/list`, {
         method: 'POST',
         headers: {
           'Authorization': authToken!,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ filters, skip, limit: BATCH_SIZE }),
       })
 
       if (response.status === 401) {
@@ -977,94 +967,65 @@ async function handleFetchReviews(req: Request, supabase: any) {
       }
 
       if (!response.ok) {
-        const text = await response.text()
-        console.error(`[ovation-service] conversation/list error: ${response.status} ${text.substring(0, 500)}`)
+        console.error('[ovation-service] survey/list error:', response.status)
         break
       }
 
-      const rawText = await response.text()
-      console.log(`[ovation-service] conversation/list response keys: ${rawText.substring(0, 300)}`)
-      
-      let data: any
-      try { data = JSON.parse(rawText) } catch { console.error('[ovation-service] Failed to parse response'); break }
-      
-      // The response could be: { data: { conversations: [...], count: N } } or { conversations: [...] } or [...]
-      const conversations = data?.data?.conversations || data?.conversations || data?.data || (Array.isArray(data) ? data : [])
-      totalCount = data?.data?.count || data?.data?.totalCount || data?.count || data?.totalCount || totalCount
+      const data = await response.json()
+      const surveys = data?.data?.surveys || []
+      totalCount = data?.data?.count || totalCount
 
-      console.log(`[ovation-service] Parsed ${Array.isArray(conversations) ? conversations.length : 'non-array'} conversations, totalCount=${totalCount}`)
-      
-      if (skip === 0 && conversations.length > 0) {
-        const sample = conversations[0]
-        console.log(`[ovation-service] Sample conversation keys: ${JSON.stringify(Object.keys(sample))}`)
-        console.log(`[ovation-service] lastSurvey: ${JSON.stringify(sample.lastSurvey)}`.substring(0, 500))
-        console.log(`[ovation-service] lastMessage: ${JSON.stringify(sample.lastMessage)}`.substring(0, 500))
-      }
-      
+      if (surveys.length === 0) break
 
-      let newCount = 0
-      for (const conv of conversations) {
-        const id = conv._id || conv.id
-        if (!id || seenIds.has(id)) continue
+      const newSurveys = surveys.filter((s: any) => {
+        const id = s._id || s.id
+        if (!id || seenIds.has(id)) return false
         seenIds.add(id)
-        newCount++
+        return true
+      })
 
-        // Filter by location
-        const convLocId = conv.location?._id || conv.location || conv.locationId
-        if (ovationLocationIds.length > 0 && !ovationLocationIds.includes(String(convLocId))) continue
-
-        // Filter by date
-        const createdAt = new Date(conv.created || conv.createdAt || conv.survey?.created)
-        if (createdAt < startDate) continue
-
-        allConversations.push(conv)
+      if (newSurveys.length === 0) {
+        emptyBatches++
+        if (emptyBatches >= 2) break
+      } else {
+        emptyBatches = 0
       }
 
-      console.log(`[ovation-service] skip=${skip}: got ${conversations.length} convs, ${newCount} new, ${allConversations.length} total matched`)
+      // Server-side location filtering (strict)
+      const pageMatches = newSurveys.filter((survey: any) => surveyMatchesAllowedLocations(survey, ovationLocationIds))
+      matchingSurveys.push(...pageMatches)
 
-      if (newCount === 0) break // API returning dupes
-      if (conversations.length < BATCH_SIZE) break // Last page
+      console.log(`[ovation-service] skip=${skip}: ${pageMatches.length}/${surveys.length} matched (total API count=${totalCount})`)
+
+      if (skip + BATCH_SIZE >= totalCount) break
       skip += BATCH_SIZE
     }
 
-    // Sort by date descending
-    allConversations.sort((a, b) => {
-      const dateA = new Date(a.created || a.createdAt || a.survey?.created).getTime()
-      const dateB = new Date(b.created || b.createdAt || b.survey?.created).getTime()
-      return dateB - dateA
-    })
-
     const offset = Math.max(0, (page - 1) * pageSize)
-    const paged = allConversations.slice(offset, offset + pageSize)
+    const pagedSurveys = matchingSurveys.slice(offset, offset + pageSize)
 
-    const reviews = paged.map((c: any) => {
-      const survey = c.survey || c
-      return {
-        id: c._id || c.id,
-        customerName: c.customer?.name || survey.customer?.name || 'Anonymous',
-        rating: survey.rating ?? c.rating,
-        feedback: survey.feedback || c.feedback || null,
-        source: survey.source || c.source,
-        createdAt: c.created || c.createdAt || survey.created,
-        hasResponse: !!(c.response || survey.response),
-      }
-    })
+    const reviews = pagedSurveys.map((s: any) => ({
+      id: s._id,
+      customerName: s.customer?.name || 'Anonymous',
+      rating: s.rating,
+      feedback: s.feedback || null,
+      source: s.source,
+      createdAt: s.created,
+      hasResponse: !!s.response,
+    }))
 
     const weekStart = new Date(now)
     weekStart.setDate(weekStart.getDate() - weekStart.getDay())
     weekStart.setHours(0, 0, 0, 0)
 
-    const wtdSurveys = allConversations.filter((c: any) => {
-      const d = new Date(c.created || c.createdAt || c.survey?.created)
-      return d >= weekStart
-    })
+    const wtdSurveys = matchingSurveys.filter((s: any) => new Date(s.created) >= weekStart)
     const wtdAvg = wtdSurveys.length > 0
-      ? wtdSurveys.reduce((sum: number, c: any) => sum + ((c.survey?.rating ?? c.rating) || 0), 0) / wtdSurveys.length
+      ? wtdSurveys.reduce((sum: number, s: any) => sum + (s.rating || 0), 0) / wtdSurveys.length
       : null
 
     return jsonResponse({
       reviews,
-      totalCount: allConversations.length,
+      totalCount: matchingSurveys.length,
       wtdAverage: wtdAvg ? Math.round(wtdAvg * 100) / 100 : null,
       wtdCount: wtdSurveys.length,
     })
