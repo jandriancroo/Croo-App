@@ -1098,12 +1098,22 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 setOvationIsTesting(true);
                 setOvationTestResult(null);
                 try {
-                  const { data, error } = await supabase.functions.invoke('ovation-service', {
-                    body: { action: 'test_auth', username: ovationEmail, password: ovationPassword },
+                  const { data, error } = await supabase.functions.invoke('ovation-service?action=test_auth', {
+                    body: { username: ovationEmail, password: ovationPassword },
                   });
                   if (error) throw error;
-                  if (data?.success) { setOvationTestResult('success'); toast.success('OvationUp authentication successful!'); }
-                  else { setOvationTestResult('error'); toast.error(data?.error || 'Auth test failed'); }
+                  if (data?.success) {
+                    setOvationTestResult('success');
+                    toast.success('OvationUp authentication successful!');
+                    // Auto-populate company ID if discovered
+                    if (data.companyId && !ovationCompanyId) {
+                      setOvationCompanyId(data.companyId);
+                      toast.success(`Company found: ${data.companyName || data.companyId}`);
+                    }
+                  } else {
+                    setOvationTestResult('error');
+                    toast.error(data?.error || 'Auth test failed');
+                  }
                 } catch (error) {
                   setOvationTestResult('error');
                   toast.error('Test failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
