@@ -1613,105 +1613,121 @@ serve(async (req) => {
         const isOpusQuery = /@opus\b/i.test(queryText);
         const cleanQuery = queryText.replace(/@opus\b/i, "").trim();
 
-        // Try vector search first if we have the RPC
+        // Try vector search first for normal questions only.
+        // For @OPUS, always use the title index first so search/list mode is deterministic.
         let relevant: any[] = [];
-        
-        // Attempt embedding-based search via theo-memory
-        try {
-          const memResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/theo-memory`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              action: "search",
-              location_id: location_id,
-              query: cleanQuery,
-            }),
-          });
-          if (memResp.ok) {
-            const memData = await memResp.json();
-            relevant = memData.results || [];
+
+        if (!isOpusQuery) {
+          try {
+            const memResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/theo-memory`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                action: "search",
+                location_id: location_id,
+                query: cleanQuery,
+              }),
+            });
+            if (memResp.ok) {
+              const memData = await memResp.json();
+              relevant = memData.results || [];
+            }
+          } catch (e) {
+            console.error("Vector memory search failed, falling back to text:", e);
           }
-        } catch (e) {
-          console.error("Vector memory search failed, falling back to text:", e);
         }
 
-        // Fallback: text-based search
+        // Fallback / primary OPUS search
         if (relevant.length === 0) {
           if (isOpusQuery && cleanQuery.length > 0) {
-            // Use the opus_resource_index for fast trigram title search
-            const searchWords = cleanQuery.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
-            
-            // Build OR conditions for each word against the title
-            const orConditions = searchWords.map((w: string) => `title.ilike.%${w}%`).join(',');
-            
-            const { data: indexHits } = await supabaseAdmin
+            const stopWords = new Set(["how", "what", "when", "where", "why", "make", "show", "find", "pull", "open", "need", "with", "from", "into", "this", "that", "the", "and", "for"]);
+            const searchWords = cleanQuery
+              .toLowerCase()
+              .replace(/[^a-z0-9\s-]/g, " ")
+              .split(/\s+/)
+              .filter((w: string) => w.length > 2 && !stopWords.has(w));
+
+            const fallbackWords = searchWords.length > 0
+              ? searchWords
+              : cleanQuery.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).filter((w: string) => w.length > 1);
+
+            const orConditions = fallbackWords.map((w: string) => `title.ilike.%${w}%`).join(",");
+
+            const { data: indexHits, error: indexError } = await supabaseAdmin
               .from("opus_resource_index")
               .select("title, resource_type, opus_id, theo_knowledge_id")
               .eq("location_id", location_id)
               .or(orConditions)
-              .limit(15);
-            
+              .limit(20);
+
+            if (indexError) {
+              console.error("[ai-assistant] OPUS index search error:", indexError);
+            }
+
             if (indexHits && indexHits.length > 0) {
-              // Score results: more keyword matches = higher rank
-              const scored = indexHits.map((hit: any) => {
-                const titleLower = hit.title.toLowerCase();
-                let score = 0;
-                for (const word of searchWords) {
-                  if (titleLower.includes(word)) score += 1;
-                }
-                return { ...hit, _score: score };
-              }).sort((a: any, b: any) => b._score - a._score).slice(0, 8);
-              
-              console.log(`[ai-assistant] @OPUS index search: "${cleanQuery}" → ${scored.length} results`);
-              
-              // Fetch full content from theo_knowledge for top matches
-              const knowledgeIds = scored.filter((s: any) => s.theo_knowledge_id).map((s: any) => s.theo_knowledge_id);
+              const scored = indexHits
+                .map((hit: any) => {
+                  const titleLower = (hit.title || "").toLowerCase();
+                  let score = 0;
+                  for (const word of fallbackWords) {
+                    if (titleLower.includes(word)) score += 1;
+                  }
+                  return { ...hit, _score: score };
+                })
+                .filter((hit: any) => hit._score > 0)
+                .sort((a: any, b: any) => b._score - a._score || a.title.localeCompare(b.title))
+                .slice(0, 8);
+
+              console.log(`[ai-assistant] @OPUS index search: "${cleanQuery}" → ${scored.length} ranked results`);
+
+              const knowledgeIds = scored
+                .filter((s: any) => s.theo_knowledge_id)
+                .map((s: any) => s.theo_knowledge_id);
+
               if (knowledgeIds.length > 0) {
                 const { data: fullContent } = await supabaseAdmin
                   .from("theo_knowledge")
                   .select("id, topic, content")
                   .in("id", knowledgeIds);
-                
-                if (fullContent) {
-                  // Map back to scored results
-                  const contentMap = new Map(fullContent.map((c: any) => [c.id, c]));
-                  relevant = scored.map((s: any) => {
-                    const full = contentMap.get(s.theo_knowledge_id);
-                    return full || { topic: `opus_training_${s.resource_type.toLowerCase()}`, content: `[OPUS Training Resource] ${s.title}\nType: ${s.resource_type}\nOPUS ID: ${s.opus_id}` };
-                  });
-                }
+
+                const contentMap = new Map((fullContent || []).map((c: any) => [c.id, c]));
+                relevant = scored.map((s: any) => {
+                  const full = contentMap.get(s.theo_knowledge_id);
+                  return full || {
+                    topic: `opus_training_${String(s.resource_type || "resource").toLowerCase()}`,
+                    content: `[OPUS Training Resource] ${s.title}\nType: ${s.resource_type}\nOPUS ID: ${s.opus_id}`,
+                  };
+                });
               } else {
                 relevant = scored.map((s: any) => ({
-                  topic: `opus_training_${s.resource_type.toLowerCase()}`,
-                  content: `[OPUS Training Resource] ${s.title}\nType: ${s.resource_type}\nOPUS ID: ${s.opus_id}`
+                  topic: `opus_training_${String(s.resource_type || "resource").toLowerCase()}`,
+                  content: `[OPUS Training Resource] ${s.title}\nType: ${s.resource_type}\nOPUS ID: ${s.opus_id}`,
                 }));
               }
             } else {
               relevant = [];
             }
           } else if (isOpusQuery) {
-            // @OPUS with no search term — return sample titles from index
             const { data: samples } = await supabaseAdmin
               .from("opus_resource_index")
               .select("title, resource_type, opus_id")
               .eq("location_id", location_id)
               .limit(10);
+
             relevant = (samples || []).map((s: any) => ({
-              topic: `opus_training_${s.resource_type.toLowerCase()}`,
-              content: `[OPUS Training Resource] ${s.title}\nType: ${s.resource_type}\nOPUS ID: ${s.opus_id}`
+              topic: `opus_training_${String(s.resource_type || "resource").toLowerCase()}`,
+              content: `[OPUS Training Resource] ${s.title}\nType: ${s.resource_type}\nOPUS ID: ${s.opus_id}`,
             }));
           } else {
-            // Regular (non-OPUS) search
-            let query = supabaseAdmin
+            const { data: memories } = await supabaseAdmin
               .from("theo_knowledge")
               .select("topic, content")
-              .eq("location_id", location_id);
-            
-            const { data: memories } = await query.limit(20);
-            
+              .eq("location_id", location_id)
+              .limit(20);
+
             if (memories && memories.length > 0) {
               const queryLower = cleanQuery.toLowerCase();
               const queryWords = queryLower.split(/\s+/).filter((w: string) => w.length > 3);
@@ -1724,55 +1740,13 @@ serve(async (req) => {
           }
         }
 
-        // If @OPUS query, filter results to OPUS content only
         if (isOpusQuery && relevant.length > 0) {
-          relevant = relevant.filter((m: any) => 
-            (m.topic && m.topic.startsWith("opus_training_")) || 
+          relevant = relevant.filter((m: any) =>
+            (m.topic && m.topic.startsWith("opus_training_")) ||
             (m.content && (m.content.includes("[OPUS Training Resource]") || m.content.includes("[OPUS Training Module]")))
           );
 
-          // Lazy content extraction: if top result has a PDF but no extracted content, fetch it now
-          for (let i = 0; i < Math.min(relevant.length, 2); i++) {
-            const r = relevant[i];
-            if (r.content?.includes("Media URL:") && !r.content?.includes("[EXTRACTED CONTENT]")) {
-              // Extract resource name from content
-              const nameMatch = r.content.match(/\[OPUS Training (?:Resource|Module)\] (.+)/);
-              const resourceName = nameMatch?.[1]?.trim();
-              if (resourceName) {
-                try {
-                  console.log(`[ai-assistant] Lazy-extracting OPUS resource: ${resourceName}`);
-                  const extractResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/opus-service`, {
-                    method: "POST",
-                    headers: {
-                      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      action: "fetch_resource_content",
-                      location_id,
-                      resource_name: resourceName,
-                    }),
-                  });
-                  if (extractResp.ok) {
-                    const extractData = await extractResp.json();
-                    if (extractData.success || extractData.already_extracted) {
-                      // Re-fetch the updated content
-                      const { data: updated } = await supabaseAdmin
-                        .from("theo_knowledge")
-                        .select("topic, content")
-                        .eq("location_id", location_id)
-                        .ilike("content", `%${resourceName}%`)
-                        .limit(1)
-                        .maybeSingle();
-                      if (updated) relevant[i] = updated;
-                    }
-                  }
-                } catch (e) {
-                  console.error("[ai-assistant] Lazy extraction failed:", e);
-                }
-              }
-            }
-          }
+          console.log(`[ai-assistant] @OPUS usable results after filter: ${relevant.length}`);
         }
         
         if (relevant.length > 0) {
