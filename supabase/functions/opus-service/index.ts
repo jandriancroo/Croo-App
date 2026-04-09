@@ -618,9 +618,42 @@ serve(async (req) => {
       }
 
       const pdfUrl = mediaUrlMatch[1].trim();
-      console.log("[opus-service] Extracting content from: " + pdfUrl);
+      console.log("[opus-service] Downloading PDF from: " + pdfUrl);
 
-      // Use Gemini to extract content from the PDF URL
+      // Actually download the PDF file first
+      let pdfBase64: string;
+      let mimeType = "application/pdf";
+      try {
+        const pdfResp = await fetch(pdfUrl);
+        if (!pdfResp.ok) {
+          console.error("[opus-service] PDF download failed:", pdfResp.status);
+          return new Response(JSON.stringify({ error: "Failed to download resource file", status: pdfResp.status }), {
+            status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const contentType = pdfResp.headers.get("content-type") || "";
+        if (contentType.includes("image")) {
+          mimeType = contentType.split(";")[0].trim();
+        } else if (contentType.includes("pdf")) {
+          mimeType = "application/pdf";
+        }
+        const arrayBuf = await pdfResp.arrayBuffer();
+        // Convert to base64
+        const bytes = new Uint8Array(arrayBuf);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        pdfBase64 = btoa(binary);
+        console.log(`[opus-service] Downloaded ${bytes.length} bytes, mime: ${mimeType}`);
+      } catch (dlErr) {
+        console.error("[opus-service] PDF download error:", dlErr);
+        return new Response(JSON.stringify({ error: "Failed to download resource file" }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Send the actual file bytes to Gemini for extraction
       try {
         const aiResp = await fetch(AI_URL, {
           method: "POST",
@@ -630,11 +663,22 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: "You are a document content extractor. Extract ALL text content from the provided document. Preserve structure, headings, bullet points, and recipe steps. Be thorough — include every detail, measurement, temperature, and instruction. Output clean formatted text.",
+                content: "You are a document content extractor. Extract ALL text content EXACTLY as written in the provided document. Do NOT add, infer, or make up any content. Only output what is literally in the document. Preserve structure, headings, bullet points, measurements, and steps exactly as they appear. If you cannot read the document, say 'EXTRACTION FAILED: unable to read document'.",
               },
               {
                 role: "user",
-                content: "Extract the complete text content from this training document PDF: " + pdfUrl + "\n\nDocument title: " + resource_name + "\n\nProvide the full extracted text with proper formatting.",
+                content: [
+                  {
+                    type: "text",
+                    text: "Extract the EXACT text content from this training document. Do NOT make anything up — only include text that is literally visible in the document. Document title: " + resource_name,
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${mimeType};base64,${pdfBase64}`,
+                    },
+                  },
+                ],
               },
             ],
           }),
