@@ -1159,9 +1159,11 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   };
 
                   if (existing) {
-                    await supabase.from('ovation_integrations').update(brandData).eq('id', existing.id);
+                    const { error } = await supabase.from('ovation_integrations').update(brandData).eq('id', existing.id);
+                    if (error) throw error;
                   } else {
-                    await supabase.from('ovation_integrations').insert({ brand_id: ovationBrandId, ...brandData });
+                    const { error } = await supabase.from('ovation_integrations').insert({ brand_id: ovationBrandId, ...brandData });
+                    if (error) throw error;
                   }
 
                   // Auto-map location if no ovation location ID provided
