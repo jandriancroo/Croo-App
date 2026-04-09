@@ -1280,21 +1280,18 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         </div>
       </header>
       
-      {/* Ovation score tab hanging below mobile header */}
+      {/* Ovation score tab + popover hanging below mobile header */}
       {isMobile && currentLocation && (
         <div 
-          className="fixed left-1/2 -translate-x-1/2 z-[48]"
+          className="fixed left-1/2 -translate-x-1/2 z-[48] flex flex-col items-center"
           style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)' }}
         >
           <OvationScoreTab expanded={ovationExpanded} onToggle={() => setOvationExpanded(prev => !prev)} />
+          <OvationExpandedPanel expanded={ovationExpanded} />
         </div>
       )}
       
       <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+4.5rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
-        {/* Ovation expanded panel — in document flow so it pushes content down */}
-        {isMobile && currentLocation && (
-          <OvationExpandedPanel expanded={ovationExpanded} />
-        )}
         {children}
       </main>
       
