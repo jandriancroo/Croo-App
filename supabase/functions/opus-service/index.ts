@@ -261,27 +261,19 @@ serve(async (req) => {
         });
       }
 
-      // Test with known OPUS queries
+      // Test with exact OPUS query format from dashboard
       const testQuery = {
-        operationName: "DiscoverEmployees",
-        query: `query DiscoverEmployees {
-          AdminEmployee(id: 1541347) {
-            id
-            name
-            firstName
-            lastName
-            roles { id name }
-            locations { id name }
-          }
-          Assignments(input: {filters: {userId: {value: 1541347}, contentTypes: {value: [PATH, COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) {
-            objects {
-              id
-              status
-              content { id name description }
-              progress { completionPercentage totalSteps completedSteps }
-            }
-          }
-        }`,
+        operationName: "UserPageHeaderEmployee",
+        variables: { id: 1541347 },
+        query: `query UserPageHeaderEmployee($id: Int!) {
+  AdminEmployee(id: $id) {
+    id
+    name
+    firstName
+    lastName
+    __typename
+  }
+}`,
       };
 
       const resp = await fetch(OPUS_GRAPHQL, {
@@ -292,6 +284,7 @@ serve(async (req) => {
           "Origin": "https://dashboard.opus.so",
           "Referer": "https://dashboard.opus.so/",
           "x-opus-role": "admin",
+          "x-dashboard-url": "https://dashboard.opus.so/users/1541347?org=1491-Blaze+Pizza",
         },
         body: JSON.stringify(testQuery),
       });
