@@ -1309,49 +1309,59 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             {/* ── Employee Mapping Section ── */}
             {opusIntegration?.is_active && (
               <div className="space-y-3 border-t pt-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Employee Mapping</Label>
-                  <Button variant="outline" size="sm" className="h-7 text-[11px]" disabled={opusIsFetchingEmployees}
+                <Label className="text-sm font-medium">Employee Mapping</Label>
+                
+                {/* Add by OPUS ID */}
+                <div className="flex gap-2">
+                  <Input
+                    value={opusNewId}
+                    onChange={(e) => setOpusNewId(e.target.value)}
+                    placeholder="OPUS Employee ID"
+                    className="h-8 text-xs flex-1 font-mono"
+                    type="number"
+                  />
+                  <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" disabled={!opusNewId || opusIsFetchingEmployees}
                     onClick={async () => {
+                      const id = Number(opusNewId);
+                      if (!id || opusMappings.some(m => m.opus_id === id)) {
+                        toast.error(opusMappings.some(m => m.opus_id === id) ? 'Already added' : 'Enter a valid ID');
+                        return;
+                      }
                       setOpusIsFetchingEmployees(true);
                       try {
                         const { data, error } = await supabase.functions.invoke('opus-service', {
-                          body: { action: 'fetch_employees', location_id: locationId },
+                          body: { action: 'fetch_employees', location_id: locationId, opus_id: id },
                         });
                         if (error) throw error;
-                        if (data?.employees) {
-                          setOpusEmployees(data.employees);
-                          // Auto-create mapping entries for new employees
-                          const existing = new Set(opusMappings.map(m => m.opus_id));
-                          const newMappings = [...opusMappings];
-                          for (const emp of data.employees) {
-                            if (!existing.has(emp.opus_id)) {
-                              // Try auto-match by name
-                              const match = (locationTeamMembers || []).find(
-                                (tm: any) => tm.name.toLowerCase() === emp.name.toLowerCase()
-                              );
-                              newMappings.push({
-                                opus_id: emp.opus_id,
-                                name: emp.name,
-                                croo_user_id: match?.id || '',
-                              });
-                            }
-                          }
-                          setOpusMappings(newMappings);
-                          toast.success(`Found ${data.employees.length} OPUS employees`);
+                        if (data?.employee) {
+                          const match = (locationTeamMembers || []).find(
+                            (tm: any) => tm.name.toLowerCase() === data.employee.name.toLowerCase()
+                          );
+                          setOpusMappings(prev => [...prev, {
+                            opus_id: data.employee.opus_id,
+                            name: data.employee.name,
+                            croo_user_id: match?.id || '',
+                          }]);
+                          setOpusNewId('');
+                          toast.success(`Found: ${data.employee.name}${match ? ' (auto-matched!)' : ''}`);
+                        } else {
+                          toast.error('Employee not found in OPUS');
                         }
                       } catch (_e) {
-                        toast.error('Failed to fetch OPUS employees');
+                        toast.error('Lookup failed');
                       } finally { setOpusIsFetchingEmployees(false); }
                     }}>
-                    {opusIsFetchingEmployees ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-                    Fetch from OPUS
+                    {opusIsFetchingEmployees ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                    Add
                   </Button>
                 </div>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  Find employee IDs in OPUS → Team → click an employee → the number in the URL.
+                </p>
 
                 {opusMappings.length === 0 ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    Click "Fetch from OPUS" to load employees, then map them to your team members.
+                  <p className="text-[11px] text-muted-foreground italic">
+                    No employees mapped yet. Add OPUS IDs above.
                   </p>
                 ) : (
                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
