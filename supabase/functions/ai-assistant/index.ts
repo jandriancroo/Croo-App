@@ -1604,6 +1604,7 @@ RESPONSE FORMATTING:
 - For shift swap/marketplace questions, use query_shift_marketplace.
 - For store hours questions, use query_store_hours.
 - For employee note/write-up questions, use query_employee_notes.
+- For guest review/feedback/Ovation questions, use query_ovation_reviews. When reviews contain matched_employees, ALWAYS use [[employee:Full Name]] tags in your response for those names — this renders them as badges in the chat UI. Example: "[[employee:Sean Martin]] was mentioned in a 3-star review."
 - "Today" = ${today}, "yesterday" = ${yesterday}, "tomorrow" = ${tomorrow}.
 - If a tool returns empty results after retries, let the user know naturally.
 - Use markdown tables and formatting liberally — the chat UI renders them with polished styling.`;
