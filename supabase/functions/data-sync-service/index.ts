@@ -616,9 +616,13 @@ async function handleFetchOvationScores(req: Request, supabase: any): Promise<Re
         .in('location_id', locationIds)
 
       if (mappings) {
-        ovationLocationIds = mappings.map((m: any) => m.ovation_location_id)
+        ovationLocationIds = mappings
+          .filter((m: any) => m.ovation_location_id && m.ovation_location_id !== 'pending')
+          .map((m: any) => m.ovation_location_id)
         mappings.forEach((m: any) => {
-          locationMappings[m.ovation_location_id] = m.location_id
+          if (m.ovation_location_id && m.ovation_location_id !== 'pending') {
+            locationMappings[m.ovation_location_id] = m.location_id
+          }
         })
       }
     }
@@ -637,9 +641,13 @@ async function handleFetchOvationScores(req: Request, supabase: any): Promise<Re
           .in('location_id', locIds)
 
         if (mappings) {
-          ovationLocationIds = mappings.map((m: any) => m.ovation_location_id)
+          ovationLocationIds = mappings
+            .filter((m: any) => m.ovation_location_id && m.ovation_location_id !== 'pending')
+            .map((m: any) => m.ovation_location_id)
           mappings.forEach((m: any) => {
-            locationMappings[m.ovation_location_id] = m.location_id
+            if (m.ovation_location_id && m.ovation_location_id !== 'pending') {
+              locationMappings[m.ovation_location_id] = m.location_id
+            }
           })
         }
       }

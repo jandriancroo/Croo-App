@@ -836,7 +836,7 @@ async function handleFetchReviews(req: Request, supabase: any) {
     if (locAuth) {
       authToken = locAuth.token
       companyId = locAuth.companyId
-      if (locAuth.ovationLocationId) {
+      if (locAuth.ovationLocationId && locAuth.ovationLocationId !== 'pending') {
         ovationLocationIds = [locAuth.ovationLocationId]
       }
       console.log(`[ovation-service] Using per-location auth for ${locationId}`)
@@ -885,8 +885,10 @@ async function handleFetchReviews(req: Request, supabase: any) {
         .select('ovation_location_id')
         .eq('location_id', locationId)
         .maybeSingle()
-      if (mapping) {
+      if (mapping && mapping.ovation_location_id !== 'pending') {
         ovationLocationIds = [mapping.ovation_location_id]
+      } else if (mapping && mapping.ovation_location_id === 'pending') {
+        return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0, pending: true })
       } else {
         return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 })
       }
@@ -990,9 +992,13 @@ async function handleFetchScores(req: Request, supabase: any) {
       .select('location_id, ovation_location_id')
       .in('location_id', locationIds)
     if (mappings) {
-      ovationLocationIds = mappings.map((m: any) => m.ovation_location_id)
+      ovationLocationIds = mappings
+        .filter((m: any) => m.ovation_location_id && m.ovation_location_id !== 'pending')
+        .map((m: any) => m.ovation_location_id)
       mappings.forEach((m: any) => {
-        locationMappings[m.ovation_location_id] = m.location_id
+        if (m.ovation_location_id && m.ovation_location_id !== 'pending') {
+          locationMappings[m.ovation_location_id] = m.location_id
+        }
       })
     }
   }
