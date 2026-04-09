@@ -838,8 +838,10 @@ async function handleFetchReviews(req: Request, supabase: any) {
       companyId = locAuth.companyId
       if (locAuth.ovationLocationId && locAuth.ovationLocationId !== 'pending') {
         ovationLocationIds = [locAuth.ovationLocationId]
+      } else if (locAuth.ovationLocationId === 'pending') {
+        return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0, pending: true })
       }
-      console.log(`[ovation-service] Using per-location auth for ${locationId}`)
+      console.log(`[ovation-service] Using per-location auth for ${locationId}, ovationLocIds=${JSON.stringify(ovationLocationIds)}`)
     }
   }
 
@@ -895,6 +897,12 @@ async function handleFetchReviews(req: Request, supabase: any) {
     }
   }
 
+  // If we have a locationId but couldn't resolve an ovation location, return empty
+  if (locationId && ovationLocationIds.length === 0) {
+    console.log(`[ovation-service] No ovation location ID resolved for ${locationId}, returning empty`)
+    return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 })
+  }
+
   if (!companyId) {
     return jsonResponse({ error: 'No company ID configured', reviews: [] })
   }
@@ -905,9 +913,7 @@ async function handleFetchReviews(req: Request, supabase: any) {
   const filters: any = {
     companyIds: [companyId],
     createdAtRange: [startDate.toISOString(), now.toISOString()],
-  }
-  if (ovationLocationIds.length > 0) {
-    filters.locationIds = ovationLocationIds
+    ...(ovationLocationIds.length > 0 ? { locationIds: ovationLocationIds } : {}),
   }
 
   try {
