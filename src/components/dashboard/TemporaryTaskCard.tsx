@@ -84,10 +84,11 @@ export function TemporaryTaskCard({
           style={{ backgroundColor: accentColor }}
         />
         <div className="flex-1 flex items-center gap-2 py-2 pr-2.5 min-w-0">
-          {isOpusTask && (
-            <img src={opusLogo} alt="OPUS" className="h-5 w-auto shrink-0 opacity-80" loading="lazy" />
+          {isOpusTask ? (
+            <img src={opusLogo} alt="OPUS" className="h-7 w-auto shrink-0" loading="lazy" />
+          ) : (
+            <span className="font-medium text-sm truncate flex-1">{title}</span>
           )}
-          <span className="font-medium text-sm truncate flex-1">{title}</span>
           {taskStyle === "alarm" && (
             <span 
               className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
