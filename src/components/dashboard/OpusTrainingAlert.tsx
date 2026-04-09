@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -12,6 +12,42 @@ export function OpusTrainingAlert() {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
   const [open, setOpen] = useState(false);
+  const syncTriggered = useRef(false);
+
+  // Background heartbeat: sync OPUS library into Theo's brain on dashboard load
+  useEffect(() => {
+    if (!currentLocation?.id || syncTriggered.current) return;
+    syncTriggered.current = true;
+    
+    // Fire-and-forget background sync — keeps session warm + refreshes training data
+    const syncOpus = async () => {
+      try {
+        // Check if OPUS is configured for this location
+        const { data: integration } = await supabase
+          .from("location_integrations")
+          .select("id")
+          .eq("location_id", currentLocation.id)
+          .eq("integration_type", "opus")
+          .eq("is_active", true)
+          .maybeSingle();
+        
+        if (!integration) return;
+
+        // Sync library to Theo's brain (generates embeddings for new items)
+        await supabase.functions.invoke("opus-service", {
+          body: { action: "fetch_library", location_id: currentLocation.id },
+        });
+        console.log("[OPUS] Background library sync completed");
+      } catch (e) {
+        // Silent fail — this is a background heartbeat
+        console.warn("[OPUS] Background sync failed (non-fatal):", e);
+      }
+    };
+    
+    // Delay 3s to not block dashboard rendering
+    const timer = setTimeout(syncOpus, 3000);
+    return () => clearTimeout(timer);
+  }, [currentLocation?.id]);
 
   const { data: modules = [] } = useQuery({
     queryKey: ["opus-training", currentLocation?.id, user?.id],
