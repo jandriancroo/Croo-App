@@ -18,6 +18,20 @@ const OPUS_HEADERS = (sessionId: string) => ({
   "x-opus-role": "admin",
 });
 
+/** Helper: get OPUS session from location_integrations */
+async function getOpusSession(supabase: any, locationId: string) {
+  const { data: integration, error } = await supabase
+    .from("location_integrations")
+    .select("credentials")
+    .eq("location_id", locationId)
+    .eq("integration_type", "opus")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !integration) return null;
+  return (integration.credentials as any)?.sessionid || null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -46,7 +60,7 @@ serve(async (req) => {
     const action = body.action;
 
     // ── ACTION: sync_training ──
-    // Fetches employee training data from OPUS GraphQL and syncs to our DB
+    // Fetches incomplete assignment counts per mapped employee and creates aggregated Quick Tasks
     if (action === "sync_training") {
       const { location_id } = body;
       if (!location_id) {
@@ -55,8 +69,15 @@ serve(async (req) => {
         });
       }
 
-      // Get OPUS session from location_integrations
-      const { data: integration, error: intError } = await supabase
+      const sessionId = await getOpusSession(supabase, location_id);
+      if (!sessionId) {
+        return new Response(JSON.stringify({ error: "OPUS integration not configured" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get OPUS employee mappings from credentials
+      const { data: integration } = await supabase
         .from("location_integrations")
         .select("credentials")
         .eq("location_id", location_id)
@@ -64,71 +85,40 @@ serve(async (req) => {
         .eq("is_active", true)
         .maybeSingle();
 
-      if (intError || !integration) {
-        return new Response(JSON.stringify({ error: "OPUS integration not configured" }), {
-          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const creds = integration?.credentials as any;
+      const employeeMappings: Array<{ opus_id: number; croo_user_id: string; name: string }> = creds?.employee_mappings || [];
 
-      const creds = integration.credentials as any;
-      const sessionId = creds?.sessionid;
-      if (!sessionId) {
-        return new Response(JSON.stringify({ error: "No OPUS sessionid configured" }), {
+      if (employeeMappings.length === 0) {
+        return new Response(JSON.stringify({ 
+          error: "No employee mappings configured. Add employee_mappings to OPUS integration credentials.",
+          hint: "Format: [{opus_id: 1541347, croo_user_id: 'uuid', name: 'John Doe'}, ...]"
+        }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Step 1: Get location employees from OPUS using AdminLocation
-      // We need the OPUS location ID — stored in credentials or we use a known one
-      const opusLocationId = creds?.opus_location_id;
-
-      // Step 2: For each matched Croo profile, query their Assignments count
-      // Get all profiles at this location for matching
-      const { data: locationProfiles } = await supabase
-        .from("user_locations")
-        .select("user_id, profiles:user_id(id, full_name, email)")
-        .eq("location_id", location_id);
-
-      const profilesList = (locationProfiles || []).map((lp: any) => ({
-        id: lp.profiles?.id,
-        name: (lp.profiles?.full_name || "").toLowerCase().trim(),
-        email: (lp.profiles?.email || "").toLowerCase().trim(),
-      })).filter((p: any) => p.id);
-
-      // Query OPUS for each employee's incomplete assignments using the confirmed schema
       let syncedCount = 0;
       let tasksCreated = 0;
-      const unmatchedNames: string[] = [];
-
-      // If we have opus_employee_mappings in credentials, use those
-      const employeeMappings = creds?.employee_mappings || [];
-      // Format: [{ opus_id: 1541347, croo_user_id: "uuid" }, ...]
+      let tasksResolved = 0;
+      const errors: string[] = [];
 
       for (const mapping of employeeMappings) {
         const { opus_id, croo_user_id, name: empName } = mapping;
         
-        // Query assignments for this OPUS employee
+        // Query OPUS for this employee's incomplete PATH + COURSE assignments (confirmed working schema)
         const assignmentsQuery = {
           operationName: "UserAssignments",
           query: `query UserAssignments($id: Int!) {
   pathAssignments: Assignments(
     input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH]}, accessTypes: {value: [ASSIGNMENT]}}}
   ) {
-    objects {
-      id
-      status
-      __typename
-    }
+    objects { id status __typename }
     __typename
   }
   courseAssignments: Assignments(
     input: {filters: {userId: {value: $id}, contentTypes: {value: [COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}
   ) {
-    objects {
-      id
-      status
-      __typename
-    }
+    objects { id status __typename }
     __typename
   }
 }`,
@@ -141,147 +131,112 @@ serve(async (req) => {
           body: JSON.stringify(assignmentsQuery),
         });
 
-      if (!opusResp.ok) {
-        const errText = await opusResp.text();
-        console.error("[opus-service] OPUS API error:", opusResp.status, errText);
-        return new Response(JSON.stringify({ 
-          error: "OPUS API request failed", 
-          status: opusResp.status,
-          hint: opusResp.status === 401 ? "Session expired — please paste a fresh sessionid in settings" : undefined,
-        }), {
-          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const opusData = await opusResp.json();
-      const employees = opusData?.data?.employees?.edges || [];
-
-      // Get all profiles at this location for name matching
-      const { data: locationProfiles } = await supabase
-        .from("user_locations")
-        .select("user_id, profiles:user_id(id, full_name, email)")
-        .eq("location_id", location_id);
-
-      const profilesList = (locationProfiles || []).map((lp: any) => ({
-        id: lp.profiles?.id,
-        name: (lp.profiles?.full_name || "").toLowerCase().trim(),
-        email: (lp.profiles?.email || "").toLowerCase().trim(),
-      })).filter((p: any) => p.id);
-
-      // Match OPUS employee to Croo profile by name or email
-      function matchProfile(opusName: string, opusEmail?: string) {
-        const normalizedName = opusName.toLowerCase().trim();
-        // Try exact name match
-        let match = profilesList.find((p: any) => p.name === normalizedName);
-        if (match) return match.id;
-        // Try email match
-        if (opusEmail) {
-          match = profilesList.find((p: any) => p.email === opusEmail.toLowerCase().trim());
-          if (match) return match.id;
-        }
-        // Try last name + first initial
-        const parts = normalizedName.split(/\s+/);
-        if (parts.length >= 2) {
-          match = profilesList.find((p: any) => {
-            const pParts = p.name.split(/\s+/);
-            return pParts.length >= 2 &&
-              pParts[pParts.length - 1] === parts[parts.length - 1] &&
-              pParts[0][0] === parts[0][0];
-          });
-          if (match) return match.id;
-        }
-        return null;
-      }
-
-      let syncedCount = 0;
-      let tasksCreated = 0;
-      const unmatchedNames: string[] = [];
-
-      for (const empEdge of employees) {
-        const emp = empEdge.node;
-        const matchedUserId = matchProfile(emp.name, emp.email);
-        if (!matchedUserId) {
-          unmatchedNames.push(emp.name);
-        }
-
-        const modules = emp.assignedModules?.edges || [];
-        for (const modEdge of modules) {
-          const mod = modEdge.node;
-          const completionPct = mod.completionPercentage ?? (mod.completed ? 100 : 0);
-
-          // Upsert module record
-          const { data: upserted, error: upsertErr } = await supabase
-            .from("opus_training_modules")
-            .upsert({
-              location_id: location_id,
-              opus_employee_name: emp.name,
-              user_id: matchedUserId,
-              module_name: mod.title,
-              completion_pct: completionPct,
-              opus_module_id: mod.id,
-              last_synced_at: new Date().toISOString(),
-            }, {
-              onConflict: "location_id,opus_module_id,user_id",
-            })
-            .select("id, task_id, completion_pct")
-            .single();
-
-          if (upsertErr) {
-            console.error("[opus-service] Upsert error:", upsertErr);
-            continue;
+        if (!opusResp.ok) {
+          const errText = await opusResp.text();
+          console.error(`[opus-service] Assignment fetch failed for ${empName}:`, opusResp.status, errText);
+          if (opusResp.status === 401) {
+            return new Response(JSON.stringify({ 
+              error: "OPUS session expired", 
+              hint: "Paste a fresh sessionid in OPUS integration settings" 
+            }), {
+              status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
           }
-          syncedCount++;
+          errors.push(`${empName}: API error ${opusResp.status}`);
+          continue;
+        }
 
-          // Auto-create/resolve Quick Tasks
-          if (matchedUserId && completionPct < 100) {
-            // Create a Quick Task if none exists
-            if (!upserted.task_id) {
-              const { data: task, error: taskErr } = await supabase
-                .from("temporary_tasks")
-                .insert({
-                  location_id: location_id,
-                  title: `Complete OPUS: ${mod.title}`,
-                  description: `Training module "${mod.title}" is ${completionPct}% complete. Tap GO to open OPUS and finish this module.`,
-                  icon_name: "GraduationCap",
-                  accent_color: "#8B5CF6",
-                  is_active: true,
-                  show_on_dashboard: true,
-                  task_style: "default",
-                  created_by: matchedUserId,
-                })
-                .select("id")
-                .single();
+        const opusData = await opusResp.json();
+        const pathAssignments = opusData?.data?.pathAssignments?.objects || [];
+        const courseAssignments = opusData?.data?.courseAssignments?.objects || [];
+        const allAssignments = [...pathAssignments, ...courseAssignments];
+        
+        const incompleteCount = allAssignments.filter((a: any) => a.status === "incomplete").length;
+        const totalCount = allAssignments.length;
+        const completedCount = totalCount - incompleteCount;
 
-              if (!taskErr && task) {
-                // Assign to the specific user
-                await supabase.from("temporary_task_assignments").insert({
-                  task_id: task.id,
-                  user_id: matchedUserId,
-                });
-                // Link task back to module
-                await supabase.from("opus_training_modules").update({ task_id: task.id }).eq("id", upserted.id);
-                tasksCreated++;
-              }
+        syncedCount++;
+
+        // Upsert a summary record in opus_training_modules
+        const { data: upserted, error: upsertErr } = await supabase
+          .from("opus_training_modules")
+          .upsert({
+            location_id: location_id,
+            opus_employee_name: empName,
+            user_id: croo_user_id,
+            module_name: `Training Summary (${totalCount} modules)`,
+            completion_pct: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100,
+            opus_module_id: `summary_${opus_id}`,
+            last_synced_at: new Date().toISOString(),
+          }, {
+            onConflict: "location_id,opus_module_id,user_id",
+          })
+          .select("id, task_id, completion_pct")
+          .single();
+
+        if (upsertErr) {
+          console.error("[opus-service] Upsert error:", upsertErr);
+          errors.push(`${empName}: DB upsert failed`);
+          continue;
+        }
+
+        // Auto-create/resolve aggregated Quick Task
+        if (incompleteCount > 0) {
+          if (!upserted.task_id) {
+            const { data: task, error: taskErr } = await supabase
+              .from("temporary_tasks")
+              .insert({
+                location_id: location_id,
+                title: `OPUS: ${incompleteCount} Incomplete Module${incompleteCount > 1 ? 's' : ''}`,
+                description: `You have ${incompleteCount} incomplete training module${incompleteCount > 1 ? 's' : ''} on OPUS. Tap GO to open OPUS and complete your training.`,
+                icon_name: "GraduationCap",
+                accent_color: "#8B5CF6",
+                is_active: true,
+                show_on_dashboard: true,
+                task_style: "default",
+                created_by: croo_user_id,
+              })
+              .select("id")
+              .single();
+
+            if (!taskErr && task) {
+              await supabase.from("temporary_task_assignments").insert({
+                task_id: task.id,
+                user_id: croo_user_id,
+              });
+              await supabase.from("opus_training_modules").update({ task_id: task.id }).eq("id", upserted.id);
+              tasksCreated++;
             }
-          } else if (completionPct >= 100 && upserted.task_id) {
-            // Auto-resolve: mark task as completed
+          } else {
+            // Update existing task description with current count
             await supabase
               .from("temporary_tasks")
               .update({
-                completed_at: new Date().toISOString(),
-                completed_by: matchedUserId,
-                is_active: false,
+                title: `OPUS: ${incompleteCount} Incomplete Module${incompleteCount > 1 ? 's' : ''}`,
+                description: `You have ${incompleteCount} incomplete training module${incompleteCount > 1 ? 's' : ''} on OPUS. Tap GO to open OPUS and complete your training.`,
               })
               .eq("id", upserted.task_id);
           }
+        } else if (incompleteCount === 0 && upserted.task_id) {
+          // All complete — auto-resolve the task
+          await supabase
+            .from("temporary_tasks")
+            .update({
+              completed_at: new Date().toISOString(),
+              completed_by: croo_user_id,
+              is_active: false,
+            })
+            .eq("id", upserted.task_id);
+          tasksResolved++;
         }
       }
 
       return new Response(JSON.stringify({
         success: true,
-        synced: syncedCount,
+        employees_synced: syncedCount,
         tasks_created: tasksCreated,
-        unmatched_employees: unmatchedNames,
+        tasks_resolved: tasksResolved,
+        errors: errors.length > 0 ? errors : undefined,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -296,31 +251,42 @@ serve(async (req) => {
         });
       }
 
-      const opusHeaders = {
-        "Content-Type": "application/json",
-        "Cookie": `sessionid=${sessionid}`,
-        "Origin": "https://dashboard.opus.so",
-        "Referer": "https://dashboard.opus.so/",
-        "x-opus-role": "admin",
+      // Quick probe: try fetching AdminLibrary with 1 result to verify auth
+      const testQuery = {
+        operationName: "TestConnection",
+        query: `query TestConnection {
+  AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) {
+    totalCount
+    objects { id type name { en } __typename }
+    __typename
+  }
+}`,
       };
 
-      const aId = "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567";
-      const probes = [
-        { operationName: "P1", query: `query P1 { Assignment(id: "${aId}") { id contentObject { id name __typename } } }` },
-        { operationName: "P2", query: `query P2 { Assignment(id: "${aId}") { id assignable { id name __typename } } }` },
-        { operationName: "P3", query: `query P3 { Assignment(id: "${aId}") { id item { id name __typename } } }` },
-        { operationName: "P4", query: `query P4 { Assignment(id: "${aId}") { id resource { id name __typename } } }` },
-        { operationName: "P5", query: `query P5 { Assignment(id: "${aId}") { id target { id name __typename } } }` },
-        { operationName: "P6", query: `query P6 { Assignment(id: "${aId}") { id contentType assignedAt dueAt completedAt } }` },
-        { operationName: "P7", query: `query P7 { Assignment(id: "${aId}") { id content { id name __typename } } }` },
-        { operationName: "P8", query: `query P8 { AdminLocation(id: 1491) { id name employees { id name } } }` },
-      ];
+      const resp = await fetch(OPUS_GRAPHQL, {
+        method: "POST",
+        headers: OPUS_HEADERS(sessionid),
+        body: JSON.stringify(testQuery),
+      });
 
-      const results = await Promise.all(
-        probes.map(q => fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(q) }).then(r => r.json()))
-      );
-      
-      return new Response(JSON.stringify({ authenticated: true, ...Object.fromEntries(results.map((r, i) => [`p${i+1}`, r])) }), {
+      const data = await resp.json();
+      const totalCount = data?.data?.AdminLibrary?.totalCount;
+
+      if (totalCount !== undefined) {
+        return new Response(JSON.stringify({ 
+          authenticated: true, 
+          library_items: totalCount,
+          sample: data?.data?.AdminLibrary?.objects?.[0] || null,
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ 
+        authenticated: false, 
+        raw: data,
+        hint: "Session may be expired — grab a fresh sessionid from OPUS" 
+      }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -335,15 +301,7 @@ serve(async (req) => {
         });
       }
 
-      const { data: integration } = await supabase
-        .from("location_integrations")
-        .select("credentials")
-        .eq("location_id", location_id)
-        .eq("integration_type", "opus")
-        .eq("is_active", true)
-        .maybeSingle();
-
-      const sessionId = (integration?.credentials as any)?.sessionid;
+      const sessionId = await getOpusSession(supabase, location_id);
       if (!sessionId) {
         return new Response(JSON.stringify({ error: "OPUS session not configured" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -351,7 +309,11 @@ serve(async (req) => {
       }
 
       const fileResp = await fetch(file_url, {
-        headers: { "Cookie": `sessionid=${sessionId}` },
+        headers: { 
+          "Cookie": `sessionid=${sessionId}`,
+          "Origin": "https://dashboard.opus.so",
+          "Referer": "https://dashboard.opus.so/",
+        },
       });
 
       if (!fileResp.ok) {
@@ -373,7 +335,7 @@ serve(async (req) => {
     }
 
     // ── ACTION: fetch_library ──
-    // Fetches OPUS library resources to inject into Theo knowledge
+    // Fetches OPUS AdminLibrary (training modules catalog) and injects into Theo knowledge
     if (action === "fetch_library") {
       const { location_id } = body;
       if (!location_id) {
@@ -382,69 +344,84 @@ serve(async (req) => {
         });
       }
 
-      const { data: integration } = await supabase
-        .from("location_integrations")
-        .select("credentials")
-        .eq("location_id", location_id)
-        .eq("integration_type", "opus")
-        .eq("is_active", true)
-        .maybeSingle();
-
-      const sessionId = (integration?.credentials as any)?.sessionid;
+      const sessionId = await getOpusSession(supabase, location_id);
       if (!sessionId) {
         return new Response(JSON.stringify({ error: "OPUS session not configured" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
+      // Confirmed working AdminLibrary query — returns all training modules with names & cover images
       const libraryQuery = {
-        query: `
-          query LibraryResources {
-            resources {
-              edges {
-                node {
-                  id
-                  title
-                  description
-                  fileUrl
-                  fileType
-                  category
-                }
-              }
-            }
-          }
-        `,
+        operationName: "GetAdminLibrary",
+        query: `query GetAdminLibrary {
+  AdminLibrary(input: {pagination: {page: 1, pageSize: 500}}) {
+    totalCount
+    objects {
+      id
+      type
+      name {
+        en
+      }
+      coverImage {
+        imageUrls {
+          original
+          thumb
+        }
+      }
+      path {
+        id
+      }
+    }
+  }
+}`,
       };
 
       const resp = await fetch(OPUS_GRAPHQL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Cookie": `sessionid=${sessionId}`,
-        },
+        headers: OPUS_HEADERS(sessionId),
         body: JSON.stringify(libraryQuery),
       });
 
       if (!resp.ok) {
-        return new Response(JSON.stringify({ error: "OPUS library fetch failed" }), {
+        const errText = await resp.text();
+        console.error("[opus-service] AdminLibrary fetch failed:", resp.status, errText);
+        return new Response(JSON.stringify({ 
+          error: "OPUS library fetch failed",
+          hint: resp.status === 401 ? "Session expired" : undefined,
+        }), {
           status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       const data = await resp.json();
-      const resources = data?.data?.resources?.edges || [];
+      const objects = data?.data?.AdminLibrary?.objects || [];
+      const totalCount = data?.data?.AdminLibrary?.totalCount || 0;
 
-      // Inject each resource into theo_knowledge
+      // Inject each training module into theo_knowledge
       let injected = 0;
-      for (const edge of resources) {
-        const res = edge.node;
-        const content = `[OPUS Document] ${res.title}\n\nCategory: ${res.category || "General"}\n${res.description || ""}\n\nSource: OPUS Library\nFile: ${res.fileUrl || "N/A"}`;
+      for (const item of objects) {
+        const moduleName = item.name?.en || "Untitled Module";
+        const moduleType = item.type || "UNKNOWN";
+        const coverUrl = item.coverImage?.imageUrls?.original || item.coverImage?.imageUrls?.thumb || "";
+
+        const content = [
+          `[OPUS Training Module] ${moduleName}`,
+          ``,
+          `Type: ${moduleType}`,
+          `OPUS ID: ${item.id}`,
+          coverUrl ? `Cover Image: ${coverUrl}` : "",
+          item.path?.id ? `Path ID: ${item.path.id}` : "",
+          ``,
+          `Source: OPUS LMS (AdminLibrary)`,
+          `This is a training module available in the OPUS Learning Management System.`,
+        ].filter(Boolean).join("\n");
 
         const { error } = await supabase
           .from("theo_knowledge")
           .upsert({
             location_id: location_id,
-            topic: `opus_${res.category || "general"}`,
+            topic: `opus_training_${moduleType.toLowerCase()}`,
             content: content,
             created_by: userId,
           }, {
@@ -457,8 +434,9 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({
         success: true,
-        resources_found: resources.length,
-        injected: injected,
+        total_in_opus: totalCount,
+        resources_found: objects.length,
+        injected_to_theo: injected,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
