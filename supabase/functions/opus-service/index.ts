@@ -533,34 +533,20 @@ serve(async (req) => {
           .limit(1)
           .maybeSingle();
 
-        if (existing?.id && existing?.embedding) {
-          // Already exists with embedding — skip
+        if (existing?.id) {
+          // Already exists — skip
           injected++;
           continue;
         }
 
-        // Generate embedding for semantic search
-        const embedding = await generateEmbedding(moduleName + " - " + resourceType + " training resource from OPUS LMS");
-        if (embedding) embeddingsGenerated++;
-
-        const insertData: any = {
-          location_id: location_id,
-          topic: topic,
-          content: content,
+        // Insert without embedding (lazy-generate on query)
+        const { error } = await supabase.from("theo_knowledge").insert({
+          location_id,
+          topic,
+          content,
           created_by: userId,
-        };
-        if (embedding) {
-          insertData.embedding = JSON.stringify(embedding);
-        }
-
-        if (existing?.id) {
-          // Update existing record with embedding
-          await supabase.from("theo_knowledge").update({ embedding: JSON.stringify(embedding) }).eq("id", existing.id);
-        } else {
-          // Insert new
-          const { error } = await supabase.from("theo_knowledge").insert(insertData);
-          if (!error) injected++;
-        }
+        });
+        if (!error) injected++;
       }
 
       return new Response(JSON.stringify({
