@@ -458,6 +458,60 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: fetch_employees ──
+    // Fetches all employees from OPUS for mapping UI
+    if (action === "fetch_employees") {
+      const { location_id } = body;
+      if (!location_id) {
+        return new Response(JSON.stringify({ error: "Missing location_id" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const sessionId = await getOpusSession(supabase, location_id);
+      if (!sessionId) {
+        return new Response(JSON.stringify({ error: "OPUS session not configured" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Fetch employees list from OPUS
+      const employeesQuery = {
+        operationName: "GetEmployees",
+        variables: { input: { pagination: { page: 1, pageSize: 500 }, filters: { deactivatedAt: { exists: false } } } },
+        query: `query GetEmployees($input: AdminEmployeesInput!) {
+  AdminEmployees(input: $input) {
+    objects { id name firstName lastName __typename }
+    __typename
+  }
+}`,
+      };
+
+      const resp = await fetch(OPUS_GRAPHQL, {
+        method: "POST",
+        headers: OPUS_HEADERS(sessionId),
+        body: JSON.stringify(employeesQuery),
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error("[opus-service] fetch_employees failed:", resp.status, errText);
+        return new Response(JSON.stringify({ error: "Failed to fetch OPUS employees", status: resp.status }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const data = await resp.json();
+      const employees = data?.data?.AdminEmployees?.objects || [];
+
+      return new Response(JSON.stringify({
+        success: true,
+        employees: employees.map((e: any) => ({ opus_id: e.id, name: e.name, firstName: e.firstName, lastName: e.lastName })),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
