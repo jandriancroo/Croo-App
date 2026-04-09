@@ -27,27 +27,11 @@ interface IntegrationsSectionProps {
   locationId: string | undefined;
 }
 
-// Status dot component
-function StatusDot({ connected }: { connected: boolean }) {
-  return (
-    <span
-      className={`inline-block w-2.5 h-2.5 rounded-full ${
-        connected ? 'bg-green-500' : 'bg-muted-foreground/30'
-      }`}
-      style={connected ? {
-        animation: 'statusGlow 4s ease-in-out infinite',
-      } : undefined}
-    />
-  );
-}
-
-// Integration card shell
+// Integration card shell — clean minimal design
 function IntegrationCard({
   title,
   description,
   connected,
-  connectedLabel,
-  setupLabel,
   logo,
   onEdit,
   isLoading,
@@ -55,47 +39,34 @@ function IntegrationCard({
   title: string;
   description: string;
   connected: boolean;
-  connectedLabel?: string;
-  setupLabel?: string;
   logo?: string;
   onEdit: () => void;
   isLoading?: boolean;
 }) {
   return (
-    <Card className="p-4 flex flex-col justify-between gap-3 min-h-[120px]">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          {logo ? (
-            <img src={logo} alt={title} className="h-7 w-auto shrink-0" />
-          ) : (
-            <Plug className="h-5 w-5 text-muted-foreground shrink-0" />
-          )}
-          <div className="min-w-0">
-            <h4 className="text-sm font-semibold leading-tight truncate">{title}</h4>
-            <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{description}</p>
-          </div>
-        </div>
-        <StatusDot connected={connected} />
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        ) : connected ? (
-          <span className="text-xs text-muted-foreground truncate">
-            {connectedLabel || 'Connected'}
-          </span>
+    <button
+      onClick={onEdit}
+      className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border/50 hover:border-border hover:shadow-sm transition-all text-left w-full"
+    >
+      <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-muted/60 shrink-0">
+        {logo ? (
+          <img src={logo} alt={title} className="h-5 w-auto object-contain" />
         ) : (
-          <span className="text-xs text-muted-foreground italic">
-            {setupLabel || `Setup ${title}`}
-          </span>
+          <Plug className="h-4 w-4 text-muted-foreground" />
         )}
-        <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs shrink-0" onClick={onEdit}>
-          <Settings2 className="h-3.5 w-3.5 mr-1" />
-          {connected ? 'Edit' : 'Setup'}
-        </Button>
       </div>
-    </Card>
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-semibold leading-tight truncate">{title}</h4>
+        <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">{description}</p>
+      </div>
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
+      ) : (
+        <div className={`w-8 h-[18px] rounded-full flex items-center px-[3px] transition-colors shrink-0 ${connected ? 'bg-green-500/20 justify-end' : 'bg-muted justify-start'}`}>
+          <div className={`w-3 h-3 rounded-full transition-colors ${connected ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+        </div>
+      )}
+    </button>
   );
 }
 
