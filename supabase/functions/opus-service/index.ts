@@ -475,37 +475,54 @@ serve(async (req) => {
         });
       }
 
-      // Fetch employees list from OPUS
-      const employeesQuery = {
-        operationName: "GetEmployees",
-        variables: { input: { pagination: { page: 1, pageSize: 500 }, filters: { deactivatedAt: { exists: false } } } },
-        query: `query GetEmployees($input: AdminEmployeesInput!) {
-  AdminEmployees(input: $input) {
-    objects { id name firstName lastName __typename }
-    __typename
-  }
-}`,
-      };
+      // Try multiple query formats to find the right one
+      const headers = OPUS_HEADERS(sessionId);
+      const attempts = [
+        { label: "AdminEmployeesInput", body: {
+          operationName: "GetEmployees",
+          variables: { input: { pagination: { limit: 500, offset: 0 } } },
+          query: `query GetEmployees($input: AdminEmployeesInput!) { AdminEmployees(input: $input) { objects { id name firstName lastName __typename } __typename } }`,
+        }},
+        { label: "AdminEmployeesInput_page", body: {
+          operationName: "GetEmployees",
+          variables: { input: { pagination: { page: 1, pageSize: 500 } } },
+          query: `query GetEmployees($input: AdminEmployeesInput!) { AdminEmployees(input: $input) { objects { id name firstName lastName __typename } __typename } }`,
+        }},
+        { label: "separate_pagination", body: {
+          operationName: "GetEmployees",
+          variables: { input: {}, pagination: { limit: 500, offset: 0 } },
+          query: `query GetEmployees($input: AdminEmployeesInput!, $pagination: PaginationInput) { AdminEmployees(input: $input, pagination: $pagination) { objects { id name firstName lastName __typename } __typename } }`,
+        }},
+        { label: "EmployeesInput", body: {
+          operationName: "GetEmployees",
+          variables: { input: {}, pagination: { limit: 500, offset: 0 } },
+          query: `query GetEmployees($input: EmployeesInput!, $pagination: PaginationInput) { AdminEmployees(input: $input, pagination: $pagination) { objects { id name firstName lastName __typename } __typename } }`,
+        }},
+      ];
 
-      const resp = await fetch(OPUS_GRAPHQL, {
-        method: "POST",
-        headers: OPUS_HEADERS(sessionId),
-        body: JSON.stringify(employeesQuery),
-      });
-
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error("[opus-service] fetch_employees failed:", resp.status, errText);
-        return new Response(JSON.stringify({ error: "Failed to fetch OPUS employees", status: resp.status }), {
-          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      let employees: any[] = [];
+      let successLabel = "";
+      for (const attempt of attempts) {
+        const resp = await fetch(OPUS_GRAPHQL, { method: "POST", headers, body: JSON.stringify(attempt.body) });
+        const txt = await resp.text();
+        console.log(`[opus-service] fetch_employees ${attempt.label}: status=${resp.status} body=${txt.substring(0, 200)}`);
+        
+        if (resp.ok) {
+          try {
+            const parsed = JSON.parse(txt);
+            const objs = parsed?.data?.AdminEmployees?.objects;
+            if (objs && objs.length > 0) {
+              employees = objs;
+              successLabel = attempt.label;
+              break;
+            }
+          } catch { /* continue */ }
+        }
       }
 
-      const data = await resp.json();
-      const employees = data?.data?.AdminEmployees?.objects || [];
-
       return new Response(JSON.stringify({
-        success: true,
+        success: employees.length > 0,
+        strategy: successLabel || "none_worked",
         employees: employees.map((e: any) => ({ opus_id: e.id, name: e.name, firstName: e.firstName, lastName: e.lastName })),
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
