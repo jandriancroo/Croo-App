@@ -1322,16 +1322,66 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
               <div className="space-y-3 border-t pt-3">
                 <Label className="text-sm font-medium">Employee Mapping</Label>
                 
-                {/* Add by OPUS ID */}
+                {/* Auto-Map Button */}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full h-9 text-xs font-semibold"
+                  disabled={opusIsFetchingEmployees}
+                  onClick={async () => {
+                    setOpusIsFetchingEmployees(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke('opus-service', {
+                        body: { action: 'fetch_employees', location_id: locationId },
+                      });
+                      if (error) throw error;
+                      if (!data?.employees?.length) {
+                        toast.error('No employees found in OPUS');
+                        return;
+                      }
+                      
+                      const team = locationTeamMembers || [];
+                      let autoMatched = 0;
+                      const newMappings = data.employees.map((emp: any) => {
+                        // Try exact name match first, then first+last
+                        const match = team.find(
+                          (tm: any) => tm.name.toLowerCase() === emp.name.toLowerCase()
+                        ) || team.find(
+                          (tm: any) => {
+                            const parts = tm.name.toLowerCase().split(' ');
+                            return parts[0] === emp.firstName?.toLowerCase() && 
+                                   parts[parts.length - 1] === emp.lastName?.toLowerCase();
+                          }
+                        );
+                        if (match) autoMatched++;
+                        return {
+                          opus_id: emp.opus_id,
+                          name: emp.name,
+                          croo_user_id: match?.id || '',
+                        };
+                      });
+                      
+                      setOpusMappings(newMappings);
+                      toast.success(`Found ${data.employees.length} employees — ${autoMatched} auto-matched! 🎯`);
+                    } catch (_e) {
+                      toast.error('Failed to fetch OPUS employees');
+                    } finally { setOpusIsFetchingEmployees(false); }
+                  }}
+                >
+                  {opusIsFetchingEmployees ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                  {opusMappings.length > 0 ? 'Re-fetch & Auto-Map' : 'Fetch OPUS Employees & Auto-Map'}
+                </Button>
+
+                {/* Manual add fallback */}
                 <div className="flex gap-2">
                   <Input
                     value={opusNewId}
                     onChange={(e) => setOpusNewId(e.target.value)}
-                    placeholder="OPUS Employee ID"
-                    className="h-8 text-xs flex-1 font-mono"
+                    placeholder="Or add by OPUS ID"
+                    className="h-7 text-[10px] flex-1 font-mono"
                     type="number"
                   />
-                  <Button variant="outline" size="sm" className="h-8 text-xs shrink-0" disabled={!opusNewId || opusIsFetchingEmployees}
+                  <Button variant="ghost" size="sm" className="h-7 text-[10px] shrink-0" disabled={!opusNewId || opusIsFetchingEmployees}
                     onClick={async () => {
                       const id = Number(opusNewId);
                       if (!id || opusMappings.some(m => m.opus_id === id)) {
@@ -1362,17 +1412,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                         toast.error('Lookup failed');
                       } finally { setOpusIsFetchingEmployees(false); }
                     }}>
-                    {opusIsFetchingEmployees ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+                    <Check className="h-3 w-3 mr-1" />
                     Add
                   </Button>
                 </div>
-                <p className="text-[10px] text-muted-foreground leading-tight">
-                  Find employee IDs in OPUS → Team → click an employee → the number in the URL.
-                </p>
 
                 {opusMappings.length === 0 ? (
                   <p className="text-[11px] text-muted-foreground italic">
-                    No employees mapped yet. Add OPUS IDs above.
+                    No employees mapped yet. Hit the button above to auto-detect!
                   </p>
                 ) : (
                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
