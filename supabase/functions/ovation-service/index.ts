@@ -180,7 +180,7 @@ async function cognitoSrpAuth(username: string, password: string): Promise<{ Acc
   // Step 5: Compute S = (B - k * g^x)^(a + u * x) mod N
   const k = BigInt('0x' + k_hex)
   const gx = modPow(g, x, N)
-  let diff = B - k * gx % N
+  let diff = (B - (k * gx % N) % N + N) % N
   // Handle negative values
   diff = ((diff % N) + N) % N
   const exp = (a + u * x) % (N - 1n)
