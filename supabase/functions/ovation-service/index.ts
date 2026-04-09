@@ -277,7 +277,7 @@ async function cognitoSrpAuthFull(username: string, password: string): Promise<{
   }
 }
 
-// Helper: Get or refresh auth token for a brand
+// Helper: Get or refresh auth token for a brand (legacy, still used by fetch_scores etc.)
 async function getAuthToken(supabase: any, brandId: string): Promise<string | null> {
   const { data: integration } = await supabase
     .from('ovation_integrations')
@@ -288,25 +288,19 @@ async function getAuthToken(supabase: any, brandId: string): Promise<string | nu
 
   if (!integration) return null
 
-  // Check if existing token is still valid (less than 20 hours old)
   if (integration.auth_token && integration.token_updated_at) {
     const ageHours = (Date.now() - new Date(integration.token_updated_at).getTime()) / 3600000
     if (ageHours < 20) return integration.auth_token
   }
 
-  // Need fresh token — use stored credentials
   const username = integration.cognito_username
   const password = integration.cognito_password
   if (!username || !password) {
-    console.log('[ovation-service] No credentials stored, falling back to existing token')
     return integration.auth_token || null
   }
 
   try {
-    console.log(`[ovation-service] Authenticating with Cognito for brand ${brandId}...`)
     const tokens = await cognitoSrpAuth(username, password)
-    
-    // Save new token
     await supabase
       .from('ovation_integrations')
       .update({
@@ -315,13 +309,51 @@ async function getAuthToken(supabase: any, brandId: string): Promise<string | nu
         updated_at: new Date().toISOString(),
       })
       .eq('id', integration.id)
-
-    console.log(`[ovation-service] Token refreshed via SRP for brand ${brandId}`)
     return tokens.IdToken
   } catch (error: any) {
     console.error(`[ovation-service] SRP auth failed:`, error.message)
-    // Fall back to existing token if available
     return integration.auth_token || null
+  }
+}
+
+// Helper: Get or refresh auth token for a specific location (per-location credentials)
+async function getAuthTokenForLocation(supabase: any, locationId: string): Promise<{ token: string; companyId: string; ovationLocationId: string } | null> {
+  const { data: mapping } = await supabase
+    .from('ovation_location_mappings')
+    .select('*')
+    .eq('location_id', locationId)
+    .maybeSingle()
+
+  if (!mapping || !mapping.cognito_username || !mapping.cognito_password) {
+    // Fall back to brand-level credentials
+    return null
+  }
+
+  // Check if existing token is still valid (less than 20 hours old)
+  if (mapping.auth_token && mapping.token_updated_at) {
+    const ageHours = (Date.now() - new Date(mapping.token_updated_at).getTime()) / 3600000
+    if (ageHours < 20) {
+      return { token: mapping.auth_token, companyId: mapping.company_id, ovationLocationId: mapping.ovation_location_id }
+    }
+  }
+
+  try {
+    console.log(`[ovation-service] Authenticating with Cognito for location ${locationId}...`)
+    const tokens = await cognitoSrpAuth(mapping.cognito_username, mapping.cognito_password)
+    await supabase
+      .from('ovation_location_mappings')
+      .update({
+        auth_token: tokens.IdToken,
+        token_updated_at: new Date().toISOString(),
+      })
+      .eq('id', mapping.id)
+    return { token: tokens.IdToken, companyId: mapping.company_id, ovationLocationId: mapping.ovation_location_id }
+  } catch (error: any) {
+    console.error(`[ovation-service] Location SRP auth failed:`, error.message)
+    if (mapping.auth_token) {
+      return { token: mapping.auth_token, companyId: mapping.company_id, ovationLocationId: mapping.ovation_location_id }
+    }
+    return null
   }
 }
 
@@ -785,60 +817,82 @@ async function handleListOvationLocations(req: Request, supabase: any) {
 async function handleFetchReviews(req: Request, supabase: any) {
   const { locationId, brandId, days = 7, page = 1, pageSize = 20 } = await req.json()
 
-  // Get brand integration
-  let resolvedBrandId = brandId
-  if (!resolvedBrandId && locationId) {
-    const { data: loc } = await supabase
-      .from('locations')
-      .select('organization_id')
-      .eq('id', locationId)
-      .single()
-    if (loc) {
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('brand_id')
-        .eq('id', loc.organization_id)
-        .single()
-      if (org) resolvedBrandId = org.brand_id
-    }
-  }
-
-  if (!resolvedBrandId) {
-    return jsonResponse({ error: 'Could not resolve brand', reviews: [] })
-  }
-
-  const authToken = await getAuthToken(supabase, resolvedBrandId)
-  if (!authToken) {
-    return jsonResponse({ error: 'No OvationUp integration', reviews: [] })
-  }
-
-  const { data: integration } = await supabase
-    .from('ovation_integrations')
-    .select('company_id')
-    .eq('brand_id', resolvedBrandId)
-    .single()
-
-  // Get ovation location ID mapping
+  let authToken: string | null = null
+  let companyId: string | null = null
   let ovationLocationIds: string[] = []
+
+  // Try per-location credentials first
   if (locationId) {
-    const { data: mapping } = await supabase
-      .from('ovation_location_mappings')
-      .select('ovation_location_id')
-      .eq('location_id', locationId)
-      .maybeSingle()
-    if (mapping) {
-      ovationLocationIds = [mapping.ovation_location_id]
-    } else {
-      // No mapping for this location — return empty so we don't show all-company reviews
-      return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 })
+    const locAuth = await getAuthTokenForLocation(supabase, locationId)
+    if (locAuth) {
+      authToken = locAuth.token
+      companyId = locAuth.companyId
+      if (locAuth.ovationLocationId) {
+        ovationLocationIds = [locAuth.ovationLocationId]
+      }
+      console.log(`[ovation-service] Using per-location auth for ${locationId}`)
     }
+  }
+
+  // Fall back to brand-level credentials
+  if (!authToken) {
+    let resolvedBrandId = brandId
+    if (!resolvedBrandId && locationId) {
+      const { data: loc } = await supabase
+        .from('locations')
+        .select('organization_id')
+        .eq('id', locationId)
+        .single()
+      if (loc) {
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('brand_id')
+          .eq('id', loc.organization_id)
+          .single()
+        if (org) resolvedBrandId = org.brand_id
+      }
+    }
+
+    if (!resolvedBrandId) {
+      return jsonResponse({ error: 'Could not resolve brand', reviews: [] })
+    }
+
+    authToken = await getAuthToken(supabase, resolvedBrandId)
+    if (!authToken) {
+      return jsonResponse({ error: 'No OvationUp integration', reviews: [] })
+    }
+
+    const { data: integration } = await supabase
+      .from('ovation_integrations')
+      .select('company_id')
+      .eq('brand_id', resolvedBrandId)
+      .single()
+    companyId = integration?.company_id
+
+    // Get ovation location ID mapping
+    if (locationId && ovationLocationIds.length === 0) {
+      const { data: mapping } = await supabase
+        .from('ovation_location_mappings')
+        .select('ovation_location_id')
+        .eq('location_id', locationId)
+        .maybeSingle()
+      if (mapping) {
+        ovationLocationIds = [mapping.ovation_location_id]
+      } else {
+        return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 })
+      }
+    }
+  }
+
+  if (!companyId) {
+    return jsonResponse({ error: 'No company ID configured', reviews: [] })
   }
 
   const now = new Date()
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 
   const filters: any = {
-    companyIds: [integration.company_id],
+    companyIds: [companyId],
     createdAtRange: [startDate.toISOString(), now.toISOString()],
   }
   if (ovationLocationIds.length > 0) {
@@ -867,16 +921,6 @@ async function handleFetchReviews(req: Request, supabase: any) {
 
     const data = await response.json()
     const surveys = data?.data?.surveys || []
-    if (surveys[0]) {
-      console.log('[ovation-service] survey sample fields', JSON.stringify({
-        id: surveys[0]?._id,
-        location: surveys[0]?.location,
-        locationId: surveys[0]?.locationId,
-        location_id: surveys[0]?.location_id,
-        store: surveys[0]?.store,
-        restaurant: surveys[0]?.restaurant,
-      }))
-    }
 
     const reviews = surveys.map((s: any) => ({
       id: s._id,

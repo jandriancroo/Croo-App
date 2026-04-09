@@ -5122,22 +5122,37 @@ export type Database = {
       }
       ovation_location_mappings: {
         Row: {
+          auth_token: string | null
+          cognito_password: string | null
+          cognito_username: string | null
+          company_id: string | null
           created_at: string
           id: string
           location_id: string | null
           ovation_location_id: string
+          token_updated_at: string | null
         }
         Insert: {
+          auth_token?: string | null
+          cognito_password?: string | null
+          cognito_username?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           location_id?: string | null
           ovation_location_id: string
+          token_updated_at?: string | null
         }
         Update: {
+          auth_token?: string | null
+          cognito_password?: string | null
+          cognito_username?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           location_id?: string | null
           ovation_location_id?: string
+          token_updated_at?: string | null
         }
         Relationships: [
           {
