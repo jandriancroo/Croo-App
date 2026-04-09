@@ -105,7 +105,9 @@ serve(async (req) => {
           }),
         }
       );
-      const subData = await subRes.json();
+      const subText = await subRes.text();
+      let subData;
+      try { subData = JSON.parse(subText); } catch { subData = subText.substring(0, 500); }
       results['subreport-items'] = { status: subRes.status, data: subData };
     }
 
