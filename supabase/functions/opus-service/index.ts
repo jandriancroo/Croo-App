@@ -261,6 +261,9 @@ serve(async (req) => {
       const fullHeaders = {
         ...OPUS_HEADERS(sessionid),
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
+        "x-dashboard-current-assets-commit-sha": "71a29ce4b13dbf8b51557aa59861e02740b6de3e",
+        "x-dashboard-latest-deployed-commit-sha": "null",
+        "x-dashboard-loaded-at": new Date().toISOString(),
       };
       const queries = [
         {
