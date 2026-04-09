@@ -7,6 +7,7 @@ const corsHeaders = {
 }
 
 const OVATION_API = 'https://api.ovationup.com/app-services/v2'
+const OVATION_APP_API = 'https://apis.ovationup.com/app/v1'
 const COGNITO_REGION = 'us-east-1'
 const COGNITO_USER_POOL = 'us-east-1_ddNUtzgDs'
 const COGNITO_CLIENT_ID = '45rj7fb9l3bmjv2fkvp3s4qnr9'
@@ -36,6 +37,8 @@ serve(async (req) => {
     switch (action) {
       case 'save_config':
         return await handleSaveConfig(req, supabase)
+      case 'test_survey_skip':
+        return await handleTestSurveySkip(req, supabase)
       case 'save_location_mapping':
         return await handleSaveLocationMapping(req, supabase)
       case 'test_connection':
@@ -859,9 +862,21 @@ function surveyMatchesAllowedLocations(survey: any, allowedLocationIds: string[]
   return surveyLocationIds.some((id) => allowedLocationIds.includes(id))
 }
 
+// Helper: extract ovation_user_id from Cognito IdToken JWT
+function extractOvationUserId(idToken: string): string | null {
+  try {
+    const parts = idToken.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload['custom:ovation_user_id'] || payload['cognito:username'] || payload['sub'] || null
+  } catch {
+    return null
+  }
+}
+
 // ==================== FETCH REVIEWS ====================
 async function handleFetchReviews(req: Request, supabase: any) {
-  const { locationId, brandId, days = 7, page = 1, pageSize = 20 } = await req.json()
+  const { locationId, brandId, days = 14, page = 1, pageSize = 20 } = await req.json()
 
   let authToken: string | null = null
   let companyId: string | null = null
@@ -878,7 +893,6 @@ async function handleFetchReviews(req: Request, supabase: any) {
       } else if (locAuth.ovationLocationId === 'pending') {
         return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0, pending: true })
       }
-      console.log(`[ovation-service] Using per-location auth for ${locationId}, ovationLocIds=${JSON.stringify(ovationLocationIds)}`)
     }
   }
 
@@ -886,43 +900,22 @@ async function handleFetchReviews(req: Request, supabase: any) {
   if (!authToken) {
     let resolvedBrandId = brandId
     if (!resolvedBrandId && locationId) {
-      const { data: loc } = await supabase
-        .from('locations')
-        .select('organization_id')
-        .eq('id', locationId)
-        .single()
+      const { data: loc } = await supabase.from('locations').select('organization_id').eq('id', locationId).single()
       if (loc) {
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('brand_id')
-          .eq('id', loc.organization_id)
-          .single()
+        const { data: org } = await supabase.from('organizations').select('brand_id').eq('id', loc.organization_id).single()
         if (org) resolvedBrandId = org.brand_id
       }
     }
-
-    if (!resolvedBrandId) {
-      return jsonResponse({ error: 'Could not resolve brand', reviews: [] })
-    }
+    if (!resolvedBrandId) return jsonResponse({ error: 'Could not resolve brand', reviews: [] })
 
     authToken = await getAuthToken(supabase, resolvedBrandId)
-    if (!authToken) {
-      return jsonResponse({ error: 'No OvationUp integration', reviews: [] })
-    }
+    if (!authToken) return jsonResponse({ error: 'No OvationUp integration', reviews: [] })
 
-    const { data: integration } = await supabase
-      .from('ovation_integrations')
-      .select('company_id')
-      .eq('brand_id', resolvedBrandId)
-      .single()
+    const { data: integration } = await supabase.from('ovation_integrations').select('company_id').eq('brand_id', resolvedBrandId).single()
     companyId = integration?.company_id
 
     if (locationId && ovationLocationIds.length === 0) {
-      const { data: mapping } = await supabase
-        .from('ovation_location_mappings')
-        .select('ovation_location_id')
-        .eq('location_id', locationId)
-        .maybeSingle()
+      const { data: mapping } = await supabase.from('ovation_location_mappings').select('ovation_location_id').eq('location_id', locationId).maybeSingle()
       if (mapping && mapping.ovation_location_id !== 'pending') {
         ovationLocationIds = [mapping.ovation_location_id]
       } else if (mapping && mapping.ovation_location_id === 'pending') {
@@ -934,22 +927,18 @@ async function handleFetchReviews(req: Request, supabase: any) {
   }
 
   if (locationId && ovationLocationIds.length === 0) {
-    console.log(`[ovation-service] No ovation location ID resolved for ${locationId}, returning empty`)
     return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 })
   }
-
-  if (!companyId) {
-    return jsonResponse({ error: 'No company ID configured', reviews: [] })
-  }
+  if (!companyId) return jsonResponse({ error: 'No company ID configured', reviews: [] })
 
   const now = new Date()
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 
-  // Use skip/limit pagination (matching Ovation's own web app pattern)
+  // Use survey/list with skip/limit pagination (matching Ovation's dashboard pattern)
   const matchingSurveys: any[] = []
   const seenIds = new Set<string>()
   const BATCH_SIZE = 50
-  const MAX_SKIP = 500 // Safety cap
+  const MAX_SKIP = 500
 
   try {
     const filters: any = {
@@ -966,7 +955,7 @@ async function handleFetchReviews(req: Request, supabase: any) {
       const response = await fetch(`${OVATION_API}/survey/list`, {
         method: 'POST',
         headers: {
-          'Authorization': authToken,
+          'Authorization': authToken!,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
@@ -978,8 +967,7 @@ async function handleFetchReviews(req: Request, supabase: any) {
       }
 
       if (!response.ok) {
-        const text = await response.text()
-        console.error('[ovation-service] survey/list error:', response.status, text)
+        console.error('[ovation-service] survey/list error:', response.status)
         break
       }
 
@@ -998,17 +986,17 @@ async function handleFetchReviews(req: Request, supabase: any) {
 
       if (newSurveys.length === 0) {
         emptyBatches++
-        if (emptyBatches >= 2) break // API returning dupes, stop
+        if (emptyBatches >= 2) break
       } else {
         emptyBatches = 0
       }
 
+      // Server-side location filtering (strict)
       const pageMatches = newSurveys.filter((survey: any) => surveyMatchesAllowedLocations(survey, ovationLocationIds))
       matchingSurveys.push(...pageMatches)
 
-      console.log(`[ovation-service] skip=${skip}: ${pageMatches.length}/${surveys.length} matched (${newSurveys.length} new, total API count=${totalCount})`)
+      console.log(`[ovation-service] skip=${skip}: ${pageMatches.length}/${surveys.length} matched (total API count=${totalCount})`)
 
-      // If we've fetched all available, stop
       if (skip + BATCH_SIZE >= totalCount) break
       skip += BATCH_SIZE
     }
@@ -1199,4 +1187,65 @@ async function handleProbeApi(req: Request, supabase: any) {
   }
 
   return jsonResponse({ companyId, ovationLocationId: ovLocId, results })
+}
+
+// ==================== TEST SURVEY SKIP ====================
+async function handleTestSurveySkip(req: Request, supabase: any) {
+  const { locationId } = await req.json()
+  
+  let resolvedBrandId: string | null = null
+  if (locationId) {
+    const { data: loc } = await supabase.from('locations').select('organization_id').eq('id', locationId).single()
+    if (loc) {
+      const { data: org } = await supabase.from('organizations').select('brand_id').eq('id', loc.organization_id).single()
+      if (org) resolvedBrandId = org.brand_id
+    }
+  }
+
+  const authToken = await getAuthToken(supabase, resolvedBrandId!)
+  if (!authToken) return jsonResponse({ error: 'No auth token' })
+
+  const { data: integration } = await supabase.from('ovation_integrations').select('company_id').eq('brand_id', resolvedBrandId).single()
+  const companyId = integration?.company_id
+  
+  const { data: mapping } = await supabase.from('ovation_location_mappings').select('ovation_location_id').eq('location_id', locationId).maybeSingle()
+  const ovLocId = mapping?.ovation_location_id
+
+  const results: Record<string, any> = {}
+
+  // Test survey/list with skip/limit (like Ovation dashboard does)
+  for (const skip of [0, 50, 100]) {
+    const body = {
+      filters: {
+        companyIds: [companyId],
+        locationIds: ovLocId ? [ovLocId] : [],
+      },
+      skip,
+      limit: 50,
+    }
+    
+    try {
+      const resp = await fetch(`${OVATION_API}/survey/list`, {
+        method: 'POST',
+        headers: { 'Authorization': authToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await resp.json()
+      const surveys = data?.data?.surveys || []
+      const firstId = surveys[0]?._id || 'none'
+      const lastId = surveys[surveys.length - 1]?._id || 'none'
+      results[`skip_${skip}`] = {
+        count: surveys.length,
+        total: data?.data?.count,
+        firstId,
+        lastId,
+        firstDate: surveys[0]?.created,
+        lastDate: surveys[surveys.length - 1]?.created,
+      }
+    } catch (e: any) {
+      results[`skip_${skip}`] = { error: e.message }
+    }
+  }
+
+  return jsonResponse({ results })
 }
