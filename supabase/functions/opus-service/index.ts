@@ -272,12 +272,14 @@ serve(async (req) => {
       };
 
       console.log("[opus-service] Test query:", JSON.stringify(testQuery));
-      console.log("[opus-service] Headers:", JSON.stringify(Object.keys(headers)));
+      console.log("[opus-service] Cookie being sent:", `sessionid=${sessionid}`);
 
+      // Deno fetch might strip Cookie header — try with explicit redirect handling
       const resp = await fetch(OPUS_GRAPHQL, {
         method: "POST",
         headers,
         body: JSON.stringify(testQuery),
+        redirect: "manual",
       });
 
       const rawText = await resp.text();
