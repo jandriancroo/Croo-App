@@ -2,6 +2,46 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import { cn } from '@/lib/utils';
+import { User } from 'lucide-react';
+import React from 'react';
+
+// Parse [[employee:Name]] tags in text and render as badges
+function renderWithEmployeeBadges(text: string): React.ReactNode[] {
+  const parts = text.split(/(\[\[employee:[^\]]+\]\])/g);
+  return parts.map((part, i) => {
+    const match = part.match(/^\[\[employee:(.+)\]\]$/);
+    if (match) {
+      return (
+        <span
+          key={i}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 text-[11px] font-semibold border border-blue-500/20 mx-0.5 whitespace-nowrap"
+        >
+          <User className="h-2.5 w-2.5" />
+          {match[1]}
+        </span>
+      );
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
+
+// Wrap a component to process employee tags in its text children
+function withEmployeeBadges(children: React.ReactNode): React.ReactNode {
+  return React.Children.map(children, (child) => {
+    if (typeof child === 'string') {
+      if (child.includes('[[employee:')) {
+        return <>{renderWithEmployeeBadges(child)}</>;
+      }
+      return child;
+    }
+    if (React.isValidElement(child) && child.props.children) {
+      return React.cloneElement(child as React.ReactElement<any>, {
+        children: withEmployeeBadges(child.props.children),
+      });
+    }
+    return child;
+  });
+}
 
 const markdownComponents: Components = {
   table: ({ children, ...props }) => (
@@ -36,7 +76,7 @@ const markdownComponents: Components = {
   ),
   td: ({ children, ...props }) => (
     <td className="px-2.5 py-2 text-xs whitespace-nowrap" {...props}>
-      {children}
+      {withEmployeeBadges(children)}
     </td>
   ),
   ul: ({ children, ...props }) => (
@@ -51,7 +91,7 @@ const markdownComponents: Components = {
   ),
   li: ({ children, ...props }) => (
     <li className="text-xs leading-relaxed pl-0.5" {...props}>
-      {children}
+      {withEmployeeBadges(children)}
     </li>
   ),
   h1: ({ children, ...props }) => (
@@ -64,10 +104,10 @@ const markdownComponents: Components = {
     <h3 className="text-xs font-semibold mt-2 mb-0.5 text-foreground" {...props}>{children}</h3>
   ),
   p: ({ children, ...props }) => (
-    <p className="my-1 text-xs leading-[1.6]" {...props}>{children}</p>
+    <p className="my-1 text-xs leading-[1.6]" {...props}>{withEmployeeBadges(children)}</p>
   ),
   strong: ({ children, ...props }) => (
-    <strong className="font-semibold text-foreground" {...props}>{children}</strong>
+    <strong className="font-semibold text-foreground" {...props}>{withEmployeeBadges(children)}</strong>
   ),
   code: ({ children, className, ...props }) => {
     const isInline = !className;

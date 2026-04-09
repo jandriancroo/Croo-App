@@ -437,6 +437,24 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_ovation_reviews",
+      description: "Query OvationUp guest reviews and feedback scores for this location. Returns recent reviews with ratings, customer names, feedback text, and whether the review was responded to. Also returns the average score and review count. Use for questions about guest reviews, customer feedback, Ovation scores, review trends, or guest satisfaction. When a review mentions an employee by name, cross-reference with team members at the location and tag matches with [[employee:Full Name]].",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          days: { type: "number", description: "Number of days to look back (default 7)" },
+          min_rating: { type: "number", description: "Filter reviews with rating >= this value" },
+          max_rating: { type: "number", description: "Filter reviews with rating <= this value" },
+          search_keyword: { type: "string", description: "Search feedback text for a keyword" },
+        },
+        required: ["location_id"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
@@ -1362,6 +1380,93 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         return JSON.stringify(results.length ? results : { message: "No employee notes found." });
       }
 
+      case "query_ovation_reviews": {
+        // Fetch reviews via the ovation-service edge function
+        const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
+        const days = args.days || 7;
+        
+        try {
+          const ovationResp = await fetch(`${supabaseUrl}/functions/v1/ovation-service?action=fetch_reviews`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+            body: JSON.stringify({ locationId: args.location_id, days, pageSize: 50 }),
+          });
+          
+          if (!ovationResp.ok) {
+            return JSON.stringify({ message: "OvationUp is not configured for this location." });
+          }
+          
+          const ovationData = await ovationResp.json();
+          
+          if (ovationData.error || !ovationData.reviews) {
+            return JSON.stringify({ message: ovationData.error || "No OvationUp data available for this location." });
+          }
+          
+          let reviews = ovationData.reviews || [];
+          
+          // Apply filters
+          if (args.min_rating) {
+            reviews = reviews.filter((r: any) => r.rating >= args.min_rating);
+          }
+          if (args.max_rating) {
+            reviews = reviews.filter((r: any) => r.rating <= args.max_rating);
+          }
+          if (args.search_keyword) {
+            const kw = args.search_keyword.toLowerCase();
+            reviews = reviews.filter((r: any) => r.feedback?.toLowerCase().includes(kw));
+          }
+          
+          // Fetch team members at this location to match names in reviews
+          const { data: teamProfiles } = await supabase
+            .from("user_locations")
+            .select("profiles!inner(id, full_name)")
+            .eq("location_id", args.location_id);
+          
+          const teamMembers = (teamProfiles || []).map((tp: any) => ({
+            id: tp.profiles.id,
+            name: tp.profiles.full_name,
+          })).filter((t: any) => t.name);
+          
+          // Cross-reference reviews with team members
+          const enrichedReviews = reviews.map((r: any) => {
+            const matched: string[] = [];
+            if (r.feedback) {
+              const feedbackLower = r.feedback.toLowerCase();
+              for (const member of teamMembers) {
+                const nameParts = member.name.toLowerCase().split(/\s+/);
+                const firstName = nameParts[0];
+                // Match first name (3+ chars) or full name
+                if (firstName && firstName.length >= 3 && feedbackLower.includes(firstName)) {
+                  matched.push(member.name);
+                }
+              }
+            }
+            return {
+              ...r,
+              matched_employees: matched.length > 0 ? matched : undefined,
+            };
+          });
+          
+          const result: any = {
+            period: `Last ${days} days`,
+            average_score: ovationData.wtdAverage,
+            review_count: ovationData.wtdCount,
+            total_reviews: ovationData.totalCount,
+            reviews: enrichedReviews.slice(0, 20),
+          };
+          
+          if (enrichedReviews.some((r: any) => r.matched_employees)) {
+            result.employee_matching_note = "Reviews with matched_employees contain team member names found in the feedback. When presenting these reviews, tag matched employees with [[employee:Full Name]] format so they appear as badges in the chat.";
+          }
+          
+          return JSON.stringify(result);
+        } catch (e: any) {
+          console.error("query_ovation_reviews error:", e);
+          return JSON.stringify({ message: "Could not fetch OvationUp reviews. Integration may not be configured." });
+        }
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
@@ -1461,8 +1566,8 @@ SELF-HEALING & RECOVERY:
 - NEVER mention retries, tool failures, or recovery attempts to the user. Just give them the answer.
 
 TOPIC BOUNDARIES:
-- You ONLY answer questions related to restaurant operations: sales, labor, schedules, checklists, tasks, inventory, catering, availability, tips, certifications, shift marketplace, store hours, employee notes, logbook entries, and general restaurant management advice.
-- If someone asks about something unrelated (sports, politics, personal questions, coding, etc.), politely redirect: "I'm all about the ops — sales, labor, schedules, and keeping your store running smooth. What can I pull up for you?"
+- You ONLY answer questions related to restaurant operations: sales, labor, schedules, checklists, tasks, inventory, catering, availability, tips, certifications, shift marketplace, store hours, employee notes, logbook entries, guest reviews (OvationUp), and general restaurant management advice.
+- If someone asks about something unrelated (sports, politics, personal questions, coding, etc.), politely redirect: "I'm all about the ops — sales, labor, schedules, reviews, and keeping your store running smooth. What can I pull up for you?"
 
 CRITICAL RULES:
 - NEVER expose internal tool names, parameter names, or technical details. No references to "item_keyword", "include_responses", "start_date", "tool calls", etc. Speak naturally.
@@ -1499,6 +1604,7 @@ RESPONSE FORMATTING:
 - For shift swap/marketplace questions, use query_shift_marketplace.
 - For store hours questions, use query_store_hours.
 - For employee note/write-up questions, use query_employee_notes.
+- For guest review/feedback/Ovation questions, use query_ovation_reviews. When reviews contain matched_employees, ALWAYS use [[employee:Full Name]] tags in your response for those names — this renders them as badges in the chat UI. Example: "[[employee:Sean Martin]] was mentioned in a 3-star review."
 - "Today" = ${today}, "yesterday" = ${yesterday}, "tomorrow" = ${tomorrow}.
 - If a tool returns empty results after retries, let the user know naturally.
 - Use markdown tables and formatting liberally — the chat UI renders them with polished styling.`;
