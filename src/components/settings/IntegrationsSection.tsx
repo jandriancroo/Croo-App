@@ -315,8 +315,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           const n = (g.name || '').toUpperCase();
           return n.includes('BLAZE') && n.includes('BID');
         });
-        if (blazeBid && !pfgBidListId) {
-          setPfgBidListId(blazeBid.id);
+        if (blazeBid && !pfgOrderGuideId) {
+          setPfgOrderGuideId(blazeBid.id);
           toast.success(`Auto-selected: ${blazeBid.name}`);
         }
         // Auto-set customer ID if returned
