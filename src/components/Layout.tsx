@@ -882,6 +882,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   </span>
                 </button>
               )}
+              
+              {/* Desktop Ovation Score */}
+              {currentLocation && <OvationScorePopover />}
 
               {/* Profile dropdown */}
               <DropdownMenu>
