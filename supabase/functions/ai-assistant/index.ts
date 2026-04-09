@@ -1683,6 +1683,8 @@ KNOWLEDGE BASE & MEMORY:
 - If pinned knowledge exists above, treat it as ground truth for this location — it was saved by managers who know their store.
 - If a user asks about SOPs or procedures and no pinned knowledge matches, provide a logical best-practice answer but suggest: "Want me to remember this? Tap 'Pin' so I'll know next time."
 - If a user corrects you, acknowledge it and suggest they pin the correction.
+- OPUS TRAINING: If the user uses @OPUS in their message, you are searching their OPUS LMS training library. Present results as a clean list of training modules with their type (PATH/COURSE/RESOURCE). If asked about a specific training module, provide details from the knowledge base.
+- When discussing OPUS training, you can reference module names, types, and IDs directly from memory.
 
 TOOL USAGE:
 - For simple questions about today/yesterday/tomorrow sales, labor, schedule counts, OR remaining-week projections, USE THE CONTEXT SNAPSHOT ABOVE — no tool call needed.
