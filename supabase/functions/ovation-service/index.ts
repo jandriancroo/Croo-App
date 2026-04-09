@@ -503,7 +503,7 @@ async function handleAutoMapLocations(req: Request, supabase: any) {
   const orgIds = orgs.map((o: any) => o.id)
   const { data: crooLocations } = await supabase
     .from('locations')
-    .select('id, name, city')
+    .select('id, name, address')
     .in('organization_id', orgIds)
 
   if (!crooLocations?.length) return jsonResponse({ mapped: 0, message: 'No CrooHQ locations found' })
@@ -516,20 +516,21 @@ async function handleAutoMapLocations(req: Request, supabase: any) {
 
   const alreadyMapped = new Set((existingMappings || []).map((m: any) => m.location_id))
 
-  // Match by city name (case-insensitive)
+  // Match by location name against OvationUp city or name (case-insensitive)
   let mapped = 0
   const results: { crooName: string; ovationName: string; city: string }[] = []
 
   for (const crooLoc of crooLocations) {
     if (alreadyMapped.has(crooLoc.id)) continue
 
-    const crooCity = (crooLoc.city || '').toLowerCase().trim()
-    if (!crooCity) continue
+    const crooName = (crooLoc.name || '').toLowerCase().trim()
+    if (!crooName) continue
 
-    // Find matching OvationUp location by city
+    // Find matching OvationUp location by city or name
     const match = ovationLocations.find((ol: any) => {
       const olCity = (ol.city || ol.addressDetails?.city || '').toLowerCase().trim()
-      return olCity === crooCity
+      const olName = (ol.name || '').toLowerCase().trim()
+      return olCity === crooName || olName.includes(crooName) || crooName.includes(olCity)
     })
 
     if (match) {
