@@ -1022,10 +1022,31 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <div className="flex gap-2">
               <Button size="sm" disabled={ovationIsSaving || !ovationEmail || !ovationPassword} onClick={async () => {
                 setOvationIsSaving(true);
+                setOvationTestResult(null);
                 try {
                   if (!ovationBrandId) { toast.error('Could not determine brand'); return; }
-                  
-                  // Save brand-level credentials
+
+                  // Step 1: Test auth & discover company ID
+                  toast.info('Authenticating with OvationUp...');
+                  const { data: testData, error: testError } = await supabase.functions.invoke('ovation-service?action=test_auth', {
+                    body: { username: ovationEmail, password: ovationPassword },
+                  });
+                  if (testError) throw testError;
+                  if (!testData?.success) {
+                    setOvationTestResult('error');
+                    toast.error(testData?.error || 'Authentication failed');
+                    return;
+                  }
+                  setOvationTestResult('success');
+
+                  // Auto-fill company ID from discovery
+                  const discoveredCompanyId = testData.companyId || ovationCompanyId;
+                  if (testData.companyId) {
+                    setOvationCompanyId(testData.companyId);
+                    toast.success(`Connected as ${testData.companyName || testData.companyId}`);
+                  }
+
+                  // Step 2: Save credentials + company ID
                   const { data: existing } = await supabase
                     .from('ovation_integrations')
                     .select('id')
@@ -1035,7 +1056,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   const updateData = {
                     cognito_username: ovationEmail,
                     cognito_password: ovationPassword,
-                    company_id: ovationCompanyId,
+                    company_id: discoveredCompanyId,
                     is_active: true,
                     updated_at: new Date().toISOString(),
                   };
@@ -1048,7 +1069,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     if (error) throw error;
                   }
 
-                  // Save location mapping if manually provided
+                  // Step 3: Location mapping
                   if (ovationLocationId.trim() && locationId) {
                     const { data: existingMapping } = await supabase
                       .from('ovation_location_mappings')
@@ -1062,13 +1083,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       await supabase.from('ovation_location_mappings').insert({ location_id: locationId, ovation_location_id: ovationLocationId });
                     }
                   } else {
-                    // Auto-map: call edge function to match locations by city
+                    // Auto-map locations by city
                     try {
+                      toast.info('Auto-mapping locations...');
                       const { data: mapResult } = await supabase.functions.invoke('ovation-service?action=auto_map_locations', {
                         body: { brandId: ovationBrandId },
                       });
                       if (mapResult?.mapped > 0) {
-                        toast.success(`Auto-mapped ${mapResult.mapped} location${mapResult.mapped > 1 ? 's' : ''} by city name`);
+                        toast.success(`Auto-mapped ${mapResult.mapped} location${mapResult.mapped > 1 ? 's' : ''}`);
                         const { data: newMapping } = await supabase
                           .from('ovation_location_mappings')
                           .select('ovation_location_id')
@@ -1084,45 +1106,16 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   queryClient.invalidateQueries({ queryKey: ['ovation-integration'] });
                   queryClient.invalidateQueries({ queryKey: ['ovation-mapping'] });
                   queryClient.invalidateQueries({ queryKey: ['ovation-reviews'] });
-                  toast.success('OvationUp configuration saved!');
+                  toast.success('OvationUp connected!');
                 } catch (error) {
-                  toast.error('Failed to save: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                  setOvationTestResult('error');
+                  toast.error('Failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
                 } finally {
                   setOvationIsSaving(false);
                 }
               }}>
-                {ovationIsSaving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-                Save
-              </Button>
-              <Button size="sm" variant="outline" disabled={ovationIsTesting || !ovationEmail || !ovationPassword} onClick={async () => {
-                setOvationIsTesting(true);
-                setOvationTestResult(null);
-                try {
-                  const { data, error } = await supabase.functions.invoke('ovation-service?action=test_auth', {
-                    body: { username: ovationEmail, password: ovationPassword },
-                  });
-                  if (error) throw error;
-                  if (data?.success) {
-                    setOvationTestResult('success');
-                    toast.success('OvationUp authentication successful!');
-                    // Auto-populate company ID if discovered
-                    if (data.companyId && !ovationCompanyId) {
-                      setOvationCompanyId(data.companyId);
-                      toast.success(`Company found: ${data.companyName || data.companyId}`);
-                    }
-                  } else {
-                    setOvationTestResult('error');
-                    toast.error(data?.error || 'Auth test failed');
-                  }
-                } catch (error) {
-                  setOvationTestResult('error');
-                  toast.error('Test failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-                } finally {
-                  setOvationIsTesting(false);
-                }
-              }}>
-                {ovationIsTesting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <TestTube className="h-4 w-4 mr-1.5" />}
-                Test
+                {ovationIsSaving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Plug className="h-4 w-4 mr-1.5" />}
+                {ovationIsSaving ? 'Connecting...' : 'Connect'}
               </Button>
             </div>
           </div>
