@@ -329,7 +329,90 @@ async function handleTestAuth(req: Request, supabase: any) {
 
   try {
     const tokens = await cognitoSrpAuth(username, password)
-    return jsonResponse({ success: true, hasTokens: !!tokens.AccessToken })
+    
+    // Try to discover user info and company ID using the access token
+    let ovationUserId: string | null = null
+    let companyId: string | null = null
+    let companyName: string | null = null
+
+    // Step 1: Get OvationUp user ID from Cognito GetUser
+    try {
+      const getUserResp = await fetch(`https://cognito-idp.${COGNITO_REGION}.amazonaws.com/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-amz-json-1.1',
+          'X-Amz-Target': 'AWSCognitoIdentityProviderService.GetUser',
+        },
+        body: JSON.stringify({ AccessToken: tokens.AccessToken }),
+      })
+      const userData = await getUserResp.json()
+      ovationUserId = userData.Username || null
+      console.log('[ovation-service] Cognito user:', ovationUserId, JSON.stringify(userData.UserAttributes))
+    } catch (e: any) {
+      console.error('[ovation-service] GetUser failed:', e.message)
+    }
+
+    // Step 2: Try to fetch user's companies via OvationUp API
+    if (ovationUserId) {
+      // Try /users/me or /users/{id} patterns
+      const tryEndpoints = [
+        `${OVATION_API}/users/me`,
+        `${OVATION_API}/users/${ovationUserId}`,
+        `${OVATION_API}/companies`,
+        `${OVATION_API}/company/list`,
+        `${OVATION_API}/users/me/companies`,
+      ]
+      
+      for (const endpoint of tryEndpoints) {
+        try {
+          const resp = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'Authorization': tokens.IdToken,
+              'Accept': 'application/json',
+            },
+          })
+          const respText = await resp.text()
+          console.log(`[ovation-service] ${endpoint} -> ${resp.status}: ${respText.substring(0, 500)}`)
+          
+          if (resp.ok) {
+            try {
+              const data = JSON.parse(respText)
+              // Look for company info in response
+              if (data?.data?.company?._id) {
+                companyId = data.data.company._id
+                companyName = data.data.company.name
+                break
+              }
+              if (data?.data?.companies?.[0]?._id) {
+                companyId = data.data.companies[0]._id
+                companyName = data.data.companies[0].name
+                break
+              }
+              if (data?.data?.companyId) {
+                companyId = data.data.companyId
+                break
+              }
+              if (data?.data?._id && data?.data?.name) {
+                companyId = data.data._id
+                companyName = data.data.name
+                break
+              }
+            } catch {}
+          }
+        } catch (e: any) {
+          console.log(`[ovation-service] ${endpoint} error: ${e.message}`)
+        }
+      }
+    }
+
+    return jsonResponse({ 
+      success: true, 
+      hasTokens: !!tokens.AccessToken,
+      ovationUserId,
+      companyId,
+      companyName,
+    })
   } catch (error: any) {
     console.error('[ovation-service] Test auth failed:', error.message)
     return jsonResponse({ success: false, error: error.message })

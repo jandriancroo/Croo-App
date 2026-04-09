@@ -987,10 +987,11 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 <Input 
                   value={ovationCompanyId} 
                   onChange={(e) => setOvationCompanyId(e.target.value)} 
-                  placeholder="e.g., 6777260a7637ed5bfedb1f2e" 
+                  placeholder="Auto-detected on Test" 
                   className="h-9 text-xs font-mono" 
+                  readOnly={!!ovationCompanyId}
                 />
-                <p className="text-[11px] text-muted-foreground">From the OvationUp leaderboard API request</p>
+                <p className="text-[11px] text-muted-foreground">Auto-discovered when you test credentials</p>
               </div>
             </div>
 
@@ -1019,7 +1020,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button size="sm" disabled={ovationIsSaving || !ovationEmail || !ovationPassword || !ovationCompanyId} onClick={async () => {
+              <Button size="sm" disabled={ovationIsSaving || !ovationEmail || !ovationPassword} onClick={async () => {
                 setOvationIsSaving(true);
                 try {
                   if (!ovationBrandId) { toast.error('Could not determine brand'); return; }
@@ -1097,12 +1098,22 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 setOvationIsTesting(true);
                 setOvationTestResult(null);
                 try {
-                  const { data, error } = await supabase.functions.invoke('ovation-service', {
-                    body: { action: 'test_auth', username: ovationEmail, password: ovationPassword },
+                  const { data, error } = await supabase.functions.invoke('ovation-service?action=test_auth', {
+                    body: { username: ovationEmail, password: ovationPassword },
                   });
                   if (error) throw error;
-                  if (data?.success) { setOvationTestResult('success'); toast.success('OvationUp authentication successful!'); }
-                  else { setOvationTestResult('error'); toast.error(data?.error || 'Auth test failed'); }
+                  if (data?.success) {
+                    setOvationTestResult('success');
+                    toast.success('OvationUp authentication successful!');
+                    // Auto-populate company ID if discovered
+                    if (data.companyId && !ovationCompanyId) {
+                      setOvationCompanyId(data.companyId);
+                      toast.success(`Company found: ${data.companyName || data.companyId}`);
+                    }
+                  } else {
+                    setOvationTestResult('error');
+                    toast.error(data?.error || 'Auth test failed');
+                  }
                 } catch (error) {
                   setOvationTestResult('error');
                   toast.error('Test failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
