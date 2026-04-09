@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Star, MessageSquare, ChevronUp } from 'lucide-react';
+import { Star, MessageSquare, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import ovationLogo from '@/assets/ovation-logo.png';
