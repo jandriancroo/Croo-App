@@ -955,7 +955,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogTitle className="flex items-center gap-2">
               <Plug className="h-5 w-5" /> OvationUp
             </DialogTitle>
-            <DialogDescription>Login credentials & location mapping for guest reviews</DialogDescription>
+            <DialogDescription>Per-location login credentials for guest reviews</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {/* Brand-level credentials */}
