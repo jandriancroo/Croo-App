@@ -16,10 +16,7 @@ async function getToken(audience: string): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ audience, username, password }),
   });
-  if (!res.ok) {
-    const t = await res.text();
-    return `AUTH_FAILED:${res.status}:${t.substring(0,200)}`;
-  }
+  if (!res.ok) return `FAIL:${res.status}`;
   const data = await res.json();
   return data.token;
 }
@@ -33,72 +30,75 @@ serve(async (req) => {
     const brandId = Deno.env.get('FRESH_KDS_BRAND_ID') || '';
     const locationId = 'a49a6059-e5c2-4992-aa0f-48bdbc35f860';
     const deviceId = 'b3ed98da-4919-4333-ac2a-b66760bc8f42';
+    const accessToken = 'd4c8e886-b63d-4a2f-abae-5e7f14680c51';
 
-    // Get tokens for different audiences
-    const [webToken, trackerToken, kdsToken, togoToken] = await Promise.all([
-      getToken('fresh-tools-web'),
-      getToken('fresh-order-tracker-mobile'),
-      getToken('fresh-kds-mobile'),
-      getToken('fresh-togo-web'),
-    ]);
+    const kdsToken = await getToken('fresh-kds-mobile');
+    const trackerToken = await getToken('fresh-order-tracker-mobile');
 
     const results: Record<string, any> = {};
 
-    // Log token statuses
-    results['tokens'] = {
-      web: webToken.startsWith('AUTH_FAILED') ? webToken : 'OK',
-      tracker: trackerToken.startsWith('AUTH_FAILED') ? trackerToken : 'OK',
-      kds: kdsToken.startsWith('AUTH_FAILED') ? kdsToken : 'OK',
-      togo: togoToken.startsWith('AUTH_FAILED') ? togoToken : 'OK',
-    };
+    // Decode JWT payload to see claims
+    for (const [name, token] of [['kds', kdsToken], ['tracker', trackerToken]]) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        results[`${name}-jwt-claims`] = payload;
+      } catch { results[`${name}-jwt-claims`] = 'failed to decode'; }
+    }
 
     const tests: { name: string; url: string; headers: Record<string,string>; method?: string; body?: string }[] = [];
 
-    // For each working token, try key endpoints
-    const tokenMap: Record<string, string> = {};
-    if (!webToken.startsWith('AUTH_FAILED')) tokenMap['web'] = webToken;
-    if (!trackerToken.startsWith('AUTH_FAILED')) tokenMap['tracker'] = trackerToken;
-    if (!kdsToken.startsWith('AUTH_FAILED')) tokenMap['kds'] = kdsToken;
-    if (!togoToken.startsWith('AUTH_FAILED')) tokenMap['togo'] = togoToken;
-
-    for (const [name, token] of Object.entries(tokenMap)) {
-      const h = { 'Authorization': `Bearer ${token}`, 'x-brand-id': brandId, 'Accept': 'application/json' };
-      
-      // Try integrations API with proper device header
-      tests.push({ name: `${name}-integrations-orders`, url: `https://integrations-api.ftservices.cloud/integrators/kds-orders/active`, headers: { ...h, 'x-location-id': locationId, 'x-device-ids': deviceId } });
-      
-      // Try kds-api metrics (we know this works with web token)
-      tests.push({ name: `${name}-kds-metrics-counts`, url: `https://kds-api.ftservices.cloud/metrics/orders/counts/?locationId=${locationId}&dateFrom=2026-04-09T08:00:00.000Z&dateTo=2026-04-09T23:59:59.999Z`, headers: h });
-    }
-
-    // Also try brand-api with toolId variations
-    const wh = { 'Authorization': `Bearer ${webToken}`, 'x-brand-id': brandId, 'Accept': 'application/json' };
-    tests.push({ name: 'brand-loc-devices-kds', url: `https://brand-api.ftservices.cloud/locations/${locationId}/devices?toolId=kds`, headers: wh });
-    tests.push({ name: 'brand-loc-devices-order-tracker', url: `https://brand-api.ftservices.cloud/locations/${locationId}/devices?toolId=order-tracker`, headers: wh });
-    tests.push({ name: 'brand-loc-devices-togo', url: `https://brand-api.ftservices.cloud/locations/${locationId}/devices?toolId=togo`, headers: wh });
-    tests.push({ name: 'brand-loc-devices-all', url: `https://brand-api.ftservices.cloud/locations/${locationId}/devices?toolId=all`, headers: wh });
+    // KDS mobile token - try device registration / pairing flow
+    const kdsH = { 'Authorization': `Bearer ${kdsToken}`, 'x-brand-id': brandId, 'Accept': 'application/json', 'Content-Type': 'application/json' };
     
-    // Try brand-api other endpoints
-    tests.push({ name: 'brand-loc-settings', url: `https://brand-api.ftservices.cloud/locations/${locationId}/settings`, headers: wh });
-    tests.push({ name: 'brand-loc-integrations', url: `https://brand-api.ftservices.cloud/locations/${locationId}/integrations`, headers: wh });
-    tests.push({ name: 'brand-integrations', url: `https://brand-api.ftservices.cloud/integrations`, headers: wh });
-    tests.push({ name: 'brand-orders', url: `https://brand-api.ftservices.cloud/orders?locationId=${locationId}`, headers: wh });
+    // The KDS app pairs with a device. Try device pairing endpoints
+    tests.push({ name: 'kds-pair-device', url: `https://kds-api.ftservices.cloud/pair`, method: 'POST', body: JSON.stringify({ deviceId, accessToken, locationId }), headers: kdsH });
+    tests.push({ name: 'kds-connect', url: `https://kds-api.ftservices.cloud/connect`, method: 'POST', body: JSON.stringify({ deviceId, accessToken, locationId }), headers: kdsH });
+    tests.push({ name: 'kds-register', url: `https://kds-api.ftservices.cloud/register`, method: 'POST', body: JSON.stringify({ deviceId, accessToken, locationId }), headers: kdsH });
     
-    // Try togo API (handles online orders)
-    tests.push({ name: 'togo-api-root', url: `https://togo-api.ftservices.cloud/`, headers: wh });
-    tests.push({ name: 'togo-api-orders', url: `https://togo-api.ftservices.cloud/orders?locationId=${locationId}`, headers: wh });
+    // Try querying orders with KDS mobile token
+    tests.push({ name: 'kds-mob-orders', url: `https://kds-api.ftservices.cloud/orders?locationId=${locationId}&deviceId=${deviceId}`, headers: kdsH });
+    tests.push({ name: 'kds-mob-active', url: `https://kds-api.ftservices.cloud/active?locationId=${locationId}`, headers: kdsH });
+    tests.push({ name: 'kds-mob-tickets', url: `https://kds-api.ftservices.cloud/tickets?locationId=${locationId}`, headers: kdsH });
+    tests.push({ name: 'kds-mob-queue-loc', url: `https://kds-api.ftservices.cloud/queue?locationId=${locationId}`, headers: kdsH });
+    
+    // Order Tracker specific endpoints
+    const tH = { 'Authorization': `Bearer ${trackerToken}`, 'x-brand-id': brandId, 'Accept': 'application/json' };
+    tests.push({ name: 'tracker-orders', url: `https://kds-api.ftservices.cloud/order-tracker/orders?locationId=${locationId}`, headers: tH });
+    tests.push({ name: 'tracker-active', url: `https://kds-api.ftservices.cloud/order-tracker/active?locationId=${locationId}`, headers: tH });
+    tests.push({ name: 'tracker-queue', url: `https://kds-api.ftservices.cloud/order-tracker/queue?locationId=${locationId}`, headers: tH });
+    tests.push({ name: 'tracker-status', url: `https://kds-api.ftservices.cloud/order-tracker/status?locationId=${locationId}`, headers: tH });
+    
+    // Try order-tracker API host directly
+    tests.push({ name: 'order-tracker-api', url: `https://order-tracker-api.ftservices.cloud/`, headers: tH });
+    tests.push({ name: 'order-tracker-orders', url: `https://order-tracker-api.ftservices.cloud/orders?locationId=${locationId}`, headers: tH });
+    
+    // Try with accessToken as query param
+    tests.push({ name: 'kds-orders-access', url: `https://kds-api.ftservices.cloud/orders?locationId=${locationId}&accessToken=${accessToken}`, headers: kdsH });
+    
+    // Try brand-api with KDS mobile token for device config
+    tests.push({ name: 'brand-device-config', url: `https://brand-api.ftservices.cloud/devices/${deviceId}/config`, headers: kdsH });
+    tests.push({ name: 'brand-device-details', url: `https://brand-api.ftservices.cloud/devices?deviceId=${deviceId}`, headers: kdsH });
+    
+    // Socket/SSE endpoints
+    tests.push({ name: 'kds-events', url: `https://kds-api.ftservices.cloud/events?locationId=${locationId}`, headers: kdsH });
+    tests.push({ name: 'kds-stream', url: `https://kds-api.ftservices.cloud/stream?locationId=${locationId}`, headers: kdsH });
+    tests.push({ name: 'kds-subscribe', url: `https://kds-api.ftservices.cloud/subscribe?locationId=${locationId}`, headers: kdsH });
 
     for (const t of tests) {
       try {
         const opts: any = { headers: t.headers, method: t.method || 'GET' };
         if (t.body) opts.body = t.body;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        opts.signal = controller.signal;
         const res = await fetch(t.url, opts);
+        clearTimeout(timeout);
         const text = await res.text();
         let body;
         try { body = JSON.parse(text); } catch { body = text.substring(0, 500); }
         results[t.name] = { 
           status: res.status, 
-          body: typeof body === 'string' ? body : JSON.stringify(body).substring(0, 1000) 
+          body: typeof body === 'string' ? body : JSON.stringify(body).substring(0, 800) 
         };
       } catch (e) {
         results[t.name] = { error: e.message.substring(0, 200) };
