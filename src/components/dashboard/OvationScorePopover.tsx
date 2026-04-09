@@ -42,18 +42,9 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-interface OvationScorePopoverProps {
-  expanded?: boolean;
-  onToggle?: () => void;
-}
-
-export function OvationScorePopover({ expanded: controlledExpanded, onToggle }: OvationScorePopoverProps = {}) {
+/** Shared hook so tab + panel use the same data without duplicate fetches */
+export function useOvationData() {
   const { currentLocation, organizationId } = useAppLocation();
-  const [internalExpanded, setInternalExpanded] = useState(false);
-  const [reviewIndex, setReviewIndex] = useState(0);
-
-  const expanded = controlledExpanded ?? internalExpanded;
-  const toggleExpanded = onToggle ?? (() => setInternalExpanded(prev => !prev));
 
   const { data: brandId } = useQuery({
     queryKey: ['org-brand-id', organizationId],
@@ -94,136 +85,157 @@ export function OvationScorePopover({ expanded: controlledExpanded, onToggle }: 
     refetchInterval: 10 * 60 * 1000,
   });
 
-  const advanceReview = useCallback(() => {
-    const feedbackReviews = reviewsData?.reviews?.filter(r => r.feedback) || [];
-    if (feedbackReviews.length > 1) {
-      setReviewIndex(prev => (prev + 1) % feedbackReviews.length);
-    }
-  }, [reviewsData]);
+  return { reviewsData, hasData: !!reviewsData && !reviewsData.error && !!reviewsData.wtdAverage };
+}
 
-  if (!reviewsData || reviewsData.error || !reviewsData.wtdAverage) {
-    return null;
-  }
+/** The small fixed tab trigger */
+export function OvationScoreTab({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+  const { reviewsData, hasData } = useOvationData();
 
-  const reviewsWithFeedback = reviewsData.reviews?.filter(r => r.feedback) || [];
+  if (!hasData || !reviewsData?.wtdAverage) return null;
+
   const scoreColor = reviewsData.wtdAverage >= 4.5 ? 'text-green-500' :
     reviewsData.wtdAverage >= 3.5 ? 'text-yellow-500' :
     reviewsData.wtdAverage >= 2.5 ? 'text-orange-500' : 'text-red-500';
 
   return (
-    <div className="flex flex-col items-center">
-      {/* Tab trigger */}
-      <button
-        onClick={toggleExpanded}
-        className={cn(
-          'flex items-center gap-1.5 px-3 py-1 bg-muted/80 shadow-sm hover:bg-muted transition-all border border-t-0 border-border/30',
-          expanded ? 'rounded-none' : 'rounded-b-xl'
-        )}
-      >
-        <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 object-contain" />
-        <span className={cn('text-sm font-bold', scoreColor)}>
-          {reviewsData.wtdAverage.toFixed(1)}
-        </span>
-        <span className="text-[9px] text-muted-foreground">7d</span>
-        <ChevronUp className={cn(
-          'h-3 w-3 text-muted-foreground/60 transition-transform duration-300',
-          expanded ? 'rotate-0' : 'rotate-180'
-        )} />
-      </button>
+    <button
+      onClick={onToggle}
+      className={cn(
+        'flex items-center gap-1.5 px-3 py-1 bg-muted/80 shadow-sm hover:bg-muted transition-all border border-t-0 border-border/30',
+        expanded ? 'rounded-none' : 'rounded-b-xl'
+      )}
+    >
+      <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 object-contain" />
+      <span className={cn('text-sm font-bold', scoreColor)}>
+        {reviewsData.wtdAverage.toFixed(1)}
+      </span>
+      <span className="text-[9px] text-muted-foreground">7d</span>
+      <ChevronUp className={cn(
+        'h-3 w-3 text-muted-foreground/60 transition-transform duration-300',
+        expanded ? 'rotate-0' : 'rotate-180'
+      )} />
+    </button>
+  );
+}
 
-      {/* Expandable panel */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-            className="overflow-hidden w-72"
-          >
-            <div className="bg-background border border-t-0 border-border/30 rounded-b-2xl shadow-lg">
-              {/* Header */}
-              <div className="px-3 pt-2 pb-2 flex items-center justify-between border-b border-border/20">
-                <div className="flex items-center gap-2">
-                  <img src={ovationLogo} alt="OvationUp" className="h-6 w-6 object-contain" />
-                  <div>
-                    <p className="text-xs font-semibold leading-tight">OvationUp</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">
-                      Last 7 days · {reviewsData.wtdCount} reviews
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    'flex items-center justify-center px-2 py-0.5 rounded-md font-bold text-sm',
-                    reviewsData.wtdAverage >= 4.5 ? 'bg-green-500/10 text-green-600' :
-                    reviewsData.wtdAverage >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
-                    reviewsData.wtdAverage >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
-                  )}>
-                    {reviewsData.wtdAverage.toFixed(1)}
-                  </div>
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    <span className="text-[10px]">{reviewsData.wtdCount}</span>
-                  </div>
-                </div>
-              </div>
+/** The expandable panel that goes in document flow */
+export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
+  const { reviewsData, hasData } = useOvationData();
+  const [reviewIndex, setReviewIndex] = useState(0);
 
-              {/* Reviews carousel */}
-              {reviewsWithFeedback.length > 0 ? (
-                <div
-                  className="px-3 py-3 min-h-[60px] cursor-pointer"
-                  onClick={advanceReview}
-                >
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={reviewsWithFeedback[reviewIndex]?.id}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <StarRating rating={reviewsWithFeedback[reviewIndex]?.rating || 0} />
-                        <span className="text-[10px] text-muted-foreground truncate">
-                          {reviewsWithFeedback[reviewIndex]?.customerName}
-                        </span>
-                        {reviewsWithFeedback[reviewIndex]?.hasResponse && (
-                          <span className="text-[9px] text-green-500 font-medium">✓ replied</span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">
-                        {reviewsWithFeedback[reviewIndex]?.feedback}
-                      </p>
-                    </motion.div>
-                  </AnimatePresence>
+  const reviewsWithFeedback = reviewsData?.reviews?.filter(r => r.feedback) || [];
 
-                  {reviewsWithFeedback.length > 1 && (
-                    <div className="flex justify-center gap-1 mt-2">
-                      {reviewsWithFeedback.slice(0, 8).map((_, idx) => (
-                        <button
-                          key={idx}
-                          className={cn(
-                            'w-1 h-1 rounded-full transition-all',
-                            idx === reviewIndex ? 'bg-primary w-2' : 'bg-muted-foreground/30'
-                          )}
-                          onClick={(e) => { e.stopPropagation(); setReviewIndex(idx); }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="px-3 py-3">
-                  <p className="text-[11px] text-muted-foreground italic">
-                    {reviewsData.reviews.length} ratings (no written feedback)
+  const advanceReview = useCallback(() => {
+    if (reviewsWithFeedback.length > 1) {
+      setReviewIndex(prev => (prev + 1) % reviewsWithFeedback.length);
+    }
+  }, [reviewsWithFeedback.length]);
+
+  if (!hasData || !reviewsData?.wtdAverage) return null;
+
+  return (
+    <AnimatePresence>
+      {expanded && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+          className="overflow-hidden flex justify-center -mt-1 mb-2"
+        >
+          <div className="w-72 bg-background border border-border/30 rounded-b-2xl shadow-lg">
+            {/* Header */}
+            <div className="px-3 pt-2 pb-2 flex items-center justify-between border-b border-border/20">
+              <div className="flex items-center gap-2">
+                <img src={ovationLogo} alt="OvationUp" className="h-6 w-6 object-contain" />
+                <div>
+                  <p className="text-xs font-semibold leading-tight">OvationUp</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    Last 7 days · {reviewsData.wtdCount} reviews
                   </p>
                 </div>
-              )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  'flex items-center justify-center px-2 py-0.5 rounded-md font-bold text-sm',
+                  reviewsData.wtdAverage >= 4.5 ? 'bg-green-500/10 text-green-600' :
+                  reviewsData.wtdAverage >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
+                  reviewsData.wtdAverage >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
+                )}>
+                  {reviewsData.wtdAverage.toFixed(1)}
+                </div>
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  <span className="text-[10px]">{reviewsData.wtdCount}</span>
+                </div>
+              </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+            {/* Reviews carousel */}
+            {reviewsWithFeedback.length > 0 ? (
+              <div
+                className="px-3 py-3 min-h-[60px] cursor-pointer"
+                onClick={advanceReview}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={reviewsWithFeedback[reviewIndex]?.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <StarRating rating={reviewsWithFeedback[reviewIndex]?.rating || 0} />
+                      <span className="text-[10px] text-muted-foreground truncate">
+                        {reviewsWithFeedback[reviewIndex]?.customerName}
+                      </span>
+                      {reviewsWithFeedback[reviewIndex]?.hasResponse && (
+                        <span className="text-[9px] text-green-500 font-medium">✓ replied</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">
+                      {reviewsWithFeedback[reviewIndex]?.feedback}
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
+
+                {reviewsWithFeedback.length > 1 && (
+                  <div className="flex justify-center gap-1 mt-2">
+                    {reviewsWithFeedback.slice(0, 8).map((_, idx) => (
+                      <button
+                        key={idx}
+                        className={cn(
+                          'w-1 h-1 rounded-full transition-all',
+                          idx === reviewIndex ? 'bg-primary w-2' : 'bg-muted-foreground/30'
+                        )}
+                        onClick={(e) => { e.stopPropagation(); setReviewIndex(idx); }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="px-3 py-3">
+                <p className="text-[11px] text-muted-foreground italic">
+                  {reviewsData.reviews.length} ratings (no written feedback)
+                </p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Legacy export — wraps both pieces for desktop use */
+export function OvationScorePopover() {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="relative">
+      <OvationScoreTab expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
     </div>
   );
 }
