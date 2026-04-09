@@ -5077,6 +5077,8 @@ export type Database = {
         Row: {
           auth_token: string | null
           brand_id: string | null
+          cognito_password: string | null
+          cognito_username: string | null
           company_id: string
           created_at: string
           id: string
@@ -5087,6 +5089,8 @@ export type Database = {
         Insert: {
           auth_token?: string | null
           brand_id?: string | null
+          cognito_password?: string | null
+          cognito_username?: string | null
           company_id: string
           created_at?: string
           id?: string
@@ -5097,6 +5101,8 @@ export type Database = {
         Update: {
           auth_token?: string | null
           brand_id?: string | null
+          cognito_password?: string | null
+          cognito_username?: string | null
           company_id?: string
           created_at?: string
           id?: string

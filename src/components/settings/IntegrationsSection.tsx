@@ -150,7 +150,15 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [kdsIsSaving, setKdsIsSaving] = useState(false);
   const [kdsIsSyncing, setKdsIsSyncing] = useState(false);
 
-  // ── Queries ──
+  // OvationUp state
+  const [ovationEmail, setOvationEmail] = useState('');
+  const [ovationPassword, setOvationPassword] = useState('');
+  const [ovationCompanyId, setOvationCompanyId] = useState('');
+  const [ovationLocationId, setOvationLocationId] = useState('');
+  const [ovationShowPassword, setOvationShowPassword] = useState(false);
+  const [ovationIsSaving, setOvationIsSaving] = useState(false);
+  const [ovationIsTesting, setOvationIsTesting] = useState(false);
+  const [ovationTestResult, setOvationTestResult] = useState<'success' | 'error' | null>(null);
   const { data: integration, isLoading } = useQuery({
     queryKey: ['location-integration', locationId, 'qubeyond'],
     queryFn: async () => {
@@ -195,6 +203,40 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     enabled: !!locationId
   });
 
+  // OvationUp — get brand_id from location's organization, then fetch integration
+  const { data: ovationBrandId } = useQuery({
+    queryKey: ['location-brand-id', locationId],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data: loc } = await supabase.from('locations').select('organization_id').eq('id', locationId).single();
+      if (!loc?.organization_id) return null;
+      const { data: org } = await supabase.from('organizations').select('brand_id').eq('id', loc.organization_id).single();
+      return org?.brand_id || null;
+    },
+    enabled: !!locationId,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const { data: ovationIntegration, isLoading: ovationIsLoading } = useQuery({
+    queryKey: ['ovation-integration', ovationBrandId],
+    queryFn: async () => {
+      if (!ovationBrandId) return null;
+      const { data } = await supabase.from('ovation_integrations').select('*').eq('brand_id', ovationBrandId).maybeSingle();
+      return data;
+    },
+    enabled: !!ovationBrandId,
+  });
+
+  const { data: ovationMapping } = useQuery({
+    queryKey: ['ovation-mapping', locationId],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data } = await supabase.from('ovation_location_mappings').select('*').eq('location_id', locationId).maybeSingle();
+      return data;
+    },
+    enabled: !!locationId,
+  });
+
   // ── Sync state from queries ──
   useEffect(() => {
     if (integration) {
@@ -229,6 +271,19 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     if (locationKdsData) setKdsLocationId(locationKdsData.fresh_kds_location_id || '');
   }, [locationKdsData]);
 
+  useEffect(() => {
+    if (ovationIntegration) {
+      setOvationEmail((ovationIntegration as any).cognito_username || '');
+      setOvationPassword((ovationIntegration as any).cognito_password || '');
+      setOvationCompanyId(ovationIntegration.company_id || '');
+    }
+  }, [ovationIntegration]);
+
+  useEffect(() => {
+    if (ovationMapping) {
+      setOvationLocationId(ovationMapping.ovation_location_id || '');
+    }
+  }, [ovationMapping]);
   // ── Handlers (unchanged logic) ──
 
   const testPaConnection = async () => {
@@ -491,7 +546,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
         <IntegrationCard
           title="OvationUp"
           description="Guest reviews & feedback"
-          connected={false}
+          connected={!!ovationIntegration && !!ovationMapping}
+          connectedLabel={ovationEmail || 'Connected'}
           setupLabel="Setup OvationUp"
           onEdit={() => setEditingIntegration('ovation')}
         />
@@ -892,21 +948,154 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogTitle className="flex items-center gap-2">
               <Plug className="h-5 w-5" /> OvationUp
             </DialogTitle>
-            <DialogDescription>Connect guest review data from OvationUp</DialogDescription>
+            <DialogDescription>Login credentials & location mapping for guest reviews</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              OvationUp integration is configured at the brand level. Contact your admin to set up the connection token and location mappings.
-            </p>
-            <div className="space-y-1.5">
-              <Label className="text-sm">OvationUp Location ID</Label>
-              <Input placeholder="e.g., 68f7d2e7e4235de56f8f92fd" className="h-9 text-xs font-mono" />
-              <p className="text-[11px] text-muted-foreground">The location ID from OvationUp dashboard</p>
+            {/* Brand-level credentials */}
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Account Credentials</p>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Email</Label>
+                <Input 
+                  value={ovationEmail} 
+                  onChange={(e) => setOvationEmail(e.target.value)} 
+                  placeholder="jordan@example.com" 
+                  className="h-9 text-xs" 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Password</Label>
+                <div className="relative">
+                  <Input 
+                    value={ovationPassword} 
+                    onChange={(e) => setOvationPassword(e.target.value)} 
+                    type={ovationShowPassword ? 'text' : 'password'}
+                    placeholder="••••••••" 
+                    className="h-9 text-xs pr-10" 
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setOvationShowPassword(!ovationShowPassword)}
+                  >
+                    {ovationShowPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Company ID</Label>
+                <Input 
+                  value={ovationCompanyId} 
+                  onChange={(e) => setOvationCompanyId(e.target.value)} 
+                  placeholder="e.g., 6777260a7637ed5bfedb1f2e" 
+                  className="h-9 text-xs font-mono" 
+                />
+                <p className="text-[11px] text-muted-foreground">From the OvationUp leaderboard API request</p>
+              </div>
             </div>
-            <Button size="sm" disabled>
-              <Save className="h-4 w-4 mr-1.5" />
-              Save Mapping
-            </Button>
+
+            {/* Location mapping */}
+            <div className="space-y-3 border-t pt-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Location Mapping</p>
+              <div className="space-y-1.5">
+                <Label className="text-sm">OvationUp Location ID</Label>
+                <Input 
+                  value={ovationLocationId} 
+                  onChange={(e) => setOvationLocationId(e.target.value)} 
+                  placeholder="e.g., 68f7d2e7e4235de56f8f92fd" 
+                  className="h-9 text-xs font-mono" 
+                />
+                <p className="text-[11px] text-muted-foreground">The location _id from the leaderboard response</p>
+              </div>
+            </div>
+
+            {/* Test result indicator */}
+            {ovationTestResult && (
+              <div className={`flex items-center gap-2 text-xs ${ovationTestResult === 'success' ? 'text-green-500' : 'text-red-500'}`}>
+                {ovationTestResult === 'success' ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                {ovationTestResult === 'success' ? 'Connection verified!' : 'Authentication failed'}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <Button size="sm" disabled={ovationIsSaving || !ovationEmail || !ovationPassword || !ovationCompanyId} onClick={async () => {
+                setOvationIsSaving(true);
+                try {
+                  if (!ovationBrandId) { toast.error('Could not determine brand'); return; }
+                  
+                  // Save brand-level credentials
+                  const { data: existing } = await supabase
+                    .from('ovation_integrations')
+                    .select('id')
+                    .eq('brand_id', ovationBrandId)
+                    .maybeSingle();
+
+                  const updateData = {
+                    cognito_username: ovationEmail,
+                    cognito_password: ovationPassword,
+                    company_id: ovationCompanyId,
+                    is_active: true,
+                    updated_at: new Date().toISOString(),
+                  };
+
+                  if (existing) {
+                    const { error } = await supabase.from('ovation_integrations').update(updateData).eq('id', existing.id);
+                    if (error) throw error;
+                  } else {
+                    const { error } = await supabase.from('ovation_integrations').insert({ brand_id: ovationBrandId, ...updateData });
+                    if (error) throw error;
+                  }
+
+                  // Save location mapping
+                  if (ovationLocationId.trim() && locationId) {
+                    const { data: existingMapping } = await supabase
+                      .from('ovation_location_mappings')
+                      .select('id')
+                      .eq('location_id', locationId)
+                      .maybeSingle();
+
+                    if (existingMapping) {
+                      await supabase.from('ovation_location_mappings').update({ ovation_location_id: ovationLocationId }).eq('id', existingMapping.id);
+                    } else {
+                      await supabase.from('ovation_location_mappings').insert({ location_id: locationId, ovation_location_id: ovationLocationId });
+                    }
+                  }
+
+                  queryClient.invalidateQueries({ queryKey: ['ovation-integration'] });
+                  queryClient.invalidateQueries({ queryKey: ['ovation-mapping'] });
+                  queryClient.invalidateQueries({ queryKey: ['ovation-reviews'] });
+                  toast.success('OvationUp configuration saved!');
+                } catch (error) {
+                  toast.error('Failed to save: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                } finally {
+                  setOvationIsSaving(false);
+                }
+              }}>
+                {ovationIsSaving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                Save
+              </Button>
+              <Button size="sm" variant="outline" disabled={ovationIsTesting || !ovationEmail || !ovationPassword} onClick={async () => {
+                setOvationIsTesting(true);
+                setOvationTestResult(null);
+                try {
+                  const { data, error } = await supabase.functions.invoke('ovation-service', {
+                    body: { action: 'test_auth', username: ovationEmail, password: ovationPassword },
+                  });
+                  if (error) throw error;
+                  if (data?.success) { setOvationTestResult('success'); toast.success('OvationUp authentication successful!'); }
+                  else { setOvationTestResult('error'); toast.error(data?.error || 'Auth test failed'); }
+                } catch (error) {
+                  setOvationTestResult('error');
+                  toast.error('Test failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                } finally {
+                  setOvationIsTesting(false);
+                }
+              }}>
+                {ovationIsTesting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <TestTube className="h-4 w-4 mr-1.5" />}
+                Test
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
