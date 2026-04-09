@@ -828,6 +828,9 @@ async function handleFetchReviews(req: Request, supabase: any) {
       .maybeSingle()
     if (mapping) {
       ovationLocationIds = [mapping.ovation_location_id]
+    } else {
+      // No mapping for this location — return empty so we don't show all-company reviews
+      return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 })
     }
   }
 
