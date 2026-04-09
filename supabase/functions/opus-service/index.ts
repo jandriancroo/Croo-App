@@ -266,11 +266,10 @@ serve(async (req) => {
         "x-dashboard-loaded-at": new Date().toISOString(),
       };
       const queries = [
-        { label: "Modules", body: { operationName: "Modules", query: `query Modules { Modules(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
-        { label: "LibraryItems", body: { operationName: "LibraryItems", query: `query LibraryItems { LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
-        { label: "AdminModules", body: { operationName: "AdminModules", query: `query AdminModules { AdminModules(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
-        { label: "AdminContent", body: { operationName: "AdminContent", query: `query AdminContent { AdminContent(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
-        { label: "Content", body: { operationName: "Content", query: `query Content { Content(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "parameterized_AdminLibrary", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "parameterized_v2", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 } } }, query: `query GetAdminLibrary($input: LibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "parameterized_v3", body: { operationName: "GetAdminLibrary", variables: { page: 1, pageSize: 1 }, query: `query GetAdminLibrary($page: Int!, $pageSize: Int!) { AdminLibrary(input: {pagination: {page: $page, pageSize: $pageSize}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "simple_AdminEmployee", body: { operationName: "TestEmployee", query: `query TestEmployee { AdminEmployee(id: 1541347) { id name __typename } }` } },
       ];
 
       const results: any[] = [];
