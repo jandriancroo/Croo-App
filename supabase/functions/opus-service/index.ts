@@ -10,6 +10,14 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPUS_GRAPHQL = "https://api.opus.so/graphql";
 
+const OPUS_HEADERS = (sessionId: string) => ({
+  "Content-Type": "application/json",
+  "Cookie": `sessionid=${sessionId}`,
+  "Origin": "https://dashboard.opus.so",
+  "Referer": "https://dashboard.opus.so/",
+  "x-opus-role": "admin",
+});
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
