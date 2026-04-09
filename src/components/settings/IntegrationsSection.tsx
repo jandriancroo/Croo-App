@@ -290,7 +290,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setOvationCompanyId(ovationIntegration.company_id || '');
     }
   }, [ovationMapping, ovationIntegration]);
-  }, [ovationMapping]);
+  
   // ── Handlers (unchanged logic) ──
 
   const testPaConnection = async () => {
