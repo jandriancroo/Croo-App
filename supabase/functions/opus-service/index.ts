@@ -164,6 +164,7 @@ serve(async (req) => {
     objects {
       id
       status
+      isCurrentInstanceAssignedThroughModule
       libraryItem {
         id
         type
@@ -195,8 +196,10 @@ serve(async (req) => {
           continue;
         }
 
-        const allAssignments = respData.data.Assignments.objects || [];
-        const assignedCount = respData.data.Assignments.totalCount || allAssignments.length;
+        // Filter out sub-module assignments (courses assigned through a Path)
+        const allAssignments = (respData.data.Assignments.objects || [])
+          .filter((a: any) => !a.isCurrentInstanceAssignedThroughModule);
+        const assignedCount = allAssignments.length;
         const completedAssignments = allAssignments.filter((a: any) => a.status === "completed" || a.status === "COMPLETED");
         const incompleteAssignments = allAssignments.filter((a: any) => a.status !== "completed" && a.status !== "COMPLETED");
         const completedCount = completedAssignments.length;
