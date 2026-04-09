@@ -203,6 +203,40 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     enabled: !!locationId
   });
 
+  // OvationUp — get brand_id from location's organization, then fetch integration
+  const { data: ovationBrandId } = useQuery({
+    queryKey: ['location-brand-id', locationId],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data: loc } = await supabase.from('locations').select('organization_id').eq('id', locationId).single();
+      if (!loc?.organization_id) return null;
+      const { data: org } = await supabase.from('organizations').select('brand_id').eq('id', loc.organization_id).single();
+      return org?.brand_id || null;
+    },
+    enabled: !!locationId,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const { data: ovationIntegration, isLoading: ovationIsLoading } = useQuery({
+    queryKey: ['ovation-integration', ovationBrandId],
+    queryFn: async () => {
+      if (!ovationBrandId) return null;
+      const { data } = await supabase.from('ovation_integrations').select('*').eq('brand_id', ovationBrandId).maybeSingle();
+      return data;
+    },
+    enabled: !!ovationBrandId,
+  });
+
+  const { data: ovationMapping } = useQuery({
+    queryKey: ['ovation-mapping', locationId],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data } = await supabase.from('ovation_location_mappings').select('*').eq('location_id', locationId).maybeSingle();
+      return data;
+    },
+    enabled: !!locationId,
+  });
+
   // ── Sync state from queries ──
   useEffect(() => {
     if (integration) {
