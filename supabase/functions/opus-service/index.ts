@@ -257,30 +257,42 @@ serve(async (req) => {
         });
       }
 
-      // Test with AdminLibrary (confirmed working in browser)
-      const testQuery = {
-        operationName: "TestConnection",
-        query: `query TestConnection { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }`,
-      };
-
-      const resp = await fetch(OPUS_GRAPHQL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Cookie": `sessionid=${sessionid}`,
-          "Origin": "https://dashboard.opus.so",
-          "Referer": "https://dashboard.opus.so/",
-          "x-opus-role": "admin",
+      // Try multiple query formats to find what OPUS accepts
+      const queries = [
+        {
+          label: "AdminLibrary_matched_opName",
+          body: { operationName: "GetAdminLibrary", query: `query GetAdminLibrary { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
         },
-        body: JSON.stringify(testQuery),
-      });
+        {
+          label: "AdminLibrary_no_input",
+          body: { operationName: "GetAdminLibrary", query: `query GetAdminLibrary { AdminLibrary { totalCount objects { id type name { en } __typename } __typename } }` },
+        },
+        {
+          label: "AdminEmployee_control",
+          body: { operationName: "TestEmployee", query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }` },
+        },
+      ];
 
-      const rawText = await resp.text();
-      console.log("[opus-service] AdminLibrary status:", resp.status, "body:", rawText);
-      
-      let data: any;
-      try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
-      const totalCount = data?.data?.AdminLibrary?.totalCount;
+      const results: any[] = [];
+      for (const q of queries) {
+        try {
+          const r = await fetch(OPUS_GRAPHQL, {
+            method: "POST",
+            headers: OPUS_HEADERS(sessionid),
+            body: JSON.stringify(q.body),
+          });
+          const txt = await r.text();
+          console.log(`[opus-service] ${q.label}: status=${r.status} body=${txt.substring(0, 500)}`);
+          let parsed: any;
+          try { parsed = JSON.parse(txt); } catch { parsed = { raw: txt }; }
+          results.push({ label: q.label, status: r.status, data: parsed });
+        } catch (e: any) {
+          results.push({ label: q.label, error: e.message });
+        }
+      }
+
+      const successLib = results.find(r => r.data?.data?.AdminLibrary?.totalCount !== undefined);
+      const totalCount = successLib?.data?.data?.AdminLibrary?.totalCount;
 
       if (totalCount !== undefined) {
         return new Response(JSON.stringify({ 
