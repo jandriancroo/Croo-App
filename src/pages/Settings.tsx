@@ -10,7 +10,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -38,7 +38,7 @@ const textSizes = [
 ];
 
 // Sections that belong to the location tab
-const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inventory', 'punch-clock', 'location-profile'];
+const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inventory', 'punch-clock', 'kds-board', 'location-profile'];
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'org-members', 'org-roles'];
 // Sections only super admins see
@@ -52,6 +52,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   'location-profile': { title: 'Edit Location Settings', icon: <Building2 className="h-4 w-4" /> },
   inventory: { title: 'Inventory', icon: <Package className="h-4 w-4" /> },
   'punch-clock': { title: 'Customize Punch Clock', icon: <Sparkles className="h-4 w-4" /> },
+  'kds-board': { title: 'Live KDS Board', icon: <Monitor className="h-4 w-4" /> },
   'org-members': { title: 'Org Admins', icon: <Building2 className="h-4 w-4" /> },
   'org-roles': { title: 'Roles & Permissions', icon: <Building2 className="h-4 w-4" /> },
   'org-positions': { title: 'Positions', icon: <Building2 className="h-4 w-4" /> },
@@ -367,6 +368,7 @@ export default function Settings() {
       if (id === 'location-profile') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'inventory') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_inventory'));
       if (id === 'punch-clock') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'kds-board') return (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'billing') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-members') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-roles') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
@@ -406,6 +408,7 @@ export default function Settings() {
               'inventory': () => navigate(`/inventory/${currentLocation?.id}`),
               'punch-clock': () => navigate(`/location/${currentLocation?.id}/punch-clock`),
               'billing': () => navigate('/billing'),
+              'kds-board': () => navigate('/kds'),
             };
 
             if (navLinks[sectionId]) {

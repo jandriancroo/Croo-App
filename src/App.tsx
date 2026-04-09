@@ -86,6 +86,7 @@ const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboardCustomizer"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
 const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
+const KDSBoard = lazyWithRetry(() => import("./pages/KDSBoard"));
 
 const queryClient = new QueryClient();
 
@@ -196,6 +197,7 @@ const AppContent = () => {
         <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
         <Route path="/brand-dashboard" element={<ProtectedRoute><BrandDashboard /></ProtectedRoute>} />
         <Route path="/org-dash" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
+        <Route path="/kds" element={<ProtectedRoute><KDSBoard /></ProtectedRoute>} />
         
         <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/count/:countId" element={<ProtectedRoute><InventoryCount /></ProtectedRoute>} />
