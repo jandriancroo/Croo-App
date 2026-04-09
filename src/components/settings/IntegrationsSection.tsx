@@ -327,14 +327,25 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     queryKey: ['location-team-members', locationId],
     queryFn: async () => {
       if (!locationId) return [];
-      const { data } = await supabase
+      // First get user IDs at this location
+      const { data: locationUsers } = await supabase
         .from('user_locations')
-        .select('user_id, profiles!inner(id, full_name, profile_photo_url)')
+        .select('user_id')
         .eq('location_id', locationId);
-      return (data || []).map((d: any) => ({
-        id: d.profiles.id,
-        name: d.profiles.full_name || 'Unknown',
-        photo: d.profiles.profile_photo_url,
+      if (!locationUsers?.length) return [];
+      
+      const userIds = locationUsers.map((u: any) => u.user_id);
+      // Then fetch their profiles
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url')
+        .in('id', userIds)
+        .eq('is_active', true);
+      
+      return (profiles || []).map((p: any) => ({
+        id: p.id,
+        name: p.full_name || 'Unknown',
+        photo: p.profile_photo_url,
       })).sort((a: any, b: any) => a.name.localeCompare(b.name));
     },
     enabled: !!locationId,
