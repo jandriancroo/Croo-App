@@ -15,6 +15,7 @@ const OPUS_HEADERS = (sessionId: string) => ({
   "Cookie": `sessionid=${sessionId}`,
   "Origin": "https://dashboard.opus.so",
   "Referer": "https://dashboard.opus.so/",
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
   "x-opus-role": "admin",
   "Accept": "*/*",
   "Accept-Language": "en-US,en;q=0.9",
