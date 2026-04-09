@@ -18,7 +18,10 @@ const OPUS_HEADERS = (sessionId: string) => ({
   "x-opus-role": "admin",
   "Accept": "*/*",
   "Accept-Language": "en-US,en;q=0.9",
-  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+  "Sec-Fetch-Dest": "empty",
+  "Sec-Fetch-Mode": "cors",
+  "Sec-Fetch-Site": "same-site",
+  "x-dashboard-url": "https://dashboard.opus.so/library/modules",
 });
 
 /** Helper: get OPUS session from location_integrations */
