@@ -18,8 +18,7 @@ async function authenticateV4(): Promise<string | null> {
     { method: "POST", body: formData }
   );
   if (!response.ok) return null;
-  const data = await response.json();
-  return data.access_token || null;
+  return (await response.json()).access_token || null;
 }
 
 function getHeaders(token: string): Record<string, string> {
@@ -38,126 +37,110 @@ serve(async (req) => {
 
   try {
     const token = await authenticateV4();
-    if (!token) {
-      return new Response(JSON.stringify({ error: "QU auth failed" }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
+    if (!token) throw new Error("QU auth failed");
     const h = getHeaders(token);
     const results: Record<string, any> = {};
     const storeId = 5280;
     const today = new Date().toISOString().split('T')[0];
 
-    // Try every possible field name to find delivery partner info
-    const allPossibleFields = [
-      "checkNumber", "orderTypeName", "orderChannelName", "daypartName",
-      "date", "checkState", "employee", "terminalName", "location",
-      "description", "referenceNumber", "ticketReference",
-      // Possible delivery partner fields
-      "thirdPartyName", "thirdPartyOrderId", "vendorName", "vendor",
-      "deliveryPartner", "deliveryService", "orderSource", "sourceName",
-      "channelName", "channelType", "orderChannel", "marketplaceName",
-      "marketplace", "externalOrderId", "externalReference",
-      "oloVendor", "oloSource", "oloPartner", "oloProvider",
-      "thirdPartySource", "thirdPartyVendor", "thirdPartyProvider",
-      "orderOrigin", "orderProvider", "providerName",
-      "guestName", "customerName", "customerEmail", "customerPhone",
-      // Revenue fields
-      "itemSales", "grossSales", "netSales", "taxes", "tips",
-      "discounts", "serviceCharges", "itemsSoldCount",
-      "checkAmountDue", "checkAmountPaid",
-      // Try subreport fields
-      "itemName", "quantity", "category", "itemGroup",
-      "modifierName", "modifiers", "itemModifiers",
-    ];
+    // 1. Payments summary - we know this works and shows "OLO Doordash" etc
+    const paySummary = await fetch(
+      "https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/payments",
+      {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({
+          fields: [{ fieldName: "paymentTypeName" }, { fieldName: "amount" }, { fieldName: "count" }],
+          filters: { date: { from: today, to: today, type: "custom" }, location: { operationalUnits: [storeId] } },
+          params: { sectionId: "payments", pageNumber: 1, pageSize: 50 },
+        }),
+      }
+    );
+    const payText = await paySummary.text();
+    try { results['payments-summary'] = { status: paySummary.status, data: JSON.parse(payText) }; }
+    catch { results['payments-summary'] = { status: paySummary.status, body: payText.substring(0, 1000) }; }
 
-    // Request with ALL fields - QU will just ignore unknown ones
-    const res = await fetch(
+    // 2. Check-detail subreport for the OLO order (checkId from earlier)
+    const oloCheckId = "69d7e4746b2ba6a6dfe9ce9b";
+    
+    // Try GET instead of POST for subreport
+    const subGet = await fetch(
+      `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/checkNumber/${oloCheckId}`,
+      { headers: h }
+    );
+    const subGetText = await subGet.text();
+    try { results['subreport-GET'] = { status: subGet.status, data: JSON.parse(subGetText) }; }
+    catch { results['subreport-GET'] = { status: subGet.status, body: subGetText.substring(0, 500) }; }
+
+    // 3. Try check-detail with "paymentTypeName" field - this might show DoorDash/Grubhub per check
+    const checkWithPayment = await fetch(
       "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
       {
         method: 'POST',
         headers: h,
         body: JSON.stringify({
-          fields: allPossibleFields.map(f => ({ fieldName: f })),
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "orderTypeName" },
+            { fieldName: "orderChannelName" },
+            { fieldName: "date" },
+            { fieldName: "checkState" },
+            { fieldName: "netSales" },
+            { fieldName: "description" },
+            { fieldName: "employee" },
+            { fieldName: "referenceNumber" },
+          ],
           filters: {
             date: { from: today, to: today, type: "custom" },
             location: { operationalUnits: [storeId] },
-            // Try to filter for OLO orders only
+            // Try filtering by OLO channel
+            orderChannel: { values: ["OLO"] },
           },
-          params: { sectionId: "main", pageNumber: 1, pageSize: 10, sort: [{ field: "date", dir: "desc" }] },
+          params: { sectionId: "main", pageNumber: 1, pageSize: 20, sort: [{ field: "date", dir: "desc" }] },
         }),
       }
     );
-    const text = await res.text();
-    try {
-      const data = JSON.parse(text);
-      // Show first 3 items with ALL their keys
-      results['all-fields'] = {
-        status: res.status,
-        availableKeys: data.items?.[0] ? Object.keys(data.items[0]) : [],
-        items: data.items?.slice(0, 3),
-      };
-    } catch {
-      results['all-fields'] = { status: res.status, body: text.substring(0, 1000) };
-    }
+    const cwpText = await checkWithPayment.text();
+    try { results['checks-olo-filtered'] = { status: checkWithPayment.status, data: JSON.parse(cwpText) }; }
+    catch { results['checks-olo-filtered'] = { status: checkWithPayment.status, body: cwpText.substring(0, 1000) }; }
 
-    // Also try the "order-channel" or "olo" report
-    const oloReports = [
-      'olo-summary', 'olo-detail', 'online-orders', 'third-party-orders',
-      'delivery-orders', 'marketplace-orders', 'order-channel-summary',
-      'channel-summary', 'order-source',
-    ];
-
-    for (const report of oloReports) {
-      try {
-        const r = await fetch(
-          `https://gateway-api.qubeyond.com/api/v4/data/reports/${report}/sections/main`,
-          {
-            method: 'POST',
-            headers: h,
-            body: JSON.stringify({
-              fields: [
-                { fieldName: "orderChannelName" },
-                { fieldName: "thirdPartyName" },
-                { fieldName: "vendorName" },
-                { fieldName: "checkNumber" },
-                { fieldName: "netSales" },
-                { fieldName: "quantity" },
-                { fieldName: "date" },
-              ],
-              filters: {
-                date: { from: today, to: today, type: "custom" },
-                location: { operationalUnits: [storeId] },
-              },
-              params: { sectionId: "main", pageNumber: 1, pageSize: 5 },
-            }),
-          }
-        );
-        const t = await r.text();
-        if (r.ok && t) {
-          try { results[`report-${report}`] = { status: r.status, data: JSON.parse(t) }; }
-          catch { results[`report-${report}`] = { status: r.status, body: t.substring(0, 500) }; }
-        } else {
-          results[`report-${report}`] = { status: r.status };
-        }
-      } catch (e) {
-        results[`report-${report}`] = { error: e.message.substring(0, 200) };
+    // 4. Try check-detail with a "payments" section
+    const checkPaySection = await fetch(
+      "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/payments",
+      {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "paymentTypeName" },
+            { fieldName: "amount" },
+          ],
+          filters: {
+            date: { from: today, to: today, type: "custom" },
+            location: { operationalUnits: [storeId] },
+          },
+          params: { sectionId: "payments", pageNumber: 1, pageSize: 20 },
+        }),
       }
-    }
+    );
+    const cpsText = await checkPaySection.text();
+    try { results['check-detail-payments-section'] = { status: checkPaySection.status, data: JSON.parse(cpsText) }; }
+    catch { results['check-detail-payments-section'] = { status: checkPaySection.status, body: cpsText.substring(0, 500) }; }
 
-    // Also check the payment-types report for OLO breakdown  
-    const payRes = await fetch(
-      "https://gateway-api.qubeyond.com/api/v4/data/reports/payment-types/sections/main",
+    // 5. Try the "payments/main" report directly
+    const payMain = await fetch(
+      "https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main",
       {
         method: 'POST',
         headers: h,
         body: JSON.stringify({
           fields: [
             { fieldName: "paymentTypeName" },
+            { fieldName: "checkNumber" },
             { fieldName: "amount" },
-            { fieldName: "count" },
-            { fieldName: "netSales" },
+            { fieldName: "date" },
+            { fieldName: "orderTypeName" },
           ],
           filters: {
             date: { from: today, to: today, type: "custom" },
@@ -167,9 +150,9 @@ serve(async (req) => {
         }),
       }
     );
-    const payText = await payRes.text();
-    try { results['payment-types'] = { status: payRes.status, data: JSON.parse(payText) }; }
-    catch { results['payment-types'] = { status: payRes.status, body: payText.substring(0, 500) }; }
+    const pmText = await payMain.text();
+    try { results['payments-main'] = { status: payMain.status, data: JSON.parse(pmText) }; }
+    catch { results['payments-main'] = { status: payMain.status, body: pmText.substring(0, 500) }; }
 
     return new Response(JSON.stringify(results, null, 2), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
