@@ -261,9 +261,15 @@ serve(async (req) => {
         });
       }
 
-      // Simple query to verify session is valid
+      // Use a real OPUS query to verify session
       const testQuery = {
-        query: `query { viewer { id name } }`,
+        operationName: "TestConnection",
+        query: `query TestConnection {
+          AdminEmployees(input: { pagination: { page: 1, pageSize: 1 } }) {
+            objects { id name __typename }
+            __typename
+          }
+        }`,
       };
 
       const resp = await fetch(OPUS_GRAPHQL, {
@@ -271,6 +277,8 @@ serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           "Cookie": `sessionid=${sessionid}`,
+          "Origin": "https://dashboard.opus.so",
+          "Referer": "https://dashboard.opus.so/",
         },
         body: JSON.stringify(testQuery),
       });
@@ -283,15 +291,15 @@ serve(async (req) => {
       }
 
       const data = await resp.json();
-      if (data?.errors) {
-        return new Response(JSON.stringify({ authenticated: false, error: data.errors[0]?.message }), {
+      if (data?.errors?.length) {
+        return new Response(JSON.stringify({ authenticated: false, errors: data.errors }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       return new Response(JSON.stringify({
         authenticated: true,
-        viewer: data?.data?.viewer,
+        data: data?.data,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
