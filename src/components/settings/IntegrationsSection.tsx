@@ -1053,46 +1053,53 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     toast.success(`Connected as ${testData.companyName || testData.companyId}`);
                   }
 
-                  // Step 2: Save credentials + company ID
+                  // Step 2: Save credentials to per-location mapping
+                  if (!locationId) { toast.error('No location selected'); return; }
+
+                  const mappingData = {
+                    cognito_username: ovationEmail,
+                    cognito_password: ovationPassword,
+                    company_id: discoveredCompanyId,
+                    ovation_location_id: ovationLocationId.trim() || 'pending',
+                  };
+
+                  const { data: existingMapping } = await supabase
+                    .from('ovation_location_mappings')
+                    .select('id')
+                    .eq('location_id', locationId)
+                    .maybeSingle();
+
+                  if (existingMapping) {
+                    const { error } = await supabase.from('ovation_location_mappings').update(mappingData).eq('id', existingMapping.id);
+                    if (error) throw error;
+                  } else {
+                    const { error } = await supabase.from('ovation_location_mappings').insert({ location_id: locationId, ...mappingData });
+                    if (error) throw error;
+                  }
+
+                  // Also keep brand-level integration for backward compat
                   const { data: existing } = await supabase
                     .from('ovation_integrations')
                     .select('id')
                     .eq('brand_id', ovationBrandId)
                     .maybeSingle();
 
-                  const updateData = {
-                    cognito_username: ovationEmail,
-                    cognito_password: ovationPassword,
+                  const brandData = {
                     company_id: discoveredCompanyId,
                     is_active: true,
                     updated_at: new Date().toISOString(),
                   };
 
                   if (existing) {
-                    const { error } = await supabase.from('ovation_integrations').update(updateData).eq('id', existing.id);
-                    if (error) throw error;
+                    await supabase.from('ovation_integrations').update(brandData).eq('id', existing.id);
                   } else {
-                    const { error } = await supabase.from('ovation_integrations').insert({ brand_id: ovationBrandId, ...updateData });
-                    if (error) throw error;
+                    await supabase.from('ovation_integrations').insert({ brand_id: ovationBrandId, ...brandData });
                   }
 
-                  // Step 3: Location mapping
-                  if (ovationLocationId.trim() && locationId) {
-                    const { data: existingMapping } = await supabase
-                      .from('ovation_location_mappings')
-                      .select('id')
-                      .eq('location_id', locationId)
-                      .maybeSingle();
-
-                    if (existingMapping) {
-                      await supabase.from('ovation_location_mappings').update({ ovation_location_id: ovationLocationId }).eq('id', existingMapping.id);
-                    } else {
-                      await supabase.from('ovation_location_mappings').insert({ location_id: locationId, ovation_location_id: ovationLocationId });
-                    }
-                  } else {
-                    // Auto-map locations by city
+                  // Auto-map location if no ovation location ID provided
+                  if (!ovationLocationId.trim()) {
                     try {
-                      toast.info('Auto-mapping locations...');
+                      toast.info('Auto-mapping location...');
                       const { data: mapResult } = await supabase.functions.invoke('ovation-service?action=auto_map_locations', {
                         body: { brandId: ovationBrandId },
                       });
