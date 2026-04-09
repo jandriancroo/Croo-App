@@ -5,7 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChefHat, ClipboardCheck, Check, Settings2 } from 'lucide-react';
+import { ChefHat, ClipboardCheck, Check, Settings2, Star } from 'lucide-react';
 import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
 import { EditDashboardDialog, CubeConfig, SectionKey, getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
@@ -34,6 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { cn } from '@/lib/utils';
 
 interface CateringOrder {
   id: string;
@@ -99,6 +100,23 @@ export default function Dashboard() {
     currentLocation?.id ? getSectionOrder(currentLocation.id) : ['data-cubes', 'checklists', 'sales-chart']
   );
   const queryClient = useQueryClient();
+
+  // Get brand_id for Ovation query cache match
+  const { data: ovationBrandId } = useQuery({
+    queryKey: ['org-brand-id', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return null;
+      const { data } = await supabase.from('organizations').select('brand_id').eq('id', organizationId).single();
+      return data?.brand_id || null;
+    },
+    enabled: !!organizationId,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  // Read Ovation score from same query cache as OvationReviewsCube
+  const reviewsData = queryClient.getQueryData<{ wtdAverage: number | null; wtdCount: number; error?: string; expired?: boolean }>(
+    ['ovation-reviews', currentLocation?.id, ovationBrandId]
+  );
   
   // Light DB reads — always refetch on pull
   const ALWAYS_REFRESH_KEYS = [
@@ -926,7 +944,24 @@ export default function Dashboard() {
         <div className="space-y-2.5">
           <div>
             <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold">Dash</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl font-bold">Dash</h1>
+                {/* Inline Ovation Score */}
+                {reviewsData && !reviewsData.error && reviewsData.wtdAverage && (
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60">
+                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                    <span className={cn(
+                      'text-sm font-bold',
+                      reviewsData.wtdAverage >= 4.5 ? 'text-green-500' :
+                      reviewsData.wtdAverage >= 3.5 ? 'text-yellow-500' :
+                      reviewsData.wtdAverage >= 2.5 ? 'text-orange-500' : 'text-red-500'
+                    )}>
+                      {reviewsData.wtdAverage.toFixed(1)}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">WTD</span>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2 items-center">
                 {/* Hide edit button for role-based cube users (cubes locked by Org Admin) */}
                 {!shouldUseRoleCubes && (
