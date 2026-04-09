@@ -860,9 +860,21 @@ function surveyMatchesAllowedLocations(survey: any, allowedLocationIds: string[]
   return surveyLocationIds.some((id) => allowedLocationIds.includes(id))
 }
 
+// Helper: extract ovation_user_id from Cognito IdToken JWT
+function extractOvationUserId(idToken: string): string | null {
+  try {
+    const parts = idToken.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload['custom:ovation_user_id'] || payload['cognito:username'] || payload['sub'] || null
+  } catch {
+    return null
+  }
+}
+
 // ==================== FETCH REVIEWS ====================
 async function handleFetchReviews(req: Request, supabase: any) {
-  const { locationId, brandId, days = 7, page = 1, pageSize = 20 } = await req.json()
+  const { locationId, brandId, days = 14, page = 1, pageSize = 20 } = await req.json()
 
   let authToken: string | null = null
   let companyId: string | null = null
@@ -879,7 +891,6 @@ async function handleFetchReviews(req: Request, supabase: any) {
       } else if (locAuth.ovationLocationId === 'pending') {
         return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0, pending: true })
       }
-      console.log(`[ovation-service] Using per-location auth for ${locationId}, ovationLocIds=${JSON.stringify(ovationLocationIds)}`)
     }
   }
 
@@ -887,43 +898,22 @@ async function handleFetchReviews(req: Request, supabase: any) {
   if (!authToken) {
     let resolvedBrandId = brandId
     if (!resolvedBrandId && locationId) {
-      const { data: loc } = await supabase
-        .from('locations')
-        .select('organization_id')
-        .eq('id', locationId)
-        .single()
+      const { data: loc } = await supabase.from('locations').select('organization_id').eq('id', locationId).single()
       if (loc) {
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('brand_id')
-          .eq('id', loc.organization_id)
-          .single()
+        const { data: org } = await supabase.from('organizations').select('brand_id').eq('id', loc.organization_id).single()
         if (org) resolvedBrandId = org.brand_id
       }
     }
-
-    if (!resolvedBrandId) {
-      return jsonResponse({ error: 'Could not resolve brand', reviews: [] })
-    }
+    if (!resolvedBrandId) return jsonResponse({ error: 'Could not resolve brand', reviews: [] })
 
     authToken = await getAuthToken(supabase, resolvedBrandId)
-    if (!authToken) {
-      return jsonResponse({ error: 'No OvationUp integration', reviews: [] })
-    }
+    if (!authToken) return jsonResponse({ error: 'No OvationUp integration', reviews: [] })
 
-    const { data: integration } = await supabase
-      .from('ovation_integrations')
-      .select('company_id')
-      .eq('brand_id', resolvedBrandId)
-      .single()
+    const { data: integration } = await supabase.from('ovation_integrations').select('company_id').eq('brand_id', resolvedBrandId).single()
     companyId = integration?.company_id
 
     if (locationId && ovationLocationIds.length === 0) {
-      const { data: mapping } = await supabase
-        .from('ovation_location_mappings')
-        .select('ovation_location_id')
-        .eq('location_id', locationId)
-        .maybeSingle()
+      const { data: mapping } = await supabase.from('ovation_location_mappings').select('ovation_location_id').eq('location_id', locationId).maybeSingle()
       if (mapping && mapping.ovation_location_id !== 'pending') {
         ovationLocationIds = [mapping.ovation_location_id]
       } else if (mapping && mapping.ovation_location_id === 'pending') {
@@ -935,43 +925,49 @@ async function handleFetchReviews(req: Request, supabase: any) {
   }
 
   if (locationId && ovationLocationIds.length === 0) {
-    console.log(`[ovation-service] No ovation location ID resolved for ${locationId}, returning empty`)
     return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 })
   }
+  if (!companyId) return jsonResponse({ error: 'No company ID configured', reviews: [] })
 
-  if (!companyId) {
-    return jsonResponse({ error: 'No company ID configured', reviews: [] })
+  // Extract ovation userId from the JWT token
+  const ovationUserId = extractOvationUserId(authToken!)
+  if (!ovationUserId) {
+    console.error('[ovation-service] Could not extract ovation user ID from token')
+    return jsonResponse({ error: 'Could not extract user ID', reviews: [] })
   }
 
   const now = new Date()
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 
-  // Use skip/limit pagination (matching Ovation's own web app pattern)
-  const matchingSurveys: any[] = []
+  // Use the conversation/list endpoint (apis.ovationup.com/app/v1) with real skip/limit pagination
+  const allConversations: any[] = []
   const seenIds = new Set<string>()
   const BATCH_SIZE = 50
-  const MAX_SKIP = 500 // Safety cap
+  const MAX_TOTAL = 500
 
   try {
-    const filters: any = {
-      companyIds: [companyId],
-      createdAtRange: [startDate.toISOString(), now.toISOString()],
-      ...(ovationLocationIds.length > 0 ? { locationIds: ovationLocationIds } : {}),
-    }
-
     let skip = 0
     let totalCount = 0
-    let emptyBatches = 0
 
-    while (skip < MAX_SKIP) {
-      const response = await fetch(`${OVATION_API}/survey/list`, {
+    while (skip < MAX_TOTAL) {
+      const body: any = {
+        userId: ovationUserId,
+        companyId: companyId,
+        filters: {},
+        skip,
+        limit: BATCH_SIZE,
+      }
+
+      console.log(`[ovation-service] conversation/list skip=${skip} limit=${BATCH_SIZE}`)
+
+      const response = await fetch(`${OVATION_APP_API}/conversation/list`, {
         method: 'POST',
         headers: {
-          'Authorization': authToken,
+          'Authorization': authToken!,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ filters, skip, limit: BATCH_SIZE }),
+        body: JSON.stringify(body),
       })
 
       if (response.status === 401) {
@@ -980,65 +976,79 @@ async function handleFetchReviews(req: Request, supabase: any) {
 
       if (!response.ok) {
         const text = await response.text()
-        console.error('[ovation-service] survey/list error:', response.status, text)
+        console.error(`[ovation-service] conversation/list error: ${response.status} ${text.substring(0, 500)}`)
         break
       }
 
       const data = await response.json()
-      const surveys = data?.data?.surveys || []
-      totalCount = data?.data?.count || totalCount
+      const conversations = data?.data?.conversations || data?.data || []
+      totalCount = data?.data?.count || data?.data?.totalCount || totalCount
 
-      if (surveys.length === 0) break
+      if (!Array.isArray(conversations) || conversations.length === 0) break
 
-      const newSurveys = surveys.filter((s: any) => {
-        const id = s._id || s.id
-        if (!id || seenIds.has(id)) return false
+      let newCount = 0
+      for (const conv of conversations) {
+        const id = conv._id || conv.id
+        if (!id || seenIds.has(id)) continue
         seenIds.add(id)
-        return true
-      })
+        newCount++
 
-      if (newSurveys.length === 0) {
-        emptyBatches++
-        if (emptyBatches >= 2) break // API returning dupes, stop
-      } else {
-        emptyBatches = 0
+        // Filter by location
+        const convLocId = conv.location?._id || conv.location || conv.locationId
+        if (ovationLocationIds.length > 0 && !ovationLocationIds.includes(String(convLocId))) continue
+
+        // Filter by date
+        const createdAt = new Date(conv.created || conv.createdAt || conv.survey?.created)
+        if (createdAt < startDate) continue
+
+        allConversations.push(conv)
       }
 
-      const pageMatches = newSurveys.filter((survey: any) => surveyMatchesAllowedLocations(survey, ovationLocationIds))
-      matchingSurveys.push(...pageMatches)
+      console.log(`[ovation-service] skip=${skip}: got ${conversations.length} convs, ${newCount} new, ${allConversations.length} total matched`)
 
-      console.log(`[ovation-service] skip=${skip}: ${pageMatches.length}/${surveys.length} matched (${newSurveys.length} new, total API count=${totalCount})`)
-
-      // If we've fetched all available, stop
-      if (skip + BATCH_SIZE >= totalCount) break
+      if (newCount === 0) break // API returning dupes
+      if (conversations.length < BATCH_SIZE) break // Last page
       skip += BATCH_SIZE
     }
 
-    const offset = Math.max(0, (page - 1) * pageSize)
-    const pagedSurveys = matchingSurveys.slice(offset, offset + pageSize)
+    // Sort by date descending
+    allConversations.sort((a, b) => {
+      const dateA = new Date(a.created || a.createdAt || a.survey?.created).getTime()
+      const dateB = new Date(b.created || b.createdAt || b.survey?.created).getTime()
+      return dateB - dateA
+    })
 
-    const reviews = pagedSurveys.map((s: any) => ({
-      id: s._id,
-      customerName: s.customer?.name || 'Anonymous',
-      rating: s.rating,
-      feedback: s.feedback || null,
-      source: s.source,
-      createdAt: s.created,
-      hasResponse: !!s.response,
-    }))
+    const offset = Math.max(0, (page - 1) * pageSize)
+    const paged = allConversations.slice(offset, offset + pageSize)
+
+    const reviews = paged.map((c: any) => {
+      const survey = c.survey || c
+      return {
+        id: c._id || c.id,
+        customerName: c.customer?.name || survey.customer?.name || 'Anonymous',
+        rating: survey.rating ?? c.rating,
+        feedback: survey.feedback || c.feedback || null,
+        source: survey.source || c.source,
+        createdAt: c.created || c.createdAt || survey.created,
+        hasResponse: !!(c.response || survey.response),
+      }
+    })
 
     const weekStart = new Date(now)
     weekStart.setDate(weekStart.getDate() - weekStart.getDay())
     weekStart.setHours(0, 0, 0, 0)
 
-    const wtdSurveys = matchingSurveys.filter((s: any) => new Date(s.created) >= weekStart)
+    const wtdSurveys = allConversations.filter((c: any) => {
+      const d = new Date(c.created || c.createdAt || c.survey?.created)
+      return d >= weekStart
+    })
     const wtdAvg = wtdSurveys.length > 0
-      ? wtdSurveys.reduce((sum: number, s: any) => sum + (s.rating || 0), 0) / wtdSurveys.length
+      ? wtdSurveys.reduce((sum: number, c: any) => sum + ((c.survey?.rating ?? c.rating) || 0), 0) / wtdSurveys.length
       : null
 
     return jsonResponse({
       reviews,
-      totalCount: matchingSurveys.length,
+      totalCount: allConversations.length,
       wtdAverage: wtdAvg ? Math.round(wtdAvg * 100) / 100 : null,
       wtdCount: wtdSurveys.length,
     })
