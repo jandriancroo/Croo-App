@@ -65,7 +65,7 @@ export function TemporaryTaskCard({
   return (
     <>
       <div
-        className="flex items-center gap-2.5 rounded-xl overflow-hidden cursor-pointer active:opacity-80 transition-opacity"
+        className="quick-task-card flex items-center gap-2.5 rounded-xl overflow-hidden cursor-pointer active:opacity-80 transition-opacity"
         style={{ backgroundColor: `${accentColor}10` }}
       >
         {/* Inset rounded accent stripe */}
