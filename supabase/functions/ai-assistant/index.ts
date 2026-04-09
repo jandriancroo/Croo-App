@@ -474,6 +474,21 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "fetch_resource_content",
+      description: "Fetch and extract the full content of an OPUS training resource (PDF/document). Use this when the user selects a specific resource from the search results list and wants to see its full content. This downloads the actual document and extracts text from it.",
+      parameters: {
+        type: "object",
+        properties: {
+          resource_name: { type: "string", description: "The exact title of the OPUS resource to extract content from" },
+          location_id: { type: "string", description: "UUID of the location" },
+        },
+        required: ["resource_name", "location_id"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
