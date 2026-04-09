@@ -143,7 +143,10 @@ export function OvationScorePopover() {
 
         {/* Reviews carousel */}
         {reviewsWithFeedback.length > 0 ? (
-          <div className="relative z-10 px-3 py-3 min-h-[60px] bg-white rounded-b-2xl">
+          <div
+            className="relative z-10 px-3 py-3 min-h-[60px] bg-white rounded-b-2xl cursor-pointer"
+            onClick={() => setReviewIndex(prev => (prev + 1) % reviewsWithFeedback.length)}
+          >
             <AnimatePresence mode="wait">
               <motion.div
                 key={reviewsWithFeedback[reviewIndex]?.id}
