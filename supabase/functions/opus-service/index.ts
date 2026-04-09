@@ -432,6 +432,7 @@ serve(async (req) => {
         variables: { input: { sort: { column: "openedAt", descending: true, nullsLast: true } }, pagination: { limit: 500, offset: 0 } },
         query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) {
   LibraryItems: AdminLibrary(input: $input, pagination: $pagination) {
+    totalCount
     objects {
       id
       type
@@ -441,6 +442,7 @@ serve(async (req) => {
         id
         publishedVersion {
           id
+          type
           media {
             id
             mediaUrls { en __typename }
@@ -453,6 +455,7 @@ serve(async (req) => {
         __typename
       }
       name { en __typename }
+      description { en __typename }
       coverImage {
         id
         emojiIcon
@@ -460,9 +463,16 @@ serve(async (req) => {
         imageUrls { original wide thumb __typename }
         __typename
       }
+      contentTagMemberships {
+        tag { nameTranslations { en __typename } __typename }
+        __typename
+      }
       __typename
     }
     __typename
+  }
+}`,
+      };
   }
 }`,
       };
