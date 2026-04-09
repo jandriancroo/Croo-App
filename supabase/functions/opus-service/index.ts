@@ -600,7 +600,7 @@ serve(async (req) => {
         .select("id, content, topic")
         .eq("location_id", location_id)
         .ilike("topic", "opus_training_%")
-        .ilike("content", `%${resource_name}%`)
+        .ilike("content", "%" + resource_name + "%")
         .limit(5);
 
       if (!knowledgeRows || knowledgeRows.length === 0) {
@@ -630,7 +630,7 @@ serve(async (req) => {
       }
 
       const pdfUrl = mediaUrlMatch[1].trim();
-      console.log(`[opus-service] Extracting content from: ${pdfUrl}`);
+      console.log("[opus-service] Extracting content from: " + pdfUrl);
 
       // Use Gemini to extract content from the PDF URL
       try {
@@ -646,7 +646,7 @@ serve(async (req) => {
               },
               {
                 role: "user",
-                content: `Extract the complete text content from this training document PDF: ${pdfUrl}\n\nDocument title: ${resource_name}\n\nProvide the full extracted text with proper formatting.`,
+                content: "Extract the complete text content from this training document PDF: " + pdfUrl + "\n\nDocument title: " + resource_name + "\n\nProvide the full extracted text with proper formatting.",
               },
             ],
           }),
@@ -672,11 +672,11 @@ serve(async (req) => {
         // Update theo_knowledge with extracted content
         const updatedContent = row.content.replace(
           /Content has not been extracted yet\..*/,
-          `[EXTRACTED CONTENT]\n${extractedContent}`
+          "[EXTRACTED CONTENT]\n" + extractedContent
         );
 
         // Generate new embedding with actual content
-        const embedding = await generateEmbedding(`${resource_name} - ${extractedContent.substring(0, 400)}`);
+        const embedding = await generateEmbedding(resource_name + " - " + extractedContent.substring(0, 400));
 
         const updateData: any = { content: updatedContent };
         if (embedding) updateData.embedding = JSON.stringify(embedding);
