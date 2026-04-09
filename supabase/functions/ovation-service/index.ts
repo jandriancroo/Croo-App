@@ -995,8 +995,8 @@ async function handleFetchReviews(req: Request, supabase: any) {
       if (skip === 0 && conversations.length > 0) {
         const sample = conversations[0]
         console.log(`[ovation-service] Sample conversation keys: ${JSON.stringify(Object.keys(sample))}`)
-        console.log(`[ovation-service] Sample survey: ${JSON.stringify(sample.survey || sample.surveys?.[0] || 'NO_SURVEY')}`.substring(0, 500))
-        console.log(`[ovation-service] Sample rating: ${sample.rating}, feedback: ${sample.feedback}, created: ${sample.created || sample.createdAt}`)
+        console.log(`[ovation-service] lastSurvey: ${JSON.stringify(sample.lastSurvey)}`.substring(0, 500))
+        console.log(`[ovation-service] lastMessage: ${JSON.stringify(sample.lastMessage)}`.substring(0, 500))
       }
       
 
