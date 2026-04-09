@@ -53,12 +53,20 @@ async function getCachedSnapshot(supabase: any, locationId: string, today: strin
 // === CONTEXT INJECTION: Build a daily snapshot to prepend to system prompt ===
 async function buildContextSnapshot(supabase: any, locationId: string, today: string, yesterday: string, tomorrow: string, weekStart: string): Promise<string> {
   try {
-    // Fetch today + yesterday + tomorrow sales in one query
+    // Calculate end of week (Sunday) from weekStart (Monday)
+    const weekStartDate = new Date(weekStart + "T12:00:00");
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+    const weekEnd = weekEndDate.toISOString().split("T")[0];
+
+    // Fetch full week sales (yesterday through Sunday) for projections
+    const fetchStart = yesterday < weekStart ? yesterday : weekStart;
     const { data: salesRows } = await supabase
       .from("sales_cache")
       .select("sale_date, net_sales, guest_count, override_projection, initial_projection, projected_sales, living_projection")
       .eq("location_id", locationId)
-      .in("sale_date", [yesterday, today, tomorrow])
+      .gte("sale_date", fetchStart)
+      .lte("sale_date", weekEnd)
       .order("sale_date");
 
     // Fetch today + yesterday labor
