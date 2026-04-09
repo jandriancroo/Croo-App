@@ -261,38 +261,53 @@ serve(async (req) => {
         });
       }
 
-      // Test with exact OPUS query format from dashboard
-      const testQuery = {
-        operationName: "UserPageHeaderEmployee",
+      // Test with exact OPUS query format — fetch assignments + try employee list
+      const assignmentsQuery = {
+        operationName: "TestAssignments",
         variables: { id: 1541347 },
-        query: `query UserPageHeaderEmployee($id: Int!) {
+        query: `query TestAssignments($id: Int!) {
   AdminEmployee(id: $id) {
     id
     name
-    firstName
-    lastName
+    __typename
+  }
+  Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH, COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) {
+    objects {
+      id
+      status
+      __typename
+    }
+    __typename
+  }
+  CheckIns: Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [SKILL]}, accessTypes: {value: [ASSIGNMENT]}}}) {
+    objects {
+      id
+      status
+      __typename
+    }
     __typename
   }
 }`,
       };
 
+      const opusHeaders = {
+        "Content-Type": "application/json",
+        "Cookie": `sessionid=${sessionid}`,
+        "Origin": "https://dashboard.opus.so",
+        "Referer": "https://dashboard.opus.so/",
+        "x-opus-role": "admin",
+      };
+
       const resp = await fetch(OPUS_GRAPHQL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Cookie": `sessionid=${sessionid}`,
-          "Origin": "https://dashboard.opus.so",
-          "Referer": "https://dashboard.opus.so/",
-          "x-opus-role": "admin",
-          "x-dashboard-url": "https://dashboard.opus.so/users/1541347?org=1491-Blaze+Pizza",
-        },
-        body: JSON.stringify(testQuery),
+        headers: opusHeaders,
+        body: JSON.stringify(assignmentsQuery),
       });
 
       const data = await resp.json();
       
       return new Response(JSON.stringify({
-        authenticated: resp.ok,
+        authenticated: resp.ok && !!data?.data,
         raw: data,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
