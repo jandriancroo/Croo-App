@@ -1227,3 +1227,64 @@ async function handleProbeApi(req: Request, supabase: any) {
 
   return jsonResponse({ companyId, ovationLocationId: ovLocId, results })
 }
+
+// ==================== TEST SURVEY SKIP ====================
+async function handleTestSurveySkip(req: Request, supabase: any) {
+  const { locationId } = await req.json()
+  
+  let resolvedBrandId: string | null = null
+  if (locationId) {
+    const { data: loc } = await supabase.from('locations').select('organization_id').eq('id', locationId).single()
+    if (loc) {
+      const { data: org } = await supabase.from('organizations').select('brand_id').eq('id', loc.organization_id).single()
+      if (org) resolvedBrandId = org.brand_id
+    }
+  }
+
+  const authToken = await getAuthToken(supabase, resolvedBrandId!)
+  if (!authToken) return jsonResponse({ error: 'No auth token' })
+
+  const { data: integration } = await supabase.from('ovation_integrations').select('company_id').eq('brand_id', resolvedBrandId).single()
+  const companyId = integration?.company_id
+  
+  const { data: mapping } = await supabase.from('ovation_location_mappings').select('ovation_location_id').eq('location_id', locationId).maybeSingle()
+  const ovLocId = mapping?.ovation_location_id
+
+  const results: Record<string, any> = {}
+
+  // Test survey/list with skip/limit (like Ovation dashboard does)
+  for (const skip of [0, 50, 100]) {
+    const body = {
+      filters: {
+        companyIds: [companyId],
+        locationIds: ovLocId ? [ovLocId] : [],
+      },
+      skip,
+      limit: 50,
+    }
+    
+    try {
+      const resp = await fetch(`${OVATION_API}/survey/list`, {
+        method: 'POST',
+        headers: { 'Authorization': authToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await resp.json()
+      const surveys = data?.data?.surveys || []
+      const firstId = surveys[0]?._id || 'none'
+      const lastId = surveys[surveys.length - 1]?._id || 'none'
+      results[`skip_${skip}`] = {
+        count: surveys.length,
+        total: data?.data?.count,
+        firstId,
+        lastId,
+        firstDate: surveys[0]?.created,
+        lastDate: surveys[surveys.length - 1]?.created,
+      }
+    } catch (e: any) {
+      results[`skip_${skip}`] = { error: e.message }
+    }
+  }
+
+  return jsonResponse({ results })
+}
