@@ -23,7 +23,7 @@ interface Message {
 const SUGGESTIONS = [
   { icon: '📊', text: "What were net sales today?" },
   { icon: '⏰', text: "Who clocked in late today?" },
-  { icon: '🌡️', text: "Who temped the tomatoes on AM Line Check?" },
+  { icon: '🎓', text: "@OPUS What training modules do we have?" },
   { icon: '📋', text: "Who's scheduled tomorrow?" },
 ];
 
