@@ -144,7 +144,7 @@ serve(async (req) => {
       for (const mapping of employeeMappings) {
         const { opus_id, croo_user_id, name: empName } = mapping;
         
-        // Use the exact UserDetailAssignments query from OPUS network tab
+        // Fetch ALL assignments (no status filter) to get assigned vs completed ratio
         const assignmentsQuery = {
           operationName: "UserDetailAssignments",
           variables: {
@@ -152,12 +152,11 @@ serve(async (req) => {
               filters: {
                 accessTypes: { value: ["ASSIGNMENT"] },
                 contentTypes: { value: ["COURSE", "PATH"] },
-                statuses: { value: ["past_due", "incomplete"] },
                 userId: { value: opus_id },
               },
               sort: { column: "currentInstanceLastAssignedAt", descending: false },
             },
-            pagination: { limit: 100, offset: 0 },
+            pagination: { limit: 200, offset: 0 },
           },
           query: `query UserDetailAssignments($input: AssignmentsInput!, $pagination: PaginationInput) {
   Assignments(input: $input, pagination: $pagination) {
@@ -196,17 +195,15 @@ serve(async (req) => {
           continue;
         }
 
-        const assignments = respData.data.Assignments.objects || [];
-        const totalCount = respData.data.Assignments.totalCount || 0;
-        const incompleteCount = assignments.length; // All returned are incomplete/past_due
-        const incompleteNames: string[] = assignments
+        const allAssignments = respData.data.Assignments.objects || [];
+        const assignedCount = respData.data.Assignments.totalCount || allAssignments.length;
+        const completedAssignments = allAssignments.filter((a: any) => a.status === "completed" || a.status === "COMPLETED");
+        const incompleteAssignments = allAssignments.filter((a: any) => a.status !== "completed" && a.status !== "COMPLETED");
+        const completedCount = completedAssignments.length;
+        const incompleteCount = incompleteAssignments.length;
+        const incompleteNames: string[] = incompleteAssignments
           .map((a: any) => a.libraryItem?.name?.en || "Untitled")
-          .filter((n: string) => !assignments.some((a: any) => 
-            a.libraryItem?.name?.en === n && a.libraryItem?.type === "COURSE" && 
-            assignments.some((p: any) => p.libraryItem?.type === "PATH")
-          ))
           .slice(0, 8);
-        const completedCount = totalCount - incompleteCount;
 
         syncedCount++;
 
@@ -217,8 +214,8 @@ serve(async (req) => {
             location_id: location_id,
             opus_employee_name: empName,
             user_id: croo_user_id,
-            module_name: `Training Summary (${totalCount} modules)`,
-            completion_pct: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100,
+            module_name: `Training: ${completedCount}/${assignedCount} Completed`,
+            completion_pct: assignedCount > 0 ? Math.round((completedCount / assignedCount) * 100) : 100,
             opus_module_id: `summary_${opus_id}`,
             last_synced_at: new Date().toISOString(),
           }, {
@@ -235,9 +232,12 @@ serve(async (req) => {
 
         // Build task description with module names
         const moduleList = incompleteNames.length > 0
-          ? incompleteNames.map((n: string) => `• ${n}`).join("\n") + (incompleteCount > 5 ? `\n• ...and ${incompleteCount - 5} more` : "")
+          ? incompleteNames.map((n: string) => `• ${n}`).join("\n") + (incompleteCount > 8 ? `\n• ...and ${incompleteCount - 8} more` : "")
           : "";
-        const taskDescription = `${incompleteCount} incomplete module${incompleteCount > 1 ? 's' : ''}:\n${moduleList}`;
+        const taskTitle = `OPUS: ${completedCount}/${assignedCount} Modules Completed`;
+        const taskDescription = incompleteCount > 0
+          ? `${incompleteCount} remaining:\n${moduleList}`
+          : "All training modules complete! 🎉";
 
         // Auto-create/resolve aggregated Quick Task
         if (incompleteCount > 0) {
@@ -246,7 +246,7 @@ serve(async (req) => {
               .from("temporary_tasks")
               .insert({
                 location_id: location_id,
-                title: `OPUS: ${incompleteCount} Incomplete Module${incompleteCount > 1 ? 's' : ''}`,
+                title: taskTitle,
                 description: taskDescription,
                 icon_name: "opus_logo",
                 accent_color: "#1A5C5C",
@@ -267,11 +267,11 @@ serve(async (req) => {
               tasksCreated++;
             }
           } else {
-            // Update existing task with current module names
+            // Update existing task with current progress
             await supabase
               .from("temporary_tasks")
               .update({
-                title: `OPUS: ${incompleteCount} Incomplete Module${incompleteCount > 1 ? 's' : ''}`,
+                title: taskTitle,
                 description: taskDescription,
                 icon_name: "opus_logo",
                 accent_color: "#1A5C5C",
