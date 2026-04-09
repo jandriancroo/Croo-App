@@ -269,19 +269,15 @@ serve(async (req) => {
         "x-opus-role": "admin",
       };
 
-      // Try single assignment query & different root queries
       const probes = [
-        // Assignment by ID
-        { operationName: "P1", query: `query P1 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status __typename } }` },
-        // Try with node interface
-        { operationName: "P2", query: `query P2 { node(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id __typename } }` },
-        // Try Courses/Paths root queries
-        { operationName: "P3", query: `query P3 { Courses(input: {pagination: {page: 1, pageSize: 2}}) { objects { id name __typename } totalCount } }` },
-        { operationName: "P4", query: `query P4 { Paths(input: {pagination: {page: 1, pageSize: 2}}) { objects { id name __typename } totalCount } }` },
-        // Try Users
-        { operationName: "P5", query: `query P5 { Users(input: {pagination: {page: 1, pageSize: 2}}) { objects { id name __typename } totalCount } }` },
-        // Try People
-        { operationName: "P6", query: `query P6 { People(input: {pagination: {page: 1, pageSize: 2}}) { objects { id name __typename } totalCount } }` },
+        // Try individual fields on Assignment
+        { operationName: "P1", query: `query P1 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status path { id name } } }` },
+        { operationName: "P2", query: `query P2 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status course { id name } } }` },
+        { operationName: "P3", query: `query P3 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status user { id name } } }` },
+        { operationName: "P4", query: `query P4 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status progress stepsCompleted totalSteps } }` },
+        // Employee list with location filter
+        { operationName: "P5", variables: { locId: 1491 }, query: `query P5($locId: Int!) { AdminEmployees(input: {filters: {locationId: {value: $locId}}, pagination: {page: 1, pageSize: 3}}) { objects { id name } totalCount } }` },
+        { operationName: "P6", query: `query P6 { AdminEmployees(input: {pagination: {page: 1, pageSize: 3}}) { objects { id name } } }` },
       ];
 
       const results = await Promise.all(
@@ -290,12 +286,12 @@ serve(async (req) => {
       
       return new Response(JSON.stringify({
         authenticated: true,
-        p1_assignment: results[0],
-        p2_node: results[1],
-        p3_courses: results[2],
-        p4_paths: results[3],
-        p5_users: results[4],
-        p6_people: results[5],
+        p1_path: results[0],
+        p2_course: results[1],
+        p3_user: results[2],
+        p4_progress: results[3],
+        p5_emps_loc: results[4],
+        p6_emps: results[5],
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
