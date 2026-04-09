@@ -77,7 +77,7 @@ export default function KDSBoard() {
   const openOrders = orders.filter(o => o.state === 'Open').length;
   const totalSales = orders.reduce((sum, o) => sum + o.grossSales, 0);
   const totalTips = orders.reduce((sum, o) => sum + o.tips, 0);
-  const oloOrders = orders.filter(o => o.channel === 'OLO').length;
+  const oloOrders = orders.filter(o => o.channel === 'OLO' || o.channel.toLowerCase().includes('doordash') || o.channel.toLowerCase().includes('ubereats') || o.channel.toLowerCase().includes('grubhub')).length;
   const inStoreOrders = orders.filter(o => o.channel === 'In Store').length;
   const avgTicket = totalOrders > 0 ? totalSales / totalOrders : 0;
 
@@ -309,9 +309,10 @@ function DarkBreakdown({ title, data }: { title: string; data: Record<string, nu
 
 function DarkOrderRow({ order }: { order: Order }) {
   const isOpen = order.state === 'Open';
-  const isOLO = order.channel === 'OLO';
-  // 3PD orders (OLO channel) should show "Delivery" instead of "Take-Out" etc.
-  const displayType = isOLO ? 'Delivery' : order.orderType;
+  const is3PD = order.channel === 'OLO' || order.channel.toLowerCase().includes('doordash') || order.channel.toLowerCase().includes('ubereats') || order.channel.toLowerCase().includes('grubhub');
+  // 3PD orders should show "Delivery" instead of "Carry Out" / "Take-Out"
+  const displayType = is3PD ? 'Delivery' : order.orderType;
+  
 
   return (
     <div className={cn(
@@ -337,7 +338,7 @@ function DarkOrderRow({ order }: { order: Order }) {
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className={cn(
             "text-[10px] font-semibold px-1.5 py-0.5 rounded",
-            isOLO ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/40"
+            is3PD ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/40"
           )}>
             {order.channel}
           </span>
