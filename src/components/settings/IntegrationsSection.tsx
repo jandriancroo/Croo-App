@@ -103,7 +103,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const queryClient = useQueryClient();
 
   // Dialog state
-  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | null>(null);
+  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | null>(null);
 
   // QuBeyond state
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({ username: "", password: "", location_id: "", pull_labor: false });
@@ -149,6 +149,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [kdsLocationId, setKdsLocationId] = useState('');
   const [kdsIsSaving, setKdsIsSaving] = useState(false);
   const [kdsIsSyncing, setKdsIsSyncing] = useState(false);
+
+  // OPUS LMS state
+  const [opusSessionId, setOpusSessionId] = useState('');
+  const [opusIsSaving, setOpusIsSaving] = useState(false);
+  const [opusIsTesting, setOpusIsTesting] = useState(false);
+  const [opusTestResult, setOpusTestResult] = useState<'success' | 'error' | null>(null);
+  const [opusIsSyncing, setOpusIsSyncing] = useState(false);
 
   // OvationUp state
   const [ovationEmail, setOvationEmail] = useState('');
