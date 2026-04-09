@@ -77,7 +77,7 @@ export default function KDSBoard() {
   const openOrders = orders.filter(o => o.state === 'Open').length;
   const totalSales = orders.reduce((sum, o) => sum + o.grossSales, 0);
   const totalTips = orders.reduce((sum, o) => sum + o.tips, 0);
-  const oloOrders = orders.filter(o => o.channel === 'OLO').length;
+  const oloOrders = orders.filter(o => o.channel === 'OLO' || o.channel.toLowerCase().includes('doordash') || o.channel.toLowerCase().includes('ubereats') || o.channel.toLowerCase().includes('grubhub')).length;
   const inStoreOrders = orders.filter(o => o.channel === 'In Store').length;
   const avgTicket = totalOrders > 0 ? totalSales / totalOrders : 0;
 
