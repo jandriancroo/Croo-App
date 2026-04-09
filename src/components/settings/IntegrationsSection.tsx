@@ -547,12 +547,11 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   return (
     <>
       {/* Card Grid */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-2">
         <IntegrationCard
           title="QuBeyond POS"
           description="Sales & labor data"
           connected={qbConnected}
-          connectedLabel={credentials.username ? `${credentials.username}` : 'Connected'}
           isLoading={isLoading}
           onEdit={() => setEditingIntegration('qubeyond')}
         />
@@ -560,7 +559,6 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           title="PFG"
           description="Food ordering system"
           connected={pfgConnected}
-          connectedLabel={pfgUsername ? `${pfgUsername}` : 'Connected'}
           logo={pfgLogo}
           isLoading={pfgIsLoading}
           onEdit={() => setEditingIntegration('pfg')}
@@ -569,7 +567,6 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           title="Produce Alliance"
           description="Produce orders & pricing"
           connected={paConnected}
-          connectedLabel={(paIntegration?.credentials as any)?.username || 'Connected'}
           logo={paLogo}
           isLoading={paIsLoading}
           onEdit={() => setEditingIntegration('pa')}
@@ -578,23 +575,18 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           title="Fresh KDS"
           description="Ticket times & order stats"
           connected={kdsConnected}
-          connectedLabel="Location mapped"
           onEdit={() => setEditingIntegration('kds')}
         />
         <IntegrationCard
           title="OvationUp"
           description="Guest reviews & feedback"
           connected={!!ovationIntegration && !!ovationMapping}
-          connectedLabel={ovationEmail || 'Connected'}
-          setupLabel="Setup OvationUp"
           onEdit={() => setEditingIntegration('ovation')}
         />
         <IntegrationCard
           title="OPUS LMS"
           description="Training & learning modules"
           connected={!!opusIntegration?.is_active}
-          connectedLabel="Session active"
-          setupLabel="Setup OPUS"
           onEdit={() => setEditingIntegration('opus')}
         />
       </div>
