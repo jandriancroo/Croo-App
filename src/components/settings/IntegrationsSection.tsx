@@ -313,13 +313,32 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     }
   }, [ovationMapping, ovationIntegration]);
 
-  // Load OPUS session from integration
+  // Load OPUS session + mappings from integration
   useEffect(() => {
     if (opusIntegration) {
       const creds = opusIntegration.credentials as any;
       setOpusSessionId(creds?.sessionid || '');
+      setOpusMappings(creds?.employee_mappings || []);
     }
   }, [opusIntegration]);
+
+  // Fetch CrooHQ team members for OPUS mapping dropdown
+  const { data: locationTeamMembers } = useQuery({
+    queryKey: ['location-team-members', locationId],
+    queryFn: async () => {
+      if (!locationId) return [];
+      const { data } = await supabase
+        .from('user_locations')
+        .select('user_id, profiles!inner(id, full_name, profile_photo_url)')
+        .eq('location_id', locationId);
+      return (data || []).map((d: any) => ({
+        id: d.profiles.id,
+        name: d.profiles.full_name || 'Unknown',
+        photo: d.profiles.profile_photo_url,
+      })).sort((a: any, b: any) => a.name.localeCompare(b.name));
+    },
+    enabled: !!locationId,
+  });
   
   // ── Handlers (unchanged logic) ──
 
