@@ -99,7 +99,9 @@ serve(async (req) => {
       const text = await checkRes.text();
       try {
         const data = JSON.parse(text);
-        orders = (data.items || []).map((item: any) => ({
+        orders = (data.items || [])
+          .filter((item: any) => item.checkNumber && item.checkNumber !== 'Total')
+          .map((item: any) => ({
           checkNumber: item.checkNumber || '',
           customerName: item.description || '',
           orderType: item.orderTypeName || '',
