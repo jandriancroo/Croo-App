@@ -1591,48 +1591,68 @@ serve(async (req) => {
         // Fallback: text-based search
         if (relevant.length === 0) {
           if (isOpusQuery && cleanQuery.length > 0) {
-            // For @OPUS queries, fetch all OPUS resources and score with OR-based fuzzy matching
+            // Use the opus_resource_index for fast trigram title search
             const searchWords = cleanQuery.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
             
-            // Fetch all OPUS resources (typically ~500)
-            const { data: allOpus } = await supabaseAdmin
-              .from("theo_knowledge")
-              .select("topic, content")
-              .eq("location_id", location_id)
-              .ilike("topic", "opus_training_%")
-              .limit(500);
+            // Build OR conditions for each word against the title
+            const orConditions = searchWords.map((w: string) => `title.ilike.%${w}%`).join(',');
             
-            if (allOpus && allOpus.length > 0 && searchWords.length > 0) {
-              // Score each resource: title match = 3pts, content match = 1pt per word
-              const scored = allOpus.map((m: any) => {
-                const contentLower = (m.content || "").toLowerCase();
-                // Title is the first line after the [OPUS Training ...] header
-                const titleLine = contentLower.split('\n')[0] || "";
+            const { data: indexHits } = await supabaseAdmin
+              .from("opus_resource_index")
+              .select("title, resource_type, opus_id, theo_knowledge_id")
+              .eq("location_id", location_id)
+              .or(orConditions)
+              .limit(15);
+            
+            if (indexHits && indexHits.length > 0) {
+              // Score results: more keyword matches = higher rank
+              const scored = indexHits.map((hit: any) => {
+                const titleLower = hit.title.toLowerCase();
                 let score = 0;
                 for (const word of searchWords) {
-                  if (titleLine.includes(word)) score += 3;
-                  else if (contentLower.includes(word)) score += 1;
+                  if (titleLower.includes(word)) score += 1;
                 }
-                return { ...m, _score: score };
-              })
-              .filter((m: any) => m._score > 0)
-              .sort((a: any, b: any) => b._score - a._score)
-              .slice(0, 8);
+                return { ...hit, _score: score };
+              }).sort((a: any, b: any) => b._score - a._score).slice(0, 8);
               
-              console.log(`[ai-assistant] @OPUS search: ${searchWords.join(',')} → ${scored.length} results from ${allOpus.length} total`);
-              relevant = scored;
+              console.log(`[ai-assistant] @OPUS index search: "${cleanQuery}" → ${scored.length} results`);
+              
+              // Fetch full content from theo_knowledge for top matches
+              const knowledgeIds = scored.filter((s: any) => s.theo_knowledge_id).map((s: any) => s.theo_knowledge_id);
+              if (knowledgeIds.length > 0) {
+                const { data: fullContent } = await supabaseAdmin
+                  .from("theo_knowledge")
+                  .select("id, topic, content")
+                  .in("id", knowledgeIds);
+                
+                if (fullContent) {
+                  // Map back to scored results
+                  const contentMap = new Map(fullContent.map((c: any) => [c.id, c]));
+                  relevant = scored.map((s: any) => {
+                    const full = contentMap.get(s.theo_knowledge_id);
+                    return full || { topic: `opus_training_${s.resource_type.toLowerCase()}`, content: `[OPUS Training Resource] ${s.title}\nType: ${s.resource_type}\nOPUS ID: ${s.opus_id}` };
+                  });
+                }
+              } else {
+                relevant = scored.map((s: any) => ({
+                  topic: `opus_training_${s.resource_type.toLowerCase()}`,
+                  content: `[OPUS Training Resource] ${s.title}\nType: ${s.resource_type}\nOPUS ID: ${s.opus_id}`
+                }));
+              }
             } else {
               relevant = [];
             }
           } else if (isOpusQuery) {
-            // @OPUS with no search term — return a sample of resources
-            const { data: memories } = await supabaseAdmin
-              .from("theo_knowledge")
-              .select("topic, content")
+            // @OPUS with no search term — return sample titles from index
+            const { data: samples } = await supabaseAdmin
+              .from("opus_resource_index")
+              .select("title, resource_type, opus_id")
               .eq("location_id", location_id)
-              .ilike("topic", "opus_training_%")
               .limit(10);
-            relevant = memories || [];
+            relevant = (samples || []).map((s: any) => ({
+              topic: `opus_training_${s.resource_type.toLowerCase()}`,
+              content: `[OPUS Training Resource] ${s.title}\nType: ${s.resource_type}\nOPUS ID: ${s.opus_id}`
+            }));
           } else {
             // Regular (non-OPUS) search
             let query = supabaseAdmin

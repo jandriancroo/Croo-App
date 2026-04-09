@@ -4961,6 +4961,54 @@ export type Database = {
         }
         Relationships: []
       }
+      opus_resource_index: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string
+          media_url: string | null
+          opus_id: string | null
+          resource_type: string
+          theo_knowledge_id: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id: string
+          media_url?: string | null
+          opus_id?: string | null
+          resource_type?: string
+          theo_knowledge_id?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string
+          media_url?: string | null
+          opus_id?: string | null
+          resource_type?: string
+          theo_knowledge_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opus_resource_index_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opus_resource_index_theo_knowledge_id_fkey"
+            columns: ["theo_knowledge_id"]
+            isOneToOne: false
+            referencedRelation: "theo_knowledge"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opus_training_modules: {
         Row: {
           completion_pct: number
@@ -8521,6 +8569,8 @@ export type Database = {
         }[]
       }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       trigger_alarm_tasks_sql: { Args: never; Returns: undefined }
     }
     Enums: {
