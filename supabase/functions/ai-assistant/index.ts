@@ -1757,7 +1757,7 @@ serve(async (req) => {
             const { data: samples } = await supabaseAdmin
               .from("opus_resource_index")
               .select("title, resource_type, opus_id")
-              .eq("location_id", location_id)
+              .in("location_id", opusLocationIds)
               .limit(10);
 
             relevant = (samples || []).map((s: any) => ({
