@@ -258,26 +258,22 @@ serve(async (req) => {
       }
 
       // Try multiple query formats to find what OPUS accepts
+      const fullHeaders = {
+        ...OPUS_HEADERS(sessionid),
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
+      };
       const queries = [
         {
-          label: "AdminLibrary_with_variables",
-          body: { operationName: "GetAdminLibrary", variables: {}, query: `query GetAdminLibrary { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
+          label: "anon_query",
+          body: { query: `{ AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
         },
         {
-          label: "Library_root",
-          body: { operationName: "GetLibrary", variables: {}, query: `query GetLibrary { Library(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
+          label: "with_contentTypes",
+          body: { operationName: "GetAdminLibrary", variables: {}, query: `query GetAdminLibrary { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}, filters: {contentTypes: {value: [PATH, COURSE]}}}) { totalCount objects { id type name { en } __typename } __typename } }` },
         },
         {
-          label: "AdminLibraryItems",
-          body: { operationName: "AdminLibraryItems", variables: {}, query: `query AdminLibraryItems { AdminLibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
-        },
-        {
-          label: "AdminLibrary_filters",
-          body: { operationName: "GetAdminLibrary", variables: {}, query: `query GetAdminLibrary { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}, filters: {}}) { totalCount objects { id type name { en } __typename } __typename } }` },
-        },
-        {
-          label: "AdminEmployee_control",
-          body: { operationName: "TestEmployee", query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }` },
+          label: "multiline_exact",
+          body: { operationName: "GetAdminLibrary", query: "query GetAdminLibrary {\n  AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) {\n    totalCount\n    objects {\n      id\n      type\n      name {\n        en\n      }\n      __typename\n    }\n    __typename\n  }\n}" },
         },
       ];
 
@@ -286,7 +282,7 @@ serve(async (req) => {
         try {
           const r = await fetch(OPUS_GRAPHQL, {
             method: "POST",
-            headers: OPUS_HEADERS(sessionid),
+            headers: fullHeaders,
             body: JSON.stringify(q.body),
           });
           const txt = await r.text();
