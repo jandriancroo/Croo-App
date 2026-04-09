@@ -475,38 +475,31 @@ serve(async (req) => {
         });
       }
 
-      // Fetch employees list from OPUS
-      const employeesQuery = {
-        operationName: "GetEmployees",
-        variables: { input: { pagination: { page: 1, pageSize: 500 }, filters: { deactivatedAt: { exists: false } } } },
-        query: `query GetEmployees($input: AdminEmployeesInput!) {
-  AdminEmployees(input: $input) {
-    objects { id name firstName lastName __typename }
-    __typename
-  }
-}`,
+      // Look up a single employee by OPUS ID (AdminEmployee works confirmed)
+      const { opus_id } = body;
+      if (!opus_id) {
+        return new Response(JSON.stringify({ error: "Missing opus_id" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const empQuery = {
+        operationName: "LookupEmployee",
+        query: `query LookupEmployee { AdminEmployee(id: ${Number(opus_id)}) { id name firstName lastName __typename } }`,
       };
 
       const resp = await fetch(OPUS_GRAPHQL, {
         method: "POST",
         headers: OPUS_HEADERS(sessionId),
-        body: JSON.stringify(employeesQuery),
+        body: JSON.stringify(empQuery),
       });
 
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error("[opus-service] fetch_employees failed:", resp.status, errText);
-        return new Response(JSON.stringify({ error: "Failed to fetch OPUS employees", status: resp.status }), {
-          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
       const data = await resp.json();
-      const employees = data?.data?.AdminEmployees?.objects || [];
+      const emp = data?.data?.AdminEmployee;
 
       return new Response(JSON.stringify({
-        success: true,
-        employees: employees.map((e: any) => ({ opus_id: e.id, name: e.name, firstName: e.firstName, lastName: e.lastName })),
+        success: !!emp,
+        employee: emp ? { opus_id: emp.id, name: emp.name, firstName: emp.firstName, lastName: emp.lastName } : null,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
