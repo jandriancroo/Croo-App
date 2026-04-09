@@ -261,7 +261,6 @@ serve(async (req) => {
         });
       }
 
-      // Probe assignment fields & employee list queries
       const opusHeaders = {
         "Content-Type": "application/json",
         "Cookie": `sessionid=${sessionid}`,
@@ -270,45 +269,33 @@ serve(async (req) => {
         "x-opus-role": "admin",
       };
 
-      // Try different field names on Assignment type
+      // Try single assignment query & different root queries
       const probes = [
-        // Probe 1: Assignment with more fields
-        {
-          operationName: "P1",
-          variables: { id: 1541347 },
-          query: `query P1($id: Int!) { Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH, COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) { objects { id status title name completionPercentage } } }`,
-        },
-        // Probe 2: try __typename introspection on Assignment
-        {
-          operationName: "P2",
-          variables: { id: 1541347 },
-          query: `query P2($id: Int!) { Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) { objects { id status assignedAt dueDate contentType contentId contentTitle } } }`,
-        },
-        // Probe 3: Employee list variations
-        {
-          operationName: "P3",
-          query: `query P3 { Employees(input: {pagination: {page: 1, pageSize: 3}}) { objects { id name } totalCount } }`,
-        },
-        // Probe 4: AdminUsers
-        {
-          operationName: "P4",
-          query: `query P4 { AdminUsers(input: {pagination: {page: 1, pageSize: 3}}) { objects { id name } totalCount } }`,
-        },
+        // Assignment by ID
+        { operationName: "P1", query: `query P1 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status __typename } }` },
+        // Try with node interface
+        { operationName: "P2", query: `query P2 { node(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id __typename } }` },
+        // Try Courses/Paths root queries
+        { operationName: "P3", query: `query P3 { Courses(input: {pagination: {page: 1, pageSize: 2}}) { objects { id name __typename } totalCount } }` },
+        { operationName: "P4", query: `query P4 { Paths(input: {pagination: {page: 1, pageSize: 2}}) { objects { id name __typename } totalCount } }` },
+        // Try Users
+        { operationName: "P5", query: `query P5 { Users(input: {pagination: {page: 1, pageSize: 2}}) { objects { id name __typename } totalCount } }` },
+        // Try People
+        { operationName: "P6", query: `query P6 { People(input: {pagination: {page: 1, pageSize: 2}}) { objects { id name __typename } totalCount } }` },
       ];
 
       const results = await Promise.all(
-        probes.map(q =>
-          fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(q) })
-            .then(r => r.json())
-        )
+        probes.map(q => fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(q) }).then(r => r.json()))
       );
       
       return new Response(JSON.stringify({
         authenticated: true,
-        probe1_assignment_fields: results[0],
-        probe2_assignment_fields: results[1],
-        probe3_employees: results[2],
-        probe4_admin_users: results[3],
+        p1_assignment: results[0],
+        p2_node: results[1],
+        p3_courses: results[2],
+        p4_paths: results[3],
+        p5_users: results[4],
+        p6_people: results[5],
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
