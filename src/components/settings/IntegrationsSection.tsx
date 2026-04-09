@@ -987,10 +987,11 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 <Input 
                   value={ovationCompanyId} 
                   onChange={(e) => setOvationCompanyId(e.target.value)} 
-                  placeholder="e.g., 6777260a7637ed5bfedb1f2e" 
+                  placeholder="Auto-detected on Test" 
                   className="h-9 text-xs font-mono" 
+                  readOnly={!!ovationCompanyId}
                 />
-                <p className="text-[11px] text-muted-foreground">From the OvationUp leaderboard API request</p>
+                <p className="text-[11px] text-muted-foreground">Auto-discovered when you test credentials</p>
               </div>
             </div>
 
