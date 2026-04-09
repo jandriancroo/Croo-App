@@ -37,49 +37,41 @@ serve(async (req) => {
       'Accept': 'application/json',
     };
 
+    // The Fresh KDS web app is a React SPA. It likely calls an API to get Explo config.
+    // Let's probe various patterns that SPA analytics dashboards use
     const tests = [
-      // Probe brand-api for explo/embed/analytics endpoints
-      { name: 'brand-api-root', url: `https://brand-api.ftservices.cloud/`, headers: commonHeaders },
-      { name: 'brand-api-explo', url: `https://brand-api.ftservices.cloud/explo`, headers: commonHeaders },
-      { name: 'brand-api-analytics', url: `https://brand-api.ftservices.cloud/analytics`, headers: commonHeaders },
-      { name: 'brand-api-embed', url: `https://brand-api.ftservices.cloud/embed-token`, headers: commonHeaders },
-      { name: 'brand-api-tools', url: `https://brand-api.ftservices.cloud/tools`, headers: commonHeaders },
-      { name: 'brand-api-tools-kds', url: `https://brand-api.ftservices.cloud/tools/kds`, headers: commonHeaders },
-      { name: 'brand-api-reports', url: `https://brand-api.ftservices.cloud/reports`, headers: commonHeaders },
-      { name: 'brand-api-brands', url: `https://brand-api.ftservices.cloud/brands/${brandId}`, headers: commonHeaders },
-      { name: 'brand-api-brands-tools', url: `https://brand-api.ftservices.cloud/brands/${brandId}/tools`, headers: commonHeaders },
-      { name: 'brand-api-brands-explo', url: `https://brand-api.ftservices.cloud/brands/${brandId}/explo`, headers: commonHeaders },
-      { name: 'brand-api-brands-analytics', url: `https://brand-api.ftservices.cloud/brands/${brandId}/analytics`, headers: commonHeaders },
-      // user-api endpoints
-      { name: 'user-api-root', url: `https://user-api.ftservices.cloud/`, headers: commonHeaders },
-      { name: 'user-api-me', url: `https://user-api.ftservices.cloud/me`, headers: commonHeaders },
-      { name: 'user-api-users-me', url: `https://user-api.ftservices.cloud/users/me`, headers: commonHeaders },
-      // kds-api root to find available routes
-      { name: 'kds-api-root', url: `https://kds-api.ftservices.cloud/`, headers: commonHeaders },
-      { name: 'kds-api-metrics', url: `https://kds-api.ftservices.cloud/metrics`, headers: commonHeaders },
-      // Try Explo with bearer token in Authorization
-      {
-        name: 'explo-with-bearer',
-        url: 'https://us-east-1.data.explo.co/v1/namespaces/bbe60577-a294-416b-a11e-010d29dabe46/data-sources/1c2eb0da-4422-4856-9b40-a38771e63251/views/ba82b391-d19c-4db4-b8f1-1f66e3b5bbbb/run',
-        method: 'POST',
-        body: JSON.stringify({
-          queryContext: {
-            brand_id: brandId,
-            locations: [locationId],
-            "properties.locations": [locationId],
-            date_2: {
-              startDate: new Date().toISOString().split('T')[0] + 'T00:00:00.000Z',
-              endDate: new Date().toISOString().split('T')[0] + 'T23:59:59.999Z',
-            }
-          },
-          dataRequestParameters: { pagingConfiguration: { perPage: 100 } },
-        }),
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      },
+      // Explo embed token endpoints on brand-api
+      { name: 'explo-token', url: `https://brand-api.ftservices.cloud/explo/token`, headers: commonHeaders },
+      { name: 'explo-embed-token', url: `https://brand-api.ftservices.cloud/explo/embed-token`, headers: commonHeaders },
+      { name: 'embed-token', url: `https://brand-api.ftservices.cloud/embed/token`, headers: commonHeaders },
+      { name: 'analytics-token', url: `https://brand-api.ftservices.cloud/analytics/token`, headers: commonHeaders },
+      
+      // Maybe under a different API host
+      { name: 'kds-explo', url: `https://kds-api.ftservices.cloud/explo/token`, headers: commonHeaders },
+      { name: 'kds-embed', url: `https://kds-api.ftservices.cloud/embed/token`, headers: commonHeaders },
+      
+      // Maybe it's a POST to get the token
+      { name: 'brand-explo-post', url: `https://brand-api.ftservices.cloud/explo/token`, method: 'POST', body: JSON.stringify({ brandId, locationId }), headers: { ...commonHeaders, 'Content-Type': 'application/json' } },
+      
+      // Try fido-api since Explo mentioned "fido-key"
+      { name: 'fido-api', url: `https://fido-api.ftservices.cloud/`, headers: commonHeaders },
+      { name: 'fido-api-token', url: `https://fido-api.ftservices.cloud/token`, headers: commonHeaders },
+      
+      // Try reporting-api
+      { name: 'reporting-api', url: `https://reporting-api.ftservices.cloud/`, headers: commonHeaders },
+      
+      // Try data-api
+      { name: 'data-api', url: `https://data-api.ftservices.cloud/`, headers: commonHeaders },
+      
+      // The Explo namespace URL suggests "fido" might be the internal name
+      // Try Explo's own JWT endpoint
+      { name: 'explo-jwt', url: `https://us-east-1.data.explo.co/v1/namespaces/bbe60577-a294-416b-a11e-010d29dabe46/jwt`, headers: commonHeaders },
+      
+      // The KDS metrics API already works - try more metric endpoints
+      { name: 'kds-metrics-orders-list', url: `https://kds-api.ftservices.cloud/metrics/orders/?locationId=${locationId}&dateFrom=2026-04-09T08:00:00.000Z&dateTo=2026-04-09T23:59:59.999Z`, headers: commonHeaders },
+      { name: 'kds-metrics-orders-details', url: `https://kds-api.ftservices.cloud/metrics/orders/details/?locationId=${locationId}&dateFrom=2026-04-09T08:00:00.000Z&dateTo=2026-04-09T23:59:59.999Z`, headers: commonHeaders },
+      { name: 'kds-metrics-orders-list-raw', url: `https://kds-api.ftservices.cloud/metrics/orders/list/?locationId=${locationId}&dateFrom=2026-04-09T08:00:00.000Z&dateTo=2026-04-09T23:59:59.999Z`, headers: commonHeaders },
+      { name: 'kds-metrics-orders-items', url: `https://kds-api.ftservices.cloud/metrics/orders/items/?locationId=${locationId}&dateFrom=2026-04-09T08:00:00.000Z&dateTo=2026-04-09T23:59:59.999Z`, headers: commonHeaders },
     ];
 
     const results: Record<string, any> = {};
@@ -96,7 +88,7 @@ serve(async (req) => {
         try { body = JSON.parse(text); } catch { body = text.substring(0, 300); }
         results[t.name] = { 
           status: res.status, 
-          body: typeof body === 'string' ? body : JSON.stringify(body).substring(0, 400) 
+          body: typeof body === 'string' ? body : JSON.stringify(body).substring(0, 500) 
         };
       } catch (e) {
         results[t.name] = { error: e.message };
