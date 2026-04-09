@@ -261,7 +261,7 @@ serve(async (req) => {
         });
       }
 
-      // Discover: get assignment details + employee list
+      // Probe assignment fields & employee list queries
       const opusHeaders = {
         "Content-Type": "application/json",
         "Cookie": `sessionid=${sessionid}`,
@@ -270,57 +270,45 @@ serve(async (req) => {
         "x-opus-role": "admin",
       };
 
-      // Query 1: Get assignment details with content names
-      const detailQuery = {
-        operationName: "AssignmentDetails",
-        variables: { id: 1541347 },
-        query: `query AssignmentDetails($id: Int!) {
-  Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH, COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) {
-    objects {
-      id
-      status
-      completedAt
-      assignedAt
-      content {
-        id
-        name
-        type
-        __typename
-      }
-      __typename
-    }
-    __typename
-  }
-}`,
-      };
+      // Try different field names on Assignment type
+      const probes = [
+        // Probe 1: Assignment with more fields
+        {
+          operationName: "P1",
+          variables: { id: 1541347 },
+          query: `query P1($id: Int!) { Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [PATH, COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) { objects { id status title name completionPercentage } } }`,
+        },
+        // Probe 2: try __typename introspection on Assignment
+        {
+          operationName: "P2",
+          variables: { id: 1541347 },
+          query: `query P2($id: Int!) { Assignments(input: {filters: {userId: {value: $id}, contentTypes: {value: [COURSE]}, accessTypes: {value: [ASSIGNMENT]}}}) { objects { id status assignedAt dueDate contentType contentId contentTitle } } }`,
+        },
+        // Probe 3: Employee list variations
+        {
+          operationName: "P3",
+          query: `query P3 { Employees(input: {pagination: {page: 1, pageSize: 3}}) { objects { id name } totalCount } }`,
+        },
+        // Probe 4: AdminUsers
+        {
+          operationName: "P4",
+          query: `query P4 { AdminUsers(input: {pagination: {page: 1, pageSize: 3}}) { objects { id name } totalCount } }`,
+        },
+      ];
 
-      // Query 2: Try to get employee list
-      const listQuery = {
-        operationName: "EmployeeList",
-        query: `query EmployeeList {
-  AdminEmployees(input: {pagination: {page: 1, pageSize: 5}}) {
-    objects {
-      id
-      name
-      __typename
-    }
-    totalCount
-    __typename
-  }
-}`,
-      };
-
-      const [detailResp, listResp] = await Promise.all([
-        fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(detailQuery) }),
-        fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(listQuery) }),
-      ]);
-
-      const [detailData, listData] = await Promise.all([detailResp.json(), listResp.json()]);
+      const results = await Promise.all(
+        probes.map(q =>
+          fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(q) })
+            .then(r => r.json())
+        )
+      );
       
       return new Response(JSON.stringify({
         authenticated: true,
-        assignments: detailData,
-        employeeList: listData,
+        probe1_assignment_fields: results[0],
+        probe2_assignment_fields: results[1],
+        probe3_employees: results[2],
+        probe4_admin_users: results[3],
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
