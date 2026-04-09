@@ -1618,13 +1618,56 @@ serve(async (req) => {
         if (isOpusQuery && relevant.length > 0) {
           relevant = relevant.filter((m: any) => 
             (m.topic && m.topic.startsWith("opus_training_")) || 
-            (m.content && m.content.includes("[OPUS Training Module]"))
+            (m.content && (m.content.includes("[OPUS Training Resource]") || m.content.includes("[OPUS Training Module]")))
           );
+
+          // Lazy content extraction: if top result has a PDF but no extracted content, fetch it now
+          for (let i = 0; i < Math.min(relevant.length, 2); i++) {
+            const r = relevant[i];
+            if (r.content?.includes("Media URL:") && !r.content?.includes("[EXTRACTED CONTENT]")) {
+              // Extract resource name from content
+              const nameMatch = r.content.match(/\[OPUS Training (?:Resource|Module)\] (.+)/);
+              const resourceName = nameMatch?.[1]?.trim();
+              if (resourceName) {
+                try {
+                  console.log(`[ai-assistant] Lazy-extracting OPUS resource: ${resourceName}`);
+                  const extractResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/opus-service`, {
+                    method: "POST",
+                    headers: {
+                      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      action: "fetch_resource_content",
+                      location_id,
+                      resource_name: resourceName,
+                    }),
+                  });
+                  if (extractResp.ok) {
+                    const extractData = await extractResp.json();
+                    if (extractData.success || extractData.already_extracted) {
+                      // Re-fetch the updated content
+                      const { data: updated } = await supabaseAdmin
+                        .from("theo_knowledge")
+                        .select("topic, content")
+                        .eq("location_id", location_id)
+                        .ilike("content", `%${resourceName}%`)
+                        .limit(1)
+                        .maybeSingle();
+                      if (updated) relevant[i] = updated;
+                    }
+                  }
+                } catch (e) {
+                  console.error("[ai-assistant] Lazy extraction failed:", e);
+                }
+              }
+            }
+          }
         }
         
         if (relevant.length > 0) {
           const header = isOpusQuery 
-            ? "\n\nOPUS TRAINING LIBRARY (filtered by @OPUS tag — these are training modules from your LMS):\n"
+            ? "\n\nOPUS TRAINING LIBRARY (filtered by @OPUS tag — these are training resources & modules from your LMS):\n"
             : "\n\nTHEO'S PINNED KNOWLEDGE (facts saved by managers at this location — treat as ground truth):\n";
           memoryContext = header +
             relevant.map((m: any) => `- [${m.topic}]: ${m.content}`).join("\n");
@@ -1683,14 +1726,16 @@ KNOWLEDGE BASE & MEMORY:
 - If pinned knowledge exists above, treat it as ground truth for this location — it was saved by managers who know their store.
 - If a user asks about SOPs or procedures and no pinned knowledge matches, provide a logical best-practice answer but suggest: "Want me to remember this? Tap 'Pin' so I'll know next time."
 - If a user corrects you, acknowledge it and suggest they pin the correction.
-- OPUS TRAINING: If the user uses @OPUS in their message, you are searching their OPUS LMS training library. You ONLY have module titles and types — NOT the actual training content inside them.
-- When @OPUS is used, present matching modules as RESOURCE CARDS in this exact format:
+- OPUS TRAINING: If the user uses @OPUS in their message, you are searching their OPUS LMS training library. The system automatically extracts PDF content from matching resources on-demand.
+- If a resource has [EXTRACTED CONTENT] in the knowledge base, you have the FULL document text — use it to answer the question in detail with steps, measurements, temperatures, etc.
+- When answering from extracted content, format your response clearly with the source attribution:
+  📘 **Source: [Resource Name]** (from OPUS Training Library)
+  Then provide the answer using the extracted content.
+- If a resource only has metadata (no extracted content yet), present it as a resource card:
   📘 **[Module Name]**
-  Type: PATH/COURSE | OPUS ID: [id]
+  Type: PATH/COURSE | Tags: [tags]
   🔗 [Open in OPUS](https://dashboard.opus.so)
-- If the user asks HOW to do something (like "how do I make cheesy bread"), find the most relevant module by name and say: "Here's the training module that covers this — open it in OPUS for the full guide:" then show the card.
-- NEVER make up recipe steps or procedures from module titles. You don't have the content inside modules, only their names.
-- If no modules match, say "I couldn't find a matching OPUS module. Try browsing the full library in OPUS, or ask your manager to pin the SOP here."
+- If no resources match, say "I couldn't find a matching OPUS resource. Try different keywords or browse the full library in OPUS."
 
 TOOL USAGE:
 - For simple questions about today/yesterday/tomorrow sales, labor, schedule counts, OR remaining-week projections, USE THE CONTEXT SNAPSHOT ABOVE — no tool call needed.
