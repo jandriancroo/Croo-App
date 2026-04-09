@@ -473,9 +473,6 @@ serve(async (req) => {
   }
 }`,
       };
-  }
-}`,
-      };
 
       const resp = await fetch(OPUS_GRAPHQL, {
         method: "POST",
