@@ -28,6 +28,7 @@ import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
+import { OvationScorePopover } from '@/components/dashboard/OvationScorePopover';
 
 interface LayoutProps {
   children: ReactNode;
@@ -979,7 +980,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           
           {/* Mobile Location Picker - centered */}
           {(currentLocation || isOnOrgDash) && (
-            <div className="absolute left-1/2 -translate-x-1/2" ref={headerLocationRef}>
+            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" ref={headerLocationRef}>
               <Button 
                 variant="ghost" 
                 className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
@@ -1274,6 +1275,17 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </Sheet>
         </div>
       </header>
+      
+      {/* Ovation score tab hanging below mobile header */}
+      {isMobile && currentLocation && (
+        <div 
+          className="fixed left-1/2 -translate-x-1/2 z-[49]"
+          style={{ top: 'calc(env(safe-area-inset-top) + 3rem)' }}
+        >
+          <OvationScorePopover />
+        </div>
+      )}
+      
       <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+3.75rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
         {children}
       </main>

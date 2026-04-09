@@ -14,7 +14,7 @@ import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
-import { OvationScorePopover } from '@/components/dashboard/OvationScorePopover';
+
 import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
 import { PendingDocumentsCard } from '@/components/dashboard/PendingDocumentsCard';
 import { I9UploadCard } from '@/components/dashboard/I9UploadCard';
@@ -928,7 +928,6 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h1 className="text-3xl font-bold">Dash</h1>
-                <OvationScorePopover />
               </div>
               <div className="flex gap-2 items-center">
                 {/* Hide edit button for role-based cube users (cubes locked by Org Admin) */}
