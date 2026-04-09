@@ -56,6 +56,8 @@ serve(async (req) => {
         return await handleAutoMapLocations(req, supabase)
       case 'cognito_login':
         return await handleCognitoLogin(req, supabase)
+      case 'probe_api':
+        return await handleProbeApi(req, supabase)
       default:
         return jsonResponse({ error: `Unknown action: ${action}` }, 400)
     }
