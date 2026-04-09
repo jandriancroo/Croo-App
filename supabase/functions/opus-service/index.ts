@@ -196,45 +196,38 @@ serve(async (req) => {
           continue;
         }
 
-        const opusResp = { ok: true, status: 200 } as any;
-
-        if (!opusResp.ok) {
-          const errText = await opusResp.text();
-          console.error(`[opus-service] Assignment fetch failed for ${empName}:`, opusResp.status, errText);
-          if (opusResp.status === 401) {
-            return new Response(JSON.stringify({ 
-              error: "OPUS session expired", 
-              hint: "Paste a fresh sessionid in OPUS integration settings" 
-            }), {
-              status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-          errors.push(`${empName}: API error ${opusResp.status}`);
-          continue;
-        }
-
-        const opusData = await opusResp.json();
-        console.log(`[opus-service] AdminEmployee response for ${empName}:`, JSON.stringify(opusData).substring(0, 500));
-        const employee = opusData?.data?.AdminEmployee;
+        // Parse results based on which pattern worked
+        console.log(`[opus-service] Working pattern for ${empName}: ${workingPattern}`);
         
-        if (!employee) {
-          console.warn(`[opus-service] No AdminEmployee data for ${empName} (id: ${opus_id}), errors:`, JSON.stringify(opusData?.errors));
-          errors.push(`${empName}: No data returned from OPUS`);
-          continue;
-        }
+        let incompleteCount = 0;
+        let incompleteNames: string[] = [];
+        let totalCount = 0;
 
-        // Extract paths and courses from AdminEmployee
-        const assignedPaths = employee.assignedPaths || [];
-        const assignedCourses = employee.assignedCourses || [];
-        
-        const incompletePaths = assignedPaths.filter((a: any) => a.completionPercentage < 100 || a.status === "incomplete");
-        const incompleteCourses = assignedCourses.filter((a: any) => a.completionPercentage < 100 || a.status === "incomplete");
-        const incompleteAssignments = [...incompletePaths, ...incompleteCourses];
-        const incompleteCount = incompleteAssignments.length;
-        const incompleteNames = incompleteAssignments
-          .map((a: any) => a.path?.name?.en || a.course?.name?.en || "Untitled")
-          .slice(0, 5);
-        const totalCount = assignedPaths.length + assignedCourses.length;
+        if (workingPattern === "AdminEmployee_introspect") {
+          const emp = assignmentData?.data?.AdminEmployee;
+          const pct = emp?.completionPercentage || emp?.overallProgress || 0;
+          totalCount = 1;
+          incompleteCount = pct < 100 ? 1 : 0;
+          incompleteNames = pct < 100 ? [`Overall: ${pct}% complete`] : [];
+        } else if (workingPattern === "EmployeeProgress") {
+          const progress = assignmentData?.data?.AdminEmployeeProgress;
+          totalCount = progress?.totalAssignments || 0;
+          const completed = progress?.completedAssignments || 0;
+          incompleteCount = totalCount - completed;
+          const allItems = [...(progress?.paths || []), ...(progress?.courses || [])];
+          incompleteNames = allItems
+            .filter((a: any) => a.status !== "completed" && a.completionPercentage < 100)
+            .map((a: any) => a.name || "Untitled")
+            .slice(0, 5);
+        } else if (workingPattern === "AdminAssignments") {
+          const objects = assignmentData?.data?.AdminAssignments?.objects || [];
+          totalCount = objects.length;
+          const incomplete = objects.filter((a: any) => a.status !== "completed" && a.status !== "COMPLETED");
+          incompleteCount = incomplete.length;
+          incompleteNames = incomplete
+            .map((a: any) => a.name?.en || "Untitled")
+            .slice(0, 5);
+        }
         const completedCount = totalCount - incompleteCount;
 
         syncedCount++;
