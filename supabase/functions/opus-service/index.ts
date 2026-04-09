@@ -266,9 +266,9 @@ serve(async (req) => {
         "x-dashboard-loaded-at": new Date().toISOString(),
       };
       const queries = [
-        { label: "just_totalCount", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount __typename } }` } },
-        { label: "with_objects_minimal", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id __typename } __typename } }` } },
-        { label: "bigger_page", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 5 } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } coverImage { imageUrls { original thumb } } __typename } __typename } }` } },
+        { label: "with_orgId_1491", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 }, filters: { organizationId: { value: 1491 } } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "with_orgId_string", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 }, filters: { organizationId: { value: "1491" } } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
+        { label: "with_org_filter", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 }, organizationId: 1491 } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
       ];
 
       const results: any[] = [];
