@@ -261,13 +261,17 @@ serve(async (req) => {
         });
       }
 
-      // Use a real OPUS query to verify session
+      // Use introspection to discover available queries
       const testQuery = {
-        operationName: "TestConnection",
-        query: `query TestConnection {
-          AdminEmployees(input: { pagination: { page: 1, pageSize: 1 } }) {
-            objects { id name __typename }
-            __typename
+        operationName: "IntrospectionQuery",
+        query: `query IntrospectionQuery {
+          __schema {
+            queryType {
+              fields {
+                name
+                args { name type { name kind ofType { name } } }
+              }
+            }
           }
         }`,
       };
@@ -279,27 +283,16 @@ serve(async (req) => {
           "Cookie": `sessionid=${sessionid}`,
           "Origin": "https://dashboard.opus.so",
           "Referer": "https://dashboard.opus.so/",
+          "x-opus-role": "admin",
         },
         body: JSON.stringify(testQuery),
       });
 
-      if (!resp.ok) {
-        const errText = await resp.text();
-        return new Response(JSON.stringify({ authenticated: false, error: errText }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
       const data = await resp.json();
-      if (data?.errors?.length) {
-        return new Response(JSON.stringify({ authenticated: false, errors: data.errors }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
+      
       return new Response(JSON.stringify({
-        authenticated: true,
-        data: data?.data,
+        authenticated: resp.ok && !data?.errors?.length,
+        raw: data,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
