@@ -1189,9 +1189,11 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   queryClient.invalidateQueries({ queryKey: ['ovation-mapping'] });
                   queryClient.invalidateQueries({ queryKey: ['ovation-reviews'] });
                   toast.success('OvationUp connected!');
-                } catch (error) {
+                } catch (error: any) {
+                  console.error('[ovation] Connect error:', error);
                   setOvationTestResult('error');
-                  toast.error('Failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                  const msg = error?.message || error?.error_description || (typeof error === 'string' ? error : JSON.stringify(error));
+                  toast.error('Failed: ' + msg);
                 } finally {
                   setOvationIsSaving(false);
                 }
