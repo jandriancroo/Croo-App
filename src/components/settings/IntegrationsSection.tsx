@@ -565,6 +565,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           setupLabel="Setup OvationUp"
           onEdit={() => setEditingIntegration('ovation')}
         />
+        <IntegrationCard
+          title="OPUS LMS"
+          description="Training & learning modules"
+          connected={!!opusIntegration?.is_active}
+          connectedLabel="Session active"
+          setupLabel="Setup OPUS"
+          onEdit={() => setEditingIntegration('opus')}
+        />
       </div>
 
       {/* ── QuBeyond Dialog ── */}

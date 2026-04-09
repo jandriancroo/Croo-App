@@ -93,3 +93,6 @@ verify_jwt = false
 
 [functions.jobs-seo]
 verify_jwt = false
+
+[functions.opus-service]
+verify_jwt = false

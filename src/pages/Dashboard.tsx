@@ -14,6 +14,7 @@ import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
+import { OpusTrainingAlert } from '@/components/dashboard/OpusTrainingAlert';
 
 import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
 import { PendingDocumentsCard } from '@/components/dashboard/PendingDocumentsCard';
