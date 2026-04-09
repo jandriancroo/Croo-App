@@ -492,11 +492,26 @@ serve(async (req) => {
       const data = await resp.json();
       const objects = data?.data?.AdminLibrary?.objects || [];
 
-      // Inject each training resource into theo_knowledge WITH embeddings
-      let injected = 0;
-      let embeddingsGenerated = 0;
+      // Get all existing OPUS resources in one query
+      const { data: existingRows } = await supabase
+        .from("theo_knowledge")
+        .select("content")
+        .eq("location_id", location_id)
+        .eq("topic", "opus_training_resource")
+        .limit(1000);
+      const existingNames = new Set(
+        (existingRows || []).map((r: any) => {
+          const match = r.content?.match(/\[OPUS Training Resource\] (.+)/);
+          return match?.[1] || "";
+        }).filter(Boolean)
+      );
+
+      // Build batch of new resources
+      const toInsert: any[] = [];
       for (const item of objects) {
         const moduleName = item.name?.en || "Untitled Resource";
+        if (existingNames.has(moduleName)) continue;
+
         const mediaUrl = item.trainingResource?.publishedVersion?.media?.mediaUrls?.en || "";
         const resourceType = item.trainingResource?.publishedVersion?.type || "";
         const description = item.description?.en || "";
@@ -518,35 +533,21 @@ serve(async (req) => {
           "Source: OPUS LMS (Resources Library)",
           mediaUrl ? "Content has not been extracted yet. Use fetch_resource_content to parse this document." : "",
         ];
-        const content = contentParts.filter(Boolean).join("\n");
 
-        const topic = "opus_training_resource";
-        const contentHash = content;
-
-        // Check if already exists (avoid re-embedding)
-        const { data: existing } = await supabase
-          .from("theo_knowledge")
-          .select("id, embedding")
-          .eq("location_id", location_id)
-          .eq("topic", topic)
-          .ilike("content", "%" + moduleName + "%")
-          .limit(1)
-          .maybeSingle();
-
-        if (existing?.id) {
-          // Already exists — skip
-          injected++;
-          continue;
-        }
-
-        // Insert without embedding (lazy-generate on query)
-        const { error } = await supabase.from("theo_knowledge").insert({
+        toInsert.push({
           location_id,
-          topic,
-          content,
+          topic: "opus_training_resource",
+          content: contentParts.filter(Boolean).join("\n"),
           created_by: userId,
         });
-        if (!error) injected++;
+      }
+
+      // Batch insert in chunks of 50
+      let injected = existingNames.size;
+      for (let i = 0; i < toInsert.length; i += 50) {
+        const chunk = toInsert.slice(i, i + 50);
+        const { error } = await supabase.from("theo_knowledge").insert(chunk);
+        if (!error) injected += chunk.length;
       }
 
       return new Response(JSON.stringify({
