@@ -33,7 +33,7 @@ function StarRating({ rating }: { rating: number }) {
         <Star
           key={i}
           className={cn(
-            'h-3 w-3',
+            'h-3.5 w-3.5 sm:h-3 sm:w-3',
             i <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30'
           )}
         />
@@ -102,19 +102,19 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
     <button
       onClick={onToggle}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-1 transition-all',
+        'flex items-center gap-2 px-3.5 py-1.5 transition-all',
         desktop
           ? 'rounded-lg bg-white/15 hover:bg-white/25 border-0'
-          : cn('bg-muted/80 shadow-sm hover:bg-muted border border-t-0 border-border/30', expanded ? 'rounded-none' : 'rounded-b-xl')
+          : cn('min-h-10 bg-muted/85 shadow-sm hover:bg-muted border border-t-0 border-border/30', expanded ? 'rounded-none' : 'rounded-b-xl')
       )}
     >
-      <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 object-contain" />
-      <span className={cn('text-sm font-bold', desktop ? 'text-white' : scoreColor)}>
+      <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 sm:h-4 sm:w-4 object-contain" />
+      <span className={cn('text-base sm:text-sm font-bold', desktop ? 'text-white' : scoreColor)}>
         {reviewsData.wtdAverage.toFixed(1)}
       </span>
-      <span className={cn('text-[9px]', desktop ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
+      <span className={cn('text-[11px] sm:text-[9px] font-medium', desktop ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
       <ChevronDown className={cn(
-        'h-3 w-3 transition-transform duration-300',
+        'h-3.5 w-3.5 transition-transform duration-300',
         desktop ? 'text-white/60' : 'text-muted-foreground/60',
         expanded ? 'rotate-180' : 'rotate-0'
       )} />
@@ -147,30 +147,30 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
           className="overflow-hidden"
         >
-          <div className="w-72 bg-white dark:bg-card border border-border/30 rounded-2xl shadow-lg mt-1">
+          <div className="w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 bg-white dark:bg-card border border-border/30 rounded-2xl shadow-lg mt-1">
             {/* Header */}
-            <div className="px-3 pt-2 pb-2 flex items-center justify-between border-b border-border/20">
-              <div className="flex items-center gap-2">
-                <img src={ovationLogo} alt="OvationUp" className="h-6 w-6 object-contain" />
+            <div className="px-4 sm:px-3 pt-3 sm:pt-2.5 pb-3 sm:pb-2 flex items-center justify-between gap-3 border-b border-border/20">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <img src={ovationLogo} alt="OvationUp" className="h-7 w-7 sm:h-6 sm:w-6 object-contain shrink-0" />
                 <div>
-                  <p className="text-xs font-semibold leading-tight">OvationUp</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
+                  <p className="text-base sm:text-xs font-semibold leading-tight">OvationUp</p>
+                  <p className="text-xs sm:text-[10px] text-muted-foreground leading-tight">
                     Last 14 days · {reviewsData.wtdCount} reviews
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5 shrink-0">
                 <div className={cn(
-                  'flex items-center justify-center px-2 py-0.5 rounded-md font-bold text-sm',
+                  'flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm',
                   reviewsData.wtdAverage >= 4.5 ? 'bg-green-500/10 text-green-600' :
                   reviewsData.wtdAverage >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
                   reviewsData.wtdAverage >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
                 )}>
                   {reviewsData.wtdAverage.toFixed(1)}
                 </div>
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  <span className="text-[10px]">{reviewsData.wtdCount}</span>
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  <span className="text-xs sm:text-[10px] font-medium">{reviewsData.wtdCount}</span>
                 </div>
               </div>
             </div>
@@ -178,7 +178,7 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
             {/* Reviews carousel */}
             {reviewsWithFeedback.length > 0 ? (
               <div
-                className="px-3 py-3 min-h-[60px] cursor-pointer"
+                className="px-4 sm:px-3 py-4 sm:py-3 min-h-[112px] sm:min-h-[60px] cursor-pointer"
                 onClick={advanceReview}
               >
                 <AnimatePresence mode="wait">
@@ -189,39 +189,40 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2.5 mb-2 sm:mb-1 flex-wrap">
                       <StarRating rating={reviewsWithFeedback[reviewIndex]?.rating || 0} />
-                      <span className="text-[10px] text-muted-foreground truncate">
+                      <span className="text-sm sm:text-[10px] text-muted-foreground truncate max-w-[11rem] sm:max-w-none">
                         {reviewsWithFeedback[reviewIndex]?.customerName}
                       </span>
                       {reviewsWithFeedback[reviewIndex]?.hasResponse && (
-                        <span className="text-[9px] text-green-500 font-medium">✓ replied</span>
+                        <span className="text-xs sm:text-[9px] text-green-500 font-medium">✓ replied</span>
                       )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">
+                    <p className="text-base sm:text-[11px] text-muted-foreground leading-relaxed sm:leading-snug line-clamp-4 sm:line-clamp-3">
                       {reviewsWithFeedback[reviewIndex]?.feedback}
                     </p>
                   </motion.div>
                 </AnimatePresence>
 
                 {reviewsWithFeedback.length > 1 && (
-                  <div className="flex justify-center gap-1 mt-2">
+                  <div className="flex justify-center gap-1.5 mt-3 sm:mt-2">
                     {reviewsWithFeedback.slice(0, 8).map((_, idx) => (
                       <button
                         key={idx}
                         className={cn(
-                          'w-1 h-1 rounded-full transition-all',
-                          idx === reviewIndex ? 'bg-primary w-2' : 'bg-muted-foreground/30'
+                          'h-2 w-2 sm:h-1 sm:w-1 rounded-full transition-all',
+                          idx === reviewIndex ? 'bg-primary w-4 sm:w-2' : 'bg-muted-foreground/30'
                         )}
                         onClick={(e) => { e.stopPropagation(); setReviewIndex(idx); }}
+                        aria-label={`Show review ${idx + 1}`}
                       />
                     ))}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="px-3 py-3">
-                <p className="text-[11px] text-muted-foreground italic">
+              <div className="px-4 sm:px-3 py-4 sm:py-3">
+                <p className="text-base sm:text-[11px] text-muted-foreground italic">
                   {reviewsData.reviews.length} ratings (no written feedback)
                 </p>
               </div>
