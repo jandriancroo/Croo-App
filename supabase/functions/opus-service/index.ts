@@ -552,9 +552,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         total_in_opus: objects.length,
-        resources_found: objects.length,
         injected_to_theo: injected,
-        embeddings_generated: embeddingsGenerated,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
