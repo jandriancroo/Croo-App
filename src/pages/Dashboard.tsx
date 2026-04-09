@@ -101,9 +101,22 @@ export default function Dashboard() {
   );
   const queryClient = useQueryClient();
 
-  // Read Ovation score from OvationReviewsCube's query cache (partial key match)
-  const ovationCacheEntries = queryClient.getQueriesData<{ wtdAverage: number | null; wtdCount: number; error?: string; expired?: boolean }>({ queryKey: ['ovation-reviews'] });
-  const reviewsData = ovationCacheEntries.find(([key]) => key[1] === currentLocation?.id)?.[1] ?? null;
+  // Get brand_id for Ovation query cache match
+  const { data: ovationBrandId } = useQuery({
+    queryKey: ['org-brand-id', organizationId],
+    queryFn: async () => {
+      if (!organizationId) return null;
+      const { data } = await supabase.from('organizations').select('brand_id').eq('id', organizationId).single();
+      return data?.brand_id || null;
+    },
+    enabled: !!organizationId,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  // Read Ovation score from same query cache as OvationReviewsCube
+  const reviewsData = queryClient.getQueryData<{ wtdAverage: number | null; wtdCount: number; error?: string; expired?: boolean }>(
+    ['ovation-reviews', currentLocation?.id, ovationBrandId]
+  );
   
   // Light DB reads — always refetch on pull
   const ALWAYS_REFRESH_KEYS = [
