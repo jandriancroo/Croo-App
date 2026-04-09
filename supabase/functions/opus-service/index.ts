@@ -261,38 +261,31 @@ serve(async (req) => {
         });
       }
 
-      // Simple query to verify session is valid
-      const testQuery = {
-        query: `query { viewer { id name } }`,
+      const opusHeaders = {
+        "Content-Type": "application/json",
+        "Cookie": `sessionid=${sessionid}`,
+        "Origin": "https://dashboard.opus.so",
+        "Referer": "https://dashboard.opus.so/",
+        "x-opus-role": "admin",
       };
 
-      const resp = await fetch(OPUS_GRAPHQL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Cookie": `sessionid=${sessionid}`,
-        },
-        body: JSON.stringify(testQuery),
-      });
+      const aId = "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567";
+      const probes = [
+        { operationName: "P1", query: `query P1 { Assignment(id: "${aId}") { id contentObject { id name __typename } } }` },
+        { operationName: "P2", query: `query P2 { Assignment(id: "${aId}") { id assignable { id name __typename } } }` },
+        { operationName: "P3", query: `query P3 { Assignment(id: "${aId}") { id item { id name __typename } } }` },
+        { operationName: "P4", query: `query P4 { Assignment(id: "${aId}") { id resource { id name __typename } } }` },
+        { operationName: "P5", query: `query P5 { Assignment(id: "${aId}") { id target { id name __typename } } }` },
+        { operationName: "P6", query: `query P6 { Assignment(id: "${aId}") { id contentType assignedAt dueAt completedAt } }` },
+        { operationName: "P7", query: `query P7 { Assignment(id: "${aId}") { id content { id name __typename } } }` },
+        { operationName: "P8", query: `query P8 { AdminLocation(id: 1491) { id name employees { id name } } }` },
+      ];
 
-      if (!resp.ok) {
-        const errText = await resp.text();
-        return new Response(JSON.stringify({ authenticated: false, error: errText }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const data = await resp.json();
-      if (data?.errors) {
-        return new Response(JSON.stringify({ authenticated: false, error: data.errors[0]?.message }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({
-        authenticated: true,
-        viewer: data?.data?.viewer,
-      }), {
+      const results = await Promise.all(
+        probes.map(q => fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(q) }).then(r => r.json()))
+      );
+      
+      return new Response(JSON.stringify({ authenticated: true, ...Object.fromEntries(results.map((r, i) => [`p${i+1}`, r])) }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
