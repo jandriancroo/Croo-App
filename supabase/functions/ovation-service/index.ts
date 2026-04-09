@@ -478,49 +478,35 @@ async function handleAutoMapLocations(req: Request, supabase: any) {
   const { brandId } = await req.json()
   if (!brandId) return jsonResponse({ error: 'Missing brandId' }, 400)
 
-  // Get auth token (will auto-refresh via SRP if needed)
   const authToken = await getAuthToken(supabase, brandId)
-  if (!authToken) return jsonResponse({ error: 'No auth token available', mapped: 0 })
+  if (!authToken) return jsonResponse({ error: 'No auth token available', mapped: 0 }, 400)
 
-  // Get company ID
   const { data: integration } = await supabase
     .from('ovation_integrations')
     .select('company_id')
     .eq('brand_id', brandId)
     .single()
 
-  if (!integration?.company_id) return jsonResponse({ error: 'No company ID', mapped: 0 })
+  if (!integration?.company_id) {
+    return jsonResponse({ error: 'No company configured', mapped: 0 }, 400)
+  }
 
-  // Fetch OvationUp locations
+  // Fetch all OvationUp locations for this company
   let ovationLocations: any[] = []
   try {
-    const response = await fetch(`${OVATION_API}/locations/list/leaderboard`, {
+    const response = await fetch(`${OVATION_API}/location`, {
       method: 'POST',
       headers: {
         'Authorization': authToken,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        companyIds: [integration.company_id],
-        filters: {
-          companyIds: [integration.company_id],
-          dateRange: [
-            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            new Date().toISOString(),
-          ],
-          timezone: 'America/Los_Angeles',
-          timestampRange: [
-            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            new Date().toISOString(),
-          ],
-        },
-      }),
+      body: JSON.stringify({ filters: { companyIds: [integration.company_id] } }),
     })
 
     if (!response.ok) {
       const text = await response.text()
-      console.error('[ovation-service] Leaderboard fetch error:', response.status, text)
+      console.error('[ovation-service] Location list fetch error:', response.status, text)
       return jsonResponse({ error: `API error: ${response.status}`, mapped: 0 })
     }
 
@@ -549,50 +535,79 @@ async function handleAutoMapLocations(req: Request, supabase: any) {
 
   if (!crooLocations?.length) return jsonResponse({ mapped: 0, message: 'No CrooHQ locations found' })
 
-  // Get existing mappings to skip
+  const normalize = (value: string | null | undefined) => (value || '').toLowerCase().trim()
+
   const { data: existingMappings } = await supabase
     .from('ovation_location_mappings')
-    .select('location_id')
+    .select('location_id, ovation_location_id')
     .in('location_id', crooLocations.map((l: any) => l.id))
 
-  const alreadyMapped = new Set((existingMappings || []).map((m: any) => m.location_id))
+  const usedOvationIds = new Set(
+    (existingMappings || [])
+      .map((m: any) => m.ovation_location_id)
+      .filter((id: string | null) => !!id && id !== 'pending')
+  )
 
-  // Match by location name against OvationUp city or name (case-insensitive)
-  let mapped = 0
-  const results: { crooName: string; ovationName: string; city: string }[] = []
+  const rowsToUpsert: Array<{ location_id: string; ovation_location_id: string }> = []
+  const results: { crooName: string; ovationName: string; ovationId: string }[] = []
 
   for (const crooLoc of crooLocations) {
-    if (alreadyMapped.has(crooLoc.id)) continue
+    const crooName = normalize(crooLoc.name)
+    const crooAddress = normalize(crooLoc.address)
+    if (!crooName && !crooAddress) continue
 
-    const crooName = (crooLoc.name || '').toLowerCase().trim()
-    if (!crooName) continue
-
-    // Find matching OvationUp location by city or name
     const match = ovationLocations.find((ol: any) => {
-      const olCity = (ol.city || ol.addressDetails?.city || '').toLowerCase().trim()
-      const olName = (ol.name || '').toLowerCase().trim()
-      return olCity === crooName || olName.includes(crooName) || crooName.includes(olCity)
+      const ovationId = String(ol._id || ol.id || '')
+      const olCity = normalize(ol.city || ol.addressDetails?.city)
+      const olName = normalize(ol.name || ol.locationName)
+
+      if (!ovationId || (usedOvationIds.has(ovationId) && !(existingMappings || []).some((m: any) => m.location_id === crooLoc.id && m.ovation_location_id === ovationId))) {
+        return false
+      }
+
+      return (
+        (olCity && (olCity === crooName || crooName.includes(olCity) || crooAddress.includes(olCity))) ||
+        (olName && (olName.includes(crooName) || crooName.includes(olName)))
+      )
     })
 
-    if (match) {
-      const ovationId = match._id || match.id
-      const { error } = await supabase
-        .from('ovation_location_mappings')
-        .insert({ location_id: crooLoc.id, ovation_location_id: ovationId })
+    if (!match) continue
 
-      if (!error) {
-        mapped++
-        results.push({
-          crooName: crooLoc.name,
-          ovationName: match.name,
-          city: crooLoc.city,
-        })
-      }
-    }
+    const ovationId = String(match._id || match.id || '')
+    if (!ovationId) continue
+
+    usedOvationIds.add(ovationId)
+    rowsToUpsert.push({
+      location_id: crooLoc.id,
+      ovation_location_id: ovationId,
+    })
+    results.push({
+      crooName: crooLoc.name,
+      ovationName: match.name || match.locationName || crooLoc.name,
+      ovationId,
+    })
   }
 
-  console.log(`[ovation-service] Auto-mapped ${mapped} locations`)
-  return jsonResponse({ mapped, results, totalOvation: ovationLocations.length, totalCroo: crooLocations.length })
+  if (rowsToUpsert.length === 0) {
+    return jsonResponse({ mapped: 0, results: [], totalOvation: ovationLocations.length, totalCroo: crooLocations.length })
+  }
+
+  const { error: upsertError } = await supabase
+    .from('ovation_location_mappings')
+    .upsert(rowsToUpsert, { onConflict: 'location_id' })
+
+  if (upsertError) {
+    console.error('[ovation-service] Auto-map upsert error:', upsertError)
+    return jsonResponse({ error: upsertError.message, mapped: 0 }, 500)
+  }
+
+  console.log(`[ovation-service] Auto-mapped ${rowsToUpsert.length} locations`)
+  return jsonResponse({
+    mapped: rowsToUpsert.length,
+    results,
+    totalOvation: ovationLocations.length,
+    totalCroo: crooLocations.length,
+  })
 }
 
 // ==================== SAVE CONFIG ====================
@@ -822,6 +837,26 @@ async function handleListOvationLocations(req: Request, supabase: any) {
   }
 }
 
+function extractSurveyLocationIds(survey: any): string[] {
+  const rawIds = [
+    survey?.location,
+    survey?.locationId,
+    survey?.location_id,
+    survey?.location?._id,
+    survey?.location?.id,
+    survey?.store?._id,
+    survey?.store?.id,
+  ].filter(Boolean)
+
+  return Array.from(new Set(rawIds.map((value: any) => String(value))))
+}
+
+function surveyMatchesAllowedLocations(survey: any, allowedLocationIds: string[]): boolean {
+  if (allowedLocationIds.length === 0) return true
+  const surveyLocationIds = extractSurveyLocationIds(survey)
+  return surveyLocationIds.some((id) => allowedLocationIds.includes(id))
+}
+
 // ==================== FETCH REVIEWS ====================
 async function handleFetchReviews(req: Request, supabase: any) {
   const { locationId, brandId, days = 7, page = 1, pageSize = 20 } = await req.json()
@@ -880,7 +915,6 @@ async function handleFetchReviews(req: Request, supabase: any) {
       .single()
     companyId = integration?.company_id
 
-    // Get ovation location ID mapping
     if (locationId && ovationLocationIds.length === 0) {
       const { data: mapping } = await supabase
         .from('ovation_location_mappings')
@@ -897,7 +931,6 @@ async function handleFetchReviews(req: Request, supabase: any) {
     }
   }
 
-  // If we have a locationId but couldn't resolve an ovation location, return empty
   if (locationId && ovationLocationIds.length === 0) {
     console.log(`[ovation-service] No ovation location ID resolved for ${locationId}, returning empty`)
     return jsonResponse({ reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 })
@@ -909,37 +942,62 @@ async function handleFetchReviews(req: Request, supabase: any) {
 
   const now = new Date()
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
-
   const filters: any = {
     companyIds: [companyId],
     createdAtRange: [startDate.toISOString(), now.toISOString()],
     ...(ovationLocationIds.length > 0 ? { locationIds: ovationLocationIds } : {}),
   }
 
+  const matchingSurveys: any[] = []
+  const apiPageSize = Math.max(pageSize, 200)
+  let currentApiPage = 1
+  const maxApiPages = 25
+
   try {
-    const response = await fetch(`${OVATION_API}/survey/list`, {
-      method: 'POST',
-      headers: {
-        'Authorization': authToken,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({ filters, page, pageSize }),
-    })
+    while (currentApiPage <= maxApiPages) {
+      const response = await fetch(`${OVATION_API}/survey/list`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authToken,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ filters, page: currentApiPage, pageSize: apiPageSize }),
+      })
 
-    if (response.status === 401) {
-      return jsonResponse({ error: 'Token expired', reviews: [], expired: true })
+      if (response.status === 401) {
+        return jsonResponse({ error: 'Token expired', reviews: [], expired: true })
+      }
+
+      if (!response.ok) {
+        const text = await response.text()
+        console.error('[ovation-service] survey/list error:', response.status, text)
+        return jsonResponse({ error: `API error: ${response.status}`, reviews: [] })
+      }
+
+      const data = await response.json()
+      const surveys = data?.data?.surveys || []
+      const pageCount = data?.data?.pageCount || data?.pageCount || Math.ceil((data?.data?.count || 0) / apiPageSize) || 1
+
+      const pageMatches = surveys.filter((survey: any) => surveyMatchesAllowedLocations(survey, ovationLocationIds))
+      matchingSurveys.push(...pageMatches)
+
+      if (ovationLocationIds.length > 0) {
+        console.log(`[ovation-service] Strict filter page ${currentApiPage}: matched ${pageMatches.length}/${surveys.length} for ${JSON.stringify(ovationLocationIds)}`)
+      }
+
+      if (surveys.length === 0 || currentApiPage >= pageCount) break
+      currentApiPage += 1
     }
 
-    if (!response.ok) {
-      const text = await response.text()
-      return jsonResponse({ error: `API error: ${response.status}`, reviews: [] })
+    if (currentApiPage > maxApiPages) {
+      console.log(`[ovation-service] Reached max page scan (${maxApiPages}) while filtering reviews`)
     }
 
-    const data = await response.json()
-    const surveys = data?.data?.surveys || []
+    const offset = Math.max(0, (page - 1) * pageSize)
+    const pagedSurveys = matchingSurveys.slice(offset, offset + pageSize)
 
-    const reviews = surveys.map((s: any) => ({
+    const reviews = pagedSurveys.map((s: any) => ({
       id: s._id,
       customerName: s.customer?.name || 'Anonymous',
       rating: s.rating,
@@ -949,21 +1007,18 @@ async function handleFetchReviews(req: Request, supabase: any) {
       hasResponse: !!s.response,
     }))
 
-    // Calculate WTD average
     const weekStart = new Date(now)
     weekStart.setDate(weekStart.getDate() - weekStart.getDay())
     weekStart.setHours(0, 0, 0, 0)
 
-    const wtdSurveys = surveys.filter((s: any) => new Date(s.created) >= weekStart)
+    const wtdSurveys = matchingSurveys.filter((s: any) => new Date(s.created) >= weekStart)
     const wtdAvg = wtdSurveys.length > 0
       ? wtdSurveys.reduce((sum: number, s: any) => sum + (s.rating || 0), 0) / wtdSurveys.length
       : null
 
-    const totalCount = data?.data?.count || reviews.length
-
     return jsonResponse({
       reviews,
-      totalCount,
+      totalCount: matchingSurveys.length,
       wtdAverage: wtdAvg ? Math.round(wtdAvg * 100) / 100 : null,
       wtdCount: wtdSurveys.length,
     })
