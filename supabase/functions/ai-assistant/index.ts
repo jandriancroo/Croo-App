@@ -1595,12 +1595,12 @@ serve(async (req) => {
             .select("topic, content")
             .eq("location_id", location_id);
           
-          // If @OPUS tag, filter to only OPUS training topics
+          // If @OPUS tag, filter to only OPUS training topics and fetch more
           if (isOpusQuery) {
             query = query.ilike("topic", "opus_training_%");
           }
           
-          const { data: memories } = await query.limit(20);
+          const { data: memories } = await query.limit(isOpusQuery ? 100 : 20);
           
           if (memories && memories.length > 0) {
             const queryLower = cleanQuery.toLowerCase();
@@ -1683,8 +1683,14 @@ KNOWLEDGE BASE & MEMORY:
 - If pinned knowledge exists above, treat it as ground truth for this location — it was saved by managers who know their store.
 - If a user asks about SOPs or procedures and no pinned knowledge matches, provide a logical best-practice answer but suggest: "Want me to remember this? Tap 'Pin' so I'll know next time."
 - If a user corrects you, acknowledge it and suggest they pin the correction.
-- OPUS TRAINING: If the user uses @OPUS in their message, you are searching their OPUS LMS training library. Present results as a clean list of training modules with their type (PATH/COURSE/RESOURCE). If asked about a specific training module, provide details from the knowledge base.
-- When discussing OPUS training, you can reference module names, types, and IDs directly from memory.
+- OPUS TRAINING: If the user uses @OPUS in their message, you are searching their OPUS LMS training library. You ONLY have module titles and types — NOT the actual training content inside them.
+- When @OPUS is used, present matching modules as RESOURCE CARDS in this exact format:
+  📘 **[Module Name]**
+  Type: PATH/COURSE | OPUS ID: [id]
+  🔗 [Open in OPUS](https://dashboard.opus.so)
+- If the user asks HOW to do something (like "how do I make cheesy bread"), find the most relevant module by name and say: "Here's the training module that covers this — open it in OPUS for the full guide:" then show the card.
+- NEVER make up recipe steps or procedures from module titles. You don't have the content inside modules, only their names.
+- If no modules match, say "I couldn't find a matching OPUS module. Try browsing the full library in OPUS, or ask your manager to pin the SOP here."
 
 TOOL USAGE:
 - For simple questions about today/yesterday/tomorrow sales, labor, schedule counts, OR remaining-week projections, USE THE CONTEXT SNAPSHOT ABOVE — no tool call needed.
