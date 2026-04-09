@@ -7452,6 +7452,51 @@ export type Database = {
           },
         ]
       }
+      theo_knowledge: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          embedding: string | null
+          id: string
+          location_id: string
+          topic: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          embedding?: string | null
+          id?: string
+          location_id: string
+          topic?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          embedding?: string | null
+          id?: string
+          location_id?: string
+          topic?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theo_knowledge_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "theo_knowledge_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       time_punches: {
         Row: {
           approved_at: string | null
@@ -8401,6 +8446,15 @@ export type Database = {
       revise_read_and_sign_document: {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined
+      }
+      search_theo_knowledge: {
+        Args: { p_embedding: string; p_limit?: number; p_location_id: string }
+        Returns: {
+          content: string
+          id: string
+          similarity: number
+          topic: string
+        }[]
       }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       trigger_alarm_tasks_sql: { Args: never; Returns: undefined }

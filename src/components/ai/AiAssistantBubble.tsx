@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Pin } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { X, Send, Loader2, Sparkles, Mic, MicOff, RotateCcw } from 'lucide-react';
 import theoAvatar from '@/assets/theo-avatar.png';
@@ -35,6 +36,7 @@ export function AiAssistantBubble() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pinnedIndices, setPinnedIndices] = useState<Set<number>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const briefingLoadedRef = useRef(false);
@@ -142,6 +144,21 @@ export function AiAssistantBubble() {
     setMessages([]);
     briefingLoadedRef.current = false;
     setInput('');
+  };
+
+  const handlePin = async (msgIndex: number, content: string) => {
+    if (!currentLocation) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('theo-memory', {
+        body: { action: 'save', location_id: currentLocation.id, content, topic: 'general' },
+      });
+      if (error) throw error;
+      setPinnedIndices(prev => new Set(prev).add(msgIndex));
+      toast.success('Pinned to Theo\'s memory');
+    } catch (e) {
+      console.error('Pin error:', e);
+      toast.error('Failed to save to memory');
+    }
   };
 
   const sendMessage = async (text: string) => {
@@ -306,11 +323,28 @@ export function AiAssistantBubble() {
                             : 'crooai-ai-bubble rounded-2xl rounded-bl-md px-3.5 py-2.5'
                         )}
                       >
+                      <div className="flex flex-col gap-1">
                         {msg.role === 'assistant' ? (
                           <AiMarkdownRenderer content={msg.content} />
                         ) : (
                           <span className="leading-relaxed">{msg.content}</span>
                         )}
+                        {msg.role === 'assistant' && !loading && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handlePin(i, msg.content); }}
+                            disabled={pinnedIndices.has(i)}
+                            className={cn(
+                              'self-start flex items-center gap-1 text-[10px] mt-1 px-1.5 py-0.5 rounded-md transition-all',
+                              pinnedIndices.has(i)
+                                ? 'text-green-500 bg-green-500/10'
+                                : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40'
+                            )}
+                          >
+                            <Pin className="h-2.5 w-2.5" />
+                            {pinnedIndices.has(i) ? 'Pinned' : 'Pin'}
+                          </button>
+                        )}
+                      </div>
                       </div>
                     </motion.div>
                   ))}
