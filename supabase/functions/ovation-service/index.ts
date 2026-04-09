@@ -461,6 +461,7 @@ async function handleAutoMapLocations(req: Request, supabase: any) {
         'Accept': 'application/json',
       },
       body: JSON.stringify({
+        companyIds: [integration.company_id],
         filters: {
           companyIds: [integration.company_id],
           dateRange: [
@@ -468,6 +469,10 @@ async function handleAutoMapLocations(req: Request, supabase: any) {
             new Date().toISOString(),
           ],
           timezone: 'America/Los_Angeles',
+          timestampRange: [
+            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+            new Date().toISOString(),
+          ],
         },
       }),
     })
