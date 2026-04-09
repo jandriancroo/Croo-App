@@ -836,7 +836,7 @@ async function handleFetchReviews(req: Request, supabase: any) {
     if (locAuth) {
       authToken = locAuth.token
       companyId = locAuth.companyId
-      if (locAuth.ovationLocationId) {
+      if (locAuth.ovationLocationId && locAuth.ovationLocationId !== 'pending') {
         ovationLocationIds = [locAuth.ovationLocationId]
       }
       console.log(`[ovation-service] Using per-location auth for ${locationId}`)
