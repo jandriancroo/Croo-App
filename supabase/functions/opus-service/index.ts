@@ -267,30 +267,35 @@ serve(async (req) => {
         operationName: "TestEmployee",
         query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
       };
-      const testLibrary = {
-        operationName: "GetLibraryItems",
-        variables: { input: { pagination: { page: 1, pageSize: 1 } } },
-        query: `query GetLibraryItems($input: LibraryItemsInput!) { LibraryItems(input: $input) { objects { id type name { en __typename } __typename } __typename } }`,
-      };
+      // Try inline params (browser might not use variables for LibraryItems)
+      const libTests = [
+        { label: "inline_LibraryItems", body: { operationName: "GetLibraryItems", query: `query GetLibraryItems { LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { objects { id type name { en __typename } __typename } __typename } }` } },
+        { label: "inline_no_opname", body: { query: `{ LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { objects { id type name { en } } } }` } },
+        { label: "inline_with_vars_empty", body: { operationName: "GetLibraryItems", variables: {}, query: `query GetLibraryItems { LibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { objects { id type name { en __typename } __typename } __typename } }` } },
+      ];
+      const libResults: any[] = [];
+      for (const t of libTests) {
+        const r = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(t.body) });
+        const txt = await r.text();
+        console.log(`[opus-service] ${t.label}: status=${r.status} body=${txt.substring(0, 300)}`);
+        let parsed: any;
+        try { parsed = JSON.parse(txt); } catch { parsed = { raw: txt }; }
+        libResults.push({ label: t.label, status: r.status, data: parsed });
+      }
+      const libraryCount = null;
 
-      // Test employee first (reliable auth check)
+      // Test employee (reliable auth check)
       const empResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testEmployee) });
       const empData = await empResp.json();
       const authenticated = !!empData?.data?.AdminEmployee?.id;
 
-      // Try library too
-      const libResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testLibrary) });
-      const libData = await libResp.json();
-      const libraryItems = libData?.data?.LibraryItems?.objects;
-      const libraryCount = libraryItems?.length ?? null;
-
-      console.log("[opus-service] test_connection: employee=", JSON.stringify(empData), "library=", JSON.stringify(libData));
+      console.log("[opus-service] test_connection: employee=", JSON.stringify(empData));
 
       return new Response(JSON.stringify({
         authenticated,
         employee: empData?.data?.AdminEmployee || null,
-        library_items: libraryCount ?? null,
-        library_status: libResp.status,
+        library_items: libraryCount,
+        library_tests: libResults,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
