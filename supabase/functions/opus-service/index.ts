@@ -511,21 +511,18 @@ serve(async (req) => {
           "[OPUS Training Resource] " + moduleName,
           description ? "Description: " + description : "",
           "",
-          "Type: " + moduleType,
           resourceType ? "Resource Type: " + resourceType : "",
           "OPUS ID: " + item.id,
+          "Published: " + (item.publishState || "UNKNOWN"),
           tags ? "Tags: " + tags : "",
-          coverUrl ? "Cover Image: " + coverUrl : "",
-          item.path?.id ? "Path ID: " + item.path.id : "",
-          item.course?.id ? "Course ID: " + item.course.id : "",
           mediaUrl ? "Media URL: " + mediaUrl : "",
           "",
-          "Source: OPUS LMS (LibraryItems)",
+          "Source: OPUS LMS (Resources Library)",
           mediaUrl ? "Content has not been extracted yet. Use fetch_resource_content to parse this document." : "",
         ];
         const content = contentParts.filter(Boolean).join("\n");
 
-        const topic = "opus_training_" + moduleType.toLowerCase();
+        const topic = "opus_training_resource";
         const contentHash = content;
 
         // Check if already exists (avoid re-embedding)
