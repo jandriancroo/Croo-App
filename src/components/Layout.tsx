@@ -1282,8 +1282,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       {/* Ovation score tab hanging below mobile header */}
       {isMobile && currentLocation && (
         <div 
-          className="fixed left-1/2 -translate-x-1/2 z-[51]"
-          style={{ top: 'calc(env(safe-area-inset-top) + 3.25rem)' }}
+          className="fixed left-1/2 -translate-x-1/2 z-[48]"
+          style={{ top: 'calc(env(safe-area-inset-top) + 3.05rem)' }}
         >
           <OvationScorePopover />
         </div>
