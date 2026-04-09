@@ -257,42 +257,41 @@ serve(async (req) => {
         });
       }
 
-      // Test with the simplest known-working query: AdminEmployee
+      // Test with AdminLibrary (confirmed working)
       const testQuery = {
-        operationName: "TestEmployee",
-        query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
+        operationName: "TestConnection",
+        query: `query TestConnection {
+  AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) {
+    totalCount
+    objects { id type name { en } __typename }
+    __typename
+  }
+}`,
       };
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "Cookie": `sessionid=${sessionid}`,
-        "Origin": "https://dashboard.opus.so",
-        "Referer": "https://dashboard.opus.so/",
-        "x-opus-role": "admin",
-      };
-
-      console.log("[opus-service] Test query:", JSON.stringify(testQuery));
-      console.log("[opus-service] Cookie being sent:", `sessionid=${sessionid}`);
-
-      // Deno fetch might strip Cookie header — try with explicit redirect handling
       const resp = await fetch(OPUS_GRAPHQL, {
         method: "POST",
-        headers,
+        headers: OPUS_HEADERS(sessionid),
         body: JSON.stringify(testQuery),
-        redirect: "manual",
       });
 
-      const rawText = await resp.text();
-      console.log("[opus-service] OPUS response status:", resp.status);
-      console.log("[opus-service] OPUS response body:", rawText);
+      const data = await resp.json();
+      const totalCount = data?.data?.AdminLibrary?.totalCount;
 
-      let parsed;
-      try { parsed = JSON.parse(rawText); } catch { parsed = rawText; }
+      if (totalCount !== undefined) {
+        return new Response(JSON.stringify({ 
+          authenticated: true, 
+          library_items: totalCount,
+          sample: data?.data?.AdminLibrary?.objects?.[0] || null,
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       return new Response(JSON.stringify({ 
-        opus_status: resp.status,
-        opus_response: parsed,
-        our_headers_sent: Object.keys(headers),
+        authenticated: false, 
+        raw: data,
+        hint: "Session may be expired — grab a fresh sessionid from OPUS" 
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
