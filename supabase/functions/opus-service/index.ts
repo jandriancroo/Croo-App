@@ -193,10 +193,11 @@ serve(async (req) => {
         }
 
         const opusData = await opusResp.json();
+        console.log(`[opus-service] AdminEmployee response for ${empName}:`, JSON.stringify(opusData).substring(0, 500));
         const employee = opusData?.data?.AdminEmployee;
         
         if (!employee) {
-          console.warn(`[opus-service] No AdminEmployee data for ${empName} (id: ${opus_id})`);
+          console.warn(`[opus-service] No AdminEmployee data for ${empName} (id: ${opus_id}), errors:`, JSON.stringify(opusData?.errors));
           errors.push(`${empName}: No data returned from OPUS`);
           continue;
         }
