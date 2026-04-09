@@ -103,7 +103,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const queryClient = useQueryClient();
 
   // Dialog state
-  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | null>(null);
+  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | null>(null);
 
   // QuBeyond state
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({ username: "", password: "", location_id: "", pull_labor: false });
@@ -149,6 +149,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [kdsLocationId, setKdsLocationId] = useState('');
   const [kdsIsSaving, setKdsIsSaving] = useState(false);
   const [kdsIsSyncing, setKdsIsSyncing] = useState(false);
+
+  // OPUS LMS state
+  const [opusSessionId, setOpusSessionId] = useState('');
+  const [opusIsSaving, setOpusIsSaving] = useState(false);
+  const [opusIsTesting, setOpusIsTesting] = useState(false);
+  const [opusTestResult, setOpusTestResult] = useState<'success' | 'error' | null>(null);
+  const [opusIsSyncing, setOpusIsSyncing] = useState(false);
+  const [opusShowSession, setOpusShowSession] = useState(false);
 
   // OvationUp state
   const [ovationEmail, setOvationEmail] = useState('');
@@ -197,6 +205,17 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     queryFn: async () => {
       if (!locationId) return null;
       const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'produce_alliance').maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
+
+  const { data: opusIntegration } = useQuery({
+    queryKey: ['location-integration', locationId, 'opus'],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'opus').maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -290,6 +309,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setOvationCompanyId(ovationIntegration.company_id || '');
     }
   }, [ovationMapping, ovationIntegration]);
+
+  // Load OPUS session from integration
+  useEffect(() => {
+    if (opusIntegration) {
+      const creds = opusIntegration.credentials as any;
+      setOpusSessionId(creds?.sessionid || '');
+    }
+  }, [opusIntegration]);
   
   // ── Handlers (unchanged logic) ──
 
@@ -557,6 +584,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           connectedLabel={ovationEmail || 'Connected'}
           setupLabel="Setup OvationUp"
           onEdit={() => setEditingIntegration('ovation')}
+        />
+        <IntegrationCard
+          title="OPUS LMS"
+          description="Training & learning modules"
+          connected={!!opusIntegration?.is_active}
+          connectedLabel="Session active"
+          setupLabel="Setup OPUS"
+          onEdit={() => setEditingIntegration('opus')}
         />
       </div>
 
@@ -1132,6 +1167,141 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 {ovationIsSaving ? 'Connecting...' : 'Connect'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── OPUS LMS Dialog ── */}
+      <Dialog open={editingIntegration === 'opus'} onOpenChange={(open) => !open && setEditingIntegration(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plug className="h-5 w-5" /> OPUS LMS
+            </DialogTitle>
+            <DialogDescription>Paste your active OPUS session cookie to enable training sync</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="opus-session" className="text-sm">Session ID (Cookie)</Label>
+              <div className="relative">
+                <Input
+                  id="opus-session"
+                  type={opusShowSession ? "text" : "password"}
+                  value={opusSessionId}
+                  onChange={(e) => setOpusSessionId(e.target.value)}
+                  placeholder="Paste sessionid cookie value"
+                  className="h-9 pr-9 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setOpusShowSession(!opusShowSession)}
+                >
+                  {opusShowSession ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                Log into <a href="https://dashboard.opus.so" target="_blank" rel="noopener" className="underline">dashboard.opus.so</a>, 
+                open DevTools → Application → Cookies, copy the <code className="font-mono bg-muted px-1 rounded">sessionid</code> value.
+              </p>
+            </div>
+
+            {opusTestResult === 'success' && (
+              <div className="flex items-center gap-2 text-xs text-green-600">
+                <Check className="h-4 w-4" /> Session verified
+              </div>
+            )}
+            {opusTestResult === 'error' && (
+              <div className="flex items-center gap-2 text-xs text-red-500">
+                <X className="h-4 w-4" /> Session invalid or expired
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="h-8 text-xs flex-1" disabled={!opusSessionId || opusIsTesting}
+                onClick={async () => {
+                  setOpusIsTesting(true); setOpusTestResult(null);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('opus-service', {
+                      body: { action: 'test_connection', sessionid: opusSessionId },
+                    });
+                    if (error) throw error;
+                    setOpusTestResult(data?.authenticated ? 'success' : 'error');
+                    if (data?.authenticated) toast.success('OPUS session verified!');
+                    else toast.error('Session invalid: ' + (data?.error || 'Check cookie'));
+                  } catch (e) {
+                    setOpusTestResult('error');
+                    toast.error('Test failed');
+                  } finally { setOpusIsTesting(false); }
+                }}>
+                {opusIsTesting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <TestTube className="h-3.5 w-3.5 mr-1" />}
+                Test
+              </Button>
+              <Button size="sm" className="h-8 text-xs flex-1" disabled={!opusSessionId || opusIsSaving}
+                onClick={async () => {
+                  if (!locationId) { toast.error('No location selected'); return; }
+                  setOpusIsSaving(true);
+                  try {
+                    const { data: existing } = await supabase
+                      .from('location_integrations')
+                      .select('id')
+                      .eq('location_id', locationId)
+                      .eq('integration_type', 'opus')
+                      .maybeSingle();
+
+                    const payload = {
+                      location_id: locationId,
+                      integration_type: 'opus',
+                      credentials: { sessionid: opusSessionId },
+                      is_active: true,
+                    };
+
+                    if (existing) {
+                      await supabase.from('location_integrations').update({
+                        credentials: payload.credentials,
+                        is_active: true,
+                        updated_at: new Date().toISOString(),
+                      }).eq('id', existing.id);
+                    } else {
+                      await supabase.from('location_integrations').insert(payload);
+                    }
+
+                    queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'opus'] });
+                    toast.success('OPUS session saved!');
+                  } catch (e) {
+                    toast.error('Save failed');
+                  } finally { setOpusIsSaving(false); }
+                }}>
+                {opusIsSaving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                Save
+              </Button>
+            </div>
+
+            {opusIntegration?.is_active && (
+              <Button variant="outline" size="sm" className="w-full h-8 text-xs" disabled={opusIsSyncing}
+                onClick={async () => {
+                  setOpusIsSyncing(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('opus-service', {
+                      body: { action: 'sync_training', location_id: locationId },
+                    });
+                    if (error) throw error;
+                    if (data?.success) {
+                      toast.success(`Synced ${data.synced} modules, created ${data.tasks_created} tasks`);
+                      if (data.unmatched_employees?.length > 0) {
+                        toast.info(`Unmatched: ${data.unmatched_employees.join(', ')}`);
+                      }
+                    } else {
+                      toast.error(data?.error || 'Sync failed');
+                    }
+                  } catch (e) {
+                    toast.error('Sync failed');
+                  } finally { setOpusIsSyncing(false); }
+                }}>
+                {opusIsSyncing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                Sync Training Now
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

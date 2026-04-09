@@ -4961,6 +4961,70 @@ export type Database = {
         }
         Relationships: []
       }
+      opus_training_modules: {
+        Row: {
+          completion_pct: number
+          created_at: string
+          id: string
+          last_synced_at: string
+          location_id: string
+          module_name: string
+          opus_employee_name: string
+          opus_module_id: string | null
+          task_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          completion_pct?: number
+          created_at?: string
+          id?: string
+          last_synced_at?: string
+          location_id: string
+          module_name: string
+          opus_employee_name: string
+          opus_module_id?: string | null
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          completion_pct?: number
+          created_at?: string
+          id?: string
+          last_synced_at?: string
+          location_id?: string
+          module_name?: string
+          opus_employee_name?: string
+          opus_module_id?: string | null
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opus_training_modules_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opus_training_modules_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "temporary_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opus_training_modules_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
