@@ -268,9 +268,9 @@ serve(async (req) => {
         query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
       };
       const testLibrary = {
-        operationName: "GetAdminLibrary",
+        operationName: "GetLibraryItems",
         variables: { input: { pagination: { page: 1, pageSize: 1 } } },
-        query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }`,
+        query: `query GetLibraryItems($input: LibraryItemsInput!) { LibraryItems(input: $input) { objects { id type name { en __typename } __typename } __typename } }`,
       };
 
       // Test employee first (reliable auth check)
@@ -281,7 +281,8 @@ serve(async (req) => {
       // Try library too
       const libResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testLibrary) });
       const libData = await libResp.json();
-      const libraryCount = libData?.data?.AdminLibrary?.totalCount;
+      const libraryItems = libData?.data?.LibraryItems?.objects;
+      const libraryCount = libraryItems?.length ?? null;
 
       console.log("[opus-service] test_connection: employee=", JSON.stringify(empData), "library=", JSON.stringify(libData));
 
