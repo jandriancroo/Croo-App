@@ -413,7 +413,7 @@ export function AssignedTemporaryTasks({
       <div
         key={item.id}
         onClick={item.onClick}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-neumorphic-sm"
+        className="dashboard-task-pill flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-neumorphic-sm"
         style={{ backgroundColor: `${item.color}10` }}
       >
         {/* Inset rounded accent stripe */}
@@ -436,7 +436,7 @@ export function AssignedTemporaryTasks({
       <div
         key={item.id}
         onClick={item.onClick}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-neumorphic-sm min-w-[calc(50%-4px)] max-w-full flex-grow"
+        className="dashboard-task-pill flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-neumorphic-sm min-w-[calc(50%-4px)] max-w-full flex-grow"
         style={{ backgroundColor: `${item.color}10` }}
       >
         <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />

@@ -169,7 +169,7 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
         <div
           key={task.id}
           onClick={task.onClick}
-          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity min-w-[calc(50%-4px)] max-w-full flex-grow"
+          className="dashboard-task-pill flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity min-w-[calc(50%-4px)] max-w-full flex-grow"
           style={{ backgroundColor: `${TEAL_COLOR}10` }}
         >
           <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: TEAL_COLOR }} />

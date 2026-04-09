@@ -416,14 +416,15 @@ html[data-theme="beach"] body.beach-dashboard .bg-card {
   background-color: hsl(42 30% 96% / 0.85) !important;
 }
 
-/* Boost quick-task card opacity on beach so they're readable over the background */
-html[data-theme="beach"] body.beach-dashboard .quick-task-card {
-  background-color: hsl(var(--card) / 0.96) !important;
-  box-shadow: 0 8px 24px hsl(195 35% 30% / 0.12);
+/* Boost dashboard task pill opacity on beach so they're readable over the background */
+html[data-theme="beach"] body.beach-dashboard .dashboard-task-pill {
+  background-color: hsl(var(--card) / 0.94) !important;
+  border: 1px solid hsl(var(--border) / 0.45);
+  box-shadow: 0 8px 20px hsl(195 35% 30% / 0.14);
 }
 
-html[data-theme="beach"] body.beach-dashboard .quick-task-card span {
-  text-shadow: 0 1px 2px hsl(0 0% 100% / 0.45);
+html[data-theme="beach"] body.beach-dashboard .dashboard-task-pill span {
+  text-shadow: 0 1px 2px hsl(0 0% 100% / 0.4);
 }
 
 /* Force opaque popover/dropdown/select/sheet overlays on beach dashboard */
