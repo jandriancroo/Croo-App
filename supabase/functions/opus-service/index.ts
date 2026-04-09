@@ -257,55 +257,39 @@ serve(async (req) => {
         });
       }
 
-      // Try multiple query formats to find what OPUS accepts
       const fullHeaders = {
         ...OPUS_HEADERS(sessionid),
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15",
-        "x-dashboard-current-assets-commit-sha": "71a29ce4b13dbf8b51557aa59861e02740b6de3e",
-        "x-dashboard-latest-deployed-commit-sha": "null",
-        "x-dashboard-loaded-at": new Date().toISOString(),
       };
-      const queries = [
-        { label: "with_orgId_1491", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 }, filters: { organizationId: { value: 1491 } } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
-        { label: "with_orgId_string", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 }, filters: { organizationId: { value: "1491" } } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
-        { label: "with_org_filter", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 }, organizationId: 1491 } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
-      ];
 
-      const results: any[] = [];
-      for (const q of queries) {
-        try {
-          const r = await fetch(OPUS_GRAPHQL, {
-            method: "POST",
-            headers: fullHeaders,
-            body: JSON.stringify(q.body),
-          });
-          const txt = await r.text();
-          console.log(`[opus-service] ${q.label}: status=${r.status} body=${txt.substring(0, 500)}`);
-          let parsed: any;
-          try { parsed = JSON.parse(txt); } catch { parsed = { raw: txt }; }
-          results.push({ label: q.label, status: r.status, data: parsed });
-        } catch (e: any) {
-          results.push({ label: q.label, error: e.message });
-        }
-      }
+      // Test with AdminEmployee (confirmed working) and parameterized AdminLibrary
+      const testEmployee = {
+        operationName: "TestEmployee",
+        query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
+      };
+      const testLibrary = {
+        operationName: "GetAdminLibrary",
+        variables: { input: { pagination: { page: 1, pageSize: 1 } } },
+        query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }`,
+      };
 
-      const successLib = results.find(r => r.data?.data?.AdminLibrary?.totalCount !== undefined);
-      const totalCount = successLib?.data?.data?.AdminLibrary?.totalCount;
+      // Test employee first (reliable auth check)
+      const empResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testEmployee) });
+      const empData = await empResp.json();
+      const authenticated = !!empData?.data?.AdminEmployee?.id;
 
-      if (totalCount !== undefined) {
-        return new Response(JSON.stringify({ 
-          authenticated: true, 
-          library_items: totalCount,
-          sample: data?.data?.AdminLibrary?.objects?.[0] || null,
-        }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      // Try library too
+      const libResp = await fetch(OPUS_GRAPHQL, { method: "POST", headers: fullHeaders, body: JSON.stringify(testLibrary) });
+      const libData = await libResp.json();
+      const libraryCount = libData?.data?.AdminLibrary?.totalCount;
 
-      return new Response(JSON.stringify({ 
-        authenticated: results.some(r => r.status === 200 && r.data?.data),
-        results,
-        hint: "See results array for each query attempt" 
+      console.log("[opus-service] test_connection: employee=", JSON.stringify(empData), "library=", JSON.stringify(libData));
+
+      return new Response(JSON.stringify({
+        authenticated,
+        employee: empData?.data?.AdminEmployee || null,
+        library_items: libraryCount ?? null,
+        library_status: libResp.status,
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -371,28 +355,35 @@ serve(async (req) => {
         });
       }
 
-      // Confirmed working AdminLibrary query — returns all training modules with names & cover images
+      // Parameterized AdminLibrary query (OPUS requires variables, not inline params)
       const libraryQuery = {
         operationName: "GetAdminLibrary",
-        query: `query GetAdminLibrary {
-  AdminLibrary(input: {pagination: {page: 1, pageSize: 500}}) {
+        variables: { input: { pagination: { page: 1, pageSize: 500 } } },
+        query: `query GetAdminLibrary($input: AdminLibraryInput!) {
+  AdminLibrary(input: $input) {
     totalCount
     objects {
       id
       type
       name {
         en
+        __typename
       }
       coverImage {
         imageUrls {
           original
           thumb
+          __typename
         }
+        __typename
       }
       path {
         id
+        __typename
       }
+      __typename
     }
+    __typename
   }
 }`,
       };
