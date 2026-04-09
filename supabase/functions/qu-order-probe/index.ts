@@ -164,11 +164,10 @@ serve(async (req) => {
         }),
       }
     );
-    if (salesDetailRes.ok) {
-      const salesDetailData = await salesDetailRes.json();
-      results['sales-detail'] = { status: salesDetailRes.status, itemCount: salesDetailData.items?.length, first5: salesDetailData.items?.slice(0, 5) };
-    } else {
-      results['sales-detail'] = { status: salesDetailRes.status };
+    {
+      const text = await salesDetailRes.text();
+      try { const d = JSON.parse(text); results['sales-detail'] = { status: salesDetailRes.status, itemCount: d.items?.length, first5: d.items?.slice(0, 5) }; }
+      catch { results['sales-detail'] = { status: salesDetailRes.status, body: text.substring(0, 500) }; }
     }
 
     return new Response(JSON.stringify(results, null, 2), {
