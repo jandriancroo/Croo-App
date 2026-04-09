@@ -5,7 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChefHat, ClipboardCheck, Check, Settings2, Star } from 'lucide-react';
+import { ChefHat, ClipboardCheck, Check, Settings2 } from 'lucide-react';
 import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
 import { EditDashboardDialog, CubeConfig, SectionKey, getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
@@ -34,7 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
-import { cn } from '@/lib/utils';
+
 
 interface CateringOrder {
   id: string;
@@ -101,19 +101,6 @@ export default function Dashboard() {
   );
   const queryClient = useQueryClient();
 
-  // Get brand_id for Ovation query cache match
-  const { data: ovationBrandId } = useQuery({
-    queryKey: ['org-brand-id', organizationId],
-    queryFn: async () => {
-      if (!organizationId) return null;
-      const { data } = await supabase.from('organizations').select('brand_id').eq('id', organizationId).single();
-      return data?.brand_id || null;
-    },
-    enabled: !!organizationId,
-    staleTime: 60 * 60 * 1000,
-  });
-
-  // Ovation score - no longer read from cache, OvationScorePopover handles its own data
   
   // Light DB reads — always refetch on pull
   const ALWAYS_REFRESH_KEYS = [
