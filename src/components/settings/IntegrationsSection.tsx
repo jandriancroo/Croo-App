@@ -285,6 +285,46 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     finally { setPfgIsSavingGuide(false); }
   };
 
+  const fetchPfgGuides = async () => {
+    if (!pfgIntegration || !locationId) return;
+    setPfgIsFetchingGuides(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=list_guides`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ locationId }),
+        }
+      );
+      const result = await resp.json();
+      if (result?.data?.guides) {
+        const guides = result.data.guides.map((g: any) => ({
+          id: g.ProductListHeaderId || g.Id || g.id || '',
+          name: g.ProductListName || g.Name || g.ListName || g.Description || 'Unnamed List',
+          type: g.ListType || g.ProductListType || g.Type || '',
+        }));
+        setPfgAvailableGuides(guides);
+        // Auto-set customer ID if returned
+        if (result.data.customerId && !pfgCustomerId) {
+          setPfgCustomerId(result.data.customerId);
+        }
+        if (guides.length === 0) toast.info('No product lists found for this account');
+      } else {
+        toast.error(result?.error || 'Failed to fetch PFG lists');
+      }
+    } catch (error) {
+      toast.error('Failed to fetch lists: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setPfgIsFetchingGuides(false);
+    }
+  };
+
   const triggerBackfill = async (integrationId: string) => {
     try {
       setIsSyncing(true); setSyncProgress(0); setSyncStatus("Starting sync...");
