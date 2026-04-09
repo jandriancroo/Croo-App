@@ -144,38 +144,59 @@ serve(async (req) => {
       for (const mapping of employeeMappings) {
         const { opus_id, croo_user_id, name: empName } = mapping;
         
-        // Query OPUS for this employee's training progress via AdminEmployee
-        const assignmentsQuery = {
-          operationName: "EmployeeTrainingProgress",
-          query: `query EmployeeTrainingProgress($id: Int!) {
-  AdminEmployee(id: $id) {
-    id
-    name
-    assignedPaths {
-      id
-      path { id name { en __typename } __typename }
-      completionPercentage
-      status
-      __typename
-    }
-    assignedCourses {
-      id
-      course { id name { en __typename } __typename }
-      completionPercentage
-      status
-      __typename
-    }
-    __typename
-  }
-}`,
-          variables: { id: opus_id },
-        };
+        // Try multiple query patterns to find one that works
+        const queryPatterns = [
+          {
+            name: "AdminEmployee_introspect",
+            body: {
+              operationName: "EmpProgress",
+              query: `query EmpProgress($id: Int!) { AdminEmployee(id: $id) { id name firstName lastName email completionPercentage overallProgress __typename } }`,
+              variables: { id: opus_id },
+            },
+          },
+          {
+            name: "EmployeeProgress",
+            body: {
+              operationName: "EmployeeProgress",
+              query: `query EmployeeProgress($employeeId: Int!) { AdminEmployeeProgress(employeeId: $employeeId) { totalAssignments completedAssignments paths { id name status completionPercentage __typename } courses { id name status completionPercentage __typename } __typename } }`,
+              variables: { employeeId: opus_id },
+            },
+          },
+          {
+            name: "AdminAssignments",
+            body: {
+              operationName: "GetAssignments",
+              query: `query GetAssignments($input: AdminAssignmentsInput!, $pagination: PaginationInput) { AdminAssignments(input: $input, pagination: $pagination) { objects { id status contentType name { en __typename } completionPercentage __typename } __typename } }`,
+              variables: { input: { filters: { employeeIds: [opus_id] } }, pagination: { limit: 100, offset: 0 } },
+            },
+          },
+        ];
 
-        const opusResp = await fetch(OPUS_GRAPHQL, {
-          method: "POST",
-          headers: OPUS_HEADERS(sessionId),
-          body: JSON.stringify(assignmentsQuery),
-        });
+        let assignmentData: any = null;
+        let workingPattern = "";
+
+        for (const pattern of queryPatterns) {
+          const testResp = await fetch(OPUS_GRAPHQL, {
+            method: "POST",
+            headers: OPUS_HEADERS(sessionId),
+            body: JSON.stringify(pattern.body),
+          });
+          const testData = await testResp.json();
+          console.log(`[opus-service] ${pattern.name} for ${empName}: status=${testResp.status} response=${JSON.stringify(testData).substring(0, 300)}`);
+          
+          if (testResp.ok && testData?.data && !testData?.errors?.length) {
+            assignmentData = testData;
+            workingPattern = pattern.name;
+            break;
+          }
+        }
+
+        if (!assignmentData) {
+          errors.push(`${empName}: No working assignment query found`);
+          continue;
+        }
+
+        const opusResp = { ok: true, status: 200 } as any;
 
         if (!opusResp.ok) {
           const errText = await opusResp.text();
