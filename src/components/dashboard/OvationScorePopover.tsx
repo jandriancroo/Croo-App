@@ -89,7 +89,7 @@ export function useOvationData() {
 }
 
 /** The small fixed tab trigger */
-export function OvationScoreTab({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
+export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boolean; onToggle: () => void; desktop?: boolean }) {
   const { reviewsData, hasData } = useOvationData();
 
   if (!hasData || !reviewsData?.wtdAverage) return null;
@@ -102,18 +102,21 @@ export function OvationScoreTab({ expanded, onToggle }: { expanded: boolean; onT
     <button
       onClick={onToggle}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-1 bg-muted/80 shadow-sm hover:bg-muted transition-all border border-t-0 border-border/30',
-        expanded ? 'rounded-none' : 'rounded-b-xl'
+        'flex items-center gap-1.5 px-3 py-1 transition-all',
+        desktop
+          ? 'rounded-lg bg-white/15 hover:bg-white/25 border-0'
+          : cn('bg-muted/80 shadow-sm hover:bg-muted border border-t-0 border-border/30', expanded ? 'rounded-none' : 'rounded-b-xl')
       )}
     >
       <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 object-contain" />
-      <span className={cn('text-sm font-bold', scoreColor)}>
+      <span className={cn('text-sm font-bold', desktop ? 'text-white' : scoreColor)}>
         {reviewsData.wtdAverage.toFixed(1)}
       </span>
-      <span className="text-[9px] text-muted-foreground">7d</span>
-      <ChevronUp className={cn(
-        'h-3 w-3 text-muted-foreground/60 transition-transform duration-300',
-        expanded ? 'rotate-0' : 'rotate-180'
+      <span className={cn('text-[9px]', desktop ? 'text-white/60' : 'text-muted-foreground')}>7d</span>
+      <ChevronDown className={cn(
+        'h-3 w-3 transition-transform duration-300',
+        desktop ? 'text-white/60' : 'text-muted-foreground/60',
+        expanded ? 'rotate-180' : 'rotate-0'
       )} />
     </button>
   );
@@ -230,12 +233,15 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
   );
 }
 
-/** Legacy export — wraps both pieces for desktop use */
+/** Desktop export — inline in header bar */
 export function OvationScorePopover() {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="relative">
-      <OvationScoreTab expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
+      <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
+      <div className="absolute top-full right-0 mt-1">
+        <OvationExpandedPanel expanded={expanded} />
+      </div>
     </div>
   );
 }
