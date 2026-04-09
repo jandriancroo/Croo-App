@@ -305,9 +305,9 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ 
-        authenticated: false, 
-        raw: data,
-        hint: "Session may be expired — grab a fresh sessionid from OPUS" 
+        authenticated: results.some(r => r.status === 200 && r.data?.data),
+        results,
+        hint: "See results array for each query attempt" 
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
