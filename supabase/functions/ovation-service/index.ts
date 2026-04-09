@@ -942,20 +942,25 @@ async function handleFetchReviews(req: Request, supabase: any) {
 
   const now = new Date()
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
-  const filters: any = {
-    companyIds: [companyId],
-    createdAtRange: [startDate.toISOString(), now.toISOString()],
-    ...(ovationLocationIds.length > 0 ? { locationIds: ovationLocationIds } : {}),
-  }
 
+  // The Ovation API has broken pagination — returns same 50 surveys on every page.
+  // Workaround: query in 2-day time windows to reach all data within the range.
   const matchingSurveys: any[] = []
   const seenIds = new Set<string>()
-  const apiPageSize = 50 // Ovation API caps at 50 regardless of what we request
-  let currentApiPage = 1
-  const maxApiPages = 50 // Increased to cover full 14-day window
+  const windowMs = 2 * 24 * 60 * 60 * 1000
 
   try {
-    while (currentApiPage <= maxApiPages) {
+    let windowEnd = now.getTime()
+    const absoluteStart = startDate.getTime()
+
+    while (windowEnd > absoluteStart) {
+      const windowStart = Math.max(windowEnd - windowMs, absoluteStart)
+      const windowFilters: any = {
+        companyIds: [companyId],
+        createdAtRange: [new Date(windowStart).toISOString(), new Date(windowEnd).toISOString()],
+        ...(ovationLocationIds.length > 0 ? { locationIds: ovationLocationIds } : {}),
+      }
+
       const response = await fetch(`${OVATION_API}/survey/list`, {
         method: 'POST',
         headers: {
@@ -963,7 +968,7 @@ async function handleFetchReviews(req: Request, supabase: any) {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ filters, page: currentApiPage, pageSize: apiPageSize }),
+        body: JSON.stringify({ filters: windowFilters, page: 1, pageSize: 50 }),
       })
 
       if (response.status === 401) {
@@ -973,13 +978,13 @@ async function handleFetchReviews(req: Request, supabase: any) {
       if (!response.ok) {
         const text = await response.text()
         console.error('[ovation-service] survey/list error:', response.status, text)
-        return jsonResponse({ error: `API error: ${response.status}`, reviews: [] })
+        windowEnd = windowStart
+        continue
       }
 
       const data = await response.json()
       const surveys = data?.data?.surveys || []
 
-      // Deduplicate surveys (API sometimes returns duplicates across pages)
       const newSurveys = surveys.filter((s: any) => {
         const id = s._id || s.id
         if (!id || seenIds.has(id)) return false
@@ -990,17 +995,11 @@ async function handleFetchReviews(req: Request, supabase: any) {
       const pageMatches = newSurveys.filter((survey: any) => surveyMatchesAllowedLocations(survey, ovationLocationIds))
       matchingSurveys.push(...pageMatches)
 
-      if (ovationLocationIds.length > 0) {
-        console.log(`[ovation-service] Strict filter page ${currentApiPage}: matched ${pageMatches.length}/${surveys.length} (new: ${newSurveys.length}) for ${JSON.stringify(ovationLocationIds)}`)
+      if (ovationLocationIds.length > 0 && newSurveys.length > 0) {
+        console.log(`[ovation-service] Window ${new Date(windowStart).toISOString().slice(0,10)}→${new Date(windowEnd).toISOString().slice(0,10)}: ${pageMatches.length}/${surveys.length} matched (${newSurveys.length} new) for ${JSON.stringify(ovationLocationIds)}`)
       }
 
-      // Stop when we get an empty page or fewer results than requested (last page)
-      if (surveys.length === 0 || newSurveys.length === 0) break
-      currentApiPage += 1
-    }
-
-    if (currentApiPage > maxApiPages) {
-      console.log(`[ovation-service] Reached max page scan (${maxApiPages}) while filtering reviews`)
+      windowEnd = windowStart
     }
 
     const offset = Math.max(0, (page - 1) * pageSize)
