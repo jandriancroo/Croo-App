@@ -1068,8 +1068,6 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       });
                       if (mapResult?.mapped > 0) {
                         toast.success(`Auto-mapped ${mapResult.mapped} location${mapResult.mapped > 1 ? 's' : ''} by city name`);
-                        // Update local state with the mapped location ID
-                        const myMapping = mapResult.results?.find((r: any) => true); // refresh from DB
                         const { data: newMapping } = await supabase
                           .from('ovation_location_mappings')
                           .select('ovation_location_id')
