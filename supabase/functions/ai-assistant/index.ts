@@ -1504,6 +1504,41 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         }
       }
 
+      case "fetch_resource_content": {
+        const { resource_name, location_id: resLocId } = args;
+        // Call the opus-service edge function to extract content
+        const opusResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/opus-service`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "fetch_resource_content",
+            location_id: resLocId,
+            resource_name,
+          }),
+        });
+        const opusData = await opusResp.json();
+        if (opusData.error) {
+          return JSON.stringify({ error: opusData.error });
+        }
+        // Extract just the content after [EXTRACTED CONTENT] if present
+        const fullContent = opusData.content || "";
+        const extractedIdx = fullContent.indexOf("[EXTRACTED CONTENT]");
+        if (extractedIdx >= 0) {
+          return JSON.stringify({ 
+            resource: resource_name,
+            content: fullContent.substring(extractedIdx + "[EXTRACTED CONTENT]".length).trim()
+          });
+        }
+        return JSON.stringify({ 
+          resource: resource_name,
+          content: opusData.already_extracted ? "Content already extracted but no [EXTRACTED CONTENT] marker found." : "Content extraction was triggered. The document may take a moment to process.",
+          raw: fullContent.substring(0, 500)
+        });
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
