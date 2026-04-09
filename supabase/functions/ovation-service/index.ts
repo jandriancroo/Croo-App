@@ -992,7 +992,13 @@ async function handleFetchReviews(req: Request, supabase: any) {
 
       console.log(`[ovation-service] Parsed ${Array.isArray(conversations) ? conversations.length : 'non-array'} conversations, totalCount=${totalCount}`)
       
-      if (!Array.isArray(conversations) || conversations.length === 0) break
+      if (skip === 0 && conversations.length > 0) {
+        const sample = conversations[0]
+        console.log(`[ovation-service] Sample conversation keys: ${JSON.stringify(Object.keys(sample))}`)
+        console.log(`[ovation-service] Sample survey: ${JSON.stringify(sample.survey || sample.surveys?.[0] || 'NO_SURVEY')}`.substring(0, 500))
+        console.log(`[ovation-service] Sample rating: ${sample.rating}, feedback: ${sample.feedback}, created: ${sample.created || sample.createdAt}`)
+      }
+      
 
       let newCount = 0
       for (const conv of conversations) {
