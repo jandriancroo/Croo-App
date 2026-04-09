@@ -75,7 +75,7 @@ export function useOvationData() {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ locationId: currentLocation.id, days: 14, pageSize: 50 }),
+          body: JSON.stringify({ locationId: currentLocation.id, days: 14, pageSize: 500 }),
         }
       );
       return (await response.json()) as OvationReviewsData;
