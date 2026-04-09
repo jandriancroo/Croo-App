@@ -1641,7 +1641,43 @@ serve(async (req) => {
         }
 
         // Fallback / primary OPUS search
+        // OPUS resources are shared across locations in the same brand,
+        // so search brand-wide instead of just the current location.
         if (relevant.length === 0) {
+          // Resolve all sibling location IDs in the same brand
+          let opusLocationIds: string[] = [location_id];
+          try {
+            const { data: locData } = await supabaseAdmin
+              .from("locations")
+              .select("organization_id")
+              .eq("id", location_id)
+              .single();
+            if (locData) {
+              const { data: orgData } = await supabaseAdmin
+                .from("organizations")
+                .select("brand_id")
+                .eq("id", locData.organization_id)
+                .single();
+              if (orgData?.brand_id) {
+                const { data: brandOrgs } = await supabaseAdmin
+                  .from("organizations")
+                  .select("id")
+                  .eq("brand_id", orgData.brand_id);
+                if (brandOrgs && brandOrgs.length > 0) {
+                  const { data: brandLocs } = await supabaseAdmin
+                    .from("locations")
+                    .select("id")
+                    .in("organization_id", brandOrgs.map((o: any) => o.id));
+                  if (brandLocs && brandLocs.length > 0) {
+                    opusLocationIds = brandLocs.map((l: any) => l.id);
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.error("[ai-assistant] Brand location lookup failed:", e);
+          }
+
           if (isOpusQuery && cleanQuery.length > 0) {
             const stopWords = new Set(["how", "what", "when", "where", "why", "make", "show", "find", "pull", "open", "need", "with", "from", "into", "this", "that", "the", "and", "for"]);
             const searchWords = cleanQuery
@@ -1659,7 +1695,7 @@ serve(async (req) => {
             const { data: indexHits, error: indexError } = await supabaseAdmin
               .from("opus_resource_index")
               .select("title, resource_type, opus_id, theo_knowledge_id")
-              .eq("location_id", location_id)
+              .in("location_id", opusLocationIds)
               .or(orConditions)
               .limit(20);
 
