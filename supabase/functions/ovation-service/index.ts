@@ -980,10 +980,18 @@ async function handleFetchReviews(req: Request, supabase: any) {
         break
       }
 
-      const data = await response.json()
-      const conversations = data?.data?.conversations || data?.data || []
-      totalCount = data?.data?.count || data?.data?.totalCount || totalCount
+      const rawText = await response.text()
+      console.log(`[ovation-service] conversation/list response keys: ${rawText.substring(0, 300)}`)
+      
+      let data: any
+      try { data = JSON.parse(rawText) } catch { console.error('[ovation-service] Failed to parse response'); break }
+      
+      // The response could be: { data: { conversations: [...], count: N } } or { conversations: [...] } or [...]
+      const conversations = data?.data?.conversations || data?.conversations || data?.data || (Array.isArray(data) ? data : [])
+      totalCount = data?.data?.count || data?.data?.totalCount || data?.count || data?.totalCount || totalCount
 
+      console.log(`[ovation-service] Parsed ${Array.isArray(conversations) ? conversations.length : 'non-array'} conversations, totalCount=${totalCount}`)
+      
       if (!Array.isArray(conversations) || conversations.length === 0) break
 
       let newCount = 0
