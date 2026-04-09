@@ -157,6 +157,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [opusTestResult, setOpusTestResult] = useState<'success' | 'error' | null>(null);
   const [opusIsSyncing, setOpusIsSyncing] = useState(false);
   const [opusShowSession, setOpusShowSession] = useState(false);
+  const [opusEmployees, setOpusEmployees] = useState<Array<{ opus_id: number; name: string }>>([]);
+  const [opusMappings, setOpusMappings] = useState<Array<{ opus_id: number; name: string; croo_user_id: string }>>([]);
+  const [opusIsFetchingEmployees, setOpusIsFetchingEmployees] = useState(false);
 
   // OvationUp state
   const [ovationEmail, setOvationEmail] = useState('');
