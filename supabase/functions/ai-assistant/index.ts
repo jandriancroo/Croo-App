@@ -1380,6 +1380,93 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         return JSON.stringify(results.length ? results : { message: "No employee notes found." });
       }
 
+      case "query_ovation_reviews": {
+        // Fetch reviews via the ovation-service edge function
+        const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
+        const days = args.days || 7;
+        
+        try {
+          const ovationResp = await fetch(`${supabaseUrl}/functions/v1/ovation-service?action=fetch_reviews`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+            body: JSON.stringify({ locationId: args.location_id, days, pageSize: 50 }),
+          });
+          
+          if (!ovationResp.ok) {
+            return JSON.stringify({ message: "OvationUp is not configured for this location." });
+          }
+          
+          const ovationData = await ovationResp.json();
+          
+          if (ovationData.error || !ovationData.reviews) {
+            return JSON.stringify({ message: ovationData.error || "No OvationUp data available for this location." });
+          }
+          
+          let reviews = ovationData.reviews || [];
+          
+          // Apply filters
+          if (args.min_rating) {
+            reviews = reviews.filter((r: any) => r.rating >= args.min_rating);
+          }
+          if (args.max_rating) {
+            reviews = reviews.filter((r: any) => r.rating <= args.max_rating);
+          }
+          if (args.search_keyword) {
+            const kw = args.search_keyword.toLowerCase();
+            reviews = reviews.filter((r: any) => r.feedback?.toLowerCase().includes(kw));
+          }
+          
+          // Fetch team members at this location to match names in reviews
+          const { data: teamProfiles } = await supabase
+            .from("user_locations")
+            .select("profiles!inner(id, full_name)")
+            .eq("location_id", args.location_id);
+          
+          const teamMembers = (teamProfiles || []).map((tp: any) => ({
+            id: tp.profiles.id,
+            name: tp.profiles.full_name,
+          })).filter((t: any) => t.name);
+          
+          // Cross-reference reviews with team members
+          const enrichedReviews = reviews.map((r: any) => {
+            const matched: string[] = [];
+            if (r.feedback) {
+              const feedbackLower = r.feedback.toLowerCase();
+              for (const member of teamMembers) {
+                const nameParts = member.name.toLowerCase().split(/\s+/);
+                const firstName = nameParts[0];
+                // Match first name (3+ chars) or full name
+                if (firstName && firstName.length >= 3 && feedbackLower.includes(firstName)) {
+                  matched.push(member.name);
+                }
+              }
+            }
+            return {
+              ...r,
+              matched_employees: matched.length > 0 ? matched : undefined,
+            };
+          });
+          
+          const result: any = {
+            period: `Last ${days} days`,
+            average_score: ovationData.wtdAverage,
+            review_count: ovationData.wtdCount,
+            total_reviews: ovationData.totalCount,
+            reviews: enrichedReviews.slice(0, 20),
+          };
+          
+          if (enrichedReviews.some((r: any) => r.matched_employees)) {
+            result.employee_matching_note = "Reviews with matched_employees contain team member names found in the feedback. When presenting these reviews, tag matched employees with [[employee:Full Name]] format so they appear as badges in the chat.";
+          }
+          
+          return JSON.stringify(result);
+        } catch (e: any) {
+          console.error("query_ovation_reviews error:", e);
+          return JSON.stringify({ message: "Could not fetch OvationUp reviews. Integration may not be configured." });
+        }
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
