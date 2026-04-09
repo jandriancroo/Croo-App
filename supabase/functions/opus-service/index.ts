@@ -18,7 +18,10 @@ const OPUS_HEADERS = (sessionId: string) => ({
   "x-opus-role": "admin",
   "Accept": "*/*",
   "Accept-Language": "en-US,en;q=0.9",
-  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+  "Sec-Fetch-Dest": "empty",
+  "Sec-Fetch-Mode": "cors",
+  "Sec-Fetch-Site": "same-site",
+  "x-dashboard-url": "https://dashboard.opus.so/library/modules",
 });
 
 /** Helper: get OPUS session from location_integrations */
@@ -254,41 +257,42 @@ serve(async (req) => {
         });
       }
 
-      // Quick probe: try fetching AdminLibrary with 1 result to verify auth
+      // Test with the simplest known-working query: AdminEmployee
       const testQuery = {
-        operationName: "TestConnection",
-        query: `query TestConnection {
-  AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) {
-    totalCount
-    objects { id type name { en } __typename }
-    __typename
-  }
-}`,
+        operationName: "TestEmployee",
+        query: `query TestEmployee { AdminEmployee(id: 1541347) { id name firstName lastName __typename } }`,
       };
 
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Cookie": `sessionid=${sessionid}`,
+        "Origin": "https://dashboard.opus.so",
+        "Referer": "https://dashboard.opus.so/",
+        "x-opus-role": "admin",
+      };
+
+      console.log("[opus-service] Test query:", JSON.stringify(testQuery));
+      console.log("[opus-service] Cookie being sent:", `sessionid=${sessionid}`);
+
+      // Deno fetch might strip Cookie header — try with explicit redirect handling
       const resp = await fetch(OPUS_GRAPHQL, {
         method: "POST",
-        headers: OPUS_HEADERS(sessionid),
+        headers,
         body: JSON.stringify(testQuery),
+        redirect: "manual",
       });
 
-      const data = await resp.json();
-      const totalCount = data?.data?.AdminLibrary?.totalCount;
+      const rawText = await resp.text();
+      console.log("[opus-service] OPUS response status:", resp.status);
+      console.log("[opus-service] OPUS response body:", rawText);
 
-      if (totalCount !== undefined) {
-        return new Response(JSON.stringify({ 
-          authenticated: true, 
-          library_items: totalCount,
-          sample: data?.data?.AdminLibrary?.objects?.[0] || null,
-        }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      let parsed;
+      try { parsed = JSON.parse(rawText); } catch { parsed = rawText; }
 
       return new Response(JSON.stringify({ 
-        authenticated: false, 
-        raw: data,
-        hint: "Session may be expired — grab a fresh sessionid from OPUS" 
+        opus_status: resp.status,
+        opus_response: parsed,
+        our_headers_sent: Object.keys(headers),
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
