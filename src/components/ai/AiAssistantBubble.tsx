@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, Loader2, Mic, MicOff, RotateCcw } from 'lucide-react';
+import { X, Send, Loader2, Sparkles, Mic, MicOff, RotateCcw } from 'lucide-react';
 import theoAvatar from '@/assets/theo-avatar.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
@@ -197,10 +197,10 @@ export function AiAssistantBubble() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={() => setOpen(true)}
-            className="crooai-orb-floating z-[55] h-14 w-14 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center overflow-hidden border-2 border-primary/40"
+            className="crooai-orb crooai-orb-floating z-[55] h-14 w-14 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center"
             aria-label="Open Theo"
           >
-            <img src={theoAvatar} alt="Theo" className="h-full w-full rounded-full object-cover" />
+            <Sparkles className="h-5 w-5 text-[hsl(43_80%_62%)] drop-shadow-[0_0_6px_hsl(43_80%_55%/0.6)]" style={{ animation: 'crooai-thinking 4s ease-in-out infinite' }} />
             {hasUnreadBriefing && (
               <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-destructive border-2 border-background animate-pulse" />
             )}
