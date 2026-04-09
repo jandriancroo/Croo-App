@@ -141,6 +141,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgIsTestingRopc, setPfgIsTestingRopc] = useState(false);
   const [pfgRopcResult, setPfgRopcResult] = useState<'success' | 'error' | null>(null);
   const [pfgDeliverySchedule, setPfgDeliverySchedule] = useState<DeliverySlot[]>([]);
+  const [pfgAvailableGuides, setPfgAvailableGuides] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [pfgIsFetchingGuides, setPfgIsFetchingGuides] = useState(false);
   const [paDeliverySchedule, setPaDeliverySchedule] = useState<DeliverySlot[]>([]);
 
   // Fresh KDS state
