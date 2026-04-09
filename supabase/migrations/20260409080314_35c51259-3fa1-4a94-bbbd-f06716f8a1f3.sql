@@ -1,0 +1,1 @@
+UPDATE temporary_tasks SET icon_name = 'opus_logo', accent_color = '#1A5C5C' WHERE id = 'c9f5c2d0-65e3-4b6b-85b8-d36effcc23e2';

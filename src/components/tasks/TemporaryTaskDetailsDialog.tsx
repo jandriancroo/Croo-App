@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Check, Clock, User, Users, Camera, Image, Loader2 } from "lucide-react";
+import opusLogo from "@/assets/opus-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useIsIOS } from "@/hooks/useIsIOS";
@@ -336,10 +337,14 @@ export function TemporaryTaskDetailsDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: task?.accent_color || "#8B5CF6" }}
-            />
+            {task?.icon_name === "opus_logo" ? (
+              <img src={opusLogo} alt="OPUS" className="h-5 w-auto" />
+            ) : (
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: task?.accent_color || "#8B5CF6" }}
+              />
+            )}
             {task?.title}
           </DialogTitle>
         </DialogHeader>
@@ -356,7 +361,7 @@ export function TemporaryTaskDetailsDialog({
         <div className="space-y-4 py-2">
           {/* Description */}
           {task?.description && (
-            <p className="text-sm text-muted-foreground">{task.description}</p>
+            <p className="text-sm text-muted-foreground whitespace-pre-line">{task.description}</p>
           )}
 
           {/* Assignment Info */}
