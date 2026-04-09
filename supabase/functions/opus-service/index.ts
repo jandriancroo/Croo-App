@@ -266,10 +266,9 @@ serve(async (req) => {
         "x-dashboard-loaded-at": new Date().toISOString(),
       };
       const queries = [
-        { label: "parameterized_AdminLibrary", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
-        { label: "parameterized_v2", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 } } }, query: `query GetAdminLibrary($input: LibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } __typename } __typename } }` } },
-        { label: "parameterized_v3", body: { operationName: "GetAdminLibrary", variables: { page: 1, pageSize: 1 }, query: `query GetAdminLibrary($page: Int!, $pageSize: Int!) { AdminLibrary(input: {pagination: {page: $page, pageSize: $pageSize}}) { totalCount objects { id type name { en } __typename } __typename } }` } },
-        { label: "simple_AdminEmployee", body: { operationName: "TestEmployee", query: `query TestEmployee { AdminEmployee(id: 1541347) { id name __typename } }` } },
+        { label: "just_totalCount", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount __typename } }` } },
+        { label: "with_objects_minimal", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 1 } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id __typename } __typename } }` } },
+        { label: "bigger_page", body: { operationName: "GetAdminLibrary", variables: { input: { pagination: { page: 1, pageSize: 5 } } }, query: `query GetAdminLibrary($input: AdminLibraryInput!) { AdminLibrary(input: $input) { totalCount objects { id type name { en } coverImage { imageUrls { original thumb } } __typename } __typename } }` } },
       ];
 
       const results: any[] = [];
