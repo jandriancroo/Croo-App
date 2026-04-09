@@ -269,30 +269,23 @@ serve(async (req) => {
         "x-opus-role": "admin",
       };
 
+      const aId = "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567";
       const probes = [
-        // Try individual fields on Assignment
-        { operationName: "P1", query: `query P1 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status path { id name } } }` },
-        { operationName: "P2", query: `query P2 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status course { id name } } }` },
-        { operationName: "P3", query: `query P3 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status user { id name } } }` },
-        { operationName: "P4", query: `query P4 { Assignment(id: "2ec1ef91-acd4-4cdf-ba16-bc0e4e9d2567") { id status progress stepsCompleted totalSteps } }` },
-        // Employee list with location filter
-        { operationName: "P5", variables: { locId: 1491 }, query: `query P5($locId: Int!) { AdminEmployees(input: {filters: {locationId: {value: $locId}}, pagination: {page: 1, pageSize: 3}}) { objects { id name } totalCount } }` },
-        { operationName: "P6", query: `query P6 { AdminEmployees(input: {pagination: {page: 1, pageSize: 3}}) { objects { id name } } }` },
+        { operationName: "P1", query: `query P1 { Assignment(id: "${aId}") { id contentObject { id name __typename } } }` },
+        { operationName: "P2", query: `query P2 { Assignment(id: "${aId}") { id assignable { id name __typename } } }` },
+        { operationName: "P3", query: `query P3 { Assignment(id: "${aId}") { id item { id name __typename } } }` },
+        { operationName: "P4", query: `query P4 { Assignment(id: "${aId}") { id resource { id name __typename } } }` },
+        { operationName: "P5", query: `query P5 { Assignment(id: "${aId}") { id target { id name __typename } } }` },
+        { operationName: "P6", query: `query P6 { Assignment(id: "${aId}") { id contentType assignedAt dueAt completedAt } }` },
+        { operationName: "P7", query: `query P7 { Assignment(id: "${aId}") { id content { id name __typename } } }` },
+        { operationName: "P8", query: `query P8 { AdminLocation(id: 1491) { id name employees { id name } } }` },
       ];
 
       const results = await Promise.all(
         probes.map(q => fetch(OPUS_GRAPHQL, { method: "POST", headers: opusHeaders, body: JSON.stringify(q) }).then(r => r.json()))
       );
       
-      return new Response(JSON.stringify({
-        authenticated: true,
-        p1_path: results[0],
-        p2_course: results[1],
-        p3_user: results[2],
-        p4_progress: results[3],
-        p5_emps_loc: results[4],
-        p6_emps: results[5],
-      }), {
+      return new Response(JSON.stringify({ authenticated: true, ...Object.fromEntries(results.map((r, i) => [`p${i+1}`, r])) }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
