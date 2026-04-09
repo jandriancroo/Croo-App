@@ -223,10 +223,9 @@ export default function KDSBoard() {
             <div className="space-y-1">
               <AnimatePresence mode="popLayout">
                 {[...orders].sort((a, b) => {
-                  // Parse "MM/DD/YYYY HH:MM AM/PM" to comparable timestamps
                   const toTs = (d: string) => d ? new Date(d).getTime() : 0;
                   return toTs(b.date) - toTs(a.date);
-                }).map((order, idx) => (
+                }).slice(0, 20).map((order, idx) => (
                   <motion.div
                     key={`${order.checkNumber}-${idx}`}
                     initial={{ opacity: 0, y: 6 }}
