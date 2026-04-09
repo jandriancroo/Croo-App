@@ -306,6 +306,8 @@ function DarkBreakdown({ title, data }: { title: string; data: Record<string, nu
 function DarkOrderRow({ order }: { order: Order }) {
   const isOpen = order.state === 'Open';
   const isOLO = order.channel === 'OLO';
+  // 3PD orders (OLO channel) should show "Delivery" instead of "Take-Out" etc.
+  const displayType = isOLO ? 'Delivery' : order.orderType;
 
   return (
     <div className={cn(
@@ -321,10 +323,12 @@ function DarkOrderRow({ order }: { order: Order }) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-mono font-bold text-sm text-white">#{order.checkNumber}</span>
-          {order.customerName && (
-            <span className="text-xs text-white/40 truncate">{order.customerName}</span>
+          {order.customerName ? (
+            <span className="font-bold text-sm text-white truncate">{order.customerName}</span>
+          ) : (
+            <span className="font-bold text-sm text-white/50">Guest</span>
           )}
+          <span className="font-mono text-[11px] text-white/25">#{order.checkNumber}</span>
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className={cn(
@@ -334,7 +338,7 @@ function DarkOrderRow({ order }: { order: Order }) {
             {order.channel}
           </span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/30">
-            {order.orderType}
+            {displayType}
           </span>
           {order.employee && (
             <span className="text-[10px] text-white/20 truncate">{order.employee}</span>
