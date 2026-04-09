@@ -31,6 +31,8 @@ serve(async (req) => {
         return await handleSaveLocationMapping(req, supabase)
       case 'test_connection':
         return await handleTestConnection(req, supabase)
+      case 'test_auth':
+        return await handleTestAuth(req, supabase)
       case 'fetch_reviews':
         return await handleFetchReviews(req, supabase)
       case 'fetch_scores':
@@ -41,6 +43,10 @@ serve(async (req) => {
         return await handleListOvationLocations(req, supabase)
       case 'get_config':
         return await handleGetConfig(req, supabase)
+      case 'auto_map_locations':
+        return await handleAutoMapLocations(req, supabase)
+      case 'cognito_login':
+        return await handleCognitoLogin(req, supabase)
       default:
         return jsonResponse({ error: `Unknown action: ${action}` }, 400)
     }
@@ -55,6 +61,395 @@ function jsonResponse(data: any, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
+}
+
+// ==================== COGNITO SRP AUTH ====================
+// Full SRP implementation for AWS Cognito USER_SRP_AUTH flow
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
+  }
+  return bytes
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Modular exponentiation for BigInt
+function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
+  let result = 1n
+  base = base % mod
+  while (exp > 0n) {
+    if (exp % 2n === 1n) {
+      result = (result * base) % mod
+    }
+    exp = exp / 2n
+    base = (base * base) % mod
+  }
+  return result
+}
+
+// AWS Cognito SRP constants
+const N_HEX = 'FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D2261AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200CBBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFCE0FD108E4B82D120A93AD2CAFFFFFFFFFFFFFFFF'
+const N = BigInt('0x' + N_HEX)
+const g = 2n
+const k_hex = 'b4429e3959c149cfa4578226d0cb3542b2a8e42f5a8688bceb16fd1bb979a4b5' // SHA256(pad(N) + pad(g))
+
+async function sha256(data: Uint8Array): Promise<Uint8Array> {
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  return new Uint8Array(hash)
+}
+
+async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
+  const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, data)
+  return new Uint8Array(sig)
+}
+
+function padHex(hex: string): string {
+  if (hex.length % 2 === 1) hex = '0' + hex
+  if ('89ABCDEFabcdef'.includes(hex[0])) hex = '00' + hex
+  return hex
+}
+
+async function cognitoSrpAuth(username: string, password: string): Promise<{ AccessToken: string; IdToken: string; RefreshToken: string }> {
+  // Step 1: Generate random 'a' and compute A = g^a mod N
+  const aBytes = new Uint8Array(128)
+  crypto.getRandomValues(aBytes)
+  const a = BigInt('0x' + bytesToHex(aBytes)) % N
+  let A = modPow(g, a, N)
+  // Ensure A % N != 0
+  while (A % N === 0n) {
+    crypto.getRandomValues(aBytes)
+    const newA = BigInt('0x' + bytesToHex(aBytes)) % N
+    A = modPow(g, newA, N)
+  }
+  const A_hex = A.toString(16)
+
+  // Step 2: Send SRP_A to Cognito
+  const initResponse = await fetch(`https://cognito-idp.${COGNITO_REGION}.amazonaws.com/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
+    },
+    body: JSON.stringify({
+      AuthFlow: 'USER_SRP_AUTH',
+      ClientId: COGNITO_CLIENT_ID,
+      AuthParameters: {
+        USERNAME: username,
+        SRP_A: A_hex,
+      },
+    }),
+  })
+
+  const initData = await initResponse.json()
+  if (!initData.ChallengeParameters) {
+    throw new Error(initData.message || initData.__type || 'InitiateAuth failed')
+  }
+
+  const { SRP_B, SALT, SECRET_BLOCK, USER_ID_FOR_SRP } = initData.ChallengeParameters
+  const B = BigInt('0x' + SRP_B)
+
+  if (B % N === 0n) throw new Error('SRP_B mod N is zero')
+
+  // Step 3: Compute u = SHA256(pad(A) | pad(B))
+  const padSize = (N_HEX.length + 1) // pad to N length in hex chars
+  const A_padded = padHex(A_hex).padStart(padSize, '0')
+  const B_padded = padHex(SRP_B).padStart(padSize, '0')
+  const u_hash = await sha256(hexToBytes(A_padded + B_padded))
+  const u = BigInt('0x' + bytesToHex(u_hash))
+  if (u === 0n) throw new Error('u is zero')
+
+  // Step 4: Compute x = SHA256(salt | SHA256(poolId | userId | ":" | password))
+  const poolName = COGNITO_USER_POOL.split('_')[1] // just the pool name part
+  const userIdForSrp = USER_ID_FOR_SRP
+  const innerMsg = new TextEncoder().encode(poolName + userIdForSrp + ':' + password)
+  const innerHash = await sha256(innerMsg)
+  
+  const saltBytes = hexToBytes(padHex(SALT))
+  const xInput = new Uint8Array(saltBytes.length + innerHash.length)
+  xInput.set(saltBytes)
+  xInput.set(innerHash, saltBytes.length)
+  const x_hash = await sha256(xInput)
+  const x = BigInt('0x' + bytesToHex(x_hash))
+
+  // Step 5: Compute S = (B - k * g^x)^(a + u * x) mod N
+  const k = BigInt('0x' + k_hex)
+  const gx = modPow(g, x, N)
+  let diff = B - k * gx % N
+  // Handle negative values
+  diff = ((diff % N) + N) % N
+  const exp = (a + u * x) % (N - 1n)
+  const S = modPow(diff, exp, N)
+
+  // Step 6: Compute HKDF key from S
+  const S_hex = padHex(S.toString(16))
+  const S_bytes = hexToBytes(S_hex)
+  
+  // HKDF extract: PRK = HMAC(salt=u_hash, S_bytes)
+  const prk = await hmacSha256(u_hash, S_bytes)
+  
+  // HKDF expand: key = HMAC(prk, info + 0x01)
+  const info = new TextEncoder().encode('Caldera Derived Key')
+  const expandInput = new Uint8Array(info.length + 1)
+  expandInput.set(info)
+  expandInput[info.length] = 1
+  const hkdfKey = await hmacSha256(prk, expandInput)
+  // Use first 16 bytes
+  const derivedKey = hkdfKey.slice(0, 16)
+
+  // Step 7: Compute timestamp and HMAC signature
+  const now = new Date()
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const timestamp = `${days[now.getUTCDay()]} ${months[now.getUTCMonth()]} ${now.getUTCDate()} ${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')} UTC ${now.getUTCFullYear()}`
+
+  const secretBlockBytes = Uint8Array.from(atob(SECRET_BLOCK), c => c.charCodeAt(0))
+  const msgBytes = new TextEncoder().encode(poolName + userIdForSrp + timestamp)
+  
+  const hmacMsg = new Uint8Array(secretBlockBytes.length + msgBytes.length)
+  hmacMsg.set(secretBlockBytes) // SECRET_BLOCK first? Actually Cognito wants: pool_name + user_id + secret_block + timestamp
+  
+  // Cognito HMAC message: poolName + userId + secretBlock + timestamp
+  const hmacInput = new Uint8Array(
+    new TextEncoder().encode(poolName).length + 
+    new TextEncoder().encode(userIdForSrp).length + 
+    secretBlockBytes.length + 
+    new TextEncoder().encode(timestamp).length
+  )
+  let offset = 0
+  const poolNameBytes = new TextEncoder().encode(poolName)
+  hmacInput.set(poolNameBytes, offset); offset += poolNameBytes.length
+  const userIdBytes = new TextEncoder().encode(userIdForSrp)
+  hmacInput.set(userIdBytes, offset); offset += userIdBytes.length
+  hmacInput.set(secretBlockBytes, offset); offset += secretBlockBytes.length
+  const timestampBytes = new TextEncoder().encode(timestamp)
+  hmacInput.set(timestampBytes, offset)
+
+  const signature = await hmacSha256(derivedKey, hmacInput)
+  const signatureB64 = btoa(String.fromCharCode(...signature))
+
+  // Step 8: Send challenge response
+  const challengeResponse = await fetch(`https://cognito-idp.${COGNITO_REGION}.amazonaws.com/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'AWSCognitoIdentityProviderService.RespondToAuthChallenge',
+    },
+    body: JSON.stringify({
+      ChallengeName: 'PASSWORD_VERIFIER',
+      ClientId: COGNITO_CLIENT_ID,
+      ChallengeResponses: {
+        USERNAME: userIdForSrp,
+        PASSWORD_CLAIM_SECRET_BLOCK: SECRET_BLOCK,
+        PASSWORD_CLAIM_SIGNATURE: signatureB64,
+        TIMESTAMP: timestamp,
+      },
+    }),
+  })
+
+  const challengeData = await challengeResponse.json()
+  if (!challengeData.AuthenticationResult) {
+    throw new Error(challengeData.message || challengeData.__type || 'Challenge response failed')
+  }
+
+  return {
+    AccessToken: challengeData.AuthenticationResult.AccessToken,
+    IdToken: challengeData.AuthenticationResult.IdToken,
+    RefreshToken: challengeData.AuthenticationResult.RefreshToken,
+  }
+}
+
+// Helper: Get or refresh auth token for a brand
+async function getAuthToken(supabase: any, brandId: string): Promise<string | null> {
+  const { data: integration } = await supabase
+    .from('ovation_integrations')
+    .select('*')
+    .eq('brand_id', brandId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (!integration) return null
+
+  // Check if existing token is still valid (less than 20 hours old)
+  if (integration.auth_token && integration.token_updated_at) {
+    const ageHours = (Date.now() - new Date(integration.token_updated_at).getTime()) / 3600000
+    if (ageHours < 20) return integration.auth_token
+  }
+
+  // Need fresh token — use stored credentials
+  const username = integration.cognito_username
+  const password = integration.cognito_password
+  if (!username || !password) {
+    console.log('[ovation-service] No credentials stored, falling back to existing token')
+    return integration.auth_token || null
+  }
+
+  try {
+    console.log(`[ovation-service] Authenticating with Cognito for brand ${brandId}...`)
+    const tokens = await cognitoSrpAuth(username, password)
+    
+    // Save new token
+    await supabase
+      .from('ovation_integrations')
+      .update({
+        auth_token: tokens.IdToken,
+        token_updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', integration.id)
+
+    console.log(`[ovation-service] Token refreshed via SRP for brand ${brandId}`)
+    return tokens.IdToken
+  } catch (error: any) {
+    console.error(`[ovation-service] SRP auth failed:`, error.message)
+    // Fall back to existing token if available
+    return integration.auth_token || null
+  }
+}
+
+// ==================== COGNITO LOGIN (explicit) ====================
+async function handleCognitoLogin(req: Request, supabase: any) {
+  const { brandId } = await req.json()
+  if (!brandId) return jsonResponse({ error: 'Missing brandId' }, 400)
+
+  const token = await getAuthToken(supabase, brandId)
+  if (!token) return jsonResponse({ success: false, error: 'No credentials or auth failed' })
+  return jsonResponse({ success: true })
+}
+
+// ==================== TEST AUTH ====================
+async function handleTestAuth(req: Request, supabase: any) {
+  const { username, password } = await req.json()
+  if (!username || !password) return jsonResponse({ error: 'Missing username or password' }, 400)
+
+  try {
+    const tokens = await cognitoSrpAuth(username, password)
+    return jsonResponse({ success: true, hasTokens: !!tokens.AccessToken })
+  } catch (error: any) {
+    console.error('[ovation-service] Test auth failed:', error.message)
+    return jsonResponse({ success: false, error: error.message })
+  }
+}
+
+// ==================== AUTO MAP LOCATIONS ====================
+async function handleAutoMapLocations(req: Request, supabase: any) {
+  const { brandId } = await req.json()
+  if (!brandId) return jsonResponse({ error: 'Missing brandId' }, 400)
+
+  // Get auth token (will auto-refresh via SRP if needed)
+  const authToken = await getAuthToken(supabase, brandId)
+  if (!authToken) return jsonResponse({ error: 'No auth token available', mapped: 0 })
+
+  // Get company ID
+  const { data: integration } = await supabase
+    .from('ovation_integrations')
+    .select('company_id')
+    .eq('brand_id', brandId)
+    .single()
+
+  if (!integration?.company_id) return jsonResponse({ error: 'No company ID', mapped: 0 })
+
+  // Fetch OvationUp locations
+  let ovationLocations: any[] = []
+  try {
+    const response = await fetch(`${OVATION_API}/locations/list/leaderboard`, {
+      method: 'POST',
+      headers: {
+        'Authorization': authToken,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        filters: {
+          companyIds: [integration.company_id],
+          dateRange: [
+            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+            new Date().toISOString(),
+          ],
+          timezone: 'America/Los_Angeles',
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      const text = await response.text()
+      console.error('[ovation-service] Leaderboard fetch error:', response.status, text)
+      return jsonResponse({ error: `API error: ${response.status}`, mapped: 0 })
+    }
+
+    const data = await response.json()
+    ovationLocations = data?.data?.locations || []
+    console.log(`[ovation-service] Found ${ovationLocations.length} OvationUp locations`)
+  } catch (error: any) {
+    return jsonResponse({ error: error.message, mapped: 0 })
+  }
+
+  if (ovationLocations.length === 0) return jsonResponse({ mapped: 0, message: 'No OvationUp locations found' })
+
+  // Get CrooHQ locations for this brand
+  const { data: orgs } = await supabase
+    .from('organizations')
+    .select('id')
+    .eq('brand_id', brandId)
+
+  if (!orgs?.length) return jsonResponse({ mapped: 0, message: 'No organizations for brand' })
+
+  const orgIds = orgs.map((o: any) => o.id)
+  const { data: crooLocations } = await supabase
+    .from('locations')
+    .select('id, name, city')
+    .in('organization_id', orgIds)
+
+  if (!crooLocations?.length) return jsonResponse({ mapped: 0, message: 'No CrooHQ locations found' })
+
+  // Get existing mappings to skip
+  const { data: existingMappings } = await supabase
+    .from('ovation_location_mappings')
+    .select('location_id')
+    .in('location_id', crooLocations.map((l: any) => l.id))
+
+  const alreadyMapped = new Set((existingMappings || []).map((m: any) => m.location_id))
+
+  // Match by city name (case-insensitive)
+  let mapped = 0
+  const results: { crooName: string; ovationName: string; city: string }[] = []
+
+  for (const crooLoc of crooLocations) {
+    if (alreadyMapped.has(crooLoc.id)) continue
+
+    const crooCity = (crooLoc.city || '').toLowerCase().trim()
+    if (!crooCity) continue
+
+    // Find matching OvationUp location by city
+    const match = ovationLocations.find((ol: any) => {
+      const olCity = (ol.city || ol.addressDetails?.city || '').toLowerCase().trim()
+      return olCity === crooCity
+    })
+
+    if (match) {
+      const ovationId = match._id || match.id
+      const { error } = await supabase
+        .from('ovation_location_mappings')
+        .insert({ location_id: crooLoc.id, ovation_location_id: ovationId })
+
+      if (!error) {
+        mapped++
+        results.push({
+          crooName: crooLoc.name,
+          ovationName: match.name,
+          city: crooLoc.city,
+        })
+      }
+    }
+  }
+
+  console.log(`[ovation-service] Auto-mapped ${mapped} locations`)
+  return jsonResponse({ mapped, results, totalOvation: ovationLocations.length, totalCroo: crooLocations.length })
 }
 
 // ==================== SAVE CONFIG ====================
@@ -97,8 +492,6 @@ async function handleSaveConfig(req: Request, supabase: any) {
     if (error) throw error
   }
 
-  // Store refresh token as a secret-like field (we'll add column if needed)
-  // For now, store in auth_token alongside the ID token
   console.log(`[ovation-service] Config saved for brand ${brandId}`)
   return jsonResponse({ success: true })
 }
@@ -160,7 +553,6 @@ async function handleGetConfig(req: Request, supabase: any) {
     locationMapping = data
   }
 
-  // Calculate token age
   let tokenAgeHours = null
   if (integration?.token_updated_at) {
     tokenAgeHours = Math.round(
@@ -176,6 +568,7 @@ async function handleGetConfig(req: Request, supabase: any) {
       tokenUpdatedAt: integration.token_updated_at,
       tokenAgeHours,
       hasToken: !!integration.auth_token,
+      hasCredentials: !!integration.cognito_username,
     } : null,
     locationMapping: locationMapping ? {
       ovationLocationId: locationMapping.ovation_location_id,
@@ -187,22 +580,22 @@ async function handleGetConfig(req: Request, supabase: any) {
 async function handleTestConnection(req: Request, supabase: any) {
   const { brandId } = await req.json()
 
+  const authToken = await getAuthToken(supabase, brandId)
+  if (!authToken) {
+    return jsonResponse({ success: false, error: 'No auth token available' })
+  }
+
   const { data: integration } = await supabase
     .from('ovation_integrations')
-    .select('*')
+    .select('company_id')
     .eq('brand_id', brandId)
-    .eq('is_active', true)
-    .maybeSingle()
-
-  if (!integration?.auth_token) {
-    return jsonResponse({ success: false, error: 'No auth token configured' })
-  }
+    .single()
 
   try {
     const response = await fetch(`${OVATION_API}/survey/list`, {
       method: 'POST',
       headers: {
-        'Authorization': integration.auth_token,
+        'Authorization': authToken,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -241,22 +634,22 @@ async function handleTestConnection(req: Request, supabase: any) {
 async function handleListOvationLocations(req: Request, supabase: any) {
   const { brandId } = await req.json()
 
+  const authToken = await getAuthToken(supabase, brandId)
+  if (!authToken) {
+    return jsonResponse({ error: 'No auth token available', locations: [] })
+  }
+
   const { data: integration } = await supabase
     .from('ovation_integrations')
-    .select('*')
+    .select('company_id')
     .eq('brand_id', brandId)
-    .eq('is_active', true)
-    .maybeSingle()
-
-  if (!integration?.auth_token) {
-    return jsonResponse({ error: 'No auth token configured', locations: [] })
-  }
+    .single()
 
   try {
     const response = await fetch(`${OVATION_API}/location`, {
       method: 'POST',
       headers: {
-        'Authorization': integration.auth_token,
+        'Authorization': authToken,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -291,17 +684,8 @@ async function handleFetchReviews(req: Request, supabase: any) {
   const { locationId, brandId, days = 7, page = 1, pageSize = 20 } = await req.json()
 
   // Get brand integration
-  let integration: any = null
-  if (brandId) {
-    const { data } = await supabase
-      .from('ovation_integrations')
-      .select('*')
-      .eq('brand_id', brandId)
-      .eq('is_active', true)
-      .maybeSingle()
-    integration = data
-  } else if (locationId) {
-    // Get brand via location -> org -> brand
+  let resolvedBrandId = brandId
+  if (!resolvedBrandId && locationId) {
     const { data: loc } = await supabase
       .from('locations')
       .select('organization_id')
@@ -313,21 +697,24 @@ async function handleFetchReviews(req: Request, supabase: any) {
         .select('brand_id')
         .eq('id', loc.organization_id)
         .single()
-      if (org) {
-        const { data } = await supabase
-          .from('ovation_integrations')
-          .select('*')
-          .eq('brand_id', org.brand_id)
-          .eq('is_active', true)
-          .maybeSingle()
-        integration = data
-      }
+      if (org) resolvedBrandId = org.brand_id
     }
   }
 
-  if (!integration?.auth_token) {
+  if (!resolvedBrandId) {
+    return jsonResponse({ error: 'Could not resolve brand', reviews: [] })
+  }
+
+  const authToken = await getAuthToken(supabase, resolvedBrandId)
+  if (!authToken) {
     return jsonResponse({ error: 'No OvationUp integration', reviews: [] })
   }
+
+  const { data: integration } = await supabase
+    .from('ovation_integrations')
+    .select('company_id')
+    .eq('brand_id', resolvedBrandId)
+    .single()
 
   // Get ovation location ID mapping
   let ovationLocationIds: string[] = []
@@ -357,7 +744,7 @@ async function handleFetchReviews(req: Request, supabase: any) {
     const response = await fetch(`${OVATION_API}/survey/list`, {
       method: 'POST',
       headers: {
-        'Authorization': integration.auth_token,
+        'Authorization': authToken,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -388,7 +775,7 @@ async function handleFetchReviews(req: Request, supabase: any) {
 
     // Calculate WTD average
     const weekStart = new Date(now)
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay()) // Sunday
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay())
     weekStart.setHours(0, 0, 0, 0)
 
     const wtdSurveys = surveys.filter((s: any) => new Date(s.created) >= weekStart)
@@ -414,16 +801,16 @@ async function handleFetchReviews(req: Request, supabase: any) {
 async function handleFetchScores(req: Request, supabase: any) {
   const { brandId, locationIds, dateRange } = await req.json()
 
-  const { data: integration } = await supabase
-    .from('ovation_integrations')
-    .select('*')
-    .eq('brand_id', brandId)
-    .eq('is_active', true)
-    .maybeSingle()
-
-  if (!integration?.auth_token) {
+  const authToken = await getAuthToken(supabase, brandId)
+  if (!authToken) {
     return jsonResponse({ error: 'Not configured', scores: [] })
   }
+
+  const { data: integration } = await supabase
+    .from('ovation_integrations')
+    .select('company_id')
+    .eq('brand_id', brandId)
+    .single()
 
   // Get ovation location mappings
   let ovationLocationIds: string[] = []
@@ -449,7 +836,7 @@ async function handleFetchScores(req: Request, supabase: any) {
     const response = await fetch(`${OVATION_API}/survey/survey-scores`, {
       method: 'POST',
       headers: {
-        'Authorization': integration.auth_token,
+        'Authorization': authToken,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -478,93 +865,10 @@ async function handleFetchScores(req: Request, supabase: any) {
 async function handleRefreshToken(req: Request, supabase: any) {
   const { brandId } = await req.json()
 
-  const { data: integration } = await supabase
-    .from('ovation_integrations')
-    .select('*')
-    .eq('brand_id', brandId)
-    .maybeSingle()
-
-  if (!integration) {
-    return jsonResponse({ error: 'No OvationUp integration found' }, 400)
+  // Just use getAuthToken which handles SRP refresh automatically
+  const token = await getAuthToken(supabase, brandId)
+  if (token) {
+    return jsonResponse({ success: true, refreshed: true })
   }
-
-  // Try to decode current token to check expiry
-  const currentToken = integration.auth_token
-  if (currentToken) {
-    try {
-      const parts = currentToken.split('.')
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
-        const expiresAt = payload.exp * 1000
-        const hoursUntilExpiry = (expiresAt - Date.now()) / 3600000
-
-        if (hoursUntilExpiry > 2) {
-          return jsonResponse({
-            success: true,
-            message: `Token still valid for ${Math.round(hoursUntilExpiry)}h`,
-            refreshed: false,
-          })
-        }
-      }
-    } catch {}
-  }
-
-  // Token expired or expiring soon - need refresh
-  // AWS Cognito refresh token flow
-  const refreshToken = Deno.env.get('OVATION_REFRESH_TOKEN')
-  if (!refreshToken) {
-    return jsonResponse({
-      success: false,
-      error: 'No refresh token configured. Please update OVATION_REFRESH_TOKEN secret.',
-    })
-  }
-
-  try {
-    const cognitoResponse = await fetch(
-      `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-amz-json-1.1',
-          'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
-        },
-        body: JSON.stringify({
-          AuthFlow: 'REFRESH_TOKEN_AUTH',
-          ClientId: COGNITO_CLIENT_ID,
-          AuthParameters: {
-            REFRESH_TOKEN: refreshToken,
-          },
-        }),
-      }
-    )
-
-    const cognitoData = await cognitoResponse.json()
-
-    if (cognitoData.AuthenticationResult?.IdToken) {
-      const newToken = cognitoData.AuthenticationResult.IdToken
-
-      // Save new token
-      await supabase
-        .from('ovation_integrations')
-        .update({
-          auth_token: newToken,
-          token_updated_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', integration.id)
-
-      console.log(`[ovation-service] Token refreshed for brand ${brandId}`)
-      return jsonResponse({ success: true, refreshed: true })
-    } else {
-      console.error('[ovation-service] Cognito refresh failed:', cognitoData)
-      return jsonResponse({
-        success: false,
-        error: cognitoData.message || 'Cognito refresh failed',
-        details: cognitoData.__type,
-      })
-    }
-  } catch (error: any) {
-    console.error('[ovation-service] Token refresh error:', error)
-    return jsonResponse({ success: false, error: error.message })
-  }
+  return jsonResponse({ success: false, error: 'Could not refresh token' })
 }
