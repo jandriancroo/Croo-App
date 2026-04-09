@@ -18,8 +18,7 @@ async function authenticateV4(): Promise<string | null> {
     { method: "POST", body: formData }
   );
   if (!response.ok) return null;
-  const data = await response.json();
-  return data.access_token || null;
+  return (await response.json()).access_token || null;
 }
 
 function getHeaders(token: string): Record<string, string> {
@@ -38,19 +37,43 @@ serve(async (req) => {
 
   try {
     const token = await authenticateV4();
-    if (!token) {
-      return new Response(JSON.stringify({ error: "QU auth failed" }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
+    if (!token) throw new Error("QU auth failed");
     const h = getHeaders(token);
     const results: Record<string, any> = {};
     const storeId = 5280;
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Get check-detail with ALL fields to see what's available
-    const checkRes = await fetch(
+    // 1. Payments summary - we know this works and shows "OLO Doordash" etc
+    const paySummary = await fetch(
+      "https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/payments",
+      {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({
+          fields: [{ fieldName: "paymentTypeName" }, { fieldName: "amount" }, { fieldName: "count" }],
+          filters: { date: { from: today, to: today, type: "custom" }, location: { operationalUnits: [storeId] } },
+          params: { sectionId: "payments", pageNumber: 1, pageSize: 50 },
+        }),
+      }
+    );
+    const payText = await paySummary.text();
+    try { results['payments-summary'] = { status: paySummary.status, data: JSON.parse(payText) }; }
+    catch { results['payments-summary'] = { status: paySummary.status, body: payText.substring(0, 1000) }; }
+
+    // 2. Check-detail subreport for the OLO order (checkId from earlier)
+    const oloCheckId = "69d7e4746b2ba6a6dfe9ce9b";
+    
+    // Try GET instead of POST for subreport
+    const subGet = await fetch(
+      `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/checkNumber/${oloCheckId}`,
+      { headers: h }
+    );
+    const subGetText = await subGet.text();
+    try { results['subreport-GET'] = { status: subGet.status, data: JSON.parse(subGetText) }; }
+    catch { results['subreport-GET'] = { status: subGet.status, body: subGetText.substring(0, 500) }; }
+
+    // 3. Try check-detail with "paymentTypeName" field - this might show DoorDash/Grubhub per check
+    const checkWithPayment = await fetch(
       "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
       {
         method: 'POST',
@@ -60,115 +83,76 @@ serve(async (req) => {
             { fieldName: "checkNumber" },
             { fieldName: "orderTypeName" },
             { fieldName: "orderChannelName" },
-            { fieldName: "daypartName" },
             { fieldName: "date" },
             { fieldName: "checkState" },
-            { fieldName: "itemSales" },
-            { fieldName: "grossSales" },
             { fieldName: "netSales" },
-            { fieldName: "taxes" },
-            { fieldName: "tips" },
-            { fieldName: "employee" },
-            { fieldName: "terminalName" },
-            { fieldName: "location" },
-            { fieldName: "itemsSoldCount" },
             { fieldName: "description" },
+            { fieldName: "employee" },
+            { fieldName: "referenceNumber" },
           ],
           filters: {
             date: { from: today, to: today, type: "custom" },
             location: { operationalUnits: [storeId] },
-          },
-          params: { sectionId: "main", pageNumber: 1, pageSize: 50, sort: [{ field: "date", dir: "desc" }] },
-        }),
-      }
-    );
-    const checkData = await checkRes.json();
-    results['check-detail-full'] = { status: checkRes.status, itemCount: checkData.items?.length, first5: checkData.items?.slice(0, 5) };
-
-    // 2. Try the subreport for item-level detail on the first check
-    if (checkData.items?.[0]?.checkNumberSubreport?.checkId) {
-      const checkId = checkData.items[0].checkNumberSubreport.checkId;
-      const subRes = await fetch(
-        `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/checkNumber/${checkId}`,
-        {
-          method: 'POST',
-          headers: h,
-          body: JSON.stringify({
-            fields: [
-              { fieldName: "itemName" },
-              { fieldName: "quantity" },
-              { fieldName: "netSales" },
-              { fieldName: "category" },
-              { fieldName: "itemGroup" },
-            ],
-            params: { sectionId: "main", pageNumber: 1, pageSize: 50 },
-          }),
-        }
-      );
-      const subText = await subRes.text();
-      let subData;
-      try { subData = JSON.parse(subText); } catch { subData = subText.substring(0, 500); }
-      results['subreport-items'] = { status: subRes.status, data: subData };
-    }
-
-    // 3. Try "item-detail" report — might give us per-order items directly
-    const itemDetailRes = await fetch(
-      "https://gateway-api.qubeyond.com/api/v4/data/reports/item-detail/sections/main",
-      {
-        method: 'POST',
-        headers: h,
-        body: JSON.stringify({
-          fields: [
-            { fieldName: "itemName" },
-            { fieldName: "checkNumber" },
-            { fieldName: "quantity" },
-            { fieldName: "netSales" },
-            { fieldName: "orderTypeName" },
-            { fieldName: "date" },
-            { fieldName: "category" },
-          ],
-          filters: {
-            date: { from: today, to: today, type: "custom" },
-            location: { operationalUnits: [storeId] },
+            // Try filtering by OLO channel
+            orderChannel: { values: ["OLO"] },
           },
           params: { sectionId: "main", pageNumber: 1, pageSize: 20, sort: [{ field: "date", dir: "desc" }] },
         }),
       }
     );
-    {
-      const text = await itemDetailRes.text();
-      try { const d = JSON.parse(text); results['item-detail'] = { status: itemDetailRes.status, itemCount: d.items?.length, first5: d.items?.slice(0, 5) }; }
-      catch { results['item-detail'] = { status: itemDetailRes.status, body: text.substring(0, 500) }; }
-    }
+    const cwpText = await checkWithPayment.text();
+    try { results['checks-olo-filtered'] = { status: checkWithPayment.status, data: JSON.parse(cwpText) }; }
+    catch { results['checks-olo-filtered'] = { status: checkWithPayment.status, body: cwpText.substring(0, 1000) }; }
 
-    // 4. Try "sales-detail" report
-    const salesDetailRes = await fetch(
-      "https://gateway-api.qubeyond.com/api/v4/data/reports/sales-detail/sections/main",
+    // 4. Try check-detail with a "payments" section
+    const checkPaySection = await fetch(
+      "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/payments",
       {
         method: 'POST',
         headers: h,
         body: JSON.stringify({
           fields: [
-            { fieldName: "itemName" },
             { fieldName: "checkNumber" },
-            { fieldName: "quantity" },
-            { fieldName: "netSales" },
-            { fieldName: "orderTypeName" },
-            { fieldName: "date" },
+            { fieldName: "paymentTypeName" },
+            { fieldName: "amount" },
           ],
           filters: {
             date: { from: today, to: today, type: "custom" },
             location: { operationalUnits: [storeId] },
           },
-          params: { sectionId: "main", pageNumber: 1, pageSize: 20, sort: [{ field: "date", dir: "desc" }] },
+          params: { sectionId: "payments", pageNumber: 1, pageSize: 20 },
         }),
       }
     );
-    {
-      const text = await salesDetailRes.text();
-      try { const d = JSON.parse(text); results['sales-detail'] = { status: salesDetailRes.status, itemCount: d.items?.length, first5: d.items?.slice(0, 5) }; }
-      catch { results['sales-detail'] = { status: salesDetailRes.status, body: text.substring(0, 500) }; }
-    }
+    const cpsText = await checkPaySection.text();
+    try { results['check-detail-payments-section'] = { status: checkPaySection.status, data: JSON.parse(cpsText) }; }
+    catch { results['check-detail-payments-section'] = { status: checkPaySection.status, body: cpsText.substring(0, 500) }; }
+
+    // 5. Try the "payments/main" report directly
+    const payMain = await fetch(
+      "https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main",
+      {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({
+          fields: [
+            { fieldName: "paymentTypeName" },
+            { fieldName: "checkNumber" },
+            { fieldName: "amount" },
+            { fieldName: "date" },
+            { fieldName: "orderTypeName" },
+          ],
+          filters: {
+            date: { from: today, to: today, type: "custom" },
+            location: { operationalUnits: [storeId] },
+          },
+          params: { sectionId: "main", pageNumber: 1, pageSize: 20 },
+        }),
+      }
+    );
+    const pmText = await payMain.text();
+    try { results['payments-main'] = { status: payMain.status, data: JSON.parse(pmText) }; }
+    catch { results['payments-main'] = { status: payMain.status, body: pmText.substring(0, 500) }; }
 
     return new Response(JSON.stringify(results, null, 2), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
