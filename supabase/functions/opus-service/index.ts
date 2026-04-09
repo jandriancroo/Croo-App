@@ -260,12 +260,20 @@ serve(async (req) => {
       // Try multiple query formats to find what OPUS accepts
       const queries = [
         {
-          label: "AdminLibrary_matched_opName",
-          body: { operationName: "GetAdminLibrary", query: `query GetAdminLibrary { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
+          label: "AdminLibrary_with_variables",
+          body: { operationName: "GetAdminLibrary", variables: {}, query: `query GetAdminLibrary { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
         },
         {
-          label: "AdminLibrary_no_input",
-          body: { operationName: "GetAdminLibrary", query: `query GetAdminLibrary { AdminLibrary { totalCount objects { id type name { en } __typename } __typename } }` },
+          label: "Library_root",
+          body: { operationName: "GetLibrary", variables: {}, query: `query GetLibrary { Library(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
+        },
+        {
+          label: "AdminLibraryItems",
+          body: { operationName: "AdminLibraryItems", variables: {}, query: `query AdminLibraryItems { AdminLibraryItems(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
+        },
+        {
+          label: "AdminLibrary_filters",
+          body: { operationName: "GetAdminLibrary", variables: {}, query: `query GetAdminLibrary { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}, filters: {}}) { totalCount objects { id type name { en } __typename } __typename } }` },
         },
         {
           label: "AdminEmployee_control",
