@@ -116,12 +116,55 @@ function padHex(hex: string): string {
 }
 
 async function cognitoSrpAuth(username: string, password: string): Promise<{ AccessToken: string; IdToken: string; RefreshToken: string }> {
+  // Try USER_PASSWORD_AUTH first (simpler, no SRP math needed)
+  const passwordAuthResp = await fetch(`https://cognito-idp.${COGNITO_REGION}.amazonaws.com/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth',
+    },
+    body: JSON.stringify({
+      AuthFlow: 'USER_PASSWORD_AUTH',
+      ClientId: COGNITO_CLIENT_ID,
+      AuthParameters: {
+        USERNAME: username,
+        PASSWORD: password,
+      },
+    }),
+  })
+
+  const passwordAuthData = await passwordAuthResp.json()
+  
+  if (passwordAuthData.AuthenticationResult) {
+    console.log('[ovation-service] USER_PASSWORD_AUTH succeeded')
+    return {
+      AccessToken: passwordAuthData.AuthenticationResult.AccessToken,
+      IdToken: passwordAuthData.AuthenticationResult.IdToken,
+      RefreshToken: passwordAuthData.AuthenticationResult.RefreshToken,
+    }
+  }
+
+  // If USER_PASSWORD_AUTH not allowed, fall back to SRP
+  if (passwordAuthData.__type === 'InvalidParameterException' || 
+      passwordAuthData.__type === 'NotAuthorizedException' && passwordAuthData.message?.includes('USER_PASSWORD_AUTH')) {
+    console.log('[ovation-service] USER_PASSWORD_AUTH not supported, trying SRP...')
+    return cognitoSrpAuthFull(username, password)
+  }
+
+  // If it's a real auth error, throw
+  if (passwordAuthData.__type || passwordAuthData.message) {
+    throw new Error(passwordAuthData.message || passwordAuthData.__type)
+  }
+
+  throw new Error('Unexpected auth response')
+}
+
+async function cognitoSrpAuthFull(username: string, password: string): Promise<{ AccessToken: string; IdToken: string; RefreshToken: string }> {
   // Step 1: Generate random 'a' and compute A = g^a mod N
   const aBytes = new Uint8Array(128)
   crypto.getRandomValues(aBytes)
   const a = BigInt('0x' + bytesToHex(aBytes)) % N
   let A = modPow(g, a, N)
-  // Ensure A % N != 0
   while (A % N === 0n) {
     crypto.getRandomValues(aBytes)
     const newA = BigInt('0x' + bytesToHex(aBytes)) % N
@@ -129,7 +172,7 @@ async function cognitoSrpAuth(username: string, password: string): Promise<{ Acc
   }
   const A_hex = A.toString(16)
 
-  // Step 2: Send SRP_A to Cognito
+  // Step 2: Initiate SRP auth
   const initResponse = await fetch(`https://cognito-idp.${COGNITO_REGION}.amazonaws.com/`, {
     method: 'POST',
     headers: {
@@ -139,10 +182,7 @@ async function cognitoSrpAuth(username: string, password: string): Promise<{ Acc
     body: JSON.stringify({
       AuthFlow: 'USER_SRP_AUTH',
       ClientId: COGNITO_CLIENT_ID,
-      AuthParameters: {
-        USERNAME: username,
-        SRP_A: A_hex,
-      },
+      AuthParameters: { USERNAME: username, SRP_A: A_hex },
     }),
   })
 
@@ -153,86 +193,60 @@ async function cognitoSrpAuth(username: string, password: string): Promise<{ Acc
 
   const { SRP_B, SALT, SECRET_BLOCK, USER_ID_FOR_SRP } = initData.ChallengeParameters
   const B = BigInt('0x' + SRP_B)
-
   if (B % N === 0n) throw new Error('SRP_B mod N is zero')
 
-  // Step 3: Compute u = SHA256(pad(A) | pad(B))
-  const padSize = (N_HEX.length + 1) // pad to N length in hex chars
-  const A_padded = padHex(A_hex).padStart(padSize, '0')
-  const B_padded = padHex(SRP_B).padStart(padSize, '0')
+  // Step 3: u = SHA256(pad(A) | pad(B))
+  const hexLen = N_HEX.length
+  const A_padded = padHex(A_hex).padStart(hexLen, '0')
+  const B_padded = padHex(SRP_B).padStart(hexLen, '0')
   const u_hash = await sha256(hexToBytes(A_padded + B_padded))
   const u = BigInt('0x' + bytesToHex(u_hash))
   if (u === 0n) throw new Error('u is zero')
 
-  // Step 4: Compute x = SHA256(salt | SHA256(poolId | userId | ":" | password))
-  const poolName = COGNITO_USER_POOL.split('_')[1] // just the pool name part
-  const userIdForSrp = USER_ID_FOR_SRP
-  const innerMsg = new TextEncoder().encode(poolName + userIdForSrp + ':' + password)
-  const innerHash = await sha256(innerMsg)
-  
+  // Step 4: x = SHA256(salt | SHA256(poolName + userId + ":" + password))
+  const poolName = COGNITO_USER_POOL.split('_')[1]
+  const innerHash = await sha256(new TextEncoder().encode(poolName + USER_ID_FOR_SRP + ':' + password))
   const saltBytes = hexToBytes(padHex(SALT))
   const xInput = new Uint8Array(saltBytes.length + innerHash.length)
   xInput.set(saltBytes)
   xInput.set(innerHash, saltBytes.length)
-  const x_hash = await sha256(xInput)
-  const x = BigInt('0x' + bytesToHex(x_hash))
+  const x = BigInt('0x' + bytesToHex(await sha256(xInput)))
 
-  // Step 5: Compute S = (B - k * g^x)^(a + u * x) mod N
+  // Step 5: S = (B - k * g^x mod N) ^ (a + u * x) mod N
   const k = BigInt('0x' + k_hex)
   const gx = modPow(g, x, N)
   const kgx = (k * gx) % N
-  let diff = ((B - kgx) % N + N) % N
-  const exp = (a + u * x) % (N - 1n)
-  const S = modPow(diff, exp, N)
+  const diff = ((B - kgx) % N + N) % N
+  const S = modPow(diff, (a + u * x) % (N - 1n), N)
 
-  // Step 6: Compute HKDF key from S
-  const S_hex = padHex(S.toString(16))
-  const S_bytes = hexToBytes(S_hex)
-  
-  // HKDF extract: PRK = HMAC(salt=u_hash, S_bytes)
+  // Step 6: HKDF
+  const S_bytes = hexToBytes(padHex(S.toString(16)))
   const prk = await hmacSha256(u_hash, S_bytes)
-  
-  // HKDF expand: key = HMAC(prk, info + 0x01)
-  const info = new TextEncoder().encode('Caldera Derived Key')
-  const expandInput = new Uint8Array(info.length + 1)
-  expandInput.set(info)
-  expandInput[info.length] = 1
-  const hkdfKey = await hmacSha256(prk, expandInput)
-  // Use first 16 bytes
-  const derivedKey = hkdfKey.slice(0, 16)
+  const expandInput = new Uint8Array([...new TextEncoder().encode('Caldera Derived Key'), 1])
+  const derivedKey = (await hmacSha256(prk, expandInput)).slice(0, 16)
 
-  // Step 7: Compute timestamp and HMAC signature
+  // Step 7: Timestamp and signature
   const now = new Date()
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const timestamp = `${days[now.getUTCDay()]} ${months[now.getUTCMonth()]} ${now.getUTCDate()} ${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')} UTC ${now.getUTCFullYear()}`
 
   const secretBlockBytes = Uint8Array.from(atob(SECRET_BLOCK), c => c.charCodeAt(0))
-  const msgBytes = new TextEncoder().encode(poolName + userIdForSrp + timestamp)
-  
-  const hmacMsg = new Uint8Array(secretBlockBytes.length + msgBytes.length)
-  hmacMsg.set(secretBlockBytes) // SECRET_BLOCK first? Actually Cognito wants: pool_name + user_id + secret_block + timestamp
-  
-  // Cognito HMAC message: poolName + userId + secretBlock + timestamp
-  const hmacInput = new Uint8Array(
-    new TextEncoder().encode(poolName).length + 
-    new TextEncoder().encode(userIdForSrp).length + 
-    secretBlockBytes.length + 
-    new TextEncoder().encode(timestamp).length
-  )
-  let offset = 0
   const poolNameBytes = new TextEncoder().encode(poolName)
+  const userIdBytes = new TextEncoder().encode(USER_ID_FOR_SRP)
+  const timestampBytes = new TextEncoder().encode(timestamp)
+  
+  const hmacInput = new Uint8Array(poolNameBytes.length + userIdBytes.length + secretBlockBytes.length + timestampBytes.length)
+  let offset = 0
   hmacInput.set(poolNameBytes, offset); offset += poolNameBytes.length
-  const userIdBytes = new TextEncoder().encode(userIdForSrp)
   hmacInput.set(userIdBytes, offset); offset += userIdBytes.length
   hmacInput.set(secretBlockBytes, offset); offset += secretBlockBytes.length
-  const timestampBytes = new TextEncoder().encode(timestamp)
   hmacInput.set(timestampBytes, offset)
 
   const signature = await hmacSha256(derivedKey, hmacInput)
   const signatureB64 = btoa(String.fromCharCode(...signature))
 
-  // Step 8: Send challenge response
+  // Step 8: Challenge response
   const challengeResponse = await fetch(`https://cognito-idp.${COGNITO_REGION}.amazonaws.com/`, {
     method: 'POST',
     headers: {
@@ -243,7 +257,7 @@ async function cognitoSrpAuth(username: string, password: string): Promise<{ Acc
       ChallengeName: 'PASSWORD_VERIFIER',
       ClientId: COGNITO_CLIENT_ID,
       ChallengeResponses: {
-        USERNAME: userIdForSrp,
+        USERNAME: USER_ID_FOR_SRP,
         PASSWORD_CLAIM_SECRET_BLOCK: SECRET_BLOCK,
         PASSWORD_CLAIM_SIGNATURE: signatureB64,
         TIMESTAMP: timestamp,
