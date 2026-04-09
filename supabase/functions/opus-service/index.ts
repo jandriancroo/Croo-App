@@ -144,90 +144,68 @@ serve(async (req) => {
       for (const mapping of employeeMappings) {
         const { opus_id, croo_user_id, name: empName } = mapping;
         
-        // Try multiple query patterns to find one that works
-        const queryPatterns = [
-          {
-            name: "AdminEmployee_introspect",
-            body: {
-              operationName: "EmpProgress",
-              query: `query EmpProgress($id: Int!) { AdminEmployee(id: $id) { id name firstName lastName email completionPercentage overallProgress __typename } }`,
-              variables: { id: opus_id },
+        // Use the exact UserDetailAssignments query from OPUS network tab
+        const assignmentsQuery = {
+          operationName: "UserDetailAssignments",
+          variables: {
+            input: {
+              filters: {
+                accessTypes: { value: ["ASSIGNMENT"] },
+                contentTypes: { value: ["COURSE", "PATH"] },
+                statuses: { value: ["past_due", "incomplete"] },
+                userId: { value: opus_id },
+              },
+              sort: { column: "currentInstanceLastAssignedAt", descending: false },
             },
+            pagination: { limit: 100, offset: 0 },
           },
-          {
-            name: "EmployeeProgress",
-            body: {
-              operationName: "EmployeeProgress",
-              query: `query EmployeeProgress($employeeId: Int!) { AdminEmployeeProgress(employeeId: $employeeId) { totalAssignments completedAssignments paths { id name status completionPercentage __typename } courses { id name status completionPercentage __typename } __typename } }`,
-              variables: { employeeId: opus_id },
-            },
-          },
-          {
-            name: "AdminAssignments",
-            body: {
-              operationName: "GetAssignments",
-              query: `query GetAssignments($input: AdminAssignmentsInput!, $pagination: PaginationInput) { AdminAssignments(input: $input, pagination: $pagination) { objects { id status contentType name { en __typename } completionPercentage __typename } __typename } }`,
-              variables: { input: { filters: { employeeIds: [opus_id] } }, pagination: { limit: 100, offset: 0 } },
-            },
-          },
-        ];
-
-        let assignmentData: any = null;
-        let workingPattern = "";
-
-        for (const pattern of queryPatterns) {
-          const testResp = await fetch(OPUS_GRAPHQL, {
-            method: "POST",
-            headers: OPUS_HEADERS(sessionId),
-            body: JSON.stringify(pattern.body),
-          });
-          const testData = await testResp.json();
-          console.log(`[opus-service] ${pattern.name} for ${empName}: status=${testResp.status} response=${JSON.stringify(testData).substring(0, 300)}`);
-          
-          if (testResp.ok && testData?.data && !testData?.errors?.length) {
-            assignmentData = testData;
-            workingPattern = pattern.name;
-            break;
-          }
+          query: `query UserDetailAssignments($input: AssignmentsInput!, $pagination: PaginationInput) {
+  Assignments(input: $input, pagination: $pagination) {
+    totalCount
+    objects {
+      id
+      status
+      libraryItem {
+        id
+        type
+        name { en __typename }
+        coverImage {
+          id
+          imageUrls { thumb __typename }
+          __typename
         }
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+}`,
+        };
 
-        if (!assignmentData) {
-          errors.push(`${empName}: No working assignment query found`);
+        const resp = await fetch(OPUS_GRAPHQL, {
+          method: "POST",
+          headers: OPUS_HEADERS(sessionId),
+          body: JSON.stringify(assignmentsQuery),
+        });
+        const respData = await resp.json();
+        console.log(`[opus-service] UserDetailAssignments for ${empName} (opus_id=${opus_id}): status=${resp.status} totalCount=${respData?.data?.Assignments?.totalCount ?? 'null'}`);
+
+        if (!resp.ok || !respData?.data?.Assignments) {
+          errors.push(`${empName}: Assignment query failed (${resp.status})`);
           continue;
         }
 
-        // Parse results based on which pattern worked
-        console.log(`[opus-service] Working pattern for ${empName}: ${workingPattern}`);
-        
-        let incompleteCount = 0;
-        let incompleteNames: string[] = [];
-        let totalCount = 0;
-
-        if (workingPattern === "AdminEmployee_introspect") {
-          const emp = assignmentData?.data?.AdminEmployee;
-          const pct = emp?.completionPercentage || emp?.overallProgress || 0;
-          totalCount = 1;
-          incompleteCount = pct < 100 ? 1 : 0;
-          incompleteNames = pct < 100 ? [`Overall: ${pct}% complete`] : [];
-        } else if (workingPattern === "EmployeeProgress") {
-          const progress = assignmentData?.data?.AdminEmployeeProgress;
-          totalCount = progress?.totalAssignments || 0;
-          const completed = progress?.completedAssignments || 0;
-          incompleteCount = totalCount - completed;
-          const allItems = [...(progress?.paths || []), ...(progress?.courses || [])];
-          incompleteNames = allItems
-            .filter((a: any) => a.status !== "completed" && a.completionPercentage < 100)
-            .map((a: any) => a.name || "Untitled")
-            .slice(0, 5);
-        } else if (workingPattern === "AdminAssignments") {
-          const objects = assignmentData?.data?.AdminAssignments?.objects || [];
-          totalCount = objects.length;
-          const incomplete = objects.filter((a: any) => a.status !== "completed" && a.status !== "COMPLETED");
-          incompleteCount = incomplete.length;
-          incompleteNames = incomplete
-            .map((a: any) => a.name?.en || "Untitled")
-            .slice(0, 5);
-        }
+        const assignments = respData.data.Assignments.objects || [];
+        const totalCount = respData.data.Assignments.totalCount || 0;
+        const incompleteCount = assignments.length; // All returned are incomplete/past_due
+        const incompleteNames: string[] = assignments
+          .map((a: any) => a.libraryItem?.name?.en || "Untitled")
+          .filter((n: string) => !assignments.some((a: any) => 
+            a.libraryItem?.name?.en === n && a.libraryItem?.type === "COURSE" && 
+            assignments.some((p: any) => p.libraryItem?.type === "PATH")
+          ))
+          .slice(0, 8);
         const completedCount = totalCount - incompleteCount;
 
         syncedCount++;
