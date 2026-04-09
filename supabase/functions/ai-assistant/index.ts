@@ -53,12 +53,20 @@ async function getCachedSnapshot(supabase: any, locationId: string, today: strin
 // === CONTEXT INJECTION: Build a daily snapshot to prepend to system prompt ===
 async function buildContextSnapshot(supabase: any, locationId: string, today: string, yesterday: string, tomorrow: string, weekStart: string): Promise<string> {
   try {
-    // Fetch today + yesterday + tomorrow sales in one query
+    // Calculate end of week (Sunday) from weekStart (Monday)
+    const weekStartDate = new Date(weekStart + "T12:00:00");
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+    const weekEnd = weekEndDate.toISOString().split("T")[0];
+
+    // Fetch full week sales (yesterday through Sunday) for projections
+    const fetchStart = yesterday < weekStart ? yesterday : weekStart;
     const { data: salesRows } = await supabase
       .from("sales_cache")
       .select("sale_date, net_sales, guest_count, override_projection, initial_projection, projected_sales, living_projection")
       .eq("location_id", locationId)
-      .in("sale_date", [yesterday, today, tomorrow])
+      .gte("sale_date", fetchStart)
+      .lte("sale_date", weekEnd)
       .order("sale_date");
 
     // Fetch today + yesterday labor
@@ -85,14 +93,8 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       .eq("shift_date", tomorrow)
       .not("user_id", "is", null);
 
-    // Fetch week-to-date sales
-    const { data: weekRows } = await supabase
-      .from("sales_cache")
-      .select("sale_date, net_sales, override_projection, initial_projection, projected_sales")
-      .eq("location_id", locationId)
-      .gte("sale_date", weekStart)
-      .lte("sale_date", today)
-      .order("sale_date");
+    // Week-to-date rows derived from the full-week sales fetch above
+    const weekRows = (salesRows || []).filter((r: any) => r.sale_date >= weekStart && r.sale_date <= today);
 
     // Fetch today's tips
     const { data: tipsRow } = await supabase
@@ -153,6 +155,23 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       const wtdSales = weekRows.reduce((s: number, r: any) => s + (r.net_sales || 0), 0);
       const wtdGoal = weekRows.reduce((s: number, r: any) => s + (r.override_projection || r.initial_projection || r.projected_sales || 0), 0);
       lines.push(`Week-to-date (${weekStart} → ${today}): Sales $${wtdSales.toLocaleString()} | Goal $${wtdGoal.toLocaleString()} (${wtdGoal > 0 ? ((wtdSales / wtdGoal - 1) * 100).toFixed(1) : 'N/A'}%)`);
+    }
+
+    // Remaining week projections (days after today through Sunday)
+    const futureDays = (salesRows || []).filter((r: any) => r.sale_date > today && r.sale_date <= weekEnd);
+    if (futureDays.length > 0) {
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const futureLines = futureDays.map((r: any) => {
+        const d = new Date(r.sale_date + "T12:00:00");
+        const dayName = dayNames[d.getDay()];
+        const proj = r.override_projection || r.initial_projection || r.projected_sales || 0;
+        return `${dayName} ${r.sale_date}: $${proj.toLocaleString()}`;
+      });
+      lines.push(`Remaining Week Projections: ${futureLines.join(" | ")}`);
+      const totalRemaining = futureDays.reduce((s: number, r: any) => s + (r.override_projection || r.initial_projection || r.projected_sales || 0), 0);
+      const wtdSales = weekRows ? weekRows.reduce((s: number, r: any) => s + (r.net_sales || 0), 0) : 0;
+      const fullWeekProj = (weekRows ? weekRows.reduce((s: number, r: any) => s + (r.override_projection || r.initial_projection || r.projected_sales || 0), 0) : 0) + totalRemaining;
+      lines.push(`Full Week Projection: $${fullWeekProj.toLocaleString()} (Remaining: $${totalRemaining.toLocaleString()})`);
     }
 
     // Tips
@@ -1618,8 +1637,10 @@ KNOWLEDGE BASE & MEMORY:
 - If a user corrects you, acknowledge it and suggest they pin the correction.
 
 TOOL USAGE:
-- For simple questions about today/yesterday/tomorrow sales, labor, or schedule counts, USE THE CONTEXT SNAPSHOT ABOVE — no tool call needed.
+- For simple questions about today/yesterday/tomorrow sales, labor, schedule counts, OR remaining-week projections, USE THE CONTEXT SNAPSHOT ABOVE — no tool call needed.
+- The snapshot includes projections for EVERY remaining day this week (Thu-Sun, etc.). Use them directly.
 - For deeper dives, specific employees, checklists, or other details, invoke your tools to fetch real-time data.
+- For multi-week or month-level projection lookups, use query_sales with a date range.
 - You get up to 5 tool calls per question — USE THEM for retries and cross-referencing.
 
 EMPLOYEE NAME MATCHING:
