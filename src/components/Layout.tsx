@@ -1286,11 +1286,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           className="fixed left-1/2 -translate-x-1/2 z-[48]"
           style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)' }}
         >
-          <OvationScorePopover expanded={ovationExpanded} onToggle={() => setOvationExpanded(prev => !prev)} />
+          <OvationScoreTab expanded={ovationExpanded} onToggle={() => setOvationExpanded(prev => !prev)} />
         </div>
       )}
       
       <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+4.5rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
+        {/* Ovation expanded panel — in document flow so it pushes content down */}
+        {isMobile && currentLocation && (
+          <OvationExpandedPanel expanded={ovationExpanded} />
+        )}
         {children}
       </main>
       
