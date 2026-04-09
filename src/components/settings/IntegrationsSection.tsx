@@ -1103,9 +1103,21 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
 
                   // Step 1: Test auth & discover company ID
                   toast.info('Authenticating with OvationUp...');
-                  const { data: testData, error: testError } = await supabase.functions.invoke('ovation-service?action=test_auth', {
-                    body: { username: ovationEmail, password: ovationPassword },
-                  });
+                  const session = await supabase.auth.getSession();
+                  const testResp = await fetch(
+                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ovation-service?action=test_auth`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.data.session?.access_token}`,
+                        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                      },
+                      body: JSON.stringify({ username: ovationEmail, password: ovationPassword }),
+                    }
+                  );
+                  const testData = await testResp.json();
+                  const testError = testResp.ok ? null : new Error(testData?.error || 'Request failed');
                   if (testError) throw testError;
                   if (!testData?.success) {
                     setOvationTestResult('error');
