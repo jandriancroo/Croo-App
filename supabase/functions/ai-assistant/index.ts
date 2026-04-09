@@ -1668,13 +1668,20 @@ serve(async (req) => {
             }
 
             if (indexHits && indexHits.length > 0) {
+              // Build the full search phrase for exact/substring matching
+              const fullPhrase = fallbackWords.join(" ");
               const scored = indexHits
                 .map((hit: any) => {
                   const titleLower = (hit.title || "").toLowerCase();
                   let score = 0;
+                  // Big bonus for exact phrase match
+                  if (titleLower.includes(fullPhrase)) score += 10;
+                  // Count individual word matches
                   for (const word of fallbackWords) {
                     if (titleLower.includes(word)) score += 1;
                   }
+                  // Bonus for shorter titles (more specific match)
+                  if (score > 0) score += Math.max(0, 5 - Math.floor(titleLower.length / 20));
                   return { ...hit, _score: score };
                 })
                 .filter((hit: any) => hit._score > 0)
