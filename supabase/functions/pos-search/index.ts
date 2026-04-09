@@ -48,34 +48,92 @@ serve(async (req) => {
       });
     }
 
-    // Look up QU location_id from location_integrations
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: integration } = await supabase
-      .from("location_integrations")
-      .select("credentials")
-      .eq("location_id", locationId)
-      .eq("integration_type", "qubeyond")
-      .eq("is_active", true)
+    // Resolve brand: location → organization → brand
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("organization_id")
+      .eq("id", locationId)
       .single();
 
-    if (!integration) {
-      return new Response(
-        JSON.stringify({ error: "No QU integration for this location" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let brandId: string | null = null;
+    if (loc?.organization_id) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("brand_id")
+        .eq("id", loc.organization_id)
+        .single();
+      brandId = org?.brand_id || null;
     }
 
-    const creds = integration.credentials as any;
-    const qbLocationId = creds?.location_id;
-    if (!qbLocationId) {
-      return new Response(
-        JSON.stringify({ error: "No QU location_id in credentials" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Collect ALL QU location IDs across the brand
+    let quLocationIds: number[] = [];
+
+    if (brandId) {
+      // Get all locations in this brand via organizations
+      const { data: orgs } = await supabase
+        .from("organizations")
+        .select("id")
+        .eq("brand_id", brandId);
+
+      if (orgs && orgs.length > 0) {
+        const orgIds = orgs.map((o: any) => o.id);
+        const { data: locs } = await supabase
+          .from("locations")
+          .select("id")
+          .in("organization_id", orgIds);
+
+        if (locs && locs.length > 0) {
+          const locIds = locs.map((l: any) => l.id);
+          const { data: integrations } = await supabase
+            .from("location_integrations")
+            .select("credentials")
+            .in("location_id", locIds)
+            .eq("integration_type", "qubeyond")
+            .eq("is_active", true);
+
+          if (integrations) {
+            for (const integ of integrations) {
+              const creds = integ.credentials as any;
+              const qId = parseInt(creds?.location_id);
+              if (qId && !quLocationIds.includes(qId)) {
+                quLocationIds.push(qId);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: if brand resolution failed, use just the single location
+    if (quLocationIds.length === 0) {
+      const { data: integration } = await supabase
+        .from("location_integrations")
+        .select("credentials")
+        .eq("location_id", locationId)
+        .eq("integration_type", "qubeyond")
+        .eq("is_active", true)
+        .single();
+
+      if (!integration) {
+        return new Response(
+          JSON.stringify({ error: "No QU integration for this location" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const creds = integration.credentials as any;
+      const qId = parseInt(creds?.location_id);
+      if (!qId) {
+        return new Response(
+          JSON.stringify({ error: "No QU location_id in credentials" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      quLocationIds = [qId];
     }
 
     const token = await authenticateV4();
@@ -94,7 +152,7 @@ serve(async (req) => {
     const toStr = today.toISOString().split("T")[0];
     const fromStr = fromDate.toISOString().split("T")[0];
 
-    console.log(`[pos-search] Fetching product mix ${fromStr} to ${toStr} for QU ${qbLocationId}`);
+    console.log(`[pos-search] Fetching product mix ${fromStr} to ${toStr} for QU locations: [${quLocationIds.join(", ")}]`);
 
     const response = await fetch(
       "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
@@ -110,8 +168,7 @@ serve(async (req) => {
           ],
           filters: {
             date: { from: fromStr, to: toStr, type: "custom" },
-            singleLocation: parseInt(qbLocationId),
-            location: { operationalUnits: [parseInt(qbLocationId)] },
+            location: { operationalUnits: quLocationIds },
           },
           params: {
             sectionId: "main",
@@ -169,7 +226,7 @@ serve(async (req) => {
       );
     }
 
-    // Deduplicate by name (aggregate quantity)
+    // Deduplicate by name (aggregate quantity across stores)
     const deduped = new Map<string, { name: string; category: string; quantity: number }>();
     for (const item of filtered) {
       const existing = deduped.get(item.name);
@@ -182,7 +239,7 @@ serve(async (req) => {
 
     const result = Array.from(deduped.values()).sort((a, b) => b.quantity - a.quantity);
 
-    console.log(`[pos-search] Found ${items.length} total items, ${result.length} after filter/dedup`);
+    console.log(`[pos-search] Found ${items.length} total items across ${quLocationIds.length} stores, ${result.length} after filter/dedup`);
 
     return new Response(JSON.stringify({ items: result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
