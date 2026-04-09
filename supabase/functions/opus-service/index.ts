@@ -426,7 +426,7 @@ serve(async (req) => {
       }
 
       const data = await resp.json();
-      const objects = data?.data?.LibraryItems?.objects || [];
+      const objects = data?.data?.AdminLibrary?.objects || [];
 
       // Inject each training module into theo_knowledge
       let injected = 0;
