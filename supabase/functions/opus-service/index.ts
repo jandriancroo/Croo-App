@@ -267,16 +267,12 @@ serve(async (req) => {
       };
       const queries = [
         {
-          label: "anon_query",
-          body: { query: `{ AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) { totalCount objects { id type name { en } __typename } __typename } }` },
+          label: "introspect_query_type",
+          body: { query: `{ __schema { queryType { fields { name } } } }` },
         },
         {
-          label: "with_contentTypes",
-          body: { operationName: "GetAdminLibrary", variables: {}, query: `query GetAdminLibrary { AdminLibrary(input: {pagination: {page: 1, pageSize: 1}, filters: {contentTypes: {value: [PATH, COURSE]}}}) { totalCount objects { id type name { en } __typename } __typename } }` },
-        },
-        {
-          label: "multiline_exact",
-          body: { operationName: "GetAdminLibrary", query: "query GetAdminLibrary {\n  AdminLibrary(input: {pagination: {page: 1, pageSize: 1}}) {\n    totalCount\n    objects {\n      id\n      type\n      name {\n        en\n      }\n      __typename\n    }\n    __typename\n  }\n}" },
+          label: "introspect_AdminLibrary",
+          body: { query: `{ __type(name: "AdminLibraryInput") { inputFields { name type { name kind ofType { name } } } } }` },
         },
       ];
 
