@@ -164,6 +164,7 @@ serve(async (req) => {
     objects {
       id
       status
+      isCurrentInstanceAssignedThroughModule
       libraryItem {
         id
         type
@@ -195,13 +196,16 @@ serve(async (req) => {
           continue;
         }
 
+        // Use ALL assignments (including through-module) to match OPUS's Assigned vs Completed counts
         const allAssignments = respData.data.Assignments.objects || [];
-        const assignedCount = respData.data.Assignments.totalCount || allAssignments.length;
-        const completedAssignments = allAssignments.filter((a: any) => a.status === "completed" || a.status === "COMPLETED");
-        const incompleteAssignments = allAssignments.filter((a: any) => a.status !== "completed" && a.status !== "COMPLETED");
+        const assignedCount = allAssignments.length;
+        const completedAssignments = allAssignments.filter((a: any) => a.status === "complete" || a.status === "completed" || a.status === "COMPLETED");
+        const incompleteAssignments = allAssignments.filter((a: any) => a.status !== "complete" && a.status !== "completed" && a.status !== "COMPLETED");
         const completedCount = completedAssignments.length;
         const incompleteCount = incompleteAssignments.length;
+        // Only show top-level incomplete names (not sub-modules)
         const incompleteNames: string[] = incompleteAssignments
+          .filter((a: any) => !a.isCurrentInstanceAssignedThroughModule)
           .map((a: any) => a.libraryItem?.name?.en || "Untitled")
           .slice(0, 8);
 
