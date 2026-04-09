@@ -731,6 +731,178 @@ serve(async (req) => {
       }
     }
 
+    // ── ACTION: bulk_extract ──
+    // Extract text from all un-extracted OPUS resources in batches
+    if (action === "bulk_extract") {
+      const { location_id, batch_size = 5 } = body;
+      if (!location_id) {
+        return new Response(JSON.stringify({ error: "Missing location_id" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Find all theo_knowledge entries with Media URL but no extracted content
+      const { data: pending, error: pendingErr } = await supabase
+        .from("theo_knowledge")
+        .select("id, content, topic")
+        .eq("location_id", location_id)
+        .ilike("topic", "opus_training_%")
+        .ilike("content", "%Media URL:%")
+        .not("content", "ilike", "%[EXTRACTED CONTENT]%")
+        .not("content", "ilike", "%EXTRACTION FAILED%")
+        .limit(Math.min(batch_size, 10)); // cap at 10 per invocation to avoid timeout
+
+      if (pendingErr) {
+        console.error("[opus-service] bulk_extract query error:", pendingErr);
+        return new Response(JSON.stringify({ error: pendingErr.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!pending || pending.length === 0) {
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: "All resources already extracted", 
+          processed: 0, 
+          remaining: 0 
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Count total remaining
+      const { count: totalRemaining } = await supabase
+        .from("theo_knowledge")
+        .select("id", { count: "exact", head: true })
+        .eq("location_id", location_id)
+        .ilike("topic", "opus_training_%")
+        .ilike("content", "%Media URL:%")
+        .not("content", "ilike", "%[EXTRACTED CONTENT]%")
+        .not("content", "ilike", "%EXTRACTION FAILED%");
+
+      const results: { id: string; title: string; success: boolean; error?: string; content_length?: number }[] = [];
+
+      for (const row of pending) {
+        // Extract title from content
+        const titleMatch = row.content.match(/Title: ([^\n]+)/);
+        const title = titleMatch ? titleMatch[1].trim() : "Unknown";
+
+        // Extract Media URL
+        const mediaUrlMatch = row.content.match(/Media URL: (https:\/\/[^\n]+)/);
+        if (!mediaUrlMatch) {
+          results.push({ id: row.id, title, success: false, error: "No media URL" });
+          continue;
+        }
+
+        const pdfUrl = mediaUrlMatch[1].trim();
+        console.log(`[opus-service] bulk_extract: Processing "${title}" from ${pdfUrl}`);
+
+        try {
+          // Download the file
+          const pdfResp = await fetch(pdfUrl);
+          if (!pdfResp.ok) {
+            results.push({ id: row.id, title, success: false, error: `Download failed: ${pdfResp.status}` });
+            continue;
+          }
+
+          const contentType = pdfResp.headers.get("content-type") || "";
+          let mimeType = "application/pdf";
+          if (contentType.includes("image")) mimeType = contentType.split(";")[0].trim();
+
+          const arrayBuf = await pdfResp.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuf);
+          
+          // Skip very large files (>10MB) to avoid timeout
+          if (bytes.length > 10 * 1024 * 1024) {
+            results.push({ id: row.id, title, success: false, error: "File too large (>10MB)" });
+            continue;
+          }
+
+          let binary = "";
+          for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          const pdfBase64 = btoa(binary);
+
+          // Extract content via Gemini
+          const aiResp = await fetch(AI_URL, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a document content extractor. Extract ALL text content EXACTLY as written. Do NOT add, infer, or make up any content. Preserve structure, headings, bullet points, measurements, and steps exactly.",
+                },
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: "Extract the EXACT text content from this document. Title: " + title },
+                    { type: "image_url", image_url: { url: `data:${mimeType};base64,${pdfBase64}` } },
+                  ],
+                },
+              ],
+            }),
+          });
+
+          if (!aiResp.ok) {
+            const errText = await aiResp.text();
+            console.error(`[opus-service] bulk_extract AI error for "${title}":`, aiResp.status);
+            results.push({ id: row.id, title, success: false, error: `AI error: ${aiResp.status}` });
+            continue;
+          }
+
+          const aiData = await aiResp.json();
+          const extractedContent = aiData.choices?.[0]?.message?.content || "";
+
+          if (!extractedContent || extractedContent.length < 30) {
+            // Mark as failed so we don't retry forever
+            const failContent = row.content.replace(
+              /Content has not been extracted yet\..*/,
+              "EXTRACTION FAILED: insufficient content returned"
+            );
+            await supabase.from("theo_knowledge").update({ content: failContent }).eq("id", row.id);
+            results.push({ id: row.id, title, success: false, error: "Extraction returned too little content" });
+            continue;
+          }
+
+          // Update with extracted content
+          const updatedContent = row.content.replace(
+            /Content has not been extracted yet\..*/,
+            "[EXTRACTED CONTENT]\n" + extractedContent
+          );
+
+          // Generate embedding with actual content
+          const embedding = await generateEmbedding(title + " - " + extractedContent.substring(0, 400));
+          const updateData: any = { content: updatedContent };
+          if (embedding) updateData.embedding = JSON.stringify(embedding);
+
+          await supabase.from("theo_knowledge").update(updateData).eq("id", row.id);
+          results.push({ id: row.id, title, success: true, content_length: extractedContent.length });
+          console.log(`[opus-service] bulk_extract: ✅ "${title}" — ${extractedContent.length} chars`);
+
+        } catch (e: any) {
+          console.error(`[opus-service] bulk_extract error for "${title}":`, e);
+          results.push({ id: row.id, title, success: false, error: e.message });
+        }
+      }
+
+      const succeeded = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+
+      return new Response(JSON.stringify({
+        success: true,
+        processed: results.length,
+        succeeded,
+        failed,
+        remaining: (totalRemaining || 0) - succeeded,
+        results,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── ACTION: fetch_employees ──
     // Single lookup by OPUS ID OR auto-discover all employees
     if (action === "fetch_employees") {
