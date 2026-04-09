@@ -885,7 +885,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               )}
               
               {/* Desktop Ovation Score - only on dashboard */}
-              {currentLocation && location.pathname === '/dashboard' && <OvationScorePopover />}
+              {currentLocation && location.pathname === '/dashboard' && (
+                <OvationScorePopover key={`ovation-desktop-${currentLocation.id}`} />
+              )}
 
               {/* Profile dropdown */}
               <DropdownMenu>
