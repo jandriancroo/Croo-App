@@ -1283,7 +1283,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       {isMobile && currentLocation && (
         <div 
           className="fixed left-1/2 -translate-x-1/2 z-[48]"
-          style={{ top: 'calc(env(safe-area-inset-top) + 3.05rem)' }}
+          style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)' }}
         >
           <OvationScorePopover />
         </div>
