@@ -56,6 +56,8 @@ serve(async (req) => {
         return await handleAutoMapLocations(req, supabase)
       case 'cognito_login':
         return await handleCognitoLogin(req, supabase)
+      case 'probe_api':
+        return await handleProbeApi(req, supabase)
       default:
         return jsonResponse({ error: `Unknown action: ${action}` }, 400)
     }
@@ -1114,4 +1116,78 @@ async function handleRefreshToken(req: Request, supabase: any) {
     return jsonResponse({ success: true, refreshed: true })
   }
   return jsonResponse({ success: false, error: 'Could not refresh token' })
+}
+
+// ==================== PROBE API ====================
+async function handleProbeApi(req: Request, supabase: any) {
+  const { brandId, locationId } = await req.json()
+
+  let resolvedBrandId = brandId
+  if (!resolvedBrandId && locationId) {
+    const { data: loc } = await supabase.from('locations').select('organization_id').eq('id', locationId).single()
+    if (loc) {
+      const { data: org } = await supabase.from('organizations').select('brand_id').eq('id', loc.organization_id).single()
+      if (org) resolvedBrandId = org.brand_id
+    }
+  }
+
+  const authToken = await getAuthToken(supabase, resolvedBrandId)
+  if (!authToken) return jsonResponse({ error: 'No auth token' })
+
+  const { data: integration } = await supabase.from('ovation_integrations').select('company_id').eq('brand_id', resolvedBrandId).single()
+  const companyId = integration?.company_id
+
+  // Get PS ovation location id
+  const { data: mapping } = await supabase.from('ovation_location_mappings').select('ovation_location_id').eq('location_id', locationId).maybeSingle()
+  const ovLocId = mapping?.ovation_location_id
+
+  const results: Record<string, any> = {}
+  const baseUrl = 'https://api.ovationup.com/app-services/v2'
+  const headers = { 'Authorization': authToken, 'Content-Type': 'application/json', 'Accept': 'application/json' }
+
+  // Try different endpoints
+  const endpoints = [
+    { name: 'survey/list_page2', url: `${baseUrl}/survey/list`, body: { filters: { companyIds: [companyId], locationIds: ovLocId ? [ovLocId] : [] }, page: 2, pageSize: 50 } },
+    { name: 'survey/list_page3', url: `${baseUrl}/survey/list`, body: { filters: { companyIds: [companyId], locationIds: ovLocId ? [ovLocId] : [] }, page: 3, pageSize: 50 } },
+    { name: 'survey/list_small', url: `${baseUrl}/survey/list`, body: { filters: { companyIds: [companyId], locationIds: ovLocId ? [ovLocId] : [] }, page: 1, pageSize: 200 } },
+    { name: 'survey/list_loc_only', url: `${baseUrl}/survey/list`, body: { filters: { companyIds: [companyId], locationIds: ovLocId ? [ovLocId] : [], createdAtRange: [new Date(Date.now() - 14*86400000).toISOString(), new Date().toISOString()] }, page: 1, pageSize: 200 } },
+    { name: 'surveys_GET', url: `${baseUrl}/surveys?companyId=${companyId}&locationId=${ovLocId}&page=1&pageSize=100`, body: null },
+    { name: 'survey_GET', url: `${baseUrl}/survey?companyId=${companyId}&locationId=${ovLocId}&page=1&pageSize=100`, body: null },
+    { name: 'company_surveys', url: `${baseUrl}/company/${companyId}/surveys`, body: null },
+    { name: 'location_surveys', url: `${baseUrl}/location/${ovLocId}/surveys`, body: null },
+    { name: 'survey_search', url: `${baseUrl}/survey/search`, body: { companyId, locationId: ovLocId, page: 1, pageSize: 100 } },
+    { name: 'survey_filter', url: `${baseUrl}/survey/filter`, body: { companyId, locationIds: [ovLocId], page: 1, pageSize: 100 } },
+  ]
+
+  for (const ep of endpoints) {
+    try {
+      const opts: any = { headers }
+      if (ep.body) {
+        opts.method = 'POST'
+        opts.body = JSON.stringify(ep.body)
+      } else {
+        opts.method = 'GET'
+      }
+      const resp = await fetch(ep.url, opts)
+      const text = await resp.text()
+      let parsed: any = null
+      try { parsed = JSON.parse(text) } catch {}
+      
+      const surveyCount = parsed?.data?.surveys?.length || parsed?.data?.length || parsed?.surveys?.length || parsed?.length || null
+      const totalRecords = parsed?.data?.count || parsed?.data?.totalCount || parsed?.totalRecords || parsed?.total || null
+      
+      results[ep.name] = {
+        status: resp.status,
+        surveyCount,
+        totalRecords,
+        keys: parsed ? Object.keys(parsed) : null,
+        dataKeys: parsed?.data ? Object.keys(parsed.data) : null,
+        sample: text.substring(0, 300),
+      }
+    } catch (e: any) {
+      results[ep.name] = { error: e.message }
+    }
+  }
+
+  return jsonResponse({ companyId, ovationLocationId: ovLocId, results })
 }
