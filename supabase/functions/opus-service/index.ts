@@ -426,18 +426,26 @@ serve(async (req) => {
         });
       }
 
-      // Confirmed working OPUS query — uses AdminLibrary with AdminLibraryInput
+      // Exact OPUS query — confirmed from network tab
       const libraryQuery = {
-        operationName: "GetAdminLibrary",
-        variables: { input: { sort: { column: "openedAt", descending: true, nullsLast: true } }, pagination: { limit: 500, offset: 0 } },
-        query: `query GetAdminLibrary($input: AdminLibraryInput!, $pagination: PaginationInput) {
-  LibraryItems: AdminLibrary(input: $input, pagination: $pagination) {
+        operationName: "ResourcesLibraryPaginatedTable_LibraryItems",
+        variables: {
+          input: {
+            filters: { itemType: { value: "TRAINING_RESOURCE" }, tagIds: null },
+            sort: { column: "lastEdited", descending: true, nullsLast: true },
+          },
+          pagination: { limit: 500, offset: 0 },
+        },
+        query: `query ResourcesLibraryPaginatedTable_LibraryItems($input: AdminLibraryInput!, $pagination: PaginationInput) {
+  AdminLibrary(input: $input, pagination: $pagination) {
     totalCount
     objects {
       id
-      type
-      path { id __typename }
-      course { id __typename }
+      name { en __typename }
+      description { en __typename }
+      createdAt
+      lastEditedAt
+      publishState
       trainingResource {
         id
         publishedVersion {
@@ -446,21 +454,11 @@ serve(async (req) => {
           media {
             id
             mediaUrls { en __typename }
-            imageUrls { original thumb __typename }
-            unoptimizedUrl
+            thumbnailImageUrl
             __typename
           }
           __typename
         }
-        __typename
-      }
-      name { en __typename }
-      description { en __typename }
-      coverImage {
-        id
-        emojiIcon
-        background
-        imageUrls { original wide thumb __typename }
         __typename
       }
       contentTagMemberships {
