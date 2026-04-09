@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -140,6 +141,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgIsTestingRopc, setPfgIsTestingRopc] = useState(false);
   const [pfgRopcResult, setPfgRopcResult] = useState<'success' | 'error' | null>(null);
   const [pfgDeliverySchedule, setPfgDeliverySchedule] = useState<DeliverySlot[]>([]);
+  const [pfgAvailableGuides, setPfgAvailableGuides] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [pfgIsFetchingGuides, setPfgIsFetchingGuides] = useState(false);
   const [paDeliverySchedule, setPaDeliverySchedule] = useState<DeliverySlot[]>([]);
 
   // Fresh KDS state
@@ -280,6 +283,46 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       toast.success('PFG order guide saved!'); queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
     } catch (error) { toast.error('Failed to save: ' + (error instanceof Error ? error.message : 'Unknown error')); }
     finally { setPfgIsSavingGuide(false); }
+  };
+
+  const fetchPfgGuides = async () => {
+    if (!pfgIntegration || !locationId) return;
+    setPfgIsFetchingGuides(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=list_guides`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ locationId }),
+        }
+      );
+      const result = await resp.json();
+      if (result?.data?.guides) {
+        const guides = result.data.guides.map((g: any) => ({
+          id: g.ProductListHeaderId || g.Id || g.id || '',
+          name: g.ProductListName || g.Name || g.ListName || g.Description || 'Unnamed List',
+          type: g.ListType || g.ProductListType || g.Type || '',
+        }));
+        setPfgAvailableGuides(guides);
+        // Auto-set customer ID if returned
+        if (result.data.customerId && !pfgCustomerId) {
+          setPfgCustomerId(result.data.customerId);
+        }
+        if (guides.length === 0) toast.info('No product lists found for this account');
+      } else {
+        toast.error(result?.error || 'Failed to fetch PFG lists');
+      }
+    } catch (error) {
+      toast.error('Failed to fetch lists: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setPfgIsFetchingGuides(false);
+    }
   };
 
   const triggerBackfill = async (integrationId: string) => {
@@ -594,20 +637,58 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 <div className="border-t pt-3">
                   <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full">
                     <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180" />
-                    <span>Advanced: Order Guide IDs</span>
+                    <span>Bid List / Order Guide</span>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-3 pt-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Fetch available lists */}
+                    <Button size="sm" variant="outline" onClick={fetchPfgGuides} disabled={pfgIsFetchingGuides} className="w-full">
+                      {pfgIsFetchingGuides ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+                      {pfgAvailableGuides.length > 0 ? 'Refresh Lists' : 'Load Available Lists'}
+                    </Button>
+
+                    {/* Dropdown when guides are loaded */}
+                    {pfgAvailableGuides.length > 0 && (
                       <div className="space-y-1.5">
-                        <Label htmlFor="pfg-guide-id" className="text-sm">Product List Header ID</Label>
-                        <Input id="pfg-guide-id" value={pfgOrderGuideId} onChange={(e) => setPfgOrderGuideId(e.target.value)} placeholder="e.g., b4680e1a-4815-..." className="h-9 text-xs font-mono" />
+                        <Label className="text-sm">Select Product List</Label>
+                        <Select
+                          value={pfgOrderGuideId}
+                          onValueChange={(val) => setPfgOrderGuideId(val)}
+                        >
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue placeholder="Choose a list..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pfgAvailableGuides.map((guide) => (
+                              <SelectItem key={guide.id} value={guide.id} className="text-xs">
+                                {guide.name}{guide.type ? ` (${guide.type})` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="pfg-customer-id" className="text-sm">Customer ID</Label>
-                        <Input id="pfg-customer-id" value={pfgCustomerId} onChange={(e) => setPfgCustomerId(e.target.value)} placeholder="e.g., 73094123-ab82-..." className="h-9 text-xs font-mono" />
-                      </div>
-                    </div>
-                    <Button size="sm" onClick={savePfgGuideSettings} disabled={pfgIsSavingGuide}>
+                    )}
+
+                    {/* Fallback manual entry */}
+                    <Collapsible>
+                      <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <Settings2 className="h-3 w-3" />
+                        <span>Manual IDs</span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-2">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="pfg-guide-id" className="text-xs text-muted-foreground">Product List Header ID</Label>
+                            <Input id="pfg-guide-id" value={pfgOrderGuideId} onChange={(e) => setPfgOrderGuideId(e.target.value)} placeholder="e.g., b4680e1a-4815-..." className="h-8 text-xs font-mono" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="pfg-customer-id" className="text-xs text-muted-foreground">Customer ID</Label>
+                            <Input id="pfg-customer-id" value={pfgCustomerId} onChange={(e) => setPfgCustomerId(e.target.value)} placeholder="e.g., 73094123-ab82-..." className="h-8 text-xs font-mono" />
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <Button size="sm" onClick={savePfgGuideSettings} disabled={pfgIsSavingGuide || !pfgOrderGuideId.trim()}>
                       {pfgIsSavingGuide ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
                       Save Guide
                     </Button>
