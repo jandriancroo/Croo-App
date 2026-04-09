@@ -312,7 +312,7 @@ function DarkOrderRow({ order }: { order: Order }) {
   const is3PD = order.channel === 'OLO' || order.channel.toLowerCase().includes('doordash') || order.channel.toLowerCase().includes('ubereats') || order.channel.toLowerCase().includes('grubhub');
   // 3PD orders should show "Delivery" instead of "Carry Out" / "Take-Out"
   const displayType = is3PD ? 'Delivery' : order.orderType;
-  const displayChannel = is3PD ? order.channel : order.channel;
+  
 
   return (
     <div className={cn(
@@ -338,7 +338,7 @@ function DarkOrderRow({ order }: { order: Order }) {
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className={cn(
             "text-[10px] font-semibold px-1.5 py-0.5 rounded",
-            isOLO ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/40"
+            is3PD ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/40"
           )}>
             {order.channel}
           </span>
