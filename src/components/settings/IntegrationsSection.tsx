@@ -1047,7 +1047,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     if (error) throw error;
                   }
 
-                  // Save location mapping
+                  // Save location mapping if manually provided
                   if (ovationLocationId.trim() && locationId) {
                     const { data: existingMapping } = await supabase
                       .from('ovation_location_mappings')
@@ -1059,6 +1059,26 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       await supabase.from('ovation_location_mappings').update({ ovation_location_id: ovationLocationId }).eq('id', existingMapping.id);
                     } else {
                       await supabase.from('ovation_location_mappings').insert({ location_id: locationId, ovation_location_id: ovationLocationId });
+                    }
+                  } else {
+                    // Auto-map: call edge function to match locations by city
+                    try {
+                      const { data: mapResult } = await supabase.functions.invoke('ovation-service?action=auto_map_locations', {
+                        body: { brandId: ovationBrandId },
+                      });
+                      if (mapResult?.mapped > 0) {
+                        toast.success(`Auto-mapped ${mapResult.mapped} location${mapResult.mapped > 1 ? 's' : ''} by city name`);
+                        // Update local state with the mapped location ID
+                        const myMapping = mapResult.results?.find((r: any) => true); // refresh from DB
+                        const { data: newMapping } = await supabase
+                          .from('ovation_location_mappings')
+                          .select('ovation_location_id')
+                          .eq('location_id', locationId)
+                          .maybeSingle();
+                        if (newMapping) setOvationLocationId(newMapping.ovation_location_id);
+                      }
+                    } catch (e) {
+                      console.warn('[ovation] Auto-map failed:', e);
                     }
                   }
 
