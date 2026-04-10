@@ -330,15 +330,16 @@ serve(async (req) => {
               const data = await r.json();
               const groups = data.items || [];
 
-              // Flatten: each group row may contain a nested `items` array
+              // Flatten: each group row may contain a nested `items` array with actual line items
               const flat: any[] = [];
               for (const group of groups) {
-                if (group.itemName === "Totals") continue;
-                if (Array.isArray(group.items)) {
+                // The nested `items` array contains the real line items
+                if (Array.isArray(group.items) && group.items.length > 0) {
                   for (const sub of group.items) {
+                    if (sub.itemName === "Totals") continue;
                     flat.push({ ...sub, _groupName: group.itemGroupName || "" });
                   }
-                } else {
+                } else if (group.itemName && group.itemName !== "Totals") {
                   flat.push(group);
                 }
               }
