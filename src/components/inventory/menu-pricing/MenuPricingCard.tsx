@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DollarSign, TrendingUp, Loader2, ChevronDown, ChevronRight, Truck } from "lucide-react";
+import { DollarSign, TrendingUp, Loader2, ChevronDown, ChevronRight, Truck, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMenuPricing } from "./useMenuPricing";
 import MenuPricingRow from "./MenuPricingRow";
