@@ -703,7 +703,7 @@ async function fetchProductMix(
       console.log('Crusts items:', JSON.stringify(crusts.slice(0, 10)));
     }
     
-    return products.slice(0, 100);
+    return products;
   } catch (error) {
     console.error('Product mix fetch error:', error);
     return [];
@@ -721,33 +721,8 @@ async function fetchPaymentTypes(
 
   const commonHeaders = getV4Headers(tokenGw);
 
+  // Only use summary/payments - payments/main and payment-types/main always 404 for Blaze stores
   const candidates: Array<{ name: string; url: string; payload: unknown }> = [
-    {
-      name: 'payments/main',
-      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main',
-      payload: {
-        fields: [{ fieldName: 'paymentType' }, { fieldName: 'amount' }, { fieldName: 'checkCount' }],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: 'custom' },
-          singleLocation: parseInt(qbLocationId),
-          location: { operationalUnits: [parseInt(qbLocationId)] },
-        },
-        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
-      },
-    },
-    {
-      name: 'payment-types/main',
-      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/payment-types/sections/main',
-      payload: {
-        fields: [{ fieldName: 'paymentType' }, { fieldName: 'amount' }, { fieldName: 'checkCount' }],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: 'custom' },
-          singleLocation: parseInt(qbLocationId),
-          location: { operationalUnits: [parseInt(qbLocationId)] },
-        },
-        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
-      },
-    },
     {
       name: 'summary/payments',
       url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/payments',
