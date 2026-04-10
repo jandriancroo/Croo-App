@@ -415,6 +415,7 @@ export default function Settings() {
               'punch-clock': () => navigate(`/location/${currentLocation?.id}/punch-clock`),
               'billing': () => navigate('/billing'),
               'kds-board': () => navigate('/kds'),
+              'live-alerts': () => navigate('/alerts'),
             };
 
             if (navLinks[sectionId]) {
