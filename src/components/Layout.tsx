@@ -894,10 +894,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <User className="h-4 w-4" />
                     My Profile
                   </DropdownMenuItem>
-                  {!roleLoading && isAdmin && (
-                    <>
-                    </>
-                  )}
                   {!roleLoading && isSuperAdmin && !isChecklistOnlyLocation && (
                     <DropdownMenuItem onClick={() => navigate('/alerts')} className="gap-2 cursor-pointer">
                       <span className="relative flex h-4 w-4 items-center justify-center">
