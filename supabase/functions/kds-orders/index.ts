@@ -235,6 +235,7 @@ serve(async (req) => {
             taxes: parseFloat((item.taxes || "0").replace(/,/g, "")),
             tips: parseFloat((item.tips || "0").replace(/,/g, "")),
             discounts: parseFloat((item.discounts || "0").replace(/,/g, "")),
+            paymentsAmount: parseFloat((item.paymentsAmount || "0").replace(/,/g, "")),
           }));
       } catch {
         orders = [];
