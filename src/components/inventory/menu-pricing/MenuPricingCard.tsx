@@ -39,12 +39,13 @@ function classifyItem(name: string, catalogSection: string | null): GroupKey {
 }
 
 const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
-  const { items, isLoading, upsertPrice, bulkUpsert3pd } = useMenuPricing(locationId);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [show3pd, setShow3pd] = useState(false);
   const [fillUpcharge, setFillUpcharge] = useState("");
   const [fillFee, setFillFee] = useState("");
   const [theoTarget, setTheoTarget] = useState(30);
+  const [priceSource, setPriceSource] = useState<"manual" | "qu">("manual");
+  const { items, isLoading, upsertPrice, bulkUpsert3pd } = useMenuPricing(locationId, priceSource);
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
