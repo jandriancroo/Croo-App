@@ -123,7 +123,7 @@ export const LocationsSection = () => {
                   )}
                   {location.latitude && location.longitude && (
                     <div className="mt-3 h-48 rounded-md overflow-hidden border">
-                      <LocationMap lat={location.latitude} lng={location.longitude} locationName={location.name} />
+                      <LocationMap lat={location.latitude} lng={location.longitude} locationName={location.name} address={location.address} />
                     </div>
                   )}
                 </div>
@@ -161,7 +161,7 @@ export const LocationsSection = () => {
                 </div>
                 {selectedLocation.latitude && selectedLocation.longitude && (
                   <div className="h-64 rounded-md overflow-hidden border">
-                    <LocationMap lat={parseFloat(selectedLocation.latitude)} lng={parseFloat(selectedLocation.longitude)} />
+                    <LocationMap lat={parseFloat(selectedLocation.latitude)} lng={parseFloat(selectedLocation.longitude)} address={selectedLocation.address} />
                   </div>
                 )}
               </div>
