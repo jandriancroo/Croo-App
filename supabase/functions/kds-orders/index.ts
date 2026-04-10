@@ -312,24 +312,21 @@ serve(async (req) => {
         // Step 2: Use a checkId to probe subreport endpoints
         const probeCheckId = checkIdMap["__probe__"] || Object.values(checkIdMap)[0];
         if (probeCheckId) {
+          const probeCN = checkIdMap["__probe_cn__"] || Object.keys(checkIdMap)[0];
 
           // Try multiple subreport URL patterns in parallel
           const subreportProbes = [
-            // Subreport drill-down patterns
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${sampleCheckId}`, method: "POST", label: "subreport-POST",
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${probeCheckId}`, method: "POST", label: "subreport-POST",
               body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }, { fieldName: "modifierName" }], params: { pageSize: 100 } }) },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${sampleCheckId}`, method: "GET", label: "subreport-GET" },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/subreport/${sampleCheckId}`, method: "POST", label: "subreport-noSection-POST",
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${probeCheckId}`, method: "GET", label: "subreport-GET" },
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/subreport/${probeCheckId}`, method: "POST", label: "subreport-noSection-POST",
               body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }], params: { pageSize: 100 } }) },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/subreport/${sampleCheckId}`, method: "GET", label: "subreport-noSection-GET" },
-            // checkId as path param patterns
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/${sampleCheckId}`, method: "GET", label: "checkDetail-byId-GET" },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/${sampleCheckId}/items`, method: "GET", label: "checkDetail-byId-items-GET" },
-            // reporting path (admin-style)
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${sampleCheckId}`, method: "GET", label: "reporting-ticket-GET" },
-            // Drilldown with checkNumber filter
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/subreport/${probeCheckId}`, method: "GET", label: "subreport-noSection-GET" },
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/${probeCheckId}`, method: "GET", label: "checkDetail-byId-GET" },
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/${probeCheckId}/items`, method: "GET", label: "checkDetail-byId-items-GET" },
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${probeCheckId}`, method: "GET", label: "reporting-ticket-GET" },
             { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main`, method: "POST", label: "main-filtered-by-checkNumber",
-              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "modifierName" }, { fieldName: "quantity" }, { fieldName: "netSales" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkNumber: { values: [sampleCN] } }, params: { sectionId: "main", pageSize: 100 } }) },
+              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "modifierName" }, { fieldName: "quantity" }, { fieldName: "netSales" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkNumber: { values: [probeCN] } }, params: { sectionId: "main", pageSize: 100 } }) },
           ];
 
           const results = await Promise.all(subreportProbes.map(async (ep) => {
