@@ -256,6 +256,7 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
                   item={item}
                   show3pd={show3pd}
                   theoTarget={theoTarget}
+                  priceSource={priceSource}
                   onPriceChange={(id, price) => upsertPrice({ blueprintId: id, price })}
                   on3pdChange={(id, field, value) =>
                     upsertPrice({
