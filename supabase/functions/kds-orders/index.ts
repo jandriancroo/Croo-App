@@ -328,7 +328,9 @@ serve(async (req) => {
       const nextStatus = existing?.status === "ready" ? "ready" : "open";
       if (nextStatus === "open") recentOpenCount += 1;
 
-      const isPaid = (order.state || "").toLowerCase() === "closed";
+      // Paid = paymentsAmount covers netSales+taxes, or checkState says Closed for OLO
+      const totalOwed = order.netSales + order.taxes;
+      const isPaid = order.paymentsAmount >= totalOwed || (order.paymentsAmount > 0 && order.paymentsAmount >= totalOwed * 0.99);
 
       const { error } = await supabase
         .from("kds_orders")
