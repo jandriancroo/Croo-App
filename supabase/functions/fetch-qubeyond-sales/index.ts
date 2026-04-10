@@ -742,7 +742,7 @@ async function fetchPaymentTypes(
     const items = Array.isArray(data?.items) ? data.items : [];
 
     for (const item of items) {
-      const rawName =
+      let rawName =
         item.paymentType ??
         item.tenderType ??
         item.tenderName ??
@@ -750,6 +750,11 @@ async function fetchPaymentTypes(
         item.metric ??
         item.type ??
         '';
+
+      // Handle nested objects (e.g. { name: "Cash" } from summary/payments endpoint)
+      if (rawName && typeof rawName === 'object') {
+        rawName = rawName.name ?? rawName.label ?? rawName.value ?? rawName.metric ?? JSON.stringify(rawName);
+      }
 
       const paymentType = String(rawName || '').trim();
       if (!paymentType || paymentType === 'Total' || paymentType === 'Totals') continue;
@@ -784,7 +789,7 @@ async function fetchPaymentTypes(
         /(cash|credit|card|visa|master|amex|doordash|uber|olo|delivery|online|grub|gift)/i.test(p.paymentType)
       );
 
-      console.log(`[PAYMENTS] ${c.name} ok: items=${Array.isArray(data?.items) ? data.items.length : 0}, parsed=${parsed.length}, looksLikeMethods=${looksLikePaymentMethods}`);
+      console.log(`[PAYMENTS] ${c.name} ok: items=${Array.isArray(data?.items) ? data.items.length : 0}, parsed=${parsed.length}, looksLikeMethods=${looksLikePaymentMethods}, types=${parsed.map(p => p.paymentType).join(',')}`);
 
       return { name: c.name, parsed, valid: looksLikePaymentMethods };
     })
