@@ -27,6 +27,8 @@ export interface KDSOrder {
   bumped_at: string | null;
   cleared_at: string | null;
   is_paid: boolean;
+  promised_time: string | null;
+  external_order_id: string | null;
 }
 
 function getElapsed(openedAt: string): string {
@@ -39,16 +41,31 @@ function getElapsed(openedAt: string): string {
 
 function getChannelInfo(channel: string | null) {
   const ch = (channel || '').toLowerCase();
-  if (ch.includes('doordash')) return { label: 'DoorDash', tone: 'channel-doordash' };
-  if (ch.includes('ubereats')) return { label: 'UberEats', tone: 'channel-ubereats' };
-  if (ch.includes('grubhub')) return { label: 'GrubHub', tone: 'channel-grubhub' };
-  if (ch === 'olo') return { label: 'Online', tone: 'channel-online' };
-  return { label: 'Walk-in', tone: 'channel-store' };
+  if (ch.includes('doordash')) return { label: 'DoorDash', tone: 'bg-[#FF3008] text-white' };
+  if (ch.includes('ubereats')) return { label: 'UberEats', tone: 'bg-[#06C167] text-white' };
+  if (ch.includes('grubhub')) return { label: 'GrubHub', tone: 'bg-[#F63440] text-white' };
+  if (ch === 'olo') return { label: 'Online', tone: 'bg-primary text-primary-foreground' };
+  return { label: 'Walk-in', tone: 'bg-muted text-muted-foreground' };
 }
 
 function isDelivery(channel: string | null) {
   const ch = (channel || '').toLowerCase();
   return ch === 'olo' || ch.includes('doordash') || ch.includes('ubereats') || ch.includes('grubhub');
+}
+
+function getReadyBy(promisedTime: string | null): string | null {
+  if (!promisedTime) return null;
+  try {
+    const target = new Date(promisedTime);
+    if (isNaN(target.getTime())) return null;
+    const diffMs = target.getTime() - Date.now();
+    if (diffMs <= 0) return 'OVERDUE';
+    const mins = Math.ceil(diffMs / 60000);
+    if (mins > 120) return null;
+    return `${mins}m`;
+  } catch {
+    return null;
+  }
 }
 
 function groupItems(items: KDSItem[]) {
@@ -99,6 +116,8 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
             const items = Array.isArray(order.items) ? order.items : [];
             const groupedItems = groupItems(items);
             const isBumping = bumping === order.check_number;
+            const delivery = isDelivery(order.channel);
+            const readyBy = getReadyBy(order.promised_time);
 
             return (
               <motion.div
@@ -114,16 +133,28 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
                   order.is_paid
                     ? 'border-emerald-500/40'
                     : 'border-destructive animate-pulse',
-                  isDelivery(order.channel) && 'border-l-4 border-l-primary'
+                  delivery && 'border-l-4 border-l-primary'
                 )}
               >
+                {/* Ready By banner for delivery orders */}
+                {delivery && readyBy && (
+                  <div className={cn(
+                    'px-3 py-1 text-center text-[10px] font-black uppercase tracking-wider',
+                    readyBy === 'OVERDUE'
+                      ? 'bg-destructive text-destructive-foreground animate-pulse'
+                      : 'bg-amber-500 text-white'
+                  )}>
+                    {readyBy === 'OVERDUE' ? '⚠ OVERDUE' : `🕐 Ready in ${readyBy}`}
+                  </div>
+                )}
+
                 <div className="border-b border-border px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-bold text-foreground">
                       {order.customer_name || 'Guest'}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      {!order.is_paid && !isDelivery(order.channel) && (
+                      {!order.is_paid && !delivery && (
                         <span className="rounded bg-destructive px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-destructive-foreground animate-pulse">
                           Unpaid
                         </span>
@@ -131,14 +162,19 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
                       <span className="shrink-0 font-mono text-[10px] text-muted-foreground">#{order.check_number}</span>
                     </div>
                   </div>
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground', channelInfo.tone)}>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', channelInfo.tone)}>
                       {channelInfo.label}
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Clock className="h-2.5 w-2.5" />
                       {getElapsed(order.opened_at)}
                     </span>
+                    {delivery && order.external_order_id && (
+                      <span className="font-mono text-[9px] text-muted-foreground/70 truncate max-w-[80px]" title={order.external_order_id}>
+                        ID: {order.external_order_id.slice(-6)}
+                      </span>
+                    )}
                   </div>
                 </div>
 

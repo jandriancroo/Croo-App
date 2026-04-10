@@ -194,6 +194,9 @@ serve(async (req) => {
             { fieldName: "employee" },
             { fieldName: "terminalName" },
             { fieldName: "description" },
+            { fieldName: "customerName" },
+            { fieldName: "externalOrderId" },
+            { fieldName: "promisedTime" },
             { fieldName: "itemsSoldCount" },
             { fieldName: "discounts" },
             { fieldName: "paymentsAmount" },
@@ -236,6 +239,8 @@ serve(async (req) => {
             tips: parseFloat((item.tips || "0").replace(/,/g, "")),
             discounts: parseFloat((item.discounts || "0").replace(/,/g, "")),
             paymentsAmount: parseFloat((item.paymentsAmount || "0").replace(/,/g, "")),
+            externalOrderId: item.externalOrderId || null,
+            promisedTime: item.promisedTime || null,
           }));
       } catch {
         orders = [];
@@ -403,6 +408,8 @@ serve(async (req) => {
           status: nextStatus,
           opened_at: openedAtIso,
           is_paid: isPaid,
+          external_order_id: order.externalOrderId || null,
+          promised_time: order.promisedTime || null,
         }, { onConflict: "store_id,check_number" });
 
       if (error) throw error;

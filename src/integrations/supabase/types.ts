@@ -3956,12 +3956,14 @@ export type Database = {
           created_at: string
           customer_name: string | null
           employee: string | null
+          external_order_id: string | null
           gross_sales: number | null
           id: string
           is_paid: boolean
           items: Json | null
           opened_at: string
           order_type: string | null
+          promised_time: string | null
           status: string
           store_id: string
           updated_at: string
@@ -3976,12 +3978,14 @@ export type Database = {
           created_at?: string
           customer_name?: string | null
           employee?: string | null
+          external_order_id?: string | null
           gross_sales?: number | null
           id?: string
           is_paid?: boolean
           items?: Json | null
           opened_at?: string
           order_type?: string | null
+          promised_time?: string | null
           status?: string
           store_id: string
           updated_at?: string
@@ -3996,12 +4000,14 @@ export type Database = {
           created_at?: string
           customer_name?: string | null
           employee?: string | null
+          external_order_id?: string | null
           gross_sales?: number | null
           id?: string
           is_paid?: boolean
           items?: Json | null
           opened_at?: string
           order_type?: string | null
+          promised_time?: string | null
           status?: string
           store_id?: string
           updated_at?: string
