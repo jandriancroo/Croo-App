@@ -275,8 +275,15 @@ serve(async (req) => {
 
       if (detailRes.ok) {
         const detailData = await detailRes.json();
+        const rows = detailData.items || detailData.data || [];
+        console.log("transaction-details response keys:", Object.keys(detailData));
+        console.log("transaction-details row count:", rows.length);
+        if (rows.length > 0) {
+          console.log("transaction-details sample row keys:", Object.keys(rows[0]));
+          console.log("transaction-details sample row:", JSON.stringify(rows[0]));
+        }
 
-        for (const row of detailData.items || []) {
+        for (const row of rows) {
           const currentCheckNumber = row.checkNumber;
           if (!currentCheckNumber || currentCheckNumber === "Total") continue;
 
@@ -284,17 +291,22 @@ serve(async (req) => {
             itemsByCheck[currentCheckNumber] = [];
           }
 
+          // Try multiple possible field names from QU API
+          const itemName = row.menuItemName || row.itemName || row.name || "";
+          const modName = row.modifierName || row.modifier || "";
+
           itemsByCheck[currentCheckNumber].push({
-            name: row.menuItemName || row.modifierName || "",
-            modifier: row.modifierName || null,
-            qty: parseInt(row.quantity || "1"),
-            price: parseFloat((row.grossSales || "0").replace(/,/g, "")),
-            category: row.categoryName || "",
-            isModifier: !!row.modifierName && !row.menuItemName,
+            name: itemName || modName || "",
+            modifier: modName || null,
+            qty: parseInt(row.quantity || row.qty || "1"),
+            price: parseFloat(((row.grossSales || row.sales || "0") + "").replace(/,/g, "")),
+            category: row.categoryName || row.category || "",
+            isModifier: !!modName && !itemName,
           });
         }
       } else {
-        await detailRes.text();
+        const errText = await detailRes.text();
+        console.log("transaction-details FAILED:", detailRes.status, errText);
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
