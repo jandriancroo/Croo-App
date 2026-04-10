@@ -288,10 +288,10 @@ export default function TheoPlacementPreview() {
           <OptionB />
           <div className="text-center max-w-[170px] space-y-1.5">
             <p className="text-[11px] font-semibold text-white/90">Chat = Dock</p>
-            <p className="text-[10px] text-white/50 leading-tight">Chat stays in dock as normal. Theo is a floating orb on the screen.</p>
+            <p className="text-[10px] text-white/50 leading-tight">Chat stays in dock as normal. Theo is a side tab on the right edge.</p>
             <div className="flex flex-wrap gap-1 justify-center">
               <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">No dock change</span>
-              <span className="text-[8px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded-full">Theo can be missed</span>
+              <span className="text-[8px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">Theo 1-tap access</span>
             </div>
           </div>
         </div>
