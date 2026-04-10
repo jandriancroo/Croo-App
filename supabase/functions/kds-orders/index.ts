@@ -245,38 +245,64 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      const detailRes = await fetch(
+      // Try multiple QU V4 endpoints for item-level detail
+      const detailEndpoints = [
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items",
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/item-detail",
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail-items/sections/main",
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/item-sales/sections/main",
         "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
-        {
+      ];
+
+      const itemFields = [
+        { fieldName: "checkNumber" },
+        { fieldName: "itemName" },
+        { fieldName: "modifierName" },
+        { fieldName: "quantity" },
+        { fieldName: "grossSales" },
+      ];
+
+      let detailRes: Response | null = null;
+      let usedEndpoint = "";
+
+      for (const url of detailEndpoints) {
+        const sectionId = url.split("/sections/")[1] || "main";
+        const res = await fetch(url, {
           method: "POST",
           headers,
           body: JSON.stringify({
-            fields: [
-              { fieldName: "checkNumber" },
-              { fieldName: "menuItemName" },
-              { fieldName: "modifierName" },
-              { fieldName: "quantity" },
-              { fieldName: "grossSales" },
-              { fieldName: "categoryName" },
-            ],
+            fields: itemFields,
             filters: {
               date: { from: today, to: today, type: "custom" },
               location: { operationalUnits: [quStoreId] },
             },
             params: {
-              sectionId: "main",
+              sectionId,
               pageNumber: 1,
               pageSize: 500,
               sort: [{ field: "checkNumber", dir: "asc" }],
             },
           }),
-        },
-      );
+        });
+        if (res.ok) {
+          detailRes = res;
+          usedEndpoint = url;
+          break;
+        }
+        await res.text();
+        console.log("Detail endpoint failed:", res.status, url);
+      }
 
-      if (detailRes.ok) {
+      if (detailRes) {
         const detailData = await detailRes.json();
+        const rows = detailData.items || detailData.data || [];
+        console.log("Detail endpoint used:", usedEndpoint, "rows:", rows.length);
+        if (rows.length > 0) {
+          console.log("Sample row keys:", Object.keys(rows[0]));
+          console.log("Sample row:", JSON.stringify(rows[0]));
+        }
 
-        for (const row of detailData.items || []) {
+        for (const row of rows) {
           const currentCheckNumber = row.checkNumber;
           if (!currentCheckNumber || currentCheckNumber === "Total") continue;
 
@@ -284,17 +310,21 @@ serve(async (req) => {
             itemsByCheck[currentCheckNumber] = [];
           }
 
+          // Try multiple possible field names from QU API
+          const itemName = row.menuItemName || row.itemName || row.name || "";
+          const modName = row.modifierName || row.modifier || "";
+
           itemsByCheck[currentCheckNumber].push({
-            name: row.menuItemName || row.modifierName || "",
-            modifier: row.modifierName || null,
-            qty: parseInt(row.quantity || "1"),
-            price: parseFloat((row.grossSales || "0").replace(/,/g, "")),
-            category: row.categoryName || "",
-            isModifier: !!row.modifierName && !row.menuItemName,
+            name: itemName || modName || "",
+            modifier: modName || null,
+            qty: parseInt(row.quantity || row.qty || "1"),
+            price: parseFloat(((row.grossSales || row.sales || "0") + "").replace(/,/g, "")),
+            category: row.categoryName || row.category || "",
+            isModifier: !!modName && !itemName,
           });
         }
       } else {
-        await detailRes.text();
+        console.log("All detail endpoints returned 404 — no item data available");
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
