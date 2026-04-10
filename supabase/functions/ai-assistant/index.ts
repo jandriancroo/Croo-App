@@ -1557,6 +1557,74 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         });
       }
 
+      case "query_my_chats": {
+        if (!userId) return JSON.stringify({ error: "User not authenticated" });
+        
+        const daysBack = Math.min(args.days_back || 14, 90);
+        const maxResults = Math.min(args.limit || 20, 50);
+        const cutoffDate = new Date(Date.now() - daysBack * 86400000).toISOString();
+
+        // Step 1: Get chat IDs user is a member of
+        const { data: memberships, error: memErr } = await supabase
+          .from("chat_members")
+          .select("chat_id")
+          .eq("user_id", userId);
+        
+        if (memErr) return JSON.stringify({ error: memErr.message });
+        if (!memberships || memberships.length === 0) return JSON.stringify({ message: "You're not a member of any chats." });
+
+        const chatIds = memberships.map((m: any) => m.chat_id);
+
+        // Step 2: Optionally filter by chat title
+        let filteredChatIds = chatIds;
+        if (args.chat_title) {
+          const { data: matchingChats } = await supabase
+            .from("chats")
+            .select("id, title")
+            .in("id", chatIds)
+            .ilike("title", `%${args.chat_title}%`);
+          if (matchingChats && matchingChats.length > 0) {
+            filteredChatIds = matchingChats.map((c: any) => c.id);
+          } else {
+            return JSON.stringify({ message: `No chats found matching "${args.chat_title}".` });
+          }
+        }
+
+        // Step 3: Query messages
+        let query = supabase
+          .from("messages")
+          .select("id, content, created_at, chat_id, sender_id, profiles:sender_id(full_name), chats:chat_id(title, is_group, is_announcement)")
+          .in("chat_id", filteredChatIds)
+          .gte("created_at", cutoffDate)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(maxResults);
+
+        if (args.search_keyword) {
+          query = query.ilike("content", `%${args.search_keyword}%`);
+        }
+
+        const { data: msgs, error: msgErr } = await query;
+        if (msgErr) return JSON.stringify({ error: msgErr.message });
+        if (!msgs || msgs.length === 0) return JSON.stringify({ message: "No matching messages found." });
+
+        // Step 4: Filter by sender name if specified
+        let results = msgs.map((m: any) => ({
+          sender: m.profiles?.full_name || "Unknown",
+          chat: m.chats?.title || (m.chats?.is_announcement ? "Announcement" : "DM"),
+          content: m.content,
+          time: new Date(m.created_at).toLocaleString("en-US", { timeZone: timezone, dateStyle: "short", timeStyle: "short" }),
+        }));
+
+        if (args.sender_name) {
+          const q = args.sender_name.toLowerCase();
+          results = results.filter((r: any) => r.sender.toLowerCase().includes(q));
+          if (results.length === 0) return JSON.stringify({ message: `No messages found from "${args.sender_name}".` });
+        }
+
+        return JSON.stringify({ messages: results, total: results.length });
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
