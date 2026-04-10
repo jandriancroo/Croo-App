@@ -196,7 +196,7 @@ export default function KDSBoard() {
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all",
                 tab === 'kds'
-                  ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
             >
@@ -214,7 +214,7 @@ export default function KDSBoard() {
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all",
                 tab === 'board'
-                  ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20"
+                  ? "bg-accent text-accent-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
             >
