@@ -70,13 +70,13 @@ export default function KDSBoard() {
 
   // Initial sync + load
   useEffect(() => {
-    syncOrders().then(loadOrders);
+    syncOrders().then(() => loadOrders());
   }, [syncOrders, loadOrders]);
 
   // Poll QU every 10 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      syncOrders().then(loadOrders);
+      syncOrders().then(() => loadOrders());
     }, 10000);
     return () => clearInterval(interval);
   }, [syncOrders, loadOrders]);
@@ -181,7 +181,7 @@ export default function KDSBoard() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted"
-                onClick={() => syncOrders().then(loadOrders)}
+                onClick={() => syncOrders().then(() => loadOrders())}
                 disabled={loading}
               >
                 <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
