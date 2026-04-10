@@ -15,7 +15,7 @@ interface MenuPricingRowProps {
 
 type EditField = "price" | "upcharge" | "fee" | null;
 
-const MenuPricingRow = ({ item, show3pd, theoTarget, onPriceChange, on3pdChange }: MenuPricingRowProps) => {
+const MenuPricingRow = ({ item, show3pd, theoTarget, priceSource, onPriceChange, on3pdChange }: MenuPricingRowProps) => {
   const [editField, setEditField] = useState<EditField>(null);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
