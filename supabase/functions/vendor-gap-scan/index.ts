@@ -186,6 +186,12 @@ serve(async (req) => {
           console.log(`[vendor-gap-scan] PA catalog unique items: ${seenPaItems.size}`);
 
           for (const [paId, item] of seenPaItems) {
+            const vendorName = item.description || "";
+            // Skip if a same-named product was already dismissed/resolved
+            if (dismissedOrResolvedNames.has(vendorName.toLowerCase().trim())) continue;
+            // Skip if this exact alert already exists (avoid overwriting status)
+            if (existingAlertKeys.has(paId)) continue;
+
             const { error } = await supabase
               .from("vendor_gap_alerts")
               .upsert(
@@ -193,8 +199,8 @@ serve(async (req) => {
                   brand_id: brand.id,
                   vendor_source: "pa",
                   item_number: paId,
-                  vendor_name: item.description || "",
-                  vendor_description: item.description || "",
+                  vendor_name: vendorName,
+                  vendor_description: vendorName,
                   pack_size: item.pack_size || "",
                   category_name: item.category || "",
                   status: "new",
