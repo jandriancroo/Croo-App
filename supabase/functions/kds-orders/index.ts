@@ -196,6 +196,7 @@ serve(async (req) => {
             { fieldName: "description" },
             { fieldName: "itemsSoldCount" },
             { fieldName: "discounts" },
+            { fieldName: "paymentsAmount" },
           ],
           filters: {
             date: { from: today, to: today, type: "custom" },
