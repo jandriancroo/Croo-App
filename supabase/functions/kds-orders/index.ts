@@ -259,69 +259,150 @@ serve(async (req) => {
       if (recentOrders.length > 0) {
         const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
 
-        const detailRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail-items/sections/main",
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              fields: [
-                { fieldName: "checkNumber" },
-                { fieldName: "itemName" },
-                { fieldName: "modifierName" },
-                { fieldName: "quantity" },
-                { fieldName: "netSales" },
-                { fieldName: "grossSales" },
-                { fieldName: "itemGroupName" },
-              ],
-              filters: {
-                checkNumber: { values: recentCheckNumbers },
-                date: { from: today, to: today, type: "custom" },
-                location: { operationalUnits: [quStoreId] },
-              },
-              params: {
-                sectionId: "main",
-                pageNumber: 1,
-                pageSize: Math.max(200, recentCheckNumbers.length * 20),
-                showTotals: false,
-              },
-            }),
+        // Exhaustive report-name scan: probe every plausible name in parallel
+        const reportNames = [
+          "check-detail-items",
+          "check-details-items",
+          "check-item-detail",
+          "check-items",
+          "checks-items",
+          "check-detail-item",
+          "order-items",
+          "order-detail",
+          "order-details",
+          "item-detail",
+          "item-details",
+          "line-items",
+          "line-item-detail",
+          "transaction-detail",
+          "transaction-details",
+          "transaction-items",
+          "ticket-detail",
+          "ticket-details",
+          "ticket-items",
+          "check-line-items",
+          "sales-detail",
+          "sales-details",
+          "sales-items",
+          "check-detail",          // re-test with checkNumber filter
+        ];
+
+        const body = JSON.stringify({
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "itemName" },
+            { fieldName: "modifierName" },
+            { fieldName: "quantity" },
+            { fieldName: "netSales" },
+          ],
+          filters: {
+            date: { from: today, to: today, type: "custom" },
+            location: { operationalUnits: [quStoreId] },
           },
-        );
+          params: { sectionId: "main", pageNumber: 1, pageSize: 10, showTotals: false },
+        });
 
-        if (detailRes.ok) {
-          const data = await detailRes.json();
-          const rows = data.items || [];
-          console.log(`check-detail-items returned ${rows.length} rows for ${recentCheckNumbers.length} checks`);
+        const BATCH = 8;
+        let winningReport: string | null = null;
+        let winningData: any[] = [];
 
-          const appendRow = (row: any, fallbackCheckNumber?: string) => {
-            const checkNumber = row.checkNumber || fallbackCheckNumber || null;
-            const itemName = row.itemName || "";
-            if (!checkNumber || !itemName || itemName === "Total" || itemName === "Totals") return;
+        for (let i = 0; i < reportNames.length && !winningReport; i += BATCH) {
+          const batch = reportNames.slice(i, i + BATCH);
+          const results = await Promise.allSettled(
+            batch.map(async (name) => {
+              const res = await fetch(
+                `https://gateway-api.qubeyond.com/api/v4/data/reports/${name}/sections/main`,
+                { method: "POST", headers, body },
+              );
+              const status = res.status;
+              const text = await res.text();
+              let items: any[] = [];
+              let hasItemName = false;
+              try {
+                const d = JSON.parse(text);
+                items = d.items || [];
+                if (items[0]?.itemName) hasItemName = true;
+              } catch {}
+              console.log(`SCAN ${name}: ${status}, ${items.length} rows, hasItemName=${hasItemName}`);
+              if (status === 200 && hasItemName && items.length > 0) {
+                console.log(`✅ WINNER: ${name} — sample: ${JSON.stringify(items[0]).slice(0, 400)}`);
+              }
+              return { name, status, items, hasItemName };
+            }),
+          );
 
-            const isModifier = itemName.startsWith("**") || itemName.startsWith("++") || !!row.modifierName;
-            const displayName = (row.modifierName || itemName).replace(/^\*\*\s*|\+\+\s*/g, "").trim();
-
-            if (!itemsByCheck[checkNumber]) itemsByCheck[checkNumber] = [];
-            itemsByCheck[checkNumber].push({
-              name: displayName,
-              modifier: row.modifierName || null,
-              qty: parseInt(String(row.quantity || "1"), 10),
-              price: parseFloat(String(row.netSales || row.grossSales || "0").replace(/,/g, "")),
-              category: row.itemGroupName || "",
-              isModifier,
-            });
-          };
-
-          for (const row of rows) {
-            appendRow(row);
-            if (Array.isArray(row.items)) {
-              for (const child of row.items) appendRow(child, row.checkNumber);
+          for (const r of results) {
+            if (r.status === "fulfilled" && r.value.status === 200 && r.value.hasItemName) {
+              winningReport = r.value.name;
+              winningData = r.value.items;
+              break;
             }
           }
+        }
+
+        if (winningReport) {
+          console.log(`Using report: ${winningReport}`);
+          // Now do the real fetch with checkNumber filter
+          const fullRes = await fetch(
+            `https://gateway-api.qubeyond.com/api/v4/data/reports/${winningReport}/sections/main`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                fields: [
+                  { fieldName: "checkNumber" },
+                  { fieldName: "itemName" },
+                  { fieldName: "modifierName" },
+                  { fieldName: "quantity" },
+                  { fieldName: "netSales" },
+                  { fieldName: "grossSales" },
+                  { fieldName: "itemGroupName" },
+                ],
+                filters: {
+                  date: { from: today, to: today, type: "custom" },
+                  location: { operationalUnits: [quStoreId] },
+                },
+                params: { sectionId: "main", pageNumber: 1, pageSize: 2000, showTotals: false },
+              }),
+            },
+          );
+
+          if (fullRes.ok) {
+            const data = await fullRes.json();
+            const rows = data.items || [];
+            console.log(`${winningReport} full fetch: ${rows.length} rows`);
+
+            const appendRow = (row: any, fallbackCN?: string) => {
+              const cn = row.checkNumber || fallbackCN || null;
+              const itemName = row.itemName || "";
+              if (!cn || !itemName || itemName === "Total" || itemName === "Totals") return;
+              if (!recentCheckNumbers.includes(cn)) return;
+
+              const isModifier = itemName.startsWith("**") || itemName.startsWith("++") || !!row.modifierName;
+              const displayName = (row.modifierName || itemName).replace(/^\*\*\s*|\+\+\s*/g, "").trim();
+
+              if (!itemsByCheck[cn]) itemsByCheck[cn] = [];
+              itemsByCheck[cn].push({
+                name: displayName,
+                modifier: row.modifierName || null,
+                qty: parseInt(String(row.quantity || "1"), 10),
+                price: parseFloat(String(row.netSales || row.grossSales || "0").replace(/,/g, "")),
+                category: row.itemGroupName || "",
+                isModifier,
+              });
+            };
+
+            for (const row of rows) {
+              appendRow(row);
+              if (Array.isArray(row.items)) {
+                for (const child of row.items) appendRow(child, row.checkNumber);
+              }
+            }
+          } else {
+            await fullRes.text();
+          }
         } else {
-          const text = await detailRes.text();
-          console.log(`check-detail-items failed: ${detailRes.status} - ${text.slice(0, 300)}`);
+          console.log("No winning report found with itemName field");
         }
 
         console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length}/${recentCheckNumbers.length} checks with items`);
