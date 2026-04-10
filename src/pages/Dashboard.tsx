@@ -685,6 +685,9 @@ export default function Dashboard() {
       />
       
 
+      {/* Data Stream Status — super admin only */}
+      <DataStreamTask />
+
       {/* Catering Orders (Today + Tomorrow) */}
       <CateringOrdersAlert />
     </div>
