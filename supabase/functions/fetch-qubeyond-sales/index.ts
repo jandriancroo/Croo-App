@@ -3162,7 +3162,7 @@ serve(async (req) => {
               .upsert({
                 location_id: locationId,
                 labor_date: todayStr,
-                source: laborSource === 'punches' ? 'punch_clock' : 'qubeyond',
+                source: 'punch_clock',
                 labor_cost: laborData.laborCost || 0,
                 labor_hours: laborData.hoursWorked || 0,
                 regular_hours: laborData.regularHours || 0,
