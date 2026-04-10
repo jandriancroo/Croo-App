@@ -8,6 +8,7 @@ interface MenuPricingRowProps {
   item: MenuPricingItem;
   show3pd: boolean;
   theoTarget: number;
+  priceSource: "manual" | "qu";
   onPriceChange: (blueprintId: string, price: number) => void;
   on3pdChange: (blueprintId: string, field: "upcharge" | "fee", value: number) => void;
 }
