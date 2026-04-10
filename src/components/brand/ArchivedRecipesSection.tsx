@@ -25,7 +25,7 @@ export default function ArchivedRecipesSection({ brandId, searchQuery = "" }: Ar
         .eq("is_active", false)
         .order("name");
       if (error) throw error;
-      return (data || []) as Array<{ id: string; name: string; category: string | null; yield_qty: number | null; yield_unit: string | null; source: string | null }>;
+      return (data || []) as unknown as Array<{ id: string; name: string; category: string | null; yield_qty: number | null; yield_unit: string | null; source: string | null }>;
     },
   });
 
