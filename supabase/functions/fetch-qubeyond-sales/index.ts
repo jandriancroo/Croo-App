@@ -1239,7 +1239,7 @@ async function cacheLaborData(
   locationId: string,
   dateStr: string,
   laborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number },
-  source: 'qubeyond' | 'punch_clock' = 'qubeyond'
+  source: 'punch_clock' | 'qubeyond' = 'punch_clock'
 ): Promise<void> {
   try {
     const { error } = await supabase
