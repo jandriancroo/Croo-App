@@ -2522,7 +2522,7 @@ serve(async (req) => {
     let laborData = null;
     let weeklyLaborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] } | null = null;
     let monthlyLaborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] } | null = null;
-    let laborSource: 'qu' | 'punches' | null = null;
+    let laborSource: 'punches' | null = null;
     
     // Tips from DB cache (already fetched in parallel above)
     let tipsData = null;
@@ -3246,8 +3246,8 @@ serve(async (req) => {
       projections, // AI-powered projections
       productMix,
       tills: tillsData, // Tills data for drawer count expected cash
-      labor: laborData, // Labor data (from Qu or punches)
-      laborSource: laborSource, // 'qu' or 'punches' - indicates data source
+      labor: laborData, // Labor data (from punch clock)
+      laborSource: laborSource, // 'punches' - all locations use punch clock
       weeklyLabor: weeklyLaborTotals, // Weekly labor totals
       monthlyLabor: monthlyLaborTotals, // Monthly labor totals (MTD)
       tips: tipsData, // Today's tips data (CC + cash)
