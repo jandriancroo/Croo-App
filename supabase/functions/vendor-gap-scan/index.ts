@@ -127,6 +127,12 @@ serve(async (req) => {
                     // Check all three sources
                     if (existingPfgNumbers.has(itemNumber) || existingVendorIds.has(itemNumber)) continue;
 
+                    const vendorName = item.fullDescription || item.description || "";
+                    // Skip if a same-named product was already dismissed/resolved
+                    if (dismissedOrResolvedNames.has(vendorName.toLowerCase().trim())) continue;
+                    // Skip if this exact alert already exists (avoid overwriting status)
+                    if (existingAlertKeys.has(itemNumber)) continue;
+
                     const { error } = await supabase
                       .from("vendor_gap_alerts")
                       .upsert(
@@ -134,7 +140,7 @@ serve(async (req) => {
                           brand_id: brand.id,
                           vendor_source: "pfg",
                           item_number: itemNumber,
-                          vendor_name: item.fullDescription || item.description || "",
+                          vendor_name: vendorName,
                           vendor_description: item.fullDescription || "",
                           pack_size: item.packSize || "",
                           category_name: item.categoryName || "",
