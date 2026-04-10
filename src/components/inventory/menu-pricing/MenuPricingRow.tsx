@@ -108,15 +108,6 @@ const MenuPricingRow = ({ item, show3pd, theoTarget, onPriceChange, on3pdChange 
         {renderEditableCell("price", item.menuPrice, "dollar")}
       </div>
 
-      <div className={cn(
-        "text-right tabular-nums text-xs",
-        priceSource === "qu" && item.quPrice !== null
-          ? "text-primary font-semibold"
-          : "text-muted-foreground"
-      )}>
-        {item.quPrice !== null ? `$${item.quPrice.toFixed(2)}` : "—"}
-      </div>
-
       <div className={cn("text-right tabular-nums text-xs font-semibold", getFoodCostColor(item.foodCostPct))}>
         {item.foodCostPct !== null ? `${item.foodCostPct.toFixed(1)}%` : "—"}
       </div>
