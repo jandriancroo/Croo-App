@@ -258,13 +258,19 @@ serve(async (req) => {
       if (recentOrders.length > 0) {
         const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
 
-        // Step 1: Get checkIds from check-detail/main (which returns checkNumberSubreport.checkId)
+        // Step 1: Get checkIds from check-detail/main (checkNumberSubreport contains checkId)
         const mainRes = await fetch(
           "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
           {
             method: "POST", headers,
             body: JSON.stringify({
-              fields: [{ fieldName: "checkNumber" }],
+              fields: [
+                { fieldName: "checkNumber" },
+                { fieldName: "checkState" },
+                { fieldName: "itemsSoldCount" },
+                { fieldName: "netSales" },
+                { fieldName: "description" },
+              ],
               filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } },
               params: { sectionId: "main", pageSize: 200 },
             }),
