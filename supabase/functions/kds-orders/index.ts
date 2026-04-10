@@ -88,7 +88,8 @@ serve(async (req) => {
     }
 
     const h = getHeaders(token);
-    const today = new Date().toISOString().split('T')[0];
+    // Use PST/PDT for Blaze locations
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })).toISOString().split('T')[0];
 
     // Fetch check-detail for today's orders
     const checkRes = await fetch(
