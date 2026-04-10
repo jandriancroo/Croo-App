@@ -221,7 +221,7 @@ serve(async (req) => {
           .filter((item: any) => item.checkNumber && item.checkNumber !== "Total")
           .map((item: any) => ({
             checkNumber: item.checkNumber || "",
-            customerName: item.description || "",
+            customerName: item.customerName || item.externalOrderId || item.description || item.checkNumber || "",
             orderType: item.orderTypeName || "",
             channel: item.orderChannelName || "",
             daypart: item.daypartName || "",
