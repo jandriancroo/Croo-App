@@ -250,7 +250,7 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // Get recent check numbers
+      // Get recent check numbers for item hydration
       const recentCheckNumbers = new Set(
         orders
           .filter((o: any) => {
@@ -262,118 +262,81 @@ serve(async (req) => {
       );
 
       if (recentCheckNumbers.size > 0) {
-        // Step 1: Get checkIds from check-detail report
-        const checkDetailRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
+        // Single bulk product-mix call requesting checkNumber field
+        const pmRes = await fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
           {
             method: "POST",
             headers,
             body: JSON.stringify({
-              fields: [{ fieldName: "checkNumber" }],
+              fields: [
+                { fieldName: "checkNumber" },
+                { fieldName: "itemName" },
+                { fieldName: "modifierName" },
+                { fieldName: "quantity" },
+                { fieldName: "netSales" },
+              ],
               filters: {
                 date: { from: today, to: today, type: "custom" },
                 location: { operationalUnits: [quStoreId] },
               },
-              params: { sectionId: "main", pageNumber: 1, pageSize: 500, showTotals: false },
+              params: { sectionId: "main", pageNumber: 1, pageSize: 2000, showTotals: false },
             }),
-          }
+          },
         );
 
-        if (checkDetailRes.ok) {
-          const checkData = await checkDetailRes.json();
-          const checkRows = checkData.items || [];
+        if (pmRes.ok) {
+          const pmData = await pmRes.json();
+          const groups = pmData.items || [];
 
-          const subreportData: { checkNum: string; checkId: string }[] = [];
-          for (const row of checkRows) {
-            const cn = row.checkNumber;
-            if (!cn || !recentCheckNumbers.has(cn)) continue;
-            const sub = row.checkNumberSubreport;
-            if (sub?.checkId) {
-              subreportData.push({ checkNum: cn, checkId: sub.checkId });
+          // Log full structure of first group to understand nesting
+          if (groups[0]) {
+            const g = groups[0];
+            const hasSubItems = Array.isArray(g.items);
+            console.log(`PM group[0]: itemName="${g.itemName}", hasSubItems=${hasSubItems}, subCount=${hasSubItems ? g.items.length : 0}`);
+            if (hasSubItems && g.items[0]) {
+              const sub = g.items[0];
+              console.log(`PM sub[0] keys: ${Object.keys(sub).join(",")}`);
+              // Check if checkNumber is anywhere in the subreport
+              if (sub.itemNameSubreport) {
+                console.log(`PM sub[0] subreport: ${JSON.stringify(sub.itemNameSubreport).slice(0, 300)}`);
+              }
+              if (sub.checkNumber) {
+                console.log(`PM sub[0] has checkNumber: ${sub.checkNumber}`);
+              }
+              console.log(`PM sub[0] sample: ${JSON.stringify(sub).slice(0, 500)}`);
             }
           }
 
-          console.log(`Found ${subreportData.length} checkIds for ${recentCheckNumbers.size} recent checks`);
+          // Try to extract checkNumber from nested structure
+          let totalItems = 0;
+          for (const group of groups) {
+            const subItems = Array.isArray(group.items) ? group.items : [];
+            for (const row of subItems) {
+              const itemName = row.itemName || "";
+              if (!itemName || itemName === "Totals") continue;
 
-          // Step 2: Hydrate each check via Transactional Check Detail endpoint
-          const toFetch = subreportData.slice(0, 20);
-
-          const hydrateCheck = async (sr: typeof subreportData[0]) => {
-            try {
-              // Try multiple transactional endpoint patterns
-              const urls = [
-                `https://gateway-api.qubeyond.com/api/v4/data/checks/${sr.checkId}`,
-                `https://gateway-api.qubeyond.com/api/v4/checks/${sr.checkId}`,
-                `https://gateway-api.qubeyond.com/api/v4/data/orders/${sr.checkId}`,
-                `https://gateway-api.qubeyond.com/api/v4/orders/${sr.checkId}`,
-                `https://gateway-api.qubeyond.com/api/v4/data/transactions/${sr.checkId}`,
-              ];
-
-              let data: any = null;
-              for (const url of urls) {
-                const r = await fetch(url, { method: "GET", headers });
-                if (sr.checkNum === toFetch[0]?.checkNum) {
-                  console.log(`Probe ${sr.checkNum}: ${url} => ${r.status}`);
-                }
-                if (r.ok) {
-                  data = await r.json();
-                  if (sr.checkNum === toFetch[0]?.checkNum) {
-                    console.log("Deep check keys:", Object.keys(data));
-                    console.log("Deep check sample:", JSON.stringify(data).slice(0, 800));
-                  }
-                  break;
-                }
-                await r.text();
+              // Look for checkNumber in various places
+              const cn = row.checkNumber || null;
+              if (cn && recentCheckNumbers.has(cn)) {
+                const isModifier = itemName.startsWith("**") || itemName.startsWith("++");
+                const displayName = isModifier ? itemName.replace(/^\*\*\s*|\+\+\s*/g, "").trim() : itemName;
+                if (!itemsByCheck[cn]) itemsByCheck[cn] = [];
+                itemsByCheck[cn].push({
+                  name: displayName,
+                  modifier: null,
+                  qty: parseInt(row.quantity || "1"),
+                  price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
+                  category: row.itemGroupName || group.itemGroupName || "",
+                  isModifier,
+                });
+                totalItems++;
               }
-
-              if (!data) return;
-
-
-              if (sr.checkNum === toFetch[0]?.checkNum) {
-                console.log("Deep check keys:", Object.keys(data));
-                console.log("Deep check sample:", JSON.stringify(data).slice(0, 800));
-              }
-
-              // Extract line items - try common response shapes
-              const lineItems = data.lineItems || data.items || data.orderItems || data.details || [];
-              const flat: any[] = [];
-              for (const entry of (Array.isArray(lineItems) ? lineItems : [])) {
-                flat.push(entry);
-                // Also extract child modifiers/toppings
-                const children = entry.modifiers || entry.children || entry.subItems || [];
-                for (const mod of (Array.isArray(children) ? children : [])) {
-                  flat.push({ ...mod, _isModifier: true, _parentName: entry.name || entry.itemName || "" });
-                }
-              }
-
-              if (flat.length > 0) {
-                itemsByCheck[sr.checkNum] = [];
-                for (const row of flat) {
-                  const itemName = row.menuItemName || row.itemName || row.name || row.description || "";
-                  const modName = row._isModifier ? itemName : (row.modifierName || "");
-                  if (!itemName && !modName) continue;
-                  itemsByCheck[sr.checkNum].push({
-                    name: row._isModifier ? row._parentName : itemName,
-                    modifier: row._isModifier ? itemName : (modName || null),
-                    qty: parseInt(row.quantity || row.qty || row.count || "1"),
-                    price: parseFloat(((row.price || row.netSales || row.grossSales || row.amount || "0") + "").replace(/,/g, "")),
-                    category: row.category || row.itemGroup || row.itemGroupName || "",
-                    isModifier: !!row._isModifier,
-                  });
-                }
-              }
-            } catch (e) {
-              // Skip failed check
             }
-          };
-
-          // Batch in groups of 5
-          for (let i = 0; i < toFetch.length; i += 5) {
-            await Promise.all(toFetch.slice(i, i + 5).map(hydrateCheck));
           }
+
+          console.log(`Product-mix bulk: ${groups.length} groups, ${totalItems} items, ${Object.keys(itemsByCheck).length} checks matched`);
         }
-
-        console.log(`Items resolved for ${Object.keys(itemsByCheck).length} checks`);
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
