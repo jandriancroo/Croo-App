@@ -250,92 +250,133 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // Get check numbers from orders that are recent and open
-      const recentCheckNumbers = orders
-        .filter((o: any) => {
-          const openedAt = parseQuDateToIso(o.date);
-          return openedAt && isRecentOrder(openedAt);
-        })
-        .map((o: any) => o.checkNumber)
-        .filter(Boolean);
+      // Get recent check numbers
+      const recentCheckNumbers = new Set(
+        orders
+          .filter((o: any) => {
+            const openedAt = parseQuDateToIso(o.date);
+            return openedAt && isRecentOrder(openedAt);
+          })
+          .map((o: any) => o.checkNumber)
+          .filter(Boolean)
+      );
 
-      if (recentCheckNumbers.length > 0) {
-        // Use checkNumberSubreport pattern: fetch check-detail to get subreport filters,
-        // then drill into each check for item-level data
-        // Strategy: Use check-detail main with checkNumber filter to get the subreport links
-        
-        // Batch fetch: For each recent check, call the subreport endpoint
-        const SUBREPORT_URL = "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main";
-        
-        // Fetch items for up to 20 checks in parallel batches of 5
-        const checksToFetch = recentCheckNumbers.slice(0, 20);
-        console.log(`Fetching item detail for ${checksToFetch.length} recent checks`);
+      if (recentCheckNumbers.size > 0) {
+        // Step 1: Fetch check-detail to get checkNumberSubreport drill-down params
+        const checkDetailRes = await fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              fields: [{ fieldName: "checkNumber" }],
+              filters: {
+                date: { from: today, to: today, type: "custom" },
+                location: { operationalUnits: [quStoreId] },
+              },
+              params: { sectionId: "main", pageNumber: 1, pageSize: 500, showTotals: false },
+            }),
+          }
+        );
 
-        const fetchCheckItems = async (checkNum: string) => {
-          try {
-            const r = await fetch(SUBREPORT_URL, {
-              method: "POST",
-              headers,
-              body: JSON.stringify({
-                fields: [
-                  { fieldName: "checkNumber" },
-                  { fieldName: "menuItemName" },
-                  { fieldName: "modifierName" },
-                  { fieldName: "itemName" },
-                  { fieldName: "quantity" },
-                  { fieldName: "netSales" },
-                  { fieldName: "itemGroup" },
-                ],
-                filters: {
-                  date: { from: today, to: today, type: "custom" },
-                  location: { operationalUnits: [quStoreId] },
-                  checkNumber: checkNum,
-                },
-                params: {
-                  sectionId: "main",
-                  pageNumber: 1,
-                  pageSize: 100,
-                  showTotals: false,
-                },
-              }),
-            });
-            if (!r.ok) return;
-            const data = await r.json();
-            const rows = data.items || data.data || [];
-            // Flatten nested items
-            const flat: any[] = [];
-            for (const entry of rows) {
-              if (Array.isArray(entry.items)) flat.push(...entry.items);
-              else flat.push(entry);
-            }
-            if (flat.length > 0 && !itemsByCheck[checkNum]) {
-              itemsByCheck[checkNum] = [];
-            }
-            for (const row of flat) {
-              const itemName = row.menuItemName || row.itemName || row.name || "";
-              const modName = row.modifierName || row.modifier || "";
-              if (!itemName && !modName) continue;
-              itemsByCheck[checkNum]?.push({
-                name: itemName || modName,
-                modifier: modName || null,
-                qty: parseInt(row.quantity || row.qty || "1"),
-                price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
-                category: row.itemGroup || row.itemGroupName || "",
-                isModifier: !!modName && !itemName,
+        if (checkDetailRes.ok) {
+          const checkData = await checkDetailRes.json();
+          const checkRows = checkData.items || [];
+
+          // Step 2: For each recent check, use the checkNumberSubreport to drill down
+          const subreportFilters: { checkNum: string; filters: any; params: any }[] = [];
+          for (const row of checkRows) {
+            const cn = row.checkNumber;
+            if (!cn || !recentCheckNumbers.has(cn)) continue;
+            if (row.checkNumberSubreport) {
+              subreportFilters.push({
+                checkNum: cn,
+                filters: row.checkNumberSubreport.filters || {},
+                params: row.checkNumberSubreport.params || {},
               });
             }
-          } catch (e) {
-            // Silently skip failed checks
           }
-        };
 
-        // Process in batches of 5 to stay within rate limits
-        for (let i = 0; i < checksToFetch.length; i += 5) {
-          const batch = checksToFetch.slice(i, i + 5);
-          await Promise.all(batch.map(fetchCheckItems));
+          console.log(`Found ${subreportFilters.length} subreport links for ${recentCheckNumbers.size} recent checks`);
+          if (subreportFilters.length > 0) {
+            console.log("Sample subreport:", JSON.stringify(subreportFilters[0]).slice(0, 500));
+          }
+
+          // Step 3: Drill into each subreport (batched, max 20)
+          const toFetch = subreportFilters.slice(0, 20);
+          
+          const fetchSubreport = async (sr: typeof subreportFilters[0]) => {
+            try {
+              // The subreport typically uses check-detail with different filters/params
+              const r = await fetch(
+                "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
+                {
+                  method: "POST",
+                  headers,
+                  body: JSON.stringify({
+                    fields: [
+                      { fieldName: "itemName" },
+                      { fieldName: "menuItemName" },
+                      { fieldName: "modifierName" },
+                      { fieldName: "quantity" },
+                      { fieldName: "netSales" },
+                      { fieldName: "itemGroup" },
+                    ],
+                    filters: sr.filters,
+                    params: { ...sr.params, showTotals: false },
+                  }),
+                }
+              );
+              if (!r.ok) {
+                if (sr.checkNum === toFetch[0]?.checkNum) {
+                  console.log(`Subreport failed: ${r.status} for check ${sr.checkNum}`);
+                }
+                return;
+              }
+              const data = await r.json();
+              const rows = data.items || data.data || [];
+              const flat: any[] = [];
+              for (const entry of rows) {
+                if (Array.isArray(entry.items)) flat.push(...entry.items);
+                else flat.push(entry);
+              }
+              
+              if (sr.checkNum === toFetch[0]?.checkNum) {
+                console.log(`Subreport for check ${sr.checkNum}: ${flat.length} rows`);
+                if (flat.length > 0) {
+                  console.log("Subreport row keys:", Object.keys(flat[0]));
+                  console.log("Subreport sample:", JSON.stringify(flat[0]).slice(0, 400));
+                }
+              }
+
+              if (flat.length > 0) {
+                itemsByCheck[sr.checkNum] = [];
+                for (const row of flat) {
+                  const itemName = row.menuItemName || row.itemName || row.name || "";
+                  const modName = row.modifierName || row.modifier || "";
+                  if (!itemName && !modName) continue;
+                  itemsByCheck[sr.checkNum].push({
+                    name: itemName || modName,
+                    modifier: modName || null,
+                    qty: parseInt(row.quantity || row.qty || "1"),
+                    price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
+                    category: row.itemGroup || row.itemGroupName || "",
+                    isModifier: !!modName && !itemName,
+                  });
+                }
+              }
+            } catch (e) {
+              // Skip failed
+            }
+          };
+
+          // Batch in groups of 5
+          for (let i = 0; i < toFetch.length; i += 5) {
+            await Promise.all(toFetch.slice(i, i + 5).map(fetchSubreport));
+          }
         }
 
-        console.log(`Items resolved for ${Object.keys(itemsByCheck).length} of ${checksToFetch.length} checks`);
+        console.log(`Items resolved for ${Object.keys(itemsByCheck).length} checks`);
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
