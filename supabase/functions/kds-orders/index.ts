@@ -299,14 +299,13 @@ serve(async (req) => {
         console.log("Detail endpoint 404:", ep.url);
       }
 
-      if (detailRes.ok) {
+      if (detailRes) {
         const detailData = await detailRes.json();
         const rows = detailData.items || detailData.data || [];
-        console.log("transaction-details response keys:", Object.keys(detailData));
-        console.log("transaction-details row count:", rows.length);
+        console.log("Detail endpoint used:", usedEndpoint, "rows:", rows.length);
         if (rows.length > 0) {
-          console.log("transaction-details sample row keys:", Object.keys(rows[0]));
-          console.log("transaction-details sample row:", JSON.stringify(rows[0]));
+          console.log("Sample row keys:", Object.keys(rows[0]));
+          console.log("Sample row:", JSON.stringify(rows[0]));
         }
 
         for (const row of rows) {
