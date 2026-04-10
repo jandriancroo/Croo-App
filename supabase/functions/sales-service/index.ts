@@ -1376,15 +1376,6 @@ async function handleTestApi(supabase: any): Promise<Response> {
           filters: { date: { from: null, to: null, values: [todayStr], type: 'custom' }, location: { operationalUnits: [parseInt(qbLocationId)] } },
           params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true }
         }
-      },
-      {
-        name: 'labor_summary',
-        url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/labor-summary/sections/main',
-        payload: {
-          fields: [{ fieldName: 'jobTitle' }, { fieldName: 'regularHours' }, { fieldName: 'overtimeHours' }, { fieldName: 'laborCost' }],
-          filters: { date: { from: null, to: null, values: [todayStr], type: 'custom' }, singleLocation: parseInt(qbLocationId), location: { operationalUnits: [parseInt(qbLocationId)] } },
-          params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true }
-        }
       }
     ];
 
