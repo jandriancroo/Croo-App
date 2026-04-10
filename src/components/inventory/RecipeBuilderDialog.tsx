@@ -1102,8 +1102,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           </div>
         ) : (
         <div className="space-y-4">
-          {/* Back to type selection when creating */}
-          {isCreating && blueprintType && (
+          {/* Back to type selection when creating (not in simulator) */}
+          {isCreating && blueprintType && !simulatorMode && (
             <button
               type="button"
               className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
