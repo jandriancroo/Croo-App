@@ -789,7 +789,7 @@ async function fetchPaymentTypes(
         /(cash|credit|card|visa|master|amex|doordash|uber|olo|delivery|online|grub|gift)/i.test(p.paymentType)
       );
 
-      console.log(`[PAYMENTS] ${c.name} ok: items=${Array.isArray(data?.items) ? data.items.length : 0}, parsed=${parsed.length}, looksLikeMethods=${looksLikePaymentMethods}`);
+      console.log(`[PAYMENTS] ${c.name} ok: items=${Array.isArray(data?.items) ? data.items.length : 0}, parsed=${parsed.length}, looksLikeMethods=${looksLikePaymentMethods}, types=${parsed.map(p => p.paymentType).join(',')}`);
 
       return { name: c.name, parsed, valid: looksLikePaymentMethods };
     })
