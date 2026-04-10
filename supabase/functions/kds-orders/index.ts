@@ -257,75 +257,7 @@ serve(async (req) => {
       });
 
       if (recentOrders.length > 0) {
-        // Extract checkIds from the main report's subreport links
-        const checkIdsToHydrate: { checkNumber: string; checkId: string }[] = [];
-        
-        // First try: get checkIds from a check-detail call that includes the checkId field
-        const checkIdRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              fields: [
-                { fieldName: "checkNumber" },
-                { fieldName: "checkId" },
-              ],
-              filters: {
-                date: { from: today, to: today, type: "custom" },
-                location: { operationalUnits: [quStoreId] },
-              },
-              params: { sectionId: "main", pageNumber: 1, pageSize: 200 },
-            }),
-          },
-        );
-
-        if (checkIdRes.ok) {
-          const checkIdData = await checkIdRes.json();
-          const items = checkIdData.items || [];
-          const recentCheckNumbers = new Set(recentOrders.map((o: any) => o.checkNumber));
-          
-          for (const item of items) {
-            const cn = item.checkNumber;
-            // checkId may be in checkId field, or in a subreport reference
-            const cid = item.checkId || item.id || item._id || null;
-            
-            // Also check for subreport links that contain the checkId
-            const subreportKeys = Object.keys(item).filter(k => k.endsWith("Subreport") || k === "checkNumberSubreport");
-            let extractedId = cid;
-            if (!extractedId) {
-              for (const key of subreportKeys) {
-                const sr = item[key];
-                if (sr && typeof sr === "object") {
-                  extractedId = sr.checkId || sr.id || (sr.params && sr.params.checkId) || null;
-                  if (extractedId) break;
-                }
-              }
-            }
-
-            if (cn && recentCheckNumbers.has(cn) && extractedId) {
-              checkIdsToHydrate.push({ checkNumber: cn, checkId: extractedId });
-            }
-          }
-          
-          // Log first item structure to understand available fields
-          if (items[0]) {
-            console.log(`check-detail keys: ${Object.keys(items[0]).join(",")}`);
-            const subreportKeys = Object.keys(items[0]).filter(k => k.endsWith("Subreport") || k.includes("subreport") || k.includes("Sub"));
-            if (subreportKeys.length > 0) {
-              for (const k of subreportKeys) {
-                console.log(`Subreport ${k}: ${JSON.stringify(items[0][k]).slice(0, 400)}`);
-              }
-            }
-          }
-          
-          console.log(`Found ${checkIdsToHydrate.length} checkIds to hydrate from ${items.length} check-detail rows`);
-        } else {
-          const errText = await checkIdRes.text();
-          console.log(`check-detail for checkIds: ${checkIdRes.status} - ${errText.slice(0, 200)}`);
-        }
-
-        // Step 2: Use product-mix filtered by checkNumber to get items per check
+        // Use product-mix filtered by checkNumber to get items per check
         // This is the only working endpoint - returns item groups with nested items
         const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
         const BATCH_SIZE = 5;
