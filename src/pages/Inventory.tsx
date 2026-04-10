@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, ArrowLeft, Hammer } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, ArrowLeft, Hammer, DollarSign } from "lucide-react";
+import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
+import RecipeGeniusCard from "@/components/inventory/menu-pricing/RecipeGeniusCard";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
 import { format } from "date-fns";
 import { formatPeriodLabel } from "@/utils/periodLabelUtils";
@@ -337,7 +339,7 @@ const Inventory = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span>Count</span>
@@ -345,6 +347,10 @@ const Inventory = () => {
             <TabsTrigger value="items" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               <span>Items</span>
+            </TabsTrigger>
+            <TabsTrigger value="pricing" className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              <span>Pricing</span>
             </TabsTrigger>
             <TabsTrigger value="build" className="flex items-center gap-2">
               <Hammer className="h-4 w-4" />
@@ -368,11 +374,15 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="items" className="mt-4 space-y-4">
-            {/* Brand Catalog Activation — collapsible banner at top */}
             {brandInfo && (
               <BrandItemActivation locationId={locationId!} brandId={brandInfo} />
             )}
             <InventoryItemsManager locationId={locationId!} mode="items" />
+          </TabsContent>
+
+          <TabsContent value="pricing" className="mt-4 space-y-4">
+            <MenuPricingCard locationId={locationId!} />
+            <RecipeGeniusCard locationId={locationId!} />
           </TabsContent>
 
           <TabsContent value="build" className="mt-4 space-y-4">

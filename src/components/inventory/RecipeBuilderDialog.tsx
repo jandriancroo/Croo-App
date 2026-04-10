@@ -44,6 +44,7 @@ interface RecipeBuilderDialogProps {
   editRecipeId?: string | null;
   editBlueprintId?: string | null;
   brandId?: string;
+  simulatorMode?: boolean;
 }
 
 interface BuilderIngredient {
@@ -243,7 +244,7 @@ const dedupeAndSortIngredients = (
   });
 };
 
-const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, editBlueprintId, brandId }: RecipeBuilderDialogProps) => {
+const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, editBlueprintId, brandId, simulatorMode }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
   const [category, setCategory] = useState("");
@@ -778,7 +779,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
             category: effectiveCategory,
             yield_qty: parseFloat(yieldQty),
             yield_unit: yieldUnit,
-            source: "manual",
+            source: simulatorMode ? "simulator" : "manual",
             ...(catalogSection ? { catalog_section: catalogSection } : {}),
           } as any)
           .select("id").single();
@@ -831,6 +832,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       queryClient.invalidateQueries({ queryKey: ["blueprint-recipes", locationId] });
       queryClient.invalidateQueries({ queryKey: ["blueprint-costs", locationId] });
       queryClient.invalidateQueries({ queryKey: ["recipe-catalog-blueprints", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["recipe-genius-blueprints", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["menu-pricing-blueprints", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["menu-pricing-costs", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["recipe-genius-costs", locationId] });
       if (editBlueprintId) {
         queryClient.invalidateQueries({ queryKey: ["blueprint-detail", editBlueprintId] });
       }

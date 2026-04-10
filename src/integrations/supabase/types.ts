@@ -4861,6 +4861,48 @@ export type Database = {
         }
         Relationships: []
       }
+      menu_price_overrides: {
+        Row: {
+          blueprint_id: string
+          created_at: string
+          id: string
+          location_id: string
+          menu_price: number
+          updated_at: string
+        }
+        Insert: {
+          blueprint_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          menu_price?: number
+          updated_at?: string
+        }
+        Update: {
+          blueprint_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          menu_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_price_overrides_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_price_overrides_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_reactions: {
         Row: {
           created_at: string
