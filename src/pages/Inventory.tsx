@@ -376,7 +376,6 @@ const Inventory = () => {
           </TabsContent>
 
           <TabsContent value="build" className="mt-4 space-y-4">
-            <RecipeCatalog locationId={locationId!} readOnly={!!brandInfo} />
             <InventoryItemsManager locationId={locationId!} mode="build" />
           </TabsContent>
         </Tabs>
