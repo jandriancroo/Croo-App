@@ -258,53 +258,72 @@ serve(async (req) => {
       if (recentOrders.length > 0) {
         const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
 
-        // Probe check-detail with various section names + try requesting item fields on main
-        const sectionProbes = [
-          "items", "details", "line-items", "lineItems", "ticket", "modifiers", "entries",
-        ];
-
-        const probeBody = (section: string) => JSON.stringify({
-          fields: [
-            { fieldName: "checkNumber" }, { fieldName: "itemName" },
-            { fieldName: "modifierName" }, { fieldName: "quantity" },
-            { fieldName: "netSales" }, { fieldName: "itemGroupName" },
-          ],
-          filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } },
-          params: { sectionId: section, pageSize: 100 },
-        });
-
-        // Also try check-detail/main WITH item fields (maybe they just come back)
-        const mainWithItemFields = fetch(
+        // Step 1: Get checkIds from check-detail/main (which returns checkNumberSubreport.checkId)
+        const mainRes = await fetch(
           "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
           {
             method: "POST", headers,
             body: JSON.stringify({
-              fields: [
-                { fieldName: "checkNumber" }, { fieldName: "itemName" },
-                { fieldName: "modifierName" }, { fieldName: "quantity" },
-                { fieldName: "netSales" }, { fieldName: "itemGroupName" },
-                { fieldName: "description" },
-              ],
+              fields: [{ fieldName: "checkNumber" }],
               filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } },
-              params: { sectionId: "main", pageSize: 50 },
+              params: { sectionId: "main", pageSize: 200 },
             }),
           },
         );
 
-        const allProbes = [
-          ...sectionProbes.map(s => 
-            fetch(`https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/${s}`, { method: "POST", headers, body: probeBody(s) })
-              .then(async r => ({ label: `check-detail/${s}`, status: r.status, body: (await r.text()).slice(0, 600) }))
-              .catch(e => ({ label: `check-detail/${s}`, status: 0, body: String(e) }))
-          ),
-          mainWithItemFields
-            .then(async r => ({ label: "check-detail/main+itemFields", status: r.status, body: (await r.text()).slice(0, 600) }))
-            .catch(e => ({ label: "check-detail/main+itemFields", status: 0, body: String(e) })),
-        ];
+        let checkIdMap: Record<string, string> = {}; // checkNumber -> checkId
+        if (mainRes.ok) {
+          const mainData = await mainRes.json();
+          for (const item of (mainData.items || [])) {
+            const cn = item.checkNumber;
+            const checkId = item.checkNumberSubreport?.checkId;
+            if (cn && checkId && recentCheckNumbers.includes(cn)) {
+              checkIdMap[cn] = checkId;
+            }
+          }
+        } else {
+          await mainRes.text();
+        }
 
-        const probeResults = await Promise.all(allProbes);
-        for (const r of probeResults) {
-          console.log(`SECTION-PROBE ${r.label}: status=${r.status} body=${r.body}`);
+        console.log(`checkIdMap: ${Object.keys(checkIdMap).length} checks with IDs (sample: ${JSON.stringify(Object.entries(checkIdMap).slice(0, 2))})`);
+
+        // Step 2: Use checkIds to probe subreport endpoints for item data
+        if (Object.keys(checkIdMap).length > 0) {
+          const sampleCheckId = Object.values(checkIdMap)[0];
+          const sampleCN = Object.keys(checkIdMap)[0];
+
+          // Try multiple subreport URL patterns in parallel
+          const subreportProbes = [
+            // Subreport drill-down patterns
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${sampleCheckId}`, method: "POST", label: "subreport-POST",
+              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }, { fieldName: "modifierName" }], params: { pageSize: 100 } }) },
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${sampleCheckId}`, method: "GET", label: "subreport-GET" },
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/subreport/${sampleCheckId}`, method: "POST", label: "subreport-noSection-POST",
+              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }], params: { pageSize: 100 } }) },
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/subreport/${sampleCheckId}`, method: "GET", label: "subreport-noSection-GET" },
+            // checkId as path param patterns
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/${sampleCheckId}`, method: "GET", label: "checkDetail-byId-GET" },
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/${sampleCheckId}/items`, method: "GET", label: "checkDetail-byId-items-GET" },
+            // reporting path (admin-style)
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${sampleCheckId}`, method: "GET", label: "reporting-ticket-GET" },
+            // Drilldown with checkNumber filter
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main`, method: "POST", label: "main-filtered-by-checkNumber",
+              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "modifierName" }, { fieldName: "quantity" }, { fieldName: "netSales" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkNumber: { values: [sampleCN] } }, params: { sectionId: "main", pageSize: 100 } }) },
+          ];
+
+          const results = await Promise.all(subreportProbes.map(async (ep) => {
+            try {
+              const res = await fetch(ep.url, { method: ep.method, headers, ...(ep.body ? { body: ep.body } : {}) });
+              const text = await res.text();
+              return { label: ep.label, status: res.status, body: text.slice(0, 800) };
+            } catch (e) {
+              return { label: ep.label, status: 0, body: String(e) };
+            }
+          }));
+
+          for (const r of results) {
+            console.log(`SUBREPORT-PROBE ${r.label}: status=${r.status} body=${r.body}`);
+          }
         }
 
         // Existing checks-details/items fallback
