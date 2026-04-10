@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface LiveStatusBadgeProps {
   isPublished: boolean;
@@ -48,18 +48,16 @@ export function LiveStatusBadge({
     if (statusInfo && lastStatusAction === 'withdrawn') {
       return (
         <div className="flex items-center gap-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-xs text-muted-foreground hidden md:inline">
-                  Withdrawn by {statusInfo.byName}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{statusInfo.actionLabel} {statusInfo.timeAgo}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-xs text-muted-foreground hidden md:inline">
+                Withdrawn by {statusInfo.byName}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{statusInfo.actionLabel} {statusInfo.timeAgo}</p>
+            </TooltipContent>
+          </Tooltip>
           <Button onClick={onGoLive} disabled={isPublishing}>
             {isPublishing ? 'Publishing...' : 'Go Live'}
           </Button>
@@ -79,18 +77,16 @@ export function LiveStatusBadge({
     return (
       <div className="flex items-center gap-2">
         {statusInfo && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-xs text-muted-foreground hidden md:inline">
-                  {statusInfo.actionLabel} by {statusInfo.byName}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{statusInfo.timeAgo}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-xs text-muted-foreground hidden md:inline">
+                {statusInfo.actionLabel} by {statusInfo.byName}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{statusInfo.timeAgo}</p>
+            </TooltipContent>
+          </Tooltip>
         )}
         <Button 
           onClick={onUpdate} 
@@ -118,18 +114,16 @@ export function LiveStatusBadge({
   return (
     <div className="flex items-center gap-2">
       {statusInfo && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-xs text-muted-foreground hidden md:inline">
-                {statusInfo.actionLabel} by {statusInfo.byName}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{statusInfo.timeAgo}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-xs text-muted-foreground hidden md:inline">
+              {statusInfo.actionLabel} by {statusInfo.byName}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{statusInfo.timeAgo}</p>
+          </TooltipContent>
+        </Tooltip>
       )}
       <div className="relative inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 border-2 border-red-500 rounded-lg">
         <span className="relative flex items-end gap-[2px] h-4">
