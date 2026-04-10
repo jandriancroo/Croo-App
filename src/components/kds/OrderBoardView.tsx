@@ -21,11 +21,9 @@ function getChannelTone(channel: string | null) {
 
 interface Props {
   orders: KDSOrder[];
-  onClear: (checkNumber: string) => void;
-  clearing: string | null;
 }
 
-export function OrderBoardView({ orders, onClear, clearing }: Props) {
+export function OrderBoardView({ orders }: Props) {
   const preparing = orders.filter((order) => order.status === 'open');
   const ready = orders.filter((order) => order.status === 'ready');
 
