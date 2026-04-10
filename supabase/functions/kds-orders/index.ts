@@ -330,8 +330,7 @@ serve(async (req) => {
           });
         }
       } else {
-        const errText = await detailRes.text();
-        console.log("transaction-details FAILED:", detailRes.status, errText);
+        console.log("All detail endpoints returned 404 — no item data available");
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
