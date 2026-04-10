@@ -202,15 +202,13 @@ function OptionB() {
       <div className="flex-1 relative overflow-hidden">
         <DashContent />
 
-        {/* Theo floating orb on right edge */}
+        {/* Theo pull-tab on right edge */}
         <button
           onClick={() => setShowTheo(true)}
-          className="absolute right-2 bottom-2 z-10"
+          className="absolute right-0 top-1/3 z-10 text-white rounded-l-lg px-1 py-2 shadow-md flex flex-col items-center gap-0.5"
+          style={{ background: 'linear-gradient(135deg, hsl(189 50% 50%), hsl(189 45% 35%))' }}
         >
-          <div className="absolute inset-0 rounded-full blur-sm scale-125" style={{ background: 'hsl(189 45% 50% / 0.3)' }} />
-          <div className="relative h-8 w-8 rounded-full flex items-center justify-center shadow-md border-2 border-white" style={{ background: 'linear-gradient(135deg, hsl(189 50% 50%), hsl(189 45% 35%))' }}>
-            <Sparkles className="h-3.5 w-3.5 text-white" />
-          </div>
+          <Sparkles className="h-2.5 w-2.5" />
         </button>
       </div>
 
