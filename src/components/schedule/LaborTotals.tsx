@@ -9,7 +9,7 @@ import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Loader2, RotateCcw, CheckCircle2, Radio, Sparkles, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
@@ -760,59 +760,51 @@ export function LaborTotals({
                     placeholder="$0" 
                   />
                   {isLiving && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Radio className="h-3 w-3 text-primary animate-pulse shrink-0" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p className="text-xs">Live AI Projection</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Radio className="h-3 w-3 text-primary animate-pulse shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Live AI Projection</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                   {isInitial && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Sparkles className="h-3 w-3 text-primary/60 shrink-0" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p className="text-xs">AI Projection</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Sparkles className="h-3 w-3 text-primary/60 shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>AI Projection</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                   {isHistorical && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p className="text-xs">Actual Sales</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Actual Sales</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                   {canReload && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 p-0 shrink-0"
-                            onClick={() => handleReloadProjection(index)}
-                          >
-                            <RotateCcw className="h-3 w-3 text-muted-foreground hover:text-primary" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p className="text-xs">Clear override & reload AI projection</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0 shrink-0"
+                          onClick={() => handleReloadProjection(index)}
+                        >
+                          <RotateCcw className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Clear override & reload AI projection</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               ) : (
