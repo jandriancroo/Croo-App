@@ -147,6 +147,16 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
               {pricedItems.length}/{items.length} priced
             </Badge>
           )}
+          {hasQuPrices && (
+            <Button
+              variant={priceSource === "qu" ? "default" : "outline"}
+              size="sm"
+              className="h-6 text-[10px] gap-1 px-2"
+              onClick={() => setPriceSource(priceSource === "qu" ? "manual" : "qu")}
+            >
+              QU
+            </Button>
+          )}
           <Button
             variant={show3pd ? "default" : "outline"}
             size="sm"
