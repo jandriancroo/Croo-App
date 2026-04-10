@@ -441,7 +441,7 @@ export default function BrandInventory() {
               <>
                 {templatesLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading catalog...</div>
-                ) : filteredTemplates.length === 0 ? (
+                ) : filteredTemplates.length === 0 && catalogFilter !== 'archived' ? (
                   <Card>
                     <CardContent className="flex flex-col items-center justify-center py-12">
                       <Package className="h-12 w-12 text-muted-foreground mb-4" />
@@ -451,7 +451,6 @@ export default function BrandInventory() {
                       <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
                         {catalogFilter === 'live' && !searchQuery && "Create items or promote drafts to populate the live catalog."}
                         {catalogFilter === 'draft' && "Draft items are being tested before going live."}
-                        {catalogFilter === 'archived' && "Archived items are hidden from locations but data is preserved."}
                       </p>
                     </CardContent>
                   </Card>
