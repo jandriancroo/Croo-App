@@ -257,8 +257,38 @@ serve(async (req) => {
 
       if (recentOrders.length > 0) {
         const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
+        const sampleCheckId = recentCheckNumbers[0];
 
-        // Use checks-details report with singleLocation filter and items section
+        // Strategy: Try multiple check-ticket endpoint patterns in parallel
+        const ticketEndpoints = [
+          { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${sampleCheckId}`, method: "GET", label: "reporting/check-ticket/GET" },
+          { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-ticket/sections/main`, method: "POST", label: "reports/check-ticket/POST",
+            body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
+          { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${sampleCheckId}`, method: "POST", label: "reporting/check-ticket/POST",
+            body: JSON.stringify({ locationId: quStoreId }) },
+          { url: `https://gateway-api.qubeyond.com/api/v4/checks/${sampleCheckId}/ticket`, method: "GET", label: "checks/ticket/GET" },
+          { url: `https://gateway-api.qubeyond.com/api/v4/checks/${sampleCheckId}`, method: "GET", label: "checks/GET" },
+        ];
+
+        const probeResults = await Promise.all(ticketEndpoints.map(async (ep) => {
+          try {
+            const res = await fetch(ep.url, {
+              method: ep.method,
+              headers,
+              ...(ep.body ? { body: ep.body } : {}),
+            });
+            const text = await res.text();
+            return { label: ep.label, status: res.status, body: text.slice(0, 800) };
+          } catch (e) {
+            return { label: ep.label, status: 0, body: String(e) };
+          }
+        }));
+
+        for (const r of probeResults) {
+          console.log(`PROBE ${r.label}: status=${r.status} body=${r.body}`);
+        }
+
+        // Also try the checks-details/items with singleLocation (existing approach)
         const itemRes = await fetch(
           "https://gateway-api.qubeyond.com/api/v4/data/reports/checks-details/sections/items",
           {
