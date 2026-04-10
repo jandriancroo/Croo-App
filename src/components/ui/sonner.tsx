@@ -1,6 +1,5 @@
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, toast as sonnerToast } from "sonner";
-import { dockToast } from "@/contexts/DockToastContext";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
@@ -16,10 +15,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
         duration: 2000,
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-foreground group-[.toaster]:text-background group-[.toaster]:border-transparent group-[.toaster]:shadow-md group-[.toaster]:rounded-full group-[.toaster]:px-4 group-[.toaster]:py-2 group-[.toaster]:text-sm group-[.toaster]:font-medium",
+            "group toast group-[.toaster]:bg-foreground group-[.toaster]:text-background group-[.toaster]:border-transparent group-[.toaster]:shadow-lg group-[.toaster]:rounded-full group-[.toaster]:px-4 group-[.toaster]:py-2.5 group-[.toaster]:text-sm group-[.toaster]:font-medium",
           description: "group-[.toast]:text-background/80",
           actionButton: "group-[.toast]:bg-background group-[.toast]:text-foreground",
           cancelButton: "group-[.toast]:bg-background/20 group-[.toast]:text-background",
+          error: "group-[.toaster]:!bg-destructive group-[.toaster]:!text-destructive-foreground",
+          warning: "group-[.toaster]:!bg-amber-600 group-[.toaster]:!text-white",
         },
       }}
       {...props}
@@ -27,53 +28,26 @@ const Toaster = ({ ...props }: ToasterProps) => {
   );
 };
 
-// Smart toast that uses dock on mobile, sonner on desktop
-const isMobileDevice = () => {
-  if (typeof window === 'undefined') return false;
-  return window.innerWidth < 768;
-};
-
+// Unified toast — Sonner everywhere (mobile + desktop)
 const toast = (message: string | { title?: string; description?: string }) => {
   const text = typeof message === 'string' ? message : (message.title || message.description || '');
-  
-  if (isMobileDevice()) {
-    dockToast(text);
-  } else {
-    sonnerToast(text);
-  }
+  sonnerToast(text);
 };
 
-// Also provide typed versions for common toast types
 toast.success = (message: string) => {
-  if (isMobileDevice()) {
-    dockToast(message);
-  } else {
-    sonnerToast.success(message);
-  }
+  sonnerToast.success(message);
 };
 
 toast.error = (message: string) => {
-  if (isMobileDevice()) {
-    dockToast(message);
-  } else {
-    sonnerToast.error(message);
-  }
+  sonnerToast.error(message);
 };
 
 toast.info = (message: string) => {
-  if (isMobileDevice()) {
-    dockToast(message);
-  } else {
-    sonnerToast.info(message);
-  }
+  sonnerToast.info(message);
 };
 
 toast.warning = (message: string) => {
-  if (isMobileDevice()) {
-    dockToast(message);
-  } else {
-    sonnerToast.warning(message);
-  }
+  sonnerToast.warning(message);
 };
 
 export { Toaster, toast };

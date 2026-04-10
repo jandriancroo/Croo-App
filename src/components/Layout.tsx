@@ -48,7 +48,7 @@ interface DockContentProps {
 const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble, setShowOrgBubble, unreadCount, onSwipeUp, canViewSalesAndLabor, onOpenLocationPicker }: DockContentProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { message, isVisible, dockContent } = useDockToast();
+  const { dockContent } = useDockToast();
   const [bouncingItem, setBouncingItem] = useState<string | null>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -94,15 +94,6 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
         </div>
       )}
       <div className={`relative z-10 flex items-center justify-evenly px-2 ${canViewSalesAndLabor ? 'pt-1' : 'pt-3'} pb-0`}>
-        {/* Toast overlay that slides in */}
-        <div 
-          className={`absolute inset-0 flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-transform duration-300 ease-out ${
-            isVisible ? 'translate-x-0' : 'translate-x-full'
-          }`}
-        >
-          <Check className="h-5 w-5" />
-          <span className="font-medium text-sm">{message}</span>
-        </div>
 
         {/* Smart dock content (e.g., inventory counting) */}
         {dockContent && (
@@ -178,13 +169,9 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
           </div>
         )}
         
-        {/* Nav icons that slide out when toast is visible OR when smart dock content is active */}
+        {/* Nav icons — hide when smart dock content is active */}
         {!dockContent && (
-          <div 
-            className={`flex items-center justify-evenly w-full transition-transform duration-300 ease-out ${
-              isVisible ? '-translate-x-full' : 'translate-x-0'
-            }`}
-          >
+          <div className="flex items-center justify-evenly w-full">
             {mobileMainNavItems.map(item => {
               const isDashItem = item.path === '/dashboard';
               const isOnOrgDash = location.pathname === '/org-dash';
