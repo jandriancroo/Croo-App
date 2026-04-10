@@ -300,63 +300,88 @@ serve(async (req) => {
 
           const hydrateCheck = async (sr: typeof subreportData[0]) => {
             try {
-              // Use Section-based Filter: POST checks-details/sections/items with checkId filter
-              const r = await fetch(
-                "https://gateway-api.qubeyond.com/api/v4/data/reports/checks-details/sections/items",
-                {
-                  method: "POST",
-                  headers,
-                  body: JSON.stringify({
-                    fields: [
-                      { fieldName: "itemName" },
-                      { fieldName: "modifierName" },
-                      { fieldName: "quantity" },
-                      { fieldName: "netSales" },
-                      { fieldName: "grossSales" },
-                      { fieldName: "itemGroup" },
-                    ],
-                    filters: {
-                      checkId: { values: [sr.checkId] },
-                      location: { operationalUnits: [quStoreId] },
-                    },
-                    params: { sectionId: "items", pageNumber: 1, pageSize: 100, showTotals: false },
-                  }),
-                },
-              );
+              const isFirst = sr.checkNum === toFetch[0]?.checkNum;
+              // Try all known section-based item report patterns with checkId filter
+              const reportPaths = [
+                "checks-details/sections/items",
+                "check-detail/sections/items",
+                "check-details/sections/items",
+                "checks-detail/sections/items",
+                "product-mix/sections/main",
+              ];
 
-              if (sr.checkNum === toFetch[0]?.checkNum) {
-                console.log(`Hydrate ${sr.checkNum} (${sr.checkId}): ${r.status}`);
-              }
+              for (const path of reportPaths) {
+                const body: any = {
+                  fields: [
+                    { fieldName: "itemName" },
+                    { fieldName: "modifierName" },
+                    { fieldName: "quantity" },
+                    { fieldName: "netSales" },
+                  ],
+                  filters: {
+                    checkId: { values: [sr.checkId] },
+                    location: { operationalUnits: [quStoreId] },
+                  },
+                  params: { sectionId: path.split("/sections/")[1] || "items", pageNumber: 1, pageSize: 100, showTotals: false },
+                };
+                // product-mix needs date filter and different fields
+                if (path.includes("product-mix")) {
+                  body.fields = [
+                    { fieldName: "checkNumber" },
+                    { fieldName: "itemName" },
+                    { fieldName: "modifierName" },
+                    { fieldName: "quantity" },
+                    { fieldName: "netSales" },
+                  ];
+                  body.filters = {
+                    date: { from: today, to: today, type: "custom" },
+                    location: { operationalUnits: [quStoreId] },
+                    checkNumber: { values: [sr.checkNum] },
+                  };
+                  delete body.filters.checkId;
+                }
 
-              if (!r.ok) {
-                if (sr.checkNum === toFetch[0]?.checkNum) {
-                  console.log(`Hydrate err: ${(await r.text()).slice(0, 300)}`);
-                } else { await r.text(); }
-                return;
-              }
+                const r = await fetch(
+                  `https://gateway-api.qubeyond.com/api/v4/data/reports/${path}`,
+                  { method: "POST", headers, body: JSON.stringify(body) },
+                );
 
-              const data = await r.json();
+                if (isFirst) {
+                  console.log(`Hydrate ${sr.checkNum}: ${path} => ${r.status}`);
+                }
 
-              if (sr.checkNum === toFetch[0]?.checkNum) {
-                console.log("Hydrate keys:", Object.keys(data));
-                console.log("Hydrate sample:", JSON.stringify(data).slice(0, 800));
-              }
+                if (!r.ok) {
+                  if (isFirst) {
+                    const errBody = await r.text();
+                    console.log(`  err: ${errBody.slice(0, 200)}`);
+                  } else { await r.text(); }
+                  continue;
+                }
 
-              const rows = data.items || data.data || [];
-              if (rows.length > 0) {
-                itemsByCheck[sr.checkNum] = [];
-                for (const row of rows) {
-                  const itemName = row.itemName || row.menuItemName || row.name || "";
-                  const modName = row.modifierName || "";
-                  if (!itemName && !modName) continue;
-                  itemsByCheck[sr.checkNum].push({
-                    name: itemName || modName,
-                    modifier: modName || null,
-                    qty: parseInt(row.quantity || row.qty || "1"),
-                    price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
-                    category: row.itemGroup || row.itemGroupName || "",
-                    isModifier: !!modName && !itemName,
-                  });
+                const data = await r.json();
+                const rows = data.items || data.data || [];
+
+                if (isFirst) {
+                  console.log(`  rows: ${rows.length}, keys: ${rows[0] ? Object.keys(rows[0]).join(",") : "none"}`);
+                  if (rows[0]) console.log(`  sample: ${JSON.stringify(rows[0]).slice(0, 400)}`);
+                }
+
+                if (rows.length > 0) {
+                  itemsByCheck[sr.checkNum] = [];
+                  for (const row of rows) {
+                    const itemName = row.itemName || row.menuItemName || row.name || "";
+                    const modName = row.modifierName || "";
+                    if (!itemName && !modName) continue;
+                    itemsByCheck[sr.checkNum].push({
+                      name: itemName || modName,
+                      modifier: modName || null,
+                      qty: parseInt(row.quantity || row.qty || "1"),
+                      price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
+                      category: row.itemGroup || row.itemGroupName || "",
+                      isModifier: !!modName && !itemName,
+                    });
+                  }
+                  break; // Got items, stop trying
                 }
               }
             } catch (e) {
