@@ -2023,6 +2023,7 @@ TOOL ROUTING:
 - Store hours → query_store_hours
 - Employee notes/write-ups → query_employee_notes
 - Guest reviews/Ovation → query_ovation_reviews. Tag matched employees with [[employee:Full Name]].
+- Chat messages ("what did X say", "find message about Y", "chat history") → query_my_chats. Only searches chats YOU are a member of.
 - "Today" = ${today}, "yesterday" = ${yesterday}, "tomorrow" = ${tomorrow}.`;
 
     const aiMessages = [
