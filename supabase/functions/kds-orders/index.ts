@@ -277,22 +277,22 @@ serve(async (req) => {
           },
         }),
       });
-        if (res.ok) {
-          detailRes = res;
-          usedEndpoint = ep.url;
-          break;
+      if (res.ok) {
+        const detailData = await res.json();
+        // Handle nested items arrays (QU wraps rows in group objects)
+        let rows: any[] = [];
+        const rawItems = detailData.items || detailData.data || [];
+        for (const entry of rawItems) {
+          if (Array.isArray(entry.items)) {
+            rows.push(...entry.items);
+          } else {
+            rows.push(entry);
+          }
         }
-        await res.text();
-        console.log("Detail endpoint failed:", res.status, ep.url);
-      }
-
-      if (detailRes) {
-        const detailData = await detailRes.json();
-        const rows = detailData.items || detailData.data || [];
-        console.log("Detail endpoint used:", usedEndpoint, "rows:", rows.length);
+        console.log("Product-mix item rows:", rows.length);
         if (rows.length > 0) {
           console.log("Sample row keys:", Object.keys(rows[0]));
-          console.log("Sample row:", JSON.stringify(rows[0]));
+          console.log("Sample row:", JSON.stringify(rows[0]).slice(0, 500));
         }
 
         for (const row of rows) {
@@ -305,13 +305,13 @@ serve(async (req) => {
 
           const itemName = row.menuItemName || row.itemName || row.name || "";
           const modName = row.modifierName || row.modifier || "";
-          const category = row.itemGroup || row.categoryName || row.category || "";
+          const category = row.itemGroup || row.itemGroupName || row.categoryName || "";
 
           itemsByCheck[currentCheckNumber].push({
             name: itemName || modName || "Unknown Item",
             modifier: modName || null,
             qty: parseInt(row.quantity || row.qty || "1"),
-            price: parseFloat(((row.netSales || row.grossSales || row.sales || "0") + "").replace(/,/g, "")),
+            price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
             category,
             isModifier: !!modName && !itemName,
           });
@@ -319,7 +319,8 @@ serve(async (req) => {
 
         console.log(`Items grouped for ${Object.keys(itemsByCheck).length} checks`);
       } else {
-        console.log("All detail endpoints failed — no item data available");
+        const errText = await res.text();
+        console.log("Product-mix failed:", res.status, errText.slice(0, 200));
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
