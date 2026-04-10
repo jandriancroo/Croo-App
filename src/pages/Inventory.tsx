@@ -352,10 +352,6 @@ const Inventory = () => {
               <DollarSign className="h-4 w-4" />
               <span>Genius</span>
             </TabsTrigger>
-            <TabsTrigger value="build" className="flex items-center gap-2">
-              <Hammer className="h-4 w-4" />
-              <span>Build</span>
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="count" className="mt-4">
@@ -385,9 +381,6 @@ const Inventory = () => {
             <RecipeGeniusCard locationId={locationId!} />
           </TabsContent>
 
-          <TabsContent value="build" className="mt-4 space-y-4">
-            <InventoryItemsManager locationId={locationId!} mode="build" />
-          </TabsContent>
         </Tabs>
       </div>
 
