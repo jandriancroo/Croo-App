@@ -14,7 +14,6 @@ interface CatalogSectionProps {
   reassignMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
-  // POS mapping props
   posMappings?: Map<string, { groupId: string; posItems: string[]; mappingType?: string; reconciliationGroup?: string | null }>;
   posItems?: PosItem[];
   onPosLink?: (blueprintId: string, blueprintName: string, posItemNames: string[], mappingType?: string, reconciliationGroup?: string | null) => void;
@@ -40,6 +39,59 @@ const SelectableRow = ({ item, selected, onToggle }: { item: MenuItem; selected:
   );
 };
 
+interface CollapsibleSegmentProps {
+  label: string;
+  items: MenuItem[];
+  tagLabel: string;
+  locationId: string;
+  onEditRecipe?: (id: string) => void;
+  posMappings?: CatalogSectionProps["posMappings"];
+  posItems?: PosItem[];
+  onPosLink?: CatalogSectionProps["onPosLink"];
+  onPosUnlink?: CatalogSectionProps["onPosUnlink"];
+  onUpdateMappingMeta?: CatalogSectionProps["onUpdateMappingMeta"];
+  isPosLinking?: boolean;
+}
+
+const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking }: CollapsibleSegmentProps) => {
+  const [open, setOpen] = useState(true);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mb-1">
+      <button
+        type="button"
+        className="w-full flex items-center gap-1.5 px-2 py-1 hover:bg-muted/30 transition-colors text-left"
+        onClick={() => setOpen(!open)}
+      >
+        {open ? (
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+        )}
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
+        <span className="text-[10px] text-muted-foreground/60 tabular-nums">{items.length}</span>
+      </button>
+      {open && items.map(item => (
+        <RecipeRow
+          key={item.id}
+          item={item}
+          tagLabel={tagLabel}
+          locationId={locationId}
+          onEditRecipe={onEditRecipe}
+          posMapping={posMappings?.get(item.id)}
+          posItems={posItems}
+          onPosLink={onPosLink}
+          onPosUnlink={onPosUnlink}
+          onUpdateMappingMeta={onUpdateMappingMeta}
+          isPosLinking={isPosLinking}
+        />
+      ))}
+    </div>
+  );
+};
+
 const CatalogSectionComponent = ({
   section, defaultOpen = false, locationId, onEditRecipe,
   reassignMode, selectedIds, onToggleSelect,
@@ -49,7 +101,6 @@ const CatalogSectionComponent = ({
   const itemCount = section.bases.length + section.cores.length + section.menuItems.length;
   const allItems = [...section.bases, ...section.cores, ...section.menuItems];
 
-  // Count mapped items (MI + CORE + BASE) in this section
   const allMappableItems = [...section.menuItems, ...section.cores, ...section.bases];
   const mappedCount = posMappings
     ? allMappableItems.filter(item => posMappings.has(item.id)).length
@@ -96,66 +147,9 @@ const CatalogSectionComponent = ({
             ))
           ) : (
             <>
-              {section.bases.length > 0 && (
-                <div className="mb-1">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Foundation</p>
-                  {section.bases.map(item => (
-                    <RecipeRow
-                      key={item.id}
-                      item={item}
-                      tagLabel="base"
-                      locationId={locationId}
-                      onEditRecipe={onEditRecipe}
-                      posMapping={posMappings?.get(item.id)}
-                      posItems={posItems}
-                      onPosLink={onPosLink}
-                      onPosUnlink={onPosUnlink}
-                      onUpdateMappingMeta={onUpdateMappingMeta}
-                      isPosLinking={isPosLinking}
-                    />
-                  ))}
-                </div>
-              )}
-              {section.cores.length > 0 && (
-                <div className="mb-1">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Build</p>
-                  {section.cores.map(item => (
-                    <RecipeRow
-                      key={item.id}
-                      item={item}
-                      tagLabel="core"
-                      locationId={locationId}
-                      onEditRecipe={onEditRecipe}
-                      posMapping={posMappings?.get(item.id)}
-                      posItems={posItems}
-                      onPosLink={onPosLink}
-                      onPosUnlink={onPosUnlink}
-                      onUpdateMappingMeta={onUpdateMappingMeta}
-                      isPosLinking={isPosLinking}
-                    />
-                  ))}
-                </div>
-              )}
-              {section.menuItems.length > 0 && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">Menu Items</p>
-                  {section.menuItems.map(item => (
-                    <RecipeRow
-                      key={item.id}
-                      item={item}
-                      tagLabel="mi"
-                      locationId={locationId}
-                      onEditRecipe={onEditRecipe}
-                      posMapping={posMappings?.get(item.id)}
-                      posItems={posItems}
-                      onPosLink={onPosLink}
-                      onPosUnlink={onPosUnlink}
-                      onUpdateMappingMeta={onUpdateMappingMeta}
-                      isPosLinking={isPosLinking}
-                    />
-                  ))}
-                </div>
-              )}
+              <CollapsibleSegment label="Foundation" items={section.bases} tagLabel="base" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
+              <CollapsibleSegment label="Build" items={section.cores} tagLabel="core" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
+              <CollapsibleSegment label="Menu Items" items={section.menuItems} tagLabel="mi" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
             </>
           )}
         </div>
