@@ -408,6 +408,8 @@ serve(async (req) => {
           status: nextStatus,
           opened_at: openedAtIso,
           is_paid: isPaid,
+          external_order_id: order.externalOrderId || null,
+          promised_time: order.promisedTime || null,
         }, { onConflict: "store_id,check_number" });
 
       if (error) throw error;
