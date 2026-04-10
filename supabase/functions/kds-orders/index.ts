@@ -300,65 +300,62 @@ serve(async (req) => {
 
           const hydrateCheck = async (sr: typeof subreportData[0]) => {
             try {
-              // Try multiple transactional endpoint patterns
-              const urls = [
-                `https://gateway-api.qubeyond.com/api/v4/data/checks/${sr.checkId}`,
-                `https://gateway-api.qubeyond.com/api/v4/checks/${sr.checkId}`,
-                `https://gateway-api.qubeyond.com/api/v4/data/orders/${sr.checkId}`,
-                `https://gateway-api.qubeyond.com/api/v4/orders/${sr.checkId}`,
-                `https://gateway-api.qubeyond.com/api/v4/data/transactions/${sr.checkId}`,
-              ];
-
-              let data: any = null;
-              for (const url of urls) {
-                const r = await fetch(url, { method: "GET", headers });
-                if (sr.checkNum === toFetch[0]?.checkNum) {
-                  console.log(`Probe ${sr.checkNum}: ${url} => ${r.status}`);
-                }
-                if (r.ok) {
-                  data = await r.json();
-                  if (sr.checkNum === toFetch[0]?.checkNum) {
-                    console.log("Deep check keys:", Object.keys(data));
-                    console.log("Deep check sample:", JSON.stringify(data).slice(0, 800));
-                  }
-                  break;
-                }
-                await r.text();
-              }
-
-              if (!data) return;
-
+              // Use Section-based Filter: POST checks-details/sections/items with checkId filter
+              const r = await fetch(
+                "https://gateway-api.qubeyond.com/api/v4/data/reports/checks-details/sections/items",
+                {
+                  method: "POST",
+                  headers,
+                  body: JSON.stringify({
+                    fields: [
+                      { fieldName: "itemName" },
+                      { fieldName: "modifierName" },
+                      { fieldName: "quantity" },
+                      { fieldName: "netSales" },
+                      { fieldName: "grossSales" },
+                      { fieldName: "itemGroup" },
+                    ],
+                    filters: {
+                      checkId: { values: [sr.checkId] },
+                      location: { operationalUnits: [quStoreId] },
+                    },
+                    params: { sectionId: "items", pageNumber: 1, pageSize: 100, showTotals: false },
+                  }),
+                },
+              );
 
               if (sr.checkNum === toFetch[0]?.checkNum) {
-                console.log("Deep check keys:", Object.keys(data));
-                console.log("Deep check sample:", JSON.stringify(data).slice(0, 800));
+                console.log(`Hydrate ${sr.checkNum} (${sr.checkId}): ${r.status}`);
               }
 
-              // Extract line items - try common response shapes
-              const lineItems = data.lineItems || data.items || data.orderItems || data.details || [];
-              const flat: any[] = [];
-              for (const entry of (Array.isArray(lineItems) ? lineItems : [])) {
-                flat.push(entry);
-                // Also extract child modifiers/toppings
-                const children = entry.modifiers || entry.children || entry.subItems || [];
-                for (const mod of (Array.isArray(children) ? children : [])) {
-                  flat.push({ ...mod, _isModifier: true, _parentName: entry.name || entry.itemName || "" });
-                }
+              if (!r.ok) {
+                if (sr.checkNum === toFetch[0]?.checkNum) {
+                  console.log(`Hydrate err: ${(await r.text()).slice(0, 300)}`);
+                } else { await r.text(); }
+                return;
               }
 
-              if (flat.length > 0) {
+              const data = await r.json();
+
+              if (sr.checkNum === toFetch[0]?.checkNum) {
+                console.log("Hydrate keys:", Object.keys(data));
+                console.log("Hydrate sample:", JSON.stringify(data).slice(0, 800));
+              }
+
+              const rows = data.items || data.data || [];
+              if (rows.length > 0) {
                 itemsByCheck[sr.checkNum] = [];
-                for (const row of flat) {
-                  const itemName = row.menuItemName || row.itemName || row.name || row.description || "";
-                  const modName = row._isModifier ? itemName : (row.modifierName || "");
+                for (const row of rows) {
+                  const itemName = row.itemName || row.menuItemName || row.name || "";
+                  const modName = row.modifierName || "";
                   if (!itemName && !modName) continue;
                   itemsByCheck[sr.checkNum].push({
-                    name: row._isModifier ? row._parentName : itemName,
-                    modifier: row._isModifier ? itemName : (modName || null),
-                    qty: parseInt(row.quantity || row.qty || row.count || "1"),
-                    price: parseFloat(((row.price || row.netSales || row.grossSales || row.amount || "0") + "").replace(/,/g, "")),
-                    category: row.category || row.itemGroup || row.itemGroupName || "",
-                    isModifier: !!row._isModifier,
+                    name: itemName || modName,
+                    modifier: modName || null,
+                    qty: parseInt(row.quantity || row.qty || "1"),
+                    price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
+                    category: row.itemGroup || row.itemGroupName || "",
+                    isModifier: !!modName && !itemName,
                   });
                 }
               }
