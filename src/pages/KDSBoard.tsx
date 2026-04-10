@@ -59,7 +59,12 @@ export default function KDSBoard() {
       .order('opened_at', { ascending: false });
 
     if (data) {
-      setOrders(data.map((d) => ({ ...d, items: Array.isArray(d.items) ? d.items : [] })) as KDSOrder[]);
+      setOrders(
+        data.map((d) => ({
+          ...d,
+          items: Array.isArray(d.items) ? (d.items as unknown as KDSOrder['items']) : [],
+        })) as unknown as KDSOrder[]
+      );
     }
   }, [storeId]);
 
