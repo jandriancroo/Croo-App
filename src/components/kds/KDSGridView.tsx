@@ -26,6 +26,7 @@ export interface KDSOrder {
   opened_at: string;
   bumped_at: string | null;
   cleared_at: string | null;
+  is_paid: boolean;
 }
 
 function getElapsed(openedAt: string): string {
