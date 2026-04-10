@@ -44,8 +44,7 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
   const [fillUpcharge, setFillUpcharge] = useState("");
   const [fillFee, setFillFee] = useState("");
   const [theoTarget, setTheoTarget] = useState(30);
-  const [priceSource, setPriceSource] = useState<"manual" | "qu">("manual");
-  const { items, isLoading, upsertPrice, bulkUpsert3pd } = useMenuPricing(locationId, priceSource);
+  const { items, isLoading, upsertPrice, bulkUpsert3pd } = useMenuPricing(locationId);
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
@@ -88,11 +87,9 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
     return "text-destructive";
   };
 
-  const hasQuPrices = items.some(i => i.quPrice !== null);
-
   const gridCols = show3pd
-    ? "grid-cols-[1fr_55px_55px_55px_45px_45px_45px_55px_45px]"
-    : "grid-cols-[1fr_62px_62px_62px_52px]";
+    ? "grid-cols-[1fr_55px_55px_45px_45px_45px_55px_45px]"
+    : "grid-cols-[1fr_62px_62px_52px]";
 
   const handleFillAll = () => {
     const payload: { upchargePct?: number; feePct?: number } = {};
@@ -146,16 +143,6 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
             <Badge variant="outline" className="text-[10px] tabular-nums">
               {pricedItems.length}/{items.length} priced
             </Badge>
-          )}
-          {hasQuPrices && (
-            <Button
-              variant={priceSource === "qu" ? "default" : "outline"}
-              size="sm"
-              className="h-6 text-[10px] gap-1 px-2"
-              onClick={() => setPriceSource(priceSource === "qu" ? "manual" : "qu")}
-            >
-              QU
-            </Button>
           )}
           <Button
             variant={show3pd ? "default" : "outline"}
@@ -212,7 +199,6 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
             <span>Item</span>
             <span className="text-right">Cost</span>
             <span className="text-right">Price</span>
-            <span className={cn("text-right", priceSource === "qu" ? "text-primary" : "")}>QU $</span>
             <span className="text-right">FC%</span>
             {show3pd && (
               <>
@@ -256,7 +242,6 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
                   item={item}
                   show3pd={show3pd}
                   theoTarget={theoTarget}
-                  priceSource={priceSource}
                   onPriceChange={(id, price) => upsertPrice({ blueprintId: id, price })}
                   on3pdChange={(id, field, value) =>
                     upsertPrice({

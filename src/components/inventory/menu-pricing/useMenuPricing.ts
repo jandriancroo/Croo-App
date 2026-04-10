@@ -13,7 +13,6 @@ export interface MenuPricingItem {
   recipeCost: number;
   isPartial: boolean;
   menuPrice: number | null;
-  quPrice: number | null;
   foodCostPct: number | null;
   tpdUpchargePct: number | null;
   tpdFeePct: number | null;
@@ -27,7 +26,7 @@ interface PriceOverride {
   tpd_fee_pct: number | null;
 }
 
-export function useMenuPricing(locationId: string, priceSource: "manual" | "qu" = "manual") {
+export function useMenuPricing(locationId: string) {
   const queryClient = useQueryClient();
 
   const { data: blueprints, isLoading: bpLoading } = useQuery({
@@ -69,78 +68,6 @@ export function useMenuPricing(locationId: string, priceSource: "manual" | "qu" 
     },
   });
 
-  // Fetch QU prices from product_mix (last 7 days avg)
-  const { data: quPriceMap } = useQuery({
-    queryKey: ["menu-pricing-qu-prices", locationId],
-    queryFn: async () => {
-      // 1. Get POS mappings for this brand's blueprints
-      const { data: mappings } = await supabase
-        .from("inventory_product_groups")
-        .select("blueprint_id, pos_items")
-        .not("blueprint_id", "is", null);
-
-      if (!mappings || mappings.length === 0) return new Map<string, number>();
-
-      // Build blueprint -> pos item names map
-      const bpToPosItems = new Map<string, string[]>();
-      for (const m of mappings) {
-        if (m.blueprint_id && m.pos_items && (m.pos_items as string[]).length > 0) {
-          bpToPosItems.set(m.blueprint_id, m.pos_items as string[]);
-        }
-      }
-
-      // 2. Get recent product_mix data (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const dateStr = sevenDaysAgo.toISOString().split("T")[0];
-
-      const { data: salesRows } = await supabase
-        .from("sales_cache")
-        .select("product_mix")
-        .eq("location_id", locationId)
-        .gte("sale_date", dateStr)
-        .not("product_mix", "is", null);
-
-      if (!salesRows || salesRows.length === 0) return new Map<string, number>();
-
-      // 3. Aggregate: itemName -> { totalSales, totalQty }
-      const agg = new Map<string, { sales: number; qty: number }>();
-      for (const row of salesRows) {
-        const mix = row.product_mix as any[];
-        if (!Array.isArray(mix)) continue;
-        for (const item of mix) {
-          const name = item.itemName as string;
-          const sales = Number(item.netSales) || 0;
-          const qty = Number(item.quantity) || 0;
-          if (!name || qty <= 0 || sales <= 0) continue;
-          const existing = agg.get(name) || { sales: 0, qty: 0 };
-          existing.sales += sales;
-          existing.qty += qty;
-          agg.set(name, existing);
-        }
-      }
-
-      // 4. Map blueprint_id -> avg price via POS item name matching
-      const result = new Map<string, number>();
-      for (const [bpId, posItems] of bpToPosItems) {
-        // Find matching POS items and compute weighted avg price
-        let totalSales = 0;
-        let totalQty = 0;
-        for (const posName of posItems) {
-          const match = agg.get(posName);
-          if (match) {
-            totalSales += match.sales;
-            totalQty += match.qty;
-          }
-        }
-        if (totalQty > 0 && totalSales > 0) {
-          result.set(bpId, totalSales / totalQty);
-        }
-      }
-
-      return result;
-    },
-  });
 
   const upsertPrice = useMutation({
     mutationFn: async (payload: {
@@ -204,19 +131,15 @@ export function useMenuPricing(locationId: string, priceSource: "manual" | "qu" 
       const recipeCost = getBlueprintUnitCost(batchCost, bp.yield_qty);
       const override = savedPrices?.get(bp.id);
       const menuPrice = override?.menu_price ?? null;
-      const quPrice = quPriceMap?.get(bp.id) ?? null;
 
-      // Use the active price source for FC% calculations
-      const activePrice = priceSource === "qu" && quPrice ? quPrice : menuPrice;
-
-      const foodCostPct = activePrice && activePrice > 0
-        ? (recipeCost / activePrice) * 100
+      const foodCostPct = menuPrice && menuPrice > 0
+        ? (recipeCost / menuPrice) * 100
         : null;
 
       const tpdUpchargePct = override?.tpd_upcharge_pct ?? null;
       const tpdFeePct = override?.tpd_fee_pct ?? null;
-      const tpdPrice = activePrice && tpdUpchargePct != null
-        ? activePrice * (1 + tpdUpchargePct / 100)
+      const tpdPrice = menuPrice && tpdUpchargePct != null
+        ? menuPrice * (1 + tpdUpchargePct / 100)
         : null;
       const tpdFoodCostPct = tpdPrice && tpdPrice > 0 && tpdFeePct != null
         ? (recipeCost / (tpdPrice * (1 - tpdFeePct / 100))) * 100
@@ -232,7 +155,6 @@ export function useMenuPricing(locationId: string, priceSource: "manual" | "qu" 
         recipeCost,
         isPartial: cost?.isPartial || false,
         menuPrice,
-        quPrice,
         foodCostPct,
         tpdUpchargePct,
         tpdFeePct,
