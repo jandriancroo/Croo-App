@@ -332,7 +332,7 @@ serve(async (req) => {
 
               if (sr.checkNum === toFetch[0]?.checkNum) {
                 console.log("Deep check keys:", Object.keys(data));
-                console.log("Deep check sample:", JSON.stringify(data).slice(0, 600));
+                console.log("Deep check sample:", JSON.stringify(data).slice(0, 800));
               }
 
               // Extract line items - try common response shapes
