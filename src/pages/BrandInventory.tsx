@@ -483,12 +483,11 @@ export default function BrandInventory() {
                             recipeUsageMap={recipeUsageMap}
                           />
                         ))}
+                      {catalogFilter === 'archived' && brandId && (
+                        <ArchivedRecipesSection brandId={brandId} searchQuery={searchQuery} />
+                      )}
                     </div>
                   </Card>
-                )}
-
-                {catalogFilter === 'archived' && brandId && (
-                  <ArchivedRecipesSection brandId={brandId} searchQuery={searchQuery} />
                 )}
 
                 {catalogSelectedIds.size > 0 && brandId && (
