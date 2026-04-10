@@ -258,101 +258,9 @@ serve(async (req) => {
       if (recentOrders.length > 0) {
         const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
 
-        // Step 1: Get checkIds from check-detail/main (checkNumberSubreport contains checkId)
-        const mainRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
-          {
-            method: "POST", headers,
-            body: JSON.stringify({
-              fields: [
-                { fieldName: "checkNumber" },
-                { fieldName: "checkState" },
-                { fieldName: "itemsSoldCount" },
-                { fieldName: "netSales" },
-                { fieldName: "description" },
-              ],
-              filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } },
-              params: { sectionId: "main", pageSize: 200 },
-            }),
-          },
-        );
-
-        let checkIdMap: Record<string, string> = {}; // checkNumber -> checkId
-        if (mainRes.ok) {
-          const mainText = await mainRes.text();
-          try {
-            const mainData = JSON.parse(mainText);
-            const firstItem = (mainData.items || [])[0];
-            console.log(`check-detail/main: ${(mainData.items || []).length} items, first keys: ${firstItem ? Object.keys(firstItem).join(",") : "none"}`);
-            if (firstItem) console.log(`first item sample: ${JSON.stringify(firstItem).slice(0, 500)}`);
-            
-            for (const item of (mainData.items || [])) {
-              const cn = item.checkNumber;
-              const checkId = item.checkNumberSubreport?.checkId;
-              if (cn && checkId) {
-                // For probe: collect ALL checkIds (not just recent)
-                if (recentCheckNumbers.includes(cn)) {
-                  checkIdMap[cn] = checkId;
-                }
-                // Always grab at least one for subreport testing
-                if (!checkIdMap["__probe__"]) {
-                  checkIdMap["__probe__"] = checkId;
-                  checkIdMap["__probe_cn__"] = cn;
-                }
-              }
-            }
-          } catch { console.log(`check-detail/main parse error, raw: ${mainText.slice(0, 300)}`); }
-        } else {
-          console.log(`check-detail/main: status=${mainRes.status}`);
-          await mainRes.text();
-        }
-
-        console.log(`checkIdMap: ${Object.keys(checkIdMap).length} entries (sample: ${JSON.stringify(Object.entries(checkIdMap).slice(0, 3))})`);
-
-        // Step 2: Use a checkId to probe subreport endpoints
-        const probeCheckId = checkIdMap["__probe__"] || Object.values(checkIdMap)[0];
-        if (probeCheckId) {
-          const probeCN = checkIdMap["__probe_cn__"] || Object.keys(checkIdMap)[0];
-
-          // Final round of probes - different API patterns entirely
-          const subreportProbes = [
-            // RESTful orders API
-            { url: `https://gateway-api.qubeyond.com/api/v4/orders?locationId=${quStoreId}&date=${today}`, method: "GET", label: "orders-REST" },
-            { url: `https://gateway-api.qubeyond.com/api/v4/locations/${quStoreId}/orders`, method: "GET", label: "locations-orders" },
-            { url: `https://gateway-api.qubeyond.com/api/v4/locations/${quStoreId}/checks`, method: "GET", label: "locations-checks" },
-            // transaction-detail (singular) with singleLocation
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-detail/sections/main`, method: "POST", label: "transaction-detail-singular",
-              body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
-            // sales-detail
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/sales-detail/sections/main`, method: "POST", label: "sales-detail",
-              body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
-            // item-sales report
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/item-sales/sections/main`, method: "POST", label: "item-sales",
-              body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
-            // V3 API path
-            { url: `https://gateway-api.qubeyond.com/api/v3/data/reports/check-detail/sections/items`, method: "POST", label: "v3-check-detail-items",
-              body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "items", pageSize: 100 } }) },
-            // product-mix with checkNumber filter
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main`, method: "POST", label: "product-mix-checkFilter",
-              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }, { fieldName: "checkNumber" }, { fieldName: "netSales" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkNumber: probeCN }, params: { sectionId: "main", pageSize: 100 } }) },
-          ];
-
-          const results = await Promise.all(subreportProbes.map(async (ep) => {
-            try {
-              const res = await fetch(ep.url, { method: ep.method, headers, ...(ep.body ? { body: ep.body } : {}) });
-              const text = await res.text();
-              return { label: ep.label, status: res.status, body: text.slice(0, 800) };
-            } catch (e) {
-              return { label: ep.label, status: 0, body: String(e) };
-            }
-          }));
-
-          for (const r of results) {
-            console.log(`SUBREPORT-PROBE ${r.label}: status=${r.status} body=${r.body}`);
-          }
-        }
-
-        // Existing checks-details/items fallback
+        // Attempt item hydration via checks-details/items (singleLocation filter).
+        // NOTE: This endpoint currently returns 404 for our credentials.
+        // It will auto-activate once Qu enables the "items" section for this integration.
         const itemRes = await fetch(
           "https://gateway-api.qubeyond.com/api/v4/data/reports/checks-details/sections/items",
           {
@@ -385,9 +293,8 @@ serve(async (req) => {
           itemRows = parsed.items || [];
         } catch {}
 
-        console.log(`checks-details/items: status=${itemStatus}, rows=${itemRows.length}`);
-        if (itemRows.length > 0) {
-          console.log(`Sample row: ${JSON.stringify(itemRows[0]).slice(0, 500)}`);
+        if (itemStatus !== 404) {
+          console.log(`checks-details/items: status=${itemStatus}, rows=${itemRows.length}`);
         }
 
         const appendRow = (row: any, fallbackCN?: string) => {
@@ -417,7 +324,9 @@ serve(async (req) => {
           }
         }
 
-        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length}/${recentCheckNumbers.length} checks with items`);
+        if (Object.keys(itemsByCheck).length > 0) {
+          console.log(`Item hydration: ${Object.keys(itemsByCheck).length}/${recentCheckNumbers.length} checks with items`);
+        }
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
