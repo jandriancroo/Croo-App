@@ -894,15 +894,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <User className="h-4 w-4" />
                     My Profile
                   </DropdownMenuItem>
-                  {!roleLoading && isSuperAdmin && !isChecklistOnlyLocation && (
-                    <DropdownMenuItem onClick={() => navigate('/alerts')} className="gap-2 cursor-pointer">
-                      <span className="relative flex h-4 w-4 items-center justify-center">
-                        <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-destructive opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive"></span>
-                      </span>
-                      Live Alerts
-                    </DropdownMenuItem>
-                  )}
                   {!roleLoading && isAdmin && (
                     <>
                       <DropdownMenuItem onClick={() => {
@@ -1026,23 +1017,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
 
-                {/* Alerts - Super Admin only */}
-                {isSuperAdmin && !isChecklistOnlyLocation && (
-                  <Button 
-                    variant={location.pathname === '/alerts' ? 'secondary' : 'outline'} 
-                    onClick={() => {
-                      navigate('/alerts');
-                      setMenuOpen(false);
-                    }} 
-                    className="justify-start gap-2 h-9"
-                  >
-                    <span className="relative flex h-4 w-4 items-center justify-center">
-                      <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-destructive opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive"></span>
-                    </span>
-                    <span className="text-sm">Live Alerts</span>
-                  </Button>
-                )}
+
 
                 {/* Time + Users row (2 columns) */}
                 <div className="grid grid-cols-2 gap-2">

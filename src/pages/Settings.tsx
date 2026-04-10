@@ -43,7 +43,7 @@ const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inve
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'org-members', 'org-roles'];
 // Sections only super admins see
-const SUPER_ADMIN_SECTIONS = ['clone-settings', 'brands', 'organizations', 'maintenance', 'data-streams'];
+const SUPER_ADMIN_SECTIONS = ['live-alerts', 'clone-settings', 'brands', 'organizations', 'maintenance', 'data-streams'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
@@ -57,6 +57,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   'org-members': { title: 'Org Admins', icon: <Building2 className="h-4 w-4" /> },
   'org-roles': { title: 'Roles & Permissions', icon: <Building2 className="h-4 w-4" /> },
   'org-positions': { title: 'Positions', icon: <Building2 className="h-4 w-4" /> },
+  'live-alerts': { title: 'Live Alerts', icon: <Radio className="h-4 w-4" /> },
   'clone-settings': { title: 'Clone Location Settings', icon: <Copy className="h-4 w-4" /> },
   brands: { title: 'Brands', icon: <Tag className="h-4 w-4" /> },
   organizations: { title: 'All Organizations', icon: <Building2 className="h-4 w-4" /> },
@@ -414,6 +415,7 @@ export default function Settings() {
               'punch-clock': () => navigate(`/location/${currentLocation?.id}/punch-clock`),
               'billing': () => navigate('/billing'),
               'kds-board': () => navigate('/kds'),
+              'live-alerts': () => navigate('/alerts'),
             };
 
             if (navLinks[sectionId]) {
