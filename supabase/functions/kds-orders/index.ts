@@ -262,7 +262,7 @@ serve(async (req) => {
       );
 
       if (recentCheckNumbers.size > 0) {
-        // Step 1: Fetch check-detail to get checkNumberSubreport drill-down params
+        // Step 1: Get checkIds from check-detail report
         const checkDetailRes = await fetch(
           "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
           {
@@ -283,7 +283,6 @@ serve(async (req) => {
           const checkData = await checkDetailRes.json();
           const checkRows = checkData.items || [];
 
-          // Extract checkId from checkNumberSubreport for each recent check
           const subreportData: { checkNum: string; checkId: string }[] = [];
           for (const row of checkRows) {
             const cn = row.checkNumber;
@@ -296,87 +295,81 @@ serve(async (req) => {
 
           console.log(`Found ${subreportData.length} checkIds for ${recentCheckNumbers.size} recent checks`);
 
-          // Step 3: Drill into each check using checkId
+          // Step 2: Hydrate each check via Transactional Check Detail endpoint
           const toFetch = subreportData.slice(0, 20);
-          
-          const fetchCheckItems = async (sr: typeof subreportData[0]) => {
-            try {
-              // Try multiple subreport URL patterns with the checkId
-              const subreportUrls = [
-                `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/checks/${sr.checkId}/items`,
-                `https://gateway-api.qubeyond.com/api/v4/data/checks/${sr.checkId}/items`,
-                `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items`,
-              ];
-              
-              for (const url of subreportUrls) {
-                const isPostUrl = url.includes("sections/");
-                const r = await fetch(url, {
-                  method: isPostUrl ? "POST" : "GET",
-                  headers,
-                  ...(isPostUrl ? {
-                    body: JSON.stringify({
-                      fields: [
-                        { fieldName: "itemName" },
-                        { fieldName: "modifierName" },
-                        { fieldName: "quantity" },
-                        { fieldName: "netSales" },
-                      ],
-                      filters: {
-                        checkId: sr.checkId,
-                        date: { from: today, to: today, type: "custom" },
-                        location: { operationalUnits: [quStoreId] },
-                      },
-                      params: { sectionId: "items", pageNumber: 1, pageSize: 100, showTotals: false },
-                    }),
-                  } : {}),
-                });
-                
-                if (sr.checkNum === toFetch[0]?.checkNum) {
-                  console.log(`Check ${sr.checkNum} (${sr.checkId}): ${url} => ${r.status}`);
-                }
-                
-                if (!r.ok) { await r.text(); continue; }
-                
-                const data = await r.json();
-                const rows = data.items || data.data || data.lineItems || [];
-                const flat: any[] = [];
-                for (const entry of rows) {
-                  if (Array.isArray(entry.items)) flat.push(...entry.items);
-                  else flat.push(entry);
-                }
-                
-                if (sr.checkNum === toFetch[0]?.checkNum && flat.length > 0) {
-                  console.log(`Check ${sr.checkNum} items: ${flat.length} rows`);
-                  console.log("Item keys:", Object.keys(flat[0]));
-                  console.log("Item sample:", JSON.stringify(flat[0]).slice(0, 400));
-                }
 
-                if (flat.length > 0) {
-                  itemsByCheck[sr.checkNum] = [];
-                  for (const row of flat) {
-                    const itemName = row.menuItemName || row.itemName || row.name || "";
-                    const modName = row.modifierName || row.modifier || "";
-                    if (!itemName && !modName) continue;
-                    itemsByCheck[sr.checkNum].push({
-                      name: itemName || modName,
-                      modifier: modName || null,
-                      qty: parseInt(row.quantity || row.qty || "1"),
-                      price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
-                      category: row.itemGroup || row.itemGroupName || "",
-                      isModifier: !!modName && !itemName,
-                    });
+          const hydrateCheck = async (sr: typeof subreportData[0]) => {
+            try {
+              // Try multiple transactional endpoint patterns
+              const urls = [
+                `https://gateway-api.qubeyond.com/api/v4/data/checks/${sr.checkId}`,
+                `https://gateway-api.qubeyond.com/api/v4/checks/${sr.checkId}`,
+                `https://gateway-api.qubeyond.com/api/v4/data/orders/${sr.checkId}`,
+                `https://gateway-api.qubeyond.com/api/v4/orders/${sr.checkId}`,
+                `https://gateway-api.qubeyond.com/api/v4/data/transactions/${sr.checkId}`,
+              ];
+
+              let data: any = null;
+              for (const url of urls) {
+                const r = await fetch(url, { method: "GET", headers });
+                if (sr.checkNum === toFetch[0]?.checkNum) {
+                  console.log(`Probe ${sr.checkNum}: ${url} => ${r.status}`);
+                }
+                if (r.ok) {
+                  data = await r.json();
+                  if (sr.checkNum === toFetch[0]?.checkNum) {
+                    console.log("Deep check keys:", Object.keys(data));
+                    console.log("Deep check sample:", JSON.stringify(data).slice(0, 800));
                   }
-                  break; // Found items, stop trying URLs
+                  break;
+                }
+                await r.text();
+              }
+
+              if (!data) return;
+
+
+              if (sr.checkNum === toFetch[0]?.checkNum) {
+                console.log("Deep check keys:", Object.keys(data));
+                console.log("Deep check sample:", JSON.stringify(data).slice(0, 800));
+              }
+
+              // Extract line items - try common response shapes
+              const lineItems = data.lineItems || data.items || data.orderItems || data.details || [];
+              const flat: any[] = [];
+              for (const entry of (Array.isArray(lineItems) ? lineItems : [])) {
+                flat.push(entry);
+                // Also extract child modifiers/toppings
+                const children = entry.modifiers || entry.children || entry.subItems || [];
+                for (const mod of (Array.isArray(children) ? children : [])) {
+                  flat.push({ ...mod, _isModifier: true, _parentName: entry.name || entry.itemName || "" });
+                }
+              }
+
+              if (flat.length > 0) {
+                itemsByCheck[sr.checkNum] = [];
+                for (const row of flat) {
+                  const itemName = row.menuItemName || row.itemName || row.name || row.description || "";
+                  const modName = row._isModifier ? itemName : (row.modifierName || "");
+                  if (!itemName && !modName) continue;
+                  itemsByCheck[sr.checkNum].push({
+                    name: row._isModifier ? row._parentName : itemName,
+                    modifier: row._isModifier ? itemName : (modName || null),
+                    qty: parseInt(row.quantity || row.qty || row.count || "1"),
+                    price: parseFloat(((row.price || row.netSales || row.grossSales || row.amount || "0") + "").replace(/,/g, "")),
+                    category: row.category || row.itemGroup || row.itemGroupName || "",
+                    isModifier: !!row._isModifier,
+                  });
                 }
               }
             } catch (e) {
-              // Skip failed
+              // Skip failed check
             }
           };
 
           // Batch in groups of 5
           for (let i = 0; i < toFetch.length; i += 5) {
-            await Promise.all(toFetch.slice(i, i + 5).map(fetchCheckItems));
+            await Promise.all(toFetch.slice(i, i + 5).map(hydrateCheck));
           }
         }
 
