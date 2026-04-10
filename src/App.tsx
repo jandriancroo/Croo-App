@@ -70,6 +70,7 @@ const PunchClockCustomization = lazyWithRetry(() => import("./pages/PunchClockCu
 const BrandDashboard = lazyWithRetry(() => import("./pages/BrandDashboard"));
 const MyProfile = lazyWithRetry(() => import("./pages/MyProfile"));
 const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocationDashboard"));
+const ToastPreview = lazyWithRetry(() => import("./pages/ToastPreview"));
 
 const Billing = lazyWithRetry(() => import("./pages/Billing"));
 const Terms = lazyWithRetry(() => import("./pages/Terms"));
@@ -208,6 +209,7 @@ const AppContent = () => {
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/feature-tree" element={<ProtectedRoute><FeatureTree /></ProtectedRoute>} />
+        <Route path="/toast-preview" element={<ProtectedRoute><ToastPreview /></ProtectedRoute>} />
         <Route path="/architecture-map" element={<ProtectedRoute><ArchitectureMap /></ProtectedRoute>} />
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
         
