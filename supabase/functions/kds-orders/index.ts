@@ -300,16 +300,33 @@ serve(async (req) => {
 
           const hydrateCheck = async (sr: typeof subreportData[0]) => {
             try {
-              const r = await fetch(
+              // Try multiple transactional endpoint patterns
+              const urls = [
                 `https://gateway-api.qubeyond.com/api/v4/data/checks/${sr.checkId}`,
-                { method: "GET", headers },
-              );
+                `https://gateway-api.qubeyond.com/api/v4/checks/${sr.checkId}`,
+                `https://gateway-api.qubeyond.com/api/v4/data/orders/${sr.checkId}`,
+                `https://gateway-api.qubeyond.com/api/v4/orders/${sr.checkId}`,
+                `https://gateway-api.qubeyond.com/api/v4/data/transactions/${sr.checkId}`,
+              ];
 
-              if (sr.checkNum === toFetch[0]?.checkNum) {
-                console.log(`Deep check ${sr.checkNum} (${sr.checkId}): ${r.status}`);
+              let data: any = null;
+              for (const url of urls) {
+                const r = await fetch(url, { method: "GET", headers });
+                if (sr.checkNum === toFetch[0]?.checkNum) {
+                  console.log(`Probe ${sr.checkNum}: ${url} => ${r.status}`);
+                }
+                if (r.ok) {
+                  data = await r.json();
+                  if (sr.checkNum === toFetch[0]?.checkNum) {
+                    console.log("Deep check keys:", Object.keys(data));
+                    console.log("Deep check sample:", JSON.stringify(data).slice(0, 800));
+                  }
+                  break;
+                }
+                await r.text();
               }
 
-              if (!r.ok) { await r.text(); return; }
+              if (!data) return;
 
               const data = await r.json();
 
