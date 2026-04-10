@@ -3958,6 +3958,7 @@ export type Database = {
           employee: string | null
           gross_sales: number | null
           id: string
+          is_paid: boolean
           items: Json | null
           opened_at: string
           order_type: string | null
@@ -3977,6 +3978,7 @@ export type Database = {
           employee?: string | null
           gross_sales?: number | null
           id?: string
+          is_paid?: boolean
           items?: Json | null
           opened_at?: string
           order_type?: string | null
@@ -3996,6 +3998,7 @@ export type Database = {
           employee?: string | null
           gross_sales?: number | null
           id?: string
+          is_paid?: boolean
           items?: Json | null
           opened_at?: string
           order_type?: string | null
