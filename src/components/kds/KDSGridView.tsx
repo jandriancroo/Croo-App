@@ -45,7 +45,7 @@ function getChannelInfo(channel: string | null) {
   if (ch.includes('ubereats')) return { label: 'UberEats', tone: 'bg-[#06C167] text-white' };
   if (ch.includes('grubhub')) return { label: 'GrubHub', tone: 'bg-[#F63440] text-white' };
   if (ch === 'olo') return { label: 'Online', tone: 'bg-primary text-primary-foreground' };
-  return { label: 'Walk-in', tone: 'bg-muted text-muted-foreground' };
+  return { label: 'In-Store', tone: 'bg-muted text-muted-foreground' };
 }
 
 function isDelivery(channel: string | null) {

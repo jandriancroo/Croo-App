@@ -250,106 +250,137 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // Try multiple QU V4 endpoints for item-level detail
-      // product-mix is CONFIRMED working — try it first with checkNumber
-      const detailEndpoints = [
-        {
-          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
-          fields: [
-            { fieldName: "checkNumber" },
-            { fieldName: "itemName" },
-            { fieldName: "itemGroup" },
-            { fieldName: "quantity" },
-            { fieldName: "netSales" },
-          ],
-        },
-        {
-          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items",
-          fields: [
-            { fieldName: "checkNumber" },
-            { fieldName: "itemName" },
-            { fieldName: "modifierName" },
-            { fieldName: "quantity" },
-            { fieldName: "grossSales" },
-          ],
-        },
-        {
-          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
-          fields: [
-            { fieldName: "checkNumber" },
-            { fieldName: "itemName" },
-            { fieldName: "modifierName" },
-            { fieldName: "quantity" },
-            { fieldName: "grossSales" },
-          ],
-        },
-      ];
+      // Get recent check numbers
+      const recentCheckNumbers = new Set(
+        orders
+          .filter((o: any) => {
+            const openedAt = parseQuDateToIso(o.date);
+            return openedAt && isRecentOrder(openedAt);
+          })
+          .map((o: any) => o.checkNumber)
+          .filter(Boolean)
+      );
 
-      let detailRes: Response | null = null;
-      let usedEndpoint = "";
+      if (recentCheckNumbers.size > 0) {
+        // Step 1: Fetch check-detail to get checkNumberSubreport drill-down params
+        const checkDetailRes = await fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              fields: [{ fieldName: "checkNumber" }],
+              filters: {
+                date: { from: today, to: today, type: "custom" },
+                location: { operationalUnits: [quStoreId] },
+              },
+              params: { sectionId: "main", pageNumber: 1, pageSize: 500, showTotals: false },
+            }),
+          }
+        );
 
-      for (const ep of detailEndpoints) {
-        const sectionId = ep.url.split("/sections/")[1] || "main";
-        const res = await fetch(ep.url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            fields: ep.fields,
-            filters: {
-              date: { from: today, to: today, type: "custom" },
-              location: { operationalUnits: [quStoreId] },
-            },
-            params: {
-              sectionId,
-              pageNumber: 1,
-              pageSize: 1000,
-              sort: [{ field: "checkNumber", dir: "asc" }],
-            },
-          }),
-        });
-        if (res.ok) {
-          detailRes = res;
-          usedEndpoint = ep.url;
-          break;
-        }
-        await res.text();
-        console.log("Detail endpoint failed:", res.status, ep.url);
-      }
+        if (checkDetailRes.ok) {
+          const checkData = await checkDetailRes.json();
+          const checkRows = checkData.items || [];
 
-      if (detailRes) {
-        const detailData = await detailRes.json();
-        const rows = detailData.items || detailData.data || [];
-        console.log("Detail endpoint used:", usedEndpoint, "rows:", rows.length);
-        if (rows.length > 0) {
-          console.log("Sample row keys:", Object.keys(rows[0]));
-          console.log("Sample row:", JSON.stringify(rows[0]));
-        }
-
-        for (const row of rows) {
-          const currentCheckNumber = row.checkNumber;
-          if (!currentCheckNumber || currentCheckNumber === "Total" || currentCheckNumber === "Totals") continue;
-
-          if (!itemsByCheck[currentCheckNumber]) {
-            itemsByCheck[currentCheckNumber] = [];
+          // Extract checkId from checkNumberSubreport for each recent check
+          const subreportData: { checkNum: string; checkId: string }[] = [];
+          for (const row of checkRows) {
+            const cn = row.checkNumber;
+            if (!cn || !recentCheckNumbers.has(cn)) continue;
+            const sub = row.checkNumberSubreport;
+            if (sub?.checkId) {
+              subreportData.push({ checkNum: cn, checkId: sub.checkId });
+            }
           }
 
-          const itemName = row.menuItemName || row.itemName || row.name || "";
-          const modName = row.modifierName || row.modifier || "";
-          const category = row.itemGroup || row.categoryName || row.category || "";
+          console.log(`Found ${subreportData.length} checkIds for ${recentCheckNumbers.size} recent checks`);
 
-          itemsByCheck[currentCheckNumber].push({
-            name: itemName || modName || "Unknown Item",
-            modifier: modName || null,
-            qty: parseInt(row.quantity || row.qty || "1"),
-            price: parseFloat(((row.netSales || row.grossSales || row.sales || "0") + "").replace(/,/g, "")),
-            category,
-            isModifier: !!modName && !itemName,
-          });
+          // Step 3: Drill into each check using checkId
+          const toFetch = subreportData.slice(0, 20);
+          
+          const fetchCheckItems = async (sr: typeof subreportData[0]) => {
+            try {
+              // Try multiple subreport URL patterns with the checkId
+              const subreportUrls = [
+                `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/checks/${sr.checkId}/items`,
+                `https://gateway-api.qubeyond.com/api/v4/data/checks/${sr.checkId}/items`,
+                `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items`,
+              ];
+              
+              for (const url of subreportUrls) {
+                const isPostUrl = url.includes("sections/");
+                const r = await fetch(url, {
+                  method: isPostUrl ? "POST" : "GET",
+                  headers,
+                  ...(isPostUrl ? {
+                    body: JSON.stringify({
+                      fields: [
+                        { fieldName: "itemName" },
+                        { fieldName: "modifierName" },
+                        { fieldName: "quantity" },
+                        { fieldName: "netSales" },
+                      ],
+                      filters: {
+                        checkId: sr.checkId,
+                        date: { from: today, to: today, type: "custom" },
+                        location: { operationalUnits: [quStoreId] },
+                      },
+                      params: { sectionId: "items", pageNumber: 1, pageSize: 100, showTotals: false },
+                    }),
+                  } : {}),
+                });
+                
+                if (sr.checkNum === toFetch[0]?.checkNum) {
+                  console.log(`Check ${sr.checkNum} (${sr.checkId}): ${url} => ${r.status}`);
+                }
+                
+                if (!r.ok) { await r.text(); continue; }
+                
+                const data = await r.json();
+                const rows = data.items || data.data || data.lineItems || [];
+                const flat: any[] = [];
+                for (const entry of rows) {
+                  if (Array.isArray(entry.items)) flat.push(...entry.items);
+                  else flat.push(entry);
+                }
+                
+                if (sr.checkNum === toFetch[0]?.checkNum && flat.length > 0) {
+                  console.log(`Check ${sr.checkNum} items: ${flat.length} rows`);
+                  console.log("Item keys:", Object.keys(flat[0]));
+                  console.log("Item sample:", JSON.stringify(flat[0]).slice(0, 400));
+                }
+
+                if (flat.length > 0) {
+                  itemsByCheck[sr.checkNum] = [];
+                  for (const row of flat) {
+                    const itemName = row.menuItemName || row.itemName || row.name || "";
+                    const modName = row.modifierName || row.modifier || "";
+                    if (!itemName && !modName) continue;
+                    itemsByCheck[sr.checkNum].push({
+                      name: itemName || modName,
+                      modifier: modName || null,
+                      qty: parseInt(row.quantity || row.qty || "1"),
+                      price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
+                      category: row.itemGroup || row.itemGroupName || "",
+                      isModifier: !!modName && !itemName,
+                    });
+                  }
+                  break; // Found items, stop trying URLs
+                }
+              }
+            } catch (e) {
+              // Skip failed
+            }
+          };
+
+          // Batch in groups of 5
+          for (let i = 0; i < toFetch.length; i += 5) {
+            await Promise.all(toFetch.slice(i, i + 5).map(fetchCheckItems));
+          }
         }
 
-        console.log(`Items grouped for ${Object.keys(itemsByCheck).length} checks`);
-      } else {
-        console.log("All detail endpoints failed — no item data available");
+        console.log(`Items resolved for ${Object.keys(itemsByCheck).length} checks`);
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
