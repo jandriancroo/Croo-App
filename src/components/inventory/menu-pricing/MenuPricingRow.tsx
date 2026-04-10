@@ -40,8 +40,7 @@ const MenuPricingRow = ({ item, show3pd, theoTarget, onPriceChange, on3pdChange 
 
   const getFoodCostColor = (pct: number | null) => {
     if (pct === null) return "text-muted-foreground";
-    if (pct <= 28) return "text-emerald-600 dark:text-emerald-400";
-    if (pct <= 33) return "text-amber-600 dark:text-amber-400";
+    if (pct <= theoTarget) return "text-emerald-600 dark:text-emerald-400";
     return "text-destructive";
   };
 
