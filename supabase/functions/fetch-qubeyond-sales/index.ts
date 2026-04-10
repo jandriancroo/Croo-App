@@ -1231,76 +1231,7 @@ async function calculateLaborFromPunchesForDates(
   return { laborCost: totalLaborCost, hoursWorked: totalHoursWorked, regularHours: totalRegularHours, overtimeHours: totalOvertimeHours, dailyLabor };
 }
 
-// Fetch labor data from Real Time Summary
-async function fetchLaborData(
-  tokenGw: string,
-  dateStr: string,
-  qbLocationId: string
-): Promise<{ laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null> {
-  console.log(`Fetching labor data for ${dateStr}`);
-  
-  try {
-    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/real-time-summary/sections/overview', {
-      method: 'POST',
-      headers: getV4Headers(tokenGw),
-      body: JSON.stringify({
-        fields: [{ fieldName: "metric" }, { fieldName: "total" }],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: "today" },
-          singleLocation: parseInt(qbLocationId),
-          clockInRequired: true
-        },
-        params: { 
-          sectionId: "overview", 
-          pageNumber: 1, 
-          pageSize: 25, 
-          totalRecords: null, 
-          sort: null, 
-          showTotals: true 
-        }
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('Labor data fetch failed:', response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    console.log('Labor data response:', JSON.stringify(data).substring(0, 1000));
-    
-    let laborPercent = 0;
-    let laborCost = 0;
-    let hoursWorked = 0;
-    let regularHours = 0;
-    let overtimeHours = 0;
-    
-    if (data.items && Array.isArray(data.items)) {
-      for (const item of data.items) {
-        const metric = item.metric?.toLowerCase() || '';
-        const total = parseFloat(String(item.total || '0').replace(/[$,%]/g, '')) || 0;
-        
-        if (metric.includes('total labor %') || metric === 'total labor %') {
-          laborPercent = total;
-        } else if (metric.includes('labor cost') || metric === 'labor cost') {
-          laborCost = total;
-        } else if (metric === 'hours worked') {
-          hoursWorked = total;
-        } else if (metric === 'regular hours') {
-          regularHours = total;
-        } else if (metric === 'overtime hours') {
-          overtimeHours = total;
-        }
-      }
-    }
-    
-    console.log(`Labor result: laborPercent=${laborPercent}%, laborCost=${laborCost}, hoursWorked=${hoursWorked}`);
-    return { laborPercent, laborCost, hoursWorked, regularHours, overtimeHours };
-  } catch (error) {
-    console.error('Labor data fetch error:', error);
-    return null;
-  }
-}
+// QU labor fetch removed — all locations now use punch clock exclusively
 
 // Cache labor data to dedicated labor_cache table with source tracking
 async function cacheLaborData(
