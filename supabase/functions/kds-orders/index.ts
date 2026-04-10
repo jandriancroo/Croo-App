@@ -247,43 +247,37 @@ serve(async (req) => {
     try {
       // Try multiple QU V4 endpoints for item-level detail
       const detailEndpoints = [
-        {
-          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items",
-          fields: [
-            { fieldName: "checkNumber" },
-            { fieldName: "itemName" },
-            { fieldName: "modifierName" },
-            { fieldName: "quantity" },
-            { fieldName: "grossSales" },
-          ],
-        },
-        {
-          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
-          fields: [
-            { fieldName: "checkNumber" },
-            { fieldName: "itemName" },
-            { fieldName: "modifierName" },
-            { fieldName: "quantity" },
-            { fieldName: "grossSales" },
-          ],
-        },
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items",
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/item-detail",
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail-items/sections/main",
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/item-sales/sections/main",
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
+      ];
+
+      const itemFields = [
+        { fieldName: "checkNumber" },
+        { fieldName: "itemName" },
+        { fieldName: "modifierName" },
+        { fieldName: "quantity" },
+        { fieldName: "grossSales" },
       ];
 
       let detailRes: Response | null = null;
       let usedEndpoint = "";
 
-      for (const ep of detailEndpoints) {
-        const res = await fetch(ep.url, {
+      for (const url of detailEndpoints) {
+        const sectionId = url.split("/sections/")[1] || "main";
+        const res = await fetch(url, {
           method: "POST",
           headers,
           body: JSON.stringify({
-            fields: ep.fields,
+            fields: itemFields,
             filters: {
               date: { from: today, to: today, type: "custom" },
               location: { operationalUnits: [quStoreId] },
             },
             params: {
-              sectionId: ep.url.includes("/items") ? "items" : "main",
+              sectionId,
               pageNumber: 1,
               pageSize: 500,
               sort: [{ field: "checkNumber", dir: "asc" }],
@@ -292,11 +286,11 @@ serve(async (req) => {
         });
         if (res.ok) {
           detailRes = res;
-          usedEndpoint = ep.url;
+          usedEndpoint = url;
           break;
         }
-        await res.text(); // drain
-        console.log("Detail endpoint 404:", ep.url);
+        await res.text();
+        console.log("Detail endpoint failed:", res.status, url);
       }
 
       if (detailRes) {
