@@ -57,6 +57,23 @@ serve(async (req) => {
         );
       }
 
+      // Fetch already-resolved/dismissed vendor names to skip alternate IDs for the same product
+      const { data: existingAlerts } = await supabase
+        .from("vendor_gap_alerts")
+        .select("vendor_name, item_number, status")
+        .eq("brand_id", brand.id);
+
+      const dismissedOrResolvedNames = new Set<string>();
+      const existingAlertKeys = new Set<string>();
+      for (const alert of (existingAlerts || [])) {
+        const name = (alert.vendor_name || "").toLowerCase().trim();
+        const key = `${alert.item_number}`;
+        existingAlertKeys.add(key);
+        if (alert.status === "dismissed" || alert.status === "resolved") {
+          if (name) dismissedOrResolvedNames.add(name);
+        }
+      }
+
       let newItemCount = 0;
 
       // --- PFG Scan (Bid Guide) ---
