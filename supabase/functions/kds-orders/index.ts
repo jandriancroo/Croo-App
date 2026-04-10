@@ -253,11 +253,10 @@ serve(async (req) => {
           body: JSON.stringify({
             fields: [
               { fieldName: "checkNumber" },
-              { fieldName: "menuItemName" },
+              { fieldName: "itemName" },
               { fieldName: "modifierName" },
               { fieldName: "quantity" },
               { fieldName: "grossSales" },
-              { fieldName: "categoryName" },
             ],
             filters: {
               date: { from: today, to: today, type: "custom" },
