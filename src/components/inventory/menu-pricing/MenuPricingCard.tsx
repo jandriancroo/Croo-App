@@ -111,7 +111,7 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
     <Card>
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border flex-wrap">
         <DollarSign className="h-4 w-4 text-primary" />
-        <span className="font-semibold text-sm">Menu Pricing</span>
+        <span className="font-semibold text-sm">Menu Genius</span>
         <Badge variant="secondary" className="text-xs tabular-nums">
           {items.length} items
         </Badge>

@@ -87,7 +87,7 @@ const RecipeGeniusCard = ({ locationId }: RecipeGeniusCardProps) => {
       <Card>
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
           <FlaskConical className="h-4 w-4 text-accent-foreground" />
-          <span className="font-semibold text-sm">Recipe Genius</span>
+          <span className="font-semibold text-sm">Custom Creations</span>
           <Badge variant="secondary" className="text-xs tabular-nums">
             {simRecipes?.length || 0} ideas
           </Badge>

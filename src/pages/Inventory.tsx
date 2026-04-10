@@ -350,7 +350,7 @@ const Inventory = () => {
             </TabsTrigger>
             <TabsTrigger value="pricing" className="flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
-              <span>Pricing</span>
+              <span>Genius</span>
             </TabsTrigger>
             <TabsTrigger value="build" className="flex items-center gap-2">
               <Hammer className="h-4 w-4" />
