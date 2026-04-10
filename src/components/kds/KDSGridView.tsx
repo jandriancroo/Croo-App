@@ -116,6 +116,8 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
             const items = Array.isArray(order.items) ? order.items : [];
             const groupedItems = groupItems(items);
             const isBumping = bumping === order.check_number;
+            const delivery = isDelivery(order.channel);
+            const readyBy = getReadyBy(order.promised_time);
 
             return (
               <motion.div
@@ -131,16 +133,28 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
                   order.is_paid
                     ? 'border-emerald-500/40'
                     : 'border-destructive animate-pulse',
-                  isDelivery(order.channel) && 'border-l-4 border-l-primary'
+                  delivery && 'border-l-4 border-l-primary'
                 )}
               >
+                {/* Ready By banner for delivery orders */}
+                {delivery && readyBy && (
+                  <div className={cn(
+                    'px-3 py-1 text-center text-[10px] font-black uppercase tracking-wider',
+                    readyBy === 'OVERDUE'
+                      ? 'bg-destructive text-destructive-foreground animate-pulse'
+                      : 'bg-amber-500 text-white'
+                  )}>
+                    {readyBy === 'OVERDUE' ? '⚠ OVERDUE' : `🕐 Ready in ${readyBy}`}
+                  </div>
+                )}
+
                 <div className="border-b border-border px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-bold text-foreground">
                       {order.customer_name || 'Guest'}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      {!order.is_paid && !isDelivery(order.channel) && (
+                      {!order.is_paid && !delivery && (
                         <span className="rounded bg-destructive px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-destructive-foreground animate-pulse">
                           Unpaid
                         </span>
@@ -148,14 +162,19 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
                       <span className="shrink-0 font-mono text-[10px] text-muted-foreground">#{order.check_number}</span>
                     </div>
                   </div>
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground', channelInfo.tone)}>
+                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', channelInfo.tone)}>
                       {channelInfo.label}
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Clock className="h-2.5 w-2.5" />
                       {getElapsed(order.opened_at)}
                     </span>
+                    {delivery && order.external_order_id && (
+                      <span className="font-mono text-[9px] text-muted-foreground/70 truncate max-w-[80px]" title={order.external_order_id}>
+                        ID: {order.external_order_id.slice(-6)}
+                      </span>
+                    )}
                   </div>
                 </div>
 
