@@ -832,6 +832,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       queryClient.invalidateQueries({ queryKey: ["blueprint-recipes", locationId] });
       queryClient.invalidateQueries({ queryKey: ["blueprint-costs", locationId] });
       queryClient.invalidateQueries({ queryKey: ["recipe-catalog-blueprints", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["recipe-genius-blueprints", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["menu-pricing-blueprints", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["menu-pricing-costs", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["recipe-genius-costs", locationId] });
       if (editBlueprintId) {
         queryClient.invalidateQueries({ queryKey: ["blueprint-detail", editBlueprintId] });
       }
