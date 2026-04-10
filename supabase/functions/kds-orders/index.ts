@@ -316,17 +316,22 @@ serve(async (req) => {
 
           // Try multiple subreport URL patterns in parallel
           const subreportProbes = [
+            // checkNumber as plain string filter (error told us it wants a string)
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main`, method: "POST", label: "main-checkNumber-string",
+              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "modifierName" }, { fieldName: "quantity" }, { fieldName: "netSales" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkNumber: probeCN }, params: { sectionId: "main", pageSize: 100 } }) },
+            // Subreport drill-down patterns
             { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${probeCheckId}`, method: "POST", label: "subreport-POST",
               body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }, { fieldName: "modifierName" }], params: { pageSize: 100 } }) },
             { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${probeCheckId}`, method: "GET", label: "subreport-GET" },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/subreport/${probeCheckId}`, method: "POST", label: "subreport-noSection-POST",
-              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }], params: { pageSize: 100 } }) },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/subreport/${probeCheckId}`, method: "GET", label: "subreport-noSection-GET" },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/${probeCheckId}`, method: "GET", label: "checkDetail-byId-GET" },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/${probeCheckId}/items`, method: "GET", label: "checkDetail-byId-items-GET" },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${probeCheckId}`, method: "GET", label: "reporting-ticket-GET" },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main`, method: "POST", label: "main-filtered-by-checkNumber",
-              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "modifierName" }, { fieldName: "quantity" }, { fieldName: "netSales" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkNumber: { values: [probeCN] } }, params: { sectionId: "main", pageSize: 100 } }) },
+            // Try subreport with filters context
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${probeCheckId}`, method: "POST", label: "subreport-withFilters",
+              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { pageSize: 100 } }) },
+            // checkNumberSubreport pattern (maybe the section name IS the subreport)
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/checkNumber`, method: "POST", label: "section-checkNumber",
+              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkId: probeCheckId }, params: { sectionId: "checkNumber", pageSize: 100 } }) },
+            // Try "check-detail-items" with singleLocation (never tried with singleLocation)
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail-items/sections/main`, method: "POST", label: "check-detail-items-singleLocation",
+              body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
           ];
 
           const results = await Promise.all(subreportProbes.map(async (ep) => {
