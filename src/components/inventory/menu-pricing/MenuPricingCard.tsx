@@ -138,7 +138,6 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
           />
           <span className="text-[10px] text-muted-foreground">%</span>
         </div>
-        )}
         <div className="ml-auto flex items-center gap-1.5">
           {pricedItems.length > 0 && (
             <Badge variant="outline" className="text-[10px] tabular-nums">
