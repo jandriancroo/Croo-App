@@ -7,13 +7,14 @@ import { getCleanDisplayName } from "../recipe-catalog/utils";
 interface MenuPricingRowProps {
   item: MenuPricingItem;
   show3pd: boolean;
+  theoTarget: number;
   onPriceChange: (blueprintId: string, price: number) => void;
   on3pdChange: (blueprintId: string, field: "upcharge" | "fee", value: number) => void;
 }
 
 type EditField = "price" | "upcharge" | "fee" | null;
 
-const MenuPricingRow = ({ item, show3pd, onPriceChange, on3pdChange }: MenuPricingRowProps) => {
+const MenuPricingRow = ({ item, show3pd, theoTarget, onPriceChange, on3pdChange }: MenuPricingRowProps) => {
   const [editField, setEditField] = useState<EditField>(null);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -39,8 +40,7 @@ const MenuPricingRow = ({ item, show3pd, onPriceChange, on3pdChange }: MenuPrici
 
   const getFoodCostColor = (pct: number | null) => {
     if (pct === null) return "text-muted-foreground";
-    if (pct <= 28) return "text-emerald-600 dark:text-emerald-400";
-    if (pct <= 33) return "text-amber-600 dark:text-amber-400";
+    if (pct <= theoTarget) return "text-emerald-600 dark:text-emerald-400";
     return "text-destructive";
   };
 

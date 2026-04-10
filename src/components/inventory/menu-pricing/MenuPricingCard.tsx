@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DollarSign, TrendingUp, Loader2, ChevronDown, ChevronRight, Truck } from "lucide-react";
+import { DollarSign, TrendingUp, Loader2, ChevronDown, ChevronRight, Truck, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMenuPricing } from "./useMenuPricing";
 import MenuPricingRow from "./MenuPricingRow";
@@ -44,6 +44,7 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
   const [show3pd, setShow3pd] = useState(false);
   const [fillUpcharge, setFillUpcharge] = useState("");
   const [fillFee, setFillFee] = useState("");
+  const [theoTarget, setTheoTarget] = useState(30);
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
@@ -82,8 +83,7 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
 
   const getFcColor = (pct: number | null) => {
     if (pct === null) return "text-muted-foreground";
-    if (pct <= 28) return "text-emerald-600 dark:text-emerald-400";
-    if (pct <= 33) return "text-amber-600 dark:text-amber-400";
+    if (pct <= theoTarget) return "text-emerald-600 dark:text-emerald-400";
     return "text-destructive";
   };
 
@@ -114,13 +114,30 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
         </Badge>
         {avgFoodCost !== null && (
           <Badge
-            variant={avgFoodCost <= 30 ? "default" : "outline"}
+            variant={avgFoodCost <= theoTarget ? "default" : "outline"}
             className="text-[10px] gap-1 tabular-nums"
           >
             <TrendingUp className="h-3 w-3" />
             {avgFoodCost.toFixed(1)}% avg
           </Badge>
         )}
+        <div className="flex items-center gap-1 border border-border rounded-md px-1.5 py-0.5 bg-muted/30">
+          <Sparkles className="h-3 w-3 text-primary" />
+          <span className="text-[10px] font-semibold text-muted-foreground">Target</span>
+          <input
+            type="number"
+            step="1"
+            min="1"
+            max="100"
+            className="w-10 text-right text-[10px] bg-background border border-primary/30 rounded px-1 py-0 tabular-nums focus:outline-none focus:ring-1 focus:ring-primary text-foreground font-semibold"
+            value={theoTarget}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              if (!isNaN(v) && v > 0) setTheoTarget(v);
+            }}
+          />
+          <span className="text-[10px] text-muted-foreground">%</span>
+        </div>
         <div className="ml-auto flex items-center gap-1.5">
           {pricedItems.length > 0 && (
             <Badge variant="outline" className="text-[10px] tabular-nums">
@@ -224,6 +241,7 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
                   key={item.id}
                   item={item}
                   show3pd={show3pd}
+                  theoTarget={theoTarget}
                   onPriceChange={(id, price) => upsertPrice({ blueprintId: id, price })}
                   on3pdChange={(id, field, value) =>
                     upsertPrice({
