@@ -155,7 +155,6 @@ export function useMenuPricing(locationId: string) {
         recipeCost,
         isPartial: cost?.isPartial || false,
         menuPrice,
-        menuPrice,
         foodCostPct,
         tpdUpchargePct,
         tpdFeePct,
