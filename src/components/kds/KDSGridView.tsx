@@ -53,6 +53,21 @@ function isDelivery(channel: string | null) {
   return ch === 'olo' || ch.includes('doordash') || ch.includes('ubereats') || ch.includes('grubhub');
 }
 
+function getReadyBy(promisedTime: string | null): string | null {
+  if (!promisedTime) return null;
+  try {
+    const target = new Date(promisedTime);
+    if (isNaN(target.getTime())) return null;
+    const diffMs = target.getTime() - Date.now();
+    if (diffMs <= 0) return 'OVERDUE';
+    const mins = Math.ceil(diffMs / 60000);
+    if (mins > 120) return null;
+    return `${mins}m`;
+  } catch {
+    return null;
+  }
+}
+
 function groupItems(items: KDSItem[]) {
   const grouped: Array<{ item: KDSItem; modifiers: KDSItem[] }> = [];
 
