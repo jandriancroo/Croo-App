@@ -1,0 +1,1 @@
+ALTER TABLE public.kds_orders ADD COLUMN is_paid boolean NOT NULL DEFAULT true;
