@@ -294,73 +294,79 @@ serve(async (req) => {
             }
           }
 
-          console.log(`Found ${subreportFilters.length} subreport links for ${recentCheckNumbers.size} recent checks`);
-          if (subreportFilters.length > 0) {
-            console.log("RAW checkNumberSubreport:", JSON.stringify(checkRows[0]?.checkNumberSubreport).slice(0, 800));
-            console.log("Sample subreport:", JSON.stringify(subreportFilters[0]).slice(0, 500));
-          }
+          console.log(`Found ${subreportData.length} checkIds for ${recentCheckNumbers.size} recent checks`);
 
-          // Step 3: Drill into each subreport (batched, max 20)
-          const toFetch = subreportFilters.slice(0, 20);
+          // Step 3: Drill into each check using checkId
+          const toFetch = subreportData.slice(0, 20);
           
-          const fetchSubreport = async (sr: typeof subreportFilters[0]) => {
+          const fetchCheckItems = async (sr: typeof subreportData[0]) => {
             try {
-              // The subreport typically uses check-detail with different filters/params
-              const r = await fetch(
-                "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
-                {
-                  method: "POST",
-                  headers,
-                  body: JSON.stringify({
-                    fields: [
-                      { fieldName: "itemName" },
-                      { fieldName: "menuItemName" },
-                      { fieldName: "modifierName" },
-                      { fieldName: "quantity" },
-                      { fieldName: "netSales" },
-                      { fieldName: "itemGroup" },
-                    ],
-                    filters: sr.filters,
-                    params: { ...sr.params, showTotals: false },
-                  }),
-                }
-              );
-              if (!r.ok) {
-                if (sr.checkNum === toFetch[0]?.checkNum) {
-                  console.log(`Subreport failed: ${r.status} for check ${sr.checkNum}`);
-                }
-                return;
-              }
-              const data = await r.json();
-              const rows = data.items || data.data || [];
-              const flat: any[] = [];
-              for (const entry of rows) {
-                if (Array.isArray(entry.items)) flat.push(...entry.items);
-                else flat.push(entry);
-              }
+              // Try multiple subreport URL patterns with the checkId
+              const subreportUrls = [
+                `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/checks/${sr.checkId}/items`,
+                `https://gateway-api.qubeyond.com/api/v4/data/checks/${sr.checkId}/items`,
+                `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items`,
+              ];
               
-              if (sr.checkNum === toFetch[0]?.checkNum) {
-                console.log(`Subreport for check ${sr.checkNum}: ${flat.length} rows`);
-                if (flat.length > 0) {
-                  console.log("Subreport row keys:", Object.keys(flat[0]));
-                  console.log("Subreport sample:", JSON.stringify(flat[0]).slice(0, 400));
+              for (const url of subreportUrls) {
+                const isPostUrl = url.includes("sections/");
+                const r = await fetch(url, {
+                  method: isPostUrl ? "POST" : "GET",
+                  headers,
+                  ...(isPostUrl ? {
+                    body: JSON.stringify({
+                      fields: [
+                        { fieldName: "itemName" },
+                        { fieldName: "modifierName" },
+                        { fieldName: "quantity" },
+                        { fieldName: "netSales" },
+                      ],
+                      filters: {
+                        checkId: sr.checkId,
+                        date: { from: today, to: today, type: "custom" },
+                        location: { operationalUnits: [quStoreId] },
+                      },
+                      params: { sectionId: "items", pageNumber: 1, pageSize: 100, showTotals: false },
+                    }),
+                  } : {}),
+                });
+                
+                if (sr.checkNum === toFetch[0]?.checkNum) {
+                  console.log(`Check ${sr.checkNum} (${sr.checkId}): ${url} => ${r.status}`);
                 }
-              }
+                
+                if (!r.ok) { await r.text(); continue; }
+                
+                const data = await r.json();
+                const rows = data.items || data.data || data.lineItems || [];
+                const flat: any[] = [];
+                for (const entry of rows) {
+                  if (Array.isArray(entry.items)) flat.push(...entry.items);
+                  else flat.push(entry);
+                }
+                
+                if (sr.checkNum === toFetch[0]?.checkNum && flat.length > 0) {
+                  console.log(`Check ${sr.checkNum} items: ${flat.length} rows`);
+                  console.log("Item keys:", Object.keys(flat[0]));
+                  console.log("Item sample:", JSON.stringify(flat[0]).slice(0, 400));
+                }
 
-              if (flat.length > 0) {
-                itemsByCheck[sr.checkNum] = [];
-                for (const row of flat) {
-                  const itemName = row.menuItemName || row.itemName || row.name || "";
-                  const modName = row.modifierName || row.modifier || "";
-                  if (!itemName && !modName) continue;
-                  itemsByCheck[sr.checkNum].push({
-                    name: itemName || modName,
-                    modifier: modName || null,
-                    qty: parseInt(row.quantity || row.qty || "1"),
-                    price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
-                    category: row.itemGroup || row.itemGroupName || "",
-                    isModifier: !!modName && !itemName,
-                  });
+                if (flat.length > 0) {
+                  itemsByCheck[sr.checkNum] = [];
+                  for (const row of flat) {
+                    const itemName = row.menuItemName || row.itemName || row.name || "";
+                    const modName = row.modifierName || row.modifier || "";
+                    if (!itemName && !modName) continue;
+                    itemsByCheck[sr.checkNum].push({
+                      name: itemName || modName,
+                      modifier: modName || null,
+                      qty: parseInt(row.quantity || row.qty || "1"),
+                      price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
+                      category: row.itemGroup || row.itemGroupName || "",
+                      isModifier: !!modName && !itemName,
+                    });
+                  }
+                  break; // Found items, stop trying URLs
                 }
               }
             } catch (e) {
@@ -370,7 +376,7 @@ serve(async (req) => {
 
           // Batch in groups of 5
           for (let i = 0; i < toFetch.length; i += 5) {
-            await Promise.all(toFetch.slice(i, i + 5).map(fetchSubreport));
+            await Promise.all(toFetch.slice(i, i + 5).map(fetchCheckItems));
           }
         }
 
