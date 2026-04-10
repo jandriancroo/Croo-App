@@ -484,7 +484,7 @@ function buildUpsertPayload(locationId: string, dateStr: string, data: Awaited<R
     pizza_count: Math.round(data.pizzaCount),
     hourly_data: data.formattedHourly,
     product_mix: data.productMix,
-    payments_data: data.paymentsData,
+    ...(data.paymentsData.length > 0 ? { payments_data: data.paymentsData } : {}),
     yoy_net_sales: data.yoyNetSales,
     yoy_hourly_data: data.yoyHourlyData,
     yoy_sale_date: data.yoySaleDate,

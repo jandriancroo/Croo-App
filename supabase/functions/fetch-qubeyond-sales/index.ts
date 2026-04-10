@@ -3115,7 +3115,7 @@ serve(async (req) => {
               pizza_count: Math.round(finalPizzaCount),
               avg_ticket: avgTicket || null,
               hourly_data: hourlyWithLabor,
-              payments_data: todayPayments.length > 0 ? todayPayments : null,
+              ...(todayPayments.length > 0 ? { payments_data: todayPayments } : {}),
               validation_status: 'valid',
               validation_attempts: 1,
               flagged_no_sales: false,
