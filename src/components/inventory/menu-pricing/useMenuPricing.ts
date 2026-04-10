@@ -138,8 +138,8 @@ export function useMenuPricing(locationId: string) {
 
       const tpdUpchargePct = override?.tpd_upcharge_pct ?? null;
       const tpdFeePct = override?.tpd_fee_pct ?? null;
-      const tpdPrice = activePrice && tpdUpchargePct != null
-        ? activePrice * (1 + tpdUpchargePct / 100)
+      const tpdPrice = menuPrice && tpdUpchargePct != null
+        ? menuPrice * (1 + tpdUpchargePct / 100)
         : null;
       const tpdFoodCostPct = tpdPrice && tpdPrice > 0 && tpdFeePct != null
         ? (recipeCost / (tpdPrice * (1 - tpdFeePct / 100))) * 100
@@ -155,7 +155,7 @@ export function useMenuPricing(locationId: string) {
         recipeCost,
         isPartial: cost?.isPartial || false,
         menuPrice,
-        quPrice,
+        menuPrice,
         foodCostPct,
         tpdUpchargePct,
         tpdFeePct,
