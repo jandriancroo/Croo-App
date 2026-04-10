@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { addDays, format } from "date-fns";
 
 interface ProvenCogs {
@@ -203,25 +203,21 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
                 <TableRow className="text-xs">
                   <TableHead className="pl-4 min-w-[140px]">Category</TableHead>
                   <TableHead className="text-right">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>Actual</TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs max-w-[200px]">
-                          Beginning inventory + Purchases − Ending inventory
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>Actual</TooltipTrigger>
+                      <TooltipContent side="top">
+                        Beginning inventory + Purchases − Ending inventory
+                      </TooltipContent>
+                    </Tooltip>
                   </TableHead>
                   <TableHead className="text-right">%</TableHead>
                   <TableHead className="text-right">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>Theoretical</TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs max-w-[200px]">
-                          POS sales × recipe ingredient costs
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>Theoretical</TooltipTrigger>
+                      <TooltipContent side="top">
+                        POS sales × recipe ingredient costs
+                      </TooltipContent>
+                    </Tooltip>
                   </TableHead>
                   <TableHead className="text-right">%</TableHead>
                   <TableHead className="text-right">Variance</TableHead>

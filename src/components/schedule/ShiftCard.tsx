@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Scissors, Coffee } from "lucide-react";
 import { shiftHasBreak } from "@/utils/shiftUtils";
 import { formatTime12Hour } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ShiftCardProps {
   shift: any;
@@ -104,18 +104,16 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           <span className="lg:hidden">{`${formatTime12Hour(shiftData.start_time, true, true)} - ${formatTime12Hour(shiftData.end_time, true, true)}`}</span>
           <span className="hidden lg:inline">{`${formatTime12Hour(shiftData.start_time, true)} - ${formatTime12Hour(shiftData.end_time, true)}`}</span>
           {!isCompactMode && wasTrimmed && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-amber-400 text-amber-900">
-                    <Scissors className="h-2 w-2" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  <p>Theo trimmed: was {formatTime12Hour(shift.original_end_time, true)}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-amber-400 text-amber-900">
+                  <Scissors className="h-2 w-2" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Theo trimmed: was {formatTime12Hour(shift.original_end_time, true)}</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
         {!isCompactMode && shift.isTemplate && templatePosition && (

@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Filter, Eye, EyeOff, Info, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 interface TheoMappingTabProps {
@@ -199,19 +199,17 @@ export default function TheoMappingTab({ brandId, excludedCategories, includedOv
                 Expand a category to re-include specific items as exceptions.
               </CardDescription>
             </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Badge variant="outline" className="text-[10px] gap-1 shrink-0">
-                    <Info className="h-3 w-3" />
-                    Diagnostic only
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-[240px] text-xs">
-                  This only filters the "Unmatched" diagnostic list. It does not impact actual or theoretical COGS. Clear all to reset.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="text-[10px] gap-1 shrink-0">
+                  <Info className="h-3 w-3" />
+                  Diagnostic only
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                This only filters the "Unmatched" diagnostic list. It does not impact actual or theoretical COGS. Clear all to reset.
+              </TooltipContent>
+            </Tooltip>
           </div>
         </CardHeader>
         <CardContent className="p-0">
