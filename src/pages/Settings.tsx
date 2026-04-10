@@ -353,6 +353,9 @@ export default function Settings() {
           </div>
         );
 
+      case 'data-streams':
+        return <DataStreamStatus />;
+
       default:
         return null;
     }
