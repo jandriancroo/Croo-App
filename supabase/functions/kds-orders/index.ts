@@ -328,7 +328,6 @@ serve(async (req) => {
 
               if (!data) return;
 
-              const data = await r.json();
 
               if (sr.checkNum === toFetch[0]?.checkNum) {
                 console.log("Deep check keys:", Object.keys(data));
