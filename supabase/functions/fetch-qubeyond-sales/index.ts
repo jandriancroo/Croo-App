@@ -703,7 +703,7 @@ async function fetchProductMix(
       console.log('Crusts items:', JSON.stringify(crusts.slice(0, 10)));
     }
     
-    return products.slice(0, 100);
+    return products;
   } catch (error) {
     console.error('Product mix fetch error:', error);
     return [];

@@ -286,54 +286,13 @@ async function fetchProductMix(
   }
 }
 
-// Fetch payment method breakdown with multi-endpoint fallback (mirrors fetch-qubeyond-sales)
+// Fetch payment method breakdown - uses only summary/payments (the only endpoint that works for Blaze stores)
 async function fetchPaymentsData(
   tokenGw: string,
   dateStr: string,
   qbLocationId: string
 ): Promise<{ paymentType: string; amount: number }[]> {
   console.log(`[sales-service] Fetching payments data for ${dateStr}`);
-
-  const candidates = [
-    {
-      name: 'payments/main',
-      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main',
-      payload: {
-        fields: [{ fieldName: 'paymentType' }, { fieldName: 'amount' }, { fieldName: 'checkCount' }],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: 'custom' },
-          singleLocation: parseInt(qbLocationId),
-          location: { operationalUnits: [parseInt(qbLocationId)] },
-        },
-        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
-      },
-    },
-    {
-      name: 'payment-types/main',
-      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/payment-types/sections/main',
-      payload: {
-        fields: [{ fieldName: 'paymentType' }, { fieldName: 'amount' }, { fieldName: 'checkCount' }],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: 'custom' },
-          singleLocation: parseInt(qbLocationId),
-          location: { operationalUnits: [parseInt(qbLocationId)] },
-        },
-        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
-      },
-    },
-    {
-      name: 'summary/payments',
-      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/payments',
-      payload: {
-        fields: [{ fieldName: 'paymentType' }, { fieldName: 'total' }],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: 'custom' },
-          location: { operationalUnits: [parseInt(qbLocationId)] },
-        },
-        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
-      },
-    },
-  ];
 
   const parsePayments = (data: any): { paymentType: string; amount: number }[] => {
     const payments: { paymentType: string; amount: number }[] = [];
@@ -354,45 +313,32 @@ async function fetchPaymentsData(
   };
 
   try {
-    const results = await Promise.allSettled(
-      candidates.map(async (c) => {
-        const resp = await fetch(c.url, {
-          method: 'POST',
-          headers: getV4Headers(tokenGw),
-          body: JSON.stringify(c.payload),
-        });
-        if (!resp.ok) {
-          const txt = await resp.text().catch(() => '');
-          console.error(`[sales-service] Payments ${c.name} failed: ${resp.status} ${txt.substring(0, 120)}`);
-          return { name: c.name, parsed: [] as { paymentType: string; amount: number }[], valid: false };
-        }
-        const data = await resp.json();
-        const parsed = parsePayments(data);
-        const looksLikePaymentMethods = parsed.some((p) =>
-          /(cash|credit|card|visa|master|amex|doordash|uber|olo|delivery|online|grub|gift)/i.test(p.paymentType)
-        );
-        console.log(`[sales-service] Payments ${c.name} ok: parsed=${parsed.length}, valid=${looksLikePaymentMethods}`);
-        return { name: c.name, parsed, valid: looksLikePaymentMethods };
-      })
+    const resp = await fetch(
+      'https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/payments',
+      {
+        method: 'POST',
+        headers: getV4Headers(tokenGw),
+        body: JSON.stringify({
+          fields: [{ fieldName: 'paymentType' }, { fieldName: 'total' }],
+          filters: {
+            date: { from: null, to: null, values: [dateStr], type: 'custom' },
+            location: { operationalUnits: [parseInt(qbLocationId)] },
+          },
+          params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
+        }),
+      }
     );
 
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value.valid) {
-        console.log(`[sales-service] Payments: using ${result.value.name} with ${result.value.parsed.length} types`);
-        return result.value.parsed;
-      }
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => '');
+      console.error(`[sales-service] Payments summary/payments failed: ${resp.status} ${txt.substring(0, 120)}`);
+      return [];
     }
 
-    // Fallback: use any result with data
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value.parsed.length > 0) {
-        console.log(`[sales-service] Payments: fallback to ${result.value.name} with ${result.value.parsed.length} types`);
-        return result.value.parsed;
-      }
-    }
-
-    console.error('[sales-service] Payments: all endpoints failed or empty');
-    return [];
+    const data = await resp.json();
+    const parsed = parsePayments(data);
+    console.log(`[sales-service] Payments summary/payments: ${parsed.length} types`);
+    return parsed;
   } catch (error) {
     console.error('[sales-service] Payments error:', error);
     return [];
