@@ -171,6 +171,13 @@ async function fetchHourlySales(
   });
 
   if (!response.ok) {
+    // Detect unprovisioned stores (403 "No operational units") and throw to skip all remaining calls
+    if (response.status === 403) {
+      const txt = await response.text().catch(() => '');
+      if (txt.includes('No operational units')) {
+        throw new Error('UNPROVISIONED_STORE');
+      }
+    }
     console.error(`Hourly fetch failed (${response.status}) for ${dateStr}`);
     return [];
   }
