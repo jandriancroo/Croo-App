@@ -283,17 +283,14 @@ serve(async (req) => {
           const checkData = await checkDetailRes.json();
           const checkRows = checkData.items || [];
 
-          // Step 2: For each recent check, use the checkNumberSubreport to drill down
-          const subreportFilters: { checkNum: string; filters: any; params: any }[] = [];
+          // Extract checkId from checkNumberSubreport for each recent check
+          const subreportData: { checkNum: string; checkId: string }[] = [];
           for (const row of checkRows) {
             const cn = row.checkNumber;
             if (!cn || !recentCheckNumbers.has(cn)) continue;
-            if (row.checkNumberSubreport) {
-              subreportFilters.push({
-                checkNum: cn,
-                filters: row.checkNumberSubreport.filters || {},
-                params: row.checkNumberSubreport.params || {},
-              });
+            const sub = row.checkNumberSubreport;
+            if (sub?.checkId) {
+              subreportData.push({ checkNum: cn, checkId: sub.checkId });
             }
           }
 
