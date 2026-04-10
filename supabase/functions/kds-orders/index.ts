@@ -250,93 +250,109 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // Get recent check numbers for item hydration
-      const recentCheckNumbers = new Set(
-        orders
-          .filter((o: any) => {
-            const openedAt = parseQuDateToIso(o.date);
-            return openedAt && isRecentOrder(openedAt);
-          })
-          .map((o: any) => o.checkNumber)
-          .filter(Boolean)
-      );
+      // Collect recent orders that need item hydration
+      const recentOrders = orders.filter((o: any) => {
+        const openedAt = parseQuDateToIso(o.date);
+        return openedAt && isRecentOrder(openedAt);
+      });
 
-      if (recentCheckNumbers.size > 0) {
-        // Single bulk product-mix call requesting checkNumber field
-        const pmRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
+      if (recentOrders.length > 0) {
+        // Get checkIds from the first check-detail call (already fetched above in `orders`)
+        // We need to re-fetch check-detail to get subreport checkIds
+        const checkIdRes = await fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
           {
             method: "POST",
             headers,
             body: JSON.stringify({
-              fields: [
-                { fieldName: "checkNumber" },
-                { fieldName: "itemName" },
-                { fieldName: "modifierName" },
-                { fieldName: "quantity" },
-                { fieldName: "netSales" },
-              ],
+              fields: [{ fieldName: "checkNumber" }],
               filters: {
                 date: { from: today, to: today, type: "custom" },
                 location: { operationalUnits: [quStoreId] },
               },
-              params: { sectionId: "main", pageNumber: 1, pageSize: 2000, showTotals: false },
+              params: { sectionId: "main", pageNumber: 1, pageSize: 200 },
             }),
           },
         );
 
-        if (pmRes.ok) {
-          const pmData = await pmRes.json();
-          const groups = pmData.items || [];
-
-          // Log full structure of first group to understand nesting
-          if (groups[0]) {
-            const g = groups[0];
-            const hasSubItems = Array.isArray(g.items);
-            console.log(`PM group[0]: itemName="${g.itemName}", hasSubItems=${hasSubItems}, subCount=${hasSubItems ? g.items.length : 0}`);
-            if (hasSubItems && g.items[0]) {
-              const sub = g.items[0];
-              console.log(`PM sub[0] keys: ${Object.keys(sub).join(",")}`);
-              // Check if checkNumber is anywhere in the subreport
-              if (sub.itemNameSubreport) {
-                console.log(`PM sub[0] subreport: ${JSON.stringify(sub.itemNameSubreport).slice(0, 300)}`);
-              }
-              if (sub.checkNumber) {
-                console.log(`PM sub[0] has checkNumber: ${sub.checkNumber}`);
-              }
-              console.log(`PM sub[0] sample: ${JSON.stringify(sub).slice(0, 500)}`);
+        const checkIdMap: Record<string, string> = {};
+        if (checkIdRes.ok) {
+          const data = await checkIdRes.json();
+          const recentSet = new Set(recentOrders.map((o: any) => o.checkNumber));
+          for (const item of (data.items || [])) {
+            const cn = item.checkNumber;
+            const sr = item.checkNumberSubreport;
+            if (cn && recentSet.has(cn) && sr?.checkId) {
+              checkIdMap[cn] = sr.checkId;
             }
           }
-
-          // Try to extract checkNumber from nested structure
-          let totalItems = 0;
-          for (const group of groups) {
-            const subItems = Array.isArray(group.items) ? group.items : [];
-            for (const row of subItems) {
-              const itemName = row.itemName || "";
-              if (!itemName || itemName === "Totals") continue;
-
-              // Look for checkNumber in various places
-              const cn = row.checkNumber || null;
-              if (cn && recentCheckNumbers.has(cn)) {
-                const isModifier = itemName.startsWith("**") || itemName.startsWith("++");
-                const displayName = isModifier ? itemName.replace(/^\*\*\s*|\+\+\s*/g, "").trim() : itemName;
-                if (!itemsByCheck[cn]) itemsByCheck[cn] = [];
-                itemsByCheck[cn].push({
-                  name: displayName,
-                  modifier: null,
-                  qty: parseInt(row.quantity || "1"),
-                  price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
-                  category: row.itemGroupName || group.itemGroupName || "",
-                  isModifier,
-                });
-                totalItems++;
-              }
-            }
-          }
-
-          console.log(`Product-mix bulk: ${groups.length} groups, ${totalItems} items, ${Object.keys(itemsByCheck).length} checks matched`);
+        } else {
+          await checkIdRes.text();
         }
+
+        console.log(`Mapped ${Object.keys(checkIdMap).length} checkIds`);
+
+        // Diagnostic: For the first check, call check-detail/main filtered by its checkId
+        // and log full structure to find where items hide
+        const firstEntry = Object.entries(checkIdMap)[0];
+        if (firstEntry) {
+          const [cn, cid] = firstEntry;
+          const detailRes = await fetch(
+            "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                fields: [
+                  { fieldName: "checkNumber" },
+                  { fieldName: "itemName" },
+                  { fieldName: "modifierName" },
+                  { fieldName: "quantity" },
+                  { fieldName: "netSales" },
+                  { fieldName: "itemsSoldCount" },
+                  { fieldName: "description" },
+                ],
+                filters: {
+                  checkId: { values: [cid] },
+                  date: { from: today, to: today, type: "custom" },
+                  location: { operationalUnits: [quStoreId] },
+                },
+                params: { sectionId: "main", pageNumber: 1, pageSize: 50 },
+              }),
+            },
+          );
+
+          if (detailRes.ok) {
+            const data = await detailRes.json();
+            const items = data.items || [];
+            console.log(`check-detail filtered by checkId: ${items.length} rows for check ${cn}`);
+            
+            // Check if filtering actually worked (should return 1 row for that check)
+            const matchingChecks = items.filter((i: any) => i.checkNumber === cn);
+            console.log(`Matching check rows: ${matchingChecks.length}`);
+            
+            if (items[0]) {
+              // Log ALL keys to find hidden item/subreport fields
+              const allKeys = Object.keys(items[0]);
+              console.log(`All keys: ${allKeys.join(",")}`);
+              
+              // Look for any array or object values that might contain items
+              for (const key of allKeys) {
+                const val = items[0][key];
+                if (Array.isArray(val)) {
+                  console.log(`ARRAY field "${key}": length=${val.length}, sample=${JSON.stringify(val[0]).slice(0, 200)}`);
+                } else if (val && typeof val === "object") {
+                  console.log(`OBJECT field "${key}": ${JSON.stringify(val).slice(0, 200)}`);
+                }
+              }
+            }
+          } else {
+            console.log(`check-detail filtered: ${detailRes.status}`);
+            await detailRes.text();
+          }
+        }
+
+        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length} checks with items`);
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
