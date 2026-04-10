@@ -149,7 +149,7 @@ const CatalogSectionComponent = ({
             <>
               <CollapsibleSegment label="Foundation" items={section.bases} tagLabel="base" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
               <CollapsibleSegment label="Build" items={section.cores} tagLabel="core" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
-              <CollapsibleSegment label="Menu Items" items={section.menuItems} tagLabel="mi" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
+              <CollapsibleSegment label="Menu Items" items={section.menuItems} tagLabel="mi" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} defaultOpen />
             </>
           )}
         </div>
