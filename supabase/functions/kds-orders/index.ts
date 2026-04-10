@@ -250,93 +250,174 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // Get recent check numbers for item hydration
-      const recentCheckNumbers = new Set(
-        orders
-          .filter((o: any) => {
-            const openedAt = parseQuDateToIso(o.date);
-            return openedAt && isRecentOrder(openedAt);
-          })
-          .map((o: any) => o.checkNumber)
-          .filter(Boolean)
-      );
+      // Collect recent orders that need item hydration
+      const recentOrders = orders.filter((o: any) => {
+        const openedAt = parseQuDateToIso(o.date);
+        return openedAt && isRecentOrder(openedAt);
+      });
 
-      if (recentCheckNumbers.size > 0) {
-        // Single bulk product-mix call requesting checkNumber field
-        const pmRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
+      if (recentOrders.length > 0) {
+        // Extract checkIds from the main report's subreport links
+        const checkIdsToHydrate: { checkNumber: string; checkId: string }[] = [];
+        
+        // First try: get checkIds from a check-detail call that includes the checkId field
+        const checkIdRes = await fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
           {
             method: "POST",
             headers,
             body: JSON.stringify({
               fields: [
                 { fieldName: "checkNumber" },
-                { fieldName: "itemName" },
-                { fieldName: "modifierName" },
-                { fieldName: "quantity" },
-                { fieldName: "netSales" },
+                { fieldName: "checkId" },
               ],
               filters: {
                 date: { from: today, to: today, type: "custom" },
                 location: { operationalUnits: [quStoreId] },
               },
-              params: { sectionId: "main", pageNumber: 1, pageSize: 2000, showTotals: false },
+              params: { sectionId: "main", pageNumber: 1, pageSize: 200 },
             }),
           },
         );
 
-        if (pmRes.ok) {
-          const pmData = await pmRes.json();
-          const groups = pmData.items || [];
+        if (checkIdRes.ok) {
+          const checkIdData = await checkIdRes.json();
+          const items = checkIdData.items || [];
+          const recentCheckNumbers = new Set(recentOrders.map((o: any) => o.checkNumber));
+          
+          for (const item of items) {
+            const cn = item.checkNumber;
+            // checkId may be in checkId field, or in a subreport reference
+            const cid = item.checkId || item.id || item._id || null;
+            
+            // Also check for subreport links that contain the checkId
+            const subreportKeys = Object.keys(item).filter(k => k.endsWith("Subreport") || k === "checkNumberSubreport");
+            let extractedId = cid;
+            if (!extractedId) {
+              for (const key of subreportKeys) {
+                const sr = item[key];
+                if (sr && typeof sr === "object") {
+                  extractedId = sr.checkId || sr.id || (sr.params && sr.params.checkId) || null;
+                  if (extractedId) break;
+                }
+              }
+            }
 
-          // Log full structure of first group to understand nesting
-          if (groups[0]) {
-            const g = groups[0];
-            const hasSubItems = Array.isArray(g.items);
-            console.log(`PM group[0]: itemName="${g.itemName}", hasSubItems=${hasSubItems}, subCount=${hasSubItems ? g.items.length : 0}`);
-            if (hasSubItems && g.items[0]) {
-              const sub = g.items[0];
-              console.log(`PM sub[0] keys: ${Object.keys(sub).join(",")}`);
-              // Check if checkNumber is anywhere in the subreport
-              if (sub.itemNameSubreport) {
-                console.log(`PM sub[0] subreport: ${JSON.stringify(sub.itemNameSubreport).slice(0, 300)}`);
-              }
-              if (sub.checkNumber) {
-                console.log(`PM sub[0] has checkNumber: ${sub.checkNumber}`);
-              }
-              console.log(`PM sub[0] sample: ${JSON.stringify(sub).slice(0, 500)}`);
+            if (cn && recentCheckNumbers.has(cn) && extractedId) {
+              checkIdsToHydrate.push({ checkNumber: cn, checkId: extractedId });
             }
           }
-
-          // Try to extract checkNumber from nested structure
-          let totalItems = 0;
-          for (const group of groups) {
-            const subItems = Array.isArray(group.items) ? group.items : [];
-            for (const row of subItems) {
-              const itemName = row.itemName || "";
-              if (!itemName || itemName === "Totals") continue;
-
-              // Look for checkNumber in various places
-              const cn = row.checkNumber || null;
-              if (cn && recentCheckNumbers.has(cn)) {
-                const isModifier = itemName.startsWith("**") || itemName.startsWith("++");
-                const displayName = isModifier ? itemName.replace(/^\*\*\s*|\+\+\s*/g, "").trim() : itemName;
-                if (!itemsByCheck[cn]) itemsByCheck[cn] = [];
-                itemsByCheck[cn].push({
-                  name: displayName,
-                  modifier: null,
-                  qty: parseInt(row.quantity || "1"),
-                  price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
-                  category: row.itemGroupName || group.itemGroupName || "",
-                  isModifier,
-                });
-                totalItems++;
+          
+          // Log first item structure to understand available fields
+          if (items[0]) {
+            console.log(`check-detail keys: ${Object.keys(items[0]).join(",")}`);
+            const subreportKeys = Object.keys(items[0]).filter(k => k.endsWith("Subreport") || k.includes("subreport") || k.includes("Sub"));
+            if (subreportKeys.length > 0) {
+              for (const k of subreportKeys) {
+                console.log(`Subreport ${k}: ${JSON.stringify(items[0][k]).slice(0, 400)}`);
               }
             }
           }
-
-          console.log(`Product-mix bulk: ${groups.length} groups, ${totalItems} items, ${Object.keys(itemsByCheck).length} checks matched`);
+          
+          console.log(`Found ${checkIdsToHydrate.length} checkIds to hydrate from ${items.length} check-detail rows`);
+        } else {
+          const errText = await checkIdRes.text();
+          console.log(`check-detail for checkIds: ${checkIdRes.status} - ${errText.slice(0, 200)}`);
         }
+
+        // Step 2: For each checkId, call check-detail/sections/items with checkId filter
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < checkIdsToHydrate.length; i += BATCH_SIZE) {
+          const batch = checkIdsToHydrate.slice(i, i + BATCH_SIZE);
+          
+          const results = await Promise.allSettled(
+            batch.map(async ({ checkNumber, checkId }) => {
+              // Try multiple section report patterns
+              const endpoints = [
+                "check-detail/sections/items",
+                "checks-details/sections/items",
+                "check-detail/sections/item-detail",
+              ];
+              
+              for (const endpoint of endpoints) {
+                const res = await fetch(
+                  `https://gateway-api.qubeyond.com/api/v4/data/reports/${endpoint}`,
+                  {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify({
+                      fields: [
+                        { fieldName: "itemName" },
+                        { fieldName: "modifierName" },
+                        { fieldName: "quantity" },
+                        { fieldName: "netSales" },
+                        { fieldName: "grossSales" },
+                        { fieldName: "itemGroupName" },
+                      ],
+                      filters: {
+                        checkId: { values: [checkId] },
+                        location: { operationalUnits: [quStoreId] },
+                      },
+                      params: {
+                        sectionId: endpoint.split("/sections/")[1],
+                        pageNumber: 1,
+                        pageSize: 100,
+                      },
+                    }),
+                  },
+                );
+
+                if (res.ok) {
+                  const data = await res.json();
+                  const rows = data.items || [];
+                  
+                  if (rows.length > 0) {
+                    console.log(`✅ ${endpoint} returned ${rows.length} items for check ${checkNumber}`);
+                    if (rows[0]) {
+                      console.log(`Item keys: ${Object.keys(rows[0]).join(",")}`);
+                    }
+                    
+                    const parsed: any[] = [];
+                    for (const row of rows) {
+                      const itemName = row.itemName || "";
+                      if (!itemName || itemName === "Totals" || itemName === "Total") continue;
+                      
+                      const isModifier = itemName.startsWith("**") || itemName.startsWith("++") || !!row.modifierName;
+                      const displayName = isModifier 
+                        ? (row.modifierName || itemName).replace(/^\*\*\s*|\+\+\s*/g, "").trim() 
+                        : itemName;
+                      
+                      parsed.push({
+                        name: displayName,
+                        modifier: row.modifierName || null,
+                        qty: parseInt(row.quantity || "1"),
+                        price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
+                        category: row.itemGroupName || "",
+                        isModifier,
+                      });
+                    }
+                    
+                    if (parsed.length > 0) {
+                      itemsByCheck[checkNumber] = parsed;
+                    }
+                    break; // Found working endpoint, stop trying others
+                  } else {
+                    await res.text(); // consume
+                  }
+                } else {
+                  const errText = await res.text();
+                  if (i === 0 && endpoints.indexOf(endpoint) === 0) {
+                    console.log(`${endpoint}: ${res.status} - ${errText.slice(0, 200)}`);
+                  }
+                }
+              }
+              
+              return checkNumber;
+            }),
+          );
+        }
+        
+        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length} checks with items`);
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
