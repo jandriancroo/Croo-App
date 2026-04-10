@@ -1114,8 +1114,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
             </button>
           )}
 
-          {/* Catalog Section for MI */}
-          {blueprintType === "MI" && (
+          {/* Catalog Section for MI (not in simulator mode) */}
+          {blueprintType === "MI" && !simulatorMode && (
             <div className="space-y-2">
               <Label>Catalog Section</Label>
               <Select value={catalogSection} onValueChange={setCatalogSection}>
