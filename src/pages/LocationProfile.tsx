@@ -404,6 +404,7 @@ export default function LocationProfile() {
               lat={parseFloat(location.latitude)} 
               lng={parseFloat(location.longitude)}
               locationName={location.name}
+              address={location.address}
             />
           </div>
         )}
