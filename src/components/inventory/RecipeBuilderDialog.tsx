@@ -924,7 +924,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     setSuggestedPrice("");
     setDrillStack([]);
     setDrillBlueprintId(null);
-    setBlueprintType(null);
+    setBlueprintType(simulatorMode ? "MI" : null);
     setCatalogSection("");
     
   };
@@ -1068,7 +1068,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         </DialogHeader>
 
         {/* ========== TYPE SELECTION STEP ========== */}
-        {isCreating && !blueprintType ? (
+        {isCreating && !blueprintType && !simulatorMode ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">What are you creating?</p>
             {BLUEPRINT_TYPE_OPTIONS.map(opt => (
@@ -1079,11 +1079,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                 onClick={() => {
                   setBlueprintType(opt.value);
                   setCategory(opt.value);
-                  // Set smart defaults per type
                   if (opt.value === "MI" || opt.value === "CORE") {
-                    setCountable(false); // MIs and COREs aren't counted physically
+                    setCountable(false);
                   } else if (opt.value === "BASE") {
-                    setCountable(true); // BASEs produce countable items (dough)
+                    setCountable(true);
                   } else if (opt.value === "PREP") {
                     setCountable(true);
                   } else {
@@ -1103,8 +1102,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           </div>
         ) : (
         <div className="space-y-4">
-          {/* Back to type selection when creating */}
-          {isCreating && blueprintType && (
+          {/* Back to type selection when creating (not in simulator) */}
+          {isCreating && blueprintType && !simulatorMode && (
             <button
               type="button"
               className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
