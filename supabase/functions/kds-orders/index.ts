@@ -246,32 +246,50 @@ serve(async (req) => {
 
     try {
       // Try multiple QU V4 endpoints for item-level detail
+      // product-mix is CONFIRMED working — try it first with checkNumber
       const detailEndpoints = [
-        "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items",
-        "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/item-detail",
-        "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail-items/sections/main",
-        "https://gateway-api.qubeyond.com/api/v4/data/reports/item-sales/sections/main",
-        "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
-      ];
-
-      const itemFields = [
-        { fieldName: "checkNumber" },
-        { fieldName: "itemName" },
-        { fieldName: "modifierName" },
-        { fieldName: "quantity" },
-        { fieldName: "grossSales" },
+        {
+          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "itemName" },
+            { fieldName: "itemGroup" },
+            { fieldName: "quantity" },
+            { fieldName: "netSales" },
+          ],
+        },
+        {
+          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items",
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "itemName" },
+            { fieldName: "modifierName" },
+            { fieldName: "quantity" },
+            { fieldName: "grossSales" },
+          ],
+        },
+        {
+          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "itemName" },
+            { fieldName: "modifierName" },
+            { fieldName: "quantity" },
+            { fieldName: "grossSales" },
+          ],
+        },
       ];
 
       let detailRes: Response | null = null;
       let usedEndpoint = "";
 
-      for (const url of detailEndpoints) {
-        const sectionId = url.split("/sections/")[1] || "main";
-        const res = await fetch(url, {
+      for (const ep of detailEndpoints) {
+        const sectionId = ep.url.split("/sections/")[1] || "main";
+        const res = await fetch(ep.url, {
           method: "POST",
           headers,
           body: JSON.stringify({
-            fields: itemFields,
+            fields: ep.fields,
             filters: {
               date: { from: today, to: today, type: "custom" },
               location: { operationalUnits: [quStoreId] },
@@ -279,18 +297,18 @@ serve(async (req) => {
             params: {
               sectionId,
               pageNumber: 1,
-              pageSize: 500,
+              pageSize: 1000,
               sort: [{ field: "checkNumber", dir: "asc" }],
             },
           }),
         });
         if (res.ok) {
           detailRes = res;
-          usedEndpoint = url;
+          usedEndpoint = ep.url;
           break;
         }
         await res.text();
-        console.log("Detail endpoint failed:", res.status, url);
+        console.log("Detail endpoint failed:", res.status, ep.url);
       }
 
       if (detailRes) {
@@ -304,27 +322,29 @@ serve(async (req) => {
 
         for (const row of rows) {
           const currentCheckNumber = row.checkNumber;
-          if (!currentCheckNumber || currentCheckNumber === "Total") continue;
+          if (!currentCheckNumber || currentCheckNumber === "Total" || currentCheckNumber === "Totals") continue;
 
           if (!itemsByCheck[currentCheckNumber]) {
             itemsByCheck[currentCheckNumber] = [];
           }
 
-          // Try multiple possible field names from QU API
           const itemName = row.menuItemName || row.itemName || row.name || "";
           const modName = row.modifierName || row.modifier || "";
+          const category = row.itemGroup || row.categoryName || row.category || "";
 
           itemsByCheck[currentCheckNumber].push({
-            name: itemName || modName || "",
+            name: itemName || modName || "Unknown Item",
             modifier: modName || null,
             qty: parseInt(row.quantity || row.qty || "1"),
-            price: parseFloat(((row.grossSales || row.sales || "0") + "").replace(/,/g, "")),
-            category: row.categoryName || row.category || "",
+            price: parseFloat(((row.netSales || row.grossSales || row.sales || "0") + "").replace(/,/g, "")),
+            category,
             isModifier: !!modName && !itemName,
           });
         }
+
+        console.log(`Items grouped for ${Object.keys(itemsByCheck).length} checks`);
       } else {
-        console.log("All detail endpoints returned 404 — no item data available");
+        console.log("All detail endpoints failed — no item data available");
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
