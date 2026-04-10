@@ -291,7 +291,7 @@ serve(async (req) => {
         await r.text();
         console.log("Item endpoint failed:", r.status, ep.url);
       }
-      if (res.ok) {
+      if (res && res.ok) {
         const detailData = await res.json();
         // Handle nested items arrays (QU wraps rows in group objects)
         let rows: any[] = [];
