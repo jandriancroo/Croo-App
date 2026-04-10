@@ -257,99 +257,120 @@ serve(async (req) => {
       });
 
       if (recentOrders.length > 0) {
-        // Get checkIds from the first check-detail call (already fetched above in `orders`)
-        // We need to re-fetch check-detail to get subreport checkIds
-        const checkIdRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
+        // Step 1: Get product-mix to extract subreport drill-down links
+        const pmRes = await fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
           {
             method: "POST",
             headers,
             body: JSON.stringify({
-              fields: [{ fieldName: "checkNumber" }],
+              fields: [
+                { fieldName: "itemName" },
+                { fieldName: "quantity" },
+                { fieldName: "netSales" },
+              ],
               filters: {
                 date: { from: today, to: today, type: "custom" },
                 location: { operationalUnits: [quStoreId] },
               },
-              params: { sectionId: "main", pageNumber: 1, pageSize: 200 },
+              params: { sectionId: "main", pageNumber: 1, pageSize: 500, showTotals: false },
             }),
           },
         );
 
-        const checkIdMap: Record<string, string> = {};
-        if (checkIdRes.ok) {
-          const data = await checkIdRes.json();
-          const recentSet = new Set(recentOrders.map((o: any) => o.checkNumber));
-          for (const item of (data.items || [])) {
-            const cn = item.checkNumber;
-            const sr = item.checkNumberSubreport;
-            if (cn && recentSet.has(cn) && sr?.checkId) {
-              checkIdMap[cn] = sr.checkId;
+        if (pmRes.ok) {
+          const pmData = await pmRes.json();
+          const groups = pmData.items || [];
+          
+          // Log the full structure of the first sub-item to find subreportId
+          let probeItem: any = null;
+          for (const group of groups) {
+            const subItems = Array.isArray(group.items) ? group.items : [];
+            if (subItems.length > 0) {
+              probeItem = subItems[0];
+              break;
             }
           }
-        } else {
-          await checkIdRes.text();
-        }
-
-        console.log(`Mapped ${Object.keys(checkIdMap).length} checkIds`);
-
-        // Diagnostic: For the first check, call check-detail/main filtered by its checkId
-        // and log full structure to find where items hide
-        const firstEntry = Object.entries(checkIdMap)[0];
-        if (firstEntry) {
-          const [cn, cid] = firstEntry;
-          const detailRes = await fetch(
-            "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
-            {
-              method: "POST",
-              headers,
-              body: JSON.stringify({
-                fields: [
-                  { fieldName: "checkNumber" },
-                  { fieldName: "itemName" },
-                  { fieldName: "modifierName" },
-                  { fieldName: "quantity" },
-                  { fieldName: "netSales" },
-                  { fieldName: "itemsSoldCount" },
-                  { fieldName: "description" },
-                ],
-                filters: {
-                  checkId: { values: [cid] },
-                  date: { from: today, to: today, type: "custom" },
-                  location: { operationalUnits: [quStoreId] },
-                },
-                params: { sectionId: "main", pageNumber: 1, pageSize: 50 },
-              }),
-            },
-          );
-
-          if (detailRes.ok) {
-            const data = await detailRes.json();
-            const items = data.items || [];
-            console.log(`check-detail filtered by checkId: ${items.length} rows for check ${cn}`);
+          
+          if (probeItem) {
+            // Log ALL keys and ALL object/string values that might contain subreportId
+            const keys = Object.keys(probeItem);
+            console.log(`PM item keys: ${keys.join(",")}`);
             
-            // Check if filtering actually worked (should return 1 row for that check)
-            const matchingChecks = items.filter((i: any) => i.checkNumber === cn);
-            console.log(`Matching check rows: ${matchingChecks.length}`);
-            
-            if (items[0]) {
-              // Log ALL keys to find hidden item/subreport fields
-              const allKeys = Object.keys(items[0]);
-              console.log(`All keys: ${allKeys.join(",")}`);
-              
-              // Look for any array or object values that might contain items
-              for (const key of allKeys) {
-                const val = items[0][key];
-                if (Array.isArray(val)) {
-                  console.log(`ARRAY field "${key}": length=${val.length}, sample=${JSON.stringify(val[0]).slice(0, 200)}`);
-                } else if (val && typeof val === "object") {
-                  console.log(`OBJECT field "${key}": ${JSON.stringify(val).slice(0, 200)}`);
+            for (const key of keys) {
+              const val = probeItem[key];
+              if (val && typeof val === "object" && !Array.isArray(val)) {
+                const objStr = JSON.stringify(val);
+                console.log(`PM OBJECT "${key}": ${objStr.slice(0, 500)}`);
+                // Check for any UUID-like values
+                const uuidMatch = objStr.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+                if (uuidMatch) {
+                  console.log(`UUID found in "${key}": ${uuidMatch[0]}`);
                 }
               }
             }
-          } else {
-            console.log(`check-detail filtered: ${detailRes.status}`);
-            await detailRes.text();
+            
+            // Also log the full item as JSON to catch anything
+            console.log(`PM full item: ${JSON.stringify(probeItem).slice(0, 1000)}`);
           }
+          
+          // Also check top-level response for subreport metadata
+          const topKeys = Object.keys(pmData).filter(k => k !== "items");
+          if (topKeys.length > 0) {
+            console.log(`PM response top keys: ${topKeys.join(",")}`);
+            for (const k of topKeys) {
+              const v = pmData[k];
+              if (v && typeof v === "object") {
+                console.log(`PM top "${k}": ${JSON.stringify(v).slice(0, 300)}`);
+              } else {
+                console.log(`PM top "${k}": ${v}`);
+              }
+            }
+          }
+
+          // Try calling the subreport proxy with the itemNameSubreport data
+          if (probeItem?.itemNameSubreport) {
+            const sr = probeItem.itemNameSubreport;
+            // Try multiple subreport URL patterns
+            const subreportUrls = [
+              // If subreportId exists
+              sr.subreportId ? `https://gateway-api.qubeyond.com/api/v4/data/subreports/${sr.subreportId}` : null,
+              // Try passing the whole subreport object as body
+              "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main/subreport",
+              "https://gateway-api.qubeyond.com/api/v4/data/subreports/product-mix",
+            ].filter(Boolean);
+            
+            for (const url of subreportUrls) {
+              try {
+                const subRes = await fetch(url!, {
+                  method: "POST",
+                  headers,
+                  body: JSON.stringify(sr),
+                });
+                const status = subRes.status;
+                const text = await subRes.text();
+                let itemCount = 0;
+                try {
+                  const d = JSON.parse(text);
+                  itemCount = (d.items || []).length;
+                  if (itemCount > 0) {
+                    console.log(`✅ SUBREPORT HIT ${url}: ${itemCount} items`);
+                    console.log(`SUBREPORT sample: ${text.slice(0, 500)}`);
+                  }
+                } catch {}
+                console.log(`SUBREPORT ${url}: ${status}, ${itemCount} items`);
+              } catch (e) {
+                console.log(`SUBREPORT ${url}: error ${e}`);
+              }
+            }
+            
+            // Also try the averagePriceSubreport if it exists
+            if (probeItem.averagePriceSubreport) {
+              console.log(`PM averagePriceSubreport: ${JSON.stringify(probeItem.averagePriceSubreport).slice(0, 500)}`);
+            }
+          }
+        } else {
+          await pmRes.text();
         }
 
         console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length} checks with items`);
