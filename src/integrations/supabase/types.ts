@@ -4014,6 +4014,30 @@ export type Database = {
         }
         Relationships: []
       }
+      kds_stream_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          headers: string | null
+          id: string
+          payload: string
+        }
+        Insert: {
+          created_at?: string
+          event_type?: string
+          headers?: string | null
+          id?: string
+          payload: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          headers?: string | null
+          id?: string
+          payload?: string
+        }
+        Relationships: []
+      }
       labor_cache: {
         Row: {
           created_at: string
