@@ -250,73 +250,92 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // Single bulk product-mix call with checkNumber field + showTotals:false
-      // This returns one row per item per check, which we group by checkNumber
-      const pmRes = await fetch(
-        "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            fields: [
-              { fieldName: "checkNumber" },
-              { fieldName: "itemName" },
-              { fieldName: "modifierName" },
-              { fieldName: "quantity" },
-              { fieldName: "netSales" },
-              { fieldName: "itemGroup" },
-            ],
-            filters: {
-              date: { from: today, to: today, type: "custom" },
-              location: { operationalUnits: [quStoreId] },
-            },
-            params: { sectionId: "main", pageNumber: 1, pageSize: 1000, showTotals: false },
-          }),
-        },
+      // Get recent check numbers for item hydration
+      const recentCheckNumbers = new Set(
+        orders
+          .filter((o: any) => {
+            const openedAt = parseQuDateToIso(o.date);
+            return openedAt && isRecentOrder(openedAt);
+          })
+          .map((o: any) => o.checkNumber)
+          .filter(Boolean)
       );
 
-      if (pmRes.ok) {
-        const pmData = await pmRes.json();
-        const groups = pmData.items || [];
+      if (recentCheckNumbers.size > 0) {
+        // Single bulk product-mix call requesting checkNumber field
+        const pmRes = await fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              fields: [
+                { fieldName: "checkNumber" },
+                { fieldName: "itemName" },
+                { fieldName: "modifierName" },
+                { fieldName: "quantity" },
+                { fieldName: "netSales" },
+              ],
+              filters: {
+                date: { from: today, to: today, type: "custom" },
+                location: { operationalUnits: [quStoreId] },
+              },
+              params: { sectionId: "main", pageNumber: 1, pageSize: 2000, showTotals: false },
+            }),
+          },
+        );
 
-        // Flatten nested items from each group
-        let totalFlat = 0;
-        for (const group of groups) {
-          const subItems = Array.isArray(group.items) ? group.items : [];
-          const rowsToProcess = subItems.length > 0 ? subItems : (group.itemName && group.itemName !== "Totals" ? [group] : []);
+        if (pmRes.ok) {
+          const pmData = await pmRes.json();
+          const groups = pmData.items || [];
 
-          for (const row of rowsToProcess) {
-            const itemName = row.itemName || "";
-            if (!itemName || itemName === "Totals") continue;
-
-            // The checkNumber might be in a subreport filter or direct field
-            const checkNum = row.checkNumber ||
-              row.checkNumberSubreport?.filters?.checkNumber ||
-              null;
-
-            if (!checkNum) continue;
-
-            const isModifier = itemName.startsWith("**") || itemName.startsWith("++");
-            const displayName = isModifier ? itemName.replace(/^\*\*\s*|\+\+\s*/g, "").trim() : itemName;
-
-            if (!itemsByCheck[checkNum]) itemsByCheck[checkNum] = [];
-            itemsByCheck[checkNum].push({
-              name: displayName,
-              modifier: null,
-              qty: parseInt(row.quantity || "1"),
-              price: parseFloat(((row.netSales || row.grossSales || row.itemSales || "0") + "").replace(/,/g, "")),
-              category: row.itemGroupName || group.itemGroupName || "",
-              isModifier,
-            });
-            totalFlat++;
+          // Log full structure of first group to understand nesting
+          if (groups[0]) {
+            const g = groups[0];
+            const hasSubItems = Array.isArray(g.items);
+            console.log(`PM group[0]: itemName="${g.itemName}", hasSubItems=${hasSubItems}, subCount=${hasSubItems ? g.items.length : 0}`);
+            if (hasSubItems && g.items[0]) {
+              const sub = g.items[0];
+              console.log(`PM sub[0] keys: ${Object.keys(sub).join(",")}`);
+              // Check if checkNumber is anywhere in the subreport
+              if (sub.itemNameSubreport) {
+                console.log(`PM sub[0] subreport: ${JSON.stringify(sub.itemNameSubreport).slice(0, 300)}`);
+              }
+              if (sub.checkNumber) {
+                console.log(`PM sub[0] has checkNumber: ${sub.checkNumber}`);
+              }
+              console.log(`PM sub[0] sample: ${JSON.stringify(sub).slice(0, 500)}`);
+            }
           }
-        }
 
-        console.log(`Product-mix: ${groups.length} groups, ${totalFlat} items across ${Object.keys(itemsByCheck).length} checks`);
-        if (Object.keys(itemsByCheck).length > 0) {
-          const firstCheck = Object.keys(itemsByCheck)[0];
-          console.log(`  Check ${firstCheck}: ${itemsByCheck[firstCheck].length} items`);
-          console.log(`  Sample: ${JSON.stringify(itemsByCheck[firstCheck][0])}`);
+          // Try to extract checkNumber from nested structure
+          let totalItems = 0;
+          for (const group of groups) {
+            const subItems = Array.isArray(group.items) ? group.items : [];
+            for (const row of subItems) {
+              const itemName = row.itemName || "";
+              if (!itemName || itemName === "Totals") continue;
+
+              // Look for checkNumber in various places
+              const cn = row.checkNumber || null;
+              if (cn && recentCheckNumbers.has(cn)) {
+                const isModifier = itemName.startsWith("**") || itemName.startsWith("++");
+                const displayName = isModifier ? itemName.replace(/^\*\*\s*|\+\+\s*/g, "").trim() : itemName;
+                if (!itemsByCheck[cn]) itemsByCheck[cn] = [];
+                itemsByCheck[cn].push({
+                  name: displayName,
+                  modifier: null,
+                  qty: parseInt(row.quantity || "1"),
+                  price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
+                  category: row.itemGroupName || group.itemGroupName || "",
+                  isModifier,
+                });
+                totalItems++;
+              }
+            }
+          }
+
+          console.log(`Product-mix bulk: ${groups.length} groups, ${totalItems} items, ${Object.keys(itemsByCheck).length} checks matched`);
         }
       }
     } catch (error) {
