@@ -326,6 +326,8 @@ serve(async (req) => {
       const nextStatus = existing?.status === "ready" ? "ready" : "open";
       if (nextStatus === "open") recentOpenCount += 1;
 
+      const isPaid = (order.state || "").toLowerCase() === "closed";
+
       const { error } = await supabase
         .from("kds_orders")
         .upsert({
@@ -339,6 +341,7 @@ serve(async (req) => {
           gross_sales: order.grossSales,
           status: nextStatus,
           opened_at: openedAtIso,
+          is_paid: isPaid,
         }, { onConflict: "store_id,check_number" });
 
       if (error) throw error;
