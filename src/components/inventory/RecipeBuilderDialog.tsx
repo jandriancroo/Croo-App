@@ -905,6 +905,27 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     },
   });
 
+  // ========== ARCHIVE MUTATION ==========
+  const archiveMutation = useMutation({
+    mutationFn: async () => {
+      if (!editBlueprintId) throw new Error("No blueprint to archive");
+      const { error } = await supabase
+        .from("recipe_blueprints" as any)
+        .update({ is_active: false } as any)
+        .eq("id", editBlueprintId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipe-catalog-blueprints"] });
+      queryClient.invalidateQueries({ queryKey: ["archived-recipe-blueprints"] });
+      queryClient.invalidateQueries({ queryKey: ["blueprints-for-recipe"] });
+      toast.success("Recipe archived");
+      resetForm();
+      onOpenChange(false);
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to archive"),
+  });
+
   // ========== HELPERS ==========
 
   const resetForm = () => {
