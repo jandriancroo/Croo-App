@@ -29,6 +29,7 @@ import BrandCategoryEditor from '@/components/brand/BrandCategoryEditor';
 import VendorGapFinder from '@/components/brand/VendorGapFinder';
 import InlineLinkToExisting from '@/components/brand/InlineLinkToExisting';
 import TheoMappingTab from '@/components/brand/TheoMappingTab';
+import ArchivedRecipesSection from '@/components/brand/ArchivedRecipesSection';
 
 const FALLBACK_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
@@ -484,6 +485,10 @@ export default function BrandInventory() {
                         ))}
                     </div>
                   </Card>
+                )}
+
+                {catalogFilter === 'archived' && brandId && (
+                  <ArchivedRecipesSection brandId={brandId} searchQuery={searchQuery} />
                 )}
 
                 {catalogSelectedIds.size > 0 && brandId && (
