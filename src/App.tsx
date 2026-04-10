@@ -83,6 +83,7 @@ const PeriodSelectorPreview = lazyWithRetry(() => import("./pages/PeriodSelector
 const QRCodeGenerator = lazyWithRetry(() => import("./pages/QRCodeGenerator"));
 const QRQuickTaskReport = lazyWithRetry(() => import("./pages/QRQuickTaskReport"));
 const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
+const TheoPlacementPreview = lazyWithRetry(() => import("./pages/TheoPlacementPreview"));
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboardCustomizer"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
@@ -199,6 +200,7 @@ const AppContent = () => {
         <Route path="/brand-dashboard" element={<ProtectedRoute><BrandDashboard /></ProtectedRoute>} />
         <Route path="/org-dash" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
         <Route path="/kds" element={<ProtectedRoute><KDSBoard /></ProtectedRoute>} />
+        <Route path="/theo-preview" element={<ProtectedRoute><TheoPlacementPreview /></ProtectedRoute>} />
         
         <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/count/:countId" element={<ProtectedRoute><InventoryCount /></ProtectedRoute>} />
