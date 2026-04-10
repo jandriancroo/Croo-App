@@ -489,10 +489,28 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_my_chats",
+      description: "Search the user's own chat conversations (DMs, group chats, announcements) for messages matching a keyword or from a specific person. Only returns chats the current user is a member of. Use for questions like 'what did someone say in chat', 'find the message about X', 'what was discussed about Y'.",
+      parameters: {
+        type: "object",
+        properties: {
+          search_keyword: { type: "string", description: "Keyword to search in message content (partial match)" },
+          sender_name: { type: "string", description: "Filter messages by sender's name (partial match)" },
+          chat_title: { type: "string", description: "Filter by chat/group name (partial match)" },
+          days_back: { type: "number", description: "How many days back to search (default 14, max 90)" },
+          limit: { type: "number", description: "Max messages to return (default 20, max 50)" },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
-async function executeTool(supabase: any, toolName: string, args: any, timezone: string): Promise<string> {
+async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string): Promise<string> {
   const offset = getTzOffset(timezone);
   try {
     switch (toolName) {
@@ -1539,6 +1557,74 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         });
       }
 
+      case "query_my_chats": {
+        if (!userId) return JSON.stringify({ error: "User not authenticated" });
+        
+        const daysBack = Math.min(args.days_back || 14, 90);
+        const maxResults = Math.min(args.limit || 20, 50);
+        const cutoffDate = new Date(Date.now() - daysBack * 86400000).toISOString();
+
+        // Step 1: Get chat IDs user is a member of
+        const { data: memberships, error: memErr } = await supabase
+          .from("chat_members")
+          .select("chat_id")
+          .eq("user_id", userId);
+        
+        if (memErr) return JSON.stringify({ error: memErr.message });
+        if (!memberships || memberships.length === 0) return JSON.stringify({ message: "You're not a member of any chats." });
+
+        const chatIds = memberships.map((m: any) => m.chat_id);
+
+        // Step 2: Optionally filter by chat title
+        let filteredChatIds = chatIds;
+        if (args.chat_title) {
+          const { data: matchingChats } = await supabase
+            .from("chats")
+            .select("id, title")
+            .in("id", chatIds)
+            .ilike("title", `%${args.chat_title}%`);
+          if (matchingChats && matchingChats.length > 0) {
+            filteredChatIds = matchingChats.map((c: any) => c.id);
+          } else {
+            return JSON.stringify({ message: `No chats found matching "${args.chat_title}".` });
+          }
+        }
+
+        // Step 3: Query messages
+        let query = supabase
+          .from("messages")
+          .select("id, content, created_at, chat_id, sender_id, profiles:sender_id(full_name), chats:chat_id(title, is_group, is_announcement)")
+          .in("chat_id", filteredChatIds)
+          .gte("created_at", cutoffDate)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(maxResults);
+
+        if (args.search_keyword) {
+          query = query.ilike("content", `%${args.search_keyword}%`);
+        }
+
+        const { data: msgs, error: msgErr } = await query;
+        if (msgErr) return JSON.stringify({ error: msgErr.message });
+        if (!msgs || msgs.length === 0) return JSON.stringify({ message: "No matching messages found." });
+
+        // Step 4: Filter by sender name if specified
+        let results = msgs.map((m: any) => ({
+          sender: m.profiles?.full_name || "Unknown",
+          chat: m.chats?.title || (m.chats?.is_announcement ? "Announcement" : "DM"),
+          content: m.content,
+          time: new Date(m.created_at).toLocaleString("en-US", { timeZone: timezone, dateStyle: "short", timeStyle: "short" }),
+        }));
+
+        if (args.sender_name) {
+          const q = args.sender_name.toLowerCase();
+          results = results.filter((r: any) => r.sender.toLowerCase().includes(q));
+          if (results.length === 0) return JSON.stringify({ message: `No messages found from "${args.sender_name}".` });
+        }
+
+        return JSON.stringify({ messages: results, total: results.length });
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
@@ -1892,8 +1978,8 @@ SELF-HEALING & RECOVERY:
 - Only after exhausting alternatives should you tell the user you couldn't find the data.
 
 TOPIC BOUNDARIES:
-- You ONLY answer questions related to restaurant operations: sales, labor, schedules, checklists, tasks, inventory, catering, availability, tips, certifications, shift marketplace, store hours, employee notes, logbook entries, guest reviews (OvationUp), and general restaurant management advice.
-- If someone asks about something unrelated, politely redirect: "I'm all about the ops — sales, labor, schedules, reviews, and keeping your store running smooth. What can I pull up for you?"
+- You ONLY answer questions related to restaurant operations: sales, labor, schedules, checklists, tasks, inventory, catering, availability, tips, certifications, shift marketplace, store hours, employee notes, logbook entries, guest reviews (OvationUp), team chat messages, and general restaurant management advice.
+- If someone asks about something unrelated, politely redirect: "I'm all about the ops — sales, labor, schedules, reviews, chats, and keeping your store running smooth. What can I pull up for you?"
 
 CRITICAL RULES:
 - NEVER FABRICATE EMPLOYEE NAMES. Only mention an employee by name if their name was explicitly returned by a tool call. If unsure, say "no data found" — NEVER guess or invent names.
@@ -1937,6 +2023,7 @@ TOOL ROUTING:
 - Store hours → query_store_hours
 - Employee notes/write-ups → query_employee_notes
 - Guest reviews/Ovation → query_ovation_reviews. Tag matched employees with [[employee:Full Name]].
+- Chat messages ("what did X say", "find message about Y", "chat history") → query_my_chats. Only searches chats YOU are a member of.
 - "Today" = ${today}, "yesterday" = ${yesterday}, "tomorrow" = ${tomorrow}.`;
 
     const aiMessages = [
@@ -2003,7 +2090,7 @@ TOOL ROUTING:
           : tc.function.arguments;
         
         console.log(`Tool: ${tc.function.name}`, JSON.stringify(args));
-        const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone);
+        const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id);
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
         
         currentMessages.push({
