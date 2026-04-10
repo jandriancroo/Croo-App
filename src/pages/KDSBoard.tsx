@@ -50,7 +50,7 @@ export default function KDSBoard() {
       .eq('store_id', storeId)
       .in('status', ['open', 'ready'])
       .order('opened_at', { ascending: false });
-    if (data) setOrders(data as KDSOrder[]);
+    if (data) setOrders(data.map(d => ({ ...d, items: (d.items || []) as any })) as KDSOrder[]);
   }, [storeId]);
 
   // Initial sync + load
