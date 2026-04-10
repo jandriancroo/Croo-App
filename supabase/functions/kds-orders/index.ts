@@ -250,12 +250,10 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // product-mix with checkNumber + showTotals:false = per-check item rows!
-      const productMixUrl = "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main";
-      const res = await fetch(productMixUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
+      // Strategy: Try check-detail with item fields first, then product-mix as fallback
+      const endpoints = [
+        {
+          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
           fields: [
             { fieldName: "checkNumber" },
             { fieldName: "itemName" },
@@ -264,10 +262,6 @@ serve(async (req) => {
             { fieldName: "quantity" },
             { fieldName: "netSales" },
           ],
-          filters: {
-            date: { from: today, to: today, type: "custom" },
-            location: { operationalUnits: [quStoreId] },
-          },
           params: {
             sectionId: "main",
             pageNumber: 1,
@@ -275,8 +269,28 @@ serve(async (req) => {
             showTotals: false,
             sort: [{ field: "checkNumber", dir: "asc" }],
           },
-        }),
-      });
+        },
+      ];
+
+      let res: Response | null = null;
+      let usedUrl = "";
+      for (const ep of endpoints) {
+        const r = await fetch(ep.url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            fields: ep.fields,
+            filters: {
+              date: { from: today, to: today, type: "custom" },
+              location: { operationalUnits: [quStoreId] },
+            },
+            params: ep.params,
+          }),
+        });
+        if (r.ok) { res = r; usedUrl = ep.url; break; }
+        await r.text();
+        console.log("Item endpoint failed:", r.status, ep.url);
+      }
       if (res.ok) {
         const detailData = await res.json();
         // Handle nested items arrays (QU wraps rows in group objects)
