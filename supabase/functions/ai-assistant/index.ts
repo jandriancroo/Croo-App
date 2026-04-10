@@ -2089,7 +2089,7 @@ TOOL ROUTING:
           : tc.function.arguments;
         
         console.log(`Tool: ${tc.function.name}`, JSON.stringify(args));
-        const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone);
+        const result = await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id);
         console.log(`Tool result (${tc.function.name}): ${result.substring(0, 200)}...`);
         
         currentMessages.push({
