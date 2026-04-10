@@ -250,31 +250,51 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // Strategy: Try check-detail with item fields first, then product-mix as fallback
-      const endpoints = [
+      // Try multiple strategies to get per-check item data
+      const itemEndpoints = [
+        // Strategy 1: check-detail with item fields (may return per-item rows with checkNumber)
+        {
+          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "menuItemName" },
+            { fieldName: "modifierName" },
+            { fieldName: "quantity" },
+            { fieldName: "netSales" },
+            { fieldName: "itemGroup" },
+          ],
+          params: { sectionId: "main", pageNumber: 1, pageSize: 2000, showTotals: false, sort: [{ field: "checkNumber", dir: "asc" }] },
+        },
+        // Strategy 2: product-mix with checkNumber (may not return it but worth trying)
         {
           url: "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
           fields: [
             { fieldName: "checkNumber" },
             { fieldName: "itemName" },
             { fieldName: "modifierName" },
-            { fieldName: "itemGroup" },
             { fieldName: "quantity" },
             { fieldName: "netSales" },
+            { fieldName: "itemGroup" },
           ],
-          params: {
-            sectionId: "main",
-            pageNumber: 1,
-            pageSize: 2000,
-            showTotals: false,
-            sort: [{ field: "checkNumber", dir: "asc" }],
-          },
+          params: { sectionId: "main", pageNumber: 1, pageSize: 2000, showTotals: false, sort: [{ field: "checkNumber", dir: "asc" }] },
+        },
+        // Strategy 3: transaction-details (may be enabled now)
+        {
+          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "itemName" },
+            { fieldName: "modifierName" },
+            { fieldName: "quantity" },
+            { fieldName: "grossSales" },
+          ],
+          params: { sectionId: "main", pageNumber: 1, pageSize: 2000, showTotals: false, sort: [{ field: "checkNumber", dir: "asc" }] },
         },
       ];
 
       let res: Response | null = null;
       let usedUrl = "";
-      for (const ep of endpoints) {
+      for (const ep of itemEndpoints) {
         const r = await fetch(ep.url, {
           method: "POST",
           headers,
@@ -287,9 +307,53 @@ serve(async (req) => {
             params: ep.params,
           }),
         });
-        if (r.ok) { res = r; usedUrl = ep.url; break; }
-        await r.text();
-        console.log("Item endpoint failed:", r.status, ep.url);
+        if (r.ok) {
+          // Check if the response actually has checkNumber in the data
+          const text = await r.text();
+          try {
+            const parsed = JSON.parse(text);
+            const testItems = parsed.items || parsed.data || [];
+            // Flatten nested items
+            let testRows: any[] = [];
+            for (const entry of testItems) {
+              if (Array.isArray(entry.items)) testRows.push(...entry.items);
+              else testRows.push(entry);
+            }
+            // Check if ANY row has checkNumber
+            const hasCheck = testRows.some((row: any) => row.checkNumber && row.checkNumber !== "Total" && row.checkNumber !== "Totals");
+            console.log(`Endpoint ${ep.url}: ${testRows.length} rows, hasCheckNumber: ${hasCheck}`);
+            if (testRows.length > 0) {
+              console.log("First row keys:", Object.keys(testRows[0]));
+              console.log("First row sample:", JSON.stringify(testRows[0]).slice(0, 400));
+            }
+            if (hasCheck) {
+              // This endpoint has per-check data — use it
+              for (const row of testRows) {
+                const cn = row.checkNumber;
+                if (!cn || cn === "Total" || cn === "Totals") continue;
+                if (!itemsByCheck[cn]) itemsByCheck[cn] = [];
+                const itemName = row.menuItemName || row.itemName || row.name || "";
+                const modName = row.modifierName || row.modifier || "";
+                const category = row.itemGroup || row.itemGroupName || row.categoryName || "";
+                itemsByCheck[cn].push({
+                  name: itemName || modName || "Unknown Item",
+                  modifier: modName || null,
+                  qty: parseInt(row.quantity || row.qty || "1"),
+                  price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
+                  category,
+                  isModifier: !!modName && !itemName,
+                });
+              }
+              console.log(`Items grouped for ${Object.keys(itemsByCheck).length} checks from ${ep.url}`);
+              break; // Found working endpoint
+            }
+          } catch (e) {
+            console.log("Parse error for", ep.url, e);
+          }
+        } else {
+          await r.text();
+          console.log("Item endpoint failed:", r.status, ep.url);
+        }
       }
       if (res && res.ok) {
         const detailData = await res.json();
