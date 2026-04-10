@@ -85,19 +85,13 @@ export function OrderBoardView({ orders }: Props) {
         <div className="max-h-[500px] space-y-1.5 overflow-y-auto p-2">
           <AnimatePresence mode="popLayout">
             {ready.map((order) => (
-              <motion.button
+              <motion.div
                 key={order.id}
                 layout
                 initial={{ opacity: 0, scale: 0.92 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.85, x: 40 }}
-                onClick={() => onClear(order.check_number)}
-                className={cn(
-                  'relative w-full rounded-xl border px-4 py-3 text-left transition-all group',
-                  clearing === order.check_number
-                    ? 'border-primary/40 bg-primary/20'
-                    : 'border-primary/20 bg-background hover:bg-primary/10 active:scale-[0.98]'
-                )}
+                className="relative w-full rounded-xl border border-primary/20 bg-background px-4 py-3"
               >
                 <div className="pointer-events-none absolute inset-0 rounded-xl bg-primary/5 animate-pulse" />
                 <div className="relative flex items-center justify-between">
@@ -106,12 +100,12 @@ export function OrderBoardView({ orders }: Props) {
                       {order.customer_name || 'Guest'}
                     </span>
                     <span className="text-[11px] text-muted-foreground">
-                      #{order.check_number} · Tap to clear
+                      #{order.check_number} · {order.order_type || order.channel}
                     </span>
                   </div>
-                  <span className="text-2xl font-black text-primary/40 transition-colors group-hover:text-primary/70">✓</span>
+                  <span className="text-2xl font-black text-primary/40">✓</span>
                 </div>
-              </motion.button>
+              </motion.div>
             ))}
           </AnimatePresence>
 

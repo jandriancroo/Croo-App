@@ -233,7 +233,7 @@ export default function KDSBoard() {
           {tab === 'kds' ? (
             <KDSGridView orders={orders} onBump={handleBump} bumping={bumping} />
           ) : (
-            <OrderBoardView orders={orders} onClear={handleClear} clearing={clearing} />
+            <OrderBoardView orders={orders} />
           )}
 
           {/* Live indicator */}
