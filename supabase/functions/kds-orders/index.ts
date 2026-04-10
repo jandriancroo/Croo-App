@@ -250,135 +250,74 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // Get recent check numbers
-      const recentCheckNumbers = new Set(
-        orders
-          .filter((o: any) => {
-            const openedAt = parseQuDateToIso(o.date);
-            return openedAt && isRecentOrder(openedAt);
-          })
-          .map((o: any) => o.checkNumber)
-          .filter(Boolean)
+      // Single bulk product-mix call with checkNumber field + showTotals:false
+      // This returns one row per item per check, which we group by checkNumber
+      const pmRes = await fetch(
+        "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            fields: [
+              { fieldName: "checkNumber" },
+              { fieldName: "itemName" },
+              { fieldName: "modifierName" },
+              { fieldName: "quantity" },
+              { fieldName: "netSales" },
+              { fieldName: "itemGroup" },
+            ],
+            filters: {
+              date: { from: today, to: today, type: "custom" },
+              location: { operationalUnits: [quStoreId] },
+            },
+            params: { sectionId: "main", pageNumber: 1, pageSize: 1000, showTotals: false },
+          }),
+        },
       );
 
-      if (recentCheckNumbers.size > 0) {
-        // Step 1: Get checkIds from check-detail report
-        const checkDetailRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              fields: [{ fieldName: "checkNumber" }],
-              filters: {
-                date: { from: today, to: today, type: "custom" },
-                location: { operationalUnits: [quStoreId] },
-              },
-              params: { sectionId: "main", pageNumber: 1, pageSize: 500, showTotals: false },
-            }),
-          }
-        );
+      if (pmRes.ok) {
+        const pmData = await pmRes.json();
+        const groups = pmData.items || [];
 
-        if (checkDetailRes.ok) {
-          const checkData = await checkDetailRes.json();
-          const checkRows = checkData.items || [];
+        // Flatten nested items from each group
+        let totalFlat = 0;
+        for (const group of groups) {
+          const subItems = Array.isArray(group.items) ? group.items : [];
+          const rowsToProcess = subItems.length > 0 ? subItems : (group.itemName && group.itemName !== "Totals" ? [group] : []);
 
-          const subreportData: { checkNum: string; checkId: string }[] = [];
-          for (const row of checkRows) {
-            const cn = row.checkNumber;
-            if (!cn || !recentCheckNumbers.has(cn)) continue;
-            const sub = row.checkNumberSubreport;
-            if (sub?.checkId) {
-              subreportData.push({ checkNum: cn, checkId: sub.checkId });
-            }
-          }
+          for (const row of rowsToProcess) {
+            const itemName = row.itemName || "";
+            if (!itemName || itemName === "Totals") continue;
 
-          console.log(`Found ${subreportData.length} checkIds for ${recentCheckNumbers.size} recent checks`);
+            // The checkNumber might be in a subreport filter or direct field
+            const checkNum = row.checkNumber ||
+              row.checkNumberSubreport?.filters?.checkNumber ||
+              null;
 
-          // Step 2: Hydrate each check via Transactional Check Detail endpoint
-          const toFetch = subreportData.slice(0, 20);
+            if (!checkNum) continue;
 
-          const hydrateCheck = async (sr: typeof subreportData[0]) => {
-            try {
-              const isFirst = sr.checkNum === toFetch[0]?.checkNum;
-              // Product-mix with checkNumber filter — the only working endpoint
-              const r = await fetch(
-                "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
-                {
-                  method: "POST",
-                  headers,
-                  body: JSON.stringify({
-                    fields: [
-                      { fieldName: "itemName" },
-                      { fieldName: "modifierName" },
-                      { fieldName: "quantity" },
-                      { fieldName: "netSales" },
-                      { fieldName: "itemGroup" },
-                    ],
-                    filters: {
-                      date: { from: today, to: today, type: "custom" },
-                      location: { operationalUnits: [quStoreId] },
-                      checkNumber: { values: [sr.checkNum] },
-                    },
-                    params: { sectionId: "main", pageNumber: 1, pageSize: 200, showTotals: false },
-                  }),
-                },
-              );
+            const isModifier = itemName.startsWith("**") || itemName.startsWith("++");
+            const displayName = isModifier ? itemName.replace(/^\*\*\s*|\+\+\s*/g, "").trim() : itemName;
 
-              if (!r.ok) { await r.text(); return; }
-
-              const data = await r.json();
-              const groups = data.items || [];
-
-              // Flatten: each group row may contain a nested `items` array with actual line items
-              const flat: any[] = [];
-              for (const group of groups) {
-                // The nested `items` array contains the real line items
-                if (Array.isArray(group.items) && group.items.length > 0) {
-                  for (const sub of group.items) {
-                    if (sub.itemName === "Totals") continue;
-                    flat.push({ ...sub, _groupName: group.itemGroupName || "" });
-                  }
-                } else if (group.itemName && group.itemName !== "Totals") {
-                  flat.push(group);
-                }
-              }
-
-              if (isFirst) {
-                console.log(`Hydrate ${sr.checkNum}: ${flat.length} items from ${groups.length} groups`);
-                if (flat[0]) console.log(`  sample: ${JSON.stringify(flat[0]).slice(0, 400)}`);
-              }
-
-              if (flat.length > 0) {
-                itemsByCheck[sr.checkNum] = [];
-                for (const row of flat) {
-                  const itemName = row.itemName || row.menuItemName || row.name || "";
-                  if (!itemName || itemName === "Totals") continue;
-                  // Items starting with "**" or "++" are modifiers/toppings in Blaze system
-                  const isModifier = itemName.startsWith("**") || itemName.startsWith("++");
-                  const displayName = isModifier ? itemName.replace(/^\*\*\s*|\+\+\s*/g, "") : itemName;
-                  itemsByCheck[sr.checkNum].push({
-                    name: displayName,
-                    modifier: null,
-                    qty: parseInt(row.quantity || "1"),
-                    price: parseFloat(((row.netSales || row.grossSales || row.itemSales || "0") + "").replace(/,/g, "")),
-                    category: row._groupName || row.itemGroupName || "",
-                    isModifier,
-                  });
-                }
-              }
-            } catch (e) {
-              // Skip failed check
-            }
-          };
-
-          // Batch in groups of 5
-          for (let i = 0; i < toFetch.length; i += 5) {
-            await Promise.all(toFetch.slice(i, i + 5).map(hydrateCheck));
+            if (!itemsByCheck[checkNum]) itemsByCheck[checkNum] = [];
+            itemsByCheck[checkNum].push({
+              name: displayName,
+              modifier: null,
+              qty: parseInt(row.quantity || "1"),
+              price: parseFloat(((row.netSales || row.grossSales || row.itemSales || "0") + "").replace(/,/g, "")),
+              category: row.itemGroupName || group.itemGroupName || "",
+              isModifier,
+            });
+            totalFlat++;
           }
         }
 
-        console.log(`Items resolved for ${Object.keys(itemsByCheck).length} checks`);
+        console.log(`Product-mix: ${groups.length} groups, ${totalFlat} items across ${Object.keys(itemsByCheck).length} checks`);
+        if (Object.keys(itemsByCheck).length > 0) {
+          const firstCheck = Object.keys(itemsByCheck)[0];
+          console.log(`  Check ${firstCheck}: ${itemsByCheck[firstCheck].length} items`);
+          console.log(`  Sample: ${JSON.stringify(itemsByCheck[firstCheck][0])}`);
+        }
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
