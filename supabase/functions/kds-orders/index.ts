@@ -314,24 +314,27 @@ serve(async (req) => {
         if (probeCheckId) {
           const probeCN = checkIdMap["__probe_cn__"] || Object.keys(checkIdMap)[0];
 
-          // Try multiple subreport URL patterns in parallel
+          // Final round of probes - different API patterns entirely
           const subreportProbes = [
-            // checkNumber as plain string filter (error told us it wants a string)
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main`, method: "POST", label: "main-checkNumber-string",
-              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "modifierName" }, { fieldName: "quantity" }, { fieldName: "netSales" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkNumber: probeCN }, params: { sectionId: "main", pageSize: 100 } }) },
-            // Subreport drill-down patterns
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${probeCheckId}`, method: "POST", label: "subreport-POST",
-              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }, { fieldName: "modifierName" }], params: { pageSize: 100 } }) },
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${probeCheckId}`, method: "GET", label: "subreport-GET" },
-            // Try subreport with filters context
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main/subreport/${probeCheckId}`, method: "POST", label: "subreport-withFilters",
-              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { pageSize: 100 } }) },
-            // checkNumberSubreport pattern (maybe the section name IS the subreport)
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/checkNumber`, method: "POST", label: "section-checkNumber",
-              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkId: probeCheckId }, params: { sectionId: "checkNumber", pageSize: 100 } }) },
-            // Try "check-detail-items" with singleLocation (never tried with singleLocation)
-            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail-items/sections/main`, method: "POST", label: "check-detail-items-singleLocation",
+            // RESTful orders API
+            { url: `https://gateway-api.qubeyond.com/api/v4/orders?locationId=${quStoreId}&date=${today}`, method: "GET", label: "orders-REST" },
+            { url: `https://gateway-api.qubeyond.com/api/v4/locations/${quStoreId}/orders`, method: "GET", label: "locations-orders" },
+            { url: `https://gateway-api.qubeyond.com/api/v4/locations/${quStoreId}/checks`, method: "GET", label: "locations-checks" },
+            // transaction-detail (singular) with singleLocation
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-detail/sections/main`, method: "POST", label: "transaction-detail-singular",
               body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
+            // sales-detail
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/sales-detail/sections/main`, method: "POST", label: "sales-detail",
+              body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
+            // item-sales report
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/item-sales/sections/main`, method: "POST", label: "item-sales",
+              body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
+            // V3 API path
+            { url: `https://gateway-api.qubeyond.com/api/v3/data/reports/check-detail/sections/items`, method: "POST", label: "v3-check-detail-items",
+              body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "items", pageSize: 100 } }) },
+            // product-mix with checkNumber filter
+            { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main`, method: "POST", label: "product-mix-checkFilter",
+              body: JSON.stringify({ fields: [{ fieldName: "itemName" }, { fieldName: "quantity" }, { fieldName: "checkNumber" }, { fieldName: "netSales" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" }, checkNumber: probeCN }, params: { sectionId: "main", pageSize: 100 } }) },
           ];
 
           const results = await Promise.all(subreportProbes.map(async (ep) => {
