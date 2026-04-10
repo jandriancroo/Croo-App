@@ -257,38 +257,10 @@ serve(async (req) => {
 
       if (recentOrders.length > 0) {
         const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
-        const sampleCheckId = recentCheckNumbers[0];
 
-        // Strategy: Try multiple check-ticket endpoint patterns in parallel
-        const ticketEndpoints = [
-          { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${sampleCheckId}`, method: "GET", label: "reporting/check-ticket/GET" },
-          { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-ticket/sections/main`, method: "POST", label: "reports/check-ticket/POST",
-            body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
-          { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${sampleCheckId}`, method: "POST", label: "reporting/check-ticket/POST",
-            body: JSON.stringify({ locationId: quStoreId }) },
-          { url: `https://gateway-api.qubeyond.com/api/v4/checks/${sampleCheckId}/ticket`, method: "GET", label: "checks/ticket/GET" },
-          { url: `https://gateway-api.qubeyond.com/api/v4/checks/${sampleCheckId}`, method: "GET", label: "checks/GET" },
-        ];
-
-        const probeResults = await Promise.all(ticketEndpoints.map(async (ep) => {
-          try {
-            const res = await fetch(ep.url, {
-              method: ep.method,
-              headers,
-              ...(ep.body ? { body: ep.body } : {}),
-            });
-            const text = await res.text();
-            return { label: ep.label, status: res.status, body: text.slice(0, 800) };
-          } catch (e) {
-            return { label: ep.label, status: 0, body: String(e) };
-          }
-        }));
-
-        for (const r of probeResults) {
-          console.log(`PROBE ${r.label}: status=${r.status} body=${r.body}`);
-        }
-
-        // Also try the checks-details/items with singleLocation (existing approach)
+        // Attempt item hydration via checks-details/items (singleLocation filter).
+        // NOTE: This endpoint currently returns 404 for our credentials.
+        // It will auto-activate once Qu enables the "items" section for this integration.
         const itemRes = await fetch(
           "https://gateway-api.qubeyond.com/api/v4/data/reports/checks-details/sections/items",
           {
@@ -321,9 +293,8 @@ serve(async (req) => {
           itemRows = parsed.items || [];
         } catch {}
 
-        console.log(`checks-details/items: status=${itemStatus}, rows=${itemRows.length}`);
-        if (itemRows.length > 0) {
-          console.log(`Sample row: ${JSON.stringify(itemRows[0]).slice(0, 500)}`);
+        if (itemStatus !== 404) {
+          console.log(`checks-details/items: status=${itemStatus}, rows=${itemRows.length}`);
         }
 
         const appendRow = (row: any, fallbackCN?: string) => {
@@ -353,7 +324,9 @@ serve(async (req) => {
           }
         }
 
-        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length}/${recentCheckNumbers.length} checks with items`);
+        if (Object.keys(itemsByCheck).length > 0) {
+          console.log(`Item hydration: ${Object.keys(itemsByCheck).length}/${recentCheckNumbers.length} checks with items`);
+        }
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
