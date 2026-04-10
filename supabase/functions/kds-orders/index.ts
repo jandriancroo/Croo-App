@@ -279,15 +279,23 @@ serve(async (req) => {
 
         let checkIdMap: Record<string, string> = {}; // checkNumber -> checkId
         if (mainRes.ok) {
-          const mainData = await mainRes.json();
-          for (const item of (mainData.items || [])) {
-            const cn = item.checkNumber;
-            const checkId = item.checkNumberSubreport?.checkId;
-            if (cn && checkId && recentCheckNumbers.includes(cn)) {
-              checkIdMap[cn] = checkId;
+          const mainText = await mainRes.text();
+          try {
+            const mainData = JSON.parse(mainText);
+            const firstItem = (mainData.items || [])[0];
+            console.log(`check-detail/main: ${(mainData.items || []).length} items, first keys: ${firstItem ? Object.keys(firstItem).join(",") : "none"}`);
+            if (firstItem) console.log(`first item sample: ${JSON.stringify(firstItem).slice(0, 500)}`);
+            
+            for (const item of (mainData.items || [])) {
+              const cn = item.checkNumber;
+              const checkId = item.checkNumberSubreport?.checkId;
+              if (cn && checkId && recentCheckNumbers.includes(cn)) {
+                checkIdMap[cn] = checkId;
+              }
             }
-          }
+          } catch { console.log(`check-detail/main parse error, raw: ${mainText.slice(0, 300)}`); }
         } else {
+          console.log(`check-detail/main: status=${mainRes.status}`);
           await mainRes.text();
         }
 
