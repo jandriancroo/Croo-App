@@ -250,63 +250,33 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      // Try multiple QU V4 endpoints for item-level detail
-      // product-mix is CONFIRMED working — try it first with checkNumber
-      const detailEndpoints = [
-        {
-          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
+      // product-mix with checkNumber + showTotals:false = per-check item rows!
+      const productMixUrl = "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main";
+      const res = await fetch(productMixUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
           fields: [
             { fieldName: "checkNumber" },
             { fieldName: "itemName" },
+            { fieldName: "modifierName" },
             { fieldName: "itemGroup" },
             { fieldName: "quantity" },
             { fieldName: "netSales" },
           ],
-        },
-        {
-          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items",
-          fields: [
-            { fieldName: "checkNumber" },
-            { fieldName: "itemName" },
-            { fieldName: "modifierName" },
-            { fieldName: "quantity" },
-            { fieldName: "grossSales" },
-          ],
-        },
-        {
-          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
-          fields: [
-            { fieldName: "checkNumber" },
-            { fieldName: "itemName" },
-            { fieldName: "modifierName" },
-            { fieldName: "quantity" },
-            { fieldName: "grossSales" },
-          ],
-        },
-      ];
-
-      let detailRes: Response | null = null;
-      let usedEndpoint = "";
-
-      for (const ep of detailEndpoints) {
-        const sectionId = ep.url.split("/sections/")[1] || "main";
-        const res = await fetch(ep.url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            fields: ep.fields,
-            filters: {
-              date: { from: today, to: today, type: "custom" },
-              location: { operationalUnits: [quStoreId] },
-            },
-            params: {
-              sectionId,
-              pageNumber: 1,
-              pageSize: 1000,
-              sort: [{ field: "checkNumber", dir: "asc" }],
-            },
-          }),
-        });
+          filters: {
+            date: { from: today, to: today, type: "custom" },
+            location: { operationalUnits: [quStoreId] },
+          },
+          params: {
+            sectionId: "main",
+            pageNumber: 1,
+            pageSize: 2000,
+            showTotals: false,
+            sort: [{ field: "checkNumber", dir: "asc" }],
+          },
+        }),
+      });
         if (res.ok) {
           detailRes = res;
           usedEndpoint = ep.url;
