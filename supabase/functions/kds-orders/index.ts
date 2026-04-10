@@ -196,6 +196,7 @@ serve(async (req) => {
             { fieldName: "description" },
             { fieldName: "itemsSoldCount" },
             { fieldName: "discounts" },
+            { fieldName: "paymentsAmount" },
           ],
           filters: {
             date: { from: today, to: today, type: "custom" },
@@ -234,6 +235,7 @@ serve(async (req) => {
             taxes: parseFloat((item.taxes || "0").replace(/,/g, "")),
             tips: parseFloat((item.tips || "0").replace(/,/g, "")),
             discounts: parseFloat((item.discounts || "0").replace(/,/g, "")),
+            paymentsAmount: parseFloat((item.paymentsAmount || "0").replace(/,/g, "")),
           }));
       } catch {
         orders = [];
@@ -326,7 +328,12 @@ serve(async (req) => {
       const nextStatus = existing?.status === "ready" ? "ready" : "open";
       if (nextStatus === "open") recentOpenCount += 1;
 
-      const isPaid = (order.state || "").toLowerCase() === "closed";
+      // Primary: checkState "Closed" = paid in QU
+      // Secondary: if paymentsAmount is populated, use netSales+taxes comparison
+      const totalOwed = order.netSales + order.taxes;
+      const isPaid = order.paymentsAmount > 0
+        ? order.paymentsAmount >= totalOwed * 0.99
+        : (order.state || "").toLowerCase() === "closed";
 
       const { error } = await supabase
         .from("kds_orders")
