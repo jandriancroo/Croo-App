@@ -245,32 +245,59 @@ serve(async (req) => {
     const itemsByCheck: Record<string, any[]> = {};
 
     try {
-      const detailRes = await fetch(
-        "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
+      // Try multiple QU V4 endpoints for item-level detail
+      const detailEndpoints = [
         {
+          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/items",
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "itemName" },
+            { fieldName: "modifierName" },
+            { fieldName: "quantity" },
+            { fieldName: "grossSales" },
+          ],
+        },
+        {
+          url: "https://gateway-api.qubeyond.com/api/v4/data/reports/transaction-details/sections/main",
+          fields: [
+            { fieldName: "checkNumber" },
+            { fieldName: "itemName" },
+            { fieldName: "modifierName" },
+            { fieldName: "quantity" },
+            { fieldName: "grossSales" },
+          ],
+        },
+      ];
+
+      let detailRes: Response | null = null;
+      let usedEndpoint = "";
+
+      for (const ep of detailEndpoints) {
+        const res = await fetch(ep.url, {
           method: "POST",
           headers,
           body: JSON.stringify({
-            fields: [
-              { fieldName: "checkNumber" },
-              { fieldName: "itemName" },
-              { fieldName: "modifierName" },
-              { fieldName: "quantity" },
-              { fieldName: "grossSales" },
-            ],
+            fields: ep.fields,
             filters: {
               date: { from: today, to: today, type: "custom" },
               location: { operationalUnits: [quStoreId] },
             },
             params: {
-              sectionId: "main",
+              sectionId: ep.url.includes("/items") ? "items" : "main",
               pageNumber: 1,
               pageSize: 500,
               sort: [{ field: "checkNumber", dir: "asc" }],
             },
           }),
-        },
-      );
+        });
+        if (res.ok) {
+          detailRes = res;
+          usedEndpoint = ep.url;
+          break;
+        }
+        await res.text(); // drain
+        console.log("Detail endpoint 404:", ep.url);
+      }
 
       if (detailRes.ok) {
         const detailData = await detailRes.json();
