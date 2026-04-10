@@ -70,6 +70,7 @@ const PunchClockCustomization = lazyWithRetry(() => import("./pages/PunchClockCu
 const BrandDashboard = lazyWithRetry(() => import("./pages/BrandDashboard"));
 const MyProfile = lazyWithRetry(() => import("./pages/MyProfile"));
 const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocationDashboard"));
+const ToastPreview = lazyWithRetry(() => import("./pages/ToastPreview"));
 
 const Billing = lazyWithRetry(() => import("./pages/Billing"));
 const Terms = lazyWithRetry(() => import("./pages/Terms"));
