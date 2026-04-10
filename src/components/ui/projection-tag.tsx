@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Radio } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProjectionSource } from "@/hooks/useResolvedProjection";
 
 interface ProjectionTagProps {
@@ -36,43 +36,39 @@ export function ProjectionTag({
       : 'AI Projection - Generated for schedule planning';
     
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge 
-              variant="outline" 
-              className={`${badgeSize} border-primary/30 bg-primary/10 text-primary font-medium gap-1 ${className}`}
-            >
-              <Radio className={`${iconSize} animate-pulse`} />
-              {showLabel && <span>Live AI</span>}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p className="text-xs">{tooltipText}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge 
+            variant="outline" 
+            className={`${badgeSize} border-primary/30 bg-primary/10 text-primary font-medium gap-1 ${className}`}
+          >
+            <Radio className={`${iconSize} animate-pulse`} />
+            {showLabel && <span>Live AI</span>}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>{tooltipText}</p>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
   if (source === 'override') {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge 
-              variant="outline" 
-              className={`${badgeSize} border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium gap-1 ${className}`}
-            >
-              <Pencil className={iconSize} />
-              {showLabel && <span>Override</span>}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p className="text-xs">Manager Override - Manually set projection</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge 
+            variant="outline" 
+            className={`${badgeSize} border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium gap-1 ${className}`}
+          >
+            <Pencil className={iconSize} />
+            {showLabel && <span>Override</span>}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Manager Override - Manually set projection</p>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
@@ -95,31 +91,27 @@ export function ProjectionIcon({
 
   if (source === 'living' || source === 'initial') {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Radio className={`h-3 w-3 text-primary animate-pulse ${className}`} />
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p className="text-xs">Live AI Projection</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Radio className={`h-3 w-3 text-primary animate-pulse ${className}`} />
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Live AI Projection</p>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
   if (source === 'override') {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Pencil className={`h-3 w-3 text-amber-500 ${className}`} />
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p className="text-xs">Manager Override</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Pencil className={`h-3 w-3 text-amber-500 ${className}`} />
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Manager Override</p>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
