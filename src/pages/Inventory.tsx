@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, ArrowLeft, Hammer } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, ArrowLeft, Hammer, DollarSign } from "lucide-react";
+import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
+import RecipeGeniusCard from "@/components/inventory/menu-pricing/RecipeGeniusCard";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
 import { format } from "date-fns";
 import { formatPeriodLabel } from "@/utils/periodLabelUtils";
