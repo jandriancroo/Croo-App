@@ -325,94 +325,76 @@ serve(async (req) => {
           console.log(`check-detail for checkIds: ${checkIdRes.status} - ${errText.slice(0, 200)}`);
         }
 
-        // Step 2: For each checkId, call check-detail/sections/items with checkId filter
-        const BATCH_SIZE = 5;
-        for (let i = 0; i < checkIdsToHydrate.length; i += BATCH_SIZE) {
-          const batch = checkIdsToHydrate.slice(i, i + BATCH_SIZE);
+        // Step 2: Probe first checkId against all possible section/report combos to find what works
+        if (checkIdsToHydrate.length > 0) {
+          const probe = checkIdsToHydrate[0];
           
-          const results = await Promise.allSettled(
-            batch.map(async ({ checkNumber, checkId }) => {
-              // Try multiple section report patterns
-              const endpoints = [
-                "check-detail/sections/items",
-                "checks-details/sections/items",
-                "check-detail/sections/item-detail",
-              ];
+          // Comprehensive section probe - try every plausible combo
+          const probes = [
+            // check-detail subreport drill-down (pass checkId as filter on main)
+            { report: "check-detail/sections/main", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
+            { report: "check-detail/sections/main", filterKey: "checkNumber", filterVal: { values: [probe.checkNumber] } },
+            // Various "items" section names
+            { report: "check-detail/sections/items", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
+            { report: "check-detail/sections/item-details", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
+            { report: "check-detail/sections/line-items", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
+            { report: "check-detail/sections/detail", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
+            // checks-details (plural) variants
+            { report: "checks-details/sections/items", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
+            { report: "checks-details/sections/main", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
+            // transaction-details
+            { report: "transaction-details/sections/main", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
+            { report: "transaction-detail/sections/main", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
+            // product-mix filtered by checkNumber
+            { report: "product-mix/sections/main", filterKey: "checkNumber", filterVal: { values: [probe.checkNumber] } },
+          ];
+          
+          const probeResults = await Promise.allSettled(
+            probes.map(async (p) => {
+              const res = await fetch(
+                `https://gateway-api.qubeyond.com/api/v4/data/reports/${p.report}`,
+                {
+                  method: "POST",
+                  headers,
+                  body: JSON.stringify({
+                    fields: [
+                      { fieldName: "itemName" },
+                      { fieldName: "modifierName" },
+                      { fieldName: "quantity" },
+                      { fieldName: "netSales" },
+                      { fieldName: "checkNumber" },
+                    ],
+                    filters: {
+                      [p.filterKey]: p.filterVal,
+                      date: { from: today, to: today, type: "custom" },
+                      location: { operationalUnits: [quStoreId] },
+                    },
+                    params: { sectionId: p.report.split("/sections/")[1], pageNumber: 1, pageSize: 100, showTotals: false },
+                  }),
+                },
+              );
               
-              for (const endpoint of endpoints) {
-                const res = await fetch(
-                  `https://gateway-api.qubeyond.com/api/v4/data/reports/${endpoint}`,
-                  {
-                    method: "POST",
-                    headers,
-                    body: JSON.stringify({
-                      fields: [
-                        { fieldName: "itemName" },
-                        { fieldName: "modifierName" },
-                        { fieldName: "quantity" },
-                        { fieldName: "netSales" },
-                        { fieldName: "grossSales" },
-                        { fieldName: "itemGroupName" },
-                      ],
-                      filters: {
-                        checkId: { values: [checkId] },
-                        location: { operationalUnits: [quStoreId] },
-                      },
-                      params: {
-                        sectionId: endpoint.split("/sections/")[1],
-                        pageNumber: 1,
-                        pageSize: 100,
-                      },
-                    }),
-                  },
-                );
-
-                if (res.ok) {
-                  const data = await res.json();
-                  const rows = data.items || [];
-                  
-                  if (rows.length > 0) {
-                    console.log(`✅ ${endpoint} returned ${rows.length} items for check ${checkNumber}`);
-                    if (rows[0]) {
-                      console.log(`Item keys: ${Object.keys(rows[0]).join(",")}`);
-                    }
-                    
-                    const parsed: any[] = [];
-                    for (const row of rows) {
-                      const itemName = row.itemName || "";
-                      if (!itemName || itemName === "Totals" || itemName === "Total") continue;
-                      
-                      const isModifier = itemName.startsWith("**") || itemName.startsWith("++") || !!row.modifierName;
-                      const displayName = isModifier 
-                        ? (row.modifierName || itemName).replace(/^\*\*\s*|\+\+\s*/g, "").trim() 
-                        : itemName;
-                      
-                      parsed.push({
-                        name: displayName,
-                        modifier: row.modifierName || null,
-                        qty: parseInt(row.quantity || "1"),
-                        price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
-                        category: row.itemGroupName || "",
-                        isModifier,
-                      });
-                    }
-                    
-                    if (parsed.length > 0) {
-                      itemsByCheck[checkNumber] = parsed;
-                    }
-                    break; // Found working endpoint, stop trying others
-                  } else {
-                    await res.text(); // consume
-                  }
-                } else {
-                  const errText = await res.text();
-                  if (i === 0 && endpoints.indexOf(endpoint) === 0) {
-                    console.log(`${endpoint}: ${res.status} - ${errText.slice(0, 200)}`);
-                  }
+              const status = res.status;
+              const text = await res.text();
+              let itemCount = 0;
+              let sampleKeys = "";
+              let sample = "";
+              try {
+                const data = JSON.parse(text);
+                itemCount = (data.items || []).length;
+                if (data.items?.[0]) {
+                  sampleKeys = Object.keys(data.items[0]).join(",");
+                  sample = JSON.stringify(data.items[0]).slice(0, 300);
                 }
+              } catch {}
+              
+              console.log(`PROBE ${p.report} [${p.filterKey}]: ${status}, ${itemCount} items`);
+              if (itemCount > 0) {
+                console.log(`PROBE HIT keys: ${sampleKeys}`);
+                console.log(`PROBE HIT sample: ${sample}`);
               }
               
-              return checkNumber;
+              return { ...p, status, itemCount };
             }),
           );
         }
