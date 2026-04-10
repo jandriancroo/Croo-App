@@ -355,51 +355,7 @@ serve(async (req) => {
           console.log("Item endpoint failed:", r.status, ep.url);
         }
       }
-      if (res && res.ok) {
-        const detailData = await res.json();
-        // Handle nested items arrays (QU wraps rows in group objects)
-        let rows: any[] = [];
-        const rawItems = detailData.items || detailData.data || [];
-        for (const entry of rawItems) {
-          if (Array.isArray(entry.items)) {
-            rows.push(...entry.items);
-          } else {
-            rows.push(entry);
-          }
-        }
-        console.log("Item detail rows:", rows.length, "from:", usedUrl);
-        if (rows.length > 0) {
-          console.log("Sample row keys:", Object.keys(rows[0]));
-          console.log("Has checkNumber?", "checkNumber" in rows[0], "Value:", rows[0].checkNumber);
-          console.log("Sample row:", JSON.stringify(rows[0]).slice(0, 500));
-        }
-
-        for (const row of rows) {
-          const currentCheckNumber = row.checkNumber;
-          if (!currentCheckNumber || currentCheckNumber === "Total" || currentCheckNumber === "Totals") continue;
-
-          if (!itemsByCheck[currentCheckNumber]) {
-            itemsByCheck[currentCheckNumber] = [];
-          }
-
-          const itemName = row.menuItemName || row.itemName || row.name || "";
-          const modName = row.modifierName || row.modifier || "";
-          const category = row.itemGroup || row.itemGroupName || row.categoryName || "";
-
-          itemsByCheck[currentCheckNumber].push({
-            name: itemName || modName || "Unknown Item",
-            modifier: modName || null,
-            qty: parseInt(row.quantity || row.qty || "1"),
-            price: parseFloat(((row.netSales || row.grossSales || "0") + "").replace(/,/g, "")),
-            category,
-            isModifier: !!modName && !itemName,
-          });
-        }
-
-        console.log(`Items grouped for ${Object.keys(itemsByCheck).length} checks`);
-      } else {
-        console.log("No item detail endpoint succeeded");
-      }
+      console.log(`Final: Items grouped for ${Object.keys(itemsByCheck).length} checks`);
     } catch (error) {
       console.log("Item detail fetch failed:", error);
     }
