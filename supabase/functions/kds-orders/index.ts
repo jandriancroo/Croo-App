@@ -257,38 +257,57 @@ serve(async (req) => {
 
       if (recentOrders.length > 0) {
         const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
-        const sampleCheckId = recentCheckNumbers[0];
 
-        // Strategy: Try multiple check-ticket endpoint patterns in parallel
-        const ticketEndpoints = [
-          { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${sampleCheckId}`, method: "GET", label: "reporting/check-ticket/GET" },
-          { url: `https://gateway-api.qubeyond.com/api/v4/data/reports/check-ticket/sections/main`, method: "POST", label: "reports/check-ticket/POST",
-            body: JSON.stringify({ fields: [{ fieldName: "checkNumber" }, { fieldName: "itemName" }, { fieldName: "quantity" }], filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } }, params: { sectionId: "main", pageSize: 100 } }) },
-          { url: `https://gateway-api.qubeyond.com/api/v4/data/reporting/check-ticket/${sampleCheckId}`, method: "POST", label: "reporting/check-ticket/POST",
-            body: JSON.stringify({ locationId: quStoreId }) },
-          { url: `https://gateway-api.qubeyond.com/api/v4/checks/${sampleCheckId}/ticket`, method: "GET", label: "checks/ticket/GET" },
-          { url: `https://gateway-api.qubeyond.com/api/v4/checks/${sampleCheckId}`, method: "GET", label: "checks/GET" },
+        // Probe check-detail with various section names + try requesting item fields on main
+        const sectionProbes = [
+          "items", "details", "line-items", "lineItems", "ticket", "modifiers", "entries",
         ];
 
-        const probeResults = await Promise.all(ticketEndpoints.map(async (ep) => {
-          try {
-            const res = await fetch(ep.url, {
-              method: ep.method,
-              headers,
-              ...(ep.body ? { body: ep.body } : {}),
-            });
-            const text = await res.text();
-            return { label: ep.label, status: res.status, body: text.slice(0, 800) };
-          } catch (e) {
-            return { label: ep.label, status: 0, body: String(e) };
-          }
-        }));
+        const probeBody = (section: string) => JSON.stringify({
+          fields: [
+            { fieldName: "checkNumber" }, { fieldName: "itemName" },
+            { fieldName: "modifierName" }, { fieldName: "quantity" },
+            { fieldName: "netSales" }, { fieldName: "itemGroupName" },
+          ],
+          filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } },
+          params: { sectionId: section, pageSize: 100 },
+        });
 
+        // Also try check-detail/main WITH item fields (maybe they just come back)
+        const mainWithItemFields = fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
+          {
+            method: "POST", headers,
+            body: JSON.stringify({
+              fields: [
+                { fieldName: "checkNumber" }, { fieldName: "itemName" },
+                { fieldName: "modifierName" }, { fieldName: "quantity" },
+                { fieldName: "netSales" }, { fieldName: "itemGroupName" },
+                { fieldName: "description" },
+              ],
+              filters: { singleLocation: quStoreId, date: { from: today, to: today, type: "custom" } },
+              params: { sectionId: "main", pageSize: 50 },
+            }),
+          },
+        );
+
+        const allProbes = [
+          ...sectionProbes.map(s => 
+            fetch(`https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/${s}`, { method: "POST", headers, body: probeBody(s) })
+              .then(async r => ({ label: `check-detail/${s}`, status: r.status, body: (await r.text()).slice(0, 600) }))
+              .catch(e => ({ label: `check-detail/${s}`, status: 0, body: String(e) }))
+          ),
+          mainWithItemFields
+            .then(async r => ({ label: "check-detail/main+itemFields", status: r.status, body: (await r.text()).slice(0, 600) }))
+            .catch(e => ({ label: "check-detail/main+itemFields", status: 0, body: String(e) })),
+        ];
+
+        const probeResults = await Promise.all(allProbes);
         for (const r of probeResults) {
-          console.log(`PROBE ${r.label}: status=${r.status} body=${r.body}`);
+          console.log(`SECTION-PROBE ${r.label}: status=${r.status} body=${r.body}`);
         }
 
-        // Also try the checks-details/items with singleLocation (existing approach)
+        // Existing checks-details/items fallback
         const itemRes = await fetch(
           "https://gateway-api.qubeyond.com/api/v4/data/reports/checks-details/sections/items",
           {
