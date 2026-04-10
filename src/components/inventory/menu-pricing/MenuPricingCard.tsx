@@ -44,6 +44,7 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
   const [show3pd, setShow3pd] = useState(false);
   const [fillUpcharge, setFillUpcharge] = useState("");
   const [fillFee, setFillFee] = useState("");
+  const [theoTarget, setTheoTarget] = useState(30);
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
