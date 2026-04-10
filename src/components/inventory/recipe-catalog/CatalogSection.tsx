@@ -53,7 +53,7 @@ interface CollapsibleSegmentProps {
   isPosLinking?: boolean;
 }
 
-const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking }: CollapsibleSegmentProps) => {
+const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking, defaultOpen = false }: CollapsibleSegmentProps & { defaultOpen?: boolean }) => {
   const [open, setOpen] = useState(true);
 
   if (items.length === 0) return null;
