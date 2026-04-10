@@ -510,7 +510,7 @@ const tools = [
 ];
 
 // Execute tool calls against the database
-async function executeTool(supabase: any, toolName: string, args: any, timezone: string): Promise<string> {
+async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string): Promise<string> {
   const offset = getTzOffset(timezone);
   try {
     switch (toolName) {
