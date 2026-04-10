@@ -74,7 +74,10 @@ interface Props {
 
 export function KDSGridView({ orders, onBump, bumping }: Props) {
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-  const openOrders = orders.filter((o) => o.status === 'open').slice(0, 10);
+  const openOrders = orders
+    .filter((o) => o.status === 'open')
+    .sort((a, b) => new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime())
+    .slice(0, 10);
 
   if (openOrders.length === 0) {
     return (
@@ -100,7 +103,6 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
             return (
               <motion.div
                 key={order.id}
-                layout
                 initial={{ opacity: 0, scale: 0.94 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
