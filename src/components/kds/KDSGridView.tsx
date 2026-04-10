@@ -117,7 +117,14 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
                     <span className="truncate text-sm font-bold text-foreground">
                       {order.customer_name || 'Guest'}
                     </span>
-                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">#{order.check_number}</span>
+                    <div className="flex items-center gap-1.5">
+                      {!order.is_paid && !isDelivery(order.channel) && (
+                        <span className="rounded bg-destructive px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-destructive-foreground animate-pulse">
+                          Unpaid
+                        </span>
+                      )}
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">#{order.check_number}</span>
+                    </div>
                   </div>
                   <div className="mt-1 flex items-center gap-1.5">
                     <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground', channelInfo.tone)}>
