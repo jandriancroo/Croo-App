@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Clock, Truck, Store, Zap } from 'lucide-react';
+import { Clock, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface KDSItem {
@@ -38,16 +38,31 @@ function getElapsed(openedAt: string): string {
 
 function getChannelInfo(channel: string | null) {
   const ch = (channel || '').toLowerCase();
-  if (ch.includes('doordash')) return { label: 'DoorDash', color: 'bg-red-500', textColor: 'text-red-400' };
-  if (ch.includes('ubereats')) return { label: 'UberEats', color: 'bg-emerald-500', textColor: 'text-emerald-400' };
-  if (ch.includes('grubhub')) return { label: 'GrubHub', color: 'bg-orange-500', textColor: 'text-orange-400' };
-  if (ch === 'olo') return { label: 'Online', color: 'bg-amber-500', textColor: 'text-amber-400' };
-  return { label: 'Walk-in', color: 'bg-blue-500', textColor: 'text-blue-400' };
+  if (ch.includes('doordash')) return { label: 'DoorDash', tone: 'channel-doordash' };
+  if (ch.includes('ubereats')) return { label: 'UberEats', tone: 'channel-ubereats' };
+  if (ch.includes('grubhub')) return { label: 'GrubHub', tone: 'channel-grubhub' };
+  if (ch === 'olo') return { label: 'Online', tone: 'channel-online' };
+  return { label: 'Walk-in', tone: 'channel-store' };
 }
 
 function isDelivery(channel: string | null) {
   const ch = (channel || '').toLowerCase();
   return ch === 'olo' || ch.includes('doordash') || ch.includes('ubereats') || ch.includes('grubhub');
+}
+
+function groupItems(items: KDSItem[]) {
+  const grouped: Array<{ item: KDSItem; modifiers: KDSItem[] }> = [];
+
+  for (const entry of items) {
+    if (entry.isModifier && grouped.length > 0) {
+      grouped[grouped.length - 1].modifiers.push(entry);
+      continue;
+    }
+
+    grouped.push({ item: entry, modifiers: [] });
+  }
+
+  return grouped;
 }
 
 interface Props {
@@ -58,98 +73,101 @@ interface Props {
 
 export function KDSGridView({ orders, onBump, bumping }: Props) {
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-  const openOrders = orders.filter(o => o.status === 'open').slice(0, 10);
+  const openOrders = orders.filter((o) => o.status === 'open').slice(0, 10);
 
   if (openOrders.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-white/20">
-        <Zap className="h-10 w-10 mb-3" />
-        <p className="text-lg font-semibold">All Clear</p>
-        <p className="text-sm">No open orders in the kitchen</p>
+      <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/60">
+        <Zap className="mb-3 h-10 w-10" />
+        <p className="text-lg font-semibold text-foreground">No active orders</p>
+        <p className="text-sm">Recent paid orders will land here until your team bumps them.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* KDS Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <AnimatePresence mode="popLayout">
           {openOrders.map((order) => {
-            const chInfo = getChannelInfo(order.channel);
-            const is3PD = isDelivery(order.channel);
+            const channelInfo = getChannelInfo(order.channel);
             const isSelected = selectedOrder === order.check_number;
             const items = Array.isArray(order.items) ? order.items : [];
-            const menuItems = items.filter(i => !i.isModifier);
+            const groupedItems = groupItems(items);
             const isBumping = bumping === order.check_number;
 
             return (
               <motion.div
                 key={order.id}
                 layout
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.94 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.18 }}
                 onClick={() => setSelectedOrder(isSelected ? null : order.check_number)}
                 className={cn(
-                  "rounded-xl border flex flex-col overflow-hidden cursor-pointer transition-all",
-                  isSelected
-                    ? "border-amber-400/50 ring-1 ring-amber-400/30 bg-white/[0.04]"
-                    : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]",
-                  is3PD && "border-l-2 border-l-amber-500/60"
+                  'rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all overflow-hidden cursor-pointer flex flex-col',
+                  isSelected && 'ring-2 ring-ring border-primary/40',
+                  isDelivery(order.channel) && 'border-l-4 border-l-primary'
                 )}
               >
-                {/* Header */}
-                <div className="px-2.5 py-2 border-b border-white/[0.06]">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="font-bold text-xs text-white truncate">
+                <div className="border-b border-border px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-bold text-foreground">
                       {order.customer_name || 'Guest'}
                     </span>
-                    <span className="font-mono text-[10px] text-white/25 shrink-0">#{order.check_number}</span>
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">#{order.check_number}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", chInfo.color, "text-white")}>
-                      {chInfo.label}
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground', channelInfo.tone)}>
+                      {channelInfo.label}
                     </span>
-                    <span className="text-[10px] text-white/30 flex items-center gap-0.5">
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Clock className="h-2.5 w-2.5" />
                       {getElapsed(order.opened_at)}
                     </span>
                   </div>
                 </div>
 
-                {/* Items */}
-                <div className="flex-1 px-2.5 py-2 space-y-0.5 max-h-[140px] overflow-y-auto scrollbar-thin">
-                  {menuItems.length > 0 ? menuItems.map((item, i) => {
-                    const mods = items.filter(m => m.isModifier && items.indexOf(m) > items.indexOf(item) && (items.findIndex((next, ni) => ni > items.indexOf(item) && !next.isModifier) === -1 || items.indexOf(m) < items.findIndex((next, ni) => ni > items.indexOf(item) && !next.isModifier)));
-                    return (
-                      <div key={i}>
-                        <div className="flex items-start gap-1">
-                          <span className="text-[10px] text-amber-400 font-bold shrink-0">{item.qty}×</span>
-                          <span className="text-[11px] text-white/80 font-medium leading-tight">{item.name}</span>
+                <div className="flex-1 space-y-1 overflow-y-auto px-3 py-2 max-h-[180px]">
+                  {groupedItems.length > 0 ? (
+                    groupedItems.map(({ item, modifiers }, index) => (
+                      <div key={`${order.id}-${index}`} className="space-y-0.5">
+                        <div className="flex items-start gap-1.5">
+                          <span className="shrink-0 text-[10px] font-bold text-primary">{item.qty}×</span>
+                          <span className="text-[11px] font-semibold leading-tight text-foreground">{item.name}</span>
                         </div>
+                        {modifiers.map((modifier, modifierIndex) => (
+                          <div
+                            key={`${order.id}-${index}-mod-${modifierIndex}`}
+                            className="pl-4 text-[10px] leading-tight text-muted-foreground"
+                          >
+                            • {modifier.name}
+                          </div>
+                        ))}
                       </div>
-                    );
-                  }) : (
-                    <div className="text-[10px] text-white/20 italic">
-                      {order.gross_sales > 0 ? `$${order.gross_sales.toFixed(2)}` : 'No items'}
+                    ))
+                  ) : (
+                    <div className="text-[10px] italic text-muted-foreground">
+                      {order.gross_sales > 0 ? `$${order.gross_sales.toFixed(2)}` : 'No item detail available'}
                     </div>
                   )}
                 </div>
 
-                {/* Bump Button */}
                 <button
-                  onClick={(e) => { e.stopPropagation(); onBump(order.check_number); }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onBump(order.check_number);
+                  }}
                   disabled={isBumping}
                   className={cn(
-                    "w-full py-2.5 text-xs font-black uppercase tracking-wider transition-all",
+                    'w-full py-2.5 text-xs font-black uppercase tracking-wider transition-colors',
                     isBumping
-                      ? "bg-emerald-600/50 text-emerald-300"
-                      : "bg-emerald-500 text-white hover:bg-emerald-400 active:bg-emerald-600"
+                      ? 'bg-muted text-muted-foreground'
+                      : 'bg-primary text-primary-foreground hover:opacity-90'
                   )}
                 >
-                  {isBumping ? 'BUMPING...' : 'BUMP'}
+                  {isBumping ? 'Bumping…' : 'Bump'}
                 </button>
               </motion.div>
             );
@@ -157,23 +175,22 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
         </AnimatePresence>
       </div>
 
-      {/* Bump Bar */}
-      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-        <span className="text-[10px] text-white/30 uppercase tracking-widest font-semibold">Bump Bar</span>
-        <div className="flex-1 flex gap-1.5 overflow-x-auto">
-          {openOrders.map(o => (
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-3 py-2.5">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Bump Bar</span>
+        <div className="flex flex-1 gap-1.5 overflow-x-auto">
+          {openOrders.map((order) => (
             <button
-              key={o.id}
-              onClick={() => onBump(o.check_number)}
-              disabled={bumping === o.check_number}
+              key={order.id}
+              onClick={() => onBump(order.check_number)}
+              disabled={bumping === order.check_number}
               className={cn(
-                "shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all",
-                selectedOrder === o.check_number
-                  ? "bg-emerald-500 text-white"
-                  : "bg-white/[0.06] text-white/50 hover:bg-emerald-500/20 hover:text-emerald-400"
+                'shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-colors',
+                selectedOrder === order.check_number
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
-              #{o.check_number}
+              #{order.check_number}
             </button>
           ))}
         </div>
@@ -181,3 +198,4 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
     </div>
   );
 }
+
