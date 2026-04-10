@@ -4,8 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { DollarSign, TrendingUp, Loader2 } from "lucide-react";
 import { useMenuPricing } from "./useMenuPricing";
 import MenuPricingRow from "./MenuPricingRow";
-import { getCleanDisplayName } from "../recipe-catalog/utils";
-import { getSizeFromName } from "../recipe-catalog/utils";
 
 interface MenuPricingCardProps {
   locationId: string;
@@ -56,7 +54,6 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
     }));
   }, [items]);
 
-  // Summary stats
   const pricedItems = items.filter(i => i.menuPrice !== null && i.menuPrice > 0);
   const avgFoodCost = pricedItems.length > 0
     ? pricedItems.reduce((sum, i) => sum + (i.foodCostPct || 0), 0) / pricedItems.length
@@ -65,7 +62,7 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
   return (
     <Card>
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-        <DollarSign className="h-4 w-4 text-emerald-600" />
+        <DollarSign className="h-4 w-4 text-primary" />
         <span className="font-semibold text-sm">Menu Pricing</span>
         <Badge variant="secondary" className="text-xs tabular-nums">
           {items.length} items
@@ -96,7 +93,6 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
         </div>
       ) : (
         <div className="divide-y divide-border">
-          {/* Column headers */}
           <div className="grid grid-cols-[1fr_80px_80px_70px] items-center gap-1 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold bg-muted/30">
             <span>Item</span>
             <span className="text-right">Cost</span>

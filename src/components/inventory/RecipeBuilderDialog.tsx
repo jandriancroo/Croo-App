@@ -44,6 +44,7 @@ interface RecipeBuilderDialogProps {
   editRecipeId?: string | null;
   editBlueprintId?: string | null;
   brandId?: string;
+  simulatorMode?: boolean;
 }
 
 interface BuilderIngredient {

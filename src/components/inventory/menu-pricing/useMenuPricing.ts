@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchBlueprintCosts, getBlueprintUnitCost, type BlueprintCostResult } from "@/utils/blueprintCostCalculation";
+import { fetchBlueprintCosts, getBlueprintUnitCost } from "@/utils/blueprintCostCalculation";
 import { fetchBlueprintsForLocation } from "@/utils/resolveBrandId";
 
 export interface MenuPricingItem {
@@ -19,7 +19,6 @@ export interface MenuPricingItem {
 export function useMenuPricing(locationId: string) {
   const queryClient = useQueryClient();
 
-  // Fetch all blueprints (brand + local merge)
   const { data: blueprints, isLoading: bpLoading } = useQuery({
     queryKey: ["menu-pricing-blueprints", locationId],
     queryFn: async () => {
@@ -35,14 +34,12 @@ export function useMenuPricing(locationId: string) {
     },
   });
 
-  // Fetch all costs
   const { data: costMap, isLoading: costLoading } = useQuery({
     queryKey: ["menu-pricing-costs", locationId],
     queryFn: () => fetchBlueprintCosts(locationId),
     enabled: !!blueprints && blueprints.length > 0,
   });
 
-  // Fetch saved menu prices
   const { data: savedPrices } = useQuery({
     queryKey: ["menu-price-overrides", locationId],
     queryFn: async () => {
@@ -57,7 +54,6 @@ export function useMenuPricing(locationId: string) {
     },
   });
 
-  // Upsert mutation
   const upsertPrice = useMutation({
     mutationFn: async ({ blueprintId, price }: { blueprintId: string; price: number }) => {
       const { error } = await supabase
@@ -73,7 +69,6 @@ export function useMenuPricing(locationId: string) {
     },
   });
 
-  // Build enriched items — only MI category (menu items customers order)
   const items: MenuPricingItem[] = (blueprints || [])
     .filter(bp => bp.category?.toUpperCase() === "MI")
     .map(bp => {

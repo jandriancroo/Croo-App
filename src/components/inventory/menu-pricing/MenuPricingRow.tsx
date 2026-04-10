@@ -33,21 +33,21 @@ const MenuPricingRow = ({ item, onPriceChange }: MenuPricingRowProps) => {
 
   const getFoodCostColor = (pct: number | null) => {
     if (pct === null) return "text-muted-foreground";
-    if (pct <= 28) return "text-emerald-600";
-    if (pct <= 33) return "text-amber-600";
-    return "text-red-500";
+    if (pct <= 28) return "text-emerald-600 dark:text-emerald-400";
+    if (pct <= 33) return "text-amber-600 dark:text-amber-400";
+    return "text-destructive";
   };
 
   return (
     <div className="grid grid-cols-[1fr_80px_80px_70px] items-center gap-1 px-3 py-2 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors text-sm">
       {/* Name */}
-      <div className="truncate font-medium flex items-center gap-1">
+      <div className="truncate font-medium flex items-center gap-1 text-foreground">
         {displayName}
         {item.isPartial && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
       </div>
 
       {/* Recipe Cost (read-only) */}
-      <div className="text-right tabular-nums text-emerald-600/80 text-xs">
+      <div className="text-right tabular-nums text-emerald-600 dark:text-emerald-400 text-xs">
         ${item.recipeCost.toFixed(2)}
       </div>
 
@@ -59,7 +59,7 @@ const MenuPricingRow = ({ item, onPriceChange }: MenuPricingRowProps) => {
             type="number"
             step="0.01"
             min="0"
-            className="w-full text-right text-xs bg-background border border-primary/40 rounded px-1.5 py-0.5 tabular-nums focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full text-right text-xs bg-background border border-primary/40 rounded px-1.5 py-0.5 tabular-nums focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitPrice}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -27,7 +27,6 @@ const RecipeGeniusCard = ({ locationId }: RecipeGeniusCardProps) => {
   const [showBuilder, setShowBuilder] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
-  // Fetch location-scoped "simulated" blueprints (source = 'simulator')
   const { data: simRecipes, isLoading } = useQuery({
     queryKey: ["recipe-genius-blueprints", locationId],
     queryFn: async () => {
@@ -43,14 +42,12 @@ const RecipeGeniusCard = ({ locationId }: RecipeGeniusCardProps) => {
     },
   });
 
-  // Costs
   const { data: costMap } = useQuery({
     queryKey: ["recipe-genius-costs", locationId],
     queryFn: () => fetchBlueprintCosts(locationId),
     enabled: !!simRecipes && simRecipes.length > 0,
   });
 
-  // Menu price overrides for sim recipes
   const { data: savedPrices } = useQuery({
     queryKey: ["menu-price-overrides", locationId],
     queryFn: async () => {
@@ -80,16 +77,16 @@ const RecipeGeniusCard = ({ locationId }: RecipeGeniusCardProps) => {
 
   const getFoodCostColor = (pct: number | null) => {
     if (pct === null) return "text-muted-foreground";
-    if (pct <= 28) return "text-emerald-600";
-    if (pct <= 33) return "text-amber-600";
-    return "text-red-500";
+    if (pct <= 28) return "text-emerald-600 dark:text-emerald-400";
+    if (pct <= 33) return "text-amber-600 dark:text-amber-400";
+    return "text-destructive";
   };
 
   return (
     <>
       <Card>
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-          <FlaskConical className="h-4 w-4 text-violet-500" />
+          <FlaskConical className="h-4 w-4 text-accent-foreground" />
           <span className="font-semibold text-sm">Recipe Genius</span>
           <Badge variant="secondary" className="text-xs tabular-nums">
             {simRecipes?.length || 0} ideas
@@ -113,7 +110,7 @@ const RecipeGeniusCard = ({ locationId }: RecipeGeniusCardProps) => {
           </div>
         ) : !simRecipes || simRecipes.length === 0 ? (
           <div className="p-6 text-center">
-            <FlaskConical className="h-8 w-8 text-violet-400/40 mx-auto mb-2" />
+            <FlaskConical className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">No simulated recipes yet.</p>
             <p className="text-xs text-muted-foreground/60 mt-1">
               Create sandbox recipes to prototype menu ideas with real costs.
@@ -121,7 +118,6 @@ const RecipeGeniusCard = ({ locationId }: RecipeGeniusCardProps) => {
           </div>
         ) : (
           <div>
-            {/* Column headers */}
             <div className="grid grid-cols-[1fr_80px_80px_70px_32px] items-center gap-1 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold bg-muted/30">
               <span>Recipe</span>
               <span className="text-right">Cost</span>
@@ -145,14 +141,14 @@ const RecipeGeniusCard = ({ locationId }: RecipeGeniusCardProps) => {
                   className="grid grid-cols-[1fr_80px_80px_70px_32px] items-center gap-1 px-3 py-2 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors text-sm group cursor-pointer"
                   onClick={() => { setEditId(recipe.id); setShowBuilder(true); }}
                 >
-                  <div className="truncate font-medium flex items-center gap-1">
+                  <div className="truncate font-medium flex items-center gap-1 text-foreground">
                     {getCleanDisplayName(recipe.name)}
                     {cost?.isPartial && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                   </div>
-                  <div className="text-right tabular-nums text-emerald-600/80 text-xs">
+                  <div className="text-right tabular-nums text-emerald-600 dark:text-emerald-400 text-xs">
                     {recipeCost > 0 ? `$${recipeCost.toFixed(2)}` : "—"}
                   </div>
-                  <div className="text-right tabular-nums text-xs">
+                  <div className="text-right tabular-nums text-xs text-foreground">
                     {menuPrice !== null ? `$${menuPrice.toFixed(2)}` : "—"}
                   </div>
                   <div className={cn("text-right tabular-nums text-xs font-semibold", getFoodCostColor(foodCostPct))}>
