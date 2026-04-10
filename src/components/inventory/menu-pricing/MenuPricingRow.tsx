@@ -8,13 +8,14 @@ interface MenuPricingRowProps {
   item: MenuPricingItem;
   show3pd: boolean;
   theoTarget: number;
+  priceSource: "manual" | "qu";
   onPriceChange: (blueprintId: string, price: number) => void;
   on3pdChange: (blueprintId: string, field: "upcharge" | "fee", value: number) => void;
 }
 
 type EditField = "price" | "upcharge" | "fee" | null;
 
-const MenuPricingRow = ({ item, show3pd, theoTarget, onPriceChange, on3pdChange }: MenuPricingRowProps) => {
+const MenuPricingRow = ({ item, show3pd, theoTarget, priceSource, onPriceChange, on3pdChange }: MenuPricingRowProps) => {
   const [editField, setEditField] = useState<EditField>(null);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,8 +91,8 @@ const MenuPricingRow = ({ item, show3pd, theoTarget, onPriceChange, on3pdChange 
   };
 
   const gridCols = show3pd
-    ? "grid-cols-[1fr_62px_62px_52px_52px_52px_62px_52px]"
-    : "grid-cols-[1fr_70px_70px_60px]";
+    ? "grid-cols-[1fr_55px_55px_55px_45px_45px_45px_55px_45px]"
+    : "grid-cols-[1fr_62px_62px_62px_52px]";
 
   return (
     <div className={cn("grid items-center gap-0.5 px-3 py-1.5 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors text-sm", gridCols)}>
@@ -106,6 +107,15 @@ const MenuPricingRow = ({ item, show3pd, theoTarget, onPriceChange, on3pdChange 
 
       <div className="text-right">
         {renderEditableCell("price", item.menuPrice, "dollar")}
+      </div>
+
+      <div className={cn(
+        "text-right tabular-nums text-xs",
+        priceSource === "qu" && item.quPrice !== null
+          ? "text-primary font-semibold"
+          : "text-muted-foreground"
+      )}>
+        {item.quPrice !== null ? `$${item.quPrice.toFixed(2)}` : "—"}
       </div>
 
       <div className={cn("text-right tabular-nums text-xs font-semibold", getFoodCostColor(item.foodCostPct))}>
