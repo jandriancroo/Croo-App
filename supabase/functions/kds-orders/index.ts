@@ -257,102 +257,74 @@ serve(async (req) => {
       });
 
       if (recentOrders.length > 0) {
-        // Get checkIds from the first check-detail call (already fetched above in `orders`)
-        // We need to re-fetch check-detail to get subreport checkIds
-        const checkIdRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
+        const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
+
+        const detailRes = await fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail-items/sections/main",
           {
             method: "POST",
             headers,
             body: JSON.stringify({
-              fields: [{ fieldName: "checkNumber" }],
+              fields: [
+                { fieldName: "checkNumber" },
+                { fieldName: "itemName" },
+                { fieldName: "modifierName" },
+                { fieldName: "quantity" },
+                { fieldName: "netSales" },
+                { fieldName: "grossSales" },
+                { fieldName: "itemGroupName" },
+              ],
               filters: {
+                checkNumber: { values: recentCheckNumbers },
                 date: { from: today, to: today, type: "custom" },
                 location: { operationalUnits: [quStoreId] },
               },
-              params: { sectionId: "main", pageNumber: 1, pageSize: 200 },
+              params: {
+                sectionId: "main",
+                pageNumber: 1,
+                pageSize: Math.max(200, recentCheckNumbers.length * 20),
+                showTotals: false,
+              },
             }),
           },
         );
 
-        const checkIdMap: Record<string, string> = {};
-        if (checkIdRes.ok) {
-          const data = await checkIdRes.json();
-          const recentSet = new Set(recentOrders.map((o: any) => o.checkNumber));
-          for (const item of (data.items || [])) {
-            const cn = item.checkNumber;
-            const sr = item.checkNumberSubreport;
-            if (cn && recentSet.has(cn) && sr?.checkId) {
-              checkIdMap[cn] = sr.checkId;
+        if (detailRes.ok) {
+          const data = await detailRes.json();
+          const rows = data.items || [];
+          console.log(`check-detail-items returned ${rows.length} rows for ${recentCheckNumbers.length} checks`);
+
+          const appendRow = (row: any, fallbackCheckNumber?: string) => {
+            const checkNumber = row.checkNumber || fallbackCheckNumber || null;
+            const itemName = row.itemName || "";
+            if (!checkNumber || !itemName || itemName === "Total" || itemName === "Totals") return;
+
+            const isModifier = itemName.startsWith("**") || itemName.startsWith("++") || !!row.modifierName;
+            const displayName = (row.modifierName || itemName).replace(/^\*\*\s*|\+\+\s*/g, "").trim();
+
+            if (!itemsByCheck[checkNumber]) itemsByCheck[checkNumber] = [];
+            itemsByCheck[checkNumber].push({
+              name: displayName,
+              modifier: row.modifierName || null,
+              qty: parseInt(String(row.quantity || "1"), 10),
+              price: parseFloat(String(row.netSales || row.grossSales || "0").replace(/,/g, "")),
+              category: row.itemGroupName || "",
+              isModifier,
+            });
+          };
+
+          for (const row of rows) {
+            appendRow(row);
+            if (Array.isArray(row.items)) {
+              for (const child of row.items) appendRow(child, row.checkNumber);
             }
           }
         } else {
-          await checkIdRes.text();
+          const text = await detailRes.text();
+          console.log(`check-detail-items failed: ${detailRes.status} - ${text.slice(0, 300)}`);
         }
 
-        console.log(`Mapped ${Object.keys(checkIdMap).length} checkIds`);
-
-        // Diagnostic: For the first check, call check-detail/main filtered by its checkId
-        // and log full structure to find where items hide
-        const firstEntry = Object.entries(checkIdMap)[0];
-        if (firstEntry) {
-          const [cn, cid] = firstEntry;
-          const detailRes = await fetch(
-            "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
-            {
-              method: "POST",
-              headers,
-              body: JSON.stringify({
-                fields: [
-                  { fieldName: "checkNumber" },
-                  { fieldName: "itemName" },
-                  { fieldName: "modifierName" },
-                  { fieldName: "quantity" },
-                  { fieldName: "netSales" },
-                  { fieldName: "itemsSoldCount" },
-                  { fieldName: "description" },
-                ],
-                filters: {
-                  checkId: { values: [cid] },
-                  date: { from: today, to: today, type: "custom" },
-                  location: { operationalUnits: [quStoreId] },
-                },
-                params: { sectionId: "main", pageNumber: 1, pageSize: 50 },
-              }),
-            },
-          );
-
-          if (detailRes.ok) {
-            const data = await detailRes.json();
-            const items = data.items || [];
-            console.log(`check-detail filtered by checkId: ${items.length} rows for check ${cn}`);
-            
-            // Check if filtering actually worked (should return 1 row for that check)
-            const matchingChecks = items.filter((i: any) => i.checkNumber === cn);
-            console.log(`Matching check rows: ${matchingChecks.length}`);
-            
-            if (items[0]) {
-              // Log ALL keys to find hidden item/subreport fields
-              const allKeys = Object.keys(items[0]);
-              console.log(`All keys: ${allKeys.join(",")}`);
-              
-              // Look for any array or object values that might contain items
-              for (const key of allKeys) {
-                const val = items[0][key];
-                if (Array.isArray(val)) {
-                  console.log(`ARRAY field "${key}": length=${val.length}, sample=${JSON.stringify(val[0]).slice(0, 200)}`);
-                } else if (val && typeof val === "object") {
-                  console.log(`OBJECT field "${key}": ${JSON.stringify(val).slice(0, 200)}`);
-                }
-              }
-            }
-          } else {
-            console.log(`check-detail filtered: ${detailRes.status}`);
-            await detailRes.text();
-          }
-        }
-
-        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length} checks with items`);
+        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length}/${recentCheckNumbers.length} checks with items`);
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
