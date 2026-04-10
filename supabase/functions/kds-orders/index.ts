@@ -325,81 +325,79 @@ serve(async (req) => {
           console.log(`check-detail for checkIds: ${checkIdRes.status} - ${errText.slice(0, 200)}`);
         }
 
-        // Step 2: Probe first checkId against all possible section/report combos to find what works
-        if (checkIdsToHydrate.length > 0) {
-          const probe = checkIdsToHydrate[0];
+        // Step 2: Use product-mix filtered by checkNumber to get items per check
+        // This is the only working endpoint - returns item groups with nested items
+        const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
+        const BATCH_SIZE = 5;
+        
+        for (let i = 0; i < recentCheckNumbers.length; i += BATCH_SIZE) {
+          const batch = recentCheckNumbers.slice(i, i + BATCH_SIZE);
           
-          // Comprehensive section probe - try every plausible combo
-          const probes = [
-            // check-detail subreport drill-down (pass checkId as filter on main)
-            { report: "check-detail/sections/main", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
-            { report: "check-detail/sections/main", filterKey: "checkNumber", filterVal: { values: [probe.checkNumber] } },
-            // Various "items" section names
-            { report: "check-detail/sections/items", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
-            { report: "check-detail/sections/item-details", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
-            { report: "check-detail/sections/line-items", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
-            { report: "check-detail/sections/detail", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
-            // checks-details (plural) variants
-            { report: "checks-details/sections/items", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
-            { report: "checks-details/sections/main", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
-            // transaction-details
-            { report: "transaction-details/sections/main", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
-            { report: "transaction-detail/sections/main", filterKey: "checkId", filterVal: { values: [probe.checkId] } },
-            // product-mix filtered by checkNumber
-            { report: "product-mix/sections/main", filterKey: "checkNumber", filterVal: { values: [probe.checkNumber] } },
-          ];
-          
-          const probeResults = await Promise.allSettled(
-            probes.map(async (p) => {
-              const res = await fetch(
-                `https://gateway-api.qubeyond.com/api/v4/data/reports/${p.report}`,
-                {
-                  method: "POST",
-                  headers,
-                  body: JSON.stringify({
-                    fields: [
-                      { fieldName: "itemName" },
-                      { fieldName: "modifierName" },
-                      { fieldName: "quantity" },
-                      { fieldName: "netSales" },
-                      { fieldName: "checkNumber" },
-                    ],
-                    filters: {
-                      [p.filterKey]: p.filterVal,
-                      date: { from: today, to: today, type: "custom" },
-                      location: { operationalUnits: [quStoreId] },
-                    },
-                    params: { sectionId: p.report.split("/sections/")[1], pageNumber: 1, pageSize: 100, showTotals: false },
-                  }),
-                },
-              );
-              
-              const status = res.status;
-              const text = await res.text();
-              let itemCount = 0;
-              let sampleKeys = "";
-              let sample = "";
+          await Promise.allSettled(
+            batch.map(async (checkNumber: string) => {
               try {
-                const data = JSON.parse(text);
-                itemCount = (data.items || []).length;
-                if (data.items?.[0]) {
-                  sampleKeys = Object.keys(data.items[0]).join(",");
-                  sample = JSON.stringify(data.items[0]).slice(0, 300);
+                const res = await fetch(
+                  "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
+                  {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify({
+                      fields: [
+                        { fieldName: "itemName" },
+                        { fieldName: "modifierName" },
+                        { fieldName: "quantity" },
+                        { fieldName: "netSales" },
+                        { fieldName: "itemGroupName" },
+                      ],
+                      filters: {
+                        checkNumber: { values: [checkNumber] },
+                        date: { from: today, to: today, type: "custom" },
+                        location: { operationalUnits: [quStoreId] },
+                      },
+                      params: { sectionId: "main", pageNumber: 1, pageSize: 200, showTotals: false },
+                    }),
+                  },
+                );
+
+                if (!res.ok) { await res.text(); return; }
+                
+                const data = await res.json();
+                const groups = data.items || [];
+                const parsed: any[] = [];
+                
+                for (const group of groups) {
+                  // Groups have nested items array
+                  const subItems = Array.isArray(group.items) ? group.items : [group];
+                  
+                  for (const row of subItems) {
+                    const itemName = row.itemName || "";
+                    if (!itemName || itemName === "Totals" || itemName === "Total") continue;
+                    
+                    const isModifier = itemName.startsWith("**") || itemName.startsWith("++");
+                    const displayName = itemName.replace(/^\*\*\s*|\+\+\s*/g, "").trim();
+                    
+                    parsed.push({
+                      name: displayName,
+                      modifier: row.modifierName || null,
+                      qty: parseInt(row.quantity || "1"),
+                      price: parseFloat(((row.netSales || "0") + "").replace(/,/g, "")),
+                      category: row.itemGroupName || group.itemGroupName || "",
+                      isModifier,
+                    });
+                  }
                 }
-              } catch {}
-              
-              console.log(`PROBE ${p.report} [${p.filterKey}]: ${status}, ${itemCount} items`);
-              if (itemCount > 0) {
-                console.log(`PROBE HIT keys: ${sampleKeys}`);
-                console.log(`PROBE HIT sample: ${sample}`);
+                
+                if (parsed.length > 0) {
+                  itemsByCheck[checkNumber] = parsed;
+                }
+              } catch (e) {
+                // Skip failed checks
               }
-              
-              return { ...p, status, itemCount };
             }),
           );
         }
         
-        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length} checks with items`);
+        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length}/${recentCheckNumbers.length} checks with items`);
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
