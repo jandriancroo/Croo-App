@@ -203,10 +203,10 @@ export default function KDSBoard() {
               <ChefHat className="h-3.5 w-3.5" />
               KDS View
               {openCount > 0 && (
-                <span className={cn(
-                  "ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold tabular-nums",
-                  tab === 'kds' ? "bg-muted" : "bg-emerald-500/20 text-primary"
-                )}>{openCount}</span>
+                  <span className={cn(
+                    "ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                    tab === 'kds' ? 'bg-muted' : 'bg-primary/15 text-primary'
+                  )}>{openCount}</span>
               )}
             </button>
             <button
@@ -221,10 +221,10 @@ export default function KDSBoard() {
               <ClipboardList className="h-3.5 w-3.5" />
               Order Board
               {readyCount > 0 && (
-                <span className={cn(
-                  "ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold tabular-nums",
-                  tab === 'board' ? "bg-muted" : "bg-amber-500/20 text-accent-foreground"
-                )}>{readyCount}</span>
+                  <span className={cn(
+                    "ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                    tab === 'board' ? 'bg-muted' : 'bg-accent text-accent-foreground'
+                  )}>{readyCount}</span>
               )}
             </button>
           </div>
