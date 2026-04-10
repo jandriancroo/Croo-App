@@ -618,7 +618,18 @@ async function handleSyncLive(supabase: any): Promise<Response> {
     console.log(`${locationName}: Syncing live sales with QuBeyond location_id=${qbLocationId}...`);
 
     const todayStr = getDateStringForTimezone(new Date(), timezone);
-    const salesData = await fetchAllSalesData(supabase, tokenGw, todayStr, qbLocationId, locationId);
+    
+    let salesData;
+    try {
+      salesData = await fetchAllSalesData(supabase, tokenGw, todayStr, qbLocationId, locationId);
+    } catch (err: any) {
+      if (err?.message === 'UNPROVISIONED_STORE') {
+        console.log(`${locationName}: Unprovisioned in QU (403), skipping all API calls`);
+        results.push({ locationId, name: locationName, status: 'unprovisioned' });
+        continue;
+      }
+      throw err;
+    }
 
     if (salesData.netSales > 0) {
       const payload = buildUpsertPayload(locationId, todayStr, salesData);
