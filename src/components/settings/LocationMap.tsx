@@ -5,9 +5,9 @@ interface LocationMapProps {
 }
 
 export const LocationMap = ({ lat, lng, locationName }: LocationMapProps) => {
-  // Lightweight static snapshot via iframe with interaction disabled via CSS pointer-events
-  // This loads the map tiles once and renders at the exact lat/lng — no zoom/pan allowed
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005},${lat - 0.003},${lng + 0.005},${lat + 0.003}&layer=mapnik&marker=${lat},${lng}`;
+  // Google Maps embed — free, no API key, accurate street data
+  const query = encodeURIComponent(`${lat},${lng}`);
+  const mapUrl = `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d1500!2d${lng}!3d${lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sus`;
 
   return (
     <div
@@ -23,11 +23,12 @@ export const LocationMap = ({ lat, lng, locationName }: LocationMapProps) => {
         src={mapUrl}
         title={locationName || 'Location Map'}
         loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
         style={{
           width: '100%',
           height: '100%',
           border: 'none',
-          pointerEvents: 'none', // Disables all interaction — acts like a static image
+          pointerEvents: 'none',
         }}
       />
     </div>
