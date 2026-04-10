@@ -742,7 +742,7 @@ async function fetchPaymentTypes(
     const items = Array.isArray(data?.items) ? data.items : [];
 
     for (const item of items) {
-      const rawName =
+      let rawName =
         item.paymentType ??
         item.tenderType ??
         item.tenderName ??
@@ -750,6 +750,11 @@ async function fetchPaymentTypes(
         item.metric ??
         item.type ??
         '';
+
+      // Handle nested objects (e.g. { name: "Cash" } from summary/payments endpoint)
+      if (rawName && typeof rawName === 'object') {
+        rawName = rawName.name ?? rawName.label ?? rawName.value ?? rawName.metric ?? JSON.stringify(rawName);
+      }
 
       const paymentType = String(rawName || '').trim();
       if (!paymentType || paymentType === 'Total' || paymentType === 'Totals') continue;
