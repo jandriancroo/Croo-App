@@ -61,6 +61,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   brands: { title: 'Brands', icon: <Tag className="h-4 w-4" /> },
   organizations: { title: 'All Organizations', icon: <Building2 className="h-4 w-4" /> },
   maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
+  'data-streams': { title: 'Data Streams', icon: <Radio className="h-4 w-4" /> },
 };
 
 export default function Settings() {
