@@ -72,10 +72,10 @@ const MenuPricingRow = ({ item, show3pd, onPriceChange, on3pdChange }: MenuPrici
       <button
         type="button"
         className={cn(
-          "w-full text-right text-xs tabular-nums rounded px-1.5 py-0.5 transition-colors",
+          "w-full text-right text-xs tabular-nums rounded px-1.5 py-0.5 transition-colors bg-primary/[0.06] hover:bg-primary/[0.12] border border-dashed border-primary/20",
           value !== null
-            ? "text-foreground hover:bg-muted/60"
-            : "text-muted-foreground/50 hover:bg-muted/60 italic"
+            ? "text-foreground"
+            : "text-muted-foreground/50 italic"
         )}
         onClick={() => {
           setDraft(value?.toFixed(format === "dollar" ? 2 : 1) || "");
