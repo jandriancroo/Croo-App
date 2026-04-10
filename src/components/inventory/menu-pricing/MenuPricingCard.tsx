@@ -212,6 +212,7 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
             <span>Item</span>
             <span className="text-right">Cost</span>
             <span className="text-right">Price</span>
+            <span className={cn("text-right", priceSource === "qu" ? "text-primary" : "")}>QU $</span>
             <span className="text-right">FC%</span>
             {show3pd && (
               <>
