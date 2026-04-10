@@ -257,123 +257,74 @@ serve(async (req) => {
       });
 
       if (recentOrders.length > 0) {
-        // Step 1: Get product-mix to extract subreport drill-down links
-        const pmRes = await fetch(
-          "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main",
+        const recentCheckNumbers = recentOrders.map((o: any) => o.checkNumber).filter(Boolean);
+
+        const detailRes = await fetch(
+          "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail-items/sections/main",
           {
             method: "POST",
             headers,
             body: JSON.stringify({
               fields: [
+                { fieldName: "checkNumber" },
                 { fieldName: "itemName" },
+                { fieldName: "modifierName" },
                 { fieldName: "quantity" },
                 { fieldName: "netSales" },
+                { fieldName: "grossSales" },
+                { fieldName: "itemGroupName" },
               ],
               filters: {
+                checkNumber: { values: recentCheckNumbers },
                 date: { from: today, to: today, type: "custom" },
                 location: { operationalUnits: [quStoreId] },
               },
-              params: { sectionId: "main", pageNumber: 1, pageSize: 500, showTotals: false },
+              params: {
+                sectionId: "main",
+                pageNumber: 1,
+                pageSize: Math.max(200, recentCheckNumbers.length * 20),
+                showTotals: false,
+              },
             }),
           },
         );
 
-        if (pmRes.ok) {
-          const pmData = await pmRes.json();
-          const groups = pmData.items || [];
-          
-          // Log the full structure of the first sub-item to find subreportId
-          let probeItem: any = null;
-          for (const group of groups) {
-            const subItems = Array.isArray(group.items) ? group.items : [];
-            if (subItems.length > 0) {
-              probeItem = subItems[0];
-              break;
-            }
-          }
-          
-          if (probeItem) {
-            // Log ALL keys and ALL object/string values that might contain subreportId
-            const keys = Object.keys(probeItem);
-            console.log(`PM item keys: ${keys.join(",")}`);
-            
-            for (const key of keys) {
-              const val = probeItem[key];
-              if (val && typeof val === "object" && !Array.isArray(val)) {
-                const objStr = JSON.stringify(val);
-                console.log(`PM OBJECT "${key}": ${objStr.slice(0, 500)}`);
-                // Check for any UUID-like values
-                const uuidMatch = objStr.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-                if (uuidMatch) {
-                  console.log(`UUID found in "${key}": ${uuidMatch[0]}`);
-                }
-              }
-            }
-            
-            // Also log the full item as JSON to catch anything
-            console.log(`PM full item: ${JSON.stringify(probeItem).slice(0, 1000)}`);
-          }
-          
-          // Also check top-level response for subreport metadata
-          const topKeys = Object.keys(pmData).filter(k => k !== "items");
-          if (topKeys.length > 0) {
-            console.log(`PM response top keys: ${topKeys.join(",")}`);
-            for (const k of topKeys) {
-              const v = pmData[k];
-              if (v && typeof v === "object") {
-                console.log(`PM top "${k}": ${JSON.stringify(v).slice(0, 300)}`);
-              } else {
-                console.log(`PM top "${k}": ${v}`);
-              }
-            }
-          }
+        if (detailRes.ok) {
+          const data = await detailRes.json();
+          const rows = data.items || [];
+          console.log(`check-detail-items returned ${rows.length} rows for ${recentCheckNumbers.length} checks`);
 
-          // Try calling the subreport proxy with the itemNameSubreport data
-          if (probeItem?.itemNameSubreport) {
-            const sr = probeItem.itemNameSubreport;
-            // Try multiple subreport URL patterns
-            const subreportUrls = [
-              // If subreportId exists
-              sr.subreportId ? `https://gateway-api.qubeyond.com/api/v4/data/subreports/${sr.subreportId}` : null,
-              // Try passing the whole subreport object as body
-              "https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main/subreport",
-              "https://gateway-api.qubeyond.com/api/v4/data/subreports/product-mix",
-            ].filter(Boolean);
-            
-            for (const url of subreportUrls) {
-              try {
-                const subRes = await fetch(url!, {
-                  method: "POST",
-                  headers,
-                  body: JSON.stringify(sr),
-                });
-                const status = subRes.status;
-                const text = await subRes.text();
-                let itemCount = 0;
-                try {
-                  const d = JSON.parse(text);
-                  itemCount = (d.items || []).length;
-                  if (itemCount > 0) {
-                    console.log(`✅ SUBREPORT HIT ${url}: ${itemCount} items`);
-                    console.log(`SUBREPORT sample: ${text.slice(0, 500)}`);
-                  }
-                } catch {}
-                console.log(`SUBREPORT ${url}: ${status}, ${itemCount} items`);
-              } catch (e) {
-                console.log(`SUBREPORT ${url}: error ${e}`);
-              }
-            }
-            
-            // Also try the averagePriceSubreport if it exists
-            if (probeItem.averagePriceSubreport) {
-              console.log(`PM averagePriceSubreport: ${JSON.stringify(probeItem.averagePriceSubreport).slice(0, 500)}`);
+          const appendRow = (row: any, fallbackCheckNumber?: string) => {
+            const checkNumber = row.checkNumber || fallbackCheckNumber || null;
+            const itemName = row.itemName || "";
+            if (!checkNumber || !itemName || itemName === "Total" || itemName === "Totals") return;
+
+            const isModifier = itemName.startsWith("**") || itemName.startsWith("++") || !!row.modifierName;
+            const displayName = (row.modifierName || itemName).replace(/^\*\*\s*|\+\+\s*/g, "").trim();
+
+            if (!itemsByCheck[checkNumber]) itemsByCheck[checkNumber] = [];
+            itemsByCheck[checkNumber].push({
+              name: displayName,
+              modifier: row.modifierName || null,
+              qty: parseInt(String(row.quantity || "1"), 10),
+              price: parseFloat(String(row.netSales || row.grossSales || "0").replace(/,/g, "")),
+              category: row.itemGroupName || "",
+              isModifier,
+            });
+          };
+
+          for (const row of rows) {
+            appendRow(row);
+            if (Array.isArray(row.items)) {
+              for (const child of row.items) appendRow(child, row.checkNumber);
             }
           }
         } else {
-          await pmRes.text();
+          const text = await detailRes.text();
+          console.log(`check-detail-items failed: ${detailRes.status} - ${text.slice(0, 300)}`);
         }
 
-        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length} checks with items`);
+        console.log(`Item hydration complete: ${Object.keys(itemsByCheck).length}/${recentCheckNumbers.length} checks with items`);
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
