@@ -10,7 +10,8 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio } from 'lucide-react';
+import { DataStreamStatus } from '@/components/settings/DataStreamStatus';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,7 +43,7 @@ const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inve
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'org-members', 'org-roles'];
 // Sections only super admins see
-const SUPER_ADMIN_SECTIONS = ['clone-settings', 'brands', 'organizations', 'maintenance'];
+const SUPER_ADMIN_SECTIONS = ['clone-settings', 'brands', 'organizations', 'maintenance', 'data-streams'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
@@ -60,6 +61,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   brands: { title: 'Brands', icon: <Tag className="h-4 w-4" /> },
   organizations: { title: 'All Organizations', icon: <Building2 className="h-4 w-4" /> },
   maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
+  'data-streams': { title: 'Data Streams', icon: <Radio className="h-4 w-4" /> },
 };
 
 export default function Settings() {
@@ -350,6 +352,9 @@ export default function Settings() {
             )}
           </div>
         );
+
+      case 'data-streams':
+        return <DataStreamStatus />;
 
       default:
         return null;
