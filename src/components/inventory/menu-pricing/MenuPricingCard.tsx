@@ -88,9 +88,11 @@ const MenuPricingCard = ({ locationId }: MenuPricingCardProps) => {
     return "text-destructive";
   };
 
+  const hasQuPrices = items.some(i => i.quPrice !== null);
+
   const gridCols = show3pd
-    ? "grid-cols-[1fr_62px_62px_52px_52px_52px_62px_52px]"
-    : "grid-cols-[1fr_70px_70px_60px]";
+    ? "grid-cols-[1fr_55px_55px_55px_45px_45px_45px_55px_45px]"
+    : "grid-cols-[1fr_62px_62px_62px_52px]";
 
   const handleFillAll = () => {
     const payload: { upchargePct?: number; feePct?: number } = {};
