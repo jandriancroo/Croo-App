@@ -26,7 +26,7 @@ import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
 import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialog";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
-import RecipeCatalog from "@/components/inventory/RecipeCatalog";
+
 import BrandItemActivation from "@/components/inventory/BrandItemActivation";
 
 const Inventory = () => {
