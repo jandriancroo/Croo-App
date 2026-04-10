@@ -31,9 +31,14 @@ export default function KDSBoard() {
   const syncOrders = useCallback(async () => {
     try {
       setLoading(true);
-      await supabase.functions.invoke('kds-orders', {
+      const { error } = await supabase.functions.invoke('kds-orders', {
         body: { storeId },
       });
+
+      if (error) {
+        throw error;
+      }
+
       setLastRefresh(new Date());
     } catch (err) {
       console.error('KDS sync error:', err);
@@ -44,13 +49,18 @@ export default function KDSBoard() {
 
   // Load orders from kds_orders table
   const loadOrders = useCallback(async () => {
+    const recentCutoff = new Date(Date.now() - 90 * 60 * 1000).toISOString();
     const { data } = await supabase
       .from('kds_orders')
       .select('*')
       .eq('store_id', storeId)
       .in('status', ['open', 'ready'])
+      .gte('opened_at', recentCutoff)
       .order('opened_at', { ascending: false });
-    if (data) setOrders(data.map(d => ({ ...d, items: (d.items || []) as any })) as KDSOrder[]);
+
+    if (data) {
+      setOrders(data.map((d) => ({ ...d, items: Array.isArray(d.items) ? d.items : [] })) as KDSOrder[]);
+    }
   }, [storeId]);
 
   // Initial sync + load
