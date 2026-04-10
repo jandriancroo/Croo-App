@@ -6,29 +6,35 @@ import { getCleanDisplayName } from "../recipe-catalog/utils";
 
 interface MenuPricingRowProps {
   item: MenuPricingItem;
+  show3pd: boolean;
   onPriceChange: (blueprintId: string, price: number) => void;
+  on3pdChange: (blueprintId: string, field: "upcharge" | "fee", value: number) => void;
 }
 
-const MenuPricingRow = ({ item, onPriceChange }: MenuPricingRowProps) => {
-  const [editing, setEditing] = useState(false);
+type EditField = "price" | "upcharge" | "fee" | null;
+
+const MenuPricingRow = ({ item, show3pd, onPriceChange, on3pdChange }: MenuPricingRowProps) => {
+  const [editField, setEditField] = useState<EditField>(null);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editing && inputRef.current) {
+    if (editField && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
     }
-  }, [editing]);
+  }, [editField]);
 
   const displayName = getCleanDisplayName(item.name);
 
-  const commitPrice = () => {
+  const commit = () => {
     const val = parseFloat(draft);
     if (!isNaN(val) && val >= 0) {
-      onPriceChange(item.id, val);
+      if (editField === "price") onPriceChange(item.id, val);
+      if (editField === "upcharge") on3pdChange(item.id, "upcharge", val);
+      if (editField === "fee") on3pdChange(item.id, "fee", val);
     }
-    setEditing(false);
+    setEditField(null);
   };
 
   const getFoodCostColor = (pct: number | null) => {
@@ -38,59 +44,90 @@ const MenuPricingRow = ({ item, onPriceChange }: MenuPricingRowProps) => {
     return "text-destructive";
   };
 
+  const renderEditableCell = (
+    field: EditField,
+    value: number | null,
+    format: "dollar" | "pct",
+    placeholder = "—"
+  ) => {
+    if (editField === field) {
+      return (
+        <input
+          ref={inputRef}
+          type="number"
+          step="0.01"
+          min="0"
+          className="w-full text-right text-xs bg-background border border-primary/40 rounded px-1.5 py-0.5 tabular-nums focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") setEditField(null);
+          }}
+        />
+      );
+    }
+    return (
+      <button
+        type="button"
+        className={cn(
+          "w-full text-right text-xs tabular-nums rounded px-1.5 py-0.5 transition-colors",
+          value !== null
+            ? "text-foreground hover:bg-muted/60"
+            : "text-muted-foreground/50 hover:bg-muted/60 italic"
+        )}
+        onClick={() => {
+          setDraft(value?.toFixed(format === "dollar" ? 2 : 1) || "");
+          setEditField(field);
+        }}
+      >
+        {value !== null
+          ? format === "dollar" ? `$${value.toFixed(2)}` : `${value.toFixed(1)}%`
+          : placeholder}
+      </button>
+    );
+  };
+
+  const gridCols = show3pd
+    ? "grid-cols-[1fr_62px_62px_52px_52px_52px_62px_52px]"
+    : "grid-cols-[1fr_70px_70px_60px]";
+
   return (
-    <div className="grid grid-cols-[1fr_80px_80px_70px] items-center gap-1 px-3 py-2 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors text-sm">
-      {/* Name */}
-      <div className="truncate font-medium flex items-center gap-1 text-foreground">
+    <div className={cn("grid items-center gap-0.5 px-3 py-1.5 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors text-sm", gridCols)}>
+      <div className="truncate font-medium flex items-center gap-1 text-foreground text-xs">
         {displayName}
         {item.isPartial && <AlertCircle className="h-3 w-3 text-amber-500 flex-shrink-0" />}
       </div>
 
-      {/* Recipe Cost (read-only) */}
       <div className="text-right tabular-nums text-emerald-600 dark:text-emerald-400 text-xs">
         ${item.recipeCost.toFixed(2)}
       </div>
 
-      {/* Menu Price (editable) */}
       <div className="text-right">
-        {editing ? (
-          <input
-            ref={inputRef}
-            type="number"
-            step="0.01"
-            min="0"
-            className="w-full text-right text-xs bg-background border border-primary/40 rounded px-1.5 py-0.5 tabular-nums focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitPrice}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitPrice();
-              if (e.key === "Escape") setEditing(false);
-            }}
-          />
-        ) : (
-          <button
-            type="button"
-            className={cn(
-              "w-full text-right text-xs tabular-nums rounded px-1.5 py-0.5 transition-colors",
-              item.menuPrice !== null
-                ? "text-foreground hover:bg-muted/60"
-                : "text-muted-foreground/50 hover:bg-muted/60 italic"
-            )}
-            onClick={() => {
-              setDraft(item.menuPrice?.toFixed(2) || "");
-              setEditing(true);
-            }}
-          >
-            {item.menuPrice !== null ? `$${item.menuPrice.toFixed(2)}` : "—"}
-          </button>
-        )}
+        {renderEditableCell("price", item.menuPrice, "dollar")}
       </div>
 
-      {/* Food Cost % */}
       <div className={cn("text-right tabular-nums text-xs font-semibold", getFoodCostColor(item.foodCostPct))}>
         {item.foodCostPct !== null ? `${item.foodCostPct.toFixed(1)}%` : "—"}
       </div>
+
+      {show3pd && (
+        <>
+          <div className="text-right">
+            {renderEditableCell("upcharge", item.tpdUpchargePct, "pct")}
+          </div>
+          <div className="text-right">
+            {renderEditableCell("fee", item.tpdFeePct, "pct")}
+          </div>
+          <div className="text-right tabular-nums text-xs text-foreground">
+            {item.tpdPrice !== null ? `$${item.tpdPrice.toFixed(2)}` : "—"}
+          </div>
+          <div className={cn("text-right tabular-nums text-xs font-semibold", getFoodCostColor(item.tpdFoodCostPct))}>
+            {item.tpdFoodCostPct !== null ? `${item.tpdFoodCostPct.toFixed(1)}%` : "—"}
+          </div>
+        </>
+      )}
     </div>
   );
 };

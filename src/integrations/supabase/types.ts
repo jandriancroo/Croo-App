@@ -4868,6 +4868,8 @@ export type Database = {
           id: string
           location_id: string
           menu_price: number
+          tpd_fee_pct: number | null
+          tpd_upcharge_pct: number | null
           updated_at: string
         }
         Insert: {
@@ -4876,6 +4878,8 @@ export type Database = {
           id?: string
           location_id: string
           menu_price?: number
+          tpd_fee_pct?: number | null
+          tpd_upcharge_pct?: number | null
           updated_at?: string
         }
         Update: {
@@ -4884,6 +4888,8 @@ export type Database = {
           id?: string
           location_id?: string
           menu_price?: number
+          tpd_fee_pct?: number | null
+          tpd_upcharge_pct?: number | null
           updated_at?: string
         }
         Relationships: [
