@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight, Pizza, Layers, UtensilsCrossed, Package, Leaf, Copy } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight, Pizza, Layers, UtensilsCrossed, Package, Leaf, Copy, Archive } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
@@ -905,6 +905,27 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     },
   });
 
+  // ========== ARCHIVE MUTATION ==========
+  const archiveMutation = useMutation({
+    mutationFn: async () => {
+      if (!editBlueprintId) throw new Error("No blueprint to archive");
+      const { error } = await supabase
+        .from("recipe_blueprints" as any)
+        .update({ is_active: false } as any)
+        .eq("id", editBlueprintId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipe-catalog-blueprints"] });
+      queryClient.invalidateQueries({ queryKey: ["archived-recipe-blueprints"] });
+      queryClient.invalidateQueries({ queryKey: ["blueprints-for-recipe"] });
+      toast.success("Recipe archived");
+      resetForm();
+      onOpenChange(false);
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to archive"),
+  });
+
   // ========== HELPERS ==========
 
   const resetForm = () => {
@@ -1484,6 +1505,22 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
               </Button>
             ) : (
               <>
+                {editBlueprintId && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      if (confirm("Archive this recipe? It will be moved to the Archived tab in the Brand Catalog and can be restored later.")) {
+                        archiveMutation.mutate();
+                      }
+                    }}
+                    disabled={archiveMutation.isPending}
+                    title="Archive recipe"
+                  >
+                    {archiveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+                  </Button>
+                )}
                 <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
                 <Button className="flex-1" onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending || !recipeName.trim()}>
