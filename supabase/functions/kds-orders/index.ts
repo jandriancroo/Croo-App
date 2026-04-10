@@ -328,12 +328,16 @@ serve(async (req) => {
       const nextStatus = existing?.status === "ready" ? "ready" : "open";
       if (nextStatus === "open") recentOpenCount += 1;
 
-      // Primary: checkState "Closed" = paid in QU
-      // Secondary: if paymentsAmount is populated, use netSales+taxes comparison
-      const totalOwed = order.netSales + order.taxes;
-      const isPaid = order.paymentsAmount > 0
-        ? order.paymentsAmount >= totalOwed * 0.99
-        : (order.state || "").toLowerCase() === "closed";
+      // Online/3PD orders are always pre-paid; only in-store needs payment check
+      let isPaid: boolean;
+      if (isDelivery) {
+        isPaid = true;
+      } else {
+        const totalOwed = order.netSales + order.taxes;
+        isPaid = order.paymentsAmount > 0
+          ? order.paymentsAmount >= totalOwed * 0.99
+          : (order.state || "").toLowerCase() === "closed";
+      }
 
       const { error } = await supabase
         .from("kds_orders")
