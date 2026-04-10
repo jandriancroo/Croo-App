@@ -12,11 +12,11 @@ function getElapsed(ts: string): string {
 
 function getChannelTone(channel: string | null) {
   const ch = (channel || '').toLowerCase();
-  if (ch.includes('doordash')) return 'border-l-destructive';
-  if (ch.includes('ubereats')) return 'border-l-primary';
-  if (ch.includes('grubhub')) return 'border-l-accent';
-  if (ch === 'olo') return 'border-l-secondary';
-  return 'border-l-ring';
+  if (ch.includes('doordash')) return 'border-l-red-500';
+  if (ch.includes('ubereats')) return 'border-l-emerald-500';
+  if (ch.includes('grubhub')) return 'border-l-orange-500';
+  if (ch === 'olo') return 'border-l-amber-500';
+  return 'border-l-sky-500';
 }
 
 interface Props {
