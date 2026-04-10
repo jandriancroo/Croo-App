@@ -299,6 +299,7 @@ serve(async (req) => {
 
           console.log(`Found ${subreportFilters.length} subreport links for ${recentCheckNumbers.size} recent checks`);
           if (subreportFilters.length > 0) {
+            console.log("RAW checkNumberSubreport:", JSON.stringify(checkRows[0]?.checkNumberSubreport).slice(0, 800));
             console.log("Sample subreport:", JSON.stringify(subreportFilters[0]).slice(0, 500));
           }
 
