@@ -53,8 +53,8 @@ interface CollapsibleSegmentProps {
   isPosLinking?: boolean;
 }
 
-const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking }: CollapsibleSegmentProps) => {
-  const [open, setOpen] = useState(true);
+const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking, defaultOpen = false }: CollapsibleSegmentProps & { defaultOpen?: boolean }) => {
+  const [open, setOpen] = useState(defaultOpen);
 
   if (items.length === 0) return null;
 
@@ -149,7 +149,7 @@ const CatalogSectionComponent = ({
             <>
               <CollapsibleSegment label="Foundation" items={section.bases} tagLabel="base" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
               <CollapsibleSegment label="Build" items={section.cores} tagLabel="core" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
-              <CollapsibleSegment label="Menu Items" items={section.menuItems} tagLabel="mi" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
+              <CollapsibleSegment label="Menu Items" items={section.menuItems} tagLabel="mi" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} defaultOpen />
             </>
           )}
         </div>
