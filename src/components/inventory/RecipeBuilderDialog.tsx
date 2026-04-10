@@ -1507,18 +1507,17 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
               <>
                 {editBlueprintId && (
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    variant="outline"
+                    className="shrink-0 gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => {
                       if (confirm("Archive this recipe? It will be moved to the Archived tab in the Brand Catalog and can be restored later.")) {
                         archiveMutation.mutate();
                       }
                     }}
                     disabled={archiveMutation.isPending}
-                    title="Archive recipe"
                   >
                     {archiveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+                    Archive
                   </Button>
                 )}
                 <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
