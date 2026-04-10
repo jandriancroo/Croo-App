@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight, Pizza, Layers, UtensilsCrossed, Package, Leaf, Copy } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, RefreshCw, AlertCircle, ChevronRight, Pizza, Layers, UtensilsCrossed, Package, Leaf, Copy, Archive } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
