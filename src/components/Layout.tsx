@@ -1026,8 +1026,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
 
-                {/* Alerts - Admin only */}
-                {isAdmin && !isChecklistOnlyLocation && (
+                {/* Alerts - Super Admin only */}
+                {isSuperAdmin && !isChecklistOnlyLocation && (
                   <Button 
                     variant={location.pathname === '/alerts' ? 'secondary' : 'outline'} 
                     onClick={() => {
