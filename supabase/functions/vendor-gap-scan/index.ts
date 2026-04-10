@@ -57,6 +57,23 @@ serve(async (req) => {
         );
       }
 
+      // Fetch already-resolved/dismissed vendor names to skip alternate IDs for the same product
+      const { data: existingAlerts } = await supabase
+        .from("vendor_gap_alerts")
+        .select("vendor_name, item_number, status")
+        .eq("brand_id", brand.id);
+
+      const dismissedOrResolvedNames = new Set<string>();
+      const existingAlertKeys = new Set<string>();
+      for (const alert of (existingAlerts || [])) {
+        const name = (alert.vendor_name || "").toLowerCase().trim();
+        const key = `${alert.item_number}`;
+        existingAlertKeys.add(key);
+        if (alert.status === "dismissed" || alert.status === "resolved") {
+          if (name) dismissedOrResolvedNames.add(name);
+        }
+      }
+
       let newItemCount = 0;
 
       // --- PFG Scan (Bid Guide) ---
@@ -110,6 +127,12 @@ serve(async (req) => {
                     // Check all three sources
                     if (existingPfgNumbers.has(itemNumber) || existingVendorIds.has(itemNumber)) continue;
 
+                    const vendorName = item.fullDescription || item.description || "";
+                    // Skip if a same-named product was already dismissed/resolved
+                    if (dismissedOrResolvedNames.has(vendorName.toLowerCase().trim())) continue;
+                    // Skip if this exact alert already exists (avoid overwriting status)
+                    if (existingAlertKeys.has(itemNumber)) continue;
+
                     const { error } = await supabase
                       .from("vendor_gap_alerts")
                       .upsert(
@@ -117,7 +140,7 @@ serve(async (req) => {
                           brand_id: brand.id,
                           vendor_source: "pfg",
                           item_number: itemNumber,
-                          vendor_name: item.fullDescription || item.description || "",
+                          vendor_name: vendorName,
                           vendor_description: item.fullDescription || "",
                           pack_size: item.packSize || "",
                           category_name: item.categoryName || "",
@@ -163,6 +186,12 @@ serve(async (req) => {
           console.log(`[vendor-gap-scan] PA catalog unique items: ${seenPaItems.size}`);
 
           for (const [paId, item] of seenPaItems) {
+            const vendorName = item.description || "";
+            // Skip if a same-named product was already dismissed/resolved
+            if (dismissedOrResolvedNames.has(vendorName.toLowerCase().trim())) continue;
+            // Skip if this exact alert already exists (avoid overwriting status)
+            if (existingAlertKeys.has(paId)) continue;
+
             const { error } = await supabase
               .from("vendor_gap_alerts")
               .upsert(
@@ -170,8 +199,8 @@ serve(async (req) => {
                   brand_id: brand.id,
                   vendor_source: "pa",
                   item_number: paId,
-                  vendor_name: item.description || "",
-                  vendor_description: item.description || "",
+                  vendor_name: vendorName,
+                  vendor_description: vendorName,
                   pack_size: item.pack_size || "",
                   category_name: item.category || "",
                   status: "new",
