@@ -3945,6 +3945,66 @@ export type Database = {
           },
         ]
       }
+      kds_orders: {
+        Row: {
+          bumped_at: string | null
+          bumped_by: string | null
+          channel: string | null
+          check_number: string
+          cleared_at: string | null
+          cleared_by: string | null
+          created_at: string
+          customer_name: string | null
+          employee: string | null
+          gross_sales: number | null
+          id: string
+          items: Json | null
+          opened_at: string
+          order_type: string | null
+          status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          bumped_at?: string | null
+          bumped_by?: string | null
+          channel?: string | null
+          check_number: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          customer_name?: string | null
+          employee?: string | null
+          gross_sales?: number | null
+          id?: string
+          items?: Json | null
+          opened_at?: string
+          order_type?: string | null
+          status?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          bumped_at?: string | null
+          bumped_by?: string | null
+          channel?: string | null
+          check_number?: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          customer_name?: string | null
+          employee?: string | null
+          gross_sales?: number | null
+          id?: string
+          items?: Json | null
+          opened_at?: string
+          order_type?: string | null
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       labor_cache: {
         Row: {
           created_at: string
