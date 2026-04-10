@@ -289,8 +289,16 @@ serve(async (req) => {
             for (const item of (mainData.items || [])) {
               const cn = item.checkNumber;
               const checkId = item.checkNumberSubreport?.checkId;
-              if (cn && checkId && recentCheckNumbers.includes(cn)) {
-                checkIdMap[cn] = checkId;
+              if (cn && checkId) {
+                // For probe: collect ALL checkIds (not just recent)
+                if (recentCheckNumbers.includes(cn)) {
+                  checkIdMap[cn] = checkId;
+                }
+                // Always grab at least one for subreport testing
+                if (!checkIdMap["__probe__"]) {
+                  checkIdMap["__probe__"] = checkId;
+                  checkIdMap["__probe_cn__"] = cn;
+                }
               }
             }
           } catch { console.log(`check-detail/main parse error, raw: ${mainText.slice(0, 300)}`); }
@@ -299,12 +307,11 @@ serve(async (req) => {
           await mainRes.text();
         }
 
-        console.log(`checkIdMap: ${Object.keys(checkIdMap).length} checks with IDs (sample: ${JSON.stringify(Object.entries(checkIdMap).slice(0, 2))})`);
+        console.log(`checkIdMap: ${Object.keys(checkIdMap).length} entries (sample: ${JSON.stringify(Object.entries(checkIdMap).slice(0, 3))})`);
 
-        // Step 2: Use checkIds to probe subreport endpoints for item data
-        if (Object.keys(checkIdMap).length > 0) {
-          const sampleCheckId = Object.values(checkIdMap)[0];
-          const sampleCN = Object.keys(checkIdMap)[0];
+        // Step 2: Use a checkId to probe subreport endpoints
+        const probeCheckId = checkIdMap["__probe__"] || Object.values(checkIdMap)[0];
+        if (probeCheckId) {
 
           // Try multiple subreport URL patterns in parallel
           const subreportProbes = [
