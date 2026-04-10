@@ -779,7 +779,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
             category: effectiveCategory,
             yield_qty: parseFloat(yieldQty),
             yield_unit: yieldUnit,
-            source: "manual",
+            source: simulatorMode ? "simulator" : "manual",
             ...(catalogSection ? { catalog_section: catalogSection } : {}),
           } as any)
           .select("id").single();
