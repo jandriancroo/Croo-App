@@ -303,9 +303,10 @@ serve(async (req) => {
             rows.push(entry);
           }
         }
-        console.log("Product-mix item rows:", rows.length);
+        console.log("Item detail rows:", rows.length, "from:", usedUrl);
         if (rows.length > 0) {
           console.log("Sample row keys:", Object.keys(rows[0]));
+          console.log("Has checkNumber?", "checkNumber" in rows[0], "Value:", rows[0].checkNumber);
           console.log("Sample row:", JSON.stringify(rows[0]).slice(0, 500));
         }
 
@@ -333,8 +334,7 @@ serve(async (req) => {
 
         console.log(`Items grouped for ${Object.keys(itemsByCheck).length} checks`);
       } else {
-        const errText = await res.text();
-        console.log("Product-mix failed:", res.status, errText.slice(0, 200));
+        console.log("No item detail endpoint succeeded");
       }
     } catch (error) {
       console.log("Item detail fetch failed:", error);
