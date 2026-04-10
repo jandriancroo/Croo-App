@@ -107,8 +107,11 @@ export function KDSGridView({ orders, onBump, bumping }: Props) {
                 transition={{ duration: 0.18 }}
                 onClick={() => setSelectedOrder(isSelected ? null : order.check_number)}
                 className={cn(
-                  'rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all overflow-hidden cursor-pointer flex flex-col',
-                  isSelected && 'ring-2 ring-ring border-primary/40',
+                  'rounded-xl border-2 bg-card text-card-foreground shadow-sm transition-all overflow-hidden cursor-pointer flex flex-col',
+                  isSelected && 'ring-2 ring-ring',
+                  order.is_paid
+                    ? 'border-emerald-500/40'
+                    : 'border-destructive animate-pulse',
                   isDelivery(order.channel) && 'border-l-4 border-l-primary'
                 )}
               >
