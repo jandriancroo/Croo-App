@@ -489,6 +489,24 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_my_chats",
+      description: "Search the user's own chat conversations (DMs, group chats, announcements) for messages matching a keyword or from a specific person. Only returns chats the current user is a member of. Use for questions like 'what did someone say in chat', 'find the message about X', 'what was discussed about Y'.",
+      parameters: {
+        type: "object",
+        properties: {
+          search_keyword: { type: "string", description: "Keyword to search in message content (partial match)" },
+          sender_name: { type: "string", description: "Filter messages by sender's name (partial match)" },
+          chat_title: { type: "string", description: "Filter by chat/group name (partial match)" },
+          days_back: { type: "number", description: "How many days back to search (default 14, max 90)" },
+          limit: { type: "number", description: "Max messages to return (default 20, max 50)" },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
