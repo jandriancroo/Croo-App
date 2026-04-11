@@ -475,6 +475,21 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Vendor Territory</Label>
+                    <Input
+                      placeholder="e.g., PFG-SoCal"
+                      value={vendorTerritory}
+                      onChange={e => setVendorTerritory(e.target.value)}
+                      list="vendor-territory-options"
+                    />
+                    <datalist id="vendor-territory-options">
+                      {existingTerritories?.map(t => (
+                        <option key={t} value={t} />
+                      ))}
+                    </datalist>
+                    <p className="text-[10px] text-muted-foreground">Vendor distribution region — autocompletes from existing locations</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label>Latitude</Label>
