@@ -279,6 +279,7 @@ export default function LocationProfile() {
             latitude: coordinates.lat ? parseFloat(String(coordinates.lat)) : null,
             longitude: coordinates.lng ? parseFloat(String(coordinates.lng)) : null,
             store_number: location.store_number?.trim() || null,
+            vendor_territory: location.vendor_territory?.trim() || null,
           })
           .eq('id', location.id);
 
