@@ -269,8 +269,8 @@ export function AiAssistantBubble() {
               style={{
                 left: 0,
                 right: 0,
-                top: '12.5%',
-                height: '75%',
+                top: '7.5%',
+                height: '85%',
                 borderRadius: 16,
                 margin: '0 8px',
                 boxShadow: '0 25px 60px -15px rgba(0,0,0,0.4)',
