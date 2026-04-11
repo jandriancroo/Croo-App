@@ -27,7 +27,7 @@ interface OutlierItem {
   packSize: string;
   categoryName: string;
   price: number | null;
-  vendorSource: 'pfg' | 'pa';
+  vendorSource: 'pfg' | 'pa' | 'invoice';
   status?: string;
 }
 
@@ -63,7 +63,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         packSize: d.pack_size || '',
         categoryName: d.category_name || 'Uncategorized',
         price: null,
-        vendorSource: d.vendor_source as 'pfg' | 'pa',
+        vendorSource: d.vendor_source as 'pfg' | 'pa' | 'invoice',
         status: d.status,
       })) as OutlierItem[];
     },
@@ -328,15 +328,43 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         product_name: item.fullDescription || item.name,
         item_number: item.vendorSource === 'pfg' ? item.itemNumber : null,
         pa_item_id: item.vendorSource === 'pa' ? item.itemNumber : null,
-        vendor_source: item.vendorSource === 'pa' ? 'produce_alliance' : 'pfg',
+        vendor_source: item.vendorSource === 'pa' ? 'produce_alliance' 
+          : item.vendorSource === 'pfg' ? 'pfg' 
+          : `invoice:${item.brand || 'unknown'}`,
         category: item.categoryName,
         status: 'draft',
       }));
 
-      const { error } = await supabase
+      const { data: createdTemplates, error } = await supabase
         .from('brand_inventory_templates')
-        .upsert(inserts as any, { onConflict: 'brand_id,product_name', ignoreDuplicates: true });
+        .upsert(inserts as any, { onConflict: 'brand_id,product_name', ignoreDuplicates: true })
+        .select('id, item_number, pa_item_id, vendor_source');
       if (error) throw error;
+
+      // Also create brand_vendor_mappings for each promoted item
+      // so the vendor SKU is formally linked for future auto-matching
+      const mappingInserts: any[] = [];
+      for (const item of items) {
+        // Find the template that was just created/matched
+        const template = (createdTemplates || []).find((t: any) => {
+          if (item.vendorSource === 'pfg') return t.item_number === item.itemNumber;
+          if (item.vendorSource === 'pa') return t.pa_item_id === item.itemNumber;
+          // For invoice items, match by product_name since they use generated item numbers
+          return t.vendor_source?.startsWith('invoice');
+        });
+        if (template && item.itemNumber) {
+          mappingInserts.push({
+            brand_template_id: template.id,
+            vendor_item_id: item.itemNumber,
+            vendor: item.vendorSource === 'pa' ? 'produce_alliance' : item.vendorSource || 'invoice',
+          });
+        }
+      }
+      if (mappingInserts.length > 0) {
+        await supabase
+          .from('brand_vendor_mappings')
+          .upsert(mappingInserts as any, { onConflict: 'brand_template_id,vendor_item_id', ignoreDuplicates: true });
+      }
 
       // Mark alerts as promoted
       const alertIds = items.map(i => i.id).filter(Boolean);
@@ -625,7 +653,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Badge variant="outline" className="text-[10px]">
-                        {item.vendorSource === 'pa' ? 'PA' : 'PFG'}
+                        {item.vendorSource === 'pa' ? 'PA' : item.vendorSource === 'invoice' ? 'INV' : 'PFG'}
                       </Badge>
                       <Badge variant="outline" className="text-[10px]">
                         {item.categoryName}

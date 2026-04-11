@@ -238,7 +238,7 @@ Return ONLY valid JSON, no markdown.`,
     }
 
     const insertItems: any[] = [];
-    const newDrafts: any[] = [];
+    const newGapAlerts: any[] = [];
     const priceUpdates: { id: string; cost: number; pack_size?: string | null }[] = [];
 
     for (const li of parsed.line_items || []) {
@@ -286,19 +286,15 @@ Return ONLY valid JSON, no markdown.`,
           : false;
 
         if (!templateByNumber && !templateByName && !mappedByVendorId) {
-          newDrafts.push({
+          newGapAlerts.push({
             brand_id: brandId,
-            product_name: li.product_name,
-            item_number: li.item_number || null,
-            vendor_source: `invoice:${parsed.vendor_name || "unknown"}`,
-            source_location_id: invoice.location_id,
-            status: "draft",
-            category: null,
-            is_weight_based: false,
-            is_recipe: false,
-            pan_baseline_key: "each",
-            pan_enabled_keys: ["each"],
-            match_keywords: [],
+            item_number: li.item_number || generateItemId(parsed.vendor_name, li.product_name),
+            vendor_name: parsed.vendor_name || "Unknown Vendor",
+            vendor_description: li.product_name,
+            vendor_source: `invoice`,
+            category_name: null,
+            pack_size: li.unit || null,
+            status: "new",
           });
         } else {
           // Already exists as template or mapping — link to the template
@@ -342,12 +338,12 @@ Return ONLY valid JSON, no markdown.`,
         .eq("id", update.id);
     }
 
-    // Create brand draft templates for unmatched items (with dedup via upsert)
-    if (newDrafts.length > 0) {
-      const { error: draftErr } = await admin
-        .from("brand_inventory_templates")
-        .insert(newDrafts);
-      if (draftErr) console.error("Error creating brand drafts:", draftErr);
+    // Write unmatched items to vendor_gap_alerts for unified brand review
+    if (newGapAlerts.length > 0) {
+      const { error: gapErr } = await admin
+        .from("vendor_gap_alerts")
+        .upsert(newGapAlerts, { onConflict: "brand_id,vendor_source,item_number", ignoreDuplicates: true });
+      if (gapErr) console.error("Error creating gap alerts:", gapErr);
     }
 
     return new Response(JSON.stringify({
@@ -356,7 +352,7 @@ Return ONLY valid JSON, no markdown.`,
       total_items: insertItems.length,
       matched: insertItems.filter(i => i.match_status === "matched").length,
       unmatched: insertItems.filter(i => i.match_status === "unmatched").length,
-      new_drafts: newDrafts.length,
+      new_gap_alerts: newGapAlerts.length,
       price_updates: priceUpdates.length,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

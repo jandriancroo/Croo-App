@@ -26,7 +26,7 @@ interface ParseResult {
   total_items: number;
   matched: number;
   unmatched: number;
-  new_drafts: number;
+  new_gap_alerts: number;
   price_updates: number;
 }
 
@@ -200,11 +200,11 @@ export default function InvoiceUploadDialog({
                 </div>
               )}
             </div>
-            {result.new_drafts > 0 && (
+            {result.new_gap_alerts > 0 && (
               <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 text-xs">
                 <Package className="h-4 w-4 text-amber-600 shrink-0" />
                 <span className="text-amber-700 dark:text-amber-400">
-                  {result.new_drafts} new item{result.new_drafts > 1 ? "s" : ""} added to Brand Drafts for review
+                  {result.new_gap_alerts} new item{result.new_gap_alerts > 1 ? "s" : ""} sent to Vendor Gap Finder for brand review
                 </span>
               </div>
             )}
