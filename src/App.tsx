@@ -223,26 +223,28 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <ScrollToTop />
-        <AuthProvider>
-          <LocationProvider>
-            <CrooCashAnimationProvider>
-              <DockToastProvider>
-                <DiagnosticMode />
-                <BreakOverlay />
-                <AppWithSplash />
-              </DockToastProvider>
-            </CrooCashAnimationProvider>
-          </LocationProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <ScrollToTop />
+          <AuthProvider>
+            <LocationProvider>
+              <CrooCashAnimationProvider>
+                <DockToastProvider>
+                  <DiagnosticMode />
+                  <BreakOverlay />
+                  <AppWithSplash />
+                </DockToastProvider>
+              </CrooCashAnimationProvider>
+            </LocationProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;
