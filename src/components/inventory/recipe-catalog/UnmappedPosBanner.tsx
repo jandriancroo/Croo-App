@@ -135,24 +135,24 @@ const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPo
   if (dismissed || unmapped.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 mb-3">
+    <div className="rounded-lg border border-amber-400/40 bg-amber-50 dark:bg-amber-950/30 mb-3">
       <div className="flex items-center gap-2 px-3 py-2.5">
-        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
         <button
-          className="flex-1 text-left text-sm font-medium text-amber-200 flex items-center gap-1.5"
+          className="flex-1 text-left text-sm font-medium text-amber-800 dark:text-amber-200 flex items-center gap-1.5"
           onClick={() => setExpanded(!expanded)}
         >
           <span>
             {unmapped.length} POS item{unmapped.length !== 1 ? "s" : ""} selling without a recipe
           </span>
-          <span className="text-[11px] text-amber-400/70 font-normal">(7d)</span>
-          <ChevronDown className={`h-3.5 w-3.5 text-amber-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          <span className="text-[11px] text-amber-600/70 dark:text-amber-400/70 font-normal">(7d)</span>
+          <ChevronDown className={`h-3.5 w-3.5 text-amber-600 dark:text-amber-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
         </button>
         <button
           onClick={() => setDismissed(true)}
-          className="p-1 rounded hover:bg-amber-500/20 transition-colors"
+          className="p-1 rounded hover:bg-amber-200/50 dark:hover:bg-amber-500/20 transition-colors"
         >
-          <X className="h-3.5 w-3.5 text-amber-400/60" />
+          <X className="h-3.5 w-3.5 text-amber-500/60" />
         </button>
       </div>
       {expanded && (
@@ -165,9 +165,9 @@ const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPo
             })
             .map(([cat, items]) => (
               <div key={cat}>
-                <div className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider px-1 mb-1">
+                <div className="text-[10px] font-semibold text-amber-700/80 dark:text-amber-400/80 uppercase tracking-wider px-1 mb-1">
                   {cat}
-                  <span className="ml-1.5 text-amber-400/50 font-normal normal-case">
+                  <span className="ml-1.5 text-amber-600/50 dark:text-amber-400/50 font-normal normal-case">
                     ({items.length})
                   </span>
                 </div>
@@ -175,10 +175,10 @@ const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPo
                   {items.map(item => (
                     <div
                       key={item.name}
-                      className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-amber-500/5"
+                      className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-amber-100/60 dark:bg-amber-500/5"
                     >
                       <span className="text-foreground truncate">{item.name}</span>
-                      <span className="text-amber-400 tabular-nums text-[11px] shrink-0 ml-2">
+                      <span className="text-amber-700 dark:text-amber-400 tabular-nums text-[11px] shrink-0 ml-2">
                         {item.totalQty}
                       </span>
                     </div>
