@@ -15,6 +15,13 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 
+/* Clean 4-point star — no tiny accent dots */
+const FourPointStar = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12 0C12 0 14.5 9.5 12 12C9.5 14.5 0 12 0 12C0 12 9.5 9.5 12 12C14.5 14.5 24 12 24 12C24 12 14.5 14.5 12 12C9.5 9.5 12 24 12 24C12 24 14.5 14.5 12 12C9.5 9.5 12 0 12 0Z" />
+  </svg>
+);
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
