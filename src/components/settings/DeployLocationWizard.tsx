@@ -102,6 +102,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [storeNumber, setStoreNumber] = useState('');
+  const [vendorTerritory, setVendorTerritory] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [orgId, setOrgId] = useState('');
@@ -132,6 +133,21 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
     enabled: open,
   });
 
+  // Fetch existing vendor territories for autocomplete
+  const { data: existingTerritories } = useQuery({
+    queryKey: ['vendor-territories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('vendor_territory')
+        .not('vendor_territory', 'is', null);
+      if (error) throw error;
+      const unique = [...new Set(data.map(d => d.vendor_territory).filter(Boolean))] as string[];
+      return unique.sort();
+    },
+    enabled: open,
+  });
+
   // Reset on open
   useEffect(() => {
     if (open) {
@@ -141,6 +157,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setName('');
       setAddress('');
       setStoreNumber('');
+      setVendorTerritory('');
       setLat('');
       setLng('');
       setOrgId('');
@@ -186,6 +203,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           longitude: lng ? parseFloat(lng) : null,
           organization_id: orgId || null,
           store_number: storeNumber.trim() || null,
+          vendor_territory: vendorTerritory.trim() || null,
         })
         .select('id')
         .single();
