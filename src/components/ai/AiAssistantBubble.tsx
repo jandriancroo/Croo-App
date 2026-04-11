@@ -226,35 +226,19 @@ export function AiAssistantBubble() {
             exit={{ x: 60 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             onClick={() => setOpen(true)}
-            className="fixed right-0 z-[55] flex items-center justify-center"
+            className="fixed right-0 z-[55] flex flex-col items-center justify-center gap-1.5 bg-accent rounded-l-xl"
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
-              width: 45,
+              width: 36,
               height: 110,
-              background: 'transparent',
-              filter: 'drop-shadow(-3px 2px 8px rgba(0,0,0,0.25))',
+              boxShadow: '-4px 2px 12px rgba(0,0,0,0.2), -1px 0 4px rgba(0,0,0,0.08)',
             }}
             aria-label="Open Theo"
           >
-            <svg viewBox="0 0 45 110" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
-              <path
-                d={`
-                  M 45,0
-                  C 45,0 45,4 36,8
-                  C 20,14 14,24 14,55
-                  C 14,86 20,96 36,102
-                  C 45,106 45,110 45,110
-                  L 45,0 Z
-                `}
-                className="fill-accent"
-              />
-            </svg>
-            <svg viewBox="0 0 28 70" className="relative z-10 w-6 h-14 text-white" style={{ marginLeft: 6 }}>
-              <Star4 size={5} x={17} y={11} />
-              <Star4 size={10} x={13} y={35} />
-              <Star4 size={4.5} x={18} y={57} />
-            </svg>
+            <Star4 size={4} />
+            <Star4 size={8} />
+            <Star4 size={3.5} />
             {hasUnreadBriefing && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
             )}
