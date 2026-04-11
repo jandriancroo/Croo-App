@@ -10,7 +10,21 @@ interface VendorHealthDashboardProps {
 }
 
 export default function VendorHealthDashboard({ brandId }: VendorHealthDashboardProps) {
-  const { data: healthRecords = [], isLoading } = useQuery({
+  type SkuHealthRecord = {
+    id: string;
+    brand_id: string;
+    vendor_source: string;
+    vendor_sku: string;
+    vendor_territory: string;
+    status: 'active' | 'stale' | 'discontinued';
+    first_seen_at: string;
+    last_seen_at: string;
+    last_price: number | null;
+    last_location_id: string | null;
+    product_name: string | null;
+  };
+
+  const { data: healthRecords = [], isLoading } = useQuery<SkuHealthRecord[]>({
     queryKey: ['vendor-sku-health', brandId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -19,7 +33,7 @@ export default function VendorHealthDashboard({ brandId }: VendorHealthDashboard
         .eq('brand_id', brandId)
         .order('last_seen_at', { ascending: true });
       if (error) throw error;
-      return data;
+      return (data || []) as unknown as SkuHealthRecord[];
     },
   });
 
