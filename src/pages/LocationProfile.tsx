@@ -454,6 +454,20 @@ export default function LocationProfile() {
                     onChange={(e) => setLocation({...location, address: e.target.value})}
                   />
                 </div>
+                {!isNew && (
+                  <div className="space-y-2">
+                    <Label htmlFor="vendor-territory">Vendor Territory</Label>
+                    <Input
+                      id="vendor-territory"
+                      placeholder="e.g., PFG-SoCal"
+                      value={location?.vendor_territory || ''}
+                      onChange={(e) => setLocation({...location, vendor_territory: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Vendor distribution region for SKU health tracking
+                    </p>
+                  </div>
+                )}
                 
                 {isNew && (
                   <div className="space-y-2">
