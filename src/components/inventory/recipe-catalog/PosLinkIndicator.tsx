@@ -157,13 +157,31 @@ const PosLinkIndicator = ({
   };
 
   const handleSelect = (posItemName: string) => {
-    const mt = inferMappingType(blueprintCategory);
-    onLink(blueprintId, blueprintName, [posItemName], mt, null);
+    const mt = mapping?.mappingType || inferMappingType(blueprintCategory);
+    const rg = mapping?.reconciliationGroup ?? null;
+    // Append to existing pos_items if already mapped, otherwise start fresh
+    const existingItems = mapping?.posItems || [];
+    const merged = existingItems.includes(posItemName)
+      ? existingItems
+      : [...existingItems, posItemName];
+    onLink(blueprintId, blueprintName, merged, mt, rg);
     setIsPickerOpen(false);
     setSearch("");
     setQuSearchMode(false);
     setQuItems([]);
     setQuError(null);
+  };
+
+  const handleRemovePosItem = (posItemName: string) => {
+    if (!mapping) return;
+    const remaining = mapping.posItems.filter(n => n !== posItemName);
+    if (remaining.length === 0) {
+      onUnlink(blueprintId);
+    } else {
+      const mt = mapping.mappingType || inferMappingType(blueprintCategory);
+      const rg = mapping.reconciliationGroup ?? null;
+      onLink(blueprintId, blueprintName, remaining, mt, rg);
+    }
   };
 
   const handleClose = () => {
