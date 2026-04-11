@@ -947,7 +947,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       <header
         ref={mobileHeaderRef}
         className={`fixed top-0 left-0 right-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`}
-        style={{ paddingTop: 'calc(env(safe-area-inset-top) - 6px)', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: '0 4px 12px hsl(0 0% 0% / 0.15)' }}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) - 6px)', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: '0 6px 20px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1), inset 0 -1px 0 rgba(255,255,255,0.1), inset 1px 0 0 rgba(255,255,255,0.08), inset -1px 0 0 rgba(255,255,255,0.08)' }}
       >
         <div className="flex items-center relative h-14 px-4">
           <div className="flex items-center gap-2 flex-shrink-0">
