@@ -1,6 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const STORAGE_BUCKET = "seo-pages";
+const STORAGE_FILE = "jobs.html";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -16,7 +18,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, supabaseKey);
-    const canonicalUrl = `${SUPABASE_URL}/functions/v1/jobs-seo`;
+    const storageUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${STORAGE_FILE}`;
 
     const { data: listings, error } = await supabase
       .from("job_listings")
@@ -138,7 +140,7 @@ Deno.serve(async (req) => {
   <title>Restaurant Jobs Near You | CrooHQ — Pizza, Fast Food & Food Service Careers</title>
   <meta name="description" content="Find restaurant and fast food jobs at Blaze Pizza and other brands. Apply for pizza maker, team member, shift manager, cook, and kitchen crew positions near you — no account needed.">
   <meta name="keywords" content="pizza jobs, fast food jobs, restaurant jobs, team member jobs, shift manager jobs, kitchen crew, food service careers, Blaze Pizza hiring, cook jobs near me, cashier restaurant jobs">
-  <link rel="canonical" href="${canonicalUrl}">
+  <link rel="canonical" href="${storageUrl}">
   ${jsonLdItems.map((item: any) => `<script type="application/ld+json">
 ${JSON.stringify(item, null, 2)}
   </script>`).join("\n  ")}
@@ -162,10 +164,26 @@ ${JSON.stringify(item, null, 2)}
 </body>
 </html>`;
 
-    return new Response(html, {
+    // Upload to Supabase Storage with proper text/html content type
+    const { error: uploadError } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(STORAGE_FILE, new Blob([html], { type: "text/html" }), {
+        contentType: "text/html; charset=utf-8",
+        upsert: true,
+        cacheControl: "3600",
+      });
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      throw uploadError;
+    }
+
+    // Redirect to the storage URL which serves with proper Content-Type
+    return new Response(null, {
+      status: 302,
       headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "public, max-age=3600",
+        Location: storageUrl,
+        "Cache-Control": "no-cache",
       },
     });
   } catch (err) {
@@ -239,14 +257,12 @@ function mapOccupationalCategory(titleLower: string): string {
 
 function buildSyndicationTitle(title: string, company: string, city: string): string {
   const lower = title.toLowerCase();
-  // If title is generic like "Team Member", enrich it
   if (lower === "team member" || lower === "crew member") {
     return `Pizza Team Member – ${company}${city ? `, ${city}` : ""}`;
   }
   if (lower === "shift manager" || lower === "shift lead") {
     return `Shift Manager – ${company} Restaurant${city ? `, ${city}` : ""}`;
   }
-  // For other titles, just append company
   if (!lower.includes(company.toLowerCase())) {
     return `${title} – ${company}`;
   }
@@ -283,7 +299,6 @@ function buildEnrichedDescription(
   const empLabel = EMPLOYMENT_LABELS[employmentType] || employmentType;
   const cityStr = city ? ` in ${city}` : "";
 
-  // Build a rich, natural description that includes high-intent search phrases
   const enrichment = `
 
 About This ${title} Position at ${company}
