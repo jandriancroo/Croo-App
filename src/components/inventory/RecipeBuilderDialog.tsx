@@ -1367,6 +1367,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                             ) : null;
                           })()
                         )}
+                        {item.item_type === "blueprint" && item.catalog_section && (
+                          <span className="text-muted-foreground ml-1 text-[9px] italic">
+                            {CATALOG_SECTION_OPTIONS.find(s => s.value === item.catalog_section)?.label || item.catalog_section}
+                          </span>
+                        )}
                         {item.item_type === "blueprint" && (
                           <span className="text-muted-foreground ml-1.5 text-[10px]">
                             {item.yield_qty} {item.yield_unit || "ea"}
