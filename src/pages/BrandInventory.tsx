@@ -569,46 +569,13 @@ export default function BrandInventory() {
                 {locations.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No locations found</p>
                 ) : (
-                  <div className="divide-y divide-border">
-                    {locations.map((loc: any) => {
-                      const stats = locationActivationMap.get(loc.id);
-                      const active = stats?.active || 0;
-                      const _total = stats?.total || 0;
-                      const liveCount = statusCounts.live;
-                      const pct = liveCount > 0 ? Math.round((active / liveCount) * 100) : 0;
-                      return (
-                        <div key={loc.id} className="flex items-center justify-between py-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{loc.name}</span>
-                              {loc.store_number && (
-                                <Badge variant="outline" className="text-[10px]">#{loc.store_number}</Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className="flex-1 max-w-[120px] h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-primary rounded-full transition-all"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-muted-foreground">
-                                {active}/{liveCount} active
-                              </span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => navigate(`/inventory/${loc.id}`)}
-                          >
-                            View
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <LocationActivationList
+                    locations={locations}
+                    locationActivationMap={locationActivationMap}
+                    liveCount={statusCounts.live}
+                    brandId={brandId!}
+                    onNavigate={(locId) => navigate(`/inventory/${locId}`)}
+                  />
                 )}
               </CardContent>
             </Card>
