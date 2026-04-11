@@ -932,7 +932,7 @@ export default function Dashboard() {
         onRefresh={handleRefresh}
       >
         <div className="space-y-2.5">
-          <div className="-mt-1">
+          <div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h1 className="text-3xl font-bold">Dash</h1>
