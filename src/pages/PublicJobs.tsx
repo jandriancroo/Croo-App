@@ -78,76 +78,10 @@ export default function PublicJobs() {
     );
   });
 
-  // JSON-LD for all listings
-  const jsonLd = filtered.map(job => {
-    const addr = job.location?.address || '';
-    const parts = addr.split(',').map(s => s.trim());
-    const city = parts.length >= 3 ? parts[parts.length - 2] : '';
-    const lastPart = parts[parts.length - 1] || '';
-    const stateMatch = lastPart.match(/^([A-Za-z\s]+?)\s+(\d{5})/);
-    const state = stateMatch ? stateMatch[1] : lastPart;
-    const zip = stateMatch ? stateMatch[2] : '';
-    const company = job.organization?.brand_name || job.organization?.name || '';
-
-    const posting: any = {
-      '@context': 'https://schema.org/',
-      '@type': 'JobPosting',
-      title: job.title,
-      description: job.description || job.title,
-      datePosted: job.posted_at?.split('T')[0],
-      employmentType: job.employment_type === 'full_time' ? 'FULL_TIME' : job.employment_type === 'part_time' ? 'PART_TIME' : 'FULL_TIME',
-      hiringOrganization: { '@type': 'Organization', name: company },
-      jobLocation: {
-        '@type': 'Place',
-        address: {
-          '@type': 'PostalAddress',
-          streetAddress: parts[0] || '',
-          addressLocality: city,
-          addressRegion: state,
-          postalCode: zip,
-          addressCountry: 'US',
-        },
-      },
-      directApply: true,
-      url: `https://croohq.com/apply/${job.organization?.slug}?utm_source=google_jobs&listing=${job.id}`,
-    };
-
-    if (job.pay_min) {
-      posting.baseSalary = {
-        '@type': 'MonetaryAmount',
-        currency: 'USD',
-        value: {
-          '@type': 'QuantitativeValue',
-          minValue: job.pay_min,
-          maxValue: job.pay_max || job.pay_min,
-          unitText: job.pay_type === 'salary' ? 'YEAR' : 'HOUR',
-        },
-      };
-    }
-
-    return posting;
-  });
-
-  // Inject JSON-LD and meta tags
+  // Set page title (JSON-LD is served exclusively by the jobs-seo edge function)
   useEffect(() => {
     document.title = 'Restaurant Jobs Near You | CrooHQ';
-    
-    // JSON-LD
-    const existingLd = document.getElementById('jobs-jsonld');
-    if (existingLd) existingLd.remove();
-    if (jsonLd.length > 0) {
-      const script = document.createElement('script');
-      script.id = 'jobs-jsonld';
-      script.type = 'application/ld+json';
-      script.textContent = JSON.stringify(jsonLd);
-      document.head.appendChild(script);
-    }
-
-    return () => {
-      const el = document.getElementById('jobs-jsonld');
-      if (el) el.remove();
-    };
-  }, [jsonLd]);
+  }, []);
 
   return (
     <>
