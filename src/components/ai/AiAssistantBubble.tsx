@@ -16,20 +16,16 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /* Clean 4-point star — no tiny accent dots */
-/* Clean 4-point star */
-const Star4 = ({ size, x, y }: { size: number; x: number; y: number }) => {
-  const h = size; // half-height of star
-  const w = h * 0.38; // width is narrower
-  return (
-    <path
-      d={`M${x},${y - h} C${x + w * 0.3},${y - h * 0.3} ${x + w},${y - w * 0.3} ${x + w},${y}
-          C${x + w},${y + w * 0.3} ${x + w * 0.3},${y + h * 0.3} ${x},${y + h}
-          C${x - w * 0.3},${y + h * 0.3} ${x - w},${y + w * 0.3} ${x - w},${y}
-          C${x - w},${y - w * 0.3} ${x - w * 0.3},${y - h * 0.3} ${x},${y - h}Z`}
-      fill="currentColor"
-    />
-  );
-};
+/* Clean 4-point star with sharp tips and pinched waist */
+const Star4 = ({ size, x, y }: { size: number; x: number; y: number }) => (
+  <path
+    d={`M${x},${y - size} Q${x + size * 0.12},${y - size * 0.12} ${x + size},${y}
+        Q${x + size * 0.12},${y + size * 0.12} ${x},${y + size}
+        Q${x - size * 0.12},${y + size * 0.12} ${x - size},${y}
+        Q${x - size * 0.12},${y - size * 0.12} ${x},${y - size}Z`}
+    fill="currentColor"
+  />
+);
 
 interface Message {
   role: 'user' | 'assistant';
