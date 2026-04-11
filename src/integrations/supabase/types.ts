@@ -4497,6 +4497,7 @@ export type Database = {
           organization_id: string | null
           store_number: string | null
           updated_at: string
+          vendor_territory: string | null
         }
         Insert: {
           address?: string | null
@@ -4512,6 +4513,7 @@ export type Database = {
           organization_id?: string | null
           store_number?: string | null
           updated_at?: string
+          vendor_territory?: string | null
         }
         Update: {
           address?: string | null
@@ -4527,6 +4529,7 @@ export type Database = {
           organization_id?: string | null
           store_number?: string | null
           updated_at?: string
+          vendor_territory?: string | null
         }
         Relationships: [
           {
@@ -8385,6 +8388,69 @@ export type Database = {
           },
         ]
       }
+      vendor_sku_health: {
+        Row: {
+          brand_id: string
+          created_at: string
+          first_seen_at: string
+          id: string
+          last_location_id: string | null
+          last_price: number | null
+          last_seen_at: string
+          product_name: string | null
+          status: Database["public"]["Enums"]["vendor_sku_status"]
+          updated_at: string
+          vendor_sku: string
+          vendor_source: string
+          vendor_territory: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          last_location_id?: string | null
+          last_price?: number | null
+          last_seen_at?: string
+          product_name?: string | null
+          status?: Database["public"]["Enums"]["vendor_sku_status"]
+          updated_at?: string
+          vendor_sku: string
+          vendor_source: string
+          vendor_territory?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          first_seen_at?: string
+          id?: string
+          last_location_id?: string | null
+          last_price?: number | null
+          last_seen_at?: string
+          product_name?: string | null
+          status?: Database["public"]["Enums"]["vendor_sku_status"]
+          updated_at?: string
+          vendor_sku?: string
+          vendor_source?: string
+          vendor_territory?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_sku_health_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_sku_health_last_location_id_fkey"
+            columns: ["last_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wage_history: {
         Row: {
           created_at: string | null
@@ -8793,6 +8859,7 @@ export type Database = {
         | "scheduling_issues"
         | "other"
       support_ticket_status: "open" | "in_progress" | "resolved"
+      vendor_sku_status: "active" | "stale" | "discontinued"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -8956,6 +9023,7 @@ export const Constants = {
         "other",
       ],
       support_ticket_status: ["open", "in_progress", "resolved"],
+      vendor_sku_status: ["active", "stale", "discontinued"],
     },
   },
 } as const
