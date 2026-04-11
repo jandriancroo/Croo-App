@@ -16,9 +16,15 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /* Clean 4-point star — no tiny accent dots */
-const FourPointStar = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M12 0C12 0 14.5 9.5 12 12C9.5 14.5 0 12 0 12C0 12 9.5 9.5 12 12C14.5 14.5 24 12 24 12C24 12 14.5 14.5 12 12C9.5 9.5 12 24 12 24C12 24 14.5 14.5 12 12C9.5 9.5 12 0 12 0Z" />
+/* Clustered 4-point stars — matches reference icon layout */
+const TheoStarsIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 32 40" fill="currentColor" className={className}>
+    {/* Large star — center-left */}
+    <path d="M14 24 L14 14 Q14 20 8 20 Q14 20 14 26 Q14 20 20 20 Q14 20 14 14Z" transform="scale(1.3) translate(-2, -1)" />
+    {/* Medium star — upper right */}
+    <path d="M12 12 L12 8 Q12 10 9 10 Q12 10 12 12 Q12 10 15 10 Q12 10 12 8Z" transform="translate(8, -2) scale(1.1)" />
+    {/* Small star — far upper right */}
+    <path d="M12 12 L12 10 Q12 11 10.5 11 Q12 11 12 12 Q12 11 13.5 11 Q12 11 12 10Z" transform="translate(12, -4)" />
   </svg>
 );
 
@@ -231,9 +237,7 @@ export function AiAssistantBubble() {
             }}
             aria-label="Open Theo"
           >
-            <FourPointStar className="h-3 w-3 text-white" />
-            <FourPointStar className="h-5 w-5 text-white" />
-            <FourPointStar className="h-2.5 w-2.5 text-white" />
+            <TheoStarsIcon className="w-7 h-10 text-white" />
             {hasUnreadBriefing && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
             )}
