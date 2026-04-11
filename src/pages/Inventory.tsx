@@ -14,7 +14,7 @@ import { ClipboardList, Settings, Package, MapPin, Upload, ArrowLeft, DollarSign
 import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
 import RecipeGeniusCard from "@/components/inventory/menu-pricing/RecipeGeniusCard";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
-import { format } from "date-fns";
+
 import { formatPeriodLabel } from "@/utils/periodLabelUtils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -36,9 +36,9 @@ const Inventory = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { isAdmin, role } = useUserRole();
+  const { isAdmin } = useUserRole();
   const { hasPermission } = useRolePermissions();
-  const { canDeploy, isBrandLevel } = useInventoryPermissions();
+  const { isBrandLevel } = useInventoryPermissions();
   const { timezone } = useLocationTimezone();
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
