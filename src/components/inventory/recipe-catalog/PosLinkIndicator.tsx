@@ -106,48 +106,27 @@ const PosLinkIndicator = ({
 
   const handleSearchQU = async () => {
     if (!locationId) return;
+    // If we already have cached QU items, just switch to search mode for client-side filtering
+    if (quItems.length > 0) {
+      setQuSearchMode(true);
+      return;
+    }
     setQuLoading(true);
     setQuError(null);
     setQuSearchMode(true);
 
     try {
-      // Resolve all brand locations for cross-location QU search
-      const { resolveBrandId } = await import("@/utils/resolveBrandId");
-      const brandId = await resolveBrandId(locationId);
-
-      let locationIds = [locationId];
-      if (brandId) {
-        const { data: orgs } = await supabase.from("organizations").select("id").eq("brand_id", brandId);
-        if (orgs?.length) {
-          const { data: locs } = await supabase.from("locations").select("id").in("organization_id", orgs.map(o => o.id));
-          if (locs?.length) locationIds = locs.map(l => l.id);
-        }
+      // Single call — the edge function already aggregates across all brand locations
+      const { data, error } = await supabase.functions.invoke("pos-search", {
+        body: { locationId, daysBack: 90 },
+      });
+      if (error) throw new Error(error.message || "Search failed");
+      if (data?.fallback) {
+        setQuError("POS service temporarily unavailable — try again in a moment");
+        return;
       }
-
-      // Search all locations in parallel
-      const results = await Promise.all(
-        locationIds.map(async (locId) => {
-          const { data, error } = await supabase.functions.invoke("pos-search", {
-            body: { locationId: locId, search: search.trim() || undefined, daysBack: 90 },
-          });
-          if (error || data?.error) return [];
-          return (data?.items || []) as { name: string; category: string; quantity: number }[];
-        })
-      );
-
-      // Deduplicate by item name, sum quantities
-      const merged = new Map<string, { name: string; category: string; quantity: number }>();
-      for (const items of results) {
-        for (const item of items) {
-          const existing = merged.get(item.name);
-          if (existing) {
-            existing.quantity += item.quantity;
-          } else {
-            merged.set(item.name, { ...item });
-          }
-        }
-      }
-      setQuItems(Array.from(merged.values()));
+      if (data?.error && !data?.fallback) throw new Error(data.error);
+      setQuItems((data?.items || []) as { name: string; category: string; quantity: number }[]);
     } catch (err: any) {
       console.error("QU search error:", err);
       setQuError(err.message || "Search failed");
