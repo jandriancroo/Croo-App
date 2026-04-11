@@ -49,7 +49,7 @@ export default function LocationActivationList({
         const active = stats?.active || 0;
         const pct = liveCount > 0 ? Math.round((active / liveCount) * 100) : 0;
         const isDeploying = deployingLocId === loc.id;
-        const needsDeploy = active === 0 && liveCount > 0;
+        const needsDeploy = liveCount > 0;
 
         return (
           <div key={loc.id} className="flex items-center justify-between py-3">
@@ -86,7 +86,7 @@ export default function LocationActivationList({
                   ) : (
                     <Rocket className="h-3.5 w-3.5" />
                   )}
-                  Deploy
+                  {active === 0 ? 'Deploy' : 'Sync'}
                 </Button>
               )}
               <Button
