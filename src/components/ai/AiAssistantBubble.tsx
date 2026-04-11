@@ -240,6 +240,9 @@ export function AiAssistantBubble() {
     setLoading(true);
     scrollToBottom();
 
+    // Persist user message
+    persistMessage(userMsg);
+
     try {
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
@@ -260,11 +263,14 @@ export function AiAssistantBubble() {
         return;
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
+      const assistantMsg: Message = { role: 'assistant', content: data.content };
+      setMessages(prev => [...prev, assistantMsg]);
+      persistMessage(assistantMsg);
     } catch (e: any) {
       console.error('AI Assistant error:', e);
       toast.error('Failed to get response');
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I had trouble processing that. Please try again.' }]);
+      const errorMsg: Message = { role: 'assistant', content: 'Sorry, I had trouble processing that. Please try again.' };
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setLoading(false);
       scrollToBottom();
