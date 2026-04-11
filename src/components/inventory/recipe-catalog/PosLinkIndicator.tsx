@@ -95,14 +95,17 @@ const PosLinkIndicator = ({
       });
   }, [posItems, blueprintName, search]);
 
+  const alreadyLinked = useMemo(() => new Set((mapping?.posItems || []).map(n => n.toLowerCase())), [mapping?.posItems]);
+
   const filteredQuItems = useMemo(() => {
     if (!quSearchMode || quItems.length === 0) return [];
+    let items = quItems.filter(i => !alreadyLinked.has(i.name.toLowerCase()));
     const searchValue = search.trim().toLowerCase();
-    if (!searchValue) return quItems;
-    return quItems.filter(
+    if (!searchValue) return items;
+    return items.filter(
       (i) => i.name.toLowerCase().includes(searchValue) || i.category.toLowerCase().includes(searchValue)
     );
-  }, [quItems, search, quSearchMode]);
+  }, [quItems, search, quSearchMode, alreadyLinked]);
 
   const handleSearchQU = async () => {
     if (!locationId) return;
