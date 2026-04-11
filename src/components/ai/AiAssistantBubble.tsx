@@ -230,30 +230,30 @@ export function AiAssistantBubble() {
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
-              width: 35,
+              width: 45,
               height: 110,
               background: 'transparent',
               filter: 'drop-shadow(-3px 2px 8px rgba(0,0,0,0.25))',
             }}
             aria-label="Open Theo"
           >
-            <svg viewBox="0 0 35 110" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+            <svg viewBox="0 0 45 110" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
               <path
                 d={`
-                  M 35,0
-                  C 35,0 35,4 28,8
-                  C 16,14 11,24 11,55
-                  C 11,86 16,96 28,102
-                  C 35,106 35,110 35,110
-                  L 35,0 Z
+                  M 45,0
+                  C 45,0 45,4 36,8
+                  C 20,14 14,24 14,55
+                  C 14,86 20,96 36,102
+                  C 45,106 45,110 45,110
+                  L 45,0 Z
                 `}
                 className="fill-accent"
               />
             </svg>
-            <svg viewBox="0 0 20 70" className="relative z-10 w-4 h-12 text-white" style={{ marginLeft: 6 }}>
-              <Star4 size={4} x={12} y={12} />
-              <Star4 size={7} x={10} y={35} />
-              <Star4 size={3.5} x={13} y={56} />
+            <svg viewBox="0 0 28 70" className="relative z-10 w-6 h-14 text-white" style={{ marginLeft: 6 }}>
+              <Star4 size={5} x={17} y={11} />
+              <Star4 size={10} x={13} y={35} />
+              <Star4 size={4.5} x={18} y={57} />
             </svg>
             {hasUnreadBriefing && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
