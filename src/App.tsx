@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
