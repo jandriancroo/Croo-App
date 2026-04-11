@@ -136,8 +136,27 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
       const brandItem = brandItems.find(bi => bi.id === brandItemId);
       if (!brandItem) throw new Error('Brand item not found');
 
+      // FIRST: check for any existing deactivated item already linked to this brand template
+      const { data: deactivatedLinked } = await supabase
+        .from('inventory_items')
+        .select('id')
+        .eq('location_id', locationId)
+        .eq('brand_item_id', brandItemId)
+        .eq('is_active', false)
+        .limit(1)
+        .maybeSingle();
+
+      if (deactivatedLinked) {
+        // Re-activate the existing item instead of creating a new one
+        const { error } = await supabase
+          .from('inventory_items')
+          .update({ is_active: true, name: brandItem.product_name, category: brandItem.category })
+          .eq('id', deactivatedLinked.id);
+        if (error) throw error;
+        return;
+      }
+
       // Fetch pack metadata from an existing deployment (source location's item)
-      // This ensures count_unit, count_units_per_case, and pack_size propagate on activation
       let packMeta: { count_unit?: string; count_units_per_case?: number; pack_size?: string; pack_quantity?: number } = {};
       const { data: existingDeploy } = await supabase
         .from('brand_inventory_deployments')
@@ -183,7 +202,6 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
       });
 
       if (matchedLocal) {
-        // Link existing local item to brand template + sync name, category, and pack metadata
         const { error } = await supabase
           .from('inventory_items')
           .update({
@@ -197,7 +215,6 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
         if (error) throw error;
         toast.info(`Linked existing "${matchedLocal.name}" to brand item`);
       } else {
-        // No match found — create new with pack metadata from source
         const { error } = await supabase
           .from('inventory_items')
           .insert({
