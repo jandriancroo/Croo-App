@@ -196,15 +196,27 @@ Return ONLY valid JSON, no markdown.`,
       brandId = org?.brand_id || null;
     }
 
-    // Get existing brand templates for dedup
+    // Get existing brand templates AND vendor mappings for dedup
     let existingTemplates: any[] = [];
+    let existingVendorMappings: any[] = [];
     if (brandId) {
-      const { data } = await admin
-        .from("brand_inventory_templates")
-        .select("id, product_name, item_number, vendor_source")
-        .eq("brand_id", brandId);
-      existingTemplates = data || [];
+      const [templatesRes, mappingsRes] = await Promise.all([
+        admin
+          .from("brand_inventory_templates")
+          .select("id, product_name, item_number, vendor_source")
+          .eq("brand_id", brandId),
+        admin
+          .from("brand_vendor_mappings")
+          .select("brand_template_id, vendor_item_id")
+      ]);
+      existingTemplates = templatesRes.data || [];
+      existingVendorMappings = mappingsRes.data || [];
     }
+
+    // Build a set of all known vendor item IDs from brand_vendor_mappings
+    const knownVendorIds = new Set(
+      existingVendorMappings.map((m: any) => m.vendor_item_id?.toLowerCase()).filter(Boolean)
+    );
 
     const itemMap = new Map<string, any>();
     for (const item of locationItems || []) {
