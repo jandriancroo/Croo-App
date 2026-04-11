@@ -196,15 +196,27 @@ Return ONLY valid JSON, no markdown.`,
       brandId = org?.brand_id || null;
     }
 
-    // Get existing brand templates for dedup
+    // Get existing brand templates AND vendor mappings for dedup
     let existingTemplates: any[] = [];
+    let existingVendorMappings: any[] = [];
     if (brandId) {
-      const { data } = await admin
-        .from("brand_inventory_templates")
-        .select("id, product_name, item_number, vendor_source")
-        .eq("brand_id", brandId);
-      existingTemplates = data || [];
+      const [templatesRes, mappingsRes] = await Promise.all([
+        admin
+          .from("brand_inventory_templates")
+          .select("id, product_name, item_number, vendor_source")
+          .eq("brand_id", brandId),
+        admin
+          .from("brand_vendor_mappings")
+          .select("brand_template_id, vendor_item_id")
+      ]);
+      existingTemplates = templatesRes.data || [];
+      existingVendorMappings = mappingsRes.data || [];
     }
+
+    // Build a set of all known vendor item IDs from brand_vendor_mappings
+    const knownVendorIds = new Set(
+      existingVendorMappings.map((m: any) => m.vendor_item_id?.toLowerCase()).filter(Boolean)
+    );
 
     const itemMap = new Map<string, any>();
     for (const item of locationItems || []) {
@@ -260,6 +272,7 @@ Return ONLY valid JSON, no markdown.`,
       }
 
       // For unmatched items: check if brand template already exists (dedup)
+      // Cross-reference BOTH brand_inventory_templates AND brand_vendor_mappings
       if (!match && brandId && li.product_name) {
         const templateByNumber = li.item_number
           ? existingTemplates.find(t => t.item_number?.toLowerCase() === li.item_number.toLowerCase())
@@ -267,8 +280,12 @@ Return ONLY valid JSON, no markdown.`,
         const templateByName = existingTemplates.find(
           t => t.product_name.toLowerCase() === li.product_name.toLowerCase()
         );
+        // Also check if this vendor SKU is already mapped in brand_vendor_mappings
+        const mappedByVendorId = li.item_number
+          ? knownVendorIds.has(li.item_number.toLowerCase())
+          : false;
 
-        if (!templateByNumber && !templateByName) {
+        if (!templateByNumber && !templateByName && !mappedByVendorId) {
           newDrafts.push({
             brand_id: brandId,
             product_name: li.product_name,
@@ -284,11 +301,20 @@ Return ONLY valid JSON, no markdown.`,
             match_keywords: [],
           });
         } else {
-          // Already exists as template, link if we have the template ID
+          // Already exists as template or mapping — link to the template
           const existingTemplate = templateByNumber || templateByName;
           if (existingTemplate) {
             itemRow.matched_template_id = existingTemplate.id;
             itemRow.match_status = "matched_brand";
+          } else if (mappedByVendorId) {
+            // Find the template ID via the vendor mapping
+            const mapping = existingVendorMappings.find(
+              (m: any) => m.vendor_item_id?.toLowerCase() === li.item_number.toLowerCase()
+            );
+            if (mapping?.brand_template_id) {
+              itemRow.matched_template_id = mapping.brand_template_id;
+              itemRow.match_status = "matched_brand";
+            }
           }
         }
       }
