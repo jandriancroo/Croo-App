@@ -177,7 +177,7 @@ export default function Messages() {
 
       {/* Mobile Layout */}
       <div className="flex md:hidden h-[calc(100vh-12rem)] flex-col">
-        <div className="mb-2 mt-2">
+        <div className="mb-2 mt-1">
           <h1 className="text-3xl font-bold">Chat</h1>
         </div>
         <div className="flex items-center gap-2 mb-2">
