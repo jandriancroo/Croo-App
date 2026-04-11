@@ -570,6 +570,12 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">{tzLabel}</span>
                     </div>
+                    {vendorTerritory && (
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Territory: {vendorTerritory}</span>
+                      </div>
+                    )}
                     <div className="border-t pt-3">
                       <p className="text-xs font-medium mb-1.5">Business Hours</p>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
