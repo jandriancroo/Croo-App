@@ -14,6 +14,7 @@ import IngredientsSection from "./recipe-catalog/IngredientsSection";
 import RecipeBuilderDialog from "./RecipeBuilderDialog";
 import BulkReassignBar from "./recipe-catalog/BulkReassignBar";
 import { usePosMapping } from "./recipe-catalog/usePosMapping";
+import UnmappedPosBanner from "./recipe-catalog/UnmappedPosBanner";
 
 interface RecipeCatalogProps {
   locationId: string;
@@ -159,6 +160,11 @@ const RecipeCatalog = ({ locationId, readOnly = false, brandId }: RecipeCatalogP
 
   return (
     <>
+      <UnmappedPosBanner
+        locationId={locationId}
+        brandId={brandId}
+        mappedBlueprints={posMap.mappedBlueprints}
+      />
       <Card>
         <Collapsible defaultOpen={true}>
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
