@@ -230,32 +230,30 @@ export function AiAssistantBubble() {
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
-              width: 30,
+              width: 35,
               height: 110,
               background: 'transparent',
               filter: 'drop-shadow(-3px 2px 8px rgba(0,0,0,0.25))',
             }}
             aria-label="Open Theo"
           >
-            {/* Tall skinny tapered tab — narrow protrusion, rounded left edge */}
-            <svg viewBox="0 0 30 110" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+            <svg viewBox="0 0 35 110" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
               <path
                 d={`
-                  M 30,0
-                  C 30,0 30,4 24,8
-                  C 14,14 10,24 10,55
-                  C 10,86 14,96 24,102
-                  C 30,106 30,110 30,110
-                  L 30,0 Z
+                  M 35,0
+                  C 35,0 35,4 28,8
+                  C 16,14 11,24 11,55
+                  C 11,86 16,96 28,102
+                  C 35,106 35,110 35,110
+                  L 35,0 Z
                 `}
                 className="fill-accent"
               />
             </svg>
-            {/* Three 4-point stars */}
-            <svg viewBox="0 0 16 70" className="relative z-10 w-3 h-12 text-white" style={{ marginLeft: 6 }}>
-              <Star4 size={3} x={10} y={12} />
-              <Star4 size={5.5} x={8} y={35} />
-              <Star4 size={2.5} x={11} y={56} />
+            <svg viewBox="0 0 20 70" className="relative z-10 w-4 h-12 text-white" style={{ marginLeft: 6 }}>
+              <Star4 size={4} x={12} y={12} />
+              <Star4 size={7} x={10} y={35} />
+              <Star4 size={3.5} x={13} y={56} />
             </svg>
             {hasUnreadBriefing && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
