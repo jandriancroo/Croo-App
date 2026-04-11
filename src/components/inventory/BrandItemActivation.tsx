@@ -207,7 +207,6 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
         if (brandItem?.is_recipe) {
           const missing = getMissingDeps(brandItem);
           if (missing.length > 0) {
-            // Show dependency prompt instead of activating directly
             setDepPrompt({ recipe: brandItem, deps: missing });
             return 'dep_prompt';
           }
@@ -216,13 +215,30 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
       await activateSingle(brandItemId, activate);
       return 'done';
     },
+    onMutate: async ({ brandItemId, activate }) => {
+      // Cancel outgoing refetches so they don't overwrite optimistic update
+      await queryClient.cancelQueries({ queryKey: ['location-brand-items', locationId] });
+      const previous = queryClient.getQueryData(['location-brand-items', locationId]);
+      // Optimistically update the active items list
+      queryClient.setQueryData(['location-brand-items', locationId], (old: any[] | undefined) => {
+        if (!old) return old;
+        return old.map(item =>
+          item.brand_item_id === brandItemId ? { ...item, is_active: activate } : item
+        );
+      });
+      return { previous };
+    },
     onSuccess: (result, { activate }) => {
-      if (result === 'dep_prompt') return; // Don't toast — dialog handles it
+      if (result === 'dep_prompt') return;
       queryClient.invalidateQueries({ queryKey: ['location-brand-items', locationId] });
       queryClient.invalidateQueries({ queryKey: ['inventory-items', locationId] });
       toast.success(activate ? 'Item activated' : 'Item deactivated');
     },
-    onError: (err: any) => {
+    onError: (err: any, _vars, context) => {
+      // Roll back optimistic update
+      if (context?.previous) {
+        queryClient.setQueryData(['location-brand-items', locationId], context.previous);
+      }
       toast.error(err.message || 'Failed to toggle item');
     },
   });
