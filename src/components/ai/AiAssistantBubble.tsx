@@ -234,25 +234,32 @@ export function AiAssistantBubble() {
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
-              width: 44,
-              height: 88,
+              width: 48,
+              height: 100,
               background: 'transparent',
-              filter: 'drop-shadow(-3px 2px 6px rgba(0,0,0,0.25))',
+              filter: 'drop-shadow(-3px 2px 8px rgba(0,0,0,0.25))',
             }}
             aria-label="Open Theo"
           >
-            {/* Tapered tab shape */}
-            <svg viewBox="0 0 44 88" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+            {/* Tapered lobe shape — bulges left from right edge, S-curve top/bottom */}
+            <svg viewBox="0 0 48 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
               <path
-                d="M44,0 L44,88 L20,88 C8,88 0,76 0,64 L0,56 C0,48 4,44 10,44 C4,44 0,40 0,32 L0,24 C0,12 8,0 20,0 Z"
+                d={`
+                  M 48,0
+                  C 48,0 48,8 38,12
+                  C 20,20 8,30 8,50
+                  C 8,70 20,80 38,88
+                  C 48,92 48,100 48,100
+                  L 48,0 Z
+                `}
                 className="fill-accent"
               />
             </svg>
             {/* Three 4-point stars */}
-            <svg viewBox="0 0 28 56" className="relative z-10 w-5 h-10 text-white mr-1">
-              <Star4 size={4} x={18} y={10} />
-              <Star4 size={8} x={12} y={28} />
-              <Star4 size={3} x={20} y={46} />
+            <svg viewBox="0 0 24 52" className="relative z-10 w-4 h-9 text-white" style={{ marginLeft: 4 }}>
+              <Star4 size={3.5} x={15} y={9} />
+              <Star4 size={7} x={11} y={26} />
+              <Star4 size={3} x={16} y={43} />
             </svg>
             {hasUnreadBriefing && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
