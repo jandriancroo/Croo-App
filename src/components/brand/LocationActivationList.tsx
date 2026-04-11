@@ -86,7 +86,7 @@ export default function LocationActivationList({
                   ) : (
                     <Rocket className="h-3.5 w-3.5" />
                   )}
-                  Deploy
+                  {active === 0 ? 'Deploy' : 'Sync'}
                 </Button>
               )}
               <Button
