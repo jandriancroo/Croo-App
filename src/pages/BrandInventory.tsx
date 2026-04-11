@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, ScanSearch, Filter, Rocket, Loader2,
+  RefreshCw, Shield, FileText, ScanSearch, Filter,
 } from 'lucide-react';
 
 import { useUserRole } from '@/hooks/useUserRole';
@@ -30,6 +30,7 @@ import VendorGapFinder from '@/components/brand/VendorGapFinder';
 import InlineLinkToExisting from '@/components/brand/InlineLinkToExisting';
 import TheoMappingTab from '@/components/brand/TheoMappingTab';
 import ArchivedRecipesSection from '@/components/brand/ArchivedRecipesSection';
+import LocationActivationList from '@/components/brand/LocationActivationList';
 
 const FALLBACK_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
