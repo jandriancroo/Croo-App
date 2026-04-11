@@ -86,7 +86,7 @@ function buildJobPostingJsonLd(job: JobListing) {
   const syndicationTitle = buildSyndicationTitle(job.title, company, addr.city);
   const validThrough = job.expires_at
     ? job.expires_at.split('T')[0]
-    : new Date(new Date(job.posted_at).getTime() + 30 * 86400000).toISOString().split('T')[0];
+    : new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
 
   const posting: any = {
     '@context': 'https://schema.org/',
