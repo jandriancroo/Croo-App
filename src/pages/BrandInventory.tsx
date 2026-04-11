@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, ScanSearch, Filter,
+  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity,
 } from 'lucide-react';
 
 import { useUserRole } from '@/hooks/useUserRole';
@@ -31,6 +31,7 @@ import InlineLinkToExisting from '@/components/brand/InlineLinkToExisting';
 import TheoMappingTab from '@/components/brand/TheoMappingTab';
 import ArchivedRecipesSection from '@/components/brand/ArchivedRecipesSection';
 import LocationActivationList from '@/components/brand/LocationActivationList';
+import VendorHealthDashboard from '@/components/brand/VendorHealthDashboard';
 
 const FALLBACK_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
@@ -375,6 +376,10 @@ export default function BrandInventory() {
               <BookOpen className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Guide</span>
             </TabsTrigger>
+            <TabsTrigger value="health" className="gap-1.5">
+              <Activity className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Health</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* ===== CATALOG TAB ===== */}
@@ -607,6 +612,11 @@ export default function BrandInventory() {
           {/* ===== GUIDE TAB ===== */}
           <TabsContent value="guide" className="space-y-4">
             <BrandInventoryGuide locationCount={locations.length} itemCount={statusCounts.live} />
+          </TabsContent>
+
+          {/* ===== HEALTH TAB ===== */}
+          <TabsContent value="health" className="space-y-4">
+            {brandId && <VendorHealthDashboard brandId={brandId} />}
           </TabsContent>
         </Tabs>
       </div>
