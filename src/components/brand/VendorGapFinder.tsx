@@ -27,7 +27,7 @@ interface OutlierItem {
   packSize: string;
   categoryName: string;
   price: number | null;
-  vendorSource: 'pfg' | 'pa';
+  vendorSource: 'pfg' | 'pa' | 'invoice';
   status?: string;
 }
 
@@ -63,7 +63,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         packSize: d.pack_size || '',
         categoryName: d.category_name || 'Uncategorized',
         price: null,
-        vendorSource: d.vendor_source as 'pfg' | 'pa',
+        vendorSource: d.vendor_source as 'pfg' | 'pa' | 'invoice',
         status: d.status,
       })) as OutlierItem[];
     },
