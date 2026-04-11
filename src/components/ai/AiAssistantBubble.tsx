@@ -230,32 +230,32 @@ export function AiAssistantBubble() {
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
-              width: 48,
-              height: 100,
+              width: 30,
+              height: 110,
               background: 'transparent',
               filter: 'drop-shadow(-3px 2px 8px rgba(0,0,0,0.25))',
             }}
             aria-label="Open Theo"
           >
-            {/* Tapered lobe shape — bulges left from right edge, S-curve top/bottom */}
-            <svg viewBox="0 0 48 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+            {/* Tall skinny tapered tab — narrow protrusion, rounded left edge */}
+            <svg viewBox="0 0 30 110" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
               <path
                 d={`
-                  M 48,0
-                  C 48,0 48,8 38,12
-                  C 20,20 8,30 8,50
-                  C 8,70 20,80 38,88
-                  C 48,92 48,100 48,100
-                  L 48,0 Z
+                  M 30,0
+                  C 30,0 30,4 24,8
+                  C 14,14 10,24 10,55
+                  C 10,86 14,96 24,102
+                  C 30,106 30,110 30,110
+                  L 30,0 Z
                 `}
                 className="fill-accent"
               />
             </svg>
             {/* Three 4-point stars */}
-            <svg viewBox="0 0 24 52" className="relative z-10 w-4 h-9 text-white" style={{ marginLeft: 4 }}>
-              <Star4 size={3.5} x={15} y={9} />
-              <Star4 size={7} x={11} y={26} />
-              <Star4 size={3} x={16} y={43} />
+            <svg viewBox="0 0 16 70" className="relative z-10 w-3 h-12 text-white" style={{ marginLeft: 6 }}>
+              <Star4 size={3} x={10} y={12} />
+              <Star4 size={5.5} x={8} y={35} />
+              <Star4 size={2.5} x={11} y={56} />
             </svg>
             {hasUnreadBriefing && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
