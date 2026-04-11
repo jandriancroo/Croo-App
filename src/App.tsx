@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -222,26 +223,28 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <ScrollToTop />
-        <AuthProvider>
-          <LocationProvider>
-            <CrooCashAnimationProvider>
-              <DockToastProvider>
-                <DiagnosticMode />
-                <BreakOverlay />
-                <AppWithSplash />
-              </DockToastProvider>
-            </CrooCashAnimationProvider>
-          </LocationProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <ScrollToTop />
+          <AuthProvider>
+            <LocationProvider>
+              <CrooCashAnimationProvider>
+                <DockToastProvider>
+                  <DiagnosticMode />
+                  <BreakOverlay />
+                  <AppWithSplash />
+                </DockToastProvider>
+              </CrooCashAnimationProvider>
+            </LocationProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </HelmetProvider>
 );
 
 export default App;
