@@ -16,40 +16,21 @@ interface UnmappedItem {
   totalQty: number;
 }
 
-/** Normalize a POS item name for fuzzy matching — collapse variants like "2nd BYO" / "Second BYO" */
-function normalizePosName(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/\b(2nd|second|third|3rd|fourth|4th|fifth|5th)\b/gi, (m) => {
-      const map: Record<string, string> = {
-        "2nd": "2nd", "second": "2nd",
-        "3rd": "3rd", "third": "3rd",
-        "4th": "4th", "fourth": "4th",
-        "5th": "5th", "fifth": "5th",
-      };
-      return map[m.toLowerCase()] || m.toLowerCase();
-    })
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPosBannerProps) => {
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  // Get all mapped POS item names (normalized for comparison)
+  // Get all mapped POS item names — exact match (lowercase for case-insensitive only)
   const mappedPosNames = useMemo(() => {
     const names = new Set<string>();
     for (const entry of mappedBlueprints.values()) {
       for (const posItem of entry.posItems) {
-        names.add(normalizePosName(posItem));
+        names.add(posItem.toLowerCase().trim());
       }
     }
     return names;
   }, [mappedBlueprints]);
 
-  // Fetch excluded categories from brand
   const { data: excludedCats } = useQuery({
     queryKey: ["brand-excluded-cats", brandId],
     enabled: !!brandId,
@@ -100,22 +81,18 @@ const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPo
         if (data?.length) allRows.push(...data);
       }
 
-      // Aggregate by NORMALIZED name, keep best display name (longest/most descriptive)
+      // Aggregate by exact item name (case-insensitive key, preserve display name)
       const itemMap = new Map<string, { displayName: string; category: string; totalQty: number }>();
       for (const row of allRows) {
         const mix = row.product_mix as any[];
         if (!Array.isArray(mix)) continue;
         for (const item of mix) {
           if (!item.itemName) continue;
-          const key = normalizePosName(item.itemName);
+          const key = item.itemName.toLowerCase().trim();
           const qty = Number(item.quantity) || 0;
           const existing = itemMap.get(key);
           if (existing) {
             existing.totalQty += qty;
-            // Keep the shorter/cleaner display name
-            if (item.itemName.length < existing.displayName.length) {
-              existing.displayName = item.itemName;
-            }
           } else {
             itemMap.set(key, { displayName: item.itemName, category: item.category || "Unknown", totalQty: qty });
           }
@@ -135,6 +112,7 @@ const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPo
 
     const result: UnmappedItem[] = [];
     for (const [key, val] of unmappedItems.entries()) {
+      // Exact match against mapped POS items
       if (mappedPosNames.has(key)) continue;
       const catLower = val.category.toLowerCase();
       if (excluded.includes(catLower) && !overrides.includes(key)) continue;
@@ -144,7 +122,6 @@ const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPo
 
     result.sort((a, b) => b.totalQty - a.totalQty);
 
-    // Group by category
     const groups = new Map<string, UnmappedItem[]>();
     for (const item of result) {
       const cat = item.category;
