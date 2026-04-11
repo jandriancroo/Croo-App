@@ -303,14 +303,6 @@ const PosLinkIndicator = ({
             ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
             : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
         )}
-      <button
-281:         type="button"
-        className={cn(
-          "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors",
-          isMapped
-            ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
-            : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
-        )}
         onClick={(e) => {
           e.stopPropagation();
           if (!isMapped) {
