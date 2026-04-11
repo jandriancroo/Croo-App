@@ -48,6 +48,7 @@ export function AiAssistantBubble() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [pinnedIndices, setPinnedIndices] = useState<Set<number>>(new Set());
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const briefingLoadedRef = useRef(false);
@@ -69,6 +70,59 @@ export function AiAssistantBubble() {
   const today = useMemo(() => {
     return formatInTimeZone(new Date(), timezone || 'America/Los_Angeles', 'yyyy-MM-dd');
   }, [timezone]);
+
+  // ── Load persisted chat history on open ──
+  useEffect(() => {
+    if (!open || !currentLocation?.id || historyLoaded) return;
+    let cancelled = false;
+    
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        
+        const { data, error } = await supabase
+          .from('theo_chat_messages' as any)
+          .select('role, content')
+          .eq('user_id', user.id)
+          .eq('location_id', currentLocation.id)
+          .eq('chat_date', today)
+          .order('created_at', { ascending: true });
+        
+        if (error || cancelled) return;
+        
+        if (data && data.length > 0) {
+          setMessages(data.map((m: any) => ({ role: m.role, content: m.content })));
+          briefingLoadedRef.current = true; // skip briefing injection if we have history
+          scrollToBottom();
+        }
+      } catch (e) {
+        console.error('Failed to load chat history:', e);
+      } finally {
+        if (!cancelled) setHistoryLoaded(true);
+      }
+    })();
+    
+    return () => { cancelled = true; };
+  }, [open, currentLocation?.id, today, historyLoaded]);
+
+  // ── Persist a single message to DB ──
+  const persistMessage = useCallback(async (msg: Message) => {
+    if (!currentLocation?.id) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await (supabase.from('theo_chat_messages' as any) as any).insert({
+        user_id: user.id,
+        location_id: currentLocation.id,
+        role: msg.role,
+        content: msg.content,
+        chat_date: today,
+      });
+    } catch (e) {
+      console.error('Failed to persist chat message:', e);
+    }
+  }, [currentLocation?.id, today]);
 
   const { data: briefing } = useQuery({
     queryKey: ['croo-ai-briefing', currentLocation?.id, today],
@@ -124,17 +178,20 @@ export function AiAssistantBubble() {
   useEffect(() => {
     if (open && briefing?.content && !briefingLoadedRef.current && messages.length === 0) {
       briefingLoadedRef.current = true;
-      setMessages([{ role: 'assistant', content: briefing.content }]);
+      const briefingMsg: Message = { role: 'assistant', content: briefing.content };
+      setMessages([briefingMsg]);
+      persistMessage(briefingMsg);
       if (briefing.id) {
         markRead.mutate(briefing.id);
       }
       scrollToBottom();
     }
-  }, [open, briefing]);
+  }, [open, briefing, historyLoaded]);
 
   useEffect(() => {
     briefingLoadedRef.current = false;
     setMessages([]);
+    setHistoryLoaded(false);
   }, [currentLocation?.id]);
 
   useEffect(() => {
