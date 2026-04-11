@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     // 2. Check existing items at this location to prevent dupes
     const { data: existingItems } = await supabase
       .from("inventory_items")
-      .select("id, name, item_number, pa_item_id, brand_item_id")
+      .select("id, name, item_number, pa_item_id, brand_item_id, is_active")
       .eq("location_id", locationId);
 
     const existingByBrandItemId = new Set(
