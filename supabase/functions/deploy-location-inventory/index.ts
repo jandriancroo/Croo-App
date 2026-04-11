@@ -57,10 +57,18 @@ Deno.serve(async (req) => {
     const existingByBrandItemId = new Set(
       (existingItems || []).filter((i: any) => i.brand_item_id).map((i: any) => i.brand_item_id)
     );
+    // For SKU matching, prefer active items to avoid re-pointing inactive dupes
     const existingBySku = new Map<string, string>();
+    const activeItemIds = new Set((existingItems || []).filter((i: any) => i.is_active).map((i: any) => i.id));
     for (const item of existingItems || []) {
-      if (item.item_number) existingBySku.set(item.item_number.trim().toLowerCase(), item.id);
-      if (item.pa_item_id) existingBySku.set(`pa:${item.pa_item_id.trim().toLowerCase()}`, item.id);
+      const addMapping = (key: string) => {
+        // Only overwrite if current entry is inactive and this one is active
+        if (!existingBySku.has(key) || (activeItemIds.has(item.id) && !activeItemIds.has(existingBySku.get(key)!))) {
+          existingBySku.set(key, item.id);
+        }
+      };
+      if (item.item_number) addMapping(item.item_number.trim().toLowerCase());
+      if (item.pa_item_id) addMapping(`pa:${item.pa_item_id.trim().toLowerCase()}`);
     }
 
     // 3. Collect unique storage locations and create them
