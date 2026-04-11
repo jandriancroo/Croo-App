@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { toast } from 'sonner';
-import { Loader2, MapPin, Clock, CheckCircle2, Building2, Rocket } from 'lucide-react';
+import { Loader2, MapPin, Clock, CheckCircle2, Building2, Rocket, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -102,6 +102,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [storeNumber, setStoreNumber] = useState('');
+  const [vendorTerritory, setVendorTerritory] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [orgId, setOrgId] = useState('');
@@ -132,6 +133,21 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
     enabled: open,
   });
 
+  // Fetch existing vendor territories for autocomplete
+  const { data: existingTerritories } = useQuery({
+    queryKey: ['vendor-territories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('vendor_territory')
+        .not('vendor_territory', 'is', null);
+      if (error) throw error;
+      const unique = [...new Set(data.map(d => d.vendor_territory).filter(Boolean))] as string[];
+      return unique.sort();
+    },
+    enabled: open,
+  });
+
   // Reset on open
   useEffect(() => {
     if (open) {
@@ -141,6 +157,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setName('');
       setAddress('');
       setStoreNumber('');
+      setVendorTerritory('');
       setLat('');
       setLng('');
       setOrgId('');
@@ -186,6 +203,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           longitude: lng ? parseFloat(lng) : null,
           organization_id: orgId || null,
           store_number: storeNumber.trim() || null,
+          vendor_territory: vendorTerritory.trim() || null,
         })
         .select('id')
         .single();
@@ -457,6 +475,21 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Vendor Territory</Label>
+                    <Input
+                      placeholder="e.g., PFG-SoCal"
+                      value={vendorTerritory}
+                      onChange={e => setVendorTerritory(e.target.value)}
+                      list="vendor-territory-options"
+                    />
+                    <datalist id="vendor-territory-options">
+                      {existingTerritories?.map(t => (
+                        <option key={t} value={t} />
+                      ))}
+                    </datalist>
+                    <p className="text-[10px] text-muted-foreground">Vendor distribution region — autocompletes from existing locations</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label>Latitude</Label>
@@ -537,6 +570,12 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">{tzLabel}</span>
                     </div>
+                    {vendorTerritory && (
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Territory: {vendorTerritory}</span>
+                      </div>
+                    )}
                     <div className="border-t pt-3">
                       <p className="text-xs font-medium mb-1.5">Business Hours</p>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
