@@ -36,14 +36,7 @@ Deno.serve(async (req) => {
     <lastmod>${now.split("T")[0]}</lastmod>
   </url>`);
 
-    // Server-rendered jobs page with JSON-LD for Google Jobs
-    const seoUrl = supabaseUrl.replace('//', '//') + "/functions/v1/jobs-seo";
-    urls.push(`  <url>
-    <loc>${seoUrl}</loc>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-    <lastmod>${now.split("T")[0]}</lastmod>
-  </url>`);
+    // The /jobs page on croohq.com now contains all JSON-LD structured data for Google Jobs
 
     // Individual job listing apply pages
     for (const listing of listings || []) {
