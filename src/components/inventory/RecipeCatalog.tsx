@@ -160,6 +160,11 @@ const RecipeCatalog = ({ locationId, readOnly = false, brandId }: RecipeCatalogP
 
   return (
     <>
+      <UnmappedPosBanner
+        locationId={locationId}
+        brandId={brandId}
+        mappedBlueprints={posMap.mappedBlueprints}
+      />
       <Card>
         <Collapsible defaultOpen={true}>
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
