@@ -141,17 +141,11 @@ const PosLinkIndicator = ({
   const handleSelect = (posItemName: string) => {
     const mt = mapping?.mappingType || inferMappingType(blueprintCategory);
     const rg = mapping?.reconciliationGroup ?? null;
-    // Append to existing pos_items if already mapped, otherwise start fresh
     const existingItems = mapping?.posItems || [];
-    const merged = existingItems.includes(posItemName)
-      ? existingItems
-      : [...existingItems, posItemName];
+    if (existingItems.includes(posItemName)) return; // already linked
+    const merged = [...existingItems, posItemName];
     onLink(blueprintId, blueprintName, merged, mt, rg);
-    setIsPickerOpen(false);
-    setSearch("");
-    setQuSearchMode(false);
-    setQuItems([]);
-    setQuError(null);
+    // Keep picker open so user can add more
   };
 
   const handleRemovePosItem = (posItemName: string) => {
