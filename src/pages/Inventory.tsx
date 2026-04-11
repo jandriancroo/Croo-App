@@ -401,10 +401,6 @@ const Inventory = () => {
                   <Upload className="h-4 w-4 mr-2" />
                   Export to Master
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => { setShowSettings(false); setShowDeployDialog(true); }} className="w-full justify-start">
-                  <Rocket className="h-4 w-4 mr-2" />
-                  Deploy to Location
-                </Button>
               </div>
             )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
@@ -435,20 +431,12 @@ const Inventory = () => {
       />
 
       {brandInfo && (
-        <>
-          <ExportToMasterDialog
-            open={showExportMaster}
-            onOpenChange={setShowExportMaster}
-            locationId={locationId!}
-            brandId={brandInfo}
-          />
-          <DeployToLocationDialog
-            open={showDeployDialog}
-            onOpenChange={setShowDeployDialog}
-            brandId={brandInfo}
-            sourceLocationId={locationId!}
-          />
-        </>
+        <ExportToMasterDialog
+          open={showExportMaster}
+          onOpenChange={setShowExportMaster}
+          locationId={locationId!}
+          brandId={brandInfo}
+        />
       )}
 
 
