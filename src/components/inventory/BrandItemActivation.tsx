@@ -72,8 +72,13 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
 
   const linkedBrandIds = useMemo(() => {
     const map = new Map<string, string>();
+    // First pass: set any linked item
     activeItems.forEach(item => {
       if (item.brand_item_id) map.set(item.brand_item_id, item.id);
+    });
+    // Second pass: prefer the active one (for duplicates)
+    activeItems.forEach(item => {
+      if (item.brand_item_id && item.is_active) map.set(item.brand_item_id, item.id);
     });
     return map;
   }, [activeItems]);
