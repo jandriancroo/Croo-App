@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { toast } from 'sonner';
-import { Loader2, MapPin, Clock, CheckCircle2, Building2, Rocket } from 'lucide-react';
+import { Loader2, MapPin, Clock, CheckCircle2, Building2, Rocket, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -572,7 +572,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                     </div>
                     {vendorTerritory && (
                       <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <Truck className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">Territory: {vendorTerritory}</span>
                       </div>
                     )}
