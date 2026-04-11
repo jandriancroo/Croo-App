@@ -288,6 +288,30 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         // Non-blocking
       }
 
+      // 6. Auto-activate brand inventory items via edge function
+      try {
+        const { data: orgData2 } = await supabase
+          .from('organizations')
+          .select('brand_id')
+          .eq('id', orgId)
+          .single();
+
+        if (orgData2?.brand_id) {
+          const { data: invResult, error: invError } = await supabase.functions.invoke(
+            'deploy-location-inventory',
+            { body: { locationId, brandId: orgData2.brand_id } }
+          );
+          if (invError) {
+            console.error('Inventory auto-deploy error:', invError);
+          } else {
+            console.log('Inventory auto-deploy result:', invResult);
+          }
+        }
+      } catch (invDeployErr) {
+        console.error('Inventory auto-deploy error:', invDeployErr);
+        // Non-blocking — location is still created
+      }
+
       setDeployComplete(true);
       refetchLocations();
       toast.success(`${name} deployed successfully!`);
@@ -527,8 +551,8 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                   </div>
                   <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <p className="text-xs text-muted-foreground">
-                      <strong>What happens next:</strong> Brand event categories and state-specific labor rules will be auto-deployed based on the address. Only your Super Admin account will be assigned. 
-                      Switch to the new location to invite team members, set up checklists, configure inventory, and connect integrations.
+                      <strong>What happens next:</strong> Brand event categories, state-specific labor rules, and all brand inventory items will be auto-deployed. Only your Super Admin account will be assigned. 
+                      Switch to the new location to invite team members, set up checklists, organize storage locations, and connect integrations.
                     </p>
                   </div>
                 </div>

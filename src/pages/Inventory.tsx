@@ -10,11 +10,11 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, ArrowLeft, DollarSign } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, Upload, ArrowLeft, DollarSign } from "lucide-react";
 import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
 import RecipeGeniusCard from "@/components/inventory/menu-pricing/RecipeGeniusCard";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
-import { format } from "date-fns";
+
 import { formatPeriodLabel } from "@/utils/periodLabelUtils";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -26,7 +26,7 @@ import InventoryItemsManager from "@/components/inventory/InventoryItemsManager"
 import StartCountDialog from "@/components/inventory/StartCountDialog";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
-import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialog";
+
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 
 import BrandItemActivation from "@/components/inventory/BrandItemActivation";
@@ -36,9 +36,9 @@ const Inventory = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { isAdmin, role } = useUserRole();
+  const { isAdmin } = useUserRole();
   const { hasPermission } = useRolePermissions();
-  const { canDeploy, isBrandLevel } = useInventoryPermissions();
+  const { isBrandLevel } = useInventoryPermissions();
   const { timezone } = useLocationTimezone();
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
@@ -47,7 +47,7 @@ const Inventory = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
   const [showExportMaster, setShowExportMaster] = useState(false);
-  const [showDeployDialog, setShowDeployDialog] = useState(false);
+  
   
   const [showDailyCount, setShowDailyCount] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -401,10 +401,6 @@ const Inventory = () => {
                   <Upload className="h-4 w-4 mr-2" />
                   Export to Master
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => { setShowSettings(false); setShowDeployDialog(true); }} className="w-full justify-start">
-                  <Rocket className="h-4 w-4 mr-2" />
-                  Deploy to Location
-                </Button>
               </div>
             )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
@@ -435,20 +431,12 @@ const Inventory = () => {
       />
 
       {brandInfo && (
-        <>
-          <ExportToMasterDialog
-            open={showExportMaster}
-            onOpenChange={setShowExportMaster}
-            locationId={locationId!}
-            brandId={brandInfo}
-          />
-          <DeployToLocationDialog
-            open={showDeployDialog}
-            onOpenChange={setShowDeployDialog}
-            brandId={brandInfo}
-            sourceLocationId={locationId!}
-          />
-        </>
+        <ExportToMasterDialog
+          open={showExportMaster}
+          onOpenChange={setShowExportMaster}
+          locationId={locationId!}
+          brandId={brandInfo}
+        />
       )}
 
 
