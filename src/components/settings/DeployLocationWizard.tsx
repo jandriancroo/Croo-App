@@ -288,6 +288,30 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         // Non-blocking
       }
 
+      // 6. Auto-activate brand inventory items via edge function
+      try {
+        const { data: orgData2 } = await supabase
+          .from('organizations')
+          .select('brand_id')
+          .eq('id', orgId)
+          .single();
+
+        if (orgData2?.brand_id) {
+          const { data: invResult, error: invError } = await supabase.functions.invoke(
+            'deploy-location-inventory',
+            { body: { locationId, brandId: orgData2.brand_id } }
+          );
+          if (invError) {
+            console.error('Inventory auto-deploy error:', invError);
+          } else {
+            console.log('Inventory auto-deploy result:', invResult);
+          }
+        }
+      } catch (invDeployErr) {
+        console.error('Inventory auto-deploy error:', invDeployErr);
+        // Non-blocking — location is still created
+      }
+
       setDeployComplete(true);
       refetchLocations();
       toast.success(`${name} deployed successfully!`);
