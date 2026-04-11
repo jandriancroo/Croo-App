@@ -14,6 +14,7 @@ import IngredientsSection from "./recipe-catalog/IngredientsSection";
 import RecipeBuilderDialog from "./RecipeBuilderDialog";
 import BulkReassignBar from "./recipe-catalog/BulkReassignBar";
 import { usePosMapping } from "./recipe-catalog/usePosMapping";
+import UnmappedPosBanner from "./recipe-catalog/UnmappedPosBanner";
 
 interface RecipeCatalogProps {
   locationId: string;
