@@ -168,12 +168,15 @@ Deno.serve(async (req) => {
         const existing = (existingItems || []).find((i: any) => i.brand_item_id === tmpl.id);
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
-          // Re-activate deactivated items (e.g., Palm Springs safe-reset scenario)
+          // Re-activate and sync name/category to brand standard
           await supabase
             .from("inventory_items")
-            .update({ is_active: true })
-            .eq("id", existing.id)
-            .eq("is_active", false);
+            .update({
+              is_active: true,
+              name: tmpl.product_name,
+              category: tmpl.category,
+            })
+            .eq("id", existing.id);
         }
         skipped++;
         continue;
