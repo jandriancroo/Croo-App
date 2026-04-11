@@ -185,9 +185,14 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
       console.error(`[pos-search] QU API error: ${response.status} ${errorText.substring(0, 200)}`);
+      const isFallbackable = response.status === 429 || response.status >= 500;
       return new Response(
-        JSON.stringify({ error: `QU API returned ${response.status}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: isFallbackable ? "RATE_LIMITED" : `QU API returned ${response.status}`,
+          fallback: isFallbackable,
+          items: [],
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
