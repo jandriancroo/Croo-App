@@ -160,15 +160,19 @@ export default function Messages() {
     <Layout>
       {/* Desktop Layout */}
       <div className="hidden md:flex h-[calc(100vh-12rem)] gap-4">
-        <div className="w-80 border-r border-border bg-card rounded-lg p-4 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
+        <div className="w-80 flex flex-col">
+          <div className="flex items-center justify-between mb-2">
             <h1 className="text-3xl font-bold">Chat</h1>
             <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
-          {chatListContent}
+          <div className="mb-2">
+            <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
+          </div>
+          <div className="flex-1 min-h-0 border-r border-border bg-card rounded-lg p-4 flex flex-col">
+            {chatListContent}
+          </div>
         </div>
         <div className="flex-1 bg-card rounded-lg flex min-w-0 h-full">
           {chatWindowContent}
