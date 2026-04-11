@@ -37,6 +37,7 @@ export async function fetchBlueprintsForLocation(
       .select(selectFields)
       .eq("location_id", locationId)
       .eq("is_active", true)
+      .neq("source", "simulator")
       .order("name"),
     brandId
       ? supabase

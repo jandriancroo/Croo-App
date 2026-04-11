@@ -711,40 +711,43 @@ async function fetchPosMappings(locationId: string) {
 }
 
 async function fetchBlueprints(locationId: string) {
-  // First try location-specific blueprints
-  const { data: localData, error: localErr } = await supabase
-    .from("recipe_blueprints" as any)
-    .select("id, yield_qty, yield_unit, produces_item_id")
-    .eq("location_id", locationId)
-    .eq("is_active", true);
-  if (localErr) throw localErr;
-  if (localData && localData.length > 0) {
-    return localData as unknown as Array<{ id: string; yield_qty: number | null; yield_unit: string | null; produces_item_id: string | null }>;
+  // Resolve brand_id via location → org → brand chain
+  const { resolveBrandId } = await import("@/utils/resolveBrandId");
+  const brandId = await resolveBrandId(locationId);
+
+  // Merge pattern: brand-level base + local overrides (excluding simulator recipes)
+  const selectFields = "id, yield_qty, yield_unit, produces_item_id, source";
+
+  const [localRes, brandRes] = await Promise.all([
+    supabase
+      .from("recipe_blueprints" as any)
+      .select(selectFields)
+      .eq("location_id", locationId)
+      .eq("is_active", true)
+      .neq("source", "simulator"),
+    brandId
+      ? supabase
+          .from("recipe_blueprints" as any)
+          .select(selectFields)
+          .eq("brand_id", brandId)
+          .is("location_id", null)
+          .eq("is_active", true)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (localRes.error) throw localRes.error;
+  if (brandRes.error) throw brandRes.error;
+
+  // Brand base, local wins on id conflicts
+  const merged = new Map<string, Record<string, any>>();
+  for (const bp of ((brandRes.data || []) as unknown as Array<Record<string, any>>)) {
+    merged.set(String(bp.id), bp);
+  }
+  for (const bp of ((localRes.data || []) as unknown as Array<Record<string, any>>)) {
+    merged.set(String(bp.id), bp);
   }
 
-  // Fallback: resolve brand_id via location → org → brand chain, then fetch brand-level blueprints
-  const { data: loc } = await supabase
-    .from("locations")
-    .select("organization_id")
-    .eq("id", locationId)
-    .maybeSingle();
-  if (!loc?.organization_id) return [];
-
-  const { data: org } = await supabase
-    .from("organizations")
-    .select("brand_id")
-    .eq("id", loc.organization_id)
-    .maybeSingle();
-  if (!org?.brand_id) return [];
-
-  const { data: brandData, error: brandErr } = await supabase
-    .from("recipe_blueprints" as any)
-    .select("id, yield_qty, yield_unit, produces_item_id")
-    .eq("brand_id", org.brand_id)
-    .is("location_id", null)
-    .eq("is_active", true);
-  if (brandErr) throw brandErr;
-  return (brandData || []) as unknown as Array<{ id: string; yield_qty: number | null; yield_unit: string | null; produces_item_id: string | null }>;
+  return Array.from(merged.values()) as unknown as Array<{ id: string; yield_qty: number | null; yield_unit: string | null; produces_item_id: string | null }>;
 }
 
 async function fetchAllIngredients(_locationId: string) {
