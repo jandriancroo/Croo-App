@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { locationId, brandId } = await req.json();
+    const { locationId, brandId, templateId } = await req.json();
     if (!locationId || !brandId) {
       return new Response(
         JSON.stringify({ error: "locationId and brandId required" }),
@@ -27,12 +27,18 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Fetch all live brand templates
-    const { data: templates, error: tmplErr } = await supabase
+    // 1. Fetch live brand templates (optionally scoped to a single template)
+    let tmplQuery = supabase
       .from("brand_inventory_templates")
       .select("*")
       .eq("brand_id", brandId)
       .eq("status", "live");
+    
+    if (templateId) {
+      tmplQuery = tmplQuery.eq("id", templateId);
+    }
+
+    const { data: templates, error: tmplErr } = await tmplQuery;
 
     if (tmplErr) throw tmplErr;
     if (!templates || templates.length === 0) {
