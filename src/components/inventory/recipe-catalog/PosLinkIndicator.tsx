@@ -192,6 +192,29 @@ const PosLinkIndicator = ({
           </Button>
         </div>
 
+        {/* Already-mapped chips */}
+        {mapping && mapping.posItems.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap mb-1.5">
+            <span className="text-[9px] text-muted-foreground">Linked:</span>
+            {mapping.posItems.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-600 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                onClick={() => {
+                  if (confirm(`Remove "${name}" from this mapping?`)) {
+                    handleRemovePosItem(name);
+                  }
+                }}
+                title={`Remove "${name}"`}
+              >
+                {name}
+                <X className="h-2 w-2" />
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Mode toggle */}
         {quSearchMode && (
           <button
