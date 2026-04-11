@@ -32,8 +32,7 @@ Deno.serve(async (req) => {
       .from("brand_inventory_templates")
       .select("*")
       .eq("brand_id", brandId)
-      .eq("status", "live")
-      .is("location_id", null); // brand-level only, not location drafts
+      .eq("status", "live");
 
     if (tmplErr) throw tmplErr;
     if (!templates || templates.length === 0) {
