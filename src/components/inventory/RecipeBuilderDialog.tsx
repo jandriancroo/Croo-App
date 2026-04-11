@@ -88,6 +88,7 @@ interface SearchableItem {
   recipe_yield_qty?: number | null;
   recipe_yield_unit?: string | null;
   category?: string | null;
+  catalog_section?: string | null;
 }
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -310,8 +311,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     queryKey: ["blueprints-for-recipe", locationId, editBlueprintId],
     queryFn: async () => {
       const { fetchBlueprintsForLocation } = await import("@/utils/resolveBrandId");
-      const allData = await fetchBlueprintsForLocation(locationId, "id, name, yield_qty, yield_unit, category");
-      let results = (allData || []) as unknown as { id: string; name: string; yield_qty: number | null; yield_unit: string | null; category: string | null }[];
+      const allData = await fetchBlueprintsForLocation(locationId, "id, name, yield_qty, yield_unit, category, catalog_section");
+      let results = (allData || []) as unknown as { id: string; name: string; yield_qty: number | null; yield_unit: string | null; category: string | null; catalog_section: string | null }[];
       if (editBlueprintId) {
         results = results.filter(r => r.id !== editBlueprintId);
       }
@@ -355,6 +356,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           yield_qty: bp.yield_qty,
           yield_unit: bp.yield_unit,
           category: bp.category,
+          catalog_section: (bp as any).catalog_section,
         });
       });
     }
