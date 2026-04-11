@@ -349,7 +349,8 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         const template = (createdTemplates || []).find((t: any) => {
           if (item.vendorSource === 'pfg') return t.item_number === item.itemNumber;
           if (item.vendorSource === 'pa') return t.pa_item_id === item.itemNumber;
-          return false;
+          // For invoice items, match by product_name since they use generated item numbers
+          return t.vendor_source?.startsWith('invoice');
         });
         if (template && item.itemNumber) {
           mappingInserts.push({
@@ -652,7 +653,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Badge variant="outline" className="text-[10px]">
-                        {item.vendorSource === 'pa' ? 'PA' : 'PFG'}
+                        {item.vendorSource === 'pa' ? 'PA' : item.vendorSource === 'invoice' ? 'INV' : 'PFG'}
                       </Badge>
                       <Badge variant="outline" className="text-[10px]">
                         {item.categoryName}
