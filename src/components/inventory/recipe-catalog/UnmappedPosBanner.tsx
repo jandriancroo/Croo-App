@@ -16,16 +16,34 @@ interface UnmappedItem {
   totalQty: number;
 }
 
+/** Normalize a POS item name for fuzzy matching — collapse variants like "2nd BYO" / "Second BYO" */
+function normalizePosName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\b(2nd|second|third|3rd|fourth|4th|fifth|5th)\b/gi, (m) => {
+      const map: Record<string, string> = {
+        "2nd": "2nd", "second": "2nd",
+        "3rd": "3rd", "third": "3rd",
+        "4th": "4th", "fourth": "4th",
+        "5th": "5th", "fifth": "5th",
+      };
+      return map[m.toLowerCase()] || m.toLowerCase();
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPosBannerProps) => {
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  // Get all mapped POS item names (lowercase for comparison)
+  // Get all mapped POS item names (normalized for comparison)
   const mappedPosNames = useMemo(() => {
     const names = new Set<string>();
     for (const entry of mappedBlueprints.values()) {
       for (const posItem of entry.posItems) {
-        names.add(posItem.toLowerCase().trim());
+        names.add(normalizePosName(posItem));
       }
     }
     return names;
@@ -52,7 +70,6 @@ const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPo
   const { data: unmappedItems } = useQuery({
     queryKey: ["unmapped-pos-items", locationId, brandId, Array.from(mappedPosNames).join(",")],
     queryFn: async () => {
-      // Get all brand location IDs
       let locationIds = [locationId];
       if (brandId) {
         const { data: orgs } = await supabase
@@ -83,51 +100,59 @@ const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPo
         if (data?.length) allRows.push(...data);
       }
 
-      // Aggregate quantities by item name
-      const itemMap = new Map<string, { category: string; totalQty: number }>();
+      // Aggregate by NORMALIZED name, keep best display name (longest/most descriptive)
+      const itemMap = new Map<string, { displayName: string; category: string; totalQty: number }>();
       for (const row of allRows) {
         const mix = row.product_mix as any[];
         if (!Array.isArray(mix)) continue;
         for (const item of mix) {
           if (!item.itemName) continue;
-          const key = item.itemName.toLowerCase().trim();
-          const existing = itemMap.get(key);
+          const key = normalizePosName(item.itemName);
           const qty = Number(item.quantity) || 0;
+          const existing = itemMap.get(key);
           if (existing) {
             existing.totalQty += qty;
+            // Keep the shorter/cleaner display name
+            if (item.itemName.length < existing.displayName.length) {
+              existing.displayName = item.itemName;
+            }
           } else {
-            itemMap.set(key, { category: item.category || "Unknown", totalQty: qty });
+            itemMap.set(key, { displayName: item.itemName, category: item.category || "Unknown", totalQty: qty });
           }
         }
       }
 
       return itemMap;
     },
-    enabled: mappedPosNames.size >= 0, // always run
+    enabled: mappedPosNames.size >= 0,
   });
 
-  // Compute unmapped list
-  const unmapped = useMemo(() => {
-    if (!unmappedItems) return [];
+  // Compute unmapped list, grouped by category
+  const { unmapped, categoryGroups } = useMemo(() => {
+    if (!unmappedItems) return { unmapped: [], categoryGroups: new Map<string, UnmappedItem[]>() };
     const excluded = excludedCats?.excluded || [];
     const overrides = excludedCats?.overrides || [];
 
     const result: UnmappedItem[] = [];
     for (const [key, val] of unmappedItems.entries()) {
-      // Skip if already mapped
       if (mappedPosNames.has(key)) continue;
-
-      // Skip excluded categories (unless overridden)
       const catLower = val.category.toLowerCase();
       if (excluded.includes(catLower) && !overrides.includes(key)) continue;
-
-      // Only show items with meaningful volume (>= 3 sold in 7 days)
       if (val.totalQty < 3) continue;
-
-      result.push({ name: key, category: val.category, totalQty: val.totalQty });
+      result.push({ name: val.displayName, category: val.category, totalQty: val.totalQty });
     }
 
-    return result.sort((a, b) => b.totalQty - a.totalQty);
+    result.sort((a, b) => b.totalQty - a.totalQty);
+
+    // Group by category
+    const groups = new Map<string, UnmappedItem[]>();
+    for (const item of result) {
+      const cat = item.category;
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat)!.push(item);
+    }
+
+    return { unmapped: result, categoryGroups: groups };
   }, [unmappedItems, mappedPosNames, excludedCats]);
 
   if (dismissed || unmapped.length === 0) return null;
@@ -154,21 +179,36 @@ const UnmappedPosBanner = ({ locationId, brandId, mappedBlueprints }: UnmappedPo
         </button>
       </div>
       {expanded && (
-        <div className="px-3 pb-3 space-y-1 max-h-60 overflow-y-auto">
-          {unmapped.map(item => (
-            <div
-              key={item.name}
-              className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-amber-500/5"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-foreground font-medium truncate">{item.name}</span>
-                <span className="text-muted-foreground text-[10px] shrink-0">{item.category}</span>
+        <div className="px-3 pb-3 space-y-2 max-h-72 overflow-y-auto">
+          {Array.from(categoryGroups.entries())
+            .sort(([, a], [, b]) => {
+              const totalA = a.reduce((s, i) => s + i.totalQty, 0);
+              const totalB = b.reduce((s, i) => s + i.totalQty, 0);
+              return totalB - totalA;
+            })
+            .map(([cat, items]) => (
+              <div key={cat}>
+                <div className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider px-1 mb-1">
+                  {cat}
+                  <span className="ml-1.5 text-amber-400/50 font-normal normal-case">
+                    ({items.length})
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  {items.map(item => (
+                    <div
+                      key={item.name}
+                      className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-amber-500/5"
+                    >
+                      <span className="text-foreground truncate">{item.name}</span>
+                      <span className="text-amber-400 tabular-nums text-[11px] shrink-0 ml-2">
+                        {item.totalQty}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <span className="text-amber-400 tabular-nums text-[11px] shrink-0 ml-2">
-                {item.totalQty} sold
-              </span>
-            </div>
-          ))}
+            ))}
         </div>
       )}
     </div>
