@@ -223,9 +223,11 @@ export function AiAssistantBubble() {
             }}
             aria-label="Open Theo"
           >
-            <Sparkles className="h-4 w-4 text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.5)]" />
+            <Sparkles className="h-3 w-3 text-white" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.35))' }} />
+            <Sparkles className="h-4.5 w-4.5 text-white" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }} />
+            <Sparkles className="h-2.5 w-2.5 text-white" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
             {hasUnreadBriefing && (
-              <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
             )}
           </motion.button>
         )}
