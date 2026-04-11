@@ -166,6 +166,8 @@ ${JSON.stringify(item, null, 2)}
       headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "public, max-age=3600",
+        "Content-Security-Policy": "default-src 'self'; script-src 'none'",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (err) {
