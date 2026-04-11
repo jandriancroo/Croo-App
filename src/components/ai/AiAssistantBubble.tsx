@@ -214,13 +214,12 @@ export function AiAssistantBubble() {
             exit={{ x: 60 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             onClick={() => setOpen(true)}
-            className="fixed right-0 z-[55] flex flex-col items-center justify-center gap-1 rounded-l-xl shadow-lg"
+            className="fixed right-0 z-[55] flex flex-col items-center justify-center gap-1 rounded-l-xl shadow-lg bg-accent"
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
               width: 32,
               height: 72,
-              background: 'linear-gradient(180deg, hsl(22 84% 52%), hsl(22 84% 44%))',
             }}
             aria-label="Open Theo"
           >
@@ -264,10 +263,7 @@ export function AiAssistantBubble() {
               }}
             >
               {/* Header — orange gradient matching dock */}
-              <div
-                className="relative flex items-center justify-between px-4 py-3 border-b border-white/10"
-                style={{ background: 'linear-gradient(135deg, hsl(22 84% 52%), hsl(22 84% 42%))' }}
-              >
+              <div className="relative flex items-center justify-between px-4 py-3 border-b border-white/10 bg-accent">
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl overflow-hidden ring-2 ring-white/20">
                     <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
