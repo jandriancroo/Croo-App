@@ -208,10 +208,24 @@ export function AiAssistantBubble() {
     }, 50);
   };
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     setMessages([]);
     briefingLoadedRef.current = false;
+    setHistoryLoaded(false);
     setInput('');
+    // Clear today's messages from DB
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && currentLocation?.id) {
+        await (supabase.from('theo_chat_messages' as any) as any)
+          .delete()
+          .eq('user_id', user.id)
+          .eq('location_id', currentLocation.id)
+          .eq('chat_date', today);
+      }
+    } catch (e) {
+      console.error('Failed to clear chat history:', e);
+    }
   };
 
   const handlePin = async (msgIndex: number, content: string) => {
