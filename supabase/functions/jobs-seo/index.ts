@@ -139,9 +139,9 @@ Deno.serve(async (req) => {
   <meta name="description" content="Find restaurant and fast food jobs at Blaze Pizza and other brands. Apply for pizza maker, team member, shift manager, cook, and kitchen crew positions near you — no account needed.">
   <meta name="keywords" content="pizza jobs, fast food jobs, restaurant jobs, team member jobs, shift manager jobs, kitchen crew, food service careers, Blaze Pizza hiring, cook jobs near me, cashier restaurant jobs">
   <link rel="canonical" href="${canonicalUrl}">
-  <script type="application/ld+json">
-${JSON.stringify(jsonLdItems, null, 2)}
-  </script>
+  ${jsonLdItems.map((item: any) => `<script type="application/ld+json">
+${JSON.stringify(item, null, 2)}
+  </script>`).join("\n  ")}
   <style>
     body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #333; line-height: 1.6; }
     h1 { color: #111; font-size: 1.8rem; }
