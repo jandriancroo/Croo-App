@@ -15,6 +15,13 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 
+/* Clean 4-point star — no tiny accent dots */
+const FourPointStar = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12 0C12 0 14.5 9.5 12 12C9.5 14.5 0 12 0 12C0 12 9.5 9.5 12 12C14.5 14.5 24 12 24 12C24 12 14.5 14.5 12 12C9.5 9.5 12 24 12 24C12 24 14.5 14.5 12 12C9.5 9.5 12 0 12 0Z" />
+  </svg>
+);
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -214,18 +221,19 @@ export function AiAssistantBubble() {
             exit={{ x: 60 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             onClick={() => setOpen(true)}
-            className="fixed right-0 z-[55] flex flex-col items-center justify-center gap-1 rounded-l-xl shadow-lg bg-accent"
+            className="fixed right-0 z-[55] flex flex-col items-center justify-center gap-1.5 rounded-l-xl bg-accent"
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
               width: 32,
               height: 72,
+              boxShadow: '-4px 2px 12px rgba(0,0,0,0.25), -1px 0 4px rgba(0,0,0,0.1)',
             }}
             aria-label="Open Theo"
           >
-            <Sparkles className="h-3 w-3 text-white" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.35))' }} />
-            <Sparkles className="h-4.5 w-4.5 text-white" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }} />
-            <Sparkles className="h-2.5 w-2.5 text-white" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
+            <FourPointStar className="h-3 w-3 text-white" />
+            <FourPointStar className="h-5 w-5 text-white" />
+            <FourPointStar className="h-2.5 w-2.5 text-white" />
             {hasUnreadBriefing && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
             )}
