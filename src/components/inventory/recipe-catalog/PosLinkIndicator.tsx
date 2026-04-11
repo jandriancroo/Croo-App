@@ -322,7 +322,7 @@ const PosLinkIndicator = ({
       {/* Individual POS item removal */}
       {isMapped && mapping.posItems.length > 1 && (
         <div className="flex items-center gap-0.5 flex-wrap">
-          {mapping.posItems.map((name) => (
+          {mapping.posItems.slice(1).map((name) => (
             <button
               key={name}
               type="button"
