@@ -225,13 +225,13 @@ export function AiAssistantBubble() {
             exit={{ x: 60 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             onClick={() => setOpen(true)}
-            className="fixed right-0 z-[55] flex flex-col items-center justify-center gap-1.5 bg-accent rounded-l-xl"
+            className="fixed right-0 z-[55] flex flex-col items-center justify-center gap-1.5 bg-accent rounded-l-xl border-l border-y border-white/15"
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
               width: 36,
               height: 110,
-              boxShadow: '-4px 2px 12px rgba(0,0,0,0.2), -1px 0 4px rgba(0,0,0,0.08)',
+              boxShadow: '-6px 0 20px rgba(0,0,0,0.3), -2px 0 6px rgba(0,0,0,0.15), inset 1px 0 0 rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.08)',
             }}
             aria-label="Open Theo"
           >
