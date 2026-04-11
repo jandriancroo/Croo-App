@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
           "@type": "Organization",
           name: company,
           sameAs: `https://croohq.com/apply/${org?.slug}`,
-          logo: "https://croohq.com/lovable-uploads/8e73c640-11e0-4527-97bd-4e7e tried-0dca98ce477c.webp",
+          logo: "https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/email-assets/croo-logo-transparent.webp",
         },
         jobLocation: {
           "@type": "Place",
