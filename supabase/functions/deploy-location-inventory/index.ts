@@ -164,9 +164,17 @@ Deno.serve(async (req) => {
     for (const tmpl of [...nonRecipeTemplates, ...recipeTemplates]) {
       // Check for existing item linked to this template
       if (existingByBrandItemId.has(tmpl.id)) {
-        // Already deployed — find existing item id
+        // Already deployed — find existing item id and re-activate if needed
         const existing = (existingItems || []).find((i: any) => i.brand_item_id === tmpl.id);
-        if (existing) templateToItemId.set(tmpl.id, existing.id);
+        if (existing) {
+          templateToItemId.set(tmpl.id, existing.id);
+          // Re-activate deactivated items (e.g., Palm Springs safe-reset scenario)
+          await supabase
+            .from("inventory_items")
+            .update({ is_active: true })
+            .eq("id", existing.id)
+            .eq("is_active", false);
+        }
         skipped++;
         continue;
       }
