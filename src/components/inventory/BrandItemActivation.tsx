@@ -116,11 +116,22 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
   const activateSingle = async (brandItemId: string, activate: boolean) => {
     const existingItemId = linkedBrandIds.get(brandItemId);
     if (existingItemId) {
-      const { error } = await supabase
-        .from('inventory_items')
-        .update({ is_active: activate })
-        .eq('id', existingItemId);
-      if (error) throw error;
+      if (activate) {
+        // Activate just the primary item
+        const { error } = await supabase
+          .from('inventory_items')
+          .update({ is_active: true })
+          .eq('id', existingItemId);
+        if (error) throw error;
+      } else {
+        // Deactivate ALL local items linked to this brand template (handles duplicates)
+        const { error } = await supabase
+          .from('inventory_items')
+          .update({ is_active: false })
+          .eq('location_id', locationId)
+          .eq('brand_item_id', brandItemId);
+        if (error) throw error;
+      }
     } else if (activate) {
       const brandItem = brandItems.find(bi => bi.id === brandItemId);
       if (!brandItem) throw new Error('Brand item not found');
