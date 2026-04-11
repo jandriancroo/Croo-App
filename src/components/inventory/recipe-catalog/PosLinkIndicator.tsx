@@ -303,13 +303,17 @@ const PosLinkIndicator = ({
             ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
             : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
         )}
+      <button
+281:         type="button"
+        className={cn(
+          "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors",
+          isMapped
+            ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+            : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+        )}
         onClick={(e) => {
           e.stopPropagation();
-          if (isMapped) {
-            if (confirm(`Unlink "${mapping.posItems[0]}" from this recipe?`)) {
-              onUnlink(blueprintId);
-            }
-          } else {
+          if (!isMapped) {
             setIsPickerOpen(true);
           }
         }}
@@ -320,7 +324,11 @@ const PosLinkIndicator = ({
         {isMapped ? (
           <>
             <Link2 className="h-3 w-3" />
-            <span className="max-w-[80px] truncate">{mapping.posItems[0]}</span>
+            <span className="max-w-[120px] truncate">
+              {mapping.posItems.length === 1
+                ? mapping.posItems[0]
+                : `${mapping.posItems[0]} +${mapping.posItems.length - 1}`}
+            </span>
           </>
         ) : (
           <>
@@ -329,7 +337,65 @@ const PosLinkIndicator = ({
           </>
         )}
       </button>
-      {/* Reconciliation group setter — show on mapped items without a group */}
+      {/* Add another POS name to existing mapping */}
+      {isMapped && (
+        <button
+          type="button"
+          className="text-[9px] px-1 py-0.5 rounded border border-dashed border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsPickerOpen(true);
+          }}
+          title="Add another QU name"
+        >
+          +
+        </button>
+      )}
+      {/* Individual POS item removal */}
+      {isMapped && mapping.posItems.length > 1 && (
+        <div className="flex items-center gap-0.5 flex-wrap">
+          {mapping.posItems.map((name) => (
+            <button
+              key={name}
+              type="button"
+              className="text-[9px] px-1 py-0 rounded bg-emerald-500/5 text-emerald-600 hover:bg-red-500/10 hover:text-red-500 transition-colors flex items-center gap-0.5"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm(`Remove "${name}" from this mapping?`)) {
+                  handleRemovePosItem(name);
+                }
+              }}
+              title={`Remove "${name}"`}
+            >
+              {name}
+              <X className="h-2.5 w-2.5" />
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Unlink all */}
+      {isMapped && mapping.posItems.length === 1 && (
+        <button
+          type="button"
+          className="text-[9px] px-1 py-0.5 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Unlink "${mapping.posItems[0]}" from this recipe?`)) {
+              onUnlink(blueprintId);
+            }
+          }}
+          title="Unlink POS mapping"
+        >
+          <Link2Off className="h-3 w-3" />
+        </button>
+      )}
+      {/* Reconciliation group badge */}
+      {isMapped && mapping.reconciliationGroup && (
+        <span className="text-[9px] px-1 py-0 rounded bg-purple-500/10 text-purple-600 mr-0.5">
+          {mapping.reconciliationGroup}
+        </span>
+      )}
+      {/* Reconciliation group setter */}
       {isMapped && !mapping.reconciliationGroup && onUpdateMeta && (
         <button
           type="button"
