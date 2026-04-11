@@ -16,17 +16,20 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /* Clean 4-point star — no tiny accent dots */
-/* Clustered 4-point stars — matches reference icon layout */
-const TheoStarsIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 32 40" fill="currentColor" className={className}>
-    {/* Large star — center-left */}
-    <path d="M14 24 L14 14 Q14 20 8 20 Q14 20 14 26 Q14 20 20 20 Q14 20 14 14Z" transform="scale(1.3) translate(-2, -1)" />
-    {/* Medium star — upper right */}
-    <path d="M12 12 L12 8 Q12 10 9 10 Q12 10 12 12 Q12 10 15 10 Q12 10 12 8Z" transform="translate(8, -2) scale(1.1)" />
-    {/* Small star — far upper right */}
-    <path d="M12 12 L12 10 Q12 11 10.5 11 Q12 11 12 12 Q12 11 13.5 11 Q12 11 12 10Z" transform="translate(12, -4)" />
-  </svg>
-);
+/* Clean 4-point star */
+const Star4 = ({ size, x, y }: { size: number; x: number; y: number }) => {
+  const h = size; // half-height of star
+  const w = h * 0.38; // width is narrower
+  return (
+    <path
+      d={`M${x},${y - h} C${x + w * 0.3},${y - h * 0.3} ${x + w},${y - w * 0.3} ${x + w},${y}
+          C${x + w},${y + w * 0.3} ${x + w * 0.3},${y + h * 0.3} ${x},${y + h}
+          C${x - w * 0.3},${y + h * 0.3} ${x - w},${y + w * 0.3} ${x - w},${y}
+          C${x - w},${y - w * 0.3} ${x - w * 0.3},${y - h * 0.3} ${x},${y - h}Z`}
+      fill="currentColor"
+    />
+  );
+};
 
 interface Message {
   role: 'user' | 'assistant';
