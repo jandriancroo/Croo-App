@@ -16,15 +16,14 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /* Clean 4-point star — no tiny accent dots */
-/* Clean 4-point star with sharp tips and pinched waist */
-const Star4 = ({ size, x, y }: { size: number; x: number; y: number }) => (
-  <path
-    d={`M${x},${y - size} Q${x + size * 0.12},${y - size * 0.12} ${x + size},${y}
-        Q${x + size * 0.12},${y + size * 0.12} ${x},${y + size}
-        Q${x - size * 0.12},${y + size * 0.12} ${x - size},${y}
-        Q${x - size * 0.12},${y - size * 0.12} ${x},${y - size}Z`}
-    fill="currentColor"
-  />
+/* Clean 4-point star */
+const Star4 = ({ size }: { size: number }) => (
+  <svg width={size * 2} height={size * 2} viewBox="0 0 20 20" fill="none">
+    <path
+      d="M10,0 Q10.8,8 20,10 Q10.8,12 10,20 Q9.2,12 0,10 Q9.2,8 10,0Z"
+      fill="white"
+    />
+  </svg>
 );
 
 interface Message {
