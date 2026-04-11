@@ -16,11 +16,8 @@ Deno.serve(async (req) => {
   try {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, supabaseKey);
-
-    // Self-referencing canonical URL (the SSR endpoint itself)
     const canonicalUrl = `${SUPABASE_URL}/functions/v1/jobs-seo`;
 
-    // Fetch all active syndicated listings
     const { data: listings, error } = await supabase
       .from("job_listings")
       .select(`
@@ -35,41 +32,35 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
-    // Filter expired
     const now = new Date().toISOString();
     const activeListings = (listings || []).filter(
       (l: any) => !l.expires_at || l.expires_at > now
     );
 
-    // Build JSON-LD array
+    // Build JSON-LD
     const jsonLdItems = activeListings.map((listing: any) => {
       const addr = parseAddress(listing.location?.address);
       const org = listing.organization;
       const company = org?.brand_name || org?.name || "Company";
       const titleLower = (listing.title || "").toLowerCase();
 
-      // Calculate validThrough: use expires_at or default to posted_at + 30 days
       const validThrough = listing.expires_at
         ? listing.expires_at.split("T")[0]
         : new Date(new Date(listing.posted_at).getTime() + 30 * 86400000)
             .toISOString()
             .split("T")[0];
 
-      // Map occupationalCategory using BLS SOC / O*NET codes
-      const occupationalCategory = mapOccupationalCategory(titleLower);
-
-      // Build skills list based on role
-      const skills = buildSkills(titleLower);
+      const syndicationTitle = buildSyndicationTitle(listing.title, company, addr.city);
 
       const posting: any = {
         "@context": "https://schema.org/",
         "@type": "JobPosting",
-        title: listing.title,
-        description: buildEnrichedDescription(listing.title, listing.description, company),
+        title: syndicationTitle,
+        description: buildEnrichedDescription(listing.title, listing.description, company, addr.city, listing.employment_type),
         datePosted: listing.posted_at?.split("T")[0],
         validThrough,
         employmentType: mapEmploymentType(listing.employment_type),
-        occupationalCategory,
+        occupationalCategory: mapOccupationalCategory(titleLower),
         industry: "Food Services",
         identifier: {
           "@type": "PropertyValue",
@@ -80,6 +71,7 @@ Deno.serve(async (req) => {
           "@type": "Organization",
           name: company,
           sameAs: `https://croohq.com/apply/${org?.slug}`,
+          logo: "https://croohq.com/lovable-uploads/8e73c640-11e0-4527-97bd-4e7e tried-0dca98ce477c.webp",
         },
         jobLocation: {
           "@type": "Place",
@@ -94,7 +86,7 @@ Deno.serve(async (req) => {
         },
         directApply: true,
         url: `https://croohq.com/apply/${org?.slug}?utm_source=google_jobs&listing=${listing.id}`,
-        skills,
+        skills: buildSkills(titleLower),
       };
 
       if (listing.pay_min || listing.pay_max) {
@@ -113,20 +105,27 @@ Deno.serve(async (req) => {
       return posting;
     });
 
-    // Build a lightweight HTML page with JSON-LD that Google can crawl
+    // Build rich HTML job cards
     const jobCards = activeListings
       .map((listing: any) => {
         const org = listing.organization;
         const company = org?.brand_name || org?.name || "";
-        const city = parseAddress(listing.location?.address).city;
+        const addr = parseAddress(listing.location?.address);
         const payStr = listing.pay_min
-          ? `$${listing.pay_min}${listing.pay_max ? `-$${listing.pay_max}` : ""}/${listing.pay_type === "salary" ? "yr" : "hr"}`
+          ? `$${listing.pay_min}${listing.pay_max ? `–$${listing.pay_max}` : ""}/${listing.pay_type === "salary" ? "yr" : "hr"}`
           : "";
+        const empLabel = EMPLOYMENT_LABELS[listing.employment_type] || listing.employment_type;
+        const daysAgo = Math.floor((Date.now() - new Date(listing.posted_at).getTime()) / 86400000);
+        const postedLabel = daysAgo === 0 ? "Today" : daysAgo === 1 ? "1 day ago" : `${daysAgo} days ago`;
+        const applyUrl = `https://croohq.com/apply/${org?.slug}?utm_source=google_jobs&listing=${listing.id}`;
 
-        return `<article>
-        <h2><a href="https://croohq.com/apply/${org?.slug}?utm_source=google_jobs&listing=${listing.id}">${esc(listing.title)}</a></h2>
-        <p><strong>${esc(company)}</strong>${city ? ` — ${esc(city)}` : ""}${payStr ? ` | ${payStr}` : ""}</p>
-        <p>${esc((listing.description || "").substring(0, 300))}${(listing.description || "").length > 300 ? "…" : ""}</p>
+        return `<article itemscope itemtype="https://schema.org/JobPosting">
+        <h2 itemprop="title"><a href="${applyUrl}">${esc(buildSyndicationTitle(listing.title, company, addr.city))}</a></h2>
+        <p><strong itemprop="hiringOrganization" itemscope itemtype="https://schema.org/Organization"><span itemprop="name">${esc(company)}</span></strong>
+        ${addr.city ? ` — <span itemprop="jobLocation">${esc(addr.city)}, ${esc(addr.state)}</span>` : ""}
+        ${payStr ? ` | ${payStr}` : ""} | <span itemprop="employmentType">${esc(empLabel)}</span> | Posted ${postedLabel}</p>
+        <p>${esc((listing.description || "").substring(0, 500))}${(listing.description || "").length > 500 ? "…" : ""}</p>
+        <p><strong><a href="${applyUrl}">Apply Now — No Account Required</a></strong></p>
       </article>`;
       })
       .join("\n");
@@ -137,24 +136,29 @@ Deno.serve(async (req) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Restaurant Jobs Near You | CrooHQ — Pizza, Fast Food & Food Service Careers</title>
-  <meta name="description" content="Find restaurant and fast food jobs at Blaze Pizza and other brands. Apply for pizza maker, team member, shift manager, and kitchen positions — no account needed.">
+  <meta name="description" content="Find restaurant and fast food jobs at Blaze Pizza and other brands. Apply for pizza maker, team member, shift manager, cook, and kitchen crew positions near you — no account needed.">
+  <meta name="keywords" content="pizza jobs, fast food jobs, restaurant jobs, team member jobs, shift manager jobs, kitchen crew, food service careers, Blaze Pizza hiring, cook jobs near me, cashier restaurant jobs">
   <link rel="canonical" href="${canonicalUrl}">
   <script type="application/ld+json">
 ${JSON.stringify(jsonLdItems, null, 2)}
   </script>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #333; }
-    h1 { color: #111; }
-    article { border-bottom: 1px solid #eee; padding: 1rem 0; }
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #333; line-height: 1.6; }
+    h1 { color: #111; font-size: 1.8rem; }
+    h2 { font-size: 1.2rem; margin-bottom: 0.25rem; }
+    article { border-bottom: 1px solid #eee; padding: 1.25rem 0; }
     a { color: #2563eb; text-decoration: none; }
     a:hover { text-decoration: underline; }
+    .intro { font-size: 1.05rem; color: #555; margin-bottom: 2rem; }
   </style>
 </head>
 <body>
   <h1>Restaurant & Fast Food Jobs — Apply Now</h1>
-  <p>${activeListings.length} open positions at pizza restaurants and fast food locations. <a href="https://croohq.com/jobs">View all on CrooHQ</a></p>
+  <p class="intro">${activeListings.length} open restaurant, pizza, and fast food positions available now. Browse crew member, cook, shift manager, and kitchen staff jobs at Blaze Pizza and other brands. Apply directly — no account or sign-up required.</p>
   ${jobCards}
-  <footer><p><a href="https://croohq.com">CrooHQ</a> — Restaurant Management Platform</p></footer>
+  <footer>
+    <p>Powered by <a href="https://croohq.com">CrooHQ</a> — Restaurant Management Platform. Browse more <a href="https://croohq.com/jobs">restaurant jobs</a>.</p>
+  </footer>
 </body>
 </html>`;
 
@@ -169,6 +173,17 @@ ${JSON.stringify(jsonLdItems, null, 2)}
     return new Response("Internal server error", { status: 500 });
   }
 });
+
+// --- Constants ---
+
+const EMPLOYMENT_LABELS: Record<string, string> = {
+  full_time: "Full Time",
+  part_time: "Part Time",
+  contract: "Contract",
+  temporary: "Temporary",
+  seasonal: "Seasonal",
+  intern: "Intern",
+};
 
 // --- Helpers ---
 
@@ -190,19 +205,9 @@ function parseAddress(address: string | null) {
     );
     if (stateZipMatch) {
       const city = parts.length >= 3 ? parts[parts.length - 2] : "";
-      return {
-        street: parts[0],
-        city,
-        state: stateZipMatch[1].trim(),
-        zip: stateZipMatch[2],
-      };
+      return { street: parts[0], city, state: stateZipMatch[1].trim(), zip: stateZipMatch[2] };
     }
-    return {
-      street: parts[0],
-      city: parts.length >= 3 ? parts[1] : "",
-      state: lastPart,
-      zip: "",
-    };
+    return { street: parts[0], city: parts.length >= 3 ? parts[1] : "", state: lastPart, zip: "" };
   }
   return { street: address, city: "", state: "", zip: "" };
 }
@@ -220,22 +225,32 @@ function mapEmploymentType(type: string): string {
 }
 
 function mapOccupationalCategory(titleLower: string): string {
-  // BLS SOC / O*NET codes for restaurant industry
-  if (
-    titleLower.includes("manager") ||
-    titleLower.includes("supervisor") ||
-    titleLower.includes("lead")
-  ) {
-    return "11-9051.00 - Food Service Managers";
+  if (titleLower.includes("manager") || titleLower.includes("supervisor") || titleLower.includes("lead")) {
+    return "11-9051.00";
   }
   if (titleLower.includes("cook") || titleLower.includes("chef")) {
-    return "35-2014.00 - Cooks, Restaurant";
+    return "35-2014.00";
   }
   if (titleLower.includes("cashier")) {
-    return "41-2011.00 - Cashiers";
+    return "41-2011.00";
   }
-  // Default for team member / crew / counter worker roles
-  return "35-3023.00 - Fast Food and Counter Workers";
+  return "35-3023.00";
+}
+
+function buildSyndicationTitle(title: string, company: string, city: string): string {
+  const lower = title.toLowerCase();
+  // If title is generic like "Team Member", enrich it
+  if (lower === "team member" || lower === "crew member") {
+    return `Pizza Team Member – ${company}${city ? `, ${city}` : ""}`;
+  }
+  if (lower === "shift manager" || lower === "shift lead") {
+    return `Shift Manager – ${company} Restaurant${city ? `, ${city}` : ""}`;
+  }
+  // For other titles, just append company
+  if (!lower.includes(company.toLowerCase())) {
+    return `${title} – ${company}`;
+  }
+  return title;
 }
 
 function buildSkills(titleLower: string): string {
@@ -248,48 +263,46 @@ function buildSkills(titleLower: string): string {
     "Kitchen Operations",
     "Pizza Making",
     "Restaurant Operations",
+    "Point of Sale (POS)",
+    "Food Hygiene",
   ];
-
-  if (
-    titleLower.includes("manager") ||
-    titleLower.includes("supervisor") ||
-    titleLower.includes("lead")
-  ) {
-    return [
-      ...base,
-      "Team Leadership",
-      "Staff Training",
-      "Inventory Management",
-      "Labor Cost Management",
-      "Shift Management",
-      "Problem Solving",
-    ].join(", ");
+  if (titleLower.includes("manager") || titleLower.includes("supervisor") || titleLower.includes("lead")) {
+    return [...base, "Team Leadership", "Staff Training", "Inventory Management", "Labor Cost Management", "Shift Scheduling", "Conflict Resolution", "Performance Coaching"].join(", ");
   }
-
   return base.join(", ");
 }
 
 function buildEnrichedDescription(
   title: string,
   description: string | null,
-  company: string
+  company: string,
+  city: string,
+  employmentType: string
 ): string {
   const base = description || title;
-  // Append keyword-rich footer if description doesn't already mention key terms
-  const lower = base.toLowerCase();
-  const extras: string[] = [];
+  const empLabel = EMPLOYMENT_LABELS[employmentType] || employmentType;
+  const cityStr = city ? ` in ${city}` : "";
 
-  if (!lower.includes("restaurant"))
-    extras.push("restaurant");
-  if (!lower.includes("food service"))
-    extras.push("food service");
-  if (!lower.includes("pizza") && company.toLowerCase().includes("pizza"))
-    extras.push("pizza");
-  if (!lower.includes("fast food"))
-    extras.push("fast food");
+  // Build a rich, natural description that includes high-intent search phrases
+  const enrichment = `
 
-  if (extras.length > 0) {
-    return `${base}\n\nThis is a ${extras.join(" and ")} position at ${company}. Apply today — no account required.`;
-  }
-  return base;
+About This ${title} Position at ${company}
+
+${company} is hiring a ${title} for our fast casual pizza restaurant${cityStr}. This is a ${empLabel.toLowerCase()} food service position ideal for anyone looking for restaurant jobs, fast food careers, or kitchen crew opportunities in the area.
+
+What You'll Do:
+• Prepare fresh ingredients and build custom artisanal pizzas on our assembly line
+• Operate the pizza oven, cash register, and point-of-sale system
+• Deliver fast, friendly customer service in a high-energy dining environment
+• Maintain food safety standards, kitchen cleanliness, and health code compliance
+• Work as part of a restaurant crew in a fast-paced kitchen setting
+
+Who Should Apply:
+This position is perfect for people searching for pizza jobs, fast food jobs, restaurant crew member roles, line cook positions, cashier jobs, or entry-level food service careers. No previous experience is required — we provide full training for all kitchen and counter positions.
+
+${company} offers flexible scheduling, competitive hourly pay, meal discounts, and real opportunities to grow into shift manager and leadership roles. Whether you're looking for part-time evening shifts, weekend work, or a full-time restaurant career, we'd love to hear from you.
+
+Apply today through CrooHQ — no account or sign-up needed. Just tap Apply and you're in.`;
+
+  return base + enrichment;
 }
