@@ -204,41 +204,60 @@ export function useTasksData() {
       const dailyChecklistIds = dailyChecklists.map(c => c.id);
       const monthlyChecklistIds = monthlyChecklists.map(c => c.id);
 
-      const [dailySubmissionsResult, monthlySubmissionsResult] = await Promise.all([
+      const [allChecklistItemsResult, dailyResponsesResult, monthlyResponsesResult] = await Promise.all([
+        supabase
+          .from('checklist_items')
+          .select('id, checklist_id, days_of_week')
+          .in('checklist_id', checklistInfo.map(c => c.id)),
         dailyChecklistIds.length > 0
           ? supabase
-              .from('checklist_submissions')
-              .select('id, checklist_id, submitted_by')
-              .in('checklist_id', dailyChecklistIds)
-              .gte('submitted_at', periodStartBusiness.toISOString())
-              .lte('submitted_at', periodEndBusiness.toISOString())
-          : Promise.resolve({ data: [] }),
+              .from('checklist_responses')
+              .select(`
+                id,
+                item_id,
+                submission_id,
+                completed_by,
+                created_at,
+                checklist_submissions!inner(id, checklist_id, location_id)
+              `)
+              .in('checklist_submissions.checklist_id', dailyChecklistIds)
+              .eq('checklist_submissions.location_id', currentLocation.id)
+              .gte('created_at', periodStartBusiness.toISOString())
+              .lte('created_at', periodEndBusiness.toISOString())
+              .not('completed_by', 'is', null)
+          : Promise.resolve({ data: [] as any[] }),
         monthlyChecklistIds.length > 0
           ? supabase
-              .from('checklist_submissions')
-              .select('id, checklist_id, submitted_by')
-              .in('checklist_id', monthlyChecklistIds)
-              .gte('submitted_at', monthStart.toISOString())
-              .lte('submitted_at', monthEnd.toISOString())
-          : Promise.resolve({ data: [] }),
+              .from('checklist_responses')
+              .select(`
+                id,
+                item_id,
+                submission_id,
+                completed_by,
+                created_at,
+                checklist_submissions!inner(id, checklist_id, location_id)
+              `)
+              .in('checklist_submissions.checklist_id', monthlyChecklistIds)
+              .eq('checklist_submissions.location_id', currentLocation.id)
+              .gte('created_at', monthStart.toISOString())
+              .lte('created_at', monthEnd.toISOString())
+              .not('completed_by', 'is', null)
+          : Promise.resolve({ data: [] as any[] }),
       ]);
 
-      const allSubmissions = [
-        ...(dailySubmissionsResult.data || []),
-        ...(monthlySubmissionsResult.data || []),
+      const allChecklistItems = allChecklistItemsResult.data || [];
+      const allResponses = [
+        ...(dailyResponsesResult.data || []),
+        ...(monthlyResponsesResult.data || []),
       ];
 
-      const submissionIds = allSubmissions.map(s => s.id);
-
-      let allResponses: any[] = [];
-      if (submissionIds.length > 0) {
-        const { data: responses } = await supabase
-          .from('checklist_responses')
-          .select('id, item_id, submission_id, completed_by, created_at')
-          .in('submission_id', submissionIds)
-          .not('completed_by', 'is', null);
-        allResponses = responses || [];
-      }
+      const allSubmissions = allResponses.reduce((acc: Array<{ id: string; checklist_id: string }>, response: any) => {
+        const submission = response.checklist_submissions;
+        if (submission?.id && submission?.checklist_id && !acc.some(s => s.id === submission.id)) {
+          acc.push({ id: submission.id, checklist_id: submission.checklist_id });
+        }
+        return acc;
+      }, []);
 
       const allContributorIds = [...new Set(allResponses.map(r => r.completed_by).filter(Boolean))];
       let profilesMap: Record<string, { name: string; photo: string | null }> = {};
