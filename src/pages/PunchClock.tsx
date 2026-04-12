@@ -10,6 +10,7 @@ import { Clock, Coffee, LogOut, AlertTriangle, ArrowLeftRight } from 'lucide-rea
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.webp';
 import crooLogoInverted from '/croo-logo-inverted-transparent.png';
+import { useFaceDetection } from '@/hooks/useFaceDetection';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
@@ -178,8 +179,11 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   // Biometric scan overlay for kiosk mode
   const [biometricScanning, setBiometricScanning] = useState(false);
   const [biometricVerified, setBiometricVerified] = useState(false);
+  const [biometricStatus, setBiometricStatus] = useState<'searching' | 'detected' | 'verifying' | 'verified'>('searching');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const faceDetection = useFaceDetection(videoRef);
+  const pendingUserRef = useRef<{ data: any; role: string } | null>(null);
   
   // Custom punch clock settings
   const [customBackground, setCustomBackground] = useState<string | null>(null);
