@@ -5,21 +5,10 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChefHat, ClipboardCheck, Check, Settings2 } from 'lucide-react';
-import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
+import { ClipboardCheck, Settings2 } from 'lucide-react';
 import { EditDashboardDialog, CubeConfig, SectionKey, getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
-import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
-import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
-import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
-import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
-import { DataStreamTask } from '@/components/dashboard/DataStreamTask';
-import { OpusBackgroundSync } from '@/components/dashboard/OpusBackgroundSync';
-
-import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
-import { PendingDocumentsCard } from '@/components/dashboard/PendingDocumentsCard';
-import { I9UploadCard } from '@/components/dashboard/I9UploadCard';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
@@ -32,10 +21,12 @@ import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
+import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
+import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
 
 
 interface CateringOrder {
