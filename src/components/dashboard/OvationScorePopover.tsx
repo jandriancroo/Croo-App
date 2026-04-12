@@ -115,8 +115,8 @@ export function useOvationData() {
   const hasData = !!reviewsData && !reviewsData.error && !!reviewsData.wtdAverage;
   const cachedScore = !hasData ? getCachedScore(locationId) : null;
   const locationReady = !!locationId;
-  // Treat missing location during dashboard hydration as loading so the tab stays mounted.
-  const isActuallyLoading = !locationReady || !authReady || isLoading || isFetching;
+  // Only treat as "loading" for the initial fetch, NOT background refetches
+  const isActuallyLoading = !locationReady || !authReady || isLoading;
 
   return {
     reviewsData,
@@ -124,6 +124,8 @@ export function useOvationData() {
     isLoading: isActuallyLoading,
     cachedScore,
     authReady,
+    displayScore: hasData ? reviewsData?.wtdAverage : cachedScore?.wtdAverage,
+    displayCount: hasData ? reviewsData?.wtdCount : cachedScore?.wtdCount,
   };
 }
 
