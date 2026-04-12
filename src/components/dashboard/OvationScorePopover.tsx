@@ -131,9 +131,7 @@ export function useOvationData() {
 
 /** The small fixed tab trigger */
 export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boolean; onToggle: () => void; desktop?: boolean }) {
-  const { reviewsData, hasData, isLoading, cachedScore } = useOvationData();
-
-  const displayScore = hasData ? reviewsData?.wtdAverage : cachedScore?.wtdAverage;
+  const { isLoading, displayScore } = useOvationData();
 
   // Nothing to show and not loading — hide completely
   if (!displayScore && !isLoading) return null;
