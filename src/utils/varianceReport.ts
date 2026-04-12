@@ -123,9 +123,9 @@ export async function calculateVarianceReport(
   const matchLog = { pfg: { mapping: 0, fallback: 0, unmatched: 0 }, pa: { mapping: 0, fallback: 0, unmatched: 0 } };
 
   // ─── Per-item tracking ───
-  const itemActual = new Map<string, { beginning: number; purchases: number; ending: number; beginningQty: number; endingQty: number }>();
+  const itemActual = new Map<string, { beginning: number; purchases: number; ending: number; transfersIn: number; transfersOut: number; beginningQty: number; endingQty: number }>();
   const getOrCreateItem = (itemId: string) => {
-    if (!itemActual.has(itemId)) itemActual.set(itemId, { beginning: 0, purchases: 0, ending: 0, beginningQty: 0, endingQty: 0 });
+    if (!itemActual.has(itemId)) itemActual.set(itemId, { beginning: 0, purchases: 0, ending: 0, transfersIn: 0, transfersOut: 0, beginningQty: 0, endingQty: 0 });
     return itemActual.get(itemId)!;
   };
 
