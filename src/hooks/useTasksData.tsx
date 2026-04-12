@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
@@ -230,7 +230,7 @@ export function useTasksData() {
       if (submissionIds.length > 0) {
         const { data: responses } = await supabase
           .from('checklist_responses')
-          .select('id, submission_id, completed_by, created_at')
+          .select('id, item_id, submission_id, completed_by, created_at')
           .in('submission_id', submissionIds)
           .not('completed_by', 'is', null);
         allResponses = responses || [];
@@ -264,14 +264,24 @@ export function useTasksData() {
         const submissions = submissionsByChecklist[checklist.id] || [];
         const submissionIdsForChecklist = submissions.map(s => s.id);
 
-        let completedCount = 0;
+        // Build set of today's valid item IDs for dynamic checklists
+        const todayItemIds = checklist.template_type === 'dynamic'
+          ? new Set(checklist.checklist_items
+              ?.filter((item: any) => item.days_of_week && item.days_of_week.includes(currentDay))
+              .map((item: any) => item.id))
+          : null;
+
+        const uniqueItemIds = new Set<string>();
         const contributorIds = new Set<string>();
         let lastCompletedAt: string | null = null;
 
         submissionIdsForChecklist.forEach(subId => {
           const responses = responsesBySubmission[subId] || [];
-          completedCount += responses.length;
           responses.forEach((r: any) => {
+            // For dynamic checklists, only count responses for today's items
+            if (r.item_id && (todayItemIds === null || todayItemIds.has(r.item_id))) {
+              uniqueItemIds.add(r.item_id);
+            }
             if (r.completed_by) contributorIds.add(r.completed_by);
             if (r.created_at && (!lastCompletedAt || r.created_at > lastCompletedAt)) {
               lastCompletedAt = r.created_at;
@@ -283,8 +293,8 @@ export function useTasksData() {
           .map(id => profilesMap[id])
           .filter(Boolean);
 
-        const cappedCompletedCount = Math.min(completedCount, checklist.itemCount);
-        const completionRate = checklist.itemCount > 0 ? Math.min(cappedCompletedCount / checklist.itemCount, 1) : 0;
+        const completedCount = Math.min(uniqueItemIds.size, checklist.itemCount);
+        const completionRate = checklist.itemCount > 0 ? Math.min(completedCount / checklist.itemCount, 1) : 0;
 
         return {
           id: checklist.id,
@@ -292,7 +302,7 @@ export function useTasksData() {
           completed: completionRate === 1,
           completionRate,
           itemCount: checklist.itemCount,
-          completedCount: cappedCompletedCount,
+          completedCount,
           contributors,
           lastCompletedAt,
           dueByTime: checklist.due_by_time || null,
