@@ -752,6 +752,7 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
       setCurrentUser(data);
       setCurrentUserRole(role);
     }
+  };
 
   const checkTodayShift = async () => {
     if (!currentUser) return;
