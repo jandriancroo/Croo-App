@@ -20,9 +20,9 @@ export const ROLE_DISPLAY_NAMES: Record<AppRole, string> = {
 export const SELECTABLE_ROLES: AppRole[] = ['team_member', 'shift_manager', 'manager', 'admin', 'org_admin', 'brand_admin'];
 
 export const useUserRole = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
-  const { data: role, isLoading: loading } = useQuery({
+  const { data: role, isLoading: roleQueryLoading } = useQuery({
     queryKey: ['user-role', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -42,6 +42,8 @@ export const useUserRole = () => {
     gcTime: 1 * 60 * 60 * 1000, // Keep in memory for 1 hour
     refetchOnWindowFocus: true, // Refetch when user returns to app
   });
+
+  const loading = authLoading || roleQueryLoading;
 
   // Helper checks - use cached role
   const isSuperAdmin = role === 'super_admin';
