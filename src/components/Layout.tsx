@@ -1,4 +1,4 @@
-import { ReactNode, useRef, useState, useEffect } from 'react';
+import { ReactNode, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
