@@ -79,9 +79,7 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
           color: 'hsl(var(--muted-foreground))',
           fontSize: '0.8rem',
         },
-        spotlight: {
-          borderRadius: '0.75rem' as any,
-        },
+        spotlight: {} as any,
       }}
     />
   );
