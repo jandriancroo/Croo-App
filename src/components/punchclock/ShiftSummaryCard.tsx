@@ -42,6 +42,7 @@ interface ShiftSummaryCardProps {
   canClockIn: boolean;
   isClockedIn: boolean;
   isOnBreak: boolean;
+  isDayMode: boolean;
 }
 
 interface BreakRecord {
@@ -68,6 +69,7 @@ export function ShiftSummaryCard({
   canClockIn,
   isClockedIn,
   isOnBreak,
+  isDayMode,
 }: ShiftSummaryCardProps) {
   const currentTime = useClock(1000);
   const [hoursWorked, setHoursWorked] = useState({ hours: 0, minutes: 0 });
@@ -217,7 +219,15 @@ export function ShiftSummaryCard({
     <div className="w-full grid grid-cols-[1fr_auto_1fr] items-start gap-3 px-4 pt-2">
       {/* Left column: Back button aligned to the card edge */}
       <div className="flex justify-end">
-        <Button variant="ghost" onClick={onBack} className="mt-6 shrink-0 h-12 px-5 text-lg">
+        <Button
+          variant="ghost"
+          onClick={onBack}
+          className={`mt-6 shrink-0 h-12 px-5 text-lg border ${
+            isDayMode
+              ? 'border-border/60 bg-background/80 text-foreground hover:bg-muted'
+              : 'border-white/15 bg-white/10 text-white hover:bg-white/15'
+          }`}
+        >
           <ArrowLeft className="mr-2 h-6 w-6" />
           Back
         </Button>

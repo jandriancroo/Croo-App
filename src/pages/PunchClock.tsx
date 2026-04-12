@@ -9,6 +9,7 @@ import { format, differenceInDays } from 'date-fns';
 import { Clock, Coffee, LogOut, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.webp';
+import crooLogoWhite from '@/assets/croo-logo-white.webp';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
@@ -205,6 +206,7 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   const currentNatureImage = NATURE_IMAGES[currentImageIndex % NATURE_IMAGES.length];
   const currentHistoricalImage = HISTORICAL_IMAGES[currentImageIndex % HISTORICAL_IMAGES.length];
   const currentQuote = WISE_QUOTES[currentImageIndex % WISE_QUOTES.length];
+  const activeCrooLogo = isDayMode ? crooLogo : crooLogoWhite;
   
   // Current custom slide based on rotation
   const currentCustomImage = customBackgroundUrls.length > 0 
@@ -1601,7 +1603,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   <div className="flex items-center justify-center gap-3 pt-6 mt-auto">
                     <span className={`text-base font-medium ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Powered by</span>
                     <img 
-                      src={crooLogo} 
+                      src={activeCrooLogo} 
                       alt="Croo" 
                       className="h-10 w-auto opacity-70"
                     />
@@ -1626,7 +1628,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
         <div className={`min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
           {/* Logo - larger size */}
           <div className="mb-8">
-            <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
+            <img src={activeCrooLogo} alt="Croo" className="h-24 w-auto" />
           </div>
           
           {/* Certification Expiry Alerts */}
@@ -1695,6 +1697,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               canClockIn={canClockIn()}
               isClockedIn={isClockedIn}
               isOnBreak={isOnBreak}
+              isDayMode={isDayMode}
             />
           )}
         </div>
