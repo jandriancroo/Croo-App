@@ -5,21 +5,10 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChefHat, ClipboardCheck, Check, Settings2 } from 'lucide-react';
-import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
+import { ClipboardCheck, Settings2 } from 'lucide-react';
 import { EditDashboardDialog, CubeConfig, SectionKey, getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
-import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
-import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
-import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
-import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
-import { DataStreamTask } from '@/components/dashboard/DataStreamTask';
-import { OpusBackgroundSync } from '@/components/dashboard/OpusBackgroundSync';
-
-import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
-import { PendingDocumentsCard } from '@/components/dashboard/PendingDocumentsCard';
-import { I9UploadCard } from '@/components/dashboard/I9UploadCard';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
@@ -32,10 +21,12 @@ import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
+import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
+import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
 
 
 interface CateringOrder {
@@ -401,13 +392,6 @@ export default function Dashboard() {
     }
   };
 
-  const formatCateringTime = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
 
   // Checklists data with React Query (cached, instant on revisit)
   const { data: checklistData, isLoading: checklistsLoading } = useQuery({
@@ -648,244 +632,29 @@ export default function Dashboard() {
   };
 
 
-  // Quick tasks content - mounted at the top of the dashboard with scrollable area
   const quickTasksContent = (
-    <div className="flex flex-col gap-2 w-full">
-      {/* Unread Announcements - High priority */}
-      <UnreadAnnouncementsAlert />
-      
-      {/* Pending Read & Sign Documents */}
-      <PendingDocumentsCard />
-
-      {/* Hiring Documents - Secure Document Requests */}
-      <I9UploadCard />
-      
-      {/* OPUS Background Sync — keeps session warm + Theo's brain fresh */}
-      <OpusBackgroundSync />
-
-      {/* Assigned Temporary Tasks + Event Daily Tasks — cash handling inserted between events & tasks */}
-      <AssignedTemporaryTasks
-        compact 
-        includeEventTasks 
-        afterEventsContent={
-          <>
-            <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
-            <DailySpotCheckTask locationHours={locationSettings} timezone={timezone} />
-          </>
-        }
-      />
-      
-
-      {/* Data Stream Status — super admin only */}
-      <DataStreamTask />
-
-      {/* Catering Orders (Today + Tomorrow) */}
-      <CateringOrdersAlert />
-    </div>
+    <QuickTasksSection locationSettings={locationSettings} timezone={timezone} />
   );
-
-  // Checklists grid content - passed to WidgetsSection for unified drag & drop
-  // Count remaining (incomplete) checklists
-  const remainingCount = checklists.filter(cl => {
-    const { expected, completed } = getCompletionData(cl.id);
-    return expected === 0 || completed < expected;
-  }).length;
 
   const checklistsGridContent = (
-    <Card className="border-0 overflow-hidden p-0">
-      {/* Unified header */}
-      <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between">
-        <h3 className="text-sm font-bold tracking-tight">Checklists</h3>
-        <span className="text-xs text-muted-foreground">
-          {remainingCount === 0 ? 'All done ✓' : `${remainingCount} of ${checklists.length} remaining`}
-        </span>
-      </div>
-      {/* Checklist rows */}
-      <div className="divide-y divide-border/30">
-        {(() => {
-          // Compute current time in location timezone ONCE for all rows
-          const now = new Date();
-          const timeParts = new Intl.DateTimeFormat('en-US', {
-            timeZone: timezone,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-            hourCycle: 'h23',
-          }).formatToParts(now);
-          const nowH = Number(timeParts.find(p => p.type === 'hour')?.value ?? '0');
-          const nowM = Number(timeParts.find(p => p.type === 'minute')?.value ?? '0');
-          const nowS = Number(timeParts.find(p => p.type === 'second')?.value ?? '0');
-          const nowMinutes = nowH * 60 + nowM;
-          const nowSeconds = nowH * 3600 + nowM * 60 + nowS;
-
-          const formatLockTime = (time: string) => {
-            const [hours, minutes] = time.split(':').map(Number);
-            const period = hours >= 12 ? 'PM' : 'AM';
-            const displayHours = hours % 12 || 12;
-            return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
-          };
-
-          return checklists.map(checklist => {
-          const { expected, completed } = getCompletionData(checklist.id);
-          const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
-          const isComplete = completionRate === 100;
-
-          const isOverdue = !isComplete && !!checklist.due_by_time && (() => {
-            const [dueH, dueM] = checklist.due_by_time!.split(':').map(Number);
-            return nowMinutes > dueH * 60 + dueM;
-          })();
-
-          const isLocked = !!checklist.lock_until_time && (() => {
-            const [lH, lM, lS] = checklist.lock_until_time!.split(':').map(Number);
-            return nowSeconds < lH * 3600 + lM * 60 + (lS || 0);
-          })();
-        
-          return (
-            <ChecklistCard
-              key={checklist.id}
-              checklistId={checklist.id}
-              title={checklist.title}
-              completed={completed}
-              expected={expected}
-              isOverdue={isOverdue}
-              isLocked={isLocked}
-              lockUntilTime={isLocked && checklist.lock_until_time ? formatLockTime(checklist.lock_until_time) : undefined}
-              variant="row"
-            />
-          );
-        });
-        })()}
-      </div>
-    </Card>
+    <ChecklistsGrid
+      checklists={checklists}
+      getCompletionData={getCompletionData}
+      timezone={timezone}
+    />
   );
 
-  // Catering dialogs rendered separately in the main return below
   const cateringDialogs = (
-    <>
-      {/* Catering Order Details Dialog */}
-      <Dialog open={!!selectedCateringOrder} onOpenChange={() => setSelectedCateringOrder(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ChefHat className="h-5 w-5 text-orange-500" />
-              Catering Order
-            </DialogTitle>
-          </DialogHeader>
-          {selectedCateringOrder && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Customer</span>
-                  <span className="font-medium">{selectedCateringOrder.customer_name}</span>
-                </div>
-                {selectedCateringOrder.order_number && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Order #</span>
-                    <span>{selectedCateringOrder.order_number}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Pickup</span>
-                  <span className="text-orange-500 font-medium">
-                    Today at {formatCateringTime(selectedCateringOrder.pickup_time)}
-                  </span>
-                </div>
-                {selectedCateringOrder.headcount && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Headcount</span>
-                    <span>{selectedCateringOrder.headcount}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Items</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {selectedCateringOrder.items.map((item, idx) => (
-                    <div key={idx} className="flex items-start gap-3 text-sm">
-                      <span className="font-medium min-w-[24px]">{item.quantity}x</span>
-                      <div>
-                        <span>{item.item}</span>
-                        {item.notes && (
-                          <p className="text-xs text-muted-foreground">{item.notes}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {selectedCateringOrder.notes && (
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-1">Notes</h4>
-                  <p className="text-sm text-muted-foreground">{selectedCateringOrder.notes}</p>
-                </div>
-              )}
-
-              {selectedCateringOrder.source_url && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setPdfPreviewUrl(selectedCateringOrder.source_url)}
-                >
-                  View Original
-                </Button>
-              )}
-
-              {selectedCateringOrder.status === "completed" ? (
-                <div className="w-full py-3 px-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center justify-center gap-2">
-                  <Check className="h-5 w-5 text-green-500" />
-                  <span className="text-green-600 font-medium">Order Completed</span>
-                </div>
-              ) : canCompleteCatering && (
-                <Button
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                  size="lg"
-                  onClick={() => handleCompleteCateringOrder(selectedCateringOrder)}
-                >
-                  <Check className="h-5 w-5 mr-2" />
-                  Mark Completed
-                </Button>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* PDF Preview Dialog */}
-      <Dialog open={!!pdfPreviewUrl} onOpenChange={(open) => !open && setPdfPreviewUrl(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0">
-          <DialogHeader className="p-4 pb-2">
-            <DialogTitle>Original Order</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 px-4 pb-4 min-h-0">
-            {pdfPreviewUrl && (
-              <iframe
-                src={pdfPreviewUrl}
-                className="w-full h-full rounded-md border bg-white"
-                title="PDF Preview"
-              />
-            )}
-          </div>
-          {pdfPreviewUrl && (
-            <div className="p-4 pt-0 flex justify-center">
-              <Button asChild size="lg">
-                <a
-                  href={pdfPreviewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open PDF in New Tab
-                </a>
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+    <CateringOrderDialog
+      selectedOrder={selectedCateringOrder}
+      onClose={() => setSelectedCateringOrder(null)}
+      canComplete={canCompleteCatering}
+      onComplete={handleCompleteCateringOrder}
+      pdfPreviewUrl={pdfPreviewUrl}
+      onPdfPreviewChange={setPdfPreviewUrl}
+    />
   );
+
 
   // Render WidgetsSection if:
   // 1. QuBeyond integration is active AND user can see sales, OR
