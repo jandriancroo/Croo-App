@@ -204,6 +204,25 @@ export async function calculateVarianceReport(
     }
   }
 
+  // Transfers — per-item adjustments
+  for (const transfer of transfersData) {
+    const items = (transfer as any).inventory_transfer_items || [];
+    for (const ti of items) {
+      const itemId = ti.item_id;
+      if (!itemId) continue;
+      const costPerUnit = Number(ti.cost_per_unit) || 0;
+      const qty = Number(ti.quantity) || 0;
+      const value = qty * costPerUnit;
+      if (transfer.to_location_id === locationId) {
+        // Transfer IN — adds to available inventory (like a purchase)
+        getOrCreateItem(itemId).transfersIn += value;
+      } else if (transfer.from_location_id === locationId) {
+        // Transfer OUT — removes from available inventory
+        getOrCreateItem(itemId).transfersOut += value;
+      }
+    }
+  }
+
   console.log('[Variance] Match-source audit:', JSON.stringify(matchLog));
 
   // ─── 2. THEORETICAL USAGE by item (blueprint tree-walk) ───
