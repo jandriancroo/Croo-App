@@ -992,6 +992,15 @@ async function handleFetchReviews(req: Request, supabase: any) {
       }
 
       // Server-side location filtering (strict)
+      if (skip === 0 && newSurveys.length > 0) {
+        const sample = newSurveys[0]
+        console.log(`[ovation-service] DEBUG sample survey keys: ${Object.keys(sample).join(', ')}`)
+        console.log(`[ovation-service] DEBUG sample.location: ${JSON.stringify(sample.location)?.slice(0, 200)}`)
+        console.log(`[ovation-service] DEBUG sample.locationId: ${sample.locationId}`)
+        console.log(`[ovation-service] DEBUG sample.store: ${JSON.stringify(sample.store)?.slice(0, 200)}`)
+        console.log(`[ovation-service] DEBUG extractedIds: ${JSON.stringify(extractSurveyLocationIds(sample))}`)
+        console.log(`[ovation-service] DEBUG allowedIds: ${JSON.stringify(ovationLocationIds)}`)
+      }
       const pageMatches = newSurveys.filter((survey: any) => surveyMatchesAllowedLocations(survey, ovationLocationIds))
       matchingSurveys.push(...pageMatches)
 
