@@ -283,6 +283,7 @@ Deno.serve(async (req) => {
         };
       }
 
+      const sourceOrder = brandItemToOrder.get(tmpl.id);
       const { data: newItem, error: createErr } = await supabase
         .from("inventory_items")
         .insert({
@@ -299,6 +300,7 @@ Deno.serve(async (req) => {
           pa_item_id: tmpl.pa_item_id,
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
+          ...(sourceOrder != null ? { display_order: sourceOrder } : {}),
         })
         .select("id")
         .single();
