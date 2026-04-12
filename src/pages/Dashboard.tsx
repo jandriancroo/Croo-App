@@ -904,7 +904,7 @@ export default function Dashboard() {
       showAddDialog={showAddCubeDialog} 
       onAddDialogChange={setShowAddCubeDialog} 
       locationSettings={locationSettings} 
-      isReorderMode={isEditMode}
+      isReorderMode={false}
       checklistsContent={checklistsGridContent}
       onSalesDataChange={(data) => {
         setSalesOverviewData(data);
