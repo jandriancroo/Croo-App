@@ -330,7 +330,19 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         // Non-blocking — location is still created
       }
 
-      setDeployComplete(true);
+      // 7. Auto-seed default logbook categories (Waste Log)
+      try {
+        await supabase.from('logbook_categories').insert({
+          name: 'Waste Log',
+          location_id: locationId,
+          display_order: 99,
+          is_active: true,
+          alert_enabled: true,
+        });
+      } catch (e) {
+        console.error('Auto-seed Waste Log category error:', e);
+      }
+
       refetchLocations();
       toast.success(`${name} deployed successfully!`);
     } catch (error: any) {
