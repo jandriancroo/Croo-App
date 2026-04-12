@@ -10,6 +10,7 @@ import { Clock, Coffee, LogOut, AlertTriangle, ArrowLeftRight } from 'lucide-rea
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.webp';
 import crooLogoInverted from '/croo-logo-inverted-transparent.png';
+import { useFaceDetection } from '@/hooks/useFaceDetection';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
@@ -178,8 +179,11 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   // Biometric scan overlay for kiosk mode
   const [biometricScanning, setBiometricScanning] = useState(false);
   const [biometricVerified, setBiometricVerified] = useState(false);
+  const [biometricStatus, setBiometricStatus] = useState<'searching' | 'detected' | 'verifying' | 'verified'>('searching');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const faceDetection = useFaceDetection(videoRef);
+  const pendingUserRef = useRef<{ data: any; role: string } | null>(null);
   
   // Custom punch clock settings
   const [customBackground, setCustomBackground] = useState<string | null>(null);
@@ -714,10 +718,12 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
       .single();
     const role = roleData?.role || 'team_member';
     
-    // In kiosk mode, show biometric scan overlay before proceeding
+    // In kiosk mode, show biometric scan overlay with face detection before proceeding
     if (kioskMode) {
       setBiometricScanning(true);
       setBiometricVerified(false);
+      setBiometricStatus('searching');
+      pendingUserRef.current = { data, role };
       
       // Start camera
       try {
@@ -728,29 +734,72 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
+        // Start face detection polling
+        faceDetection.startDetection();
       } catch {
-        // Camera denied — still show the scan animation without video
-      }
-      
-      // Fake scan duration: 2.5s scanning → 1s verified → proceed
-      setTimeout(() => {
-        setBiometricVerified(true);
-        // Stop camera
-        streamRef.current?.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-        
+        // Camera denied — fall back to timer-based scan
         setTimeout(() => {
-          setBiometricScanning(false);
-          setBiometricVerified(false);
-          setCurrentUser(data);
-          setCurrentUserRole(role);
-        }, 1000);
-      }, 2500);
+          completeBiometricScan();
+        }, 2500);
+      }
     } else {
       setCurrentUser(data);
       setCurrentUserRole(role);
     }
   };
+
+  // Complete biometric scan — called when face is detected or as fallback
+  const completeBiometricScan = useCallback(() => {
+    setBiometricStatus('verifying');
+    faceDetection.stopDetection();
+    
+    // Brief "verifying" pause then show verified
+    setTimeout(() => {
+      setBiometricVerified(true);
+      setBiometricStatus('verified');
+      // Stop camera
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      
+      setTimeout(() => {
+        setBiometricScanning(false);
+        setBiometricVerified(false);
+        setBiometricStatus('searching');
+        if (pendingUserRef.current) {
+          setCurrentUser(pendingUserRef.current.data);
+          setCurrentUserRole(pendingUserRef.current.role);
+          pendingUserRef.current = null;
+        }
+      }, 1000);
+    }, 800);
+  }, [faceDetection]);
+
+  // Watch for face detection during biometric scan
+  useEffect(() => {
+    if (!biometricScanning || biometricVerified) return;
+    if (biometricStatus !== 'searching') return;
+    
+    if (faceDetection.faceDetected) {
+      setBiometricStatus('detected');
+      // Face found — wait a brief moment to confirm it's stable, then verify
+      const timer = setTimeout(() => {
+        completeBiometricScan();
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [biometricScanning, biometricVerified, biometricStatus, faceDetection.faceDetected, completeBiometricScan]);
+
+  // Safety timeout: if no face detected after 8s, allow through anyway
+  useEffect(() => {
+    if (!biometricScanning || biometricVerified) return;
+    const timer = setTimeout(() => {
+      if (!biometricVerified) {
+        completeBiometricScan();
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [biometricScanning, biometricVerified, completeBiometricScan]);
+
 
   const checkTodayShift = async () => {
     if (!currentUser) return;
@@ -1253,7 +1302,9 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {/* Biometric Scan Overlay — kiosk mode only */}
       {biometricScanning && (
         <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center">
-          <div className="relative w-72 h-72 rounded-3xl overflow-hidden border-2 border-primary/50 mb-8">
+          <div className={`relative w-72 h-72 rounded-3xl overflow-hidden border-2 mb-8 transition-colors duration-500 ${
+            faceDetection.faceDetected || biometricVerified ? 'border-emerald-400' : 'border-primary/50'
+          }`}>
             {/* Camera feed */}
             <video
               ref={videoRef}
@@ -1263,11 +1314,22 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               className="w-full h-full object-cover scale-x-[-1]"
             />
             
+            {/* No face detected indicator */}
+            {!biometricVerified && !faceDetection.faceDetected && biometricStatus === 'searching' && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/30" />
+                {/* Face outline guide */}
+                <div className="relative w-40 h-48 border-2 border-dashed border-primary/60 rounded-[50%] animate-pulse" />
+              </div>
+            )}
+            
             {/* Scan line animation */}
             {!biometricVerified && (
               <div className="absolute inset-0">
                 <div 
-                  className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent shadow-[0_0_15px_hsl(var(--primary))]"
+                  className={`absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent ${
+                    faceDetection.faceDetected ? 'via-emerald-400' : 'via-primary'
+                  } to-transparent shadow-[0_0_15px_hsl(var(--primary))]`}
                   style={{
                     animation: 'scanLine 2s ease-in-out infinite',
                   }}
@@ -1275,25 +1337,25 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               </div>
             )}
             
-            {/* Facial landmark dots */}
-            {!biometricVerified && (
-              <div className="absolute inset-0">
+            {/* Facial landmark dots — only show when face is detected */}
+            {!biometricVerified && faceDetection.faceDetected && (
+              <div className="absolute inset-0 animate-in fade-in duration-300">
                 {/* Eyes */}
-                <div className="absolute top-[38%] left-[35%] w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_hsl(var(--primary))]" />
-                <div className="absolute top-[38%] right-[35%] w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_hsl(var(--primary))]" style={{ animationDelay: '0.1s' }} />
+                <div className="absolute top-[38%] left-[35%] w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                <div className="absolute top-[38%] right-[35%] w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" style={{ animationDelay: '0.1s' }} />
                 {/* Nose */}
-                <div className="absolute top-[50%] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary/70 animate-pulse shadow-[0_0_6px_hsl(var(--primary))]" style={{ animationDelay: '0.2s' }} />
+                <div className="absolute top-[50%] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400/70 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.6)]" style={{ animationDelay: '0.2s' }} />
                 {/* Lips */}
-                <div className="absolute top-[60%] left-[40%] w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_6px_hsl(var(--primary))]" style={{ animationDelay: '0.3s' }} />
-                <div className="absolute top-[60%] right-[40%] w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_6px_hsl(var(--primary))]" style={{ animationDelay: '0.4s' }} />
+                <div className="absolute top-[60%] left-[40%] w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.6)]" style={{ animationDelay: '0.3s' }} />
+                <div className="absolute top-[60%] right-[40%] w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.6)]" style={{ animationDelay: '0.4s' }} />
                 {/* Jawline */}
-                <div className="absolute top-[70%] left-[30%] w-1 h-1 rounded-full bg-primary/50 animate-pulse" style={{ animationDelay: '0.5s' }} />
-                <div className="absolute top-[70%] right-[30%] w-1 h-1 rounded-full bg-primary/50 animate-pulse" style={{ animationDelay: '0.6s' }} />
+                <div className="absolute top-[70%] left-[30%] w-1 h-1 rounded-full bg-emerald-400/50 animate-pulse" style={{ animationDelay: '0.5s' }} />
+                <div className="absolute top-[70%] right-[30%] w-1 h-1 rounded-full bg-emerald-400/50 animate-pulse" style={{ animationDelay: '0.6s' }} />
                 {/* Connecting lines */}
                 <svg className="absolute inset-0 w-full h-full opacity-30">
-                  <line x1="35%" y1="38%" x2="65%" y2="38%" stroke="hsl(var(--primary))" strokeWidth="0.5" className="animate-pulse" />
-                  <line x1="50%" y1="38%" x2="50%" y2="60%" stroke="hsl(var(--primary))" strokeWidth="0.5" className="animate-pulse" />
-                  <line x1="40%" y1="60%" x2="60%" y2="60%" stroke="hsl(var(--primary))" strokeWidth="0.5" className="animate-pulse" />
+                  <line x1="35%" y1="38%" x2="65%" y2="38%" stroke="#34d399" strokeWidth="0.5" className="animate-pulse" />
+                  <line x1="50%" y1="38%" x2="50%" y2="60%" stroke="#34d399" strokeWidth="0.5" className="animate-pulse" />
+                  <line x1="40%" y1="60%" x2="60%" y2="60%" stroke="#34d399" strokeWidth="0.5" className="animate-pulse" />
                 </svg>
               </div>
             )}
@@ -1301,7 +1363,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {/* Verified checkmark */}
             {biometricVerified && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center animate-in zoom-in duration-300">
+                <div className="w-20 h-20 rounded-full bg-emerald-500 flex items-center justify-center animate-in zoom-in duration-300">
                   <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -1314,15 +1376,22 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
           <div className="text-center space-y-2">
             {biometricVerified ? (
               <>
-                <p className="text-green-400 text-xl font-bold tracking-wide">IDENTITY VERIFIED</p>
-                <p className="text-green-400/60 text-sm font-mono">Confidence: 99.7%</p>
+                <p className="text-emerald-400 text-xl font-bold tracking-wide">IDENTITY VERIFIED</p>
+                <p className="text-emerald-400/60 text-sm font-mono">Confidence: 99.7%</p>
+              </>
+            ) : faceDetection.faceDetected ? (
+              <>
+                <p className="text-emerald-400 text-lg font-semibold tracking-wider">
+                  FACE DETECTED — VERIFYING...
+                </p>
+                <p className="text-emerald-400/50 text-xs font-mono">Mapping facial landmarks</p>
               </>
             ) : (
               <>
                 <p className="text-primary text-lg font-semibold tracking-wider animate-pulse">
-                  SCANNING BIOMETRICS...
+                  POSITION YOUR FACE
                 </p>
-                <p className="text-primary/50 text-xs font-mono">Mapping facial landmarks</p>
+                <p className="text-primary/50 text-xs font-mono">Look directly at the camera</p>
               </>
             )}
           </div>
