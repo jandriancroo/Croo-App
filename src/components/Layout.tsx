@@ -279,18 +279,18 @@ export const Layout = ({
   // Wait for role to load before checking - prevents flash of missing nav items
   const canAccessLogs = !roleLoading && isShiftManager; // Shift managers and above can access logbook
   const canAccessHiring = !roleLoading && (isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring'));
-  // Ovation: use cached permission to prevent tab from vanishing on cold reload.
-  // The tab itself handles its own loading/skeleton state, so we can show it eagerly.
-  const ovationPermResolved = !roleLoading && (isManager || hasPermission('view_ovation_reviews'));
+  // Ovation: mount eagerly — the tab handles its own loading/skeleton/hide states.
+  // Only gate on role permission, and treat "still loading" as "show it" to avoid flash-hide.
+  const ovationPermResolved = roleLoading ? null : (isManager || hasPermission('view_ovation_reviews'));
   const [canViewOvation, setCanViewOvation] = useState(() => {
     try { return localStorage.getItem('ovation-perm') === '1'; } catch { return false; }
   });
   useEffect(() => {
-    if (!roleLoading) {
+    if (ovationPermResolved !== null) {
       setCanViewOvation(ovationPermResolved);
       try { localStorage.setItem('ovation-perm', ovationPermResolved ? '1' : '0'); } catch { /* ignore */ }
     }
-  }, [roleLoading, ovationPermResolved]);
+  }, [ovationPermResolved]);
   const [hasFBCAccess, setHasFBCAccess] = useState(false);
   const [hasMultiLocationAccess, setHasMultiLocationAccess] = useState(false);
 const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
