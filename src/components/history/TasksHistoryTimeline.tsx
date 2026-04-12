@@ -356,7 +356,8 @@ export function TasksHistoryTimeline({
       if (!b.completedAt) return -1;
       return new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime();
     });
-  }, [historyStats, completedTempTasks, eventCompletions, logbookEntries, navigate, selectedDate, onTaskClick, timezone]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyStats, completedTempTasks, eventCompletions, logbookEntries, selectedDate, timezone]);
 
 
   if (timelineItems.length === 0) {
