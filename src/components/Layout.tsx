@@ -250,6 +250,7 @@ export const Layout = ({
 }: LayoutProps) => {
   // Setup push notifications only in Layout (after auth)
   usePushNotifications();
+  const { runTour, completeTour, replayTour, isEligible: tourEligible } = useOnboardingTour();
   
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
