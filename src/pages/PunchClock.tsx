@@ -140,9 +140,10 @@ const getDailyFacts = () => {
 
 const DAILY_FACTS = getDailyFacts();
 
-export default function PunchClock({ kioskMode = false }: { kioskMode?: boolean } = {}) {
-  const { currentLocation } = useAppLocation();
-  const { timezone, closeTime } = useLocationTimezone();
+export default function PunchClock({ kioskMode = false, kioskLocationOverride }: { kioskMode?: boolean; kioskLocationOverride?: { id: string; name: string; organization_id?: string } } = {}) {
+  const { currentLocation: authLocation } = useAppLocation();
+  const currentLocation = kioskLocationOverride || authLocation;
+  const { timezone, closeTime } = useLocationTimezone(kioskLocationOverride?.id);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
