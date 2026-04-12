@@ -614,29 +614,6 @@ export function useTasksData() {
     enabled: !!currentLocation?.id,
   });
 
-  // ─── Prefetch past 14 days ────────────────────────────────────
-  useEffect(() => {
-    if (!user?.id || !currentLocation?.id || timezoneLoading) return;
-
-    const today = new Date();
-    const pastDates = eachDayOfInterval({
-      start: subDays(today, 14),
-      end: subDays(today, 1),
-    });
-
-    pastDates.forEach(date => {
-      const dateStr = format(date, 'yyyy-MM-dd');
-      queryClient.prefetchQuery({
-        queryKey: ['completion-history', dateStr, user.id, currentLocation.id, closeTime],
-        staleTime: 60 * 60 * 1000,
-      });
-      queryClient.prefetchQuery({
-        queryKey: ['completed-temp-tasks', dateStr, currentLocation.id, closeTime],
-        staleTime: 60 * 60 * 1000,
-      });
-    });
-  }, [user?.id, currentLocation?.id, queryClient, closeTime, timezoneLoading]);
-
   return {
     // Auth / role
     user,
