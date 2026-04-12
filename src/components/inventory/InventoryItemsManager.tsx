@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered, Grid3X3, Trash2, CheckSquare } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered, Trash2, CheckSquare } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -31,7 +31,7 @@ import StorageLocationManager from "./StorageLocationManager";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { Suspense } from "react";
 
-const UnitMatrixView = lazyWithRetry(() => import("./UnitMatrixView"));
+
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import {
   DndContext,
@@ -122,7 +122,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [isBulkDragMode, setIsBulkDragMode] = useState(false);
   const [bulkDragGroupKey, setBulkDragGroupKey] = useState<string | null>(null);
   const [bulkDragItemIds, setBulkDragItemIds] = useState<string[]>([]);
-  const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
+  
   const [recipePurgeMode, setRecipePurgeMode] = useState(false);
   const [recipePurgeSelection, setRecipePurgeSelection] = useState<Set<string>>(new Set());
   const [isPurging, setIsPurging] = useState(false);
@@ -1038,45 +1038,16 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             <div className="flex items-center gap-1.5 sm:gap-2 font-semibold text-sm min-w-0">
               <Package className="h-4 w-4 flex-shrink-0" />
               <span className="whitespace-nowrap">Items ({items?.length || 0})</span>
-              <div className="flex items-center rounded-md border border-border overflow-hidden">
-                <button
-                  className={`px-2 py-1 text-xs font-medium transition-colors ${
-                    itemsSubView === "list" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                  onClick={() => setItemsSubView("list")}
-                >
-                  List
-                </button>
-                <button
-                  className={`px-2 py-1 text-xs font-medium transition-colors flex items-center gap-1 ${
-                    itemsSubView === "matrix" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                  onClick={() => setItemsSubView("matrix")}
-                >
-                  <Grid3X3 className="h-3 w-3" />
-                  Matrix
-                </button>
-              </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {itemsSubView === "list" && (
                 <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)} className="gap-1">
                   <Settings2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Locations</span>
                 </Button>
-              )}
             </div>
           </div>
 
-          {/* Matrix sub-view */}
-          {itemsSubView === "matrix" && (
-            <Suspense fallback={<div className="text-sm text-muted-foreground text-center py-8">Loading matrix...</div>}>
-              <UnitMatrixView locationId={locationId} />
-            </Suspense>
-          )}
 
-          {/* List sub-view */}
-          {itemsSubView === "list" && <>
           {items && items.length > 0 ? (
             <div className="space-y-2">
               {/* Items needing remap */}
@@ -1415,11 +1386,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               No items yet. Click "Sync with PFG" to import.
             </p>
           )}
-          </>}
         </div>
       </Card>
-
       </>}
+
     </div>
 
       {/* Edit Item Dialog */}
