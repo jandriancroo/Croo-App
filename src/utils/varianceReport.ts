@@ -435,7 +435,7 @@ export async function calculateVarianceReport(
     const item = itemMap.get(itemId);
     const itemName = item?.name || itemId;
     const theo = itemTheoretical.get(itemId) || 0;
-    const actualUsage = actual.beginning + actual.purchases - actual.ending;
+    const actualUsage = actual.beginning + actual.purchases + actual.transfersIn - actual.transfersOut - actual.ending;
 
     if (!catMap.has(cat)) catMap.set(cat, { items: new Map() });
     const catEntry = catMap.get(cat)!;
