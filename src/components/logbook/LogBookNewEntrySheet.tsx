@@ -17,6 +17,7 @@ import { BankDepositForm } from "@/components/logbook/BankDepositForm";
 import { EmployeeWriteUpForm } from "@/components/logbook/EmployeeWriteUpForm";
 import { ReadAndSignForm } from "@/components/logbook/ReadAndSignForm";
 import { PerformanceReviewForm } from "@/components/logbook/PerformanceReviewForm";
+import { WasteLogForm, type WasteLogData } from "@/components/logbook/WasteLogForm";
 import type { DrawerCountData } from "@/components/logbook/DrawerCountForm";
 import type { SafeCountData } from "@/components/logbook/SafeCountForm";
 import type { BankDepositData } from "@/components/logbook/BankDepositForm";
@@ -69,6 +70,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
   const isEmployeeWriteUp = ['employee write-up', 'employee writeup', 'employee write up', 'write-up', 'writeup', 'write up'].includes(currentCategoryName || '');
   const isReadAndSign = ['read & sign', 'read and sign', 'read-and-sign'].includes(currentCategoryName || '');
   const isPerformanceReview = ['performance review', 'performance-review'].includes(currentCategoryName || '');
+  const isWasteLog = ['waste log', 'waste', 'waste report'].includes(currentCategoryName || '');
 
   const renderFormContent = () => {
     if (isPerformanceReview) {
@@ -111,6 +113,127 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
             isSaving={isSavingSpecialForm}
           />
         </div>
+      );
+    }
+
+    if (isWasteLog) {
+      return (
+        <WasteLogForm
+          onSave={async (wasteData: WasteLogData) => {
+            if (isSavingSpecialForm) return;
+            setIsSavingSpecialForm(true);
+            try {
+              // Upload photo
+              const ext = wasteData.photoFile.name.split(".").pop() || "jpg";
+              const filePath = `${currentLocation!.id}/${Date.now()}.${ext}`;
+              const { error: uploadError } = await supabase.storage
+                .from("waste-photos")
+                .upload(filePath, wasteData.photoFile);
+              if (uploadError) throw uploadError;
+
+              const { data: urlData } = supabase.storage
+                .from("waste-photos")
+                .getPublicUrl(filePath);
+
+              // Insert waste log
+              const { error: insertError } = await supabase
+                .from("inventory_waste_logs")
+                .insert({
+                  location_id: currentLocation!.id,
+                  item_id: wasteData.itemId,
+                  quantity: wasteData.quantity,
+                  unit: wasteData.unit,
+                  reason: wasteData.reason,
+                  photo_url: urlData.publicUrl,
+                  estimated_cost: wasteData.estimatedCost,
+                  logged_by: user!.id,
+                });
+              if (insertError) throw insertError;
+
+              // Send push notification to managers
+              try {
+                await supabase.functions.invoke("send-push-notification", {
+                  body: {
+                    notification_type: "waste_log",
+                    title: `Waste Logged`,
+                    body: `${wasteData.itemName} — ${wasteData.quantity} ${wasteData.unit} wasted. Reason: ${wasteData.reason.slice(0, 60)}`,
+                    location_id: currentLocation!.id,
+                    roles: ["admin", "manager", "super_admin", "brand_admin", "org_admin"],
+                  },
+                });
+              } catch (e) {
+                console.error("[WasteLog] Push notification failed:", e);
+              }
+
+              // Send email notification to managers at location
+              try {
+                const { data: loggerProfile } = await supabase
+                  .from("profiles")
+                  .select("full_name")
+                  .eq("id", user!.id)
+                  .single();
+
+                const { data: locationMembers } = await supabase
+                  .from("user_locations")
+                  .select("user_id")
+                  .eq("location_id", currentLocation!.id);
+
+                if (locationMembers && locationMembers.length > 0) {
+                  const memberIds = locationMembers.map((m: any) => m.user_id);
+                  const { data: managerRoles } = await supabase
+                    .from("user_roles")
+                    .select("user_id")
+                    .in("user_id", memberIds)
+                    .in("role", ["manager", "admin", "org_admin", "brand_admin", "super_admin"]);
+
+                  if (managerRoles && managerRoles.length > 0) {
+                    const managerUserIds = managerRoles.map((r: any) => r.user_id);
+                    const { data: managerProfiles } = await supabase
+                      .from("profiles")
+                      .select("email")
+                      .in("id", managerUserIds)
+                      .not("email", "is", null);
+
+                    const managerEmails = managerProfiles
+                      ?.map((p: any) => p.email)
+                      .filter(Boolean) as string[];
+
+                    if (managerEmails.length > 0) {
+                      await supabase.functions.invoke("send-notification-email", {
+                        body: {
+                          type: "waste_log",
+                          to: managerEmails,
+                          data: {
+                            item_name: wasteData.itemName,
+                            quantity: `${wasteData.quantity} ${wasteData.unit}`,
+                            reason: wasteData.reason,
+                            estimated_cost: wasteData.estimatedCost
+                              ? `$${wasteData.estimatedCost.toFixed(2)}`
+                              : "N/A",
+                            photo_url: urlData.publicUrl,
+                            logged_by: loggerProfile?.full_name || "Team Member",
+                            location_name: currentLocation!.name || "Location",
+                            date: format(new Date(), "MMM d, yyyy h:mm a"),
+                          },
+                        },
+                      });
+                    }
+                  }
+                }
+              } catch (e) {
+                console.error("[WasteLog] Email notification failed:", e);
+              }
+
+              toast({ title: "Waste logged successfully", description: `${wasteData.itemName} — ${wasteData.quantity} ${wasteData.unit}` });
+              queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+              setShowNewEntrySheet(false);
+              setActiveTab('search');
+            } catch (error: any) {
+              toast({ title: "Error logging waste", description: error.message, variant: "destructive" });
+            } finally { setIsSavingSpecialForm(false); }
+          }}
+          isSaving={isSavingSpecialForm}
+        />
       );
     }
 
