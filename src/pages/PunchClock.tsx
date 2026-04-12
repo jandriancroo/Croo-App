@@ -9,7 +9,7 @@ import { format, differenceInDays } from 'date-fns';
 import { Clock, Coffee, LogOut, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.webp';
-import crooLogoInverted from '/croo-logo-inverted.webp';
+import crooLogoInverted from '/croo-logo-inverted-transparent.png';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
