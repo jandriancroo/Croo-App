@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Star, MessageSquare, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -67,39 +68,16 @@ function setCachedScore(locationId: string, wtdAverage: number, wtdCount: number
 /** Shared hook so tab + panel use the same data without duplicate fetches */
 export function useOvationData() {
   const { currentLocation } = useAppLocation();
+  const { user, session } = useAuth();
   const locationId = currentLocation?.id;
+  const authReady = !!user && !!session;
 
-  // Track auth readiness to prevent firing queries before session is restored
-  const [authReady, setAuthReady] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUserId(session.user.id);
-        setAuthReady(true);
-      }
-    });
-    // Listen for auth changes (token refresh, login, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUserId(session.user.id);
-        setAuthReady(true);
-      } else {
-        setUserId(null);
-        setAuthReady(false);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const { data: reviewsData, isLoading } = useQuery<OvationReviewsData>({
-    queryKey: ['ovation-reviews', locationId, userId],
+  const { data: reviewsData, isLoading, isFetching } = useQuery<OvationReviewsData>({
+    queryKey: ['ovation-reviews', locationId, user?.id],
     queryFn: async () => {
       if (!locationId) return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      const sess = await supabase.auth.getSession();
+      const token = sess.data.session?.access_token;
       if (!token) {
         console.warn('[Ovation] No auth token available, skipping fetch');
         return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
@@ -122,7 +100,7 @@ export function useOvationData() {
       }
       return (await response.json()) as OvationReviewsData;
     },
-    enabled: !!locationId && authReady && !!userId,
+    enabled: !!locationId && authReady,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
   });
@@ -136,12 +114,15 @@ export function useOvationData() {
 
   const hasData = !!reviewsData && !reviewsData.error && !!reviewsData.wtdAverage;
   const cachedScore = !hasData ? getCachedScore(locationId) : null;
+  // True loading = query is actively fetching OR auth isn't ready yet (query disabled)
+  const isActuallyLoading = !authReady || isLoading || isFetching;
 
   return {
     reviewsData,
     hasData,
-    isLoading,
+    isLoading: isActuallyLoading,
     cachedScore,
+    authReady,
   };
 }
 
