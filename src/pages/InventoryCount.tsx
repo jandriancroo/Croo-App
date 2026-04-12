@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play } from "lucide-react";
 import { formatPeriodLabel } from "@/utils/periodLabelUtils";
-import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { calculateUsageRates } from "@/utils/inventoryRateCalculation";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
