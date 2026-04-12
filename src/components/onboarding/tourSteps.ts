@@ -21,9 +21,10 @@ interface TourStepDef {
   target: string;
   title: string;
   content: string;
-  page: string; // which route this step lives on
-  minRole: string; // minimum role to see this step
+  page: string;
+  minRole: string;
   placement?: Step['placement'];
+  requiresMenu?: boolean; // if true, the mobile menu must be open for this step
 }
 
 // All possible tour steps — filtered at runtime by role
@@ -99,6 +100,7 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     page: '/dashboard',
     minRole: 'admin',
     placement: 'top',
+    requiresMenu: true,
   },
   {
     target: '[data-tour="nav-settings"]',
@@ -107,6 +109,7 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     page: '/dashboard',
     minRole: 'shift_manager',
     placement: 'top',
+    requiresMenu: true,
   },
 ];
 
