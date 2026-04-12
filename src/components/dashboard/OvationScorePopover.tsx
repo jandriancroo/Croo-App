@@ -164,8 +164,130 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
     </button>
   );
 }
-export function useOvationData() {
-  const { currentLocation, organizationId } = useAppLocation();
+/** The expandable panel that goes in document flow */
+export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
+  const { reviewsData, hasData } = useOvationData();
+  const [reviewIndex, setReviewIndex] = useState(0);
+
+  const reviewsWithFeedback = reviewsData?.reviews?.filter(r => r.feedback) || [];
+
+  const advanceReview = useCallback(() => {
+    if (reviewsWithFeedback.length > 1) {
+      setReviewIndex(prev => (prev + 1) % reviewsWithFeedback.length);
+    }
+  }, [reviewsWithFeedback.length]);
+
+  if (!hasData || !reviewsData?.wtdAverage) return null;
+
+  return (
+    <AnimatePresence>
+      {expanded && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+          className="overflow-hidden"
+        >
+          <div className="w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 bg-white dark:bg-card border border-border/30 rounded-2xl shadow-lg mt-1">
+            {/* Header */}
+            <div className="px-4 sm:px-3 pt-3 sm:pt-2.5 pb-3 sm:pb-2 flex items-center justify-between gap-3 border-b border-border/20">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <img src={ovationLogo} alt="OvationUp" className="h-7 w-7 sm:h-6 sm:w-6 object-contain shrink-0" />
+                <div>
+                  <p className="text-base sm:text-xs font-semibold leading-tight">OvationUp</p>
+                  <p className="text-xs sm:text-[10px] text-muted-foreground leading-tight">
+                    Last 14 days · {reviewsData.wtdCount} reviews
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 shrink-0">
+                <div className={cn(
+                  'flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm',
+                  reviewsData.wtdAverage >= 4.5 ? 'bg-green-500/10 text-green-600' :
+                  reviewsData.wtdAverage >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
+                  reviewsData.wtdAverage >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
+                )}>
+                  {reviewsData.wtdAverage.toFixed(1)}
+                </div>
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  <span className="text-xs sm:text-[10px] font-medium">{reviewsData.wtdCount}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Reviews carousel */}
+            {reviewsWithFeedback.length > 0 ? (
+              <div
+                className="px-4 sm:px-3 py-4 sm:py-3 min-h-[112px] sm:min-h-[60px] cursor-pointer"
+                onClick={advanceReview}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={reviewsWithFeedback[reviewIndex]?.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="flex items-center gap-2.5 mb-2 sm:mb-1 flex-wrap">
+                      <StarRating rating={reviewsWithFeedback[reviewIndex]?.rating || 0} />
+                      <span className="text-sm sm:text-[10px] text-muted-foreground truncate max-w-[11rem] sm:max-w-none">
+                        {reviewsWithFeedback[reviewIndex]?.customerName}
+                      </span>
+                      {reviewsWithFeedback[reviewIndex]?.hasResponse && (
+                        <span className="text-xs sm:text-[9px] text-green-500 font-medium">✓ replied</span>
+                      )}
+                    </div>
+                    <p className="text-base sm:text-[11px] text-muted-foreground leading-relaxed sm:leading-snug line-clamp-4 sm:line-clamp-3">
+                      {reviewsWithFeedback[reviewIndex]?.feedback}
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
+
+                {reviewsWithFeedback.length > 1 && (
+                  <div className="flex justify-center gap-1.5 mt-3 sm:mt-2">
+                    {reviewsWithFeedback.slice(0, 8).map((_, idx) => (
+                      <button
+                        key={idx}
+                        className={cn(
+                          'h-2 w-2 sm:h-1 sm:w-1 rounded-full transition-all',
+                          idx === reviewIndex ? 'bg-primary w-4 sm:w-2' : 'bg-muted-foreground/30'
+                        )}
+                        onClick={(e) => { e.stopPropagation(); setReviewIndex(idx); }}
+                        aria-label={`Show review ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="px-4 sm:px-3 py-4 sm:py-3">
+                <p className="text-base sm:text-[11px] text-muted-foreground italic">
+                  {reviewsData.reviews.length} ratings (no written feedback)
+                </p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Desktop export — inline in header bar */
+export function OvationScorePopover() {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="relative">
+      <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
+      <div className="absolute top-full right-0 mt-1">
+        <OvationExpandedPanel expanded={expanded} />
+      </div>
+    </div>
+  );
+}
 
   const { data: brandId } = useQuery({
     queryKey: ['org-brand-id', organizationId],
