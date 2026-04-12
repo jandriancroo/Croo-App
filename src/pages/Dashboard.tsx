@@ -490,11 +490,8 @@ export default function Dashboard() {
   });
 
   const checklists = checklistData?.checklists || [];
-  
 
 
-
-  
   useEffect(() => {
     // Wait for timezone to load before calculating completion data.
     // NOTE: closeTime can legitimately be null (no hours row for that day);
