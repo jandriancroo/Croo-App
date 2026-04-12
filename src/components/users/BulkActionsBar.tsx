@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { X, UserX, DollarSign, RefreshCw, Shield } from 'lucide-react';
 
 interface BulkActionsBarProps {
@@ -23,62 +23,55 @@ export function BulkActionsBar({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-      <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-6 py-3 flex items-center gap-4 border-2 border-primary-foreground/20">
-        <span className="font-semibold">{selectedCount} selected</span>
-        <div className="h-6 w-px bg-primary-foreground/20" />
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onDeactivate}
-            className="gap-2"
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in">
+      <div className="flex items-center gap-1 rounded-full border border-border bg-primary px-1 py-1 shadow-lg">
+        <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-xs font-semibold bg-primary-foreground text-primary shrink-0">
+          {selectedCount} selected
+        </Badge>
+
+        <button
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+          onClick={onDeactivate}
+        >
+          <UserX className="h-3.5 w-3.5" />
+          Deactivate
+        </button>
+
+        <button
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+          onClick={onWageUpdate}
+        >
+          <DollarSign className="h-3.5 w-3.5" />
+          Wages
+        </button>
+
+        {onRequestI9 && (
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+            onClick={onRequestI9}
           >
-            <UserX className="h-4 w-4" />
-            Deactivate
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onWageUpdate}
-            className="gap-2"
+            <Shield className="h-3.5 w-3.5" />
+            Docs
+          </button>
+        )}
+
+        {onForceUpdate && (
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap disabled:opacity-50"
+            onClick={onForceUpdate}
+            disabled={isUpdating}
           >
-            <DollarSign className="h-4 w-4" />
-            Update Wages
-          </Button>
-          {onRequestI9 && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={onRequestI9}
-              className="gap-2"
-            >
-              <Shield className="h-4 w-4" />
-              Request Docs
-            </Button>
-          )}
-          {onForceUpdate && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={onForceUpdate}
-              disabled={isUpdating}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
-              Force Update
-            </Button>
-          )}
-        </div>
-        <div className="h-6 w-px bg-primary-foreground/20" />
-        <Button
-          size="sm"
-          variant="ghost"
+            <RefreshCw className={`h-3.5 w-3.5 ${isUpdating ? 'animate-spin' : ''}`} />
+            Sync
+          </button>
+        )}
+
+        <button
+          className="p-1.5 rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors shrink-0"
           onClick={onClearSelection}
-          className="hover:bg-primary-foreground/10"
         >
           <X className="h-4 w-4" />
-        </Button>
+        </button>
       </div>
     </div>
   );
