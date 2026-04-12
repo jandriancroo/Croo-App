@@ -16,44 +16,6 @@ interface KioskLocation {
   organization_id?: string;
 }
 
-// Minimal location context for kiosk mode — same shape as useLocation hook
-const KioskLocationContext = createContext<{
-  currentLocation: KioskLocation | null;
-  locations: KioskLocation[];
-  setCurrentLocation: (loc: KioskLocation) => void;
-  loading: boolean;
-  refetchLocations: () => Promise<void>;
-  isChecklistOnlyLocation: boolean;
-  organizationId: string | null;
-  isSwitching: boolean;
-  switchingTo: KioskLocation | null;
-} | undefined>(undefined);
-
-function KioskLocationProvider({ location, children }: { location: KioskLocation; children: React.ReactNode }) {
-  return (
-    <KioskLocationContext.Provider
-      value={{
-        currentLocation: location,
-        locations: [location],
-        setCurrentLocation: () => {},
-        loading: false,
-        refetchLocations: async () => {},
-        isChecklistOnlyLocation: false,
-        organizationId: location.organization_id || null,
-        isSwitching: false,
-        switchingTo: null,
-      }}
-    >
-      {children}
-    </KioskLocationContext.Provider>
-  );
-}
-
-// We need to override the LocationContext used by useLocation hook
-// The simplest way: re-export the context from useLocation and provide it here
-// But since LocationContext isn't exported, we'll use a different approach:
-// Wrap PunchClock in a component that patches the context
-
 function KioskSetupScreen({ onComplete }: { onComplete: (location: KioskLocation) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -125,10 +87,6 @@ function KioskSetupScreen({ onComplete }: { onComplete: (location: KioskLocation
     }
   };
 
-  const handleSelectLocation = (loc: KioskLocation) => {
-    setSelectedLocation(loc);
-  };
-
   const handleConfirm = () => {
     if (!selectedLocation) return;
     localStorage.setItem(KIOSK_LOCATION_KEY, JSON.stringify(selectedLocation));
@@ -136,16 +94,16 @@ function KioskSetupScreen({ onComplete }: { onComplete: (location: KioskLocation
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-neutral-900 border-neutral-800">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-3">
           <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
             <Monitor className="w-7 h-7 text-primary" />
           </div>
-          <CardTitle className="text-xl text-white">
+          <CardTitle className="text-xl">
             {step === 'login' ? 'Kiosk Setup' : 'Select Location'}
           </CardTitle>
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-muted-foreground">
             {step === 'login'
               ? 'Manager login required for initial setup'
               : 'Choose which location this tablet will serve'}
@@ -155,27 +113,25 @@ function KioskSetupScreen({ onComplete }: { onComplete: (location: KioskLocation
           {step === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-neutral-300">Email</Label>
+                <Label htmlFor="kiosk-email">Email</Label>
                 <Input
-                  id="email"
+                  id="kiosk-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="manager@company.com"
                   required
-                  className="bg-neutral-800 border-neutral-700 text-white"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-neutral-300">Password</Label>
+                <Label htmlFor="kiosk-password">Password</Label>
                 <Input
-                  id="password"
+                  id="kiosk-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="bg-neutral-800 border-neutral-700 text-white"
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
@@ -191,15 +147,15 @@ function KioskSetupScreen({ onComplete }: { onComplete: (location: KioskLocation
               {locations.map((loc) => (
                 <button
                   key={loc.id}
-                  onClick={() => handleSelectLocation(loc)}
+                  onClick={() => setSelectedLocation(loc)}
                   className={`w-full flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${
                     selectedLocation?.id === loc.id
-                      ? 'border-primary bg-primary/10 text-white'
-                      : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-600'
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border bg-muted text-muted-foreground hover:border-primary/50'
                   }`}
                 >
                   <MapPin className={`w-5 h-5 flex-shrink-0 ${
-                    selectedLocation?.id === loc.id ? 'text-primary' : 'text-neutral-500'
+                    selectedLocation?.id === loc.id ? 'text-primary' : 'text-muted-foreground'
                   }`} />
                   <span className="font-medium">{loc.name}</span>
                   {selectedLocation?.id === loc.id && (
@@ -240,7 +196,7 @@ export default function KioskPunchClock() {
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -250,8 +206,5 @@ export default function KioskPunchClock() {
     return <KioskSetupScreen onComplete={setKioskLocation} />;
   }
 
-  // Render PunchClock in kiosk mode
-  // The challenge: PunchClock uses useAppLocation() which reads from LocationContext
-  // We need to provide the location through that same context
   return <PunchClock kioskMode kioskLocationOverride={kioskLocation} />;
 }
