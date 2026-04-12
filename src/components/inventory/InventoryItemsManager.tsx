@@ -1038,25 +1038,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             <div className="flex items-center gap-1.5 sm:gap-2 font-semibold text-sm min-w-0">
               <Package className="h-4 w-4 flex-shrink-0" />
               <span className="whitespace-nowrap">Items ({items?.length || 0})</span>
-              <div className="flex items-center rounded-md border border-border overflow-hidden">
-                <button
-                  className={`px-2 py-1 text-xs font-medium transition-colors ${
-                    itemsSubView === "list" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                  onClick={() => setItemsSubView("list")}
-                >
-                  List
-                </button>
-                <button
-                  className={`px-2 py-1 text-xs font-medium transition-colors flex items-center gap-1 ${
-                    itemsSubView === "matrix" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                  onClick={() => setItemsSubView("matrix")}
-                >
-                  <Grid3X3 className="h-3 w-3" />
-                  Matrix
-                </button>
-              </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {itemsSubView === "list" && (
@@ -1068,12 +1049,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             </div>
           </div>
 
-          {/* Matrix sub-view */}
-          {itemsSubView === "matrix" && (
-            <Suspense fallback={<div className="text-sm text-muted-foreground text-center py-8">Loading matrix...</div>}>
-              <UnitMatrixView locationId={locationId} />
-            </Suspense>
-          )}
 
           {/* List sub-view */}
           {itemsSubView === "list" && <>
