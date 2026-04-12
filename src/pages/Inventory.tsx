@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, Upload, ArrowLeft, DollarSign } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, Upload, ArrowLeft, DollarSign, Trash2 } from "lucide-react";
+import WasteLog from "@/components/inventory/WasteLog";
 import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
 import RecipeGeniusCard from "@/components/inventory/menu-pricing/RecipeGeniusCard";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
@@ -343,6 +344,10 @@ const Inventory = () => {
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span>Count</span>
+            </TabsTrigger>
+            <TabsTrigger value="waste" className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4" />
+              <span>Waste</span>
             </TabsTrigger>
             <TabsTrigger value="items" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
