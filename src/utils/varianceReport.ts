@@ -86,6 +86,9 @@ export async function calculateVarianceReport(
       fetchAllIngredients(locationId),
     ]);
 
+  // Fetch transfers for this period
+  const transfersData = await fetchTransfersForPeriod(locationId, periodStartDate, periodEndDate);
+
   const [vendorMappings, deployments, { excludedCategories, includedOverrides }] = await Promise.all([vendorMappingsP, deploymentsP, brandFiltersP]);
 
   const netSales = salesData.totalNetSales;
