@@ -84,8 +84,13 @@ export default function Dashboard() {
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, organizationId } = useAppLocation();
   const { getTodayInTimezone, timezone } = useLocationTimezone();
-  const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
-  const [isLoadingSales, setIsLoadingSales] = useState(true);
+  // Sales data from shared cache — SalesSummary is the MASTER WRITER.
+  // Reading from cache eliminates the callback prop + double-setState jitter.
+  const salesCacheData = queryClient.getQueryData<SalesDataForWidgets | null>(
+    ['dashboard-sales-enriched', currentLocation?.id]
+  );
+  const salesOverviewData = salesCacheData ?? null;
+  const isLoadingSales = salesOverviewData === null;
   const { isSectionVisible } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
