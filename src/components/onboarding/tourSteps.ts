@@ -78,8 +78,8 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
   },
   {
     target: '.mobile-dock-container',
-    title: 'Quick Access Menu',
-    content: 'Tap your profile avatar in the header for quick access to Time Tracking, Inventory, Users, Settings, and more.',
+    title: 'Dynamic Manager Dash',
+    content: 'Tap to get the "Manager Dash" from the punch clock right on your phone!',
     page: '/dashboard',
     minRole: 'shift_manager',
     placement: 'top',
