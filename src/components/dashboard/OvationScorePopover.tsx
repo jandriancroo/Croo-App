@@ -69,28 +69,60 @@ export function useOvationData() {
   const { currentLocation } = useAppLocation();
   const locationId = currentLocation?.id;
 
-  // Removed brandId waterfall — brandId was only used as a queryKey segment,
-  // not passed to the edge function. This eliminates a sequential async hop.
+  // Track auth readiness to prevent firing queries before session is restored
+  const [authReady, setAuthReady] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+        setAuthReady(true);
+      }
+    });
+    // Listen for auth changes (token refresh, login, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+        setAuthReady(true);
+      } else {
+        setUserId(null);
+        setAuthReady(false);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const { data: reviewsData, isLoading } = useQuery<OvationReviewsData>({
-    queryKey: ['ovation-reviews', locationId],
+    queryKey: ['ovation-reviews', locationId, userId],
     queryFn: async () => {
       if (!locationId) return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
       const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      if (!token) {
+        console.warn('[Ovation] No auth token available, skipping fetch');
+        return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
+      }
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ovation-service?action=fetch_reviews`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.data.session?.access_token}`,
+            'Authorization': `Bearer ${token}`,
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({ locationId, days: 14, pageSize: 500 }),
         }
       );
+      if (!response.ok) {
+        console.warn('[Ovation] Edge function returned', response.status);
+        return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
+      }
       return (await response.json()) as OvationReviewsData;
     },
-    enabled: !!locationId,
+    enabled: !!locationId && authReady && !!userId,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
   });
