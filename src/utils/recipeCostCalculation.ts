@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { parsePackSizeToOz } from "./blueprintCostCalculation";
+import { TO_OZ, normalizeUnit } from "./unitConversion";
 
 interface RecipeIngredient {
   recipe_item_id: string;
@@ -106,8 +107,8 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
       } else {
         // Raw ingredient: determine proper divisor based on unit
         const caseCost = ingItem.blended_price ?? ingItem.cost_per_unit ?? 0;
-        const ingUnit = ing.unit?.toLowerCase().trim() || '';
-        const nativeUnit = ingItem.count_unit?.toLowerCase().trim() || '';
+        const ingUnit = normalizeUnit(ing.unit);
+        const nativeUnit = normalizeUnit(ingItem.count_unit);
         
         // If the recipe unit is "cs" or "case", use full case cost (no division)
         if (ingUnit === 'cs' || ingUnit === 'case') {
@@ -115,9 +116,7 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         } else {
           const unitsPerCase = ingItem.pack_quantity_override || ingItem.count_units_per_case || ingItem.pack_quantity || 1;
           const costPerSingleUnit = caseCost / unitsPerCase;
-          const TO_OZ: Record<string, number> = {
-            oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, kg: 35.274, g: 0.03527,
-          };
+          // TO_OZ imported from unitConversion.ts
 
           // Determine effective native unit — fall back to pack_size parsing
           let effNative = nativeUnit;
