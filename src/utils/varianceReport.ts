@@ -179,7 +179,7 @@ export async function calculateVarianceReport(
         matchLog.pfg.unmatched++;
         const key = `__pfg_unmatched_${vendorItemId}`;
         if (!itemActual.has(key)) {
-          itemActual.set(key, { beginning: 0, purchases: 0, ending: 0, beginningQty: 0, endingQty: 0 });
+          itemActual.set(key, { beginning: 0, purchases: 0, ending: 0, transfersIn: 0, transfersOut: 0, beginningQty: 0, endingQty: 0 });
         }
         itemActual.get(key)!.purchases += Number(li.total) || 0;
       }
