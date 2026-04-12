@@ -525,10 +525,7 @@ export default function Dashboard() {
       locationSettings={locationSettings} 
       isReorderMode={false}
       checklistsContent={checklistsGridContent}
-      onSalesDataChange={(data) => {
-        setSalesOverviewData(data);
-        setIsLoadingSales(false);
-      }}
+      onSalesDataChange={undefined}
       roleCubes={roleCubes}
       useRoleCubes={shouldUseRoleCubes}
       sectionOrder={dashboardSectionOrder}
