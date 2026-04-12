@@ -140,7 +140,7 @@ const getDailyFacts = () => {
 
 const DAILY_FACTS = getDailyFacts();
 
-export default function PunchClock() {
+export default function PunchClock({ kioskMode = false }: { kioskMode?: boolean } = {}) {
   const { currentLocation } = useAppLocation();
   const { timezone, closeTime } = useLocationTimezone();
   const [pin, setPin] = useState('');
@@ -655,8 +655,8 @@ export default function PunchClock() {
       return;
     }
 
-    // Check for master exit code
-    if (pinValue === MASTER_EXIT_CODE) {
+    // Check for master exit code (disabled in kiosk mode)
+    if (!kioskMode && pinValue === MASTER_EXIT_CODE) {
       handleMasterExit();
       return;
     }

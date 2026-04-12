@@ -43,6 +43,7 @@ const Availability = lazyWithRetry(() => import("./pages/Availability"));
 const Messages = lazyWithRetry(() => import("./pages/Messages"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const PunchClock = lazyWithRetry(() => import("./pages/PunchClock"));
+const KioskPunchClock = lazyWithRetry(() => import("./pages/KioskPunchClock"));
 const PayrollReview = lazyWithRetry(() => import("./pages/PayrollReview"));
 const Tasks = lazyWithRetry(() => import("./pages/Tasks"));
 const LogBook = lazyWithRetry(() => import("./pages/LogBook"));
@@ -181,6 +182,7 @@ const AppContent = () => {
         <Route path="/availability" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/punch-clock" element={<PunchClock />} />
+        <Route path="/kiosk" element={<KioskPunchClock />} />
         <Route path="/biometric-demo" element={<BiometricDemo />} />
         <Route path="/time-tracking" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
