@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, ArrowRightLeft, X, Loader2 } from "lucide-react";
@@ -37,7 +36,6 @@ const BulkReassignBar = ({ selectedIds, onClear, onDone, locationId }: BulkReass
 
     try {
       const ids = Array.from(selectedIds);
-      // Batch update in chunks of 50
       for (let i = 0; i < ids.length; i += 50) {
         const chunk = ids.slice(i, i + 50);
         const { error } = await supabase
@@ -58,36 +56,45 @@ const BulkReassignBar = ({ selectedIds, onClear, onDone, locationId }: BulkReass
   };
 
   return (
-    <div className="fixed bottom-6 left-4 right-4 z-50 flex items-center gap-2 bg-background border border-border rounded-xl shadow-lg px-4 py-3 max-w-lg mx-auto">
-      <Badge variant="secondary" className="text-xs flex-shrink-0">
-        {selectedIds.size} selected
-      </Badge>
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in">
+      <div className="flex items-center gap-1 rounded-full border border-border bg-primary px-1 py-1 shadow-lg">
+        <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-xs font-semibold bg-primary-foreground text-primary">
+          {selectedIds.size} selected
+        </Badge>
 
-      <Select value={targetSection} onValueChange={(v) => setTargetSection(v as SectionType)}>
-        <SelectTrigger className="flex-1 h-8 text-xs">
-          <SelectValue placeholder="Move to…" />
-        </SelectTrigger>
-        <SelectContent>
-          {SECTION_OPTIONS.map(opt => (
-            <SelectItem key={opt.value} value={opt.value} className="text-xs">
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <div className="relative">
+          <Select value={targetSection} onValueChange={(v) => setTargetSection(v as SectionType)}>
+            <SelectTrigger className="h-7 w-[120px] text-[11px] bg-transparent border-none text-primary-foreground focus:ring-0 focus:ring-offset-0 px-3">
+              <SelectValue placeholder="Move to…" />
+            </SelectTrigger>
+            <SelectContent>
+              {SECTION_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      <Button
-        size="sm"
-        disabled={!targetSection || selectedIds.size === 0 || isSaving}
-        onClick={handleReassign}
-        className="flex-shrink-0"
-      >
-        {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-      </Button>
+        {targetSection && (
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
+            onClick={handleReassign}
+            disabled={isSaving}
+          >
+            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            Apply
+          </button>
+        )}
 
-      <Button size="sm" variant="ghost" onClick={onClear} className="flex-shrink-0">
-        <X className="h-3.5 w-3.5" />
-      </Button>
+        <button
+          className="p-1.5 rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
+          onClick={onClear}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 };
