@@ -43,6 +43,7 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
   const { currentLocation } = useAppLocation();
   const [selectedItemId, setSelectedItemId] = useState("");
   const [caseCount, setCaseCount] = useState("");
+  const [packCount, setPackCount] = useState("");
   const [unitCount, setUnitCount] = useState("");
   const [panCounts, setPanCounts] = useState<Record<string, number>>({});
   const [reason, setReason] = useState("");
@@ -69,17 +70,38 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
   const selectedItem = items?.find((i) => i.id === selectedItemId);
 
   const unitLabel = selectedItem?.count_unit || selectedItem?.unit || "units";
-  const unitsPerCase = useMemo(() => {
-    if (!selectedItem) return 1;
-    return selectedItem.pack_quantity_override || selectedItem.count_units_per_case || selectedItem.pack_quantity || 1;
+  
+  // Packs per case (e.g., 6 bags per case)
+  const packsPerCase = useMemo(() => {
+    if (!selectedItem) return null;
+    const pq = selectedItem.pack_quantity_override || selectedItem.pack_quantity || null;
+    // Only show packs row if there's a meaningful pack level AND a different count_unit
+    // i.e., pack_quantity represents inner containers (bags), count_units_per_case represents total count_units (oz)
+    if (!pq || pq <= 1) return null;
+    const cupc = selectedItem.count_units_per_case;
+    // If count_units_per_case exists and differs from pack_quantity, there's a real pack level
+    if (cupc && cupc !== pq) return pq;
+    return null;
   }, [selectedItem]);
+
+  // Count units per case (e.g., 480 oz per case)  
+  const countUnitsPerCase = useMemo(() => {
+    if (!selectedItem) return 1;
+    return selectedItem.count_units_per_case || selectedItem.pack_quantity_override || selectedItem.pack_quantity || 1;
+  }, [selectedItem]);
+
+  // Count units per pack (e.g., 80 oz per bag)
+  const countUnitsPerPack = useMemo(() => {
+    if (!packsPerCase) return null;
+    return countUnitsPerCase / packsPerCase;
+  }, [countUnitsPerCase, packsPerCase]);
 
   const caseCost = useMemo(() => {
     if (!selectedItem) return 0;
     return selectedItem.blended_price ?? selectedItem.cost_per_unit ?? 0;
   }, [selectedItem]);
 
-  const costPerUnit = caseCost / unitsPerCase;
+  const costPerCountUnit = caseCost / countUnitsPerCase;
 
   // Pan data from item's pan_sizes config
   const enabledPans = useMemo(() => {
@@ -94,22 +116,24 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
       .filter(Boolean) as { key: string; label: string; unitsEach: number | null }[];
   }, [selectedItem]);
 
-  // Calculate total quantity in units
+  // Calculate total quantity in count_units (e.g., oz)
   const totalUnits = useMemo(() => {
     const cases = parseFloat(caseCount) || 0;
+    const packs = parseFloat(packCount) || 0;
     const units = parseFloat(unitCount) || 0;
     const panUnits = Object.entries(panCounts).reduce((sum, [key, qty]) => {
       if (!selectedItem?.pan_sizes) return sum;
       const unitsEach = getPanUnits(selectedItem.pan_sizes, key);
       return sum + (unitsEach ?? 0) * qty;
     }, 0);
-    return Math.round((cases * unitsPerCase + units + panUnits) * 100) / 100;
-  }, [caseCount, unitCount, panCounts, unitsPerCase, selectedItem]);
+    const packUnits = packsPerCase && countUnitsPerPack ? packs * countUnitsPerPack : 0;
+    return Math.round((cases * countUnitsPerCase + packUnits + units + panUnits) * 100) / 100;
+  }, [caseCount, packCount, unitCount, panCounts, countUnitsPerCase, countUnitsPerPack, packsPerCase, selectedItem]);
 
   const estimatedCost = useMemo(() => {
     if (!selectedItem || totalUnits <= 0 || !caseCost) return null;
-    return totalUnits * costPerUnit;
-  }, [selectedItem, totalUnits, caseCost, costPerUnit]);
+    return totalUnits * costPerCountUnit;
+  }, [selectedItem, totalUnits, caseCost, costPerCountUnit]);
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -135,8 +159,10 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
     // Build descriptive unit string
     const parts: string[] = [];
     const cases = parseFloat(caseCount) || 0;
+    const packs = parseFloat(packCount) || 0;
     const units = parseFloat(unitCount) || 0;
     if (cases > 0) parts.push(`${cases} case${cases !== 1 ? 's' : ''}`);
+    if (packs > 0 && packsPerCase) parts.push(`${packs} unit${packs !== 1 ? 's' : ''}`);
     if (units > 0) parts.push(`${units} ${unitLabel}`);
     Object.entries(panCounts).forEach(([key, qty]) => {
       if (qty > 0) {
@@ -159,6 +185,7 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
 
   const resetForm = () => {
     setCaseCount("");
+    setPackCount("");
     setUnitCount("");
     setPanCounts({});
   };
@@ -221,12 +248,12 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
         <div className="space-y-3">
           <label className="text-sm font-medium block">Quantity wasted</label>
 
-          {/* Cases + Units row */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Cases + Units + Count Units grid */}
+          <div className={cn("grid gap-3", packsPerCase ? "grid-cols-3" : "grid-cols-2")}>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
                 Cases
-                <span className="text-muted-foreground/60 ml-1">({unitsPerCase} {unitLabel}/cs)</span>
+                <span className="text-muted-foreground/60 ml-1">({countUnitsPerCase} {unitLabel}/cs)</span>
               </label>
               <Input
                 type="number"
@@ -238,9 +265,26 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
                 step="any"
               />
             </div>
+            {packsPerCase && (
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">
+                  Units
+                  <span className="text-muted-foreground/60 ml-1">({packsPerCase}/cs)</span>
+                </label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={packCount}
+                  onChange={(e) => setPackCount(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  step="any"
+                />
+              </div>
+            )}
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
-                Units <span className="text-muted-foreground/60">({unitLabel})</span>
+                {unitLabel}
               </label>
               <Input
                 type="number"
