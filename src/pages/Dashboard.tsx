@@ -27,6 +27,7 @@ import { PullToRefresh } from '@/components/PullToRefresh';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
 import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
+import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
 
 
 interface CateringOrder {
@@ -78,7 +79,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, organizationId } = useAppLocation();
-  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, loading: timezoneLoading } = useLocationTimezone();
+  const { getTodayInTimezone, timezone } = useLocationTimezone();
   const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const { isSectionVisible } = useDashboardSections();
