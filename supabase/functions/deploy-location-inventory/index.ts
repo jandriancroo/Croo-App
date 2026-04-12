@@ -143,6 +143,7 @@ Deno.serve(async (req) => {
 
     // brand_item_id → target storage location id (via source shelf assignment)
     const brandItemToShelf = new Map<string, string>();
+    const brandItemToOrder = new Map<string, number>();
     for (const si of sourceItems || []) {
       if (si.brand_item_id && si.storage_location_id) {
         const sourceName = sourceStorageIdToName.get(si.storage_location_id);
@@ -153,7 +154,12 @@ Deno.serve(async (req) => {
           }
         }
       }
+      if (si.brand_item_id && si.display_order != null) {
+        brandItemToOrder.set(si.brand_item_id, si.display_order);
+      }
     }
+
+    console.log(`[deploy] Shelf mirroring from ${shelfSourceId === HEMET_LOCATION_ID ? 'Hemet (default)' : shelfSourceId}: ${brandItemToShelf.size} item-to-shelf mappings`);
 
     // 4. Collect unique product groups and create them
     const groupsToCreate: { name: string; pos_categories: string[] | null; pos_items: string[] | null }[] = [];
