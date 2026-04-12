@@ -2761,6 +2761,8 @@ export type Database = {
           is_late_close: boolean
           late_close_notes: string | null
           location_id: string | null
+          locked_at: string | null
+          locked_by: string | null
           notes: string | null
           period_end_date: string | null
           period_type: string | null
@@ -2779,6 +2781,8 @@ export type Database = {
           is_late_close?: boolean
           late_close_notes?: string | null
           location_id?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
           notes?: string | null
           period_end_date?: string | null
           period_type?: string | null
@@ -2797,6 +2801,8 @@ export type Database = {
           is_late_close?: boolean
           late_close_notes?: string | null
           location_id?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
           notes?: string | null
           period_end_date?: string | null
           period_type?: string | null
