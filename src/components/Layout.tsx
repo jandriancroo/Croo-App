@@ -1232,6 +1232,21 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   )}
                 </div>
 
+                {/* Replay Tour (shift_manager+) */}
+                {tourEligible && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setMenuOpen(false);
+                      replayTour();
+                    }}
+                    className="justify-start gap-2 h-9"
+                  >
+                    <GraduationCap className="h-4 w-4" />
+                    <span className="text-sm">Tour CrooHQ</span>
+                  </Button>
+                )}
+
                 {/* Update App + Sign Out row */}
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant="outline" onClick={() => {
