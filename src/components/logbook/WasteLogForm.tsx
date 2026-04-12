@@ -70,17 +70,38 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
   const selectedItem = items?.find((i) => i.id === selectedItemId);
 
   const unitLabel = selectedItem?.count_unit || selectedItem?.unit || "units";
-  const unitsPerCase = useMemo(() => {
-    if (!selectedItem) return 1;
-    return selectedItem.pack_quantity_override || selectedItem.count_units_per_case || selectedItem.pack_quantity || 1;
+  
+  // Packs per case (e.g., 6 bags per case)
+  const packsPerCase = useMemo(() => {
+    if (!selectedItem) return null;
+    const pq = selectedItem.pack_quantity_override || selectedItem.pack_quantity || null;
+    // Only show packs row if there's a meaningful pack level AND a different count_unit
+    // i.e., pack_quantity represents inner containers (bags), count_units_per_case represents total count_units (oz)
+    if (!pq || pq <= 1) return null;
+    const cupc = selectedItem.count_units_per_case;
+    // If count_units_per_case exists and differs from pack_quantity, there's a real pack level
+    if (cupc && cupc !== pq) return pq;
+    return null;
   }, [selectedItem]);
+
+  // Count units per case (e.g., 480 oz per case)  
+  const countUnitsPerCase = useMemo(() => {
+    if (!selectedItem) return 1;
+    return selectedItem.count_units_per_case || selectedItem.pack_quantity_override || selectedItem.pack_quantity || 1;
+  }, [selectedItem]);
+
+  // Count units per pack (e.g., 80 oz per bag)
+  const countUnitsPerPack = useMemo(() => {
+    if (!packsPerCase) return null;
+    return countUnitsPerCase / packsPerCase;
+  }, [countUnitsPerCase, packsPerCase]);
 
   const caseCost = useMemo(() => {
     if (!selectedItem) return 0;
     return selectedItem.blended_price ?? selectedItem.cost_per_unit ?? 0;
   }, [selectedItem]);
 
-  const costPerUnit = caseCost / unitsPerCase;
+  const costPerCountUnit = caseCost / countUnitsPerCase;
 
   // Pan data from item's pan_sizes config
   const enabledPans = useMemo(() => {
