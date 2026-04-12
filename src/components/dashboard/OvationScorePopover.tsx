@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -42,29 +42,39 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
+// --- localStorage cache for instant hydration on reload ---
+const OVATION_CACHE_KEY = 'ovation-last-score';
+
+function getCachedScore(locationId: string | undefined): { wtdAverage: number; wtdCount: number } | null {
+  if (!locationId) return null;
+  try {
+    const raw = localStorage.getItem(OVATION_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.locationId === locationId && Date.now() - parsed.ts < 24 * 60 * 60 * 1000) {
+      return { wtdAverage: parsed.wtdAverage, wtdCount: parsed.wtdCount };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function setCachedScore(locationId: string, wtdAverage: number, wtdCount: number) {
+  try {
+    localStorage.setItem(OVATION_CACHE_KEY, JSON.stringify({ locationId, wtdAverage, wtdCount, ts: Date.now() }));
+  } catch { /* ignore */ }
+}
+
 /** Shared hook so tab + panel use the same data without duplicate fetches */
 export function useOvationData() {
-  const { currentLocation, organizationId } = useAppLocation();
+  const { currentLocation } = useAppLocation();
+  const locationId = currentLocation?.id;
 
-  const { data: brandId } = useQuery({
-    queryKey: ['org-brand-id', organizationId],
+  // Removed brandId waterfall — brandId was only used as a queryKey segment,
+  // not passed to the edge function. This eliminates a sequential async hop.
+  const { data: reviewsData, isLoading } = useQuery<OvationReviewsData>({
+    queryKey: ['ovation-reviews', locationId],
     queryFn: async () => {
-      if (!organizationId) return null;
-      const { data } = await supabase
-        .from('organizations')
-        .select('brand_id')
-        .eq('id', organizationId)
-        .single();
-      return data?.brand_id || null;
-    },
-    enabled: !!organizationId,
-    staleTime: 60 * 60 * 1000,
-  });
-
-  const { data: reviewsData } = useQuery<OvationReviewsData>({
-    queryKey: ['ovation-reviews', currentLocation?.id, brandId],
-    queryFn: async () => {
-      if (!currentLocation?.id) return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
+      if (!locationId) return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
       const session = await supabase.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ovation-service?action=fetch_reviews`,
@@ -75,28 +85,64 @@ export function useOvationData() {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ locationId: currentLocation.id, days: 14, pageSize: 500 }),
+          body: JSON.stringify({ locationId, days: 14, pageSize: 500 }),
         }
       );
       return (await response.json()) as OvationReviewsData;
     },
-    enabled: !!currentLocation?.id && !!brandId,
+    enabled: !!locationId,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
   });
 
-  return { reviewsData, hasData: !!reviewsData && !reviewsData.error && !!reviewsData.wtdAverage };
+  // Cache the last good score for instant hydration on reload
+  useEffect(() => {
+    if (reviewsData?.wtdAverage && locationId) {
+      setCachedScore(locationId, reviewsData.wtdAverage, reviewsData.wtdCount);
+    }
+  }, [reviewsData?.wtdAverage, reviewsData?.wtdCount, locationId]);
+
+  const hasData = !!reviewsData && !reviewsData.error && !!reviewsData.wtdAverage;
+  const cachedScore = !hasData ? getCachedScore(locationId) : null;
+
+  return {
+    reviewsData,
+    hasData,
+    isLoading,
+    cachedScore,
+  };
 }
 
 /** The small fixed tab trigger */
 export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boolean; onToggle: () => void; desktop?: boolean }) {
-  const { reviewsData, hasData } = useOvationData();
+  const { reviewsData, hasData, isLoading, cachedScore } = useOvationData();
 
-  if (!hasData || !reviewsData?.wtdAverage) return null;
+  const displayScore = hasData ? reviewsData?.wtdAverage : cachedScore?.wtdAverage;
 
-  const scoreColor = reviewsData.wtdAverage >= 4.5 ? 'text-green-500' :
-    reviewsData.wtdAverage >= 3.5 ? 'text-yellow-500' :
-    reviewsData.wtdAverage >= 2.5 ? 'text-orange-500' : 'text-red-500';
+  // Nothing to show and not loading — hide completely
+  if (!displayScore && !isLoading) return null;
+
+  // Skeleton placeholder while loading with no cached data
+  if (!displayScore && isLoading) {
+    return (
+      <div
+        className={cn(
+          'flex items-center gap-2 px-3.5 py-1.5',
+          desktop
+            ? 'rounded-lg bg-white/15 border-0'
+            : 'min-h-10 bg-muted/85 shadow-sm border border-t-0 border-border/30 rounded-b-xl'
+        )}
+      >
+        <div className="h-4 w-4 rounded bg-muted-foreground/20 animate-pulse" />
+        <div className="h-4 w-8 rounded bg-muted-foreground/20 animate-pulse" />
+        <div className="h-3 w-5 rounded bg-muted-foreground/20 animate-pulse" />
+      </div>
+    );
+  }
+
+  const scoreColor = displayScore! >= 4.5 ? 'text-green-500' :
+    displayScore! >= 3.5 ? 'text-yellow-500' :
+    displayScore! >= 2.5 ? 'text-orange-500' : 'text-red-500';
 
   return (
     <button
@@ -110,7 +156,7 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
     >
       <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 sm:h-4 sm:w-4 object-contain" />
       <span className={cn('text-base sm:text-sm font-bold', desktop ? 'text-white' : scoreColor)}>
-        {reviewsData.wtdAverage.toFixed(1)}
+        {displayScore!.toFixed(1)}
       </span>
       <span className={cn('text-[11px] sm:text-[9px] font-medium', desktop ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
       <ChevronDown className={cn(
