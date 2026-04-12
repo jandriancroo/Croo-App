@@ -211,6 +211,13 @@ export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, act
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BrandPanMatrixSheet
+        open={showPanMatrix}
+        onOpenChange={setShowPanMatrix}
+        selectedIds={selectedIds}
+        brandId={brandId}
+      />
     </>
   );
 }
