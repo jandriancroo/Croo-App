@@ -276,6 +276,8 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       beginValue,
       endValue,
       purchasesCost,
+      transfersIn,
+      transfersOut,
       actualUsage,
       totalSales,
       actualCOGSPercent,
@@ -289,7 +291,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       beginDate: counts?.beginning?.period_end_date || counts?.beginning?.count_date,
       endDate: counts?.ending?.period_end_date || counts?.ending?.count_date,
     };
-  }, [counts, inventoryItems, purchases, salesData, bomData]);
+  }, [counts, inventoryItems, purchases, salesData, bomData, transferTotals]);
 
   const isLoading = countsLoading || purchasesLoading || salesLoading;
   const canGoForward = !isAfter(addWeeks(weekStart, 1), new Date());
