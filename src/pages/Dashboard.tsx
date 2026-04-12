@@ -27,6 +27,7 @@ import { PullToRefresh } from '@/components/PullToRefresh';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
 import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
+import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
 
 
 interface CateringOrder {
@@ -66,10 +67,6 @@ export default function Dashboard() {
     document.body.classList.add('beach-dashboard');
     return () => document.body.classList.remove('beach-dashboard');
   }, []);
-  const [completionData, setCompletionData] = useState<Record<string, {
-    expected: number;
-    completed: number;
-  }>>({});
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
@@ -82,7 +79,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, organizationId } = useAppLocation();
-  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, loading: timezoneLoading } = useLocationTimezone();
+  const { getTodayInTimezone, timezone } = useLocationTimezone();
   const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const { isSectionVisible } = useDashboardSections();
@@ -476,161 +473,8 @@ export default function Dashboard() {
   const checklists = checklistData?.checklists || [];
 
 
-  useEffect(() => {
-    // Wait for timezone to load before calculating completion data.
-    // NOTE: closeTime can legitimately be null (no hours row for that day);
-    // in that case the business-day helpers fall back to the default cutoff.
-    // Only run when timezone is ready and we have checklists + location
-    if (!timezoneLoading && checklists.length > 0 && currentLocation?.id) {
-      loadCompletionData();
-    }
-  }, [checklists.length, timezoneLoading, currentLocation?.id]);
-
-  // Note: UserManagement prefetch removed — prefetchQuery without queryFn is a no-op
-
-  const loadCompletionData = async () => {
-    if (!checklists.length || !currentLocation?.id) return;
-    
-    // Use business date which accounts for late-night operations
-    // (submissions before cutoff time count as previous day)
-    const businessDateStr = getBusinessDateInTimezone();
-    
-    // Get current day of week using timezone-aware function (Mon=0, Sun=6)
-    const currentDay = getDayOfWeekInTimezone(timezone);
-    
-    // Calculate business day period in location timezone
-    // Business day runs from cutoff hour today to cutoff hour tomorrow
-    const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr);
-    
-    
-    // Monthly period
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    
-    const checklistIds = checklists.map(c => c.id);
-    
-    // Separate checklists by frequency to avoid 1000-row limit truncation
-    const dailyChecklistIds = checklists.filter(c => c.frequency !== 'monthly').map(c => c.id);
-    const monthlyChecklistIds = checklists.filter(c => c.frequency === 'monthly').map(c => c.id);
-    
-    // ALL 3 QUERIES IN PARALLEL: items + daily responses + monthly responses
-    const [
-      { data: allChecklistItems },
-      { data: dailyResponses },
-      { data: monthlyResponses }
-    ] = await Promise.all([
-      // Query 1: All checklist items
-      supabase
-        .from('checklist_items')
-        .select('id, checklist_id, days_of_week')
-        .in('checklist_id', checklistIds),
-      // Query 2: Daily responses (today's business day only)
-      dailyChecklistIds.length > 0 
-        ? supabase
-            .from('checklist_responses')
-            .select(`
-              id,
-              item_id,
-              created_at,
-              checklist_submissions!inner(id, checklist_id, location_id)
-            `)
-            .in('checklist_submissions.checklist_id', dailyChecklistIds)
-            .eq('checklist_submissions.location_id', currentLocation.id)
-            .gte('created_at', periodStartBusiness.toISOString())
-            .lte('created_at', periodEndBusiness.toISOString())
-        : Promise.resolve({ data: [] as any[] }),
-      // Query 3: Monthly responses (this month only)
-      monthlyChecklistIds.length > 0
-        ? supabase
-            .from('checklist_responses')
-            .select(`
-              id,
-              item_id,
-              created_at,
-              checklist_submissions!inner(id, checklist_id, location_id)
-            `)
-            .in('checklist_submissions.checklist_id', monthlyChecklistIds)
-            .eq('checklist_submissions.location_id', currentLocation.id)
-            .gte('created_at', monthStart.toISOString())
-            .lte('created_at', monthEnd.toISOString())
-        : Promise.resolve({ data: [] as any[] }),
-    ]);
-    
-    // Combine responses
-    const allResponses = [...(dailyResponses || []), ...(monthlyResponses || [])];
-    
-    
-    // Group items by checklist_id
-    const itemsByChecklist = new Map<string, typeof allChecklistItems>();
-    allChecklistItems?.forEach(item => {
-      const existing = itemsByChecklist.get(item.checklist_id) || [];
-      existing.push(item);
-      itemsByChecklist.set(item.checklist_id, existing);
-    });
-    
-    // Group responses by checklist_id
-    const responsesByChecklist = new Map<string, typeof allResponses>();
-    allResponses?.forEach((response: any) => {
-      const checklistId = response.checklist_submissions?.checklist_id;
-      if (checklistId) {
-        const existing = responsesByChecklist.get(checklistId) || [];
-        existing.push(response);
-        responsesByChecklist.set(checklistId, existing);
-      }
-    });
-    
-    const dataMap: Record<string, { expected: number; completed: number }> = {};
-    
-    for (const checklist of checklists) {
-      const checklistItems = itemsByChecklist.get(checklist.id) || [];
-      let itemCount = checklistItems.length;
-      
-      if (checklist.template_type === 'dynamic') {
-        itemCount = checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
-      }
-
-      // For monthly checklists, use start/end of month; otherwise use business day period
-      const isMonthly = checklist.frequency === 'monthly';
-      const periodStart = isMonthly ? monthStart : periodStartBusiness;
-      const periodEnd = isMonthly ? monthEnd : periodEndBusiness;
-      
-      // Filter responses for this checklist and time period
-      const responses = (responsesByChecklist.get(checklist.id) || []).filter((r: any) => {
-        const createdAt = new Date(r.created_at);
-        return createdAt >= periodStart && createdAt <= periodEnd;
-      });
-      
-      // Count unique item_ids to avoid double-counting collaborative completions
-      // For dynamic checklists, only count items scheduled for today
-      const todayItemIds = checklist.template_type === 'dynamic'
-        ? new Set(checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).map(item => item.id))
-        : null;
-      
-      const uniqueItemIds = new Set();
-      responses.forEach((response: any) => {
-        if (response.item_id) {
-          // For dynamic checklists, only count if it's a today item
-          if (todayItemIds === null || todayItemIds.has(response.item_id)) {
-            uniqueItemIds.add(response.item_id);
-          }
-        }
-      });
-      
-      dataMap[checklist.id] = {
-        expected: itemCount,
-        completed: uniqueItemIds.size
-      };
-    }
-    setCompletionData(dataMap);
-  };
-  const getCompletionData = (checklistId: string) => {
-    return completionData[checklistId] || {
-      expected: 0,
-      completed: 0
-    };
-  };
-
+  // Checklist completion data (cached via React Query)
+  const { getCompletionData } = useChecklistCompletion(checklists, currentLocation?.id);
 
   const quickTasksContent = (
     <QuickTasksSection locationSettings={locationSettings} timezone={timezone} />
