@@ -1048,8 +1048,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           </div>
 
 
-          {/* List sub-view */}
-          {itemsSubView === "list" && <>
           {items && items.length > 0 ? (
             <div className="space-y-2">
               {/* Items needing remap */}
