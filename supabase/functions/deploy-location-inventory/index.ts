@@ -259,10 +259,11 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Create new inventory_item
-      const storageLocId = tmpl.storage_location_name
-        ? storageMap.get(tmpl.storage_location_name.toLowerCase()) || storageMap.get("unassigned") || null
-        : storageMap.get("unassigned") || null;
+      // Create new inventory_item — prioritize source shelf mapping, fall back to template name
+      const storageLocId = brandItemToShelf.get(tmpl.id)
+        || (tmpl.storage_location_name ? storageMap.get(tmpl.storage_location_name.toLowerCase()) : null)
+        || storageMap.get("unassigned")
+        || null;
 
       // Build pan_sizes if template has pan config
       let panSizes: any = null;
