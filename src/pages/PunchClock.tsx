@@ -206,7 +206,6 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   const currentNatureImage = NATURE_IMAGES[currentImageIndex % NATURE_IMAGES.length];
   const currentHistoricalImage = HISTORICAL_IMAGES[currentImageIndex % HISTORICAL_IMAGES.length];
   const currentQuote = WISE_QUOTES[currentImageIndex % WISE_QUOTES.length];
-  const activeCrooLogo = isDayMode ? crooLogo : crooLogoWhite;
   
   // Current custom slide based on rotation
   const currentCustomImage = customBackgroundUrls.length > 0 
@@ -219,6 +218,7 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   // Manager Dashboard state
   const [showManagerDashboard, setShowManagerDashboard] = useState(false);
   const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
+  const activeCrooLogo = isDayMode ? crooLogo : crooLogoWhite;
 
   // Listen for localStorage changes from ManagerDashboardOverlay
   useEffect(() => {
