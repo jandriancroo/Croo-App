@@ -280,15 +280,23 @@ const InventoryCount = () => {
           <>
             {/* Actions for completed counts */}
             <div className="flex justify-end">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate(`/inventory/${locationId}/count/${countId}?edit=true`)}
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Count
-              </Button>
+              {(!isLocked || canEditLocked) ? (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate(`/inventory/${locationId}/count/${countId}?edit=true`)}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit Count
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>🔒 Locked — Admin access required to edit</span>
+                </div>
+              )}
             </div>
+            {/* Post-submission edit history */}
+            <CountEditHistory countId={countId!} />
             <InventoryCountView 
               countId={countId!} 
               locationId={locationId!}
