@@ -193,6 +193,13 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     enabled: !!locationId,
   });
 
+  // Transfers
+  const { transfers } = useInventoryTransfers(locationId);
+  const transferTotals = useMemo(() => {
+    if (!transfers.length) return { transfersIn: 0, transfersOut: 0 };
+    return getTransferTotalsForPeriod(transfers, locationId, weekStartStr, weekEndStr);
+  }, [transfers, locationId, weekStartStr, weekEndStr]);
+
   // Calculate COGS
   const cogs = useMemo(() => {
     if (!inventoryItems?.length) return null;
