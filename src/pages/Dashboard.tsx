@@ -556,17 +556,19 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Edit Dashboard Dialog */}
-          <EditDashboardDialog
-            open={showEditDashboard}
-            onOpenChange={setShowEditDashboard}
-            cubes={dashboardCubes}
-            onUpdateCube={handleUpdateCube}
-            onDeleteCube={handleDeleteCube}
-            onAddCube={() => setShowAddCubeDialog(true)}
-            onReorderCubes={handleReorderCubes}
-            onSectionOrderChange={setDashboardSectionOrder}
-          />
+          {/* Edit Dashboard Dialog - lazy loaded */}
+          <Suspense fallback={null}>
+            <EditDashboardDialog
+              open={showEditDashboard}
+              onOpenChange={setShowEditDashboard}
+              cubes={dashboardCubes}
+              onUpdateCube={handleUpdateCube}
+              onDeleteCube={handleDeleteCube}
+              onAddCube={() => setShowAddCubeDialog(true)}
+              onReorderCubes={handleReorderCubes}
+              onSectionOrderChange={setDashboardSectionOrder}
+            />
+          </Suspense>
 
           {checklistsLoading ? (
             <div className="space-y-3 animate-fade-in">
@@ -595,7 +597,9 @@ export default function Dashboard() {
         
         {/* Welcome animation overlay */}
         {showWelcomeAnimation && (
-          <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
+          <Suspense fallback={null}>
+            <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
+          </Suspense>
         )}
         {cateringDialogs}
       </PullToRefresh>
