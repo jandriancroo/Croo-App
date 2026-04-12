@@ -74,13 +74,25 @@ Deno.serve(async (req) => {
       if (item.pa_item_id) addMapping(`pa:${item.pa_item_id.trim().toLowerCase()}`);
     }
 
-    // 3. Collect unique storage locations and create them
-    const storageNames = new Set<string>();
-    storageNames.add("Unassigned");
+    // 3. Mirror storage locations from source location (default: Hemet)
+    // Fetch source location's shelf layout
+    const { data: sourceStorageLocs } = await supabase
+      .from("inventory_locations")
+      .select("id, name, display_order")
+      .eq("location_id", shelfSourceId)
+      .order("display_order");
+
+    // Also collect any storage names from templates not in source (safety net)
+    const allStorageNames = new Set<string>();
+    allStorageNames.add("Unassigned");
+    for (const sl of sourceStorageLocs || []) {
+      allStorageNames.add(sl.name);
+    }
     for (const t of templates) {
-      if (t.storage_location_name) storageNames.add(t.storage_location_name);
+      if (t.storage_location_name) allStorageNames.add(t.storage_location_name);
     }
 
+    // Check what already exists at target
     const { data: existingStorageLocs } = await supabase
       .from("inventory_locations")
       .select("id, name")
@@ -91,12 +103,18 @@ Deno.serve(async (req) => {
       storageMap.set(loc.name.toLowerCase(), loc.id);
     }
 
-    const locsToCreate = [...storageNames]
+    // Create missing storage locations, preserving source display_order
+    const sourceOrderMap = new Map<string, number>();
+    for (const sl of sourceStorageLocs || []) {
+      sourceOrderMap.set(sl.name.toLowerCase(), sl.display_order);
+    }
+
+    const locsToCreate = [...allStorageNames]
       .filter((n) => !storageMap.has(n.toLowerCase()))
       .map((name, i) => ({
         location_id: locationId,
         name,
-        display_order: (existingStorageLocs?.length || 0) + i,
+        display_order: sourceOrderMap.get(name.toLowerCase()) ?? (existingStorageLocs?.length || 0) + 100 + i,
       }));
 
     if (locsToCreate.length > 0) {
@@ -106,6 +124,34 @@ Deno.serve(async (req) => {
         .select("id, name");
       for (const loc of created || []) {
         storageMap.set(loc.name.toLowerCase(), loc.id);
+      }
+    }
+
+    // Build a brand_item_id → storage_location_name map from source location's items
+    const { data: sourceItems } = await supabase
+      .from("inventory_items")
+      .select("brand_item_id, storage_location_id")
+      .eq("location_id", shelfSourceId)
+      .eq("is_active", true)
+      .not("brand_item_id", "is", null);
+
+    // Map source storage_location_id → name for reverse lookup
+    const sourceStorageIdToName = new Map<string, string>();
+    for (const sl of sourceStorageLocs || []) {
+      sourceStorageIdToName.set(sl.id, sl.name);
+    }
+
+    // brand_item_id → target storage location id (via source shelf assignment)
+    const brandItemToShelf = new Map<string, string>();
+    for (const si of sourceItems || []) {
+      if (si.brand_item_id && si.storage_location_id) {
+        const sourceName = sourceStorageIdToName.get(si.storage_location_id);
+        if (sourceName) {
+          const targetLocId = storageMap.get(sourceName.toLowerCase());
+          if (targetLocId) {
+            brandItemToShelf.set(si.brand_item_id, targetLocId);
+          }
+        }
       }
     }
 
