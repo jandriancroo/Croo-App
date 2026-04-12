@@ -240,7 +240,7 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
-                {unitLabel}
+                Units <span className="text-muted-foreground/60">({unitLabel})</span>
               </label>
               <Input
                 type="number"
