@@ -230,7 +230,7 @@ export function useTasksData() {
       if (submissionIds.length > 0) {
         const { data: responses } = await supabase
           .from('checklist_responses')
-          .select('id, submission_id, completed_by, created_at')
+          .select('id, item_id, submission_id, completed_by, created_at')
           .in('submission_id', submissionIds)
           .not('completed_by', 'is', null);
         allResponses = responses || [];
