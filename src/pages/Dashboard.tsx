@@ -84,8 +84,6 @@ export default function Dashboard() {
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, organizationId } = useAppLocation();
   const { getTodayInTimezone, timezone } = useLocationTimezone();
-  const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
-  const [isLoadingSales, setIsLoadingSales] = useState(true);
   const { isSectionVisible } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
@@ -93,6 +91,19 @@ export default function Dashboard() {
     currentLocation?.id ? getSectionOrder(currentLocation.id) : ['data-cubes', 'checklists', 'sales-chart']
   );
   const queryClient = useQueryClient();
+
+  // Sales data from shared cache — SalesSummary is the MASTER WRITER via setQueryData.
+  // Using useQuery subscribes to cache updates so Dashboard re-renders when data arrives.
+  // No queryFn needed — SalesSummary populates the cache; we just read it.
+  const { data: salesOverviewData = null } = useQuery<SalesDataForWidgets | null>({
+    queryKey: ['dashboard-sales-enriched', currentLocation?.id],
+    queryFn: () => queryClient.getQueryData(['dashboard-sales-enriched', currentLocation?.id]) ?? null,
+    enabled: !!currentLocation?.id,
+    staleTime: Infinity, // Never refetch — SalesSummary manages updates via setQueryData
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+  const isLoadingSales = salesOverviewData === null;
 
   
   // Light DB reads — always refetch on pull
@@ -520,10 +531,7 @@ export default function Dashboard() {
       locationSettings={locationSettings} 
       isReorderMode={false}
       checklistsContent={checklistsGridContent}
-      onSalesDataChange={(data) => {
-        setSalesOverviewData(data);
-        setIsLoadingSales(false);
-      }}
+      onSalesDataChange={undefined}
       roleCubes={roleCubes}
       useRoleCubes={shouldUseRoleCubes}
       sectionOrder={dashboardSectionOrder}

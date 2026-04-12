@@ -1247,6 +1247,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     if (!salesData) {
       if (lastSalesDataSentKey.current !== 'null') {
         lastSalesDataSentKey.current = 'null';
+        // Write null to shared cache + legacy callback
+        queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id], null);
         onSalesDataChange?.(null);
       }
       return;
@@ -1293,16 +1295,20 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       projections: salesData.projections
         ? {
             ...salesData.projections,
-            // Make Target EOW/EOM match calculated goals
             weekProjected: weekTargetEow,
             monthProjected: monthTargetEom,
-            // Expose pace for cubes (Weekly + Monthly)
             weekPaceAdjusted: weekPace,
             monthPaceAdjusted: monthPace,
           }
         : undefined,
     };
 
+    // PRIMARY: Write enriched data to shared React Query cache.
+    // Dashboard and widgets read from this key — no callback prop needed.
+    // SalesSummary is the MASTER WRITER for this cache key.
+    queryClient.setQueryData(['dashboard-sales-enriched', currentLocation?.id], enhancedData);
+
+    // LEGACY: Keep callback for any remaining consumers during migration
     onSalesDataChange?.(enhancedData);
   }, [
     salesData,
@@ -1311,6 +1317,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     calculatedMonthProjected,
     calculatedMonthPace,
     onSalesDataChange,
+    queryClient,
+    currentLocation?.id,
   ]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
