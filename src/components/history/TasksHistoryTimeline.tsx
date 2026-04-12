@@ -1,4 +1,4 @@
-import { useMemo, useRef, memo, useCallback } from 'react';
+import { useMemo, memo } from 'react';
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Card, CardContent } from '@/components/ui/card';
@@ -128,13 +128,13 @@ const typeConfig = {
 // ══════════════════════════════════════════
 // GROUPED VIEW (Option E from preview)
 // ══════════════════════════════════════════
-function GroupedView({ items }: { items: TimelineItem[] }) {
-  const groups = [
+const GroupedView = memo(function GroupedView({ items }: { items: TimelineItem[] }) {
+  const groups = useMemo(() => [
     { label: 'Events & Logbook', icon: Calendar, color: 'text-blue-600 dark:text-blue-400', items: items.filter(i => i.type === 'event' || i.type === 'logbook') },
     { label: 'Tasks', icon: ClipboardList, color: 'text-primary', items: items.filter(i => i.type === 'task') },
     { label: 'Checklists', icon: ClipboardCheck, color: 'text-emerald-600 dark:text-emerald-400', items: items.filter(i => i.type === 'checklist') },
     { label: 'Alarm Checks', icon: Bell, color: 'text-amber-600 dark:text-amber-400', items: items.filter(i => i.type === 'alarm' || i.type === 'alarm-missed') },
-  ].filter(g => g.items.length > 0);
+  ].filter(g => g.items.length > 0), [items]);
 
   return (
     <div className="space-y-4">
@@ -186,12 +186,12 @@ function GroupedView({ items }: { items: TimelineItem[] }) {
       })}
     </div>
   );
-}
+});
 
 // ══════════════════════════════════════════
 // TIMELINE VIEW (Option D from preview)
 // ══════════════════════════════════════════
-function TimelineView({ items }: { items: TimelineItem[] }) {
+const TimelineView = memo(function TimelineView({ items }: { items: TimelineItem[] }) {
   return (
     <div className="divide-y divide-border/40">
       {items.map(item => {
@@ -238,7 +238,7 @@ function TimelineView({ items }: { items: TimelineItem[] }) {
       })}
     </div>
   );
-}
+});
 
 // ══════════════════════════════════════════
 // MAIN COMPONENT
