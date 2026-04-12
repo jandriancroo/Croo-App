@@ -1,4 +1,4 @@
-import ReactJoyride, { type Callback, STATUS } from 'react-joyride';
+import { Joyride, STATUS, type EventData, type Step } from 'react-joyride';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getTourStepsForRole } from './tourSteps';
 
@@ -9,10 +9,10 @@ interface OnboardingTourProps {
 
 export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
   const { role } = useUserRole();
-  const steps = getTourStepsForRole(role);
+  const steps = getTourStepsForRole(role) as Step[];
 
-  const handleCallback = (data: CallBackProps) => {
-    const { status, type } = data;
+  const handleCallback = (data: EventData) => {
+    const { status } = data;
     
     if (status === STATUS.FINISHED) {
       onComplete(false);
@@ -81,18 +81,6 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
         },
         spotlight: {
           borderRadius: '0.75rem',
-        },
-        overlay: {
-          mixBlendMode: undefined as any, // Remove the default mix-blend-mode for cleaner look
-        },
-      }}
-      floaterProps={{
-        disableAnimation: false,
-        styles: {
-          arrow: {
-            length: 8,
-            spread: 14,
-          },
         },
       }}
     />
