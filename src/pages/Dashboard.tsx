@@ -84,13 +84,6 @@ export default function Dashboard() {
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, organizationId } = useAppLocation();
   const { getTodayInTimezone, timezone } = useLocationTimezone();
-  // Sales data from shared cache — SalesSummary is the MASTER WRITER.
-  // Reading from cache eliminates the callback prop + double-setState jitter.
-  const salesCacheData = queryClient.getQueryData<SalesDataForWidgets | null>(
-    ['dashboard-sales-enriched', currentLocation?.id]
-  );
-  const salesOverviewData = salesCacheData ?? null;
-  const isLoadingSales = salesOverviewData === null;
   const { isSectionVisible } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
@@ -98,6 +91,13 @@ export default function Dashboard() {
     currentLocation?.id ? getSectionOrder(currentLocation.id) : ['data-cubes', 'checklists', 'sales-chart']
   );
   const queryClient = useQueryClient();
+
+  // Sales data from shared cache — SalesSummary is the MASTER WRITER.
+  // Reading from cache eliminates the callback prop + double-setState jitter.
+  const salesOverviewData = queryClient.getQueryData<SalesDataForWidgets | null>(
+    ['dashboard-sales-enriched', currentLocation?.id]
+  ) ?? null;
+  const isLoadingSales = salesOverviewData === null;
 
   
   // Light DB reads — always refetch on pull
