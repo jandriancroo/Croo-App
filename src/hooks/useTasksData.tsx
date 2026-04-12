@@ -307,6 +307,7 @@ export function useTasksData() {
     queryKey: ['completed-temp-tasks', historyDateStr, currentLocation?.id, closeTime],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000,
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
@@ -501,10 +502,7 @@ export function useTasksData() {
   const { data: eventCompletions = [] } = useQuery({
     queryKey: ['event-completions', historyDateStr, currentLocation?.id],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
-    queryFn: async () => {
-      if (!currentLocation?.id) return [];
-
-      const { data: completions, error } = await supabase
+    placeholderData: (prev) => prev,
         .from('event_task_completions')
         .select(`
           id,
