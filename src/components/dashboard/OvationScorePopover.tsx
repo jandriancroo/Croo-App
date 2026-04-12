@@ -184,7 +184,7 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
 
 /** The expandable panel that goes in document flow */
 export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
-  const { reviewsData, hasData, isLoading, displayScore, displayCount } = useOvationData();
+  const { reviewsData, isLoading, displayScore, displayCount } = useOvationData();
   const [reviewIndex, setReviewIndex] = useState(0);
 
   const reviewsWithFeedback = reviewsData?.reviews?.filter(r => r.feedback) || [];
@@ -197,6 +197,9 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
 
   // Show panel if we have fresh data OR cached score (so it doesn't return null while loading)
   if (!displayScore && !isLoading) return null;
+
+  const scoreValue = displayScore ?? 0;
+  const countValue = displayCount ?? 0;
 
   return (
     <AnimatePresence>
@@ -216,22 +219,22 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
                 <div>
                   <p className="text-base sm:text-xs font-semibold leading-tight">OvationUp</p>
                   <p className="text-xs sm:text-[10px] text-muted-foreground leading-tight">
-                    Last 14 days · {reviewsData.wtdCount} reviews
+                    Last 14 days · {countValue} reviews
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 shrink-0">
                 <div className={cn(
                   'flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm',
-                  reviewsData.wtdAverage >= 4.5 ? 'bg-green-500/10 text-green-600' :
-                  reviewsData.wtdAverage >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
-                  reviewsData.wtdAverage >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
+                  scoreValue >= 4.5 ? 'bg-green-500/10 text-green-600' :
+                  scoreValue >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
+                  scoreValue >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
                 )}>
-                  {reviewsData.wtdAverage.toFixed(1)}
+                  {scoreValue.toFixed(1)}
                 </div>
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                  <span className="text-xs sm:text-[10px] font-medium">{reviewsData.wtdCount}</span>
+                  <span className="text-xs sm:text-[10px] font-medium">{countValue}</span>
                 </div>
               </div>
             </div>
