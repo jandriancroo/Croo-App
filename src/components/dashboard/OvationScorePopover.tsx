@@ -184,7 +184,7 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
 
 /** The expandable panel that goes in document flow */
 export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
-  const { reviewsData, hasData } = useOvationData();
+  const { reviewsData, hasData, isLoading, displayScore, displayCount } = useOvationData();
   const [reviewIndex, setReviewIndex] = useState(0);
 
   const reviewsWithFeedback = reviewsData?.reviews?.filter(r => r.feedback) || [];
@@ -195,7 +195,8 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
     }
   }, [reviewsWithFeedback.length]);
 
-  if (!hasData || !reviewsData?.wtdAverage) return null;
+  // Show panel if we have fresh data OR cached score (so it doesn't return null while loading)
+  if (!displayScore && !isLoading) return null;
 
   return (
     <AnimatePresence>
