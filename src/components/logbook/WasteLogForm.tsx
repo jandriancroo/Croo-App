@@ -9,7 +9,6 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Camera, AlertTriangle, ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
 
 interface WasteLogFormProps {
   onSave: (data: WasteLogData) => Promise<void>;
@@ -33,9 +32,9 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
   const [reason, setReason] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [itemPickerOpen, setItemPickerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch active inventory items for this location
   const { data: items } = useQuery({
     queryKey: ["inventory-items-active", currentLocation?.id],
     queryFn: async () => {
@@ -85,21 +84,52 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Log Waste</h2>
 
-      {/* Item selector */}
+      {/* Searchable item selector */}
       <div>
         <label className="text-sm font-medium mb-1.5 block">Item</label>
-        <Select value={selectedItemId} onValueChange={setSelectedItemId}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select item..." />
-          </SelectTrigger>
-          <SelectContent className="max-h-60">
-            {items?.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name} ({item.unit})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={itemPickerOpen} onOpenChange={setItemPickerOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={itemPickerOpen}
+              className="w-full justify-between font-normal"
+            >
+              {selectedItem
+                ? `${selectedItem.name} (${selectedItem.unit})`
+                : "Search items..."}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search items..." />
+              <CommandList className="max-h-60">
+                <CommandEmpty>No items found.</CommandEmpty>
+                <CommandGroup>
+                  {items?.map((item) => (
+                    <CommandItem
+                      key={item.id}
+                      value={item.name}
+                      onSelect={() => {
+                        setSelectedItemId(item.id);
+                        setItemPickerOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedItemId === item.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {item.name} ({item.unit})
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Quantity */}
