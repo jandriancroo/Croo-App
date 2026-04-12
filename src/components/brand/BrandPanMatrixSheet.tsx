@@ -125,7 +125,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
               {rows.map((tmpl, idx) => {
                 const enabledKeys = tmpl.pan_enabled_keys ?? [];
                 const baselineKey = tmpl.pan_baseline_key;
-                const hasBaseline = !!tmpl.pan_units_per_unit;
+                const hasBaseline = !!(tmpl.pan_units_per_unit || tmpl.pan_units_per_lb);
                 const baselineContainer = ALL_CONTAINERS.find(c => c.key === baselineKey);
 
                 return (
