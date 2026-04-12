@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -79,7 +79,6 @@ export default function Dashboard() {
     expected: number;
     completed: number;
   }>>({});
-  const [isEditMode] = useState(false);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
@@ -167,12 +166,16 @@ export default function Dashboard() {
     staleTime: 5 * 60 * 1000,
   });
   
-  // Combine sales data with personal data and KDS data
-  const combinedSalesData: SalesDataForWidgets | null = salesOverviewData 
-    ? { ...salesOverviewData, personalData: personalPayData, kdsData }
-    : personalPayData || kdsData
-      ? { personalData: personalPayData, kdsData }
-      : null;
+  // Combine sales data with personal data and KDS data (memoized to prevent recalc on every render)
+  const combinedSalesData: SalesDataForWidgets | null = useMemo(() => {
+    if (salesOverviewData) {
+      return { ...salesOverviewData, personalData: personalPayData, kdsData };
+    }
+    if (personalPayData || kdsData) {
+      return { personalData: personalPayData, kdsData };
+    }
+    return null;
+  }, [salesOverviewData, personalPayData, kdsData]);
 
   // Use shared query for cubes (WidgetsSection fetches, we just read from cache)
   // This prevents duplicate network requests - same queryKey means shared cache
@@ -502,16 +505,7 @@ export default function Dashboard() {
     }
   }, [checklists.length, timezoneLoading, currentLocation?.id]);
 
-  // Prefetch UserManagement data for admins/managers (instant load on navigation)
-  useEffect(() => {
-    if (!user?.id || !currentLocation?.id || !(isAdmin || isManager)) return;
-    
-    // Prefetch user management data so it's instant when they navigate
-    queryClient.prefetchQuery({
-      queryKey: ['user-management-users', currentLocation.id],
-      staleTime: 5 * 60 * 1000, // Match UserManagement staleTime
-    });
-  }, [user?.id, currentLocation?.id, isAdmin, isManager, queryClient]);
+  // Note: UserManagement prefetch removed — prefetchQuery without queryFn is a no-op
 
   const loadCompletionData = async () => {
     if (!checklists.length || !currentLocation?.id) return;
