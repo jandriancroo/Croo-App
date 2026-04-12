@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addDays, subDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
