@@ -718,10 +718,12 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
       .single();
     const role = roleData?.role || 'team_member';
     
-    // In kiosk mode, show biometric scan overlay before proceeding
+    // In kiosk mode, show biometric scan overlay with face detection before proceeding
     if (kioskMode) {
       setBiometricScanning(true);
       setBiometricVerified(false);
+      setBiometricStatus('searching');
+      pendingUserRef.current = { data, role };
       
       // Start camera
       try {
@@ -732,24 +734,14 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
+        // Start face detection polling
+        faceDetection.startDetection();
       } catch {
-        // Camera denied — still show the scan animation without video
-      }
-      
-      // Fake scan duration: 2.5s scanning → 1s verified → proceed
-      setTimeout(() => {
-        setBiometricVerified(true);
-        // Stop camera
-        streamRef.current?.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-        
+        // Camera denied — fall back to timer-based scan
         setTimeout(() => {
-          setBiometricScanning(false);
-          setBiometricVerified(false);
-          setCurrentUser(data);
-          setCurrentUserRole(role);
-        }, 1000);
-      }, 2500);
+          completeBiometricScan();
+        }, 2500);
+      }
     } else {
       setCurrentUser(data);
       setCurrentUserRole(role);
