@@ -37,7 +37,7 @@ const InventoryCount = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { isAdmin: isAdminRole } = useUserRole();
   
   // Check if edit or continue mode from query param
   const editMode = searchParams.get("edit") === "true";
