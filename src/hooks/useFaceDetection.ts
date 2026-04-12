@@ -138,12 +138,13 @@ export function useFaceDetection(videoRef: React.RefObject<HTMLVideoElement | nu
     setActive(true);
     setResult({ faceDetected: false, confidence: 0, eyeCount: 0 });
 
-    // Poll every 300ms
+    // Poll every 300ms — only use native FaceDetector API (canvas heuristic is too unreliable)
     intervalRef.current = setInterval(async () => {
-      const res = hasNativeFaceDetector && detectorRef.current
-        ? await detectViaAPI()
-        : detectViaCanvas();
-      setResult(res);
+      if (hasNativeFaceDetector && detectorRef.current) {
+        const res = await detectViaAPI();
+        setResult(res);
+      }
+      // If no native API, result stays false — the 8s safety timeout will handle it
     }, 300);
   }, [detectViaAPI, detectViaCanvas]);
 
