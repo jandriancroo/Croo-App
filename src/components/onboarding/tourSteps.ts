@@ -28,7 +28,6 @@ interface TourStepDef {
 
 // All possible tour steps — filtered at runtime by role
 export const ALL_TOUR_STEPS: TourStepDef[] = [
-  // ─── Dashboard ───
   {
     target: '.dock-nav-button',
     title: 'Navigation Dock',
@@ -39,13 +38,12 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
   },
   {
     target: '[data-tour="dashboard-cubes"]',
-    title: 'Dashboard Overview',
-    content: 'Your dashboard shows real-time metrics — sales, labor, tasks due, and more. Tap any cube for details. Long-press to rearrange them.',
+    title: 'Data Cubes',
+    content: 'Realtime, customizable data organized the way you want. Just tap the "Edit" button on the top right corner of the Dashboard.',
     page: '/dashboard',
     minRole: 'shift_manager',
     placement: 'bottom',
   },
-  // ─── Tasks ───
   {
     target: '[href="/tasks"], [data-tour="nav-tasks"]',
     title: 'Tasks & Checklists',
@@ -54,7 +52,6 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     minRole: 'shift_manager',
     placement: 'top',
   },
-  // ─── Schedule ───
   {
     target: '[href="/schedule"], [data-tour="nav-schedule"]',
     title: 'Team Schedule',
@@ -63,7 +60,6 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     minRole: 'shift_manager',
     placement: 'top',
   },
-  // ─── Chat ───
   {
     target: '[href="/messages"], [data-tour="nav-chat"]',
     title: 'Team Chat',
@@ -72,7 +68,6 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     minRole: 'shift_manager',
     placement: 'top',
   },
-  // ─── Logbook ───
   {
     target: '[href="/logbook"], [data-tour="nav-logs"]',
     title: 'Manager Logbook',
@@ -81,7 +76,6 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     minRole: 'shift_manager',
     placement: 'top',
   },
-  // ─── Mobile menu (hamburger / avatar) ───
   {
     target: '.mobile-dock-container',
     title: 'Quick Access Menu',
@@ -90,7 +84,6 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     minRole: 'shift_manager',
     placement: 'top',
   },
-  // ─── Location picker ───
   {
     target: '[data-tour="location-picker"]',
     title: 'Switch Locations',
@@ -99,16 +92,6 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     minRole: 'shift_manager',
     placement: 'bottom',
   },
-  // ─── Inventory (manager+) ───
-  {
-    target: '[data-tour="nav-inventory"]',
-    title: 'Inventory Management',
-    content: 'Count inventory with voice commands or manual entry. Track usage, set par levels, and sync with vendors.',
-    page: '/dashboard',
-    minRole: 'manager',
-    placement: 'top',
-  },
-  // ─── Users (admin+) ───
   {
     target: '[data-tour="nav-users"]',
     title: 'Team Management',
@@ -117,7 +100,6 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     minRole: 'admin',
     placement: 'top',
   },
-  // ─── Settings ───
   {
     target: '[data-tour="nav-settings"]',
     title: 'Settings',
