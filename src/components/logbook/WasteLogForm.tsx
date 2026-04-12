@@ -185,6 +185,7 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
 
   const resetForm = () => {
     setCaseCount("");
+    setPackCount("");
     setUnitCount("");
     setPanCounts({});
   };
@@ -247,12 +248,12 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
         <div className="space-y-3">
           <label className="text-sm font-medium block">Quantity wasted</label>
 
-          {/* Cases + Units row */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Cases + Units + Count Units grid */}
+          <div className={cn("grid gap-3", packsPerCase ? "grid-cols-3" : "grid-cols-2")}>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
                 Cases
-                <span className="text-muted-foreground/60 ml-1">({unitsPerCase} {unitLabel}/cs)</span>
+                <span className="text-muted-foreground/60 ml-1">({countUnitsPerCase} {unitLabel}/cs)</span>
               </label>
               <Input
                 type="number"
@@ -264,9 +265,26 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
                 step="any"
               />
             </div>
+            {packsPerCase && (
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">
+                  Units
+                  <span className="text-muted-foreground/60 ml-1">({packsPerCase}/cs)</span>
+                </label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={packCount}
+                  onChange={(e) => setPackCount(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  step="any"
+                />
+              </div>
+            )}
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
-                Units <span className="text-muted-foreground/60">({unitLabel})</span>
+                {unitLabel}
               </label>
               <Input
                 type="number"
@@ -278,6 +296,7 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
                 step="any"
               />
             </div>
+          </div>
           </div>
 
           {/* Pan / Cambro rows */}
