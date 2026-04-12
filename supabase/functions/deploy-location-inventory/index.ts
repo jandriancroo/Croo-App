@@ -13,7 +13,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { locationId, brandId, templateId } = await req.json();
+    const { locationId, brandId, templateId, sourceLocationId } = await req.json();
+    // Default shelf template: Hemet
+    const HEMET_LOCATION_ID = "12c977c7-1786-4131-90f5-1eef3f96e2c6";
+    const shelfSourceId = sourceLocationId || HEMET_LOCATION_ID;
     if (!locationId || !brandId) {
       return new Response(
         JSON.stringify({ error: "locationId and brandId required" }),
