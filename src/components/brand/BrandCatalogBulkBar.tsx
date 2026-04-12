@@ -127,6 +127,14 @@ export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, act
             </button>
           )}
 
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
+            onClick={() => setShowPanMatrix(true)}
+          >
+            <Grid3X3 className="h-3.5 w-3.5" />
+            Pans
+          </button>
+
           <div className="relative">
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
