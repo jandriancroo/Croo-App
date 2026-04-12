@@ -383,6 +383,28 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
                       </div>
                     </div>
 
+                    {/* Transfer rows */}
+                    {(cogs.transfersIn > 0 || cogs.transfersOut > 0) && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {cogs.transfersIn > 0 && (
+                          <div className="p-3 rounded-lg bg-muted/50">
+                            <p className="text-xs text-muted-foreground">+ Transfers In</p>
+                            <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                              +${cogs.transfersIn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        )}
+                        {cogs.transfersOut > 0 && (
+                          <div className="p-3 rounded-lg bg-muted/50">
+                            <p className="text-xs text-muted-foreground">− Transfers Out</p>
+                            <p className="text-lg font-semibold text-destructive">
+                              −${cogs.transfersOut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <Separator />
 
                     <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
