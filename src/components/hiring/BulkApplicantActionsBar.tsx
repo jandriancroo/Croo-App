@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -31,13 +31,15 @@ export function BulkApplicantActionsBar({
   };
 
   return (
-    <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
-      <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4 border-2 border-primary-foreground/20">
-        <span className="font-semibold text-sm sm:text-base">{selectedCount} selected</span>
-        <div className="h-6 w-px bg-primary-foreground/20" />
-        <div className="flex gap-2">
+    <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in">
+      <div className="flex items-center gap-1 rounded-full border border-border bg-primary px-1 py-1 shadow-lg">
+        <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-xs font-semibold bg-primary-foreground text-primary shrink-0">
+          {selectedCount} selected
+        </Badge>
+
+        <div className="relative">
           <Select value={selectedStatus} onValueChange={handleStatusChange} disabled={isUpdating}>
-            <SelectTrigger className="w-[130px] sm:w-[150px] bg-secondary text-secondary-foreground border-0">
+            <SelectTrigger className="h-7 w-[120px] text-[11px] bg-transparent border-none text-primary-foreground focus:ring-0 focus:ring-offset-0 px-3">
               <SelectValue placeholder="Set Status" />
             </SelectTrigger>
             <SelectContent>
@@ -47,26 +49,23 @@ export function BulkApplicantActionsBar({
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onDelete}
-            disabled={isUpdating}
-            className="gap-2 text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Delete</span>
-          </Button>
         </div>
-        <div className="h-6 w-px bg-primary-foreground/20" />
-        <Button
-          size="sm"
-          variant="ghost"
+
+        <button
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-destructive hover:bg-primary-foreground/20 transition-colors whitespace-nowrap disabled:opacity-50"
+          onClick={onDelete}
+          disabled={isUpdating}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Delete</span>
+        </button>
+
+        <button
+          className="p-1.5 rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors shrink-0"
           onClick={onClearSelection}
-          className="hover:bg-primary-foreground/10"
         >
           <X className="h-4 w-4" />
-        </Button>
+        </button>
       </div>
     </div>
   );

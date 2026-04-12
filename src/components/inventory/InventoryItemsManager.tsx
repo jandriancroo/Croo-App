@@ -1909,98 +1909,90 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
       {/* Floating Bulk Action Bar — scoped to active location group */}
       {activeSelectGroup && selectedItemIds.size > 0 && !isBulkDragMode && (
-        <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)]">
-          <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4 border-2 border-primary-foreground/20 overflow-x-auto">
-            <span className="font-semibold whitespace-nowrap">{selectedItemIds.size} selected</span>
-            <div className="h-6 w-px bg-primary-foreground/20" />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  const groupKey = activeSelectGroup;
-                  if (!groupKey || selectedItemIds.size === 0) return;
-                  let groupItems: any[] = [];
-                  if (groupKey === "__unassigned__") {
-                    groupItems = (items || []).filter(i => !i.storage_location_id).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
-                  } else {
-                    const primaryItems = (items || []).filter(i => i.storage_location_id === groupKey).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
-                    const shortcutJunctions = (itemLocationShortcuts || []).filter((s: any) => s.storage_location_id === groupKey);
-                    const shortcutItemIds = shortcutJunctions.map((s: any) => s.item_id);
-                    const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey)
-                      .sort((a, b) => {
-                        const aOrder = shortcutJunctions.find((s: any) => s.item_id === a.id)?.display_order ?? 9999;
-                        const bOrder = shortcutJunctions.find((s: any) => s.item_id === b.id)?.display_order ?? 9999;
-                        return (aOrder as number) - (bOrder as number);
-                      });
-                    groupItems = [...primaryItems, ...shortcutItems];
-                  }
-                  const selectedArr = Array.from(selectedItemIds);
-                  const indices = selectedArr.map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
-                  if (indices.length === 0) return;
-                  const isConsecutive = indices.every((val, i) => i === 0 || val === indices[i - 1] + 1);
-                  if (!isConsecutive) {
-                    toast.error("Select consecutive items to reorder as a group");
-                    return;
-                  }
-                  const orderedIds = indices.map(idx => groupItems[idx].id);
-                  setBulkDragItemIds(orderedIds);
-                  setBulkDragGroupKey(groupKey);
-                  setIsBulkDragMode(true);
-                }}
-                className="gap-1.5"
-              >
-                <ListOrdered className="h-4 w-4" />
-                Reorder
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => { setBulkMoveTargets(new Set()); setShowBulkMoveDialog(true); }}
-                className="gap-1.5"
-              >
-                <MoveRight className="h-4 w-4" />
-                Move
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => { setShortcutTarget(null); setShowShortcutDialog(true); }}
-                className="gap-1.5"
-              >
-                <Link2 className="h-4 w-4" />
-                Shortcut
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setShowBulkPanDialog(true)}
-                className="gap-1.5"
-              >
-                Pan Sizes
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => { setBulkCategoryValue(""); setShowBulkCategoryDialog(true); }}
-                className="gap-1.5"
-              >
-                <Tag className="h-4 w-4" />
-                Category
-              </Button>
-            </div>
-            <div className="h-6 w-px bg-primary-foreground/20" />
-            <Button
-              size="sm"
-              variant="ghost"
+        <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)] animate-in slide-in-from-bottom-4 fade-in">
+          <div className="flex items-center gap-1 rounded-full border border-border bg-primary px-1 py-1 shadow-lg overflow-x-auto">
+            <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-xs font-semibold bg-primary-foreground text-primary shrink-0">
+              {selectedItemIds.size} selected
+            </Badge>
+
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+              onClick={() => {
+                const groupKey = activeSelectGroup;
+                if (!groupKey || selectedItemIds.size === 0) return;
+                let groupItems: any[] = [];
+                if (groupKey === "__unassigned__") {
+                  groupItems = (items || []).filter(i => !i.storage_location_id).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                } else {
+                  const primaryItems = (items || []).filter(i => i.storage_location_id === groupKey).sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                  const shortcutJunctions = (itemLocationShortcuts || []).filter((s: any) => s.storage_location_id === groupKey);
+                  const shortcutItemIds = shortcutJunctions.map((s: any) => s.item_id);
+                  const shortcutItems = (items || []).filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== groupKey)
+                    .sort((a, b) => {
+                      const aOrder = shortcutJunctions.find((s: any) => s.item_id === a.id)?.display_order ?? 9999;
+                      const bOrder = shortcutJunctions.find((s: any) => s.item_id === b.id)?.display_order ?? 9999;
+                      return (aOrder as number) - (bOrder as number);
+                    });
+                  groupItems = [...primaryItems, ...shortcutItems];
+                }
+                const selectedArr = Array.from(selectedItemIds);
+                const indices = selectedArr.map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
+                if (indices.length === 0) return;
+                const isConsecutive = indices.every((val, i) => i === 0 || val === indices[i - 1] + 1);
+                if (!isConsecutive) {
+                  toast.error("Select consecutive items to reorder as a group");
+                  return;
+                }
+                const orderedIds = indices.map(idx => groupItems[idx].id);
+                setBulkDragItemIds(orderedIds);
+                setBulkDragGroupKey(groupKey);
+                setIsBulkDragMode(true);
+              }}
+            >
+              <ListOrdered className="h-3.5 w-3.5" />
+              Reorder
+            </button>
+
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+              onClick={() => { setBulkMoveTargets(new Set()); setShowBulkMoveDialog(true); }}
+            >
+              <MoveRight className="h-3.5 w-3.5" />
+              Move
+            </button>
+
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+              onClick={() => { setShortcutTarget(null); setShowShortcutDialog(true); }}
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              Shortcut
+            </button>
+
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+              onClick={() => setShowBulkPanDialog(true)}
+            >
+              Pan Sizes
+            </button>
+
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+              onClick={() => { setBulkCategoryValue(""); setShowBulkCategoryDialog(true); }}
+            >
+              <Tag className="h-3.5 w-3.5" />
+              Category
+            </button>
+
+            <button
+              className="p-1.5 rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors shrink-0"
               onClick={() => {
                 setSelectedItemIds(new Set());
                 setActiveSelectGroup(null);
               }}
-              className="hover:bg-primary-foreground/10"
             >
               <X className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
         </div>
       )}
