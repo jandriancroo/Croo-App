@@ -374,6 +374,10 @@ const Inventory = () => {
             />
           </TabsContent>
 
+          <TabsContent value="waste" className="mt-4">
+            <WasteLog locationId={locationId!} />
+          </TabsContent>
+
           <TabsContent value="items" className="mt-4 space-y-4">
             {brandInfo && (
               <BrandItemActivation locationId={locationId!} brandId={brandInfo} />
