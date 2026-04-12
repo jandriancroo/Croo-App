@@ -316,34 +316,37 @@ export function useLogBookData() {
 
   // ─── Combined entries ────────────────────────────────────────
 
-  const writeUpEntries = (searchTerms.length > 0 ? filteredWriteUps : employeeWriteUps).map((wu: any) => ({
+  const writeUpEntries = useMemo(() => (searchTerms.length > 0 ? filteredWriteUps : employeeWriteUps).map((wu: any) => ({
     id: wu.id, entry_date: format(new Date(wu.created_at), 'yyyy-MM-dd'), created_at: wu.created_at,
     created_by: wu.created_by, profiles: wu.created_by_profile, logbook_categories: { name: 'Employee Write-Up' },
     _isWriteUp: true, _writeUpData: wu, _virtualId: `writeup-${wu.id}`,
-  }));
+  })), [searchTerms, filteredWriteUps, employeeWriteUps]);
 
-  const readAndSignEntries = readAndSignDocs.map((doc: any) => ({
+  const readAndSignEntries = useMemo(() => readAndSignDocs.map((doc: any) => ({
     id: doc.id, entry_date: format(new Date(doc.created_at), 'yyyy-MM-dd'), created_at: doc.created_at,
     created_by: doc.created_by, profiles: doc.created_by_profile, logbook_categories: { name: 'Read & Sign' },
     _isReadAndSign: true, _readAndSignData: doc, _virtualId: `readandsign-${doc.id}`,
-  }));
+  })), [readAndSignDocs]);
 
-  const performanceReviewEntries = performanceReviews.map((review: any) => ({
+  const performanceReviewEntries = useMemo(() => performanceReviews.map((review: any) => ({
     id: review.id, entry_date: format(new Date(review.created_at), 'yyyy-MM-dd'), created_at: review.created_at,
     created_by: review.created_by, profiles: review.created_by_profile, logbook_categories: { name: 'Performance Review' },
     _isPerformanceReview: true, _performanceReviewData: review, _virtualId: `review-${review.id}`,
-  }));
+  })), [performanceReviews]);
 
-  const allEntries = searchTerms.length > 0
-    ? [...searchResults, ...writeUpEntries, ...readAndSignEntries, ...performanceReviewEntries].sort((a: any, b: any) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    : [...recentEntries, ...writeUpEntries, ...readAndSignEntries, ...performanceReviewEntries].sort((a: any, b: any) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 100);
+  const allEntries = useMemo(() => {
+    const combined = searchTerms.length > 0
+      ? [...searchResults, ...writeUpEntries, ...readAndSignEntries, ...performanceReviewEntries]
+      : [...recentEntries, ...writeUpEntries, ...readAndSignEntries, ...performanceReviewEntries];
+    const sorted = combined.sort((a: any, b: any) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return searchTerms.length > 0 ? sorted : sorted.slice(0, 100);
+  }, [searchTerms, searchResults, recentEntries, writeUpEntries, readAndSignEntries, performanceReviewEntries]);
 
   // Category IDs
-  const bankDepositCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'bank deposit')?.id;
-  const safeCountCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'safe count')?.id;
-  const drawerCountCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'drawer count')?.id;
+  const bankDepositCategoryId = useMemo(() => categories.find((c: any) => c.name?.toLowerCase() === 'bank deposit')?.id, [categories]);
+  const safeCountCategoryId = useMemo(() => categories.find((c: any) => c.name?.toLowerCase() === 'safe count')?.id, [categories]);
+  const drawerCountCategoryId = useMemo(() => categories.find((c: any) => c.name?.toLowerCase() === 'drawer count')?.id, [categories]);
 
   // Safe/drawer count entries for selected date
   const { data: safeCountEntries = [] } = useQuery({
@@ -385,18 +388,18 @@ export function useLogBookData() {
     gcTime: LOGBOOK_GC_TIME,
   });
 
-  const existingSafeCountShifts: ('AM' | 'PM')[] = safeCountEntries
+  const existingSafeCountShifts: ('AM' | 'PM')[] = useMemo(() => safeCountEntries
     .map((entry: any) => {
       try {
         const data = JSON.parse(entry.logbook_entry_values?.[0]?.value_text || '{}');
         return data.shift as 'AM' | 'PM';
       } catch { return null; }
     })
-    .filter((shift): shift is 'AM' | 'PM' => shift === 'AM' || shift === 'PM');
+    .filter((shift): shift is 'AM' | 'PM' => shift === 'AM' || shift === 'PM'), [safeCountEntries]);
 
   // ─── Expanded entries for display ────────────────────────────
 
-  const expandedEntries = allEntries.flatMap((entry: any) => {
+  const expandedEntries = useMemo(() => allEntries.flatMap((entry: any) => {
     const isSafeCount = entry.logbook_categories?.name?.toLowerCase() === 'safe count';
     if (isSafeCount && entry.logbook_entry_values?.length > 1) {
       return entry.logbook_entry_values.map((val: any) => ({
@@ -404,22 +407,25 @@ export function useLogBookData() {
       }));
     }
     return [entry];
-  });
+  }), [allEntries]);
 
   // Bank run tracking
-  const safeCountsByDate: Record<string, SafeCountData[]> = {};
-  expandedEntries.forEach((entry: any) => {
-    if (entry.logbook_categories?.name?.toLowerCase() === 'safe count') {
-      const dateKey = entry.entry_date;
-      const safeData = entry.logbook_entry_values?.[0]?.value_text
-        ? parseSafeCountData(entry.logbook_entry_values[0].value_text)
-        : null;
-      if (safeData) {
-        if (!safeCountsByDate[dateKey]) safeCountsByDate[dateKey] = [];
-        safeCountsByDate[dateKey].push(safeData);
+  const safeCountsByDate = useMemo(() => {
+    const result: Record<string, SafeCountData[]> = {};
+    expandedEntries.forEach((entry: any) => {
+      if (entry.logbook_categories?.name?.toLowerCase() === 'safe count') {
+        const dateKey = entry.entry_date;
+        const safeData = entry.logbook_entry_values?.[0]?.value_text
+          ? parseSafeCountData(entry.logbook_entry_values[0].value_text)
+          : null;
+        if (safeData) {
+          if (!result[dateKey]) result[dateKey] = [];
+          result[dateKey].push(safeData);
+        }
       }
-    }
-  });
+    });
+    return result;
+  }, [expandedEntries]);
 
   const checkPreviousNightNeededBankRun = (entryDate: string): boolean => {
     const prevDate = format(subDays(new Date(entryDate + 'T12:00:00'), 1), 'yyyy-MM-dd');
@@ -427,18 +433,18 @@ export function useLogBookData() {
     return prevDaySafeCounts.some(sc => sc.shift === 'PM' && checkNeedsBankRun(sc));
   };
 
-  const dateFilteredEntries = searchDateFilter
+  const dateFilteredEntries = useMemo(() => searchDateFilter
     ? expandedEntries.filter((entry: any) => entry.entry_date === format(searchDateFilter, 'yyyy-MM-dd'))
-    : expandedEntries;
+    : expandedEntries, [searchDateFilter, expandedEntries]);
 
-  const entriesByDay = dateFilteredEntries.reduce((acc: any, entry: any) => {
+  const entriesByDay = useMemo(() => dateFilteredEntries.reduce((acc: any, entry: any) => {
     const dateKey = entry.entry_date;
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(entry);
     return acc;
-  }, {});
+  }, {}), [dateFilteredEntries]);
 
-  const sortedDays = Object.keys(entriesByDay).sort((a, b) => b.localeCompare(a));
+  const sortedDays = useMemo(() => Object.keys(entriesByDay).sort((a, b) => b.localeCompare(a)), [entriesByDay]);
 
   // ─── Mutations ───────────────────────────────────────────────
 
