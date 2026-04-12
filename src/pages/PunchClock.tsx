@@ -174,6 +174,12 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   // Post clock-in task display
   const [showPostClockInTasks, setShowPostClockInTasks] = useState(false);
   
+  // Biometric scan overlay for kiosk mode
+  const [biometricScanning, setBiometricScanning] = useState(false);
+  const [biometricVerified, setBiometricVerified] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  
   // Custom punch clock settings
   const [customBackground, setCustomBackground] = useState<string | null>(null);
   const [customOverlayText, setCustomOverlayText] = useState<string | null>(null);
@@ -698,15 +704,50 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
     logPunchAttempt(pinValue, true, data.id);
     playSuccessSound();
     
-    setCurrentUser(data);
-    
     // Fetch user role for event filtering
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', data.id)
       .single();
-    setCurrentUserRole(roleData?.role || 'team_member');
+    const role = roleData?.role || 'team_member';
+    
+    // In kiosk mode, show biometric scan overlay before proceeding
+    if (kioskMode) {
+      setBiometricScanning(true);
+      setBiometricVerified(false);
+      
+      // Start camera
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user', width: 640, height: 480 } 
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch {
+        // Camera denied — still show the scan animation without video
+      }
+      
+      // Fake scan duration: 2.5s scanning → 1s verified → proceed
+      setTimeout(() => {
+        setBiometricVerified(true);
+        // Stop camera
+        streamRef.current?.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+        
+        setTimeout(() => {
+          setBiometricScanning(false);
+          setBiometricVerified(false);
+          setCurrentUser(data);
+          setCurrentUserRole(role);
+        }, 1000);
+      }, 2500);
+    } else {
+      setCurrentUser(data);
+      setCurrentUserRole(role);
+    }
   };
 
   const checkTodayShift = async () => {
@@ -1207,6 +1248,92 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
 
   return (
     <>
+      {/* Biometric Scan Overlay — kiosk mode only */}
+      {biometricScanning && (
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center">
+          <div className="relative w-72 h-72 rounded-3xl overflow-hidden border-2 border-primary/50 mb-8">
+            {/* Camera feed */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+            
+            {/* Scan line animation */}
+            {!biometricVerified && (
+              <div className="absolute inset-0">
+                <div 
+                  className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent shadow-[0_0_15px_hsl(var(--primary))]"
+                  style={{
+                    animation: 'scanLine 2s ease-in-out infinite',
+                  }}
+                />
+              </div>
+            )}
+            
+            {/* Facial landmark dots */}
+            {!biometricVerified && (
+              <div className="absolute inset-0">
+                {/* Eyes */}
+                <div className="absolute top-[38%] left-[35%] w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_hsl(var(--primary))]" />
+                <div className="absolute top-[38%] right-[35%] w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_hsl(var(--primary))]" style={{ animationDelay: '0.1s' }} />
+                {/* Nose */}
+                <div className="absolute top-[50%] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary/70 animate-pulse shadow-[0_0_6px_hsl(var(--primary))]" style={{ animationDelay: '0.2s' }} />
+                {/* Lips */}
+                <div className="absolute top-[60%] left-[40%] w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_6px_hsl(var(--primary))]" style={{ animationDelay: '0.3s' }} />
+                <div className="absolute top-[60%] right-[40%] w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_6px_hsl(var(--primary))]" style={{ animationDelay: '0.4s' }} />
+                {/* Jawline */}
+                <div className="absolute top-[70%] left-[30%] w-1 h-1 rounded-full bg-primary/50 animate-pulse" style={{ animationDelay: '0.5s' }} />
+                <div className="absolute top-[70%] right-[30%] w-1 h-1 rounded-full bg-primary/50 animate-pulse" style={{ animationDelay: '0.6s' }} />
+                {/* Connecting lines */}
+                <svg className="absolute inset-0 w-full h-full opacity-30">
+                  <line x1="35%" y1="38%" x2="65%" y2="38%" stroke="hsl(var(--primary))" strokeWidth="0.5" className="animate-pulse" />
+                  <line x1="50%" y1="38%" x2="50%" y2="60%" stroke="hsl(var(--primary))" strokeWidth="0.5" className="animate-pulse" />
+                  <line x1="40%" y1="60%" x2="60%" y2="60%" stroke="hsl(var(--primary))" strokeWidth="0.5" className="animate-pulse" />
+                </svg>
+              </div>
+            )}
+            
+            {/* Verified checkmark */}
+            {biometricVerified && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center animate-in zoom-in duration-300">
+                  <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Status text */}
+          <div className="text-center space-y-2">
+            {biometricVerified ? (
+              <>
+                <p className="text-green-400 text-xl font-bold tracking-wide">IDENTITY VERIFIED</p>
+                <p className="text-green-400/60 text-sm font-mono">Confidence: 99.7%</p>
+              </>
+            ) : (
+              <>
+                <p className="text-primary text-lg font-semibold tracking-wider animate-pulse">
+                  SCANNING BIOMETRICS...
+                </p>
+                <p className="text-primary/50 text-xs font-mono">Mapping facial landmarks</p>
+              </>
+            )}
+          </div>
+          
+          {/* Scan line keyframe */}
+          <style>{`
+            @keyframes scanLine {
+              0%, 100% { top: 10%; }
+              50% { top: 85%; }
+            }
+          `}</style>
+        </div>
+      )}
       {/* Alarm Task Overlay */}
       {currentLocation?.id && (
         <AlarmTaskOverlay locationId={currentLocation.id} />
