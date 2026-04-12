@@ -9,7 +9,7 @@ import { format, differenceInDays } from 'date-fns';
 import { Clock, Coffee, LogOut, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.webp';
-import crooLogoWhite from '@/assets/croo-logo-white.webp';
+import crooLogoInverted from '/croo-logo-inverted.webp';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
@@ -218,7 +218,7 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   // Manager Dashboard state
   const [showManagerDashboard, setShowManagerDashboard] = useState(false);
   const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
-  const activeCrooLogo = isDayMode ? crooLogo : crooLogoWhite;
+  const activeCrooLogo = isDayMode ? crooLogo : crooLogoInverted;
 
   // Listen for localStorage changes from ManagerDashboardOverlay
   useEffect(() => {
