@@ -1386,7 +1386,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               No items yet. Click "Sync with PFG" to import.
             </p>
           )}
-          </>}
         </div>
       </Card>
 
