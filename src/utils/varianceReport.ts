@@ -620,7 +620,18 @@ async function fetchPaOrders(locationId: string, start: string, end: string) {
   return data || [];
 }
 
-async function fetchAllInventoryItems(locationId: string) {
+async function fetchTransfersForPeriod(locationId: string, start: string, end: string) {
+  // Fetch received transfers involving this location within the period
+  const { data, error } = await supabase
+    .from("inventory_transfers")
+    .select("id, from_location_id, to_location_id, transfer_date, inventory_transfer_items(item_id, quantity, cost_per_unit)")
+    .eq("status", "received")
+    .or(`from_location_id.eq.${locationId},to_location_id.eq.${locationId}`)
+    .gte("transfer_date", start)
+    .lte("transfer_date", end);
+  if (error) throw error;
+  return data || [];
+}
   const { data, error } = await supabase
     .from("inventory_items")
     .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active")
