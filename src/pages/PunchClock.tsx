@@ -748,8 +748,13 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
     }
   };
 
+  // Ref to track if scan completion has already been triggered
+  const scanCompletedRef = useRef(false);
+
   // Complete biometric scan — called when face is detected or as fallback
   const completeBiometricScan = useCallback(() => {
+    if (scanCompletedRef.current) return; // prevent double-fire
+    scanCompletedRef.current = true;
     setBiometricStatus('verifying');
     faceDetection.stopDetection();
     
@@ -765,6 +770,7 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
         setBiometricScanning(false);
         setBiometricVerified(false);
         setBiometricStatus('searching');
+        scanCompletedRef.current = false;
         if (pendingUserRef.current) {
           setCurrentUser(pendingUserRef.current.data);
           setCurrentUserRole(pendingUserRef.current.role);
@@ -772,33 +778,30 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
         }
       }, 1000);
     }, 800);
-  }, [faceDetection]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Watch for face detection during biometric scan
   useEffect(() => {
-    if (!biometricScanning || biometricVerified) return;
-    if (biometricStatus !== 'searching') return;
+    if (!biometricScanning || biometricVerified || scanCompletedRef.current) return;
     
     if (faceDetection.faceDetected) {
-      setBiometricStatus('detected');
       // Face found — wait a brief moment to confirm it's stable, then verify
       const timer = setTimeout(() => {
         completeBiometricScan();
       }, 600);
       return () => clearTimeout(timer);
     }
-  }, [biometricScanning, biometricVerified, biometricStatus, faceDetection.faceDetected, completeBiometricScan]);
+  }, [biometricScanning, biometricVerified, faceDetection.faceDetected, completeBiometricScan]);
 
   // Safety timeout: if no face detected after 8s, allow through anyway
   useEffect(() => {
-    if (!biometricScanning || biometricVerified) return;
+    if (!biometricScanning) return;
     const timer = setTimeout(() => {
-      if (!biometricVerified) {
-        completeBiometricScan();
-      }
+      completeBiometricScan();
     }, 8000);
     return () => clearTimeout(timer);
-  }, [biometricScanning, biometricVerified, completeBiometricScan]);
+  }, [biometricScanning, completeBiometricScan]);
 
 
   const checkTodayShift = async () => {
