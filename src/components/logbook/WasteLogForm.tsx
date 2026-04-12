@@ -7,9 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, AlertTriangle, ChevronsUpDown, Check } from "lucide-react";
+import { Camera, AlertTriangle, ChevronsUpDown, Check, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 
 interface WasteLogFormProps {
   onSave: (data: WasteLogData) => Promise<void>;
@@ -26,8 +26,6 @@ export interface WasteLogData {
   estimatedCost: number | null;
 }
 
-type CountMode = "unit" | "case" | "pan";
-
 interface InventoryItemRow {
   id: string;
   name: string;
@@ -38,27 +36,27 @@ interface InventoryItemRow {
   pack_quantity_override: number | null;
   cost_per_unit: number | null;
   blended_price: number | null;
-  brand_item_id: string | null;
+  pan_sizes: PanSizesConfig | null;
 }
 
 export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
   const { currentLocation } = useAppLocation();
   const [selectedItemId, setSelectedItemId] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [countMode, setCountMode] = useState<CountMode>("unit");
+  const [caseCount, setCaseCount] = useState("");
+  const [unitCount, setUnitCount] = useState("");
+  const [panCounts, setPanCounts] = useState<Record<string, number>>({});
   const [reason, setReason] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [itemPickerOpen, setItemPickerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch active inventory items with costing fields
   const { data: items } = useQuery({
     queryKey: ["inventory-items-waste", currentLocation?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, unit, count_unit, count_units_per_case, pack_quantity, pack_quantity_override, cost_per_unit, blended_price, brand_item_id")
+        .select("id, name, unit, count_unit, count_units_per_case, pack_quantity, pack_quantity_override, cost_per_unit, blended_price, pan_sizes")
         .eq("location_id", currentLocation!.id)
         .eq("is_active", true)
         .order("name");
@@ -68,24 +66,50 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
     enabled: !!currentLocation?.id,
   });
 
-  // Fetch pan data from brand templates for selected item
   const selectedItem = items?.find((i) => i.id === selectedItemId);
 
-  const { data: panData } = useQuery({
-    queryKey: ["brand-template-pans", selectedItem?.brand_item_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("brand_inventory_templates")
-        .select("pan_units_per_unit, pan_units_per_lb, pan_enabled_keys, pan_overrides")
-        .eq("id", selectedItem!.brand_item_id!)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!selectedItem?.brand_item_id,
-  });
+  const unitLabel = selectedItem?.count_unit || selectedItem?.unit || "units";
+  const unitsPerCase = useMemo(() => {
+    if (!selectedItem) return 1;
+    return selectedItem.pack_quantity_override || selectedItem.count_units_per_case || selectedItem.pack_quantity || 1;
+  }, [selectedItem]);
 
-  const hasPanData = panData && (panData.pan_units_per_unit || panData.pan_units_per_lb);
+  const caseCost = useMemo(() => {
+    if (!selectedItem) return 0;
+    return selectedItem.blended_price ?? selectedItem.cost_per_unit ?? 0;
+  }, [selectedItem]);
+
+  const costPerUnit = caseCost / unitsPerCase;
+
+  // Pan data from item's pan_sizes config
+  const enabledPans = useMemo(() => {
+    if (!selectedItem?.pan_sizes?.enabled) return [];
+    return (selectedItem.pan_sizes.enabled_keys || [])
+      .map(key => {
+        const container = ALL_CONTAINERS.find(c => c.key === key);
+        if (!container) return null;
+        const units = getPanUnits(selectedItem.pan_sizes!, key);
+        return { key, label: container.label, unitsEach: units };
+      })
+      .filter(Boolean) as { key: string; label: string; unitsEach: number | null }[];
+  }, [selectedItem]);
+
+  // Calculate total quantity in units
+  const totalUnits = useMemo(() => {
+    const cases = parseFloat(caseCount) || 0;
+    const units = parseFloat(unitCount) || 0;
+    const panUnits = Object.entries(panCounts).reduce((sum, [key, qty]) => {
+      if (!selectedItem?.pan_sizes) return sum;
+      const unitsEach = getPanUnits(selectedItem.pan_sizes, key);
+      return sum + (unitsEach ?? 0) * qty;
+    }, 0);
+    return Math.round((cases * unitsPerCase + units + panUnits) * 100) / 100;
+  }, [caseCount, unitCount, panCounts, unitsPerCase, selectedItem]);
+
+  const estimatedCost = useMemo(() => {
+    if (!selectedItem || totalUnits <= 0 || !caseCost) return null;
+    return totalUnits * costPerUnit;
+  }, [selectedItem, totalUnits, caseCost, costPerUnit]);
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,70 +120,47 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
     reader.readAsDataURL(file);
   };
 
-  // Resolve cost per case
-  const caseCost = useMemo(() => {
-    if (!selectedItem) return 0;
-    return selectedItem.blended_price ?? selectedItem.cost_per_unit ?? 0;
-  }, [selectedItem]);
+  const updatePanCount = (key: string, delta: number) => {
+    setPanCounts(prev => ({
+      ...prev,
+      [key]: Math.max(0, Math.round(((prev[key] || 0) + delta) * 2) / 2),
+    }));
+  };
 
-  const unitsPerCase = useMemo(() => {
-    if (!selectedItem) return 1;
-    return selectedItem.pack_quantity_override || selectedItem.count_units_per_case || selectedItem.pack_quantity || 1;
-  }, [selectedItem]);
-
-  const costPerUnit = caseCost / unitsPerCase;
-
-  // Get display unit label
-  const unitLabel = selectedItem?.count_unit || selectedItem?.unit || "units";
-
-  // Calculate estimated cost based on count mode
-  const estimatedCost = useMemo(() => {
-    if (!selectedItem || !quantity || !caseCost) return null;
-    const qty = Number(quantity);
-    if (isNaN(qty) || qty <= 0) return null;
-
-    switch (countMode) {
-      case "case":
-        return qty * caseCost;
-      case "pan":
-        // Pan units → convert to individual units via pan_units_per_unit
-        if (panData?.pan_units_per_unit) {
-          return qty * panData.pan_units_per_unit * costPerUnit;
-        }
-        return qty * costPerUnit; // fallback: treat as units
-      case "unit":
-      default:
-        return qty * costPerUnit;
-    }
-  }, [selectedItem, quantity, countMode, caseCost, costPerUnit, panData]);
-
-  const canSubmit = selectedItemId && quantity && reason && photoFile && !isSaving;
+  const canSubmit = selectedItemId && totalUnits > 0 && reason && photoFile && !isSaving;
 
   const handleSubmit = () => {
     if (!canSubmit || !selectedItem || !photoFile) return;
 
-    // Normalize quantity to units for storage
-    const qty = Number(quantity);
-    let normalizedQty = qty;
-    let displayUnit = unitLabel;
-
-    if (countMode === "case") {
-      normalizedQty = qty * unitsPerCase;
-      displayUnit = `cases (${qty} × ${unitsPerCase} ${unitLabel})`;
-    } else if (countMode === "pan" && panData?.pan_units_per_unit) {
-      normalizedQty = qty * panData.pan_units_per_unit;
-      displayUnit = `pans (${qty} × ${panData.pan_units_per_unit} ${unitLabel})`;
-    }
+    // Build descriptive unit string
+    const parts: string[] = [];
+    const cases = parseFloat(caseCount) || 0;
+    const units = parseFloat(unitCount) || 0;
+    if (cases > 0) parts.push(`${cases} case${cases !== 1 ? 's' : ''}`);
+    if (units > 0) parts.push(`${units} ${unitLabel}`);
+    Object.entries(panCounts).forEach(([key, qty]) => {
+      if (qty > 0) {
+        const container = ALL_CONTAINERS.find(c => c.key === key);
+        if (container) parts.push(`${qty} ${container.label}`);
+      }
+    });
+    const displayUnit = parts.length > 0 ? parts.join(' + ') + ` (${totalUnits} ${unitLabel} total)` : `${totalUnits} ${unitLabel}`;
 
     onSave({
       itemId: selectedItemId,
       itemName: selectedItem.name,
-      quantity: normalizedQty,
+      quantity: totalUnits,
       unit: displayUnit,
       reason,
       photoFile,
       estimatedCost,
     });
+  };
+
+  const resetForm = () => {
+    setCaseCount("");
+    setUnitCount("");
+    setPanCounts({});
   };
 
   return (
@@ -196,8 +197,7 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
                       onSelect={() => {
                         setSelectedItemId(item.id);
                         setItemPickerOpen(false);
-                        setCountMode("unit");
-                        setQuantity("");
+                        resetForm();
                       }}
                     >
                       <Check
@@ -216,56 +216,107 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
         </Popover>
       </div>
 
-      {/* Count mode selector — only show when item is selected */}
+      {/* Quantity section — mirrors counting session */}
       {selectedItem && (
-        <div>
-          <label className="text-sm font-medium mb-1.5 block">Count by</label>
-          <Tabs value={countMode} onValueChange={(v) => { setCountMode(v as CountMode); setQuantity(""); }}>
-            <TabsList className="w-full">
-              <TabsTrigger value="unit" className="flex-1">
+        <div className="space-y-3">
+          <label className="text-sm font-medium block">Quantity wasted</label>
+
+          {/* Cases + Units row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Cases
+                <span className="text-muted-foreground/60 ml-1">({unitsPerCase} {unitLabel}/cs)</span>
+              </label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={caseCount}
+                onChange={(e) => setCaseCount(e.target.value)}
+                placeholder="0"
+                min="0"
+                step="any"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
                 {unitLabel}
-              </TabsTrigger>
-              <TabsTrigger value="case" className="flex-1">
-                Case
-              </TabsTrigger>
-              {hasPanData && (
-                <TabsTrigger value="pan" className="flex-1">
-                  Pan
-                </TabsTrigger>
-              )}
-            </TabsList>
-          </Tabs>
-          {countMode === "case" && (
-            <p className="text-xs text-muted-foreground mt-1">
-              1 case = {unitsPerCase} {unitLabel}
-            </p>
+              </label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                value={unitCount}
+                onChange={(e) => setUnitCount(e.target.value)}
+                placeholder="0"
+                min="0"
+                step="any"
+              />
+            </div>
+          </div>
+
+          {/* Pan / Cambro rows */}
+          {enabledPans.length > 0 && (
+            <div className="pt-2 border-t border-border">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-2">
+                Pan / Cambro
+              </p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {enabledPans.map(({ key, label, unitsEach }) => {
+                  const qty = panCounts[key] || 0;
+                  return (
+                    <div key={key} className="text-center">
+                      <p className="text-[9px] text-muted-foreground font-medium mb-1 truncate">
+                        {label}
+                        {unitsEach != null && (
+                          <span className="text-muted-foreground/60"> ({unitsEach})</span>
+                        )}
+                      </p>
+                      <div className="flex items-center bg-background rounded-md border border-foreground/15 overflow-hidden">
+                        <button
+                          type="button"
+                          className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                          onClick={() => updatePanCount(key, -0.5)}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={qty || ""}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            setPanCounts(prev => ({
+                              ...prev,
+                              [key]: isNaN(v) ? 0 : Math.max(0, v),
+                            }));
+                          }}
+                          placeholder="0"
+                          className="flex-1 text-center text-sm font-bold bg-transparent outline-none w-0"
+                        />
+                        <button
+                          type="button"
+                          className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                          onClick={() => updatePanCount(key, 0.5)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
-          {countMode === "pan" && panData?.pan_units_per_unit && (
-            <p className="text-xs text-muted-foreground mt-1">
-              1 pan = {panData.pan_units_per_unit} {unitLabel}
-            </p>
+
+          {/* Running total */}
+          {totalUnits > 0 && (
+            <div className="bg-muted/50 rounded-lg px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Total: </span>
+              <span className="font-semibold">{totalUnits} {unitLabel}</span>
+            </div>
           )}
         </div>
       )}
-
-      {/* Quantity */}
-      <div>
-        <label className="text-sm font-medium mb-1.5 block">
-          Quantity{" "}
-          <span className="text-muted-foreground font-normal">
-            ({countMode === "case" ? "cases" : countMode === "pan" ? "pans" : unitLabel})
-          </span>
-        </label>
-        <Input
-          type="number"
-          inputMode="decimal"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          placeholder="0"
-          min="0"
-          step="any"
-        />
-      </div>
 
       {/* Reason */}
       <div>
