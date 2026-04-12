@@ -43,6 +43,7 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
   const { currentLocation } = useAppLocation();
   const [selectedItemId, setSelectedItemId] = useState("");
   const [caseCount, setCaseCount] = useState("");
+  const [packCount, setPackCount] = useState("");
   const [unitCount, setUnitCount] = useState("");
   const [panCounts, setPanCounts] = useState<Record<string, number>>({});
   const [reason, setReason] = useState("");
