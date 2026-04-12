@@ -1,0 +1,31 @@
+{
+  "name": "CrooHQ Kiosk",
+  "short_name": "Kiosk",
+  "description": "CrooHQ Kiosk Punch Clock",
+  "theme_color": "#3D2B1F",
+  "background_color": "#3D2B1F",
+  "display": "standalone",
+  "orientation": "any",
+  "scope": "/kiosk",
+  "start_url": "/kiosk",
+  "icons": [
+    {
+      "src": "/croo-logo-inverted.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/croo-logo-transparent.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/notification-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
