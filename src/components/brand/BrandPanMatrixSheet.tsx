@@ -150,7 +150,10 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                             {baselineContainer?.label.replace(/ \(.*\)/, '') ?? baselineKey}
                           </span>
                           <span className="font-mono font-semibold text-[11px] text-primary">
-                            {tmpl.pan_units_per_unit}
+                            {tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb}
+                            {tmpl.pan_units_per_lb && !tmpl.pan_units_per_unit ? (
+                              <span className="text-[8px] text-muted-foreground ml-0.5">lb</span>
+                            ) : null}
                           </span>
                         </div>
                       ) : (
