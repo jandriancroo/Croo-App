@@ -136,7 +136,7 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
   // Nothing to show and not loading — hide completely
   if (!displayScore && !isLoading) return null;
 
-  // Skeleton placeholder while loading with no cached data
+  // Skeleton placeholder while loading with no cached data at all
   if (!displayScore && isLoading) {
     return (
       <div
