@@ -92,11 +92,17 @@ export default function Dashboard() {
   );
   const queryClient = useQueryClient();
 
-  // Sales data from shared cache — SalesSummary is the MASTER WRITER.
-  // Reading from cache eliminates the callback prop + double-setState jitter.
-  const salesOverviewData = queryClient.getQueryData<SalesDataForWidgets | null>(
-    ['dashboard-sales-enriched', currentLocation?.id]
-  ) ?? null;
+  // Sales data from shared cache — SalesSummary is the MASTER WRITER via setQueryData.
+  // Using useQuery subscribes to cache updates so Dashboard re-renders when data arrives.
+  // No queryFn needed — SalesSummary populates the cache; we just read it.
+  const { data: salesOverviewData = null } = useQuery<SalesDataForWidgets | null>({
+    queryKey: ['dashboard-sales-enriched', currentLocation?.id],
+    queryFn: () => queryClient.getQueryData(['dashboard-sales-enriched', currentLocation?.id]) ?? null,
+    enabled: !!currentLocation?.id,
+    staleTime: Infinity, // Never refetch — SalesSummary manages updates via setQueryData
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
   const isLoadingSales = salesOverviewData === null;
 
   
