@@ -503,6 +503,10 @@ export function useTasksData() {
     queryKey: ['event-completions', historyDateStr, currentLocation?.id],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     placeholderData: (prev) => prev,
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
+
+      const { data: completions, error } = await supabase
         .from('event_task_completions')
         .select(`
           id,
