@@ -302,7 +302,7 @@ export function useTasksData() {
           completed: completionRate === 1,
           completionRate,
           itemCount: checklist.itemCount,
-          completedCount: cappedCompletedCount,
+          completedCount,
           contributors,
           lastCompletedAt,
           dueByTime: checklist.due_by_time || null,
