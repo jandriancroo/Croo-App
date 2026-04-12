@@ -991,9 +991,23 @@ async function handleFetchReviews(req: Request, supabase: any) {
         emptyBatches = 0
       }
 
-      // Server-side location filtering (strict)
-      const pageMatches = newSurveys.filter((survey: any) => surveyMatchesAllowedLocations(survey, ovationLocationIds))
+      // Server-side location + date filtering (strict — API ignores createdAtRange)
+      const pageMatches = newSurveys.filter((survey: any) => {
+        // Date filter: the API does NOT respect createdAtRange, so enforce it here
+        const surveyDate = new Date(survey.created)
+        if (surveyDate < startDate || surveyDate > now) return false
+        // Location filter
+        return surveyMatchesAllowedLocations(survey, ovationLocationIds)
+      })
       matchingSurveys.push(...pageMatches)
+
+      // If we're getting surveys older than our window, stop paginating
+      const oldestInBatch = surveys[surveys.length - 1]
+      const oldestDate = oldestInBatch?.created ? new Date(oldestInBatch.created) : null
+      if (oldestDate && oldestDate < startDate) {
+        console.log(`[ovation-service] skip=${skip}: reached surveys before startDate, stopping pagination`)
+        break
+      }
 
       console.log(`[ovation-service] skip=${skip}: ${pageMatches.length}/${surveys.length} matched (total API count=${totalCount})`)
 
