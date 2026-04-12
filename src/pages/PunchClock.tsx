@@ -714,8 +714,6 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
     
     // In kiosk mode, show biometric scan overlay before proceeding
     if (kioskMode) {
-      setPendingUser(data);
-      setPendingUserRole(role);
       setBiometricScanning(true);
       setBiometricVerified(false);
       
