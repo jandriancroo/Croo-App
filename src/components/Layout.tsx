@@ -275,13 +275,12 @@ export const Layout = ({
   
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
-  const { hasPermission } = useRolePermissions();
+  const { hasPermission, loading: permissionsLoading } = useRolePermissions();
   // Wait for role to load before checking - prevents flash of missing nav items
   const canAccessLogs = !roleLoading && isShiftManager; // Shift managers and above can access logbook
   const canAccessHiring = !roleLoading && (isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring'));
-  // Ovation: mount eagerly — the tab handles its own loading/skeleton/hide states.
-  // Only gate on role permission, and treat "still loading" as "show it" to avoid flash-hide.
-  const ovationPermResolved = roleLoading ? null : (isManager || hasPermission('view_ovation_reviews'));
+  // Ovation: mount eagerly, but never resolve the permission gate while auth/role/permission state is still loading.
+  const ovationPermResolved = permissionsLoading ? null : (isManager || hasPermission('view_ovation_reviews'));
   const [canViewOvation, setCanViewOvation] = useState(() => {
     try { return localStorage.getItem('ovation-perm') === '1'; } catch { return false; }
   });
