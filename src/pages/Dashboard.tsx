@@ -66,10 +66,6 @@ export default function Dashboard() {
     document.body.classList.add('beach-dashboard');
     return () => document.body.classList.remove('beach-dashboard');
   }, []);
-  const [completionData, setCompletionData] = useState<Record<string, {
-    expected: number;
-    completed: number;
-  }>>({});
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
