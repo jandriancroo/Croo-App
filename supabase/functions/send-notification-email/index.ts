@@ -132,6 +132,32 @@ serve(async (req) => {
         <p style="color:#666;font-size:13px;margin:0 0 20px;">Your signed review is saved in your employee records. Open the Croo app to view it anytime.</p>
       `;
     }
+    // ========== WASTE LOG NOTIFICATION ==========
+    else if (type === "waste_log") {
+      const { item_name, quantity: qty, reason: wasteReason, estimated_cost, photo_url, logged_by, location_name, date } = data;
+      subject = `Waste Logged — ${item_name} at ${location_name}`;
+      headerTitle = "Waste Alert";
+      source = "waste_log";
+      content = `
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">A waste event has been logged and may require a credit memo from your vendor.</p>
+        <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #ef4444;">
+          <table style="width:100%;">
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Item</span><br/><strong style="color:#ef4444;font-size:15px;">${item_name}</strong></td></tr>
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Quantity Wasted</span><br/><strong style="color:${textColor};font-size:14px;">${qty}</strong></td></tr>
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Estimated Cost</span><br/><strong style="color:#ef4444;font-size:14px;">${estimated_cost}</strong></td></tr>
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Logged By</span><br/><strong style="color:${textColor};font-size:14px;">${logged_by}</strong></td></tr>
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">${location_name}</strong></td></tr>
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Date</span><br/><strong style="color:${textColor};font-size:14px;">${date}</strong></td></tr>
+          </table>
+        </div>
+        <div style="background:#fafafa;border-radius:10px;padding:16px;margin-bottom:16px;border-left:4px solid ${primaryColor};">
+          <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Reason</p>
+          <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">${wasteReason}</p>
+        </div>
+        ${photo_url ? `<div style="margin-bottom:20px;"><p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Photo Evidence</p><img src="${photo_url}" alt="Waste photo" style="width:100%;max-width:400px;border-radius:10px;"/></div>` : ''}
+        <p style="color:#666;font-size:13px;margin:0 0 10px;">💡 <strong>Tip:</strong> Forward this email to your vendor rep if a credit memo is needed.</p>
+      `;
+    }
     else {
       return new Response(JSON.stringify({ error: "Unknown notification type: " + type }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
