@@ -72,7 +72,7 @@ export function useOvationData() {
   const locationId = currentLocation?.id;
   const authReady = !!user && !!session;
 
-  const { data: reviewsData, isLoading, isFetching } = useQuery<OvationReviewsData>({
+  const { data: reviewsData, isLoading } = useQuery<OvationReviewsData>({
     queryKey: ['ovation-reviews', locationId, user?.id],
     queryFn: async () => {
       if (!locationId) return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
@@ -115,8 +115,8 @@ export function useOvationData() {
   const hasData = !!reviewsData && !reviewsData.error && !!reviewsData.wtdAverage;
   const cachedScore = !hasData ? getCachedScore(locationId) : null;
   const locationReady = !!locationId;
-  // Treat missing location during dashboard hydration as loading so the tab stays mounted.
-  const isActuallyLoading = !locationReady || !authReady || isLoading || isFetching;
+  // Only treat as "loading" for the initial fetch, NOT background refetches
+  const isActuallyLoading = !locationReady || !authReady || isLoading;
 
   return {
     reviewsData,
@@ -124,19 +124,19 @@ export function useOvationData() {
     isLoading: isActuallyLoading,
     cachedScore,
     authReady,
+    displayScore: hasData ? reviewsData?.wtdAverage : cachedScore?.wtdAverage,
+    displayCount: hasData ? reviewsData?.wtdCount : cachedScore?.wtdCount,
   };
 }
 
 /** The small fixed tab trigger */
 export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boolean; onToggle: () => void; desktop?: boolean }) {
-  const { reviewsData, hasData, isLoading, cachedScore } = useOvationData();
-
-  const displayScore = hasData ? reviewsData?.wtdAverage : cachedScore?.wtdAverage;
+  const { isLoading, displayScore } = useOvationData();
 
   // Nothing to show and not loading — hide completely
   if (!displayScore && !isLoading) return null;
 
-  // Skeleton placeholder while loading with no cached data
+  // Skeleton placeholder while loading with no cached data at all
   if (!displayScore && isLoading) {
     return (
       <div
@@ -184,7 +184,7 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
 
 /** The expandable panel that goes in document flow */
 export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
-  const { reviewsData, hasData } = useOvationData();
+  const { reviewsData, isLoading, displayScore, displayCount } = useOvationData();
   const [reviewIndex, setReviewIndex] = useState(0);
 
   const reviewsWithFeedback = reviewsData?.reviews?.filter(r => r.feedback) || [];
@@ -195,7 +195,11 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
     }
   }, [reviewsWithFeedback.length]);
 
-  if (!hasData || !reviewsData?.wtdAverage) return null;
+  // Show panel if we have fresh data OR cached score (so it doesn't return null while loading)
+  if (!displayScore && !isLoading) return null;
+
+  const scoreValue = displayScore ?? 0;
+  const countValue = displayCount ?? 0;
 
   return (
     <AnimatePresence>
@@ -215,22 +219,22 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
                 <div>
                   <p className="text-base sm:text-xs font-semibold leading-tight">OvationUp</p>
                   <p className="text-xs sm:text-[10px] text-muted-foreground leading-tight">
-                    Last 14 days · {reviewsData.wtdCount} reviews
+                    Last 14 days · {countValue} reviews
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 shrink-0">
                 <div className={cn(
                   'flex items-center justify-center min-w-12 px-3 py-1 rounded-xl font-bold text-lg sm:text-sm',
-                  reviewsData.wtdAverage >= 4.5 ? 'bg-green-500/10 text-green-600' :
-                  reviewsData.wtdAverage >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
-                  reviewsData.wtdAverage >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
+                  scoreValue >= 4.5 ? 'bg-green-500/10 text-green-600' :
+                  scoreValue >= 3.5 ? 'bg-yellow-500/10 text-yellow-600' :
+                  scoreValue >= 2.5 ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
                 )}>
-                  {reviewsData.wtdAverage.toFixed(1)}
+                  {scoreValue.toFixed(1)}
                 </div>
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                  <span className="text-xs sm:text-[10px] font-medium">{reviewsData.wtdCount}</span>
+                  <span className="text-xs sm:text-[10px] font-medium">{countValue}</span>
                 </div>
               </div>
             </div>
@@ -280,10 +284,19 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
                   </div>
                 )}
               </div>
+            ) : isLoading ? (
+              <div className="px-4 sm:px-3 py-4 sm:py-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-3.5 w-20 rounded bg-muted-foreground/15 animate-pulse" />
+                  <div className="h-3 w-16 rounded bg-muted-foreground/10 animate-pulse" />
+                </div>
+                <div className="h-3 w-full rounded bg-muted-foreground/10 animate-pulse mb-1.5" />
+                <div className="h-3 w-3/4 rounded bg-muted-foreground/10 animate-pulse" />
+              </div>
             ) : (
               <div className="px-4 sm:px-3 py-4 sm:py-3">
                 <p className="text-base sm:text-[11px] text-muted-foreground italic">
-                  {reviewsData.reviews.length} ratings (no written feedback)
+                  {reviewsData?.reviews?.length ?? 0} ratings (no written feedback)
                 </p>
               </div>
             )}
