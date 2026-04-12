@@ -122,7 +122,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [isBulkDragMode, setIsBulkDragMode] = useState(false);
   const [bulkDragGroupKey, setBulkDragGroupKey] = useState<string | null>(null);
   const [bulkDragItemIds, setBulkDragItemIds] = useState<string[]>([]);
-  const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
+  
   const [recipePurgeMode, setRecipePurgeMode] = useState(false);
   const [recipePurgeSelection, setRecipePurgeSelection] = useState<Set<string>>(new Set());
   const [isPurging, setIsPurging] = useState(false);
