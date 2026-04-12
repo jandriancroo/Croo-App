@@ -207,5 +207,12 @@ export default function KioskPunchClock() {
     return <KioskSetupScreen onComplete={setKioskLocation} />;
   }
 
-  return <PunchClock kioskMode kioskLocationOverride={kioskLocation} />;
+  return (
+    <>
+      <Helmet>
+        <link rel="manifest" href="/kiosk-manifest.json" />
+      </Helmet>
+      <PunchClock kioskMode kioskLocationOverride={kioskLocation} />
+    </>
+  );
 }
