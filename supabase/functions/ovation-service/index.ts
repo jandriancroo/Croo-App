@@ -1014,11 +1014,8 @@ async function handleFetchReviews(req: Request, supabase: any) {
       hasResponse: !!s.response,
     }))
 
-    const weekStart = new Date(now)
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-    weekStart.setHours(0, 0, 0, 0)
-
-    const wtdSurveys = matchingSurveys.filter((s: any) => new Date(s.created) >= weekStart)
+    // Use the same 14-day window as the query (matches the "14d" label in the UI)
+    const wtdSurveys = matchingSurveys
     const wtdAvg = wtdSurveys.length > 0
       ? wtdSurveys.reduce((sum: number, s: any) => sum + (s.rating || 0), 0) / wtdSurveys.length
       : null
