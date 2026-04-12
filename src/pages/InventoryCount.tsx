@@ -149,12 +149,14 @@ const InventoryCount = () => {
 
   // Determine the current state
   const isCompleted = countData?.status === "completed";
+  const isLocked = !!countData?.locked_at;
+  const canEditLocked = isAdminRole; // Admin+ can edit locked counts
   const isInProgress = countData?.status === "in_progress";
   const isEditing = isCompleted && editMode;
   const isViewOnly = isCompleted && !editMode;
-  const isReviewMode = isInProgress && !editMode && !continueMode; // Saved but not submitted - review mode
-  const isCounting = !isCompleted && (!isInProgress || continueMode); // Active counting mode
-  const needsReconciliation = isCounting && !reconciliationComplete && !continueMode; // Show reconciliation before counting
+  const isReviewMode = isInProgress && !editMode && !continueMode;
+  const isCounting = !isCompleted && (!isInProgress || continueMode);
+  const needsReconciliation = isCounting && !reconciliationComplete && !continueMode;
 
   // Block browser tab/window close when actively counting or editing
   useEffect(() => {
