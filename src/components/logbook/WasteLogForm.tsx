@@ -297,7 +297,6 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
               />
             </div>
           </div>
-          </div>
 
           {/* Pan / Cambro rows */}
           {enabledPans.length > 0 && (
