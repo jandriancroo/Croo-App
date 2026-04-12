@@ -174,6 +174,14 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   // Post clock-in task display
   const [showPostClockInTasks, setShowPostClockInTasks] = useState(false);
   
+  // Biometric scan overlay for kiosk mode
+  const [biometricScanning, setBiometricScanning] = useState(false);
+  const [biometricVerified, setBiometricVerified] = useState(false);
+  const [pendingUser, setPendingUser] = useState<any>(null);
+  const [pendingUserRole, setPendingUserRole] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  
   // Custom punch clock settings
   const [customBackground, setCustomBackground] = useState<string | null>(null);
   const [customOverlayText, setCustomOverlayText] = useState<string | null>(null);
@@ -698,16 +706,52 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
     logPunchAttempt(pinValue, true, data.id);
     playSuccessSound();
     
-    setCurrentUser(data);
-    
     // Fetch user role for event filtering
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', data.id)
       .single();
-    setCurrentUserRole(roleData?.role || 'team_member');
-  };
+    const role = roleData?.role || 'team_member';
+    
+    // In kiosk mode, show biometric scan overlay before proceeding
+    if (kioskMode) {
+      setPendingUser(data);
+      setPendingUserRole(role);
+      setBiometricScanning(true);
+      setBiometricVerified(false);
+      
+      // Start camera
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user', width: 640, height: 480 } 
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch {
+        // Camera denied — still show the scan animation without video
+      }
+      
+      // Fake scan duration: 2.5s scanning → 1s verified → proceed
+      setTimeout(() => {
+        setBiometricVerified(true);
+        // Stop camera
+        streamRef.current?.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+        
+        setTimeout(() => {
+          setBiometricScanning(false);
+          setBiometricVerified(false);
+          setCurrentUser(data);
+          setCurrentUserRole(role);
+        }, 1000);
+      }, 2500);
+    } else {
+      setCurrentUser(data);
+      setCurrentUserRole(role);
+    }
 
   const checkTodayShift = async () => {
     if (!currentUser) return;
