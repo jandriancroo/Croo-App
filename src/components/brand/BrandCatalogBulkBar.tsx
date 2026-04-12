@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Clock, Archive, Tag, X } from "lucide-react";
+import { CheckCircle2, Clock, Archive, Tag, X, Grid3X3 } from "lucide-react";
+import BrandPanMatrixSheet from "./BrandPanMatrixSheet";
 import { toast } from "sonner";
 import {
   Select,
