@@ -10,7 +10,7 @@ import { Clock, Coffee, LogOut, AlertTriangle, ArrowLeftRight } from 'lucide-rea
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.webp';
 import crooLogoInverted from '/croo-logo-inverted-transparent.png';
-import { useFaceDetection } from '@/hooks/useFaceDetection';
+
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
@@ -179,11 +179,8 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   // Biometric scan overlay for kiosk mode
   const [biometricScanning, setBiometricScanning] = useState(false);
   const [biometricVerified, setBiometricVerified] = useState(false);
-  const [biometricStatus, setBiometricStatus] = useState<'searching' | 'detected' | 'verifying' | 'verified'>('searching');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const faceDetection = useFaceDetection(videoRef);
-  const pendingUserRef = useRef<{ data: any; role: string } | null>(null);
   
   // Custom punch clock settings
   const [customBackground, setCustomBackground] = useState<string | null>(null);
@@ -718,12 +715,10 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
       .single();
     const role = roleData?.role || 'team_member';
     
-    // In kiosk mode, show biometric scan overlay with face detection before proceeding
+    // In kiosk mode, show biometric scan overlay before proceeding
     if (kioskMode) {
       setBiometricScanning(true);
       setBiometricVerified(false);
-      setBiometricStatus('searching');
-      pendingUserRef.current = { data, role };
       
       // Start camera
       try {
@@ -734,74 +729,29 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
-        // Start face detection polling
-        faceDetection.startDetection();
       } catch {
-        // Camera denied — fall back to timer-based scan
-        setTimeout(() => {
-          completeBiometricScan();
-        }, 2500);
+        // Camera denied — still show the scan animation without video
       }
+      
+      // Fake scan duration: 2.5s scanning → 1s verified → proceed
+      setTimeout(() => {
+        setBiometricVerified(true);
+        // Stop camera
+        streamRef.current?.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+        
+        setTimeout(() => {
+          setBiometricScanning(false);
+          setBiometricVerified(false);
+          setCurrentUser(data);
+          setCurrentUserRole(role);
+        }, 1000);
+      }, 2500);
     } else {
       setCurrentUser(data);
       setCurrentUserRole(role);
     }
   };
-
-  // Ref to track if scan completion has already been triggered
-  const scanCompletedRef = useRef(false);
-
-  // Complete biometric scan — called when face is detected or as fallback
-  const completeBiometricScan = useCallback(() => {
-    if (scanCompletedRef.current) return; // prevent double-fire
-    scanCompletedRef.current = true;
-    setBiometricStatus('verifying');
-    faceDetection.stopDetection();
-    
-    // Brief "verifying" pause then show verified
-    setTimeout(() => {
-      setBiometricVerified(true);
-      setBiometricStatus('verified');
-      // Stop camera
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-      
-      setTimeout(() => {
-        setBiometricScanning(false);
-        setBiometricVerified(false);
-        setBiometricStatus('searching');
-        scanCompletedRef.current = false;
-        if (pendingUserRef.current) {
-          setCurrentUser(pendingUserRef.current.data);
-          setCurrentUserRole(pendingUserRef.current.role);
-          pendingUserRef.current = null;
-        }
-      }, 1000);
-    }, 800);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Watch for face detection during biometric scan
-  useEffect(() => {
-    if (!biometricScanning || biometricVerified || scanCompletedRef.current) return;
-    
-    if (faceDetection.faceDetected) {
-      // Face found — wait a brief moment to confirm it's stable, then verify
-      const timer = setTimeout(() => {
-        completeBiometricScan();
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [biometricScanning, biometricVerified, faceDetection.faceDetected, completeBiometricScan]);
-
-  // Safety timeout: if no face detected after 8s, allow through anyway
-  useEffect(() => {
-    if (!biometricScanning) return;
-    const timer = setTimeout(() => {
-      completeBiometricScan();
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, [biometricScanning, completeBiometricScan]);
 
 
   const checkTodayShift = async () => {
