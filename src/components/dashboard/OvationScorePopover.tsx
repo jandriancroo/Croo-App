@@ -72,7 +72,7 @@ export function useOvationData() {
   const locationId = currentLocation?.id;
   const authReady = !!user && !!session;
 
-  const { data: reviewsData, isLoading, isFetching } = useQuery<OvationReviewsData>({
+  const { data: reviewsData, isLoading } = useQuery<OvationReviewsData>({
     queryKey: ['ovation-reviews', locationId, user?.id],
     queryFn: async () => {
       if (!locationId) return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
