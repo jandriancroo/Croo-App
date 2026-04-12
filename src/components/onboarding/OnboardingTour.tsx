@@ -80,7 +80,7 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
           fontSize: '0.8rem',
         },
         spotlight: {
-          borderRadius: '0.75rem',
+          borderRadius: '0.75rem' as any,
         },
       }}
     />
