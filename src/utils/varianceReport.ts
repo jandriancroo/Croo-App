@@ -86,6 +86,9 @@ export async function calculateVarianceReport(
       fetchAllIngredients(locationId),
     ]);
 
+  // Fetch transfers for this period
+  const transfersData = await fetchTransfersForPeriod(locationId, periodStartDate, periodEndDate);
+
   const [vendorMappings, deployments, { excludedCategories, includedOverrides }] = await Promise.all([vendorMappingsP, deploymentsP, brandFiltersP]);
 
   const netSales = salesData.totalNetSales;
@@ -120,9 +123,9 @@ export async function calculateVarianceReport(
   const matchLog = { pfg: { mapping: 0, fallback: 0, unmatched: 0 }, pa: { mapping: 0, fallback: 0, unmatched: 0 } };
 
   // ─── Per-item tracking ───
-  const itemActual = new Map<string, { beginning: number; purchases: number; ending: number; beginningQty: number; endingQty: number }>();
+  const itemActual = new Map<string, { beginning: number; purchases: number; ending: number; transfersIn: number; transfersOut: number; beginningQty: number; endingQty: number }>();
   const getOrCreateItem = (itemId: string) => {
-    if (!itemActual.has(itemId)) itemActual.set(itemId, { beginning: 0, purchases: 0, ending: 0, beginningQty: 0, endingQty: 0 });
+    if (!itemActual.has(itemId)) itemActual.set(itemId, { beginning: 0, purchases: 0, ending: 0, transfersIn: 0, transfersOut: 0, beginningQty: 0, endingQty: 0 });
     return itemActual.get(itemId)!;
   };
 
@@ -176,7 +179,7 @@ export async function calculateVarianceReport(
         matchLog.pfg.unmatched++;
         const key = `__pfg_unmatched_${vendorItemId}`;
         if (!itemActual.has(key)) {
-          itemActual.set(key, { beginning: 0, purchases: 0, ending: 0, beginningQty: 0, endingQty: 0 });
+          itemActual.set(key, { beginning: 0, purchases: 0, ending: 0, transfersIn: 0, transfersOut: 0, beginningQty: 0, endingQty: 0 });
         }
         itemActual.get(key)!.purchases += Number(li.total) || 0;
       }
@@ -197,6 +200,25 @@ export async function calculateVarianceReport(
         getOrCreateItem(invItemId).purchases += Number(li.total) || 0;
       } else {
         matchLog.pa.unmatched++;
+      }
+    }
+  }
+
+  // Transfers — per-item adjustments
+  for (const transfer of transfersData) {
+    const items = (transfer as any).inventory_transfer_items || [];
+    for (const ti of items) {
+      const itemId = ti.item_id;
+      if (!itemId) continue;
+      const costPerUnit = Number(ti.cost_per_unit) || 0;
+      const qty = Number(ti.quantity) || 0;
+      const value = qty * costPerUnit;
+      if (transfer.to_location_id === locationId) {
+        // Transfer IN — adds to available inventory (like a purchase)
+        getOrCreateItem(itemId).transfersIn += value;
+      } else if (transfer.from_location_id === locationId) {
+        // Transfer OUT — removes from available inventory
+        getOrCreateItem(itemId).transfersOut += value;
       }
     }
   }
@@ -413,7 +435,7 @@ export async function calculateVarianceReport(
     const item = itemMap.get(itemId);
     const itemName = item?.name || itemId;
     const theo = itemTheoretical.get(itemId) || 0;
-    const actualUsage = actual.beginning + actual.purchases - actual.ending;
+    const actualUsage = actual.beginning + actual.purchases + actual.transfersIn - actual.transfersOut - actual.ending;
 
     if (!catMap.has(cat)) catMap.set(cat, { items: new Map() });
     const catEntry = catMap.get(cat)!;
@@ -617,6 +639,18 @@ async function fetchPaOrders(locationId: string, start: string, end: string) {
   return data || [];
 }
 
+async function fetchTransfersForPeriod(locationId: string, start: string, end: string) {
+  // Fetch received transfers involving this location within the period
+  const { data, error } = await supabase
+    .from("inventory_transfers")
+    .select("id, from_location_id, to_location_id, transfer_date, inventory_transfer_items(item_id, quantity, cost_per_unit)")
+    .eq("status", "received")
+    .or(`from_location_id.eq.${locationId},to_location_id.eq.${locationId}`)
+    .gte("transfer_date", start)
+    .lte("transfer_date", end);
+  if (error) throw error;
+  return data || [];
+}
 async function fetchAllInventoryItems(locationId: string) {
   const { data, error } = await supabase
     .from("inventory_items")

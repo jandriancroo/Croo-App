@@ -11,6 +11,8 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useInventoryTransfers, getTransferTotalsForPeriod } from "@/hooks/useInventoryTransfers";
+
 
 export const COGSReportContent = ({ locationId }: { locationId: string }) => {
   
@@ -191,6 +193,13 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     enabled: !!locationId,
   });
 
+  // Transfers
+  const { transfers } = useInventoryTransfers(locationId);
+  const transferTotals = useMemo(() => {
+    if (!transfers.length) return { transfersIn: 0, transfersOut: 0 };
+    return getTransferTotalsForPeriod(transfers, locationId, weekStartStr, weekEndStr);
+  }, [transfers, locationId, weekStartStr, weekEndStr]);
+
   // Calculate COGS
   const cogs = useMemo(() => {
     if (!inventoryItems?.length) return null;
@@ -218,7 +227,8 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     }
 
     const purchasesCost = purchases?.totalCost || 0;
-    const actualUsage = beginValue + purchasesCost - endValue;
+    const { transfersIn, transfersOut } = transferTotals;
+    const actualUsage = beginValue + purchasesCost + transfersIn - transfersOut - endValue;
     const totalSales = salesData?.totalSales || 0;
     const actualCOGSPercent = totalSales > 0 ? (actualUsage / totalSales) * 100 : 0;
 
@@ -266,6 +276,8 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       beginValue,
       endValue,
       purchasesCost,
+      transfersIn,
+      transfersOut,
       actualUsage,
       totalSales,
       actualCOGSPercent,
@@ -279,7 +291,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       beginDate: counts?.beginning?.period_end_date || counts?.beginning?.count_date,
       endDate: counts?.ending?.period_end_date || counts?.ending?.count_date,
     };
-  }, [counts, inventoryItems, purchases, salesData, bomData]);
+  }, [counts, inventoryItems, purchases, salesData, bomData, transferTotals]);
 
   const isLoading = countsLoading || purchasesLoading || salesLoading;
   const canGoForward = !isAfter(addWeeks(weekStart, 1), new Date());
@@ -370,6 +382,28 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
                         <Badge variant="secondary" className="text-xs">{purchases?.pa?.length || 0} Produce Alliance orders</Badge>
                       </div>
                     </div>
+
+                    {/* Transfer rows */}
+                    {(cogs.transfersIn > 0 || cogs.transfersOut > 0) && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {cogs.transfersIn > 0 && (
+                          <div className="p-3 rounded-lg bg-muted/50">
+                            <p className="text-xs text-muted-foreground">+ Transfers In</p>
+                            <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                              +${cogs.transfersIn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        )}
+                        {cogs.transfersOut > 0 && (
+                          <div className="p-3 rounded-lg bg-muted/50">
+                            <p className="text-xs text-muted-foreground">− Transfers Out</p>
+                            <p className="text-lg font-semibold text-destructive">
+                              −${cogs.transfersOut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <Separator />
 
