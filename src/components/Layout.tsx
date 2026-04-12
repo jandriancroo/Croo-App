@@ -1,8 +1,10 @@
 import { ReactNode, useRef } from 'react';
+import { useOnboardingTour } from '@/hooks/useOnboardingTour';
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type } from 'lucide-react';
+import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type, GraduationCap } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -248,6 +250,7 @@ export const Layout = ({
 }: LayoutProps) => {
   // Setup push notifications only in Layout (after auth)
   usePushNotifications();
+  const { runTour, completeTour, replayTour, isEligible: tourEligible } = useOnboardingTour();
   
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
@@ -980,6 +983,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 variant="ghost" 
                 className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
                 onClick={() => setLocationDialogOpen(true)}
+                data-tour="location-picker"
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
                 <span className="truncate max-w-[160px]">
@@ -1228,6 +1232,21 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   )}
                 </div>
 
+                {/* Replay Tour (shift_manager+) */}
+                {tourEligible && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setMenuOpen(false);
+                      replayTour();
+                    }}
+                    className="justify-start gap-2 h-9"
+                  >
+                    <GraduationCap className="h-4 w-4" />
+                    <span className="text-sm">Tour CrooHQ</span>
+                  </Button>
+                )}
+
                 {/* Update App + Sign Out row */}
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant="outline" onClick={() => {
@@ -1369,6 +1388,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
       {/* AI Assistant floating bubble */}
       <AiAssistantBubble />
+
+      {/* Onboarding Tour */}
+      <OnboardingTour run={runTour} onComplete={completeTour} />
 
     </div>;
 };

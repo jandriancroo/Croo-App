@@ -567,7 +567,7 @@ export const WidgetsSection = memo(function WidgetsSection({
               items={dataCubes.map(cube => cube.id)}
               strategy={rectSortingStrategy}
             >
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3" data-tour="dashboard-cubes">
                 {dataCubes.map(cube => (
                   <SortableDataCube
                     key={cube.id}
