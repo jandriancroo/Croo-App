@@ -17,6 +17,7 @@ import { BankDepositForm } from "@/components/logbook/BankDepositForm";
 import { EmployeeWriteUpForm } from "@/components/logbook/EmployeeWriteUpForm";
 import { ReadAndSignForm } from "@/components/logbook/ReadAndSignForm";
 import { PerformanceReviewForm } from "@/components/logbook/PerformanceReviewForm";
+import { WasteLogForm, type WasteLogData } from "@/components/logbook/WasteLogForm";
 import type { DrawerCountData } from "@/components/logbook/DrawerCountForm";
 import type { SafeCountData } from "@/components/logbook/SafeCountForm";
 import type { BankDepositData } from "@/components/logbook/BankDepositForm";
@@ -69,6 +70,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
   const isEmployeeWriteUp = ['employee write-up', 'employee writeup', 'employee write up', 'write-up', 'writeup', 'write up'].includes(currentCategoryName || '');
   const isReadAndSign = ['read & sign', 'read and sign', 'read-and-sign'].includes(currentCategoryName || '');
   const isPerformanceReview = ['performance review', 'performance-review'].includes(currentCategoryName || '');
+  const isWasteLog = ['waste log', 'waste', 'waste report'].includes(currentCategoryName || '');
 
   const renderFormContent = () => {
     if (isPerformanceReview) {
