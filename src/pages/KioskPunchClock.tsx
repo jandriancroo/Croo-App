@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -207,12 +206,5 @@ export default function KioskPunchClock() {
     return <KioskSetupScreen onComplete={setKioskLocation} />;
   }
 
-  return (
-    <>
-      <Helmet>
-        <link rel="manifest" href="/kiosk-manifest.json" />
-      </Helmet>
-      <PunchClock kioskMode kioskLocationOverride={kioskLocation} />
-    </>
-  );
+  return <PunchClock kioskMode kioskLocationOverride={kioskLocation} />;
 }
