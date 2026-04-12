@@ -192,7 +192,17 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Log Waste</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Log Waste</h2>
+        {estimatedCost != null && estimatedCost > 0 && (
+          <div className="bg-destructive/10 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+            <span className="text-sm font-semibold text-destructive">
+              ${estimatedCost.toFixed(2)}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Searchable item selector */}
       <div>
@@ -416,15 +426,6 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
         )}
       </div>
 
-      {/* Estimated cost preview */}
-      {estimatedCost != null && estimatedCost > 0 && (
-        <div className="bg-destructive/10 rounded-lg p-3 flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-destructive" />
-          <span className="text-sm font-medium">
-            Estimated loss: ${estimatedCost.toFixed(2)}
-          </span>
-        </div>
-      )}
 
       <Button
         className="w-full"
