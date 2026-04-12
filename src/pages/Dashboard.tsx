@@ -639,40 +639,8 @@ export default function Dashboard() {
   };
 
 
-  // Quick tasks content - mounted at the top of the dashboard with scrollable area
   const quickTasksContent = (
-    <div className="flex flex-col gap-2 w-full">
-      {/* Unread Announcements - High priority */}
-      <UnreadAnnouncementsAlert />
-      
-      {/* Pending Read & Sign Documents */}
-      <PendingDocumentsCard />
-
-      {/* Hiring Documents - Secure Document Requests */}
-      <I9UploadCard />
-      
-      {/* OPUS Background Sync — keeps session warm + Theo's brain fresh */}
-      <OpusBackgroundSync />
-
-      {/* Assigned Temporary Tasks + Event Daily Tasks — cash handling inserted between events & tasks */}
-      <AssignedTemporaryTasks
-        compact 
-        includeEventTasks 
-        afterEventsContent={
-          <>
-            <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
-            <DailySpotCheckTask locationHours={locationSettings} timezone={timezone} />
-          </>
-        }
-      />
-      
-
-      {/* Data Stream Status — super admin only */}
-      <DataStreamTask />
-
-      {/* Catering Orders (Today + Tomorrow) */}
-      <CateringOrdersAlert />
-    </div>
+    <QuickTasksSection locationSettings={locationSettings} timezone={timezone} />
   );
 
   // Checklists grid content - passed to WidgetsSection for unified drag & drop
