@@ -801,6 +801,7 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   }, [biometricScanning, biometricVerified, completeBiometricScan]);
 
 
+  const checkTodayShift = async () => {
     if (!currentUser) return;
 
     const today = format(new Date(), 'yyyy-MM-dd');
