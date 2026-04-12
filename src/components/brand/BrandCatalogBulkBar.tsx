@@ -35,6 +35,7 @@ export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, act
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [publishCategoryDialog, setPublishCategoryDialog] = useState(false);
   const [publishCategory, setPublishCategory] = useState<string>('');
+  const [showPanMatrix, setShowPanMatrix] = useState(false);
   const count = selectedIds.size;
 
   const bulkMutation = useMutation({
