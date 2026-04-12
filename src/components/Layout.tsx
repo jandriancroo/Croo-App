@@ -979,18 +979,18 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           {/* Mobile Location Picker - centered */}
           {(currentLocation || isOnOrgDash) && (
             <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" ref={headerLocationRef}>
-             <Button 
-980:                 variant="ghost" 
-981:                 className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
-982:                 onClick={() => setLocationDialogOpen(true)}
-983:                 data-tour="location-picker"
-984:               >
-985:                 <MapPin className="h-4 w-4 flex-shrink-0" />
-986:                 <span className="truncate max-w-[160px]">
-987:                   {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
-988:                 </span>
-989:                 <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-990:               </Button>
+              <Button 
+                variant="ghost" 
+                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+                onClick={() => setLocationDialogOpen(true)}
+                data-tour="location-picker"
+              >
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate max-w-[160px]">
+                  {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+              </Button>
             </div>
           )}
           
