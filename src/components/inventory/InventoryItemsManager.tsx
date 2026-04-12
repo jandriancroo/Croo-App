@@ -1969,12 +1969,6 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               Shortcut
             </button>
 
-            <button
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
-              onClick={() => setShowBulkPanDialog(true)}
-            >
-              Pan Sizes
-            </button>
 
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
