@@ -5,16 +5,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Save } from "lucide-react";
-import { format } from "date-fns";
+import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play } from "lucide-react";
 import { formatPeriodLabel } from "@/utils/periodLabelUtils";
-import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { calculateUsageRates } from "@/utils/inventoryRateCalculation";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
 import InventoryCountView from "@/components/inventory/InventoryCountView";
+import CountEditHistory from "@/components/inventory/CountEditHistory";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import DeliveryReconciliation from "@/components/inventory/DeliveryReconciliation";
+import { useUserRole } from "@/hooks/useUserRole";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +35,7 @@ const InventoryCount = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { isAdmin: isAdminRole } = useUserRole();
   
   // Check if edit or continue mode from query param
   const editMode = searchParams.get("edit") === "true";
@@ -147,12 +147,14 @@ const InventoryCount = () => {
 
   // Determine the current state
   const isCompleted = countData?.status === "completed";
+  const isLocked = !!countData?.locked_at;
+  const canEditLocked = isAdminRole; // Admin+ can edit locked counts
   const isInProgress = countData?.status === "in_progress";
   const isEditing = isCompleted && editMode;
   const isViewOnly = isCompleted && !editMode;
-  const isReviewMode = isInProgress && !editMode && !continueMode; // Saved but not submitted - review mode
-  const isCounting = !isCompleted && (!isInProgress || continueMode); // Active counting mode
-  const needsReconciliation = isCounting && !reconciliationComplete && !continueMode; // Show reconciliation before counting
+  const isReviewMode = isInProgress && !editMode && !continueMode;
+  const isCounting = !isCompleted && (!isInProgress || continueMode);
+  const needsReconciliation = isCounting && !reconciliationComplete && !continueMode;
 
   // Block browser tab/window close when actively counting or editing
   useEffect(() => {
@@ -276,15 +278,23 @@ const InventoryCount = () => {
           <>
             {/* Actions for completed counts */}
             <div className="flex justify-end">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate(`/inventory/${locationId}/count/${countId}?edit=true`)}
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Count
-              </Button>
+              {(!isLocked || canEditLocked) ? (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate(`/inventory/${locationId}/count/${countId}?edit=true`)}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit Count
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>🔒 Locked — Admin access required to edit</span>
+                </div>
+              )}
             </div>
+            {/* Post-submission edit history */}
+            <CountEditHistory countId={countId!} />
             <InventoryCountView 
               countId={countId!} 
               locationId={locationId!}
