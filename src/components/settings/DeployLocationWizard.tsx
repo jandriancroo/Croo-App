@@ -332,13 +332,23 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
 
       // 7. Auto-seed default logbook categories (Waste Log)
       try {
-        await supabase.from('logbook_categories').insert({
+        const { data: wasteCategory } = await supabase.from('logbook_categories').insert({
           name: 'Waste Log',
           location_id: locationId,
           display_order: 99,
           is_active: true,
           alert_enabled: true,
-        });
+        }).select('id').single();
+        
+        if (wasteCategory) {
+          await supabase.from('logbook_fields').insert({
+            category_id: wasteCategory.id,
+            field_name: 'Details',
+            field_type: 'text',
+            is_required: false,
+            display_order: 1,
+          });
+        }
       } catch (e) {
         console.error('Auto-seed Waste Log category error:', e);
       }
