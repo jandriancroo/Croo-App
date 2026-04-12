@@ -3461,6 +3461,60 @@ export type Database = {
           },
         ]
       }
+      inventory_waste_logs: {
+        Row: {
+          created_at: string
+          estimated_cost: number | null
+          id: string
+          item_id: string
+          location_id: string
+          logged_by: string | null
+          photo_url: string | null
+          quantity: number
+          reason: string
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_cost?: number | null
+          id?: string
+          item_id: string
+          location_id: string
+          logged_by?: string | null
+          photo_url?: string | null
+          quantity: number
+          reason: string
+          unit: string
+        }
+        Update: {
+          created_at?: string
+          estimated_cost?: number | null
+          id?: string
+          item_id?: string
+          location_id?: string
+          logged_by?: string | null
+          photo_url?: string | null
+          quantity?: number
+          reason?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_waste_logs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_waste_logs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_application_references: {
         Row: {
           application_id: string
