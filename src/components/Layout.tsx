@@ -1374,5 +1374,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       {/* AI Assistant floating bubble */}
       <AiAssistantBubble />
 
+      {/* Onboarding Tour */}
+      <OnboardingTour run={runTour} onComplete={completeTour} />
+
     </div>;
 };
