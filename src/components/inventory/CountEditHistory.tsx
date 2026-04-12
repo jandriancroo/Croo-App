@@ -8,16 +8,7 @@ interface CountEditHistoryProps {
   countId: string;
 }
 
-interface AuditEntry {
-  id: string;
-  logged_at: string;
-  operation: string;
-  user_id: string | null;
-  details: Record<string, any> | null;
-  user_profile?: { full_name: string } | null;
-}
 
-export default function CountEditHistory({ countId }: CountEditHistoryProps) {
   const { data: entries, isLoading } = useQuery({
     queryKey: ["count-edit-history", countId],
     queryFn: async () => {
