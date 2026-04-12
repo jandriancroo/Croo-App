@@ -227,7 +227,8 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     }
 
     const purchasesCost = purchases?.totalCost || 0;
-    const actualUsage = beginValue + purchasesCost - endValue;
+    const { transfersIn, transfersOut } = transferTotals;
+    const actualUsage = beginValue + purchasesCost + transfersIn - transfersOut - endValue;
     const totalSales = salesData?.totalSales || 0;
     const actualCOGSPercent = totalSales > 0 ? (actualUsage / totalSales) * 100 : 0;
 
