@@ -67,7 +67,7 @@ export default function Tasks() {
                 </TabsList>
               </div>
               {/* Completion circle - right aligned */}
-              <div className="relative mt-1">
+              <div className="relative mt-4">
                 <svg width={circleSize} height={circleSize} className="-rotate-90">
                   <circle cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={strokeWidth} />
                   <circle
