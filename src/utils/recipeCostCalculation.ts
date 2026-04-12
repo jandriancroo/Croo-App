@@ -107,8 +107,8 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
       } else {
         // Raw ingredient: determine proper divisor based on unit
         const caseCost = ingItem.blended_price ?? ingItem.cost_per_unit ?? 0;
-        const ingUnit = ing.unit?.toLowerCase().trim() || '';
-        const nativeUnit = ingItem.count_unit?.toLowerCase().trim() || '';
+        const ingUnit = normalizeUnit(ing.unit);
+        const nativeUnit = normalizeUnit(ingItem.count_unit);
         
         // If the recipe unit is "cs" or "case", use full case cost (no division)
         if (ingUnit === 'cs' || ingUnit === 'case') {
