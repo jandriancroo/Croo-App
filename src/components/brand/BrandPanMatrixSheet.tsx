@@ -76,15 +76,20 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     const baselineKey = template.pan_baseline_key;
     const baselineContainer = ALL_CONTAINERS.find(c => c.key === baselineKey);
     const unitsPerUnit = template.pan_units_per_unit;
+    const unitsPerLb = template.pan_units_per_lb;
 
-    if (!baselineContainer || !unitsPerUnit) return null;
+    // Need a baseline container and at least one measurement
+    if (!baselineContainer || (unitsPerUnit == null && unitsPerLb == null)) return null;
+
+    // Use whichever value is available — both represent "how much fits in the baseline container"
+    const baselineValue = unitsPerUnit ?? unitsPerLb;
 
     // Check overrides first
     const overrides = template.pan_overrides as Record<string, number> | null;
     if (overrides?.[container.key] != null) return overrides[container.key];
 
-    // Auto-calculate from baseline
-    return calcUnits(container, baselineContainer, unitsPerUnit);
+    // Auto-calculate from baseline ratio
+    return calcUnits(container, baselineContainer, baselineValue!);
   }, []);
 
   const rows = templates ?? [];
