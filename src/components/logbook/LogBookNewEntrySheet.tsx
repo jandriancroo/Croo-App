@@ -150,6 +150,41 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                 });
               if (insertError) throw insertError;
 
+              // Also create a logbook entry so it shows in Recent Logs
+              const dateStr = getDateInTimezone(new Date());
+              const costStr = wasteData.estimatedCost ? `$${wasteData.estimatedCost.toFixed(2)}` : 'N/A';
+              const noteText = `${wasteData.itemName} — ${wasteData.quantity} ${wasteData.unit}\nReason: ${wasteData.reason}\nEstimated loss: ${costStr}`;
+              
+              // Look up the "Details" field for this waste log category
+              const { data: wasteField } = await supabase
+                .from("logbook_fields")
+                .select("id")
+                .eq("category_id", selectedCategory)
+                .eq("field_name", "Details")
+                .maybeSingle();
+
+              const { data: entryData, error: entryError } = await supabase
+                .from("logbook_entries")
+                .insert({
+                  category_id: selectedCategory,
+                  entry_date: dateStr,
+                  created_by: user!.id,
+                  location_id: currentLocation!.id,
+                })
+                .select()
+                .single();
+              if (entryError) console.error("[WasteLog] Logbook entry error:", entryError);
+              
+              // Save waste details + photo as entry value
+              if (entryData && wasteField) {
+                await supabase.from("logbook_entry_values").insert({
+                  entry_id: entryData.id,
+                  field_id: wasteField.id,
+                  value_text: noteText,
+                  attachment_url: urlData.publicUrl,
+                });
+              }
+
               // Send push notification to managers
               try {
                 await supabase.functions.invoke("send-push-notification", {
@@ -226,6 +261,8 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
 
               toast({ title: "Waste logged successfully", description: `${wasteData.itemName} — ${wasteData.quantity} ${wasteData.unit}` });
               queryClient.invalidateQueries({ queryKey: ["waste-logs"] });
+              queryClient.invalidateQueries({ queryKey: ["logbook-entries"] });
+              queryClient.invalidateQueries({ queryKey: ["logbook-search"] });
               setShowNewEntrySheet(false);
               setActiveTab('search');
             } catch (error: any) {
