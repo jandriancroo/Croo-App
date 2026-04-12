@@ -5165,6 +5165,38 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_completions: {
+        Row: {
+          completed_at: string
+          id: string
+          skipped: boolean
+          tour_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          skipped?: boolean
+          tour_id?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          skipped?: boolean
+          tour_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_completions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opus_resource_index: {
         Row: {
           created_at: string
