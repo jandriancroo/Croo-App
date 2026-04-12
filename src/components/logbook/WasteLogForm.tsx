@@ -366,7 +366,11 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
           {totalUnits > 0 && (
             <div className="bg-muted/50 rounded-lg px-3 py-2 text-sm">
               <span className="text-muted-foreground">Total: </span>
-              <span className="font-semibold">{totalUnits} {unitLabel}</span>
+              <span className="font-semibold">
+                {estimatedCost != null && estimatedCost > 0
+                  ? `$${estimatedCost.toFixed(2)} (${totalUnits} ${unitLabel})`
+                  : `${totalUnits} ${unitLabel}`}
+              </span>
             </div>
           )}
         </div>
