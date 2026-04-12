@@ -632,6 +632,7 @@ async function fetchTransfersForPeriod(locationId: string, start: string, end: s
   if (error) throw error;
   return data || [];
 }
+async function fetchAllInventoryItems(locationId: string) {
   const { data, error } = await supabase
     .from("inventory_items")
     .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active")
