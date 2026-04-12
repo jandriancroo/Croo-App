@@ -554,6 +554,7 @@ export function useTasksData() {
   const { data: logbookEntries = [] } = useQuery({
     queryKey: ['logbook-completions', historyDateStr, currentLocation?.id],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
