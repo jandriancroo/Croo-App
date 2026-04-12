@@ -284,10 +284,19 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
                   </div>
                 )}
               </div>
+            ) : isLoading ? (
+              <div className="px-4 sm:px-3 py-4 sm:py-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-3.5 w-20 rounded bg-muted-foreground/15 animate-pulse" />
+                  <div className="h-3 w-16 rounded bg-muted-foreground/10 animate-pulse" />
+                </div>
+                <div className="h-3 w-full rounded bg-muted-foreground/10 animate-pulse mb-1.5" />
+                <div className="h-3 w-3/4 rounded bg-muted-foreground/10 animate-pulse" />
+              </div>
             ) : (
               <div className="px-4 sm:px-3 py-4 sm:py-3">
                 <p className="text-base sm:text-[11px] text-muted-foreground italic">
-                  {reviewsData.reviews.length} ratings (no written feedback)
+                  {reviewsData?.reviews?.length ?? 0} ratings (no written feedback)
                 </p>
               </div>
             )}
