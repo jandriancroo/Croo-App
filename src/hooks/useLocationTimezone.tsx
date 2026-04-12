@@ -18,9 +18,9 @@ import {
 } from '@/utils/timezoneUtils';
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 
-export const useLocationTimezone = () => {
+export const useLocationTimezone = (locationIdOverride?: string) => {
   const { currentLocation } = useAppLocation();
-  const locationId = currentLocation?.id;
+  const locationId = locationIdOverride || currentLocation?.id;
 
   // Cached timezone query — shared across all consumers via queryKey
   const { data: timezone = DEFAULT_TIMEZONE } = useQuery({
