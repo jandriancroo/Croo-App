@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addDays, subDays, eachDayOfInterval } from "date-fns";
+import { format, subDays } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
@@ -307,6 +307,7 @@ export function useTasksData() {
     queryKey: ['completed-temp-tasks', historyDateStr, currentLocation?.id, closeTime],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000,
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
@@ -501,6 +502,7 @@ export function useTasksData() {
   const { data: eventCompletions = [] } = useQuery({
     queryKey: ['event-completions', historyDateStr, currentLocation?.id],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
@@ -552,6 +554,7 @@ export function useTasksData() {
   const { data: logbookEntries = [] } = useQuery({
     queryKey: ['logbook-completions', historyDateStr, currentLocation?.id],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
@@ -610,29 +613,6 @@ export function useTasksData() {
     },
     enabled: !!currentLocation?.id,
   });
-
-  // ─── Prefetch past 14 days ────────────────────────────────────
-  useEffect(() => {
-    if (!user?.id || !currentLocation?.id || timezoneLoading) return;
-
-    const today = new Date();
-    const pastDates = eachDayOfInterval({
-      start: subDays(today, 14),
-      end: subDays(today, 1),
-    });
-
-    pastDates.forEach(date => {
-      const dateStr = format(date, 'yyyy-MM-dd');
-      queryClient.prefetchQuery({
-        queryKey: ['completion-history', dateStr, user.id, currentLocation.id, closeTime],
-        staleTime: 60 * 60 * 1000,
-      });
-      queryClient.prefetchQuery({
-        queryKey: ['completed-temp-tasks', dateStr, currentLocation.id, closeTime],
-        staleTime: 60 * 60 * 1000,
-      });
-    });
-  }, [user?.id, currentLocation?.id, queryClient, closeTime, timezoneLoading]);
 
   return {
     // Auth / role
