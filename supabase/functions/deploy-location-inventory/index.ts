@@ -13,7 +13,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { locationId, brandId, templateId } = await req.json();
+    const { locationId, brandId, templateId, sourceLocationId } = await req.json();
+    // Default shelf template: Hemet
+    const HEMET_LOCATION_ID = "12c977c7-1786-4131-90f5-1eef3f96e2c6";
+    const shelfSourceId = sourceLocationId || HEMET_LOCATION_ID;
     if (!locationId || !brandId) {
       return new Response(
         JSON.stringify({ error: "locationId and brandId required" }),
@@ -71,13 +74,25 @@ Deno.serve(async (req) => {
       if (item.pa_item_id) addMapping(`pa:${item.pa_item_id.trim().toLowerCase()}`);
     }
 
-    // 3. Collect unique storage locations and create them
-    const storageNames = new Set<string>();
-    storageNames.add("Unassigned");
+    // 3. Mirror storage locations from source location (default: Hemet)
+    // Fetch source location's shelf layout
+    const { data: sourceStorageLocs } = await supabase
+      .from("inventory_locations")
+      .select("id, name, display_order")
+      .eq("location_id", shelfSourceId)
+      .order("display_order");
+
+    // Also collect any storage names from templates not in source (safety net)
+    const allStorageNames = new Set<string>();
+    allStorageNames.add("Unassigned");
+    for (const sl of sourceStorageLocs || []) {
+      allStorageNames.add(sl.name);
+    }
     for (const t of templates) {
-      if (t.storage_location_name) storageNames.add(t.storage_location_name);
+      if (t.storage_location_name) allStorageNames.add(t.storage_location_name);
     }
 
+    // Check what already exists at target
     const { data: existingStorageLocs } = await supabase
       .from("inventory_locations")
       .select("id, name")
@@ -88,12 +103,18 @@ Deno.serve(async (req) => {
       storageMap.set(loc.name.toLowerCase(), loc.id);
     }
 
-    const locsToCreate = [...storageNames]
+    // Create missing storage locations, preserving source display_order
+    const sourceOrderMap = new Map<string, number>();
+    for (const sl of sourceStorageLocs || []) {
+      sourceOrderMap.set(sl.name.toLowerCase(), sl.display_order);
+    }
+
+    const locsToCreate = [...allStorageNames]
       .filter((n) => !storageMap.has(n.toLowerCase()))
       .map((name, i) => ({
         location_id: locationId,
         name,
-        display_order: (existingStorageLocs?.length || 0) + i,
+        display_order: sourceOrderMap.get(name.toLowerCase()) ?? (existingStorageLocs?.length || 0) + 100 + i,
       }));
 
     if (locsToCreate.length > 0) {
@@ -105,6 +126,40 @@ Deno.serve(async (req) => {
         storageMap.set(loc.name.toLowerCase(), loc.id);
       }
     }
+
+    // Build a brand_item_id → storage_location_name map from source location's items
+    const { data: sourceItems } = await supabase
+      .from("inventory_items")
+      .select("brand_item_id, storage_location_id, display_order")
+      .eq("location_id", shelfSourceId)
+      .eq("is_active", true)
+      .not("brand_item_id", "is", null);
+
+    // Map source storage_location_id → name for reverse lookup
+    const sourceStorageIdToName = new Map<string, string>();
+    for (const sl of sourceStorageLocs || []) {
+      sourceStorageIdToName.set(sl.id, sl.name);
+    }
+
+    // brand_item_id → target storage location id (via source shelf assignment)
+    const brandItemToShelf = new Map<string, string>();
+    const brandItemToOrder = new Map<string, number>();
+    for (const si of sourceItems || []) {
+      if (si.brand_item_id && si.storage_location_id) {
+        const sourceName = sourceStorageIdToName.get(si.storage_location_id);
+        if (sourceName) {
+          const targetLocId = storageMap.get(sourceName.toLowerCase());
+          if (targetLocId) {
+            brandItemToShelf.set(si.brand_item_id, targetLocId);
+          }
+        }
+      }
+      if (si.brand_item_id && si.display_order != null) {
+        brandItemToOrder.set(si.brand_item_id, si.display_order);
+      }
+    }
+
+    console.log(`[deploy] Shelf mirroring from ${shelfSourceId === HEMET_LOCATION_ID ? 'Hemet (default)' : shelfSourceId}: ${brandItemToShelf.size} item-to-shelf mappings`);
 
     // 4. Collect unique product groups and create them
     const groupsToCreate: { name: string; pos_categories: string[] | null; pos_items: string[] | null }[] = [];
@@ -210,10 +265,11 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Create new inventory_item
-      const storageLocId = tmpl.storage_location_name
-        ? storageMap.get(tmpl.storage_location_name.toLowerCase()) || storageMap.get("unassigned") || null
-        : storageMap.get("unassigned") || null;
+      // Create new inventory_item — prioritize source shelf mapping, fall back to template name
+      const storageLocId = brandItemToShelf.get(tmpl.id)
+        || (tmpl.storage_location_name ? storageMap.get(tmpl.storage_location_name.toLowerCase()) : null)
+        || storageMap.get("unassigned")
+        || null;
 
       // Build pan_sizes if template has pan config
       let panSizes: any = null;
@@ -227,6 +283,7 @@ Deno.serve(async (req) => {
         };
       }
 
+      const sourceOrder = brandItemToOrder.get(tmpl.id);
       const { data: newItem, error: createErr } = await supabase
         .from("inventory_items")
         .insert({
@@ -243,6 +300,7 @@ Deno.serve(async (req) => {
           pa_item_id: tmpl.pa_item_id,
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
+          ...(sourceOrder != null ? { display_order: sourceOrder } : {}),
         })
         .select("id")
         .single();
