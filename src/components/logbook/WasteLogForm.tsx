@@ -61,7 +61,7 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
-      return data as InventoryItemRow[];
+      return data as unknown as InventoryItemRow[];
     },
     enabled: !!currentLocation?.id,
   });
