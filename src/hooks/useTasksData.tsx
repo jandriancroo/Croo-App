@@ -136,7 +136,11 @@ export function useTasksData() {
       if (!currentLocation?.id) return [];
 
       const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(historyDateStr);
-      const currentDay = getDateDayOfWeekInTimezone(historyDate, timezone);
+      // Derive day-of-week from the date string (not the Date object) to avoid
+      // timezone mismatches between format() (local) and getDateDayOfWeekInTimezone (location tz).
+      const [yr, mo, dy] = historyDateStr.split('-').map(Number);
+      const histDateLocal = new Date(yr, mo - 1, dy, 12, 0, 0); // noon to avoid DST edge
+      const currentDay = getDateDayOfWeekInTimezone(histDateLocal, timezone);
 
       const { data: checklistsData } = await supabase
         .from('checklists')
