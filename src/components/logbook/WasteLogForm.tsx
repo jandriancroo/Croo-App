@@ -159,8 +159,10 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
     // Build descriptive unit string
     const parts: string[] = [];
     const cases = parseFloat(caseCount) || 0;
+    const packs = parseFloat(packCount) || 0;
     const units = parseFloat(unitCount) || 0;
     if (cases > 0) parts.push(`${cases} case${cases !== 1 ? 's' : ''}`);
+    if (packs > 0 && packsPerCase) parts.push(`${packs} unit${packs !== 1 ? 's' : ''}`);
     if (units > 0) parts.push(`${units} ${unitLabel}`);
     Object.entries(panCounts).forEach(([key, qty]) => {
       if (qty > 0) {
