@@ -177,8 +177,6 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   // Biometric scan overlay for kiosk mode
   const [biometricScanning, setBiometricScanning] = useState(false);
   const [biometricVerified, setBiometricVerified] = useState(false);
-  const [pendingUser, setPendingUser] = useState<any>(null);
-  const [pendingUserRole, setPendingUserRole] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   
