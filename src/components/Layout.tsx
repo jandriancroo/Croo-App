@@ -883,8 +883,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               )}
               
               {/* Desktop Ovation Score - only on dashboard */}
-              {canViewOvation && currentLocation && location.pathname === '/dashboard' && (
-                <OvationScorePopover key={`ovation-desktop-${currentLocation.id}`} />
+              {canViewOvation && location.pathname === '/dashboard' && (
+                <OvationScorePopover key={`ovation-desktop-${currentLocation?.id ?? 'pending'}`} />
               )}
 
               {/* Profile dropdown */}
@@ -1265,9 +1265,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       )}
 
       {/* Ovation score tab + popover hanging below mobile header - only on dashboard */}
-      {isMobile && canViewOvation && currentLocation && location.pathname === '/dashboard' && (
+      {isMobile && canViewOvation && location.pathname === '/dashboard' && (
         <div 
-          key={`ovation-mobile-${currentLocation.id}`}
+          key={`ovation-mobile-${currentLocation?.id ?? 'pending'}`}
           className="fixed left-1/2 -translate-x-1/2 z-[48] flex flex-col items-center"
           style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)' }}
         >

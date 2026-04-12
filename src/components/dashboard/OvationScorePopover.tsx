@@ -114,8 +114,9 @@ export function useOvationData() {
 
   const hasData = !!reviewsData && !reviewsData.error && !!reviewsData.wtdAverage;
   const cachedScore = !hasData ? getCachedScore(locationId) : null;
-  // True loading = query is actively fetching OR auth isn't ready yet (query disabled)
-  const isActuallyLoading = !authReady || isLoading || isFetching;
+  const locationReady = !!locationId;
+  // Treat missing location during dashboard hydration as loading so the tab stays mounted.
+  const isActuallyLoading = !locationReady || !authReady || isLoading || isFetching;
 
   return {
     reviewsData,
