@@ -9,6 +9,7 @@ interface CountEditHistoryProps {
 }
 
 
+export default function CountEditHistory({ countId }: CountEditHistoryProps) {
   const { data: entries, isLoading } = useQuery({
     queryKey: ["count-edit-history", countId],
     queryFn: async () => {
