@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ClipboardCheck, Settings2 } from 'lucide-react';
-import { EditDashboardDialog, CubeConfig, SectionKey, getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
@@ -21,13 +20,18 @@ import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
-import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
 import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
 import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
+import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboardDialog';
+import { getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
+
+// Lazy-loaded components (only needed conditionally)
+const CrowSplashAnimation = lazy(() => import('@/components/CrowSplashAnimation'));
+const EditDashboardDialog = lazy(() => import('@/components/dashboard/EditDashboardDialog').then(m => ({ default: m.EditDashboardDialog })));
 
 
 interface CateringOrder {
@@ -552,17 +556,19 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Edit Dashboard Dialog */}
-          <EditDashboardDialog
-            open={showEditDashboard}
-            onOpenChange={setShowEditDashboard}
-            cubes={dashboardCubes}
-            onUpdateCube={handleUpdateCube}
-            onDeleteCube={handleDeleteCube}
-            onAddCube={() => setShowAddCubeDialog(true)}
-            onReorderCubes={handleReorderCubes}
-            onSectionOrderChange={setDashboardSectionOrder}
-          />
+          {/* Edit Dashboard Dialog - lazy loaded */}
+          <Suspense fallback={null}>
+            <EditDashboardDialog
+              open={showEditDashboard}
+              onOpenChange={setShowEditDashboard}
+              cubes={dashboardCubes}
+              onUpdateCube={handleUpdateCube}
+              onDeleteCube={handleDeleteCube}
+              onAddCube={() => setShowAddCubeDialog(true)}
+              onReorderCubes={handleReorderCubes}
+              onSectionOrderChange={setDashboardSectionOrder}
+            />
+          </Suspense>
 
           {checklistsLoading ? (
             <div className="space-y-3 animate-fade-in">
@@ -591,7 +597,9 @@ export default function Dashboard() {
         
         {/* Welcome animation overlay */}
         {showWelcomeAnimation && (
-          <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
+          <Suspense fallback={null}>
+            <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
+          </Suspense>
         )}
         {cateringDialogs}
       </PullToRefresh>
