@@ -68,6 +68,7 @@ interface DiagnosticInfo {
 }
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
+  const queryClient = useQueryClient();
   const { currentLocation } = useAppLocation();
   const { getBusinessDateInTimezone, timezone } = useLocationTimezone();
   const locationZone = timezone || 'America/Los_Angeles';
