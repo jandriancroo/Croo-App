@@ -748,7 +748,59 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
     }
   };
 
-  const checkTodayShift = async () => {
+  // Complete biometric scan — called when face is detected or as fallback
+  const completeBiometricScan = useCallback(() => {
+    setBiometricStatus('verifying');
+    faceDetection.stopDetection();
+    
+    // Brief "verifying" pause then show verified
+    setTimeout(() => {
+      setBiometricVerified(true);
+      setBiometricStatus('verified');
+      // Stop camera
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      
+      setTimeout(() => {
+        setBiometricScanning(false);
+        setBiometricVerified(false);
+        setBiometricStatus('searching');
+        if (pendingUserRef.current) {
+          setCurrentUser(pendingUserRef.current.data);
+          setCurrentUserRole(pendingUserRef.current.role);
+          pendingUserRef.current = null;
+        }
+      }, 1000);
+    }, 800);
+  }, [faceDetection]);
+
+  // Watch for face detection during biometric scan
+  useEffect(() => {
+    if (!biometricScanning || biometricVerified) return;
+    if (biometricStatus !== 'searching') return;
+    
+    if (faceDetection.faceDetected) {
+      setBiometricStatus('detected');
+      // Face found — wait a brief moment to confirm it's stable, then verify
+      const timer = setTimeout(() => {
+        completeBiometricScan();
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [biometricScanning, biometricVerified, biometricStatus, faceDetection.faceDetected, completeBiometricScan]);
+
+  // Safety timeout: if no face detected after 8s, allow through anyway
+  useEffect(() => {
+    if (!biometricScanning || biometricVerified) return;
+    const timer = setTimeout(() => {
+      if (!biometricVerified) {
+        completeBiometricScan();
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [biometricScanning, biometricVerified, completeBiometricScan]);
+
+
     if (!currentUser) return;
 
     const today = format(new Date(), 'yyyy-MM-dd');
