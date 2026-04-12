@@ -166,15 +166,6 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                 .select()
                 .single();
               if (entryError) console.error("[WasteLog] Logbook entry error:", entryError);
-              
-              // Attach photo as entry value if entry was created
-              if (entryData) {
-                await supabase.from("logbook_entry_values").insert({
-                  entry_id: entryData.id,
-                  value_text: noteText,
-                  attachment_url: urlData.publicUrl,
-                });
-              }
 
               // Send push notification to managers
               try {
