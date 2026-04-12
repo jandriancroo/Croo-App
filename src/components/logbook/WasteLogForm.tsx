@@ -116,22 +116,24 @@ export function WasteLogForm({ onSave, isSaving }: WasteLogFormProps) {
       .filter(Boolean) as { key: string; label: string; unitsEach: number | null }[];
   }, [selectedItem]);
 
-  // Calculate total quantity in units
+  // Calculate total quantity in count_units (e.g., oz)
   const totalUnits = useMemo(() => {
     const cases = parseFloat(caseCount) || 0;
+    const packs = parseFloat(packCount) || 0;
     const units = parseFloat(unitCount) || 0;
     const panUnits = Object.entries(panCounts).reduce((sum, [key, qty]) => {
       if (!selectedItem?.pan_sizes) return sum;
       const unitsEach = getPanUnits(selectedItem.pan_sizes, key);
       return sum + (unitsEach ?? 0) * qty;
     }, 0);
-    return Math.round((cases * unitsPerCase + units + panUnits) * 100) / 100;
-  }, [caseCount, unitCount, panCounts, unitsPerCase, selectedItem]);
+    const packUnits = packsPerCase && countUnitsPerPack ? packs * countUnitsPerPack : 0;
+    return Math.round((cases * countUnitsPerCase + packUnits + units + panUnits) * 100) / 100;
+  }, [caseCount, packCount, unitCount, panCounts, countUnitsPerCase, countUnitsPerPack, packsPerCase, selectedItem]);
 
   const estimatedCost = useMemo(() => {
     if (!selectedItem || totalUnits <= 0 || !caseCost) return null;
-    return totalUnits * costPerUnit;
-  }, [selectedItem, totalUnits, caseCost, costPerUnit]);
+    return totalUnits * costPerCountUnit;
+  }, [selectedItem, totalUnits, caseCost, costPerCountUnit]);
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
