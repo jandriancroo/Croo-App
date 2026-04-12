@@ -1,4 +1,4 @@
-import Joyride, { CallBackProps, STATUS, EVENTS } from 'react-joyride';
+import ReactJoyride, { type Callback, STATUS } from 'react-joyride';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getTourStepsForRole } from './tourSteps';
 
