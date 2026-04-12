@@ -1040,12 +1040,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               <span className="whitespace-nowrap">Items ({items?.length || 0})</span>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {itemsSubView === "list" && (
                 <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)} className="gap-1">
                   <Settings2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Locations</span>
                 </Button>
-              )}
             </div>
           </div>
 
