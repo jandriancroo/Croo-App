@@ -42,7 +42,128 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
+const OVATION_CACHE_KEY = 'ovation-last-score';
+
+function getCachedScore(locationId: string | undefined): { wtdAverage: number; wtdCount: number } | null {
+  if (!locationId) return null;
+  try {
+    const raw = localStorage.getItem(OVATION_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.locationId === locationId && Date.now() - parsed.ts < 24 * 60 * 60 * 1000) {
+      return { wtdAverage: parsed.wtdAverage, wtdCount: parsed.wtdCount };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function setCachedScore(locationId: string, wtdAverage: number, wtdCount: number) {
+  try {
+    localStorage.setItem(OVATION_CACHE_KEY, JSON.stringify({ locationId, wtdAverage, wtdCount, ts: Date.now() }));
+  } catch { /* ignore */ }
+}
+
 /** Shared hook so tab + panel use the same data without duplicate fetches */
+export function useOvationData() {
+  const { currentLocation } = useAppLocation();
+  const locationId = currentLocation?.id;
+
+  const { data: reviewsData, isLoading } = useQuery<OvationReviewsData>({
+    queryKey: ['ovation-reviews', locationId],
+    queryFn: async () => {
+      if (!locationId) return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
+      const session = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ovation-service?action=fetch_reviews`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.data.session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ locationId, days: 14, pageSize: 500 }),
+        }
+      );
+      return (await response.json()) as OvationReviewsData;
+    },
+    enabled: !!locationId,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+  });
+
+  // Cache the last good score for instant hydration on reload
+  useEffect(() => {
+    if (reviewsData?.wtdAverage && locationId) {
+      setCachedScore(locationId, reviewsData.wtdAverage, reviewsData.wtdCount);
+    }
+  }, [reviewsData?.wtdAverage, reviewsData?.wtdCount, locationId]);
+
+  const hasData = !!reviewsData && !reviewsData.error && !!reviewsData.wtdAverage;
+  const cachedScore = !hasData ? getCachedScore(locationId) : null;
+
+  return {
+    reviewsData,
+    hasData,
+    isLoading,
+    cachedScore,
+  };
+}
+
+/** The small fixed tab trigger */
+export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boolean; onToggle: () => void; desktop?: boolean }) {
+  const { reviewsData, hasData, isLoading, cachedScore } = useOvationData();
+
+  // Show skeleton while loading (instead of returning null and vanishing)
+  const displayScore = hasData ? reviewsData?.wtdAverage : cachedScore?.wtdAverage;
+
+  if (!displayScore && !isLoading) return null;
+
+  // Skeleton placeholder while loading with no cached data
+  if (!displayScore && isLoading) {
+    return (
+      <div
+        className={cn(
+          'flex items-center gap-2 px-3.5 py-1.5',
+          desktop
+            ? 'rounded-lg bg-white/15 border-0'
+            : 'min-h-10 bg-muted/85 shadow-sm border border-t-0 border-border/30 rounded-b-xl'
+        )}
+      >
+        <div className="h-4 w-4 rounded bg-muted-foreground/20 animate-pulse" />
+        <div className="h-4 w-8 rounded bg-muted-foreground/20 animate-pulse" />
+        <div className="h-3 w-5 rounded bg-muted-foreground/20 animate-pulse" />
+      </div>
+    );
+  }
+
+  const scoreColor = displayScore! >= 4.5 ? 'text-green-500' :
+    displayScore! >= 3.5 ? 'text-yellow-500' :
+    displayScore! >= 2.5 ? 'text-orange-500' : 'text-red-500';
+
+  return (
+    <button
+      onClick={onToggle}
+      className={cn(
+        'flex items-center gap-2 px-3.5 py-1.5 transition-all',
+        desktop
+          ? 'rounded-lg bg-white/15 hover:bg-white/25 border-0'
+          : 'min-h-10 bg-muted/85 shadow-sm hover:bg-muted border border-t-0 border-border/30 rounded-b-xl'
+      )}
+    >
+      <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 sm:h-4 sm:w-4 object-contain" />
+      <span className={cn('text-base sm:text-sm font-bold', desktop ? 'text-white' : scoreColor)}>
+        {displayScore!.toFixed(1)}
+      </span>
+      <span className={cn('text-[11px] sm:text-[9px] font-medium', desktop ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
+      <ChevronDown className={cn(
+        'h-3.5 w-3.5 transition-transform duration-300',
+        desktop ? 'text-white/60' : 'text-muted-foreground/60',
+        expanded ? 'rotate-180' : 'rotate-0'
+      )} />
+    </button>
+  );
+}
 export function useOvationData() {
   const { currentLocation, organizationId } = useAppLocation();
 
