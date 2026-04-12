@@ -41,16 +41,6 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
         skip: 'Skip Tour',
       }}
       styles={{
-        options: {
-          arrowColor: 'hsl(var(--card))',
-          backgroundColor: 'hsl(var(--card))',
-          textColor: 'hsl(var(--card-foreground))',
-          primaryColor: 'hsl(var(--primary))',
-          overlayColor: 'rgba(0, 0, 0, 0.6)',
-          spotlightShadow: '0 0 20px rgba(0, 0, 0, 0.5)',
-          zIndex: 10000,
-          width: 340,
-        },
         tooltip: {
           borderRadius: '0.75rem',
           padding: '1.25rem',
@@ -70,6 +60,7 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
           padding: '0.5rem 1.25rem',
           fontSize: '0.875rem',
           fontWeight: 500,
+          backgroundColor: 'hsl(var(--primary))',
         },
         buttonBack: {
           color: 'hsl(var(--muted-foreground))',
@@ -79,8 +70,7 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
           color: 'hsl(var(--muted-foreground))',
           fontSize: '0.8rem',
         },
-        spotlight: {} as any,
-      }}
+      } as any}
     />
   );
 }
