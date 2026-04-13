@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered, Trash2, CheckSquare } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered, Trash2, CheckSquare, Search } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -127,6 +127,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [recipePurgeSelection, setRecipePurgeSelection] = useState<Set<string>>(new Set());
   const [isPurging, setIsPurging] = useState(false);
   const [reorderModeGroup, setReorderModeGroup] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Optimistic reorder state: maps storageLocId -> ordered item id list
   const [optimisticOrder, setOptimisticOrder] = useState<Record<string, string[]>>({});
@@ -1047,6 +1048,24 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             </div>
           </div>
 
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search items..."
+              className="h-8 pl-8 pr-8 text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
           {items && items.length > 0 ? (
             <div className="space-y-2">
@@ -1135,7 +1154,12 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                     return aIdx - bIdx;
                   });
                 }
-                const isCollapsed = collapsedSections.has(loc.id);
+                const searchLower = searchQuery.toLowerCase().trim();
+                if (searchLower) {
+                  allLocItems = allLocItems.filter(i => i.name.toLowerCase().includes(searchLower));
+                  if (allLocItems.length === 0) return null;
+                }
+                const isCollapsed = searchLower ? false : collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
                 const panCount = primaryItems.filter(i => (i as any).pan_sizes?.enabled).length;
                 return (
@@ -1308,10 +1332,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               })}
               {/* Unassigned items */}
               {(() => {
-                const unassigned = items.filter(i => !i.storage_location_id)
+                const searchLower = searchQuery.toLowerCase().trim();
+                let unassigned = items.filter(i => !i.storage_location_id)
                   .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                if (searchLower) {
+                  unassigned = unassigned.filter(i => i.name.toLowerCase().includes(searchLower));
+                }
                 if (unassigned.length === 0) return null;
-                const isCollapsed = collapsedSections.has("__unassigned__");
+                const isCollapsed = searchLower ? false : collapsedSections.has("__unassigned__");
                 const isSelectingThisGroup = activeSelectGroup === "__unassigned__";
                 return (
                   <div className="border border-border/60 rounded-lg overflow-hidden">
