@@ -1377,49 +1377,45 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
 
   console.log('[PA Sync] Built mapping lookup:', paIdToLocalItem.size, 'PA IDs → local items');
 
-  // Sync items to inventory
+  // Sync items to inventory — pre-fetch all local items for in-memory matching
+  const { data: allLocalItems } = await supabase
+    .from('inventory_items')
+    .select('id, pa_item_id, name, user_hidden')
+    .eq('location_id', locationId);
+
+  const localById = new Map((allLocalItems || []).map(i => [i.id, i]));
+  const localByPaId = new Map((allLocalItems || []).filter(i => i.pa_item_id).map(i => [i.pa_item_id!, i]));
+  const localByName = new Map((allLocalItems || []).map(i => [i.name.toLowerCase(), i]));
+
+  console.log('[PA Sync] Pre-fetched', allLocalItems?.length ?? 0, 'local items for in-memory matching');
+
   let synced = 0;
   const syncMatchLog = { mapping: 0, fallback_pa_id: 0, fallback_name: 0, new_item: 0 };
+  const toUpsert: any[] = [];
+  const toInsert: any[] = [];
 
   for (const [, item] of allItems) {
     const parsedPack = parsePackFromName(item.description);
 
-    // Step 4: Try brand_vendor_mappings → deployment first
+    // Step 4: Try brand_vendor_mappings → deployment first (in-memory)
     let existingItemId = item.pa_product_id ? paIdToLocalItem.get(item.pa_product_id) : null;
     let existingItem: { id: string; user_hidden: boolean } | null = null;
     let matchSource = 'new';
 
     if (existingItemId) {
-      const { data } = await supabase
-        .from('inventory_items')
-        .select('id, user_hidden')
-        .eq('id', existingItemId)
-        .maybeSingle();
-      existingItem = data;
+      existingItem = localById.get(existingItemId) || null;
       if (existingItem) matchSource = 'mapping';
     }
 
-    // Fallback: direct pa_item_id match on local item
+    // Fallback: direct pa_item_id match (in-memory)
     if (!existingItem && item.pa_product_id) {
-      const { data } = await supabase
-        .from('inventory_items')
-        .select('id, user_hidden')
-        .eq('location_id', locationId)
-        .eq('pa_item_id', item.pa_product_id)
-        .maybeSingle();
-      existingItem = data;
+      existingItem = localByPaId.get(item.pa_product_id) || null;
       if (existingItem) matchSource = 'fallback_pa_id';
     }
 
-    // Fallback: name match
+    // Fallback: name match (in-memory, case-insensitive)
     if (!existingItem) {
-      const { data } = await supabase
-        .from('inventory_items')
-        .select('id, user_hidden')
-        .eq('location_id', locationId)
-        .ilike('name', item.description)
-        .maybeSingle();
-      existingItem = data;
+      existingItem = localByName.get(item.description.toLowerCase()) || null;
       if (existingItem) matchSource = 'fallback_name';
     }
 
@@ -1438,15 +1434,13 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     };
 
     if (existingItem) {
-      const updateData: any = { ...itemData };
+      const updateData: any = { ...itemData, id: existingItem.id };
       if (existingItem.user_hidden) {
         delete updateData.is_active;
       }
-      // Don't overwrite the product name if item is linked to a brand template
-      // (brand name propagation handles that)
-      await supabase.from('inventory_items').update(updateData).eq('id', existingItem.id);
+      toUpsert.push(updateData);
     } else {
-      await supabase.from('inventory_items').insert({
+      toInsert.push({
         location_id: locationId,
         name: item.description.trim(),
         unit: 'case',
@@ -1457,6 +1451,22 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     }
     synced++;
   }
+
+  // Bulk upsert existing items (chunks of 100)
+  for (let i = 0; i < toUpsert.length; i += 100) {
+    const chunk = toUpsert.slice(i, i + 100);
+    const { error } = await supabase.from('inventory_items').upsert(chunk, { onConflict: 'id' });
+    if (error) console.warn('[PA Sync] Bulk upsert error:', error.message);
+  }
+
+  // Bulk insert new items (chunks of 100)
+  for (let i = 0; i < toInsert.length; i += 100) {
+    const chunk = toInsert.slice(i, i + 100);
+    const { error } = await supabase.from('inventory_items').insert(chunk);
+    if (error) console.warn('[PA Sync] Bulk insert error:', error.message);
+  }
+
+  console.log('[PA Sync] Bulk write complete — upserted:', toUpsert.length, 'inserted:', toInsert.length);
 
   console.log('[PA Sync] Match-source audit:', JSON.stringify(syncMatchLog));
 

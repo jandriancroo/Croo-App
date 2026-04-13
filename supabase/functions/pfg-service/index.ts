@@ -442,9 +442,9 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
 
   const now = new Date();
   const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - 60);
+  startDate.setDate(startDate.getDate() - 14);
   const endDate = new Date(now);
-  endDate.setDate(endDate.getDate() + 30);
+  endDate.setDate(endDate.getDate() + 7);
 
   const requestBody: any = {
     StartDate: startDate.toISOString(),
@@ -1412,25 +1412,22 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
 
       let importedCount = 0;
 
-      for (const order of rawOrders) {
+      // Parse order metadata for all orders first
+      const parsedOrders = rawOrders.map(order => {
+        const isDeliveryOrder = order._orderSource === 'GetDeliveries' || (isGlobalDeliveries && !order._orderSource);
         let pfgOrderId: string;
         let orderDate: string | null;
         let deliveryDate: string | null;
         let orderNumber: string;
         let totalAmount: number | null;
 
-        // Determine source per-order (merged mode) or globally
-        const isDeliveryOrder = order._orderSource === 'GetDeliveries' || (isGlobalDeliveries && !order._orderSource);
-
         if (isDeliveryOrder) {
-          // GetDeliveries format: DeliveryKey is the unique ID, Invoices array has invoice numbers
           pfgOrderId = order.DeliveryKey || order.Invoices?.[0]?.InvoiceNumber || '';
           deliveryDate = parsePfgDate(order.DeliveryDate);
           orderDate = parsePfgDate(order.ShippedDate) || deliveryDate;
           orderNumber = order.Invoices?.[0]?.InvoiceNumber || order.DeliveryKey || '';
           totalAmount = order.TotalDollars ?? null;
         } else {
-          // GetSubmittedOrderHeaders format
           pfgOrderId = order.OrderKey || order.OrderNumber || order.OrderId || order.SubmittedOrderId || '';
           deliveryDate = parsePfgDate(order.DeliveryDate);
           orderDate = deliveryDate || parsePfgDate(order.OrderDate || order.SubmittedDate || order.CreatedDate);
@@ -1438,63 +1435,89 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           totalAmount = order.OrderTotalSales || order.TotalAmount || order.OrderTotal || order.Total || null;
         }
 
-        if (!pfgOrderId || !orderDate) continue;
-
-        // Fetch line items from GetDeliveryDetail
-        let items: any[] = [];
         const customerIdForDetail = customerIdToUse || order.CustomerId;
-        if (customerIdForDetail) {
-          // For GetDeliveries source, we need to build the order object with the right fields for fetchDeliveryDetail
-          const orderForDetail = isDeliveryOrder ? {
-            OrderOperationCompanyNumber: order.DeliveryOperationCompanyNumber,
-            DeliverToCustomerNumber: order.CustomerNumber,
-            DeliveryDate: order.DeliveryDate,
-            OrderKey: order.Invoices?.[0]?.InvoiceHeaderKey || order.Invoices?.[0]?.InvoiceNumber,
-            OrderBusinessUnitERPKey: order.DeliveryBusinessUnitERPKey || 0,
-          } : order;
-          
-          const detailItems = await fetchDeliveryDetail(accessToken, orderForDetail, customerIdForDetail);
-          items = detailItems.map((item: any) => {
-            const uom = item.DeliveryDetailUnitOfMeasures?.[0] || {};
-            return {
-              productId: item.ProductKey || item.DeliveryDetailProductKey,
-              itemNumber: uom.ProductNumber || item.ProductKey,
-              name: item.ProductDescription || 'Unknown',
-              brand: item.ProductBrand || null,
-              quantity: uom.QuantityOrdered || 0,
-              quantityShipped: uom.QuantityShipped || 0,
-              unit: 'CS',
-              packSize: uom.ProductPackSize || null,
-              price: uom.UnitPrice || 0,
-              total: item.ExtendedPrice || 0,
-              isCatchWeight: uom.IsCatchWeight || false,
-              isShorted: item.IsProductShorted || false,
-            };
-          });
-          console.log(`[PFG Sync] Order ${pfgOrderId}: ${items.length} line items fetched`);
-        } else {
-          console.warn(`[PFG Sync] No customerId for delivery detail on order ${pfgOrderId}`);
+        const orderForDetail = isDeliveryOrder ? {
+          OrderOperationCompanyNumber: order.DeliveryOperationCompanyNumber,
+          DeliverToCustomerNumber: order.CustomerNumber,
+          DeliveryDate: order.DeliveryDate,
+          OrderKey: order.Invoices?.[0]?.InvoiceHeaderKey || order.Invoices?.[0]?.InvoiceNumber,
+          OrderBusinessUnitERPKey: order.DeliveryBusinessUnitERPKey || 0,
+        } : order;
+
+        return { order, pfgOrderId, orderDate, deliveryDate, orderNumber, totalAmount, customerIdForDetail, orderForDetail, isDeliveryOrder };
+      }).filter(p => p.pfgOrderId && p.orderDate);
+
+      // Fetch delivery details in parallel batches of 5
+      const BATCH_SIZE = 5;
+      const orderDetails: (any[] | null)[] = new Array(parsedOrders.length).fill(null);
+
+      for (let i = 0; i < parsedOrders.length; i += BATCH_SIZE) {
+        const batch = parsedOrders.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batch.map(p => {
+            if (!p.customerIdForDetail) return Promise.resolve([]);
+            return fetchDeliveryDetail(accessToken, p.orderForDetail, p.customerIdForDetail);
+          })
+        );
+        for (let j = 0; j < results.length; j++) {
+          const r = results[j];
+          orderDetails[i + j] = r.status === 'fulfilled' ? r.value : [];
+          if (r.status === 'rejected') {
+            console.warn(`[PFG Sync] Detail fetch failed for order ${batch[j].pfgOrderId}:`, r.reason);
+          }
+        }
+      }
+
+      // Build bulk upsert payloads
+      const upsertBatch: any[] = [];
+      for (let i = 0; i < parsedOrders.length; i++) {
+        const p = parsedOrders[i];
+        const detailItems = orderDetails[i] || [];
+        const items = detailItems.map((item: any) => {
+          const uom = item.DeliveryDetailUnitOfMeasures?.[0] || {};
+          return {
+            productId: item.ProductKey || item.DeliveryDetailProductKey,
+            itemNumber: uom.ProductNumber || item.ProductKey,
+            name: item.ProductDescription || 'Unknown',
+            brand: item.ProductBrand || null,
+            quantity: uom.QuantityOrdered || 0,
+            quantityShipped: uom.QuantityShipped || 0,
+            unit: 'CS',
+            packSize: uom.ProductPackSize || null,
+            price: uom.UnitPrice || 0,
+            total: item.ExtendedPrice || 0,
+            isCatchWeight: uom.IsCatchWeight || false,
+            isShorted: item.IsProductShorted || false,
+          };
+        });
+        if (items.length > 0) {
+          console.log(`[PFG Sync] Order ${p.pfgOrderId}: ${items.length} line items fetched`);
         }
 
+        upsertBatch.push({
+          location_id: integration.location_id,
+          pfg_order_id: String(p.pfgOrderId),
+          order_number: p.orderNumber,
+          order_date: p.orderDate,
+          delivery_date: p.deliveryDate,
+          status: String(p.order.DeliveryStatus ?? p.order.OrderStatus ?? p.order.Status ?? ''),
+          total_amount: p.totalAmount,
+          items: items.length > 0 ? items : null,
+          raw_data: p.order,
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      // Bulk upsert in chunks of 50
+      for (let i = 0; i < upsertBatch.length; i += 50) {
+        const chunk = upsertBatch.slice(i, i + 50);
         const { error: upsertError } = await supabase
           .from('pfg_orders')
-          .upsert({
-            location_id: integration.location_id,
-            pfg_order_id: String(pfgOrderId),
-            order_number: orderNumber,
-            order_date: orderDate,
-            delivery_date: deliveryDate,
-            status: String(order.DeliveryStatus ?? order.OrderStatus ?? order.Status ?? ''),
-            total_amount: totalAmount,
-            items: items.length > 0 ? items : null,
-            raw_data: order,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'location_id,pfg_order_id' });
-
+          .upsert(chunk, { onConflict: 'location_id,pfg_order_id' });
         if (upsertError) {
-          console.warn(`[PFG Sync] Upsert error for order ${pfgOrderId}:`, upsertError.message);
+          console.warn(`[PFG Sync] Bulk upsert error:`, upsertError.message);
         } else {
-          importedCount++;
+          importedCount += chunk.length;
         }
       }
 
