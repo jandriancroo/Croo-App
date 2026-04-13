@@ -1332,10 +1332,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               })}
               {/* Unassigned items */}
               {(() => {
-                const unassigned = items.filter(i => !i.storage_location_id)
+                const searchLower = searchQuery.toLowerCase().trim();
+                let unassigned = items.filter(i => !i.storage_location_id)
                   .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                if (searchLower) {
+                  unassigned = unassigned.filter(i => i.name.toLowerCase().includes(searchLower));
+                }
                 if (unassigned.length === 0) return null;
-                const isCollapsed = collapsedSections.has("__unassigned__");
+                const isCollapsed = searchLower ? false : collapsedSections.has("__unassigned__");
                 const isSelectingThisGroup = activeSelectGroup === "__unassigned__";
                 return (
                   <div className="border border-border/60 rounded-lg overflow-hidden">
