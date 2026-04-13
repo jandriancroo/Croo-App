@@ -465,12 +465,60 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Pre-flight checklist: flag missing integrations ──
+    const warnings: string[] = [];
+
+    // Check PFG integration
+    const { data: pfgInt } = await supabase
+      .from("location_integrations")
+      .select("id")
+      .eq("location_id", locationId)
+      .eq("integration_type", "pfg")
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!pfgInt) {
+      warnings.push("PFG integration: NOT CONFIGURED — costs will not sync for PFG items");
+    }
+
+    // Check PA integration
+    const { data: paInt } = await supabase
+      .from("location_integrations")
+      .select("id")
+      .eq("location_id", locationId)
+      .eq("integration_type", "produce_alliance")
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!paInt) {
+      const produceCount = templates.filter(
+        (t: any) => t.vendor_source === "produce_alliance"
+      ).length;
+      warnings.push(
+        `PA integration: NOT CONFIGURED — ${produceCount} produce items deployed with no pack/cost data`
+      );
+    }
+
+    // Check for items deployed without pack data
+    const itemsWithoutPack = templates.filter((t: any) => {
+      const hasPackOverride = t.pack_override_outer_qty && t.pack_override_inner_qty;
+      const hasCountUnit = t.count_unit;
+      return !hasPackOverride && !hasCountUnit && templateToItemId.has(t.id);
+    }).length;
+
+    if (itemsWithoutPack > 0) {
+      warnings.push(
+        `${itemsWithoutPack} items deployed without brand-level pack/count configuration`
+      );
+    }
+
     return new Response(
       JSON.stringify({
         deployed,
         skipped,
         total: templates.length,
         message: `Deployed ${deployed} items, skipped ${skipped} existing`,
+        warnings,
       }),
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } }
     );
