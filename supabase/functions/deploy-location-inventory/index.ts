@@ -284,6 +284,11 @@ Deno.serve(async (req) => {
       }
 
       const sourceOrder = brandItemToOrder.get(tmpl.id);
+      // Calculate pack_quantity_override from brand template overrides
+      const packOverride = tmpl.pack_override_outer_qty
+        ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
+        : null;
+
       const { data: newItem, error: createErr } = await supabase
         .from("inventory_items")
         .insert({
@@ -300,6 +305,7 @@ Deno.serve(async (req) => {
           pa_item_id: tmpl.pa_item_id,
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
+          ...(packOverride != null ? { pack_quantity_override: packOverride } : {}),
           ...(sourceOrder != null ? { display_order: sourceOrder } : {}),
         })
         .select("id")
