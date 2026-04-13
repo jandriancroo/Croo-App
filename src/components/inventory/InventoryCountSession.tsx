@@ -130,6 +130,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           pack_size,
           pack_quantity,
           pack_quantity_override,
+          count_units_per_case,
           item_number,
           brand,
           image_url,
