@@ -335,6 +335,8 @@ Deno.serve(async (req) => {
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
           ...(packOverride != null ? { pack_quantity_override: packOverride } : {}),
+          ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
+          ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
           ...(sourceOrder != null ? { display_order: sourceOrder } : {}),
         })
         .select("id")
