@@ -428,13 +428,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       return totalUnits * batchCost;
     }
     
-    // Standard items: cost_per_unit is per case
-    const costPerCase = item.cost_per_unit || 0;
+    // Standard items: cost_per_unit is per case, pack_quantity is units per case
     // pack_quantity already incorporates pack_quantity_override (set at line 268)
-    // Fall back to count_units_per_case from the item record if pack_quantity is 1/null
-    const packQty = (item.pack_quantity && item.pack_quantity > 1)
-      ? item.pack_quantity
-      : ((item as any).count_units_per_case || item.pack_quantity || 1);
+    const costPerCase = item.cost_per_unit || 0;
+    const packQty = item.pack_quantity || 1;
     const costPerUnit = costPerCase / Math.max(packQty, 1);
     return totalUnits * costPerUnit;
   }, [counts, rawInputs, getTotalQuantity, recipeCosts]);

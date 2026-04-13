@@ -166,14 +166,11 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   });
 
   // Helper to get item value using stored cost_per_unit
-  // For consistency with the counting session, we use cost_per_unit / packQty for all items
-  // (including recipes, where cost_per_unit already represents the per-unit cost and packQty is typically 1/null)
+  // cost_per_unit is per case, pack_quantity is units per case
   const getItemValue = (item: CountItem) => {
     const overrideQty = (item.item as any)?.pack_quantity_override;
     const baseQty = item.item?.pack_quantity || 1;
-    const countUnitsPerCase = (item.item as any)?.count_units_per_case;
-    // Use override first, then base pack_quantity, fall back to count_units_per_case if pack is 1
-    const packQty = overrideQty ?? (baseQty > 1 ? baseQty : (countUnitsPerCase || baseQty));
+    const packQty = overrideQty ?? baseQty;
     return item.quantity * ((item.item?.cost_per_unit || 0) / Math.max(packQty, 1));
   };
 
