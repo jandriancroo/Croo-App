@@ -1381,7 +1381,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   // Sync items to inventory — pre-fetch all local items for in-memory matching
   const { data: allLocalItems } = await supabase
     .from('inventory_items')
-    .select('id, pa_item_id, name, user_hidden')
+    .select('id, pa_item_id, name, user_hidden, brand_item_id')
     .eq('location_id', locationId);
 
   const localById = new Map((allLocalItems || []).map(i => [i.id, i]));
@@ -1475,6 +1475,29 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   }
 
   console.log('[PA Sync] Bulk write complete — upserted:', toUpsert.length, 'inserted:', toInsert.length);
+
+  // Propagate count_unit + count_units_per_case to brand templates
+  const brandTemplateUpdates = new Map<string, { count_unit: string; count_units_per_case: number }>();
+  for (const upsertItem of toUpsert) {
+    if (!upsertItem.count_unit || !upsertItem.count_units_per_case) continue;
+    const local = localById.get(upsertItem.id);
+    if (local?.brand_item_id) {
+      brandTemplateUpdates.set(local.brand_item_id, {
+        count_unit: upsertItem.count_unit,
+        count_units_per_case: upsertItem.count_units_per_case,
+      });
+    }
+  }
+  if (brandTemplateUpdates.size > 0) {
+    const entries = Array.from(brandTemplateUpdates.entries());
+    for (const [templateId, data] of entries) {
+      await supabase.from('brand_inventory_templates')
+        .update({ count_unit: data.count_unit, count_units_per_case: data.count_units_per_case })
+        .eq('id', templateId)
+        .is('count_unit', null); // Only set if not already manually configured
+    }
+    console.log('[PA Sync] Updated count config on', entries.length, 'brand templates');
+  }
 
   console.log('[PA Sync] Match-source audit:', JSON.stringify(syncMatchLog));
 
