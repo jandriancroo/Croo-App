@@ -981,6 +981,46 @@ function EditTemplateForm({
         </p>
       </div>
 
+      {/* Count Unit Configuration */}
+      <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <Label className="text-xs font-semibold">Count Configuration</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">Count Unit</Label>
+            <Select value={countUnit || '__none__'} onValueChange={v => setCountUnit(v === '__none__' ? '' : v)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Auto (from vendor)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Auto (from vendor)</SelectItem>
+                <SelectItem value="bag">Bag</SelectItem>
+                <SelectItem value="head">Head</SelectItem>
+                <SelectItem value="bunch">Bunch</SelectItem>
+                <SelectItem value="each">Each</SelectItem>
+                <SelectItem value="lb">Pound</SelectItem>
+                <SelectItem value="oz">Ounce</SelectItem>
+                <SelectItem value="case">Case</SelectItem>
+                <SelectItem value="tray">Tray</SelectItem>
+                <SelectItem value="box">Box</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">Units per Case</Label>
+            <Input
+              type="number"
+              className="h-8 text-xs"
+              value={countUnitsPerCase}
+              onChange={e => setCountUnitsPerCase(e.target.value)}
+              placeholder="e.g. 6"
+            />
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Override vendor count math for produce and items where the vendor doesn't report case breakdown
+        </p>
+      </div>
+
       {/* Vendor Mappings */}
       <VendorMappingsDisplay template={template} />
 
