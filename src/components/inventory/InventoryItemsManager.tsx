@@ -127,6 +127,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [recipePurgeSelection, setRecipePurgeSelection] = useState<Set<string>>(new Set());
   const [isPurging, setIsPurging] = useState(false);
   const [reorderModeGroup, setReorderModeGroup] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Optimistic reorder state: maps storageLocId -> ordered item id list
   const [optimisticOrder, setOptimisticOrder] = useState<Record<string, string[]>>({});
