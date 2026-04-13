@@ -792,6 +792,10 @@ function EditTemplateForm({
   const [innerType, setInnerType] = useState(template.pack_override_inner_type || 'Sleeve');
   const [innerQty, setInnerQty] = useState(template.pack_override_inner_qty?.toString() || '');
 
+  // Count unit state (brand-owned count configuration)
+  const [countUnit, setCountUnit] = useState(template.count_unit || '');
+  const [countUnitsPerCase, setCountUnitsPerCase] = useState(template.count_units_per_case?.toString() || '');
+
   const CONTAINER_TYPES = ['Case', 'Box', 'Bag', 'Tray', 'Bucket', 'Jug', 'Carton'];
   const INNER_TYPES = ['Sleeve', 'Pack', 'Roll', 'Pouch', 'Tray', 'Bag'];
 
