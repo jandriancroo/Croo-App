@@ -253,7 +253,7 @@ export default function BrandInventory() {
 
   // Update template mutation
   const updateMutation = useMutation({
-    mutationFn: async (updates: { id: string; product_name?: string; common_name?: string; category?: string; pack_override_outer_type?: string | null; pack_override_outer_qty?: number | null; pack_override_inner_type?: string | null; pack_override_inner_qty?: number | null }) => {
+    mutationFn: async (updates: { id: string; product_name?: string; common_name?: string; category?: string; pack_override_outer_type?: string | null; pack_override_outer_qty?: number | null; pack_override_inner_type?: string | null; pack_override_inner_qty?: number | null; count_unit?: string | null; count_units_per_case?: number | null }) => {
       const { id, ...fields } = updates;
       const { error } = await supabase
         .from('brand_inventory_templates')
