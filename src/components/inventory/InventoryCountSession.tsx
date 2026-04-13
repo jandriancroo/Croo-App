@@ -267,6 +267,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             cost_per_unit: item.cost_per_unit,
             pack_size: item.pack_size,
             pack_quantity: item.pack_quantity_override ?? item.pack_quantity,
+            count_units_per_case: (item as any).count_units_per_case,
             item_number: item.item_number,
             brand: item.brand,
             image_url: item.image_url,
