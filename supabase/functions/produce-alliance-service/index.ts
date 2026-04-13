@@ -1487,17 +1487,18 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       linkMap.set(li.linked_item_id, existing);
     }
 
+    const blendedUpdates: { id: string; blended_price: number }[] = [];
     for (const [primaryId, hiddenPrices] of linkMap.entries()) {
-      const { data: primary } = await supabase
-        .from('inventory_items')
-        .select('cost_per_unit')
-        .eq('id', primaryId)
-        .single();
-      if (!primary?.cost_per_unit) continue;
-      const allPrices = [Number(primary.cost_per_unit), ...hiddenPrices];
+      const primary = localById.get(primaryId);
+      const primaryCost = primary?.cost_per_unit != null ? Number(primary.cost_per_unit) : null;
+      if (!primaryCost) continue;
+      const allPrices = [primaryCost, ...hiddenPrices];
       const avg = allPrices.reduce((sum, p) => sum + p, 0) / allPrices.length;
-      const blended = Math.round(avg * 100) / 100;
-      await supabase.from('inventory_items').update({ blended_price: blended }).eq('id', primaryId);
+      blendedUpdates.push({ id: primaryId, blended_price: Math.round(avg * 100) / 100 });
+    }
+    for (let i = 0; i < blendedUpdates.length; i += 100) {
+      const chunk = blendedUpdates.slice(i, i + 100);
+      await supabase.from('inventory_items').upsert(chunk, { onConflict: 'id' });
     }
   }
 
