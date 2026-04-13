@@ -1,6 +1,7 @@
 import { ReactNode, useRef } from 'react';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
+import { registerMenuControl, unregisterMenuControl } from '@/components/onboarding/tourMenuBridge';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -271,6 +272,12 @@ export const Layout = ({
   const mobileHeaderRef = useRef<HTMLElement>(null);
   const headerLocationRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Register menu control so the onboarding tour can auto-open the menu
+  useEffect(() => {
+    registerMenuControl(setMenuOpen);
+    return () => unregisterMenuControl();
+  }, []);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
@@ -1060,6 +1067,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                           setMenuOpen(false);
                         }}
                         className="justify-start gap-2 h-9 px-3"
+                        data-tour={item.path === '/users' ? 'nav-users' : item.path === '/my-team' ? 'nav-users' : undefined}
                       >
                         <Icon className="h-4 w-4" />
                         <span className="text-sm">{item.label}</span>
@@ -1148,6 +1156,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         setMenuOpen(false);
                       }}
                       className="justify-start gap-2 h-9"
+                      data-tour="nav-settings"
                     >
                       <Icon className="h-4 w-4" />
                       <span className="text-sm">{item.label}</span>
