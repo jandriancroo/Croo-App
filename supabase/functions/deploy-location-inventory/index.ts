@@ -270,12 +270,17 @@ Deno.serve(async (req) => {
       }
 
       // Check for SKU collision — re-point existing item instead of creating new
+      // Use vendor mappings as authoritative source for vendor IDs
+      const vendorIds = vendorMappingMap.get(tmpl.id);
+      const tmplItemNumber = vendorIds?.item_number || null;
+      const tmplPaItemId = vendorIds?.pa_item_id || null;
+
       let existingItemId: string | null = null;
-      if (tmpl.item_number) {
-        existingItemId = existingBySku.get(tmpl.item_number.trim().toLowerCase()) || null;
+      if (tmplItemNumber) {
+        existingItemId = existingBySku.get(tmplItemNumber.trim().toLowerCase()) || null;
       }
-      if (!existingItemId && tmpl.pa_item_id) {
-        existingItemId = existingBySku.get(`pa:${tmpl.pa_item_id.trim().toLowerCase()}`) || null;
+      if (!existingItemId && tmplPaItemId) {
+        existingItemId = existingBySku.get(`pa:${tmplPaItemId.trim().toLowerCase()}`) || null;
       }
 
       if (existingItemId) {
