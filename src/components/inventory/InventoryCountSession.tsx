@@ -130,6 +130,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           pack_size,
           pack_quantity,
           pack_quantity_override,
+          count_units_per_case,
           item_number,
           brand,
           image_url,
@@ -266,6 +267,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             cost_per_unit: item.cost_per_unit,
             pack_size: item.pack_size,
             pack_quantity: item.pack_quantity_override ?? item.pack_quantity,
+            count_units_per_case: (item as any).count_units_per_case,
             item_number: item.item_number,
             brand: item.brand,
             image_url: item.image_url,
@@ -428,8 +430,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     // Standard items: cost_per_unit is per case
     const costPerCase = item.cost_per_unit || 0;
-    const packQty = item.pack_quantity || 1;
-    const costPerUnit = costPerCase / packQty;
+    // pack_quantity already incorporates pack_quantity_override (set at line 268)
+    // Fall back to count_units_per_case from the item record if pack_quantity is 1/null
+    const packQty = (item.pack_quantity && item.pack_quantity > 1)
+      ? item.pack_quantity
+      : ((item as any).count_units_per_case || item.pack_quantity || 1);
+    const costPerUnit = costPerCase / Math.max(packQty, 1);
     return totalUnits * costPerUnit;
   }, [counts, rawInputs, getTotalQuantity, recipeCosts]);
 
