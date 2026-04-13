@@ -323,6 +323,11 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
             console.error('Inventory auto-deploy error:', invError);
           } else {
             console.log('Inventory auto-deploy result:', invResult);
+            // Surface pre-flight warnings
+            const warnings = invResult?.warnings as string[] | undefined;
+            if (warnings && warnings.length > 0) {
+              warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }));
+            }
           }
         }
       } catch (invDeployErr) {

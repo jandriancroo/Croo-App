@@ -32,6 +32,11 @@ export default function LocationActivationList({
       });
       if (error) throw error;
       toast.success(`Deployed ${data?.deployed || 0} items (${data?.skipped || 0} already existed)`);
+      // Show pre-flight warnings if any
+      const warnings = data?.warnings as string[] | undefined;
+      if (warnings && warnings.length > 0) {
+        warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }));
+      }
       queryClient.invalidateQueries({ queryKey: ['brand-location-activation'] });
       queryClient.invalidateQueries({ queryKey: ['brand-locations'] });
     } catch (err: any) {
