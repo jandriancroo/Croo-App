@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { toast } from 'sonner';
-import { Loader2, MapPin, Clock, CheckCircle2, Building2, Rocket, Truck } from 'lucide-react';
+import { Loader2, MapPin, Clock, CheckCircle2, Building2, Rocket, Truck, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,30 +26,22 @@ const TIMEZONES = [
   { value: 'America/Phoenix', label: 'Arizona (no DST)' },
 ];
 
-// Auto-detect timezone from US state abbreviation
 const STATE_TIMEZONE_MAP: Record<string, string> = {
-  // Pacific
   CA: 'America/Los_Angeles', WA: 'America/Los_Angeles', OR: 'America/Los_Angeles', NV: 'America/Los_Angeles',
-  // Mountain
   CO: 'America/Denver', MT: 'America/Denver', WY: 'America/Denver', UT: 'America/Denver',
   NM: 'America/Denver', ID: 'America/Denver',
-  // Central
   TX: 'America/Chicago', IL: 'America/Chicago', MN: 'America/Chicago', WI: 'America/Chicago',
   IA: 'America/Chicago', MO: 'America/Chicago', AR: 'America/Chicago', LA: 'America/Chicago',
   MS: 'America/Chicago', AL: 'America/Chicago', TN: 'America/Chicago', KS: 'America/Chicago',
   NE: 'America/Chicago', SD: 'America/Chicago', ND: 'America/Chicago', OK: 'America/Chicago',
-  // Eastern
   NY: 'America/New_York', FL: 'America/New_York', PA: 'America/New_York', OH: 'America/New_York',
   GA: 'America/New_York', NC: 'America/New_York', SC: 'America/New_York', VA: 'America/New_York',
   NJ: 'America/New_York', MA: 'America/New_York', MD: 'America/New_York', CT: 'America/New_York',
   MI: 'America/New_York', ME: 'America/New_York', NH: 'America/New_York', RI: 'America/New_York',
   VT: 'America/New_York', DE: 'America/New_York', WV: 'America/New_York', DC: 'America/New_York',
   KY: 'America/New_York',
-  // Indiana — special case
   IN: 'America/Indiana/Indianapolis',
-  // Arizona — no DST
   AZ: 'America/Phoenix',
-  // Alaska & Hawaii
   AK: 'America/Anchorage', HI: 'Pacific/Honolulu',
 };
 
@@ -86,9 +79,15 @@ interface DeployLocationWizardProps {
   onSuccess: () => void;
 }
 
+interface SyncResult {
+  pfg: { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; message?: string };
+  pa: { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; message?: string };
+}
+
 const STEPS = [
   { id: 'basics', label: 'Basics', icon: MapPin },
   { id: 'hours', label: 'Hours', icon: Clock },
+  { id: 'vendors', label: 'Vendors', icon: Truck },
   { id: 'review', label: 'Deploy', icon: Rocket },
 ];
 
@@ -118,6 +117,18 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
     }))
   );
 
+  // Step 3: Vendor gate
+  const [skipVendorSetup, setSkipVendorSetup] = useState(false);
+
+  // Step 4: Deploy + sync phase
+  const [deployedLocationId, setDeployedLocationId] = useState<string | null>(null);
+  const [deployResult, setDeployResult] = useState<{ deployed: number; skipped: number; total: number } | null>(null);
+  const [syncResult, setSyncResult] = useState<SyncResult>({
+    pfg: { status: 'pending' },
+    pa: { status: 'pending' },
+  });
+  const [syncing, setSyncing] = useState(false);
+
   // Fetch organizations
   const { data: organizations } = useQuery({
     queryKey: ['all-organizations'],
@@ -133,7 +144,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
     enabled: open,
   });
 
-  // Fetch existing vendor territories for autocomplete
+  // Fetch existing vendor territories
   const { data: existingTerritories } = useQuery({
     queryKey: ['vendor-territories'],
     queryFn: async () => {
@@ -168,6 +179,11 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         close_time: '22:00',
         is_closed: false,
       })));
+      setSkipVendorSetup(false);
+      setDeployedLocationId(null);
+      setDeployResult(null);
+      setSyncResult({ pfg: { status: 'pending' }, pa: { status: 'pending' } });
+      setSyncing(false);
     }
   }, [open]);
 
@@ -175,20 +191,84 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
     setHours(prev => prev.map((h, i) => i === dayIndex ? { ...h, [field]: value } : h));
   };
 
-  const canProceed = () => {
-    if (step === 0) return name.trim().length > 0 && orgId.length > 0 && address.trim().length > 0;
-    return true;
-  };
-
-  // Auto-detect timezone when address changes
+  // Auto-detect timezone
   useEffect(() => {
     if (address.trim().length > 5) {
       const detected = detectTimezoneFromAddress(address);
-      if (detected) {
-        setTimezone(detected);
-      }
+      if (detected) setTimezone(detected);
     }
   }, [address]);
+
+  // Check vendor integrations — we'll check after creating the location in step 3
+  // For now, vendor check happens against the NEWLY created location
+  // Since the location doesn't exist yet at step 3, we show setup instructions
+  // The hard gate means: you must acknowledge vendor setup before deploying
+
+  const canProceed = () => {
+    if (step === 0) return name.trim().length > 0 && orgId.length > 0 && address.trim().length > 0;
+    if (step === 2) return skipVendorSetup; // Must acknowledge vendor gate
+    return true;
+  };
+
+  const runInitialSync = useCallback(async (locationId: string) => {
+    setSyncing(true);
+
+    // Check which integrations exist
+    const { data: integrations } = await supabase
+      .from('location_integrations')
+      .select('integration_type, is_active')
+      .eq('location_id', locationId)
+      .eq('is_active', true);
+
+    const hasPfg = integrations?.some(i => i.integration_type === 'pfg');
+    const hasPa = integrations?.some(i => i.integration_type === 'produce_alliance');
+
+    // PFG sync
+    if (hasPfg) {
+      setSyncResult(prev => ({ ...prev, pfg: { status: 'running' } }));
+      try {
+        const { data, error } = await supabase.functions.invoke('pfg-service', {
+          body: { action: 'sync', locationId },
+        });
+        if (error) throw error;
+        setSyncResult(prev => ({
+          ...prev,
+          pfg: { status: 'done', message: `${data?.orderCount || 0} orders synced, ${data?.itemsUpdated || 0} items updated` },
+        }));
+      } catch (err: any) {
+        setSyncResult(prev => ({
+          ...prev,
+          pfg: { status: 'error', message: err.message || 'Sync failed' },
+        }));
+      }
+    } else {
+      setSyncResult(prev => ({ ...prev, pfg: { status: 'skipped', message: 'Not configured' } }));
+    }
+
+    // PA sync
+    if (hasPa) {
+      setSyncResult(prev => ({ ...prev, pa: { status: 'running' } }));
+      try {
+        const { data, error } = await supabase.functions.invoke('produce-alliance-service', {
+          body: { action: 'sync', locationId },
+        });
+        if (error) throw error;
+        setSyncResult(prev => ({
+          ...prev,
+          pa: { status: 'done', message: `${data?.synced || 0} items synced` },
+        }));
+      } catch (err: any) {
+        setSyncResult(prev => ({
+          ...prev,
+          pa: { status: 'error', message: err.message || 'Sync failed' },
+        }));
+      }
+    } else {
+      setSyncResult(prev => ({ ...prev, pa: { status: 'skipped', message: 'Not configured' } }));
+    }
+
+    setSyncing(false);
+  }, []);
 
   const handleDeploy = async () => {
     setDeploying(true);
@@ -210,6 +290,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
 
       if (locError) throw locError;
       const locationId = location.id;
+      setDeployedLocationId(locationId);
 
       // 2. Create location settings (timezone)
       const { error: settingsError } = await supabase
@@ -220,7 +301,6 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           hours_open: hours.find(h => !h.is_closed)?.open_time || '10:00',
           hours_close: hours.find(h => !h.is_closed)?.close_time || '22:00',
         });
-
       if (settingsError) console.error('Settings error:', settingsError);
 
       // 3. Create business hours
@@ -257,7 +337,6 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
               color: bc.color,
               location_id: locationId,
             }));
-
             await supabase.from('event_categories').insert(categoriesToInsert);
           }
         }
@@ -265,12 +344,12 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
         console.error('Auto-deploy event categories error:', autoDeployError);
       }
 
-      // 5. Auto-apply labor rule preset based on state in address
+      // 5. Auto-apply labor rule preset
       try {
-        const stateMatch = address.match(/\b([A-Z]{2})\s*\.?\s*\d{5}/i) 
+        const stateMatch = address.match(/\b([A-Z]{2})\s*\.?\s*\d{5}/i)
           || address.match(/,\s*([A-Z]{2})\s*$/i)
           || address.match(/,\s*([A-Z]{2})\s+/i);
-        
+
         if (stateMatch) {
           const stateCode = stateMatch[1].toUpperCase();
           const { data: preset } = await supabase
@@ -298,15 +377,13 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
               reporting_time_min_hours: preset.reporting_time_min_hours,
               reporting_time_max_hours: preset.reporting_time_max_hours,
             });
-            console.log(`Auto-applied ${preset.preset_name} labor rules for ${stateCode}`);
           }
         }
       } catch (laborPresetError) {
         console.error('Auto-apply labor preset error:', laborPresetError);
-        // Non-blocking
       }
 
-      // 6. Auto-activate brand inventory items via edge function
+      // 6. Auto-deploy brand inventory
       try {
         const { data: orgData2 } = await supabase
           .from('organizations')
@@ -323,16 +400,15 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
             console.error('Inventory auto-deploy error:', invError);
           } else {
             console.log('Inventory auto-deploy result:', invResult);
-            // Surface pre-flight warnings
-            const warnings = invResult?.warnings as string[] | undefined;
-            if (warnings && warnings.length > 0) {
-              warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }));
-            }
+            setDeployResult({
+              deployed: invResult?.deployed || 0,
+              skipped: invResult?.skipped || 0,
+              total: invResult?.total || 0,
+            });
           }
         }
       } catch (invDeployErr) {
         console.error('Inventory auto-deploy error:', invDeployErr);
-        // Non-blocking — location is still created
       }
 
       // 7. Auto-seed default logbook categories (Waste Log)
@@ -344,7 +420,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
           is_active: true,
           alert_enabled: true,
         }).select('id').single();
-        
+
         if (wasteCategory) {
           await supabase.from('logbook_fields').insert({
             category_id: wasteCategory.id,
@@ -359,6 +435,11 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       }
 
       refetchLocations();
+      setDeployComplete(true);
+
+      // 8. Auto-trigger initial vendor syncs
+      runInitialSync(locationId);
+
       toast.success(`${name} deployed successfully!`);
     } catch (error: any) {
       console.error('Deploy error:', error);
@@ -375,6 +456,33 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
 
   const orgName = organizations?.find(o => o.id === orgId)?.name;
   const tzLabel = TIMEZONES.find(t => t.value === timezone)?.label;
+
+  const renderSyncStatus = (label: string, status: SyncResult['pfg']) => {
+    const iconMap = {
+      pending: <Clock className="h-4 w-4 text-muted-foreground" />,
+      running: <Loader2 className="h-4 w-4 text-primary animate-spin" />,
+      done: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+      error: <XCircle className="h-4 w-4 text-destructive" />,
+      skipped: <AlertTriangle className="h-4 w-4 text-amber-500" />,
+    };
+
+    return (
+      <div className="flex items-center justify-between py-1.5">
+        <div className="flex items-center gap-2">
+          {iconMap[status.status]}
+          <span className="text-sm font-medium">{label}</span>
+        </div>
+        {status.message && (
+          <span className={cn(
+            "text-xs",
+            status.status === 'error' ? 'text-destructive' : 'text-muted-foreground'
+          )}>
+            {status.message}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -426,17 +534,37 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
               key="complete"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-col items-center gap-4 py-8"
+              className="flex flex-col items-center gap-4 py-6"
             >
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
                 <CheckCircle2 className="h-8 w-8 text-primary" />
               </div>
               <div className="text-center">
                 <h3 className="text-lg font-semibold">{name} is live!</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Switch to this location to start configuring checklists, inventory, and invite your team.
-                </p>
+                {deployResult && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {deployResult.deployed} items deployed, {deployResult.skipped} already existed
+                  </p>
+                )}
               </div>
+
+              {/* Initial Sync Results */}
+              <div className="w-full rounded-lg border p-4 space-y-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
+                  <span className="text-sm font-semibold">
+                    {syncing ? 'Running initial vendor sync...' : 'Vendor Sync Complete'}
+                  </span>
+                </div>
+                {renderSyncStatus('PFG (Foodservice)', syncResult.pfg)}
+                {renderSyncStatus('Produce Alliance', syncResult.pa)}
+                {(syncResult.pfg.status === 'skipped' || syncResult.pa.status === 'skipped') && (
+                  <p className="text-xs text-amber-600 mt-2 pt-2 border-t">
+                    ⚠️ Skipped vendors need credentials configured in Settings → Integrations before costs and pack data will populate.
+                  </p>
+                )}
+              </div>
+
               <Button onClick={handleClose} className="mt-2">Done</Button>
             </motion.div>
           ) : (
@@ -577,8 +705,65 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                 </div>
               )}
 
-              {/* Step 3: Review & Deploy */}
+              {/* Step 3: Vendor Integration Gate */}
               {step === 2 && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                          Vendor Integrations Required
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                          Both PFG and Produce Alliance must be configured <strong>after deployment</strong> for inventory costs and produce pack sizes to populate. Without them, count sheets will have missing data.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border p-4 space-y-3">
+                    <p className="text-sm font-semibold">Pre-Deploy Checklist</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 py-2 px-3 rounded-md bg-muted/50">
+                        <XCircle className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">PFG Integration</p>
+                          <p className="text-xs text-muted-foreground">Required for item costs and order history</p>
+                        </div>
+                        <span className="text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">Post-deploy</span>
+                      </div>
+                      <div className="flex items-center gap-3 py-2 px-3 rounded-md bg-muted/50">
+                        <XCircle className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Produce Alliance Integration</p>
+                          <p className="text-xs text-muted-foreground">Required for produce pack sizes and costs</p>
+                        </div>
+                        <span className="text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">Post-deploy</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-dashed p-3">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      <strong>Expected flow:</strong> Deploy → Switch to new location → Settings → Integrations → Configure PFG & PA credentials → Run first sync → Count sheets are ready.
+                    </p>
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        id="skip-vendor"
+                        checked={skipVendorSetup}
+                        onCheckedChange={(checked) => setSkipVendorSetup(checked === true)}
+                      />
+                      <label htmlFor="skip-vendor" className="text-xs leading-tight cursor-pointer">
+                        I understand that vendor integrations must be configured after deployment, and inventory counts should not begin until the first sync is complete.
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Review & Deploy */}
+              {step === 3 && (
                 <div className="space-y-4">
                   <div className="rounded-lg border p-4 space-y-3">
                     <div className="flex items-center gap-2">
@@ -617,8 +802,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
                   </div>
                   <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <p className="text-xs text-muted-foreground">
-                      <strong>What happens next:</strong> Brand event categories, state-specific labor rules, and all brand inventory items will be auto-deployed. Only your Super Admin account will be assigned. 
-                      Switch to the new location to invite team members, set up checklists, organize storage locations, and connect integrations.
+                      <strong>What happens next:</strong> Brand event categories, state-specific labor rules, and all brand inventory items will be auto-deployed. After deployment, vendor syncs will run automatically if credentials are configured.
                     </p>
                   </div>
                 </div>
