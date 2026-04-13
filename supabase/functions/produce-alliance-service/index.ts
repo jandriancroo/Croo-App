@@ -1489,17 +1489,14 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     }
   }
   if (brandTemplateUpdates.size > 0) {
-    const templateUpserts = Array.from(brandTemplateUpdates.entries()).map(([id, data]) => ({
-      id,
-      count_unit: data.count_unit,
-      count_units_per_case: data.count_units_per_case,
-    }));
-    for (let i = 0; i < templateUpserts.length; i += 100) {
-      const chunk = templateUpserts.slice(i, i + 100);
-      const { error } = await supabase.from('brand_inventory_templates').upsert(chunk, { onConflict: 'id' });
-      if (error) console.warn('[PA Sync] Brand template count config update error:', error.message);
+    const entries = Array.from(brandTemplateUpdates.entries());
+    for (const [templateId, data] of entries) {
+      await supabase.from('brand_inventory_templates')
+        .update({ count_unit: data.count_unit, count_units_per_case: data.count_units_per_case })
+        .eq('id', templateId)
+        .is('count_unit', null); // Only set if not already manually configured
     }
-    console.log('[PA Sync] Updated count config on', templateUpserts.length, 'brand templates');
+    console.log('[PA Sync] Updated count config on', entries.length, 'brand templates');
   }
 
   console.log('[PA Sync] Match-source audit:', JSON.stringify(syncMatchLog));
