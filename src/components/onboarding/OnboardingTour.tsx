@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Joyride, STATUS, EVENTS, type EventData, type Controls, type Step } from 'react-joyride';
+import { useEffect, useRef, useState } from 'react';
+import { Joyride, STATUS, EVENTS, ACTIONS, type EventData, type Controls, type Step } from 'react-joyride';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getTourStepsForRole } from './tourSteps';
 import { openMenuForTour, closeMenuForTour } from './tourMenuBridge';
@@ -9,48 +9,103 @@ interface OnboardingTourProps {
   onComplete: (skipped: boolean) => void;
 }
 
+const MENU_ANIMATION_MS = 350;
+const MENU_CLOSE_MS = 150;
+
 export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
   const { role } = useUserRole();
   const steps = getTourStepsForRole(role) as Step[];
+  const [stepIndex, setStepIndex] = useState(0);
   const menuOpenedByTour = useRef(false);
+  const transitionTimer = useRef<number | null>(null);
 
-  // Close menu if tour stops while we opened it
-  useEffect(() => {
-    return () => {
-      if (menuOpenedByTour.current) {
-        closeMenuForTour();
-        menuOpenedByTour.current = false;
-      }
-    };
-  }, []);
+  const clearTransitionTimer = () => {
+    if (transitionTimer.current !== null) {
+      window.clearTimeout(transitionTimer.current);
+      transitionTimer.current = null;
+    }
+  };
 
-  const handleEvent = (data: EventData, _controls: Controls) => {
-    const { status, type, step } = data as EventData & { step?: Step };
+  const cleanupMenu = () => {
+    clearTransitionTimer();
+    if (menuOpenedByTour.current) {
+      closeMenuForTour();
+      menuOpenedByTour.current = false;
+    }
+  };
 
-    // Before showing a step, open/close the menu as needed
-    if (type === EVENTS.STEP_BEFORE && step) {
-      const needsMenu = (step as any).data?.requiresMenu;
-      if (needsMenu) {
-        openMenuForTour();
-        menuOpenedByTour.current = true;
-      } else if (menuOpenedByTour.current) {
-        closeMenuForTour();
-        menuOpenedByTour.current = false;
-      }
+  const goToStep = (nextIndex: number) => {
+    if (nextIndex < 0) {
+      setStepIndex(0);
+      return;
     }
 
-    if (status === STATUS.FINISHED) {
-      if (menuOpenedByTour.current) {
-        closeMenuForTour();
-        menuOpenedByTour.current = false;
-      }
+    if (nextIndex >= steps.length) {
+      cleanupMenu();
       onComplete(false);
-    } else if (status === STATUS.SKIPPED) {
-      if (menuOpenedByTour.current) {
-        closeMenuForTour();
-        menuOpenedByTour.current = false;
-      }
+      return;
+    }
+
+    clearTransitionTimer();
+
+    const needsMenu = Boolean((steps[nextIndex] as Step & { data?: { requiresMenu?: boolean } }).data?.requiresMenu);
+
+    if (needsMenu) {
+      openMenuForTour();
+      menuOpenedByTour.current = true;
+      transitionTimer.current = window.setTimeout(() => {
+        setStepIndex(nextIndex);
+        transitionTimer.current = null;
+      }, MENU_ANIMATION_MS);
+      return;
+    }
+
+    if (menuOpenedByTour.current) {
+      closeMenuForTour();
+      menuOpenedByTour.current = false;
+      transitionTimer.current = window.setTimeout(() => {
+        setStepIndex(nextIndex);
+        transitionTimer.current = null;
+      }, MENU_CLOSE_MS);
+      return;
+    }
+
+    setStepIndex(nextIndex);
+  };
+
+  useEffect(() => {
+    if (run) {
+      setStepIndex(0);
+    } else {
+      cleanupMenu();
+    }
+
+    return () => {
+      cleanupMenu();
+    };
+  }, [run]);
+
+  const handleEvent = (data: EventData, _controls: Controls) => {
+    const { status, type, action, index = 0 } = data as EventData & {
+      action?: string;
+      index?: number;
+    };
+
+    if (status === STATUS.FINISHED) {
+      cleanupMenu();
+      onComplete(false);
+      return;
+    }
+
+    if (status === STATUS.SKIPPED) {
+      cleanupMenu();
       onComplete(true);
+      return;
+    }
+
+    if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
+      const direction = action === ACTIONS.PREV ? -1 : 1;
+      goToStep(index + direction);
     }
   };
 
@@ -60,6 +115,7 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
     <Joyride
       steps={steps}
       run={run}
+      stepIndex={stepIndex}
       continuous
       scrollToFirstStep
       onEvent={handleEvent}
