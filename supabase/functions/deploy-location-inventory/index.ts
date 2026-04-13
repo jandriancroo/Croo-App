@@ -262,6 +262,8 @@ Deno.serve(async (req) => {
               name: tmpl.product_name,
               category: tmpl.category,
               ...(reactivatePackOverride != null ? { pack_quantity_override: reactivatePackOverride } : {}),
+              ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
+              ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
             })
             .eq("id", existing.id);
         }
