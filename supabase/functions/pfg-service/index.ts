@@ -1498,6 +1498,41 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         }
       }
 
+      // --- Post-sync cleanup: remove portal duplicates when TRACS data exists ---
+      // Portal orders have short numeric IDs, TRACS orders have composite IDs like "428_55067468_..."
+      const { data: allOrders } = await supabase
+        .from('pfg_orders')
+        .select('id, pfg_order_id, delivery_date')
+        .eq('location_id', integration.location_id);
+
+      if (allOrders && allOrders.length > 0) {
+        // Group by delivery_date, find dates that have both TRACS and portal orders
+        const byDate = new Map<string, { tracs: string[]; portal: string[] }>();
+        for (const o of allOrders) {
+          const dt = o.delivery_date || '';
+          if (!byDate.has(dt)) byDate.set(dt, { tracs: [], portal: [] });
+          const group = byDate.get(dt)!;
+          // TRACS IDs contain underscores (composite key), portal IDs are simple numbers
+          if (String(o.pfg_order_id).includes('_')) {
+            group.tracs.push(o.id);
+          } else {
+            group.portal.push(o.id);
+          }
+        }
+
+        const idsToDelete: string[] = [];
+        for (const [, group] of byDate) {
+          if (group.tracs.length > 0 && group.portal.length > 0) {
+            idsToDelete.push(...group.portal);
+          }
+        }
+
+        if (idsToDelete.length > 0) {
+          console.log(`[PFG Sync] Cleaning up ${idsToDelete.length} portal duplicates superseded by TRACS data`);
+          await supabase.from('pfg_orders').delete().in('id', idsToDelete);
+        }
+      }
+
       results.push({ locationId: integration.location_id, success: true, ordersImported: importedCount });
 
     } catch (error) {
