@@ -272,6 +272,12 @@ export const Layout = ({
   const mobileHeaderRef = useRef<HTMLElement>(null);
   const headerLocationRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Register menu control so the onboarding tour can auto-open the menu
+  useEffect(() => {
+    registerMenuControl(setMenuOpen);
+    return () => unregisterMenuControl();
+  }, []);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
