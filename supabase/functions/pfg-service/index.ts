@@ -1419,7 +1419,10 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         let orderNumber: string;
         let totalAmount: number | null;
 
-        if (isDeliveriesSource) {
+        // Determine source per-order (merged mode) or globally
+        const isDeliveryOrder = order._orderSource === 'GetDeliveries' || (isGlobalDeliveries && !order._orderSource);
+
+        if (isDeliveryOrder) {
           // GetDeliveries format: DeliveryKey is the unique ID, Invoices array has invoice numbers
           pfgOrderId = order.DeliveryKey || order.Invoices?.[0]?.InvoiceNumber || '';
           deliveryDate = parsePfgDate(order.DeliveryDate);
@@ -1442,7 +1445,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         const customerIdForDetail = customerIdToUse || order.CustomerId;
         if (customerIdForDetail) {
           // For GetDeliveries source, we need to build the order object with the right fields for fetchDeliveryDetail
-          const orderForDetail = isDeliveriesSource ? {
+          const orderForDetail = isDeliveryOrder ? {
             OrderOperationCompanyNumber: order.DeliveryOperationCompanyNumber,
             DeliverToCustomerNumber: order.CustomerNumber,
             DeliveryDate: order.DeliveryDate,
