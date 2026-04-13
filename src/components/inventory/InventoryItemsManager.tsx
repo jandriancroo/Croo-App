@@ -1154,7 +1154,12 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                     return aIdx - bIdx;
                   });
                 }
-                const isCollapsed = collapsedSections.has(loc.id);
+                const searchLower = searchQuery.toLowerCase().trim();
+                if (searchLower) {
+                  allLocItems = allLocItems.filter(i => i.name.toLowerCase().includes(searchLower));
+                  if (allLocItems.length === 0) return null;
+                }
+                const isCollapsed = searchLower ? false : collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
                 const panCount = primaryItems.filter(i => (i as any).pan_sizes?.enabled).length;
                 return (
