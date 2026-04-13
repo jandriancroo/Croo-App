@@ -436,9 +436,9 @@ async function fetchProductListHeaders(accessToken: string, customerId?: string)
   return { guides: [], customerId: resolvedCustomerId };
 }
 
-// Fetch order history from PFG
+// Fetch order history from PFG — queries BOTH endpoints and merges results
 async function fetchOrderHistory(accessToken: string, customerId?: string): Promise<any> {
-  console.log('[PFG API] Fetching order history');
+  console.log('[PFG API] Fetching order history (merged strategy)');
 
   const now = new Date();
   const startDate = new Date(now);
@@ -454,7 +454,10 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
     requestBody.CustomerIds = [customerId];
   }
 
-  // 1. Try GetSubmittedOrderHeaders (works for standard accounts)
+  let submittedOrders: any[] = [];
+  let deliveryOrders: any[] = [];
+
+  // 1. Try GetSubmittedOrderHeaders (portal orders)
   try {
     console.log('[PFG API] Trying GetSubmittedOrderHeaders');
     const primaryResult = await fetchPfgJson(
@@ -470,26 +473,18 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
       },
     );
 
-    const primaryOrders = primaryResult?.ResultObject;
-    if (Array.isArray(primaryOrders) && primaryOrders.length > 0) {
-      console.log(`[PFG API] Got ${primaryOrders.length} orders from GetSubmittedOrderHeaders`);
-      return primaryResult;
+    const primaryArr = primaryResult?.ResultObject;
+    if (Array.isArray(primaryArr) && primaryArr.length > 0) {
+      submittedOrders = primaryArr;
+      console.log(`[PFG API] Got ${submittedOrders.length} orders from GetSubmittedOrderHeaders`);
     }
   } catch (err) {
     console.warn('[PFG API] GetSubmittedOrderHeaders failed:', (err as Error).message?.slice(0, 200));
   }
 
-  // 2. Try GetDeliveries (works for TRACS Direct / CFS accounts)
+  // 2. Try GetDeliveries (TRACS Direct / warehouse-confirmed)
   try {
     console.log('[PFG API] Trying GetDeliveries (TRACS Direct endpoint)');
-    const deliveryBody: any = {
-      StartDate: startDate.toISOString(),
-      EndDate: endDate.toISOString(),
-    };
-    if (customerId) {
-      deliveryBody.CustomerIds = [customerId];
-    }
-
     const deliveryResult = await fetchPfgJson(
       '/Delivery/V1/GetDeliveries',
       {
@@ -499,18 +494,57 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify(deliveryBody),
+        body: JSON.stringify(requestBody),
       },
     );
 
     const deliveries = deliveryResult?.ResultObject;
     if (Array.isArray(deliveries) && deliveries.length > 0) {
-      console.log(`[PFG API] Got ${deliveries.length} deliveries from GetDeliveries`);
-      // Mark as delivery-sourced so sync handler knows the field mapping
-      return { ...deliveryResult, _source: 'GetDeliveries' };
+      deliveryOrders = deliveries;
+      console.log(`[PFG API] Got ${deliveryOrders.length} deliveries from GetDeliveries`);
     }
   } catch (err) {
     console.warn('[PFG API] GetDeliveries failed:', (err as Error).message?.slice(0, 200));
+  }
+
+  // 3. Merge: TRACS deliveries take priority (more accurate invoices/amounts),
+  //    then append portal orders that don't overlap by delivery date + customer number
+  if (deliveryOrders.length > 0 && submittedOrders.length > 0) {
+    // Build a set of delivery dates from TRACS to detect overlaps
+    const tracsDateSet = new Set<string>();
+    for (const d of deliveryOrders) {
+      const dt = parsePfgDate(d.DeliveryDate);
+      const custNum = String(d.CustomerNumber || '');
+      if (dt) tracsDateSet.add(`${custNum}_${dt}`);
+    }
+
+    // Only keep submitted orders whose delivery date is NOT already covered by TRACS
+    const uniqueSubmitted = submittedOrders.filter(o => {
+      const dt = parsePfgDate(o.DeliveryDate);
+      const custNum = String(o.DeliverToCustomerNumber || '');
+      return dt && !tracsDateSet.has(`${custNum}_${dt}`);
+    });
+
+    console.log(`[PFG API] Merged: ${deliveryOrders.length} TRACS + ${uniqueSubmitted.length} portal-only = ${deliveryOrders.length + uniqueSubmitted.length} total`);
+
+    // Return as a combined result with mixed sources
+    // Tag each order so the sync handler knows the field mapping
+    const taggedDeliveries = deliveryOrders.map(o => ({ ...o, _orderSource: 'GetDeliveries' }));
+    const taggedSubmitted = uniqueSubmitted.map(o => ({ ...o, _orderSource: 'GetSubmittedOrderHeaders' }));
+
+    return {
+      ResultObject: [...taggedDeliveries, ...taggedSubmitted],
+      IsSuccess: true,
+      _source: 'merged',
+    };
+  }
+
+  if (deliveryOrders.length > 0) {
+    return { ResultObject: deliveryOrders, IsSuccess: true, _source: 'GetDeliveries' };
+  }
+
+  if (submittedOrders.length > 0) {
+    return { ResultObject: submittedOrders, IsSuccess: true };
   }
 
   console.log('[PFG API] All order history endpoints returned empty');
@@ -1357,8 +1391,10 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       }
 
       // Detect if data came from GetDeliveries (TRACS Direct) vs GetSubmittedOrderHeaders
-      const isDeliveriesSource = orderData?._source === 'GetDeliveries';
-      console.log(`[PFG Sync] Data source: ${isDeliveriesSource ? 'GetDeliveries' : 'GetSubmittedOrderHeaders'}`);
+      // When _source is 'merged', each order has its own _orderSource tag
+      const globalSource = orderData?._source;
+      const isGlobalDeliveries = globalSource === 'GetDeliveries';
+      console.log(`[PFG Sync] Data source: ${globalSource || 'GetSubmittedOrderHeaders'}`);
 
       // Filter orders by delivery customer number if configured
       const deliverToFilter = (credentials as any).deliver_to_customer_number;
@@ -1383,7 +1419,10 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         let orderNumber: string;
         let totalAmount: number | null;
 
-        if (isDeliveriesSource) {
+        // Determine source per-order (merged mode) or globally
+        const isDeliveryOrder = order._orderSource === 'GetDeliveries' || (isGlobalDeliveries && !order._orderSource);
+
+        if (isDeliveryOrder) {
           // GetDeliveries format: DeliveryKey is the unique ID, Invoices array has invoice numbers
           pfgOrderId = order.DeliveryKey || order.Invoices?.[0]?.InvoiceNumber || '';
           deliveryDate = parsePfgDate(order.DeliveryDate);
@@ -1406,7 +1445,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         const customerIdForDetail = customerIdToUse || order.CustomerId;
         if (customerIdForDetail) {
           // For GetDeliveries source, we need to build the order object with the right fields for fetchDeliveryDetail
-          const orderForDetail = isDeliveriesSource ? {
+          const orderForDetail = isDeliveryOrder ? {
             OrderOperationCompanyNumber: order.DeliveryOperationCompanyNumber,
             DeliverToCustomerNumber: order.CustomerNumber,
             DeliveryDate: order.DeliveryDate,
@@ -1456,6 +1495,41 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           console.warn(`[PFG Sync] Upsert error for order ${pfgOrderId}:`, upsertError.message);
         } else {
           importedCount++;
+        }
+      }
+
+      // --- Post-sync cleanup: remove portal duplicates when TRACS data exists ---
+      // Portal orders have short numeric IDs, TRACS orders have composite IDs like "428_55067468_..."
+      const { data: allOrders } = await supabase
+        .from('pfg_orders')
+        .select('id, pfg_order_id, delivery_date')
+        .eq('location_id', integration.location_id);
+
+      if (allOrders && allOrders.length > 0) {
+        // Group by delivery_date, find dates that have both TRACS and portal orders
+        const byDate = new Map<string, { tracs: string[]; portal: string[] }>();
+        for (const o of allOrders) {
+          const dt = o.delivery_date || '';
+          if (!byDate.has(dt)) byDate.set(dt, { tracs: [], portal: [] });
+          const group = byDate.get(dt)!;
+          // TRACS IDs contain underscores (composite key), portal IDs are simple numbers
+          if (String(o.pfg_order_id).includes('_')) {
+            group.tracs.push(o.id);
+          } else {
+            group.portal.push(o.id);
+          }
+        }
+
+        const idsToDelete: string[] = [];
+        for (const [, group] of byDate) {
+          if (group.tracs.length > 0 && group.portal.length > 0) {
+            idsToDelete.push(...group.portal);
+          }
+        }
+
+        if (idsToDelete.length > 0) {
+          console.log(`[PFG Sync] Cleaning up ${idsToDelete.length} portal duplicates superseded by TRACS data`);
+          await supabase.from('pfg_orders').delete().in('id', idsToDelete);
         }
       }
 
