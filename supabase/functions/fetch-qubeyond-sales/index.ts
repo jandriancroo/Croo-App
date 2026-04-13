@@ -2585,15 +2585,11 @@ serve(async (req) => {
         await cacheLaborData(cacheSupabase, locationId, todayStr, todayLaborData, 'punch_clock');
       }
       
-      // Cache punch labor for past dates not already cached
-      if (punchMonthLabor && punchMonthLabor.dailyLabor.length > 0) {
-        for (const dateStr of punchDates) {
-          const datePunchLabor = await calculateLaborFromPunches(cacheSupabase, locationId, dateStr, timezone);
-          if (datePunchLabor && datePunchLabor.laborCost > 0) {
-            await cacheLaborData(cacheSupabase, locationId, dateStr, datePunchLabor, 'punch_clock');
-          }
-        }
-      }
+      // NOTE: Historical labor caching removed — labor-service handles past-date
+      // labor_cache writes with proper overnight-shift handling and breakdown
+      // validation. The simpler calculateLaborFromPunches here uses a narrow UTC
+      // range that misses clock_outs past midnight, treating them as "still clocked
+      // in" and inflating hours by (now - clockIn) which can be DAYS of phantom hours.
       
       laborSource = 'punches';
     } else {
