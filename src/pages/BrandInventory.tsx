@@ -260,6 +260,23 @@ export default function BrandInventory() {
         .update({ ...fields, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
+
+      // Propagate pack override to local inventory items
+      const outerQty = fields.pack_override_outer_qty;
+      const innerQty = fields.pack_override_inner_qty;
+      // Total units per case = outer * inner (if inner exists), otherwise just outer
+      const totalUnitsPerCase = outerQty
+        ? (innerQty && innerQty > 0 ? outerQty * innerQty : outerQty)
+        : null;
+
+      // Push pack_quantity_override to all local items linked to this brand template
+      const { error: propError } = await supabase
+        .from('inventory_items')
+        .update({ pack_quantity_override: totalUnitsPerCase } as any)
+        .eq('brand_item_id', id);
+      if (propError) {
+        console.error('Failed to propagate pack override to local items:', propError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['brand-templates', brandId] });
