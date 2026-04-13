@@ -563,6 +563,8 @@ export type Database = {
           brand_id: string
           category: string | null
           common_name: string | null
+          count_unit: string | null
+          count_units_per_case: number | null
           created_at: string
           created_by: string | null
           id: string
@@ -603,6 +605,8 @@ export type Database = {
           brand_id: string
           category?: string | null
           common_name?: string | null
+          count_unit?: string | null
+          count_units_per_case?: number | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -643,6 +647,8 @@ export type Database = {
           brand_id?: string
           category?: string | null
           common_name?: string | null
+          count_unit?: string | null
+          count_units_per_case?: number | null
           created_at?: string
           created_by?: string | null
           id?: string

@@ -51,7 +51,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Check existing items at this location to prevent dupes
+    // 1b. Fetch vendor mappings for all templates (authoritative source for vendor IDs)
+    const templateIds = templates.map((t: any) => t.id);
+    const vendorMappingMap = new Map<string, { item_number: string | null; pa_item_id: string | null }>();
+    // Fetch in chunks of 200 to avoid query limits
+    for (let i = 0; i < templateIds.length; i += 200) {
+      const chunk = templateIds.slice(i, i + 200);
+      const { data: mappings } = await supabase
+        .from("brand_vendor_mappings")
+        .select("brand_template_id, vendor, vendor_item_id")
+        .in("brand_template_id", chunk);
+      for (const m of mappings || []) {
+        const existing = vendorMappingMap.get(m.brand_template_id) || { item_number: null, pa_item_id: null };
+        if (m.vendor === "pa") {
+          existing.pa_item_id = m.vendor_item_id;
+        } else {
+          // PFG or other vendors → use as item_number
+          existing.item_number = m.vendor_item_id;
+        }
+        vendorMappingMap.set(m.brand_template_id, existing);
+      }
+    }
     const { data: existingItems } = await supabase
       .from("inventory_items")
       .select("id, name, item_number, pa_item_id, brand_item_id, is_active")
@@ -231,13 +251,19 @@ Deno.serve(async (req) => {
         const existing = (existingItems || []).find((i: any) => i.brand_item_id === tmpl.id);
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
-          // Re-activate and sync name/category to brand standard
+          // Re-activate and sync name/category/pack to brand standard
+          const reactivatePackOverride = tmpl.pack_override_outer_qty
+            ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
+            : null;
           await supabase
             .from("inventory_items")
             .update({
               is_active: true,
               name: tmpl.product_name,
               category: tmpl.category,
+              ...(reactivatePackOverride != null ? { pack_quantity_override: reactivatePackOverride } : {}),
+              ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
+              ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
             })
             .eq("id", existing.id);
         }
@@ -246,12 +272,17 @@ Deno.serve(async (req) => {
       }
 
       // Check for SKU collision — re-point existing item instead of creating new
+      // Use vendor mappings as authoritative source for vendor IDs
+      const vendorIds = vendorMappingMap.get(tmpl.id);
+      const tmplItemNumber = vendorIds?.item_number || null;
+      const tmplPaItemId = vendorIds?.pa_item_id || null;
+
       let existingItemId: string | null = null;
-      if (tmpl.item_number) {
-        existingItemId = existingBySku.get(tmpl.item_number.trim().toLowerCase()) || null;
+      if (tmplItemNumber) {
+        existingItemId = existingBySku.get(tmplItemNumber.trim().toLowerCase()) || null;
       }
-      if (!existingItemId && tmpl.pa_item_id) {
-        existingItemId = existingBySku.get(`pa:${tmpl.pa_item_id.trim().toLowerCase()}`) || null;
+      if (!existingItemId && tmplPaItemId) {
+        existingItemId = existingBySku.get(`pa:${tmplPaItemId.trim().toLowerCase()}`) || null;
       }
 
       if (existingItemId) {
@@ -284,6 +315,11 @@ Deno.serve(async (req) => {
       }
 
       const sourceOrder = brandItemToOrder.get(tmpl.id);
+      // Calculate pack_quantity_override from brand template overrides
+      const packOverride = tmpl.pack_override_outer_qty
+        ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
+        : null;
+
       const { data: newItem, error: createErr } = await supabase
         .from("inventory_items")
         .insert({
@@ -296,10 +332,13 @@ Deno.serve(async (req) => {
           recipe_yield_qty: tmpl.recipe_yield_qty,
           recipe_yield_unit: tmpl.recipe_yield_unit,
           vendor_source: tmpl.vendor_source,
-          item_number: tmpl.item_number,
-          pa_item_id: tmpl.pa_item_id,
+          item_number: tmplItemNumber,
+          pa_item_id: tmplPaItemId,
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
+          ...(packOverride != null ? { pack_quantity_override: packOverride } : {}),
+          ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
+          ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
           ...(sourceOrder != null ? { display_order: sourceOrder } : {}),
         })
         .select("id")

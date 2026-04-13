@@ -253,7 +253,7 @@ export default function BrandInventory() {
 
   // Update template mutation
   const updateMutation = useMutation({
-    mutationFn: async (updates: { id: string; product_name?: string; common_name?: string; category?: string; pack_override_outer_type?: string | null; pack_override_outer_qty?: number | null; pack_override_inner_type?: string | null; pack_override_inner_qty?: number | null }) => {
+    mutationFn: async (updates: { id: string; product_name?: string; common_name?: string; category?: string; pack_override_outer_type?: string | null; pack_override_outer_qty?: number | null; pack_override_inner_type?: string | null; pack_override_inner_qty?: number | null; count_unit?: string | null; count_units_per_case?: number | null }) => {
       const { id, ...fields } = updates;
       const { error } = await supabase
         .from('brand_inventory_templates')
@@ -792,6 +792,10 @@ function EditTemplateForm({
   const [innerType, setInnerType] = useState(template.pack_override_inner_type || 'Sleeve');
   const [innerQty, setInnerQty] = useState(template.pack_override_inner_qty?.toString() || '');
 
+  // Count unit state (brand-owned count configuration)
+  const [countUnit, setCountUnit] = useState(template.count_unit || '');
+  const [countUnitsPerCase, setCountUnitsPerCase] = useState(template.count_units_per_case?.toString() || '');
+
   const CONTAINER_TYPES = ['Case', 'Box', 'Bag', 'Tray', 'Bucket', 'Jug', 'Carton'];
   const INNER_TYPES = ['Sleeve', 'Pack', 'Roll', 'Pouch', 'Tray', 'Bag'];
 
@@ -815,6 +819,9 @@ function EditTemplateForm({
       updates.pack_override_inner_type = null;
       updates.pack_override_inner_qty = null;
     }
+    // Count unit configuration
+    updates.count_unit = countUnit.trim() || null;
+    updates.count_units_per_case = countUnitsPerCase ? parseFloat(countUnitsPerCase) : null;
     onSave(updates);
   };
 
@@ -971,6 +978,46 @@ function EditTemplateForm({
 
         <p className="text-[10px] text-muted-foreground">
           Override vendor pack size for counting accuracy across all locations
+        </p>
+      </div>
+
+      {/* Count Unit Configuration */}
+      <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+        <Label className="text-xs font-semibold">Count Configuration</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">Count Unit</Label>
+            <Select value={countUnit || '__none__'} onValueChange={v => setCountUnit(v === '__none__' ? '' : v)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Auto (from vendor)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Auto (from vendor)</SelectItem>
+                <SelectItem value="bag">Bag</SelectItem>
+                <SelectItem value="head">Head</SelectItem>
+                <SelectItem value="bunch">Bunch</SelectItem>
+                <SelectItem value="each">Each</SelectItem>
+                <SelectItem value="lb">Pound</SelectItem>
+                <SelectItem value="oz">Ounce</SelectItem>
+                <SelectItem value="case">Case</SelectItem>
+                <SelectItem value="tray">Tray</SelectItem>
+                <SelectItem value="box">Box</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground">Units per Case</Label>
+            <Input
+              type="number"
+              className="h-8 text-xs"
+              value={countUnitsPerCase}
+              onChange={e => setCountUnitsPerCase(e.target.value)}
+              placeholder="e.g. 6"
+            />
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Override vendor count math for produce and items where the vendor doesn't report case breakdown
         </p>
       </div>
 
