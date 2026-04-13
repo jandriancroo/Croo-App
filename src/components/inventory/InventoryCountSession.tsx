@@ -313,6 +313,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Uses entered_cases/entered_units when available (preserves raw user input)
   // Falls back to decomposing quantity for legacy counts
   const countsInitializedRef = useRef(false);
+  // Track whether counts have been fully initialized from DB — used to guard autosave
+  const countsReadyRef = useRef(false);
   useEffect(() => {
     if (!items || countsInitializedRef.current) return;
     countsInitializedRef.current = true;
@@ -352,6 +354,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     });
     
     setCounts(initialCounts);
+    // Mark counts as ready AFTER state is set (next tick)
+    setTimeout(() => { countsReadyRef.current = true; }, 0);
     if (isEditing) {
       originalCounts.current = originals;
     }
@@ -625,8 +629,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         
         if (existing) {
           // CRITICAL GUARD: Never overwrite a non-zero DB value with zero
-          // This prevents race conditions from blanking counted data
-          if (ic.quantity === 0 && existing.quantity > 0) {
+          // ONLY during the brief window before counts are initialized from DB
+          // Once countsReady=true, the user has control and zero is intentional
+          if (ic.quantity === 0 && existing.quantity > 0 && !countsReadyRef.current) {
             console.warn(`[Inventory] BLOCKED zero-overwrite for item ${ic.item_id} (DB has ${existing.quantity})`);
             continue;
           }
