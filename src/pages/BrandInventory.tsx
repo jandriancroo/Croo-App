@@ -819,6 +819,9 @@ function EditTemplateForm({
       updates.pack_override_inner_type = null;
       updates.pack_override_inner_qty = null;
     }
+    // Count unit configuration
+    updates.count_unit = countUnit.trim() || null;
+    updates.count_units_per_case = countUnitsPerCase ? parseFloat(countUnitsPerCase) : null;
     onSave(updates);
   };
 
