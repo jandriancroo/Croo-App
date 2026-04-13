@@ -1067,6 +1067,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                           setMenuOpen(false);
                         }}
                         className="justify-start gap-2 h-9 px-3"
+                        data-tour={item.path === '/users' ? 'nav-users' : item.path === '/my-team' ? 'nav-users' : undefined}
                       >
                         <Icon className="h-4 w-4" />
                         <span className="text-sm">{item.label}</span>
@@ -1155,6 +1156,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         setMenuOpen(false);
                       }}
                       className="justify-start gap-2 h-9"
+                      data-tour="nav-settings"
                     >
                       <Icon className="h-4 w-4" />
                       <span className="text-sm">{item.label}</span>
