@@ -27,15 +27,7 @@ export function useOnboardingTour() {
     staleTime: Infinity,
   });
 
-  // Auto-start tour for shift_manager+ who haven't completed it
-  useEffect(() => {
-    if (roleLoading || isLoading) return;
-    if (!isShiftManager) return; // team members don't see the tour
-    if (hasCompleted) return;
-    // Small delay so the dashboard renders first
-    const timer = setTimeout(() => setRunTour(true), 1500);
-    return () => clearTimeout(timer);
-  }, [roleLoading, isLoading, isShiftManager, hasCompleted]);
+  // Auto-start disabled — tour is manual-only via Settings > "Tour CrooHQ"
 
   const completeTour = useCallback(async (skipped: boolean) => {
     setRunTour(false);
