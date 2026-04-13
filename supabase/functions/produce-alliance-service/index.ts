@@ -1381,7 +1381,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   // Sync items to inventory — pre-fetch all local items for in-memory matching
   const { data: allLocalItems } = await supabase
     .from('inventory_items')
-    .select('id, pa_item_id, name, user_hidden')
+    .select('id, pa_item_id, name, user_hidden, brand_item_id')
     .eq('location_id', locationId);
 
   const localById = new Map((allLocalItems || []).map(i => [i.id, i]));
