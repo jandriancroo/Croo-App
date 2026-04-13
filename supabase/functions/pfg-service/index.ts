@@ -1391,8 +1391,10 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       }
 
       // Detect if data came from GetDeliveries (TRACS Direct) vs GetSubmittedOrderHeaders
-      const isDeliveriesSource = orderData?._source === 'GetDeliveries';
-      console.log(`[PFG Sync] Data source: ${isDeliveriesSource ? 'GetDeliveries' : 'GetSubmittedOrderHeaders'}`);
+      // When _source is 'merged', each order has its own _orderSource tag
+      const globalSource = orderData?._source;
+      const isGlobalDeliveries = globalSource === 'GetDeliveries';
+      console.log(`[PFG Sync] Data source: ${globalSource || 'GetSubmittedOrderHeaders'}`);
 
       // Filter orders by delivery customer number if configured
       const deliverToFilter = (credentials as any).deliver_to_customer_number;
