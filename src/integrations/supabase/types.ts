@@ -6595,10 +6595,12 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_countable: boolean
           location_id: string | null
           name: string
           produces_item_id: string | null
           r365_name: string | null
+          recipe_type: Database["public"]["Enums"]["recipe_type_enum"] | null
           source: string | null
           updated_at: string
           yield_qty: number | null
@@ -6611,10 +6613,12 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_countable?: boolean
           location_id?: string | null
           name: string
           produces_item_id?: string | null
           r365_name?: string | null
+          recipe_type?: Database["public"]["Enums"]["recipe_type_enum"] | null
           source?: string | null
           updated_at?: string
           yield_qty?: number | null
@@ -6627,10 +6631,12 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_countable?: boolean
           location_id?: string | null
           name?: string
           produces_item_id?: string | null
           r365_name?: string | null
+          recipe_type?: Database["public"]["Enums"]["recipe_type_enum"] | null
           source?: string | null
           updated_at?: string
           yield_qty?: number | null
@@ -8942,6 +8948,7 @@ export type Database = {
         | "work_authorization"
         | "passport"
       i9_request_status: "pending" | "uploaded" | "retrieved" | "expired"
+      recipe_type_enum: "prep" | "sub_recipe" | "menu"
       support_ticket_category:
         | "ui_glitch"
         | "broken_feature"
@@ -9105,6 +9112,7 @@ export const Constants = {
         "passport",
       ],
       i9_request_status: ["pending", "uploaded", "retrieved", "expired"],
+      recipe_type_enum: ["prep", "sub_recipe", "menu"],
       support_ticket_category: [
         "ui_glitch",
         "broken_feature",
