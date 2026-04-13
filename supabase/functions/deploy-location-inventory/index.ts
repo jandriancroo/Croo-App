@@ -231,13 +231,17 @@ Deno.serve(async (req) => {
         const existing = (existingItems || []).find((i: any) => i.brand_item_id === tmpl.id);
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
-          // Re-activate and sync name/category to brand standard
+          // Re-activate and sync name/category/pack to brand standard
+          const reactivatePackOverride = tmpl.pack_override_outer_qty
+            ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
+            : null;
           await supabase
             .from("inventory_items")
             .update({
               is_active: true,
               name: tmpl.product_name,
               category: tmpl.category,
+              ...(reactivatePackOverride != null ? { pack_quantity_override: reactivatePackOverride } : {}),
             })
             .eq("id", existing.id);
         }
