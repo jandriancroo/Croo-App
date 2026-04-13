@@ -1005,46 +1005,47 @@ function parsePricingHtml(html: string): any[] {
 }
 
 // Parse pack size info from item name
-function parsePackFromName(name: string): { packSize: string | null; packQuantity: number | null } {
-  if (!name) return { packSize: null, packQuantity: null };
+function parsePackFromName(name: string): { packSize: string | null; packQuantity: number | null; packUnit: string | null } {
+  if (!name) return { packSize: null, packQuantity: null, packUnit: null };
   const trimmed = name.trim();
 
   // "6/5#" → "6/5 LB" (count/weight# → standard LB format)
   const countSlashWeight = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*#(?!\d)/);
   if (countSlashWeight) {
     const qty = parseInt(countSlashWeight[1]);
-    return { packSize: `${qty}/${countSlashWeight[2]} LB`, packQuantity: qty };
+    return { packSize: `${qty}/${countSlashWeight[2]} LB`, packQuantity: qty, packUnit: 'lb' };
   }
   // "6/#10 CN" → can notation (keep as-is, client handles it)
   const countCan = trimmed.match(/(\d+)\/#(\d+)/);
   if (countCan) {
     const qty = parseInt(countCan[1]);
-    return { packSize: `${qty}/#${countCan[2]} CN`, packQuantity: qty };
+    return { packSize: `${qty}/#${countCan[2]} CN`, packQuantity: qty, packUnit: 'can' };
   }
   // "6/5 LB" → already standard
   const countSlashLb = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*(?:LB|lb)/);
   if (countSlashLb) {
     const qty = parseInt(countSlashLb[1]);
-    return { packSize: `${qty}/${countSlashLb[2]} LB`, packQuantity: qty };
+    return { packSize: `${qty}/${countSlashLb[2]} LB`, packQuantity: qty, packUnit: 'lb' };
   }
   // "2/5 GA" or "1/128 OZ" → standard notation
   const countSlashUnit = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*(GA|OZ|ML|KG|G)\b/i);
   if (countSlashUnit) {
     const qty = parseInt(countSlashUnit[1]);
-    return { packSize: `${qty}/${countSlashUnit[2]} ${countSlashUnit[3].toUpperCase()}`, packQuantity: qty };
+    const unit = countSlashUnit[3].toLowerCase();
+    return { packSize: `${qty}/${countSlashUnit[2]} ${countSlashUnit[3].toUpperCase()}`, packQuantity: qty, packUnit: unit };
   }
   const nCt = trimmed.match(/(\d+)\s*CT\b/i);
   if (nCt) {
     const qty = parseInt(nCt[1]);
-    return { packSize: `${qty} CT`, packQuantity: qty };
+    return { packSize: `${qty} CT`, packQuantity: qty, packUnit: 'each' };
   }
   // "25#" → "1/25 LB" (standalone weight → proper format for recipe costing)
   const standalone = trimmed.match(/\b(\d+(?:\.\d+)?)\s*#(?!\d)/);
-  if (standalone) return { packSize: `1/${standalone[1]} LB`, packQuantity: 1 };
+  if (standalone) return { packSize: `1/${standalone[1]} LB`, packQuantity: 1, packUnit: 'lb' };
   const nLb = trimmed.match(/(\d+(?:\.\d+)?)\s*(?:lb|LB)\b/);
-  if (nLb) return { packSize: `1/${nLb[1]} LB`, packQuantity: 1 };
+  if (nLb) return { packSize: `1/${nLb[1]} LB`, packQuantity: 1, packUnit: 'lb' };
 
-  return { packSize: null, packQuantity: null };
+  return { packSize: null, packQuantity: null, packUnit: null };
 }
 
 // ============================================================================
@@ -1424,7 +1425,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     else if (matchSource === 'fallback_name') syncMatchLog.fallback_name++;
     else syncMatchLog.new_item++;
 
-    const itemData = {
+    const itemData: any = {
       cost_per_unit: item.unit_price,
       pack_size: parsedPack.packSize,
       pack_quantity: parsedPack.packQuantity,
@@ -1432,6 +1433,13 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       vendor_source: 'produce_alliance',
       is_active: true,
     };
+    // Auto-populate count config from parsed pack data
+    if (parsedPack.packUnit) {
+      itemData.count_unit = parsedPack.packUnit;
+    }
+    if (parsedPack.packQuantity) {
+      itemData.count_units_per_case = parsedPack.packQuantity;
+    }
 
     if (existingItem) {
       const updateData: any = { ...itemData, id: existingItem.id };
