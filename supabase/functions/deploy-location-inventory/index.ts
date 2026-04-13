@@ -51,7 +51,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Check existing items at this location to prevent dupes
+    // 1b. Fetch vendor mappings for all templates (authoritative source for vendor IDs)
+    const templateIds = templates.map((t: any) => t.id);
+    const vendorMappingMap = new Map<string, { item_number: string | null; pa_item_id: string | null }>();
+    // Fetch in chunks of 200 to avoid query limits
+    for (let i = 0; i < templateIds.length; i += 200) {
+      const chunk = templateIds.slice(i, i + 200);
+      const { data: mappings } = await supabase
+        .from("brand_vendor_mappings")
+        .select("brand_template_id, vendor, vendor_item_id")
+        .in("brand_template_id", chunk);
+      for (const m of mappings || []) {
+        const existing = vendorMappingMap.get(m.brand_template_id) || { item_number: null, pa_item_id: null };
+        if (m.vendor === "pa") {
+          existing.pa_item_id = m.vendor_item_id;
+        } else {
+          // PFG or other vendors → use as item_number
+          existing.item_number = m.vendor_item_id;
+        }
+        vendorMappingMap.set(m.brand_template_id, existing);
+      }
+    }
     const { data: existingItems } = await supabase
       .from("inventory_items")
       .select("id, name, item_number, pa_item_id, brand_item_id, is_active")
