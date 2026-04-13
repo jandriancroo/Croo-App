@@ -286,10 +286,21 @@ Deno.serve(async (req) => {
       }
 
       if (existingItemId) {
-        // Re-point existing item to brand template
+        // Re-point existing item to brand template — sync all brand-owned fields
+        const rePointPackOverride = tmpl.pack_override_outer_qty
+          ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
+          : null;
         await supabase
           .from("inventory_items")
-          .update({ brand_item_id: tmpl.id })
+          .update({
+            brand_item_id: tmpl.id,
+            is_active: true,
+            name: tmpl.product_name,
+            category: tmpl.category,
+            ...(rePointPackOverride != null ? { pack_quantity_override: rePointPackOverride } : {}),
+            ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
+            ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
+          })
           .eq("id", existingItemId);
         templateToItemId.set(tmpl.id, existingItemId);
         skipped++;
