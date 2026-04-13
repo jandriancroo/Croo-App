@@ -1476,6 +1476,32 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
 
   console.log('[PA Sync] Bulk write complete — upserted:', toUpsert.length, 'inserted:', toInsert.length);
 
+  // Propagate count_unit + count_units_per_case to brand templates
+  const brandTemplateUpdates = new Map<string, { count_unit: string; count_units_per_case: number }>();
+  for (const upsertItem of toUpsert) {
+    if (!upsertItem.count_unit || !upsertItem.count_units_per_case) continue;
+    const local = localById.get(upsertItem.id);
+    if (local?.brand_item_id) {
+      brandTemplateUpdates.set(local.brand_item_id, {
+        count_unit: upsertItem.count_unit,
+        count_units_per_case: upsertItem.count_units_per_case,
+      });
+    }
+  }
+  if (brandTemplateUpdates.size > 0) {
+    const templateUpserts = Array.from(brandTemplateUpdates.entries()).map(([id, data]) => ({
+      id,
+      count_unit: data.count_unit,
+      count_units_per_case: data.count_units_per_case,
+    }));
+    for (let i = 0; i < templateUpserts.length; i += 100) {
+      const chunk = templateUpserts.slice(i, i + 100);
+      const { error } = await supabase.from('brand_inventory_templates').upsert(chunk, { onConflict: 'id' });
+      if (error) console.warn('[PA Sync] Brand template count config update error:', error.message);
+    }
+    console.log('[PA Sync] Updated count config on', templateUpserts.length, 'brand templates');
+  }
+
   console.log('[PA Sync] Match-source audit:', JSON.stringify(syncMatchLog));
 
   // Blended price calculation for linked items
