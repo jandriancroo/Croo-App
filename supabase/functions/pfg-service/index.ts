@@ -20,8 +20,8 @@ const PFG_TOKEN_URL = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.
 const PFG_REDIRECT_URI = 'https://www.customerfirstsolutions.com';
 
 const PFG_API_BASES = [
-  'https://www.customerfirstsolutions.com/api/v1',
   'https://apps-zz-cusfst-mw-p-eus01.azurewebsites.net/api',
+  'https://www.customerfirstsolutions.com/api/v1',
 ] as const;
 
 type PfgApiBase = typeof PFG_API_BASES[number];
