@@ -319,6 +319,11 @@ const InventoryCount = () => {
                 <Play className="h-4 w-4 mr-2" />
                 Continue Counting
               </Button>
+              <CountExportDialog
+                countId={countId!}
+                locationId={locationId!}
+                periodLabel={formatPeriodLabel(countData)}
+              />
               <Button 
                 className="flex-1 sm:flex-none"
                 onClick={() => submitCountMutation.mutate()}
