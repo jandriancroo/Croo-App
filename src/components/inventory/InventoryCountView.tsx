@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, Package, History, User, Clock, FileText, ChevronDown, BarChart3 } from "lucide-react";
+import { DollarSign, Package, History, User, Clock, ChevronDown, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import VarianceReport from "./VarianceReport";
 import CountEditHistory from "./CountEditHistory";
@@ -34,15 +33,13 @@ interface CountItem {
   };
 }
 
-interface EditRecord {
+interface AuditEdit {
   id: string;
-  count_item_id: string;
-  previous_quantity: number;
-  new_quantity: number;
-  reason: string | null;
-  edited_at: string;
-  edited_by_profile: { full_name: string } | null;
-  item_name?: string;
+  item_id: string;
+  old_qty: number;
+  new_qty: number;
+  logged_at: string;
+  userName: string;
 }
 
 const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCountViewProps) => {
@@ -117,52 +114,58 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     enabled: !!countItems && countItems.length > 0,
   });
 
-  // Fetch edit history grouped by item
+  // Fetch edit history from audit log, grouped by item_id
   const { data: editHistory } = useQuery({
-    queryKey: ["inventory-count-edits", countId],
-    queryFn: async (): Promise<Map<string, EditRecord[]>> => {
-      // First get the count item IDs for this count
-      const { data: countItemIds, error: itemError } = await supabase
-        .from("inventory_count_items")
-        .select("id, item:inventory_items(name)")
-        .eq("count_id", countId);
-      
-      if (itemError) throw itemError;
-      
-      const ids = countItemIds?.map(ci => ci.id) || [];
-      if (ids.length === 0) return new Map();
-      
+    queryKey: ["inventory-count-audit-edits", countId],
+    queryFn: async (): Promise<Map<string, AuditEdit[]>> => {
       const { data, error } = await supabase
-        .from("inventory_count_edits")
-        .select(`
-          id,
-          count_item_id,
-          previous_quantity,
-          new_quantity,
-          reason,
-          edited_at,
-          edited_by_profile:profiles(full_name)
-        `)
-        .in("count_item_id", ids)
-        .order("edited_at", { ascending: false });
-      
+        .from("inventory_count_audit_log")
+        .select("id, logged_at, user_id, details")
+        .eq("count_id", countId)
+        .eq("table_name", "inventory_count_items")
+        .eq("operation", "UPDATE")
+        .order("logged_at", { ascending: false })
+        .limit(200);
+
       if (error) throw error;
-      
-      // Map item names to edits
-      const itemNameMap = new Map(countItemIds?.map(ci => [ci.id, (ci.item as any)?.name || "Unknown"]) || []);
-      
-      // Group edits by count_item_id for inline display
-      const editsByItem = new Map<string, EditRecord[]>();
-      (data || []).forEach(edit => {
-        const edits = editsByItem.get(edit.count_item_id) || [];
+      if (!data || data.length === 0) return new Map();
+
+      // Filter to only qty changes
+      const qtyChanges = (data as any[]).filter(d => 
+        d.details?.old_qty !== undefined && d.details?.new_qty !== undefined && d.details.old_qty !== d.details.new_qty
+      );
+
+      // Fetch user profiles
+      const userIds = [...new Set(qtyChanges.filter(d => d.user_id).map(d => d.user_id))];
+      let profileMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", userIds);
+        for (const p of profiles || []) {
+          profileMap[p.id] = p.full_name || "Unknown";
+        }
+      }
+
+      // Group by item_id
+      const editsByItemId = new Map<string, AuditEdit[]>();
+      for (const entry of qtyChanges) {
+        const itemId = entry.details?.item_id;
+        if (!itemId) continue;
+        const edits = editsByItemId.get(itemId) || [];
         edits.push({
-          ...edit,
-          item_name: itemNameMap.get(edit.count_item_id) || "Unknown"
-        } as EditRecord);
-        editsByItem.set(edit.count_item_id, edits);
-      });
-      
-      return editsByItem;
+          id: entry.id,
+          item_id: itemId,
+          old_qty: entry.details.old_qty,
+          new_qty: entry.details.new_qty,
+          logged_at: entry.logged_at,
+          userName: entry.user_id ? (profileMap[entry.user_id] || "Unknown") : "System",
+        });
+        editsByItemId.set(itemId, edits);
+      }
+
+      return editsByItemId;
     }
   });
 
@@ -337,7 +340,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                 units = hasPackQty ? Math.round((item.quantity % packQty) * 100) / 100 : item.quantity;
                               }
                               const value = getItemValue(item);
-                              const itemEdits = editHistory?.get(item.id) || [];
+                              const itemEdits = editHistory?.get(item.item_id) || [];
                               const hasEdits = itemEdits.length > 0;
                               
                               const smartParts: string[] = [];
@@ -389,25 +392,21 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                           <TableCell colSpan={5} className="p-0">
                                             <div className="py-2 px-4 space-y-2">
                                               {itemEdits.map((edit) => (
-                                                <div key={edit.id} className="flex items-center justify-between text-sm border-l-2 border-primary/50 pl-3 py-1">
+                                                <div key={edit.id} className="flex items-center justify-between text-sm border-l-2 border-amber-400/60 pl-3 py-1">
                                                   <div className="flex items-center gap-3 text-muted-foreground">
                                                     <span className="flex items-center gap-1">
                                                       <User className="h-3 w-3" />
-                                                      {edit.edited_by_profile?.full_name || "Unknown"}
+                                                      {edit.userName}
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                       <Clock className="h-3 w-3" />
-                                                      {format(new Date(edit.edited_at), "MMM d 'at' h:mm a")}
+                                                      {format(new Date(edit.logged_at), "MMM d 'at' h:mm a")}
                                                     </span>
-                                                    {edit.reason && (
-                                                      <span className="flex items-center gap-1 italic">
-                                                        <FileText className="h-3 w-3" />
-                                                        {edit.reason}
-                                                      </span>
-                                                    )}
                                                   </div>
                                                   <Badge variant="outline" className="font-mono text-xs">
-                                                    {edit.previous_quantity} → {edit.new_quantity}
+                                                    <span className="text-destructive">{edit.old_qty}</span>
+                                                    {" → "}
+                                                    <span className="text-emerald-600">{edit.new_qty}</span>
                                                   </Badge>
                                                 </div>
                                               ))}
