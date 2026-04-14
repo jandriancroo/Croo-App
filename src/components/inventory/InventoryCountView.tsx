@@ -353,7 +353,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                               return (
                                 <Collapsible key={item.id} asChild>
                                   <>
-                                    <TableRow className={hasEdits ? "cursor-pointer hover:bg-muted/50" : ""}>
+                                    <TableRow className={hasEdits ? "cursor-pointer bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/60 dark:hover:bg-amber-950/30 border-l-2 border-l-amber-400" : ""}>
                                       <TableCell className="pl-3">
                                         <div className="flex items-center gap-2">
                                           {hasEdits && (
