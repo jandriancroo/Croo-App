@@ -1463,6 +1463,11 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (existingItem.user_hidden) {
         delete updateData.is_active;
       }
+      // When matched via brand_item_id fallback, stamp pa_item_id on the surviving item
+      // so future syncs find it directly via step 2 (pa_item_id lookup)
+      if (matchSource === 'fallback_brand_item' && item.pa_product_id) {
+        updateData.pa_item_id = item.pa_product_id;
+      }
       toUpsert.push(updateData);
     } else {
       toInsert.push({
