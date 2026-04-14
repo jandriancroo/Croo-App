@@ -14,6 +14,7 @@ import InventoryCountView from "@/components/inventory/InventoryCountView";
 import CountEditHistory from "@/components/inventory/CountEditHistory";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import DeliveryReconciliation from "@/components/inventory/DeliveryReconciliation";
+import CountExportDialog from "@/components/inventory/CountExportDialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
   AlertDialog,
@@ -277,7 +278,12 @@ const InventoryCount = () => {
         {isViewOnly ? (
           <>
             {/* Actions for completed counts */}
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <CountExportDialog
+                countId={countId!}
+                locationId={locationId!}
+                periodLabel={formatPeriodLabel(countData)}
+              />
               {(!isLocked || canEditLocked) ? (
                 <Button 
                   variant="outline" 
@@ -303,8 +309,8 @@ const InventoryCount = () => {
           </>
         ) : isReviewMode ? (
           <>
-            {/* Review mode: Continue and Submit buttons */}
-            <div className="flex gap-2">
+            {/* Review mode: Continue, Export, and Submit buttons */}
+            <div className="flex gap-2 flex-wrap">
               <Button 
                 variant="outline" 
                 className="flex-1 sm:flex-none"
@@ -313,6 +319,11 @@ const InventoryCount = () => {
                 <Play className="h-4 w-4 mr-2" />
                 Continue Counting
               </Button>
+              <CountExportDialog
+                countId={countId!}
+                locationId={locationId!}
+                periodLabel={formatPeriodLabel(countData)}
+              />
               <Button 
                 className="flex-1 sm:flex-none"
                 onClick={() => submitCountMutation.mutate()}
