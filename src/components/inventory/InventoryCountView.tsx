@@ -341,7 +341,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                 units = hasPackQty ? Math.round((item.quantity % packQty) * 100) / 100 : item.quantity;
                               }
                               const value = getItemValue(item);
-                              const itemEdits = editHistory?.get(item.id) || [];
+                              const itemEdits = editHistory?.get(item.item_id) || [];
                               const hasEdits = itemEdits.length > 0;
                               
                               const smartParts: string[] = [];
@@ -393,25 +393,21 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                           <TableCell colSpan={5} className="p-0">
                                             <div className="py-2 px-4 space-y-2">
                                               {itemEdits.map((edit) => (
-                                                <div key={edit.id} className="flex items-center justify-between text-sm border-l-2 border-primary/50 pl-3 py-1">
+                                                <div key={edit.id} className="flex items-center justify-between text-sm border-l-2 border-amber-400/60 pl-3 py-1">
                                                   <div className="flex items-center gap-3 text-muted-foreground">
                                                     <span className="flex items-center gap-1">
                                                       <User className="h-3 w-3" />
-                                                      {edit.edited_by_profile?.full_name || "Unknown"}
+                                                      {edit.userName}
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                       <Clock className="h-3 w-3" />
-                                                      {format(new Date(edit.edited_at), "MMM d 'at' h:mm a")}
+                                                      {format(new Date(edit.logged_at), "MMM d 'at' h:mm a")}
                                                     </span>
-                                                    {edit.reason && (
-                                                      <span className="flex items-center gap-1 italic">
-                                                        <FileText className="h-3 w-3" />
-                                                        {edit.reason}
-                                                      </span>
-                                                    )}
                                                   </div>
                                                   <Badge variant="outline" className="font-mono text-xs">
-                                                    {edit.previous_quantity} → {edit.new_quantity}
+                                                    <span className="text-destructive">{edit.old_qty}</span>
+                                                    {" → "}
+                                                    <span className="text-emerald-600">{edit.new_qty}</span>
                                                   </Badge>
                                                 </div>
                                               ))}
