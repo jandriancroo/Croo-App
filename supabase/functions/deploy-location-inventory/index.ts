@@ -251,10 +251,14 @@ Deno.serve(async (req) => {
         const existing = (existingItems || []).find((i: any) => i.brand_item_id === tmpl.id);
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
-          // Re-activate and sync name/category/pack to brand standard
+          // Re-activate and sync name/category/pack/vendor IDs to brand standard
           const reactivatePackOverride = tmpl.pack_override_outer_qty
             ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
             : null;
+          // Backfill vendor IDs from brand_vendor_mappings if missing locally
+          const reactivateVendorIds = vendorMappingMap.get(tmpl.id);
+          const backfillItemNumber = (!existing.item_number && reactivateVendorIds?.item_number) ? reactivateVendorIds.item_number : undefined;
+          const backfillPaItemId = (!existing.pa_item_id && reactivateVendorIds?.pa_item_id) ? reactivateVendorIds.pa_item_id : undefined;
           await supabase
             .from("inventory_items")
             .update({
@@ -264,6 +268,8 @@ Deno.serve(async (req) => {
               ...(reactivatePackOverride != null ? { pack_quantity_override: reactivatePackOverride } : {}),
               ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
               ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
+              ...(backfillItemNumber ? { item_number: backfillItemNumber } : {}),
+              ...(backfillPaItemId ? { pa_item_id: backfillPaItemId } : {}),
             })
             .eq("id", existing.id);
         }
