@@ -5,6 +5,8 @@ import { Rocket, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 
 interface LocationActivationListProps {
   locations: any[];
@@ -42,6 +44,12 @@ export default function LocationActivationList({
     }
   };
 
+  const formatDeployDate = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    const zoned = toZonedTime(new Date(dateStr), 'America/Los_Angeles');
+    return format(zoned, 'MMM d, yyyy h:mm a');
+  };
+
   return (
     <div className="divide-y divide-border">
       {locations.map((loc: any) => {
@@ -50,6 +58,7 @@ export default function LocationActivationList({
         const pct = liveCount > 0 ? Math.round((active / liveCount) * 100) : 0;
         const isDeploying = deployingLocId === loc.id;
         const needsDeploy = liveCount > 0;
+        const lastDeployed = formatDeployDate(loc.last_deployed_at);
 
         return (
           <div key={loc.id} className="flex items-center justify-between py-3">
@@ -71,6 +80,11 @@ export default function LocationActivationList({
                   {active}/{liveCount} active
                 </span>
               </div>
+              {lastDeployed && (
+                <p className="text-[10px] text-muted-foreground mt-0.5 pl-0.5">
+                  Last deployed {lastDeployed}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               {needsDeploy && (

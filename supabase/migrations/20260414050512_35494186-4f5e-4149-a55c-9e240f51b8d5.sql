@@ -1,0 +1,1 @@
+ALTER TABLE public.locations ADD COLUMN last_deployed_at TIMESTAMPTZ DEFAULT NULL;

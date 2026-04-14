@@ -518,6 +518,12 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Stamp last_deployed_at on the location
+    await supabase
+      .from("locations")
+      .update({ last_deployed_at: new Date().toISOString() })
+      .eq("id", locationId);
+
     return new Response(
       JSON.stringify({
         deployed,
