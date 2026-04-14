@@ -1425,9 +1425,21 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (existingItem) matchSource = 'fallback_name';
     }
 
+    // Step 3.5: brand_item_id match — if this PA item maps to a brand template
+    // that already has a local item at this location, UPDATE that item instead of creating a duplicate.
+    // This prevents duplicates when a product has multiple PA supplier IDs in brand_vendor_mappings.
+    if (!existingItem && item.pa_product_id) {
+      const templateId = paIdToTemplateId.get(item.pa_product_id);
+      if (templateId) {
+        existingItem = localByBrandItemId.get(templateId) || null;
+        if (existingItem) matchSource = 'fallback_brand_item';
+      }
+    }
+
     if (matchSource === 'mapping') syncMatchLog.mapping++;
     else if (matchSource === 'fallback_pa_id') syncMatchLog.fallback_pa_id++;
     else if (matchSource === 'fallback_name') syncMatchLog.fallback_name++;
+    else if (matchSource === 'fallback_brand_item') syncMatchLog.fallback_brand_item++;
     else syncMatchLog.new_item++;
 
     const itemData: any = {
