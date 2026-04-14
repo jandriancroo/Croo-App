@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DollarSign, Package, History, User, Clock, ChevronDown, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import VarianceReport from "./VarianceReport";
-import CountEditHistory from "./CountEditHistory";
+
 
 
 interface InventoryCountViewProps {
