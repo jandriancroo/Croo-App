@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DollarSign, Package, History, User, Clock, FileText, ChevronDown, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import VarianceReport from "./VarianceReport";
+import CountEditHistory from "./CountEditHistory";
 
 
 interface InventoryCountViewProps {
@@ -256,6 +257,8 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
       </TabsList>
 
       <TabsContent value="items" className="space-y-4">
+        {/* Post-submission edit history */}
+        <CountEditHistory countId={countId} />
         {/* Summary Card */}
         <Card>
           <CardContent className="p-4">
