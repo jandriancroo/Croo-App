@@ -299,8 +299,6 @@ const InventoryCount = () => {
                 </div>
               )}
             </div>
-            {/* Post-submission edit history */}
-            <CountEditHistory countId={countId!} />
             <InventoryCountView 
               countId={countId!} 
               locationId={locationId!}
