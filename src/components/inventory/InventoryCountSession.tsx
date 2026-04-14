@@ -152,31 +152,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       
       if (itemsError) throw itemsError;
 
-      // For edit/continue mode: also fetch items in the count record that may now be inactive/hidden
-      // This prevents data loss when re-opening a completed count
+      // Also fetch items already present in this count even if they are now inactive/hidden.
+      // This keeps continue-counting, review totals, and historical counts in sync.
       let itemsData = activeItems || [];
-      if (isEditing) {
-        const { data: countItemIds } = await supabase
-          .from("inventory_count_items")
-          .select("item_id")
-          .eq("count_id", countId);
+      const { data: countItemIds } = await supabase
+        .from("inventory_count_items")
+        .select("item_id")
+        .eq("count_id", countId);
+      
+      const activeIdSet = new Set((activeItems || []).map(i => i.id));
+      const missingIds = (countItemIds || [])
+        .map(ci => ci.item_id)
+        .filter(id => !activeIdSet.has(id));
+      
+      if (missingIds.length > 0) {
+        const uniqueMissingIds = [...new Set(missingIds)];
+        const { data: inactiveItems } = await supabase
+          .from("inventory_items")
+          .select(itemColumns)
+          .in("id", uniqueMissingIds);
         
-        const activeIdSet = new Set((activeItems || []).map(i => i.id));
-        const missingIds = (countItemIds || [])
-          .map(ci => ci.item_id)
-          .filter(id => !activeIdSet.has(id));
-        
-        if (missingIds.length > 0) {
-          // Deduplicate missing IDs
-          const uniqueMissingIds = [...new Set(missingIds)];
-          const { data: inactiveItems } = await supabase
-            .from("inventory_items")
-            .select(itemColumns)
-            .in("id", uniqueMissingIds);
-          
-          if (inactiveItems && inactiveItems.length > 0) {
-            itemsData = [...itemsData, ...inactiveItems];
-          }
+        if (inactiveItems && inactiveItems.length > 0) {
+          itemsData = [...itemsData, ...inactiveItems];
         }
       }
 
