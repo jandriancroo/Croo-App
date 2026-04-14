@@ -1371,7 +1371,10 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   }
   // pa vendor_item_id → local inventory_item_id (via template)
   const paIdToLocalItem = new Map<string, string>();
+  // pa vendor_item_id → brand_template_id (for step 3.5 brand_item_id fallback)
+  const paIdToTemplateId = new Map<string, string>();
   for (const vm of (vmRows || [])) {
+    paIdToTemplateId.set(vm.vendor_item_id, vm.brand_template_id);
     const localId = deployByTemplate.get(vm.brand_template_id);
     if (localId) paIdToLocalItem.set(vm.vendor_item_id, localId);
   }
@@ -1381,12 +1384,14 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   // Sync items to inventory — pre-fetch all local items for in-memory matching
   const { data: allLocalItems } = await supabase
     .from('inventory_items')
-    .select('id, pa_item_id, name, user_hidden, brand_item_id')
+    .select('id, pa_item_id, name, user_hidden, brand_item_id, cost_per_unit')
     .eq('location_id', locationId);
 
   const localById = new Map((allLocalItems || []).map(i => [i.id, i]));
   const localByPaId = new Map((allLocalItems || []).filter(i => i.pa_item_id).map(i => [i.pa_item_id!, i]));
   const localByName = new Map((allLocalItems || []).map(i => [i.name.toLowerCase(), i]));
+  // brand_item_id → local item (for step 3.5: prevent duplicates when brand template already has a local item)
+  const localByBrandItemId = new Map((allLocalItems || []).filter(i => i.brand_item_id).map(i => [i.brand_item_id!, i]));
 
   console.log('[PA Sync] Pre-fetched', allLocalItems?.length ?? 0, 'local items for in-memory matching');
 
