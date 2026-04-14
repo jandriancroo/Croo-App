@@ -332,11 +332,17 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", count.id),
       ]);
 
+      // Collect all item_ids referenced in both counts to include inactive items
+      const referencedIds = new Set<string>();
+      for (const ci of (beginItems.data as any[]) || []) referencedIds.add(ci.item_id);
+      for (const ci of (endItems.data as any[]) || []) referencedIds.add(ci.item_id);
+
+      // Fetch costs for ALL referenced items (active + inactive) so deactivating
+      // an item after counting doesn't silently drop its value from COGS
       const { data: items } = await supabase
         .from("inventory_items")
         .select("id, cost_per_unit, pack_quantity, pack_quantity_override, is_recipe")
-        .eq("location_id", locationId)
-        .eq("is_active", true);
+        .in("id", Array.from(referencedIds));
 
       const costMap = new Map<string, number>();
       for (const i of items || []) {
