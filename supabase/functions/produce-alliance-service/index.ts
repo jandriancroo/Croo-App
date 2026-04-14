@@ -1371,7 +1371,10 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   }
   // pa vendor_item_id → local inventory_item_id (via template)
   const paIdToLocalItem = new Map<string, string>();
+  // pa vendor_item_id → brand_template_id (for step 3.5 brand_item_id fallback)
+  const paIdToTemplateId = new Map<string, string>();
   for (const vm of (vmRows || [])) {
+    paIdToTemplateId.set(vm.vendor_item_id, vm.brand_template_id);
     const localId = deployByTemplate.get(vm.brand_template_id);
     if (localId) paIdToLocalItem.set(vm.vendor_item_id, localId);
   }
@@ -1381,17 +1384,19 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   // Sync items to inventory — pre-fetch all local items for in-memory matching
   const { data: allLocalItems } = await supabase
     .from('inventory_items')
-    .select('id, pa_item_id, name, user_hidden, brand_item_id')
+    .select('id, pa_item_id, name, user_hidden, brand_item_id, cost_per_unit')
     .eq('location_id', locationId);
 
   const localById = new Map((allLocalItems || []).map(i => [i.id, i]));
   const localByPaId = new Map((allLocalItems || []).filter(i => i.pa_item_id).map(i => [i.pa_item_id!, i]));
   const localByName = new Map((allLocalItems || []).map(i => [i.name.toLowerCase(), i]));
+  // brand_item_id → local item (for step 3.5: prevent duplicates when brand template already has a local item)
+  const localByBrandItemId = new Map((allLocalItems || []).filter(i => i.brand_item_id).map(i => [i.brand_item_id!, i]));
 
   console.log('[PA Sync] Pre-fetched', allLocalItems?.length ?? 0, 'local items for in-memory matching');
 
   let synced = 0;
-  const syncMatchLog = { mapping: 0, fallback_pa_id: 0, fallback_name: 0, new_item: 0 };
+  const syncMatchLog = { mapping: 0, fallback_pa_id: 0, fallback_name: 0, fallback_brand_item: 0, new_item: 0 };
   const toUpsert: any[] = [];
   const toInsert: any[] = [];
 
@@ -1420,9 +1425,21 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (existingItem) matchSource = 'fallback_name';
     }
 
+    // Step 3.5: brand_item_id match — if this PA item maps to a brand template
+    // that already has a local item at this location, UPDATE that item instead of creating a duplicate.
+    // This prevents duplicates when a product has multiple PA supplier IDs in brand_vendor_mappings.
+    if (!existingItem && item.pa_product_id) {
+      const templateId = paIdToTemplateId.get(item.pa_product_id);
+      if (templateId) {
+        existingItem = localByBrandItemId.get(templateId) || null;
+        if (existingItem) matchSource = 'fallback_brand_item';
+      }
+    }
+
     if (matchSource === 'mapping') syncMatchLog.mapping++;
     else if (matchSource === 'fallback_pa_id') syncMatchLog.fallback_pa_id++;
     else if (matchSource === 'fallback_name') syncMatchLog.fallback_name++;
+    else if (matchSource === 'fallback_brand_item') syncMatchLog.fallback_brand_item++;
     else syncMatchLog.new_item++;
 
     const itemData: any = {
@@ -1445,6 +1462,11 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       const updateData: any = { ...itemData, id: existingItem.id };
       if (existingItem.user_hidden) {
         delete updateData.is_active;
+      }
+      // When matched via brand_item_id fallback, stamp pa_item_id on the surviving item
+      // so future syncs find it directly via step 2 (pa_item_id lookup)
+      if (matchSource === 'fallback_brand_item' && item.pa_product_id) {
+        updateData.pa_item_id = item.pa_product_id;
       }
       toUpsert.push(updateData);
     } else {
