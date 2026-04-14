@@ -115,52 +115,58 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     enabled: !!countItems && countItems.length > 0,
   });
 
-  // Fetch edit history grouped by item
+  // Fetch edit history from audit log, grouped by item_id
   const { data: editHistory } = useQuery({
-    queryKey: ["inventory-count-edits", countId],
-    queryFn: async (): Promise<Map<string, EditRecord[]>> => {
-      // First get the count item IDs for this count
-      const { data: countItemIds, error: itemError } = await supabase
-        .from("inventory_count_items")
-        .select("id, item:inventory_items(name)")
-        .eq("count_id", countId);
-      
-      if (itemError) throw itemError;
-      
-      const ids = countItemIds?.map(ci => ci.id) || [];
-      if (ids.length === 0) return new Map();
-      
+    queryKey: ["inventory-count-audit-edits", countId],
+    queryFn: async (): Promise<Map<string, AuditEdit[]>> => {
       const { data, error } = await supabase
-        .from("inventory_count_edits")
-        .select(`
-          id,
-          count_item_id,
-          previous_quantity,
-          new_quantity,
-          reason,
-          edited_at,
-          edited_by_profile:profiles(full_name)
-        `)
-        .in("count_item_id", ids)
-        .order("edited_at", { ascending: false });
-      
+        .from("inventory_count_audit_log")
+        .select("id, logged_at, user_id, details")
+        .eq("count_id", countId)
+        .eq("table_name", "inventory_count_items")
+        .eq("operation", "UPDATE")
+        .order("logged_at", { ascending: false })
+        .limit(200);
+
       if (error) throw error;
-      
-      // Map item names to edits
-      const itemNameMap = new Map(countItemIds?.map(ci => [ci.id, (ci.item as any)?.name || "Unknown"]) || []);
-      
-      // Group edits by count_item_id for inline display
-      const editsByItem = new Map<string, EditRecord[]>();
-      (data || []).forEach(edit => {
-        const edits = editsByItem.get(edit.count_item_id) || [];
+      if (!data || data.length === 0) return new Map();
+
+      // Filter to only qty changes
+      const qtyChanges = (data as any[]).filter(d => 
+        d.details?.old_qty !== undefined && d.details?.new_qty !== undefined && d.details.old_qty !== d.details.new_qty
+      );
+
+      // Fetch user profiles
+      const userIds = [...new Set(qtyChanges.filter(d => d.user_id).map(d => d.user_id))];
+      let profileMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", userIds);
+        for (const p of profiles || []) {
+          profileMap[p.id] = p.full_name || "Unknown";
+        }
+      }
+
+      // Group by item_id
+      const editsByItemId = new Map<string, AuditEdit[]>();
+      for (const entry of qtyChanges) {
+        const itemId = entry.details?.item_id;
+        if (!itemId) continue;
+        const edits = editsByItemId.get(itemId) || [];
         edits.push({
-          ...edit,
-          item_name: itemNameMap.get(edit.count_item_id) || "Unknown"
-        } as EditRecord);
-        editsByItem.set(edit.count_item_id, edits);
-      });
-      
-      return editsByItem;
+          id: entry.id,
+          item_id: itemId,
+          old_qty: entry.details.old_qty,
+          new_qty: entry.details.new_qty,
+          logged_at: entry.logged_at,
+          userName: entry.user_id ? (profileMap[entry.user_id] || "Unknown") : "System",
+        });
+        editsByItemId.set(itemId, edits);
+      }
+
+      return editsByItemId;
     }
   });
 
