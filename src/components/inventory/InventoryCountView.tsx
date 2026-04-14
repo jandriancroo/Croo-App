@@ -34,15 +34,13 @@ interface CountItem {
   };
 }
 
-interface EditRecord {
+interface AuditEdit {
   id: string;
-  count_item_id: string;
-  previous_quantity: number;
-  new_quantity: number;
-  reason: string | null;
-  edited_at: string;
-  edited_by_profile: { full_name: string } | null;
-  item_name?: string;
+  item_id: string;
+  old_qty: number;
+  new_qty: number;
+  logged_at: string;
+  userName: string;
 }
 
 const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCountViewProps) => {
