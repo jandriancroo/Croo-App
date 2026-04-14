@@ -260,8 +260,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
       </TabsList>
 
       <TabsContent value="items" className="space-y-4">
-        {/* Post-submission edit history */}
-        <CountEditHistory countId={countId} />
+        {/* Edit history now shown inline on highlighted item rows */}
         {/* Summary Card */}
         <Card>
           <CardContent className="p-4">
