@@ -683,12 +683,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             });
           }
           
-          // Matching chain: qubeyond_item_id → item_number → brand_vendor_mappings
-          let existing = product.id ? (localByQubeyondId.get(product.id) || null) : null;
-          
-          if (!existing && product.itemNumber) {
-            existing = localByItemNumber.get(product.itemNumber) || null;
-          }
+          // Matching chain: item_number → brand_vendor_mappings (qubeyond_item_id is for depletion only)
+          let existing = product.itemNumber ? (localByItemNumber.get(product.itemNumber) || null) : null;
 
           // brand_vendor_mappings fallback
           if (!existing && product.itemNumber) {

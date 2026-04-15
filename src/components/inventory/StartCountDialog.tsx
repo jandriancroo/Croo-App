@@ -517,12 +517,8 @@ const StartCountDialog = ({
             });
           }
           
-          // Matching chain: qubeyond_item_id → item_number → brand_vendor_mappings → brand_item_id
-          let existing = product.id ? localByQubeyondId.get(product.id) : null;
-          
-          if (!existing && product.itemNumber) {
-            existing = localByItemNumber.get(product.itemNumber) || null;
-          }
+          // Matching chain: item_number → brand_vendor_mappings (qubeyond_item_id is for depletion only)
+          let existing = product.itemNumber ? (localByItemNumber.get(product.itemNumber) || null) : null;
 
           // brand_vendor_mappings fallback
           if (!existing && product.itemNumber) {
