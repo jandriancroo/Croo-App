@@ -29,7 +29,7 @@ import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
 
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 
-import BrandItemActivation from "@/components/inventory/BrandItemActivation";
+
 
 const Inventory = () => {
   const { locationId } = useParams();
@@ -371,9 +371,6 @@ const Inventory = () => {
 
 
           <TabsContent value="items" className="mt-4 space-y-4">
-            {brandInfo && (
-              <BrandItemActivation locationId={locationId!} brandId={brandInfo} />
-            )}
             <InventoryItemsManager locationId={locationId!} mode="items" />
           </TabsContent>
 
