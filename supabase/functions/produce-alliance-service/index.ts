@@ -1398,6 +1398,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   let synced = 0;
   const syncMatchLog = { mapping: 0, fallback_pa_id: 0, fallback_name: 0, fallback_brand_item: 0, new_item: 0 };
   const toUpsert: any[] = [];
+  const gapAlerts: any[] = [];
+  const toUpsert: any[] = [];
   const toInsert: any[] = [];
 
   for (const [, item] of allItems) {
