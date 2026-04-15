@@ -1477,14 +1477,22 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       }
       toUpsert.push(updateData);
     } else {
-      toInsert.push({
-        location_id: locationId,
-        name: item.description.trim(),
-        unit: 'case',
-        pa_item_id: item.pa_product_id || null,
-        storage_location_id: null,
-        ...itemData,
-      });
+      // VENDOR GATE: Do NOT create new inventory_items.
+      // Route unmatched PA items to vendor_gap_alerts for brand-level resolution.
+      if (brandId) {
+        gapAlerts.push({
+          brand_id: brandId,
+          vendor_source: 'produce_alliance',
+          item_number: item.pa_product_id || item.item_code || `pa-unknown-${synced}`,
+          vendor_name: item.description.trim(),
+          vendor_description: item.description.trim(),
+          pack_size: parsedPack.packSize || null,
+          category_name: null,
+          status: 'new',
+        });
+      }
+      syncMatchLog.new_item++;
+      console.log(`[PA Sync] Unmatched item → gap alert: "${item.description}" (PA ID: ${item.pa_product_id})`);
     }
     synced++;
   }
@@ -1496,14 +1504,18 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     if (error) console.warn('[PA Sync] Bulk upsert error:', error.message);
   }
 
-  // Bulk insert new items (chunks of 100)
-  for (let i = 0; i < toInsert.length; i += 100) {
-    const chunk = toInsert.slice(i, i + 100);
-    const { error } = await supabase.from('inventory_items').insert(chunk);
-    if (error) console.warn('[PA Sync] Bulk insert error:', error.message);
+  // Write gap alerts for unmatched items (instead of creating orphan inventory_items)
+  if (gapAlerts.length > 0) {
+    for (let i = 0; i < gapAlerts.length; i += 50) {
+      const chunk = gapAlerts.slice(i, i + 50);
+      const { error } = await supabase.from('vendor_gap_alerts')
+        .upsert(chunk, { onConflict: 'brand_id,vendor_source,item_number', ignoreDuplicates: true });
+      if (error) console.warn('[PA Sync] Gap alert write error:', error.message);
+    }
+    console.log(`[PA Sync] Routed ${gapAlerts.length} unmatched items to vendor_gap_alerts`);
   }
 
-  console.log('[PA Sync] Bulk write complete — upserted:', toUpsert.length, 'inserted:', toInsert.length);
+  console.log('[PA Sync] Bulk write complete — upserted:', toUpsert.length, 'gap alerts:', gapAlerts.length);
 
   // Propagate count_unit + count_units_per_case to brand templates
   const brandTemplateUpdates = new Map<string, { count_unit: string; count_units_per_case: number }>();
