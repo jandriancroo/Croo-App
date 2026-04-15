@@ -1453,7 +1453,72 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       </Card>
       </>}
 
+      {/* Deactivated Brand Items Section */}
+      {deactivatedBrandItems && deactivatedBrandItems.length > 0 && (
+        <div className="border border-red-200 dark:border-red-900/40 rounded-lg overflow-hidden mt-4">
+          <button
+            className="w-full flex items-center gap-2 px-3 py-2.5 bg-red-50/60 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/30 transition-colors text-left"
+            onClick={() => setDeactivatedCollapsed(!deactivatedCollapsed)}
+          >
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${deactivatedCollapsed ? '-rotate-90' : ''}`} />
+            <PowerOff className="h-3.5 w-3.5 text-red-500" />
+            <span className="text-sm font-medium flex-1">Deactivated Brand Items</span>
+            <Badge variant="outline" className="text-xs border-red-200 dark:border-red-800 text-red-600 dark:text-red-400">
+              {deactivatedBrandItems.length}
+            </Badge>
+          </button>
+          {!deactivatedCollapsed && (
+            <div className="grid gap-0.5 p-1">
+              {deactivatedBrandItems.map((item: any) => {
+                const isSelected = selectedItemIds.has(item.id);
+                const isSelectingDeactivated = selectionContext === 'deactivated';
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-red-50/60 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 ${
+                      isSelected ? 'ring-2 ring-primary/50' : ''
+                    }`}
+                    onClick={() => {
+                      if (isSelectingDeactivated) {
+                        const next = new Set(selectedItemIds);
+                        if (isSelected) next.delete(item.id); else next.add(item.id);
+                        setSelectedItemIds(next);
+                        if (next.size === 0) setSelectionContext(null);
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (selectionContext === 'active') {
+                        setActiveSelectGroup(null);
+                      }
+                      setSelectedItemIds(new Set([item.id]));
+                      setSelectionContext('deactivated');
+                    }}
+                  >
+                    {isSelectingDeactivated && (
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                        isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+                      }`}>
+                        {isSelected && <CheckSquare className="h-3 w-3 text-primary-foreground" />}
+                      </div>
+                    )}
+                    <Package className="h-3.5 w-3.5 text-red-400 flex-shrink-0" />
+                    <span className="flex-1 truncate text-muted-foreground">{item.name}</span>
+                    {item.category && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                        {item.category}
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
+
 
       {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
