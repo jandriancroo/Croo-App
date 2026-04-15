@@ -252,12 +252,7 @@ serve(async (req) => {
       // PHASE 2: Duplicate Cleanup
       // Find (location_id, brand_item_id) groups with multiple active rows
       // ========================================
-      const { data: dupes } = await admin.rpc("get_duplicate_brand_items_at_location", {
-        p_location_id: locationId,
-      }).catch(() => ({ data: null }));
-
-      // If the RPC doesn't exist yet, do it via raw query approach
-      // We'll use a different strategy: fetch all active items grouped by brand_item_id
+      // Fetch all active branded items at this location to find duplicates
       const { data: allActive } = await admin
         .from("inventory_items")
         .select("id, brand_item_id, storage_location_id, last_synced_at, created_at")
