@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered, Trash2, CheckSquare, Search } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered, Trash2, CheckSquare, Search, Power, PowerOff } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -128,6 +128,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [isPurging, setIsPurging] = useState(false);
   const [reorderModeGroup, setReorderModeGroup] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectionContext, setSelectionContext] = useState<'active' | 'deactivated' | null>(null);
+  const [deactivatedCollapsed, setDeactivatedCollapsed] = useState(true);
 
   // Optimistic reorder state: maps storageLocId -> ordered item id list
   const [optimisticOrder, setOptimisticOrder] = useState<Record<string, string[]>>({});
