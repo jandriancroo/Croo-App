@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     }
     const { data: existingItems } = await supabase
       .from("inventory_items")
-      .select("id, name, item_number, pa_item_id, brand_item_id, is_active")
+      .select("id, name, item_number, pa_item_id, brand_item_id, is_active, storage_location_id")
       .eq("location_id", locationId);
 
     const existingByBrandItemId = new Set(
