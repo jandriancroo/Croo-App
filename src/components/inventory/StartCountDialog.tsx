@@ -478,7 +478,28 @@ const StartCountDialog = ({
 
       setSyncProgress({ phase: "Updating items & prices...", current: 35, total: 100, detail: `0 / ${totalProducts}` });
 
+      // Pre-fetch brand_vendor_mappings for PFG to enable mapping-based matching
+      const { data: pfgMappings } = await supabase
+        .from("brand_vendor_mappings")
+        .select("vendor_item_id, brand_template_id")
+        .eq("vendor", "pfg");
+      const pfgSkuToTemplate = new Map<string, string>();
+      for (const m of pfgMappings || []) {
+        if (m.vendor_item_id) pfgSkuToTemplate.set(m.vendor_item_id, m.brand_template_id);
+      }
+
+      // Pre-fetch all local items for in-memory matching
+      const { data: allLocalItems } = await supabase
+        .from("inventory_items")
+        .select("id, item_number, qubeyond_item_id, brand_item_id, image_url, storage_location_id")
+        .eq("location_id", locationId)
+        .eq("is_active", true);
+      const localByQubeyondId = new Map((allLocalItems || []).filter(i => i.qubeyond_item_id).map(i => [i.qubeyond_item_id!, i]));
+      const localByItemNumber = new Map((allLocalItems || []).filter(i => i.item_number).map(i => [i.item_number!, i]));
+      const localByBrandItemId = new Map((allLocalItems || []).filter(i => i.brand_item_id).map(i => [i.brand_item_id!, i]));
+
       let processedItems = 0;
+      let skippedUnmapped = 0;
       
       for (const cat of categories) {
         const storageLocationId = locationMap.get(cat.name.toLowerCase()) || null;
@@ -496,32 +517,27 @@ const StartCountDialog = ({
             });
           }
           
-          // Primary match: qubeyond_item_id
-          let existing: { id: string; image_url: string | null; storage_location_id: string | null } | null = null;
+          // Matching chain: qubeyond_item_id → item_number → brand_vendor_mappings → brand_item_id
+          let existing = product.id ? localByQubeyondId.get(product.id) : null;
           
-          if (product.id) {
-            const { data } = await supabase
-              .from("inventory_items")
-              .select("id, image_url, storage_location_id")
-              .eq("location_id", locationId)
-              .eq("qubeyond_item_id", product.id)
-              .limit(1)
-              .maybeSingle();
-            existing = data;
-          }
-          
-          // Fallback match: item_number (prevents duplicates when qubeyond_item_id doesn't match)
           if (!existing && product.itemNumber) {
-            const { data } = await supabase
-              .from("inventory_items")
-              .select("id, image_url, storage_location_id")
-              .eq("location_id", locationId)
-              .eq("item_number", product.itemNumber)
-              .limit(1)
-              .maybeSingle();
-            existing = data;
+            existing = localByItemNumber.get(product.itemNumber) || null;
+          }
+
+          // brand_vendor_mappings fallback
+          if (!existing && product.itemNumber) {
+            const templateId = pfgSkuToTemplate.get(product.itemNumber);
+            if (templateId) {
+              existing = localByBrandItemId.get(templateId) || null;
+            }
           }
           
+          if (!existing) {
+            // VENDOR GATE: Do NOT create new inventory_items. Skip unmatched PFG items.
+            skippedUnmapped++;
+            continue;
+          }
+
           const price = product.price ? Number(product.price) : null;
           const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
           let imageUrl = existing?.image_url || product.imageUrl || null;
@@ -540,35 +556,28 @@ const StartCountDialog = ({
             }
           }
           
-          const itemData = {
-            name: product.name,
-            unit: product.unit?.toLowerCase() || "case",
-            storage_location_id: existing?.storage_location_id || storageLocationId,
+          const itemData: Record<string, any> = {
             cost_per_unit: price,
             pack_size: product.packSize || null,
             pack_quantity: packQuantity,
-            brand: product.brand || null,
-            item_number: product.itemNumber || null,
             image_url: imageUrl,
-            is_active: true
+            item_number: product.itemNumber || null,
+            last_synced_at: new Date().toISOString(),
           };
-          
-          if (existing) {
-            await supabase
-              .from("inventory_items")
-              .update(itemData)
-              .eq("id", existing.id);
-          } else {
-            await supabase
-              .from("inventory_items")
-              .insert({
-                location_id: locationId,
-                qubeyond_item_id: product.id,
-                display_order: processedItems,
-                ...itemData
-              });
+          // Preserve existing shelf assignment
+          if (!existing.storage_location_id && storageLocationId) {
+            itemData.storage_location_id = storageLocationId;
           }
+          
+          await supabase
+            .from("inventory_items")
+            .update(itemData)
+            .eq("id", existing.id);
         }
+      }
+
+      if (skippedUnmapped > 0) {
+        console.log(`[PFG Sync] Skipped ${skippedUnmapped} unmapped items (not in brand catalog)`);
       }
 
       // Also sync PFG orders in background
