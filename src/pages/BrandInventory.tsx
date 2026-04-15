@@ -977,7 +977,7 @@ function EditTemplateForm({
         )}
 
         <p className="text-[10px] text-muted-foreground">
-          Override vendor pack size for counting accuracy across all locations
+          For PFG/PA items only — overrides the vendor-reported case structure when it's wrong (e.g. vendor says 1 case but it's actually 2×12pk inside)
         </p>
       </div>
 
@@ -1017,7 +1017,7 @@ function EditTemplateForm({
           </div>
         </div>
         <p className="text-[10px] text-muted-foreground">
-          Override vendor count math for produce and items where the vendor doesn't report case breakdown
+          For non-synced vendors (Heimark, produce, manual items) — set how many individual units are in one case so per-unit cost calculates correctly
         </p>
       </div>
 
