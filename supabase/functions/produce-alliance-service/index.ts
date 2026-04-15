@@ -1489,7 +1489,6 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
           status: 'new',
         });
       }
-      syncMatchLog.new_item++;
       console.log(`[PA Sync] Unmatched item → gap alert: "${item.description}" (PA ID: ${item.pa_product_id})`);
     }
     synced++;
