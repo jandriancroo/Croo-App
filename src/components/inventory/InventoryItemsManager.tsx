@@ -895,7 +895,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       }).catch(console.warn);
       
       const messages = [];
-      if (itemsAdded > 0) messages.push(`${itemsAdded} items`);
+      if (skippedUnmapped > 0) messages.push(`${skippedUnmapped} unmapped (skipped)`);
       if (itemsUpdated > 0) messages.push(`${itemsUpdated} updated`);
       if (flaggedCount > 0) messages.push(`${flaggedCount} flagged for remap`);
       
