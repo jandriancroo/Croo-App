@@ -620,10 +620,30 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
       setProgress({ phase: "Syncing inventory items...", current: 30, total: 100, detail: `0 / ${totalProducts} items` });
 
-      // Step 2: Upsert items with progress
-      let itemsAdded = 0;
+      // Pre-fetch brand_vendor_mappings for PFG
+      const { data: pfgMappings } = await supabase
+        .from("brand_vendor_mappings")
+        .select("vendor_item_id, brand_template_id")
+        .eq("vendor", "pfg");
+      const pfgSkuToTemplate = new Map<string, string>();
+      for (const m of pfgMappings || []) {
+        if (m.vendor_item_id) pfgSkuToTemplate.set(m.vendor_item_id, m.brand_template_id);
+      }
+
+      // Pre-fetch all local items for in-memory matching
+      const { data: allLocalItems } = await supabase
+        .from("inventory_items")
+        .select("id, item_number, qubeyond_item_id, brand_item_id, image_url, storage_location_id, user_hidden")
+        .eq("location_id", locationId)
+        .eq("is_active", true);
+      const localByQubeyondId = new Map((allLocalItems || []).filter(i => i.qubeyond_item_id).map(i => [i.qubeyond_item_id!, i]));
+      const localByItemNumber = new Map((allLocalItems || []).filter(i => i.item_number).map(i => [i.item_number!, i]));
+      const localByBrandItemId = new Map((allLocalItems || []).filter(i => i.brand_item_id).map(i => [i.brand_item_id!, i]));
+
+      // Step 2: Update matched items only
       let itemsUpdated = 0;
       let processedItems = 0;
+      let skippedUnmapped = 0;
       
       // Collect items needing AI images
       const itemsNeedingImages: { itemId: string; productName: string; brand?: string }[] = [];
@@ -645,24 +665,36 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             });
           }
           
-          const { data: existing } = await supabase
-            .from("inventory_items")
-            .select("id, name, unit, storage_location_id, cost_per_unit, image_url, user_hidden")
-            .eq("location_id", locationId)
-            .eq("qubeyond_item_id", product.id)
-            .maybeSingle();
+          // Matching chain: qubeyond_item_id → item_number → brand_vendor_mappings
+          let existing = product.id ? (localByQubeyondId.get(product.id) || null) : null;
+          
+          if (!existing && product.itemNumber) {
+            existing = localByItemNumber.get(product.itemNumber) || null;
+          }
+
+          // brand_vendor_mappings fallback
+          if (!existing && product.itemNumber) {
+            const templateId = pfgSkuToTemplate.get(product.itemNumber);
+            if (templateId) {
+              existing = localByBrandItemId.get(templateId) || null;
+            }
+          }
+          
+          if (!existing) {
+            // VENDOR GATE: Do NOT create new inventory_items.
+            skippedUnmapped++;
+            continue;
+          }
           
           const price = product.price ? Number(product.price) : null;
           const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
           
-          // Use existing image if present, otherwise use PFG image, 
-          // otherwise check cross-location for same item_number, otherwise leave null for AI generation
           const hasExistingImage = existing?.image_url;
           const hasPfgImage = product.imageUrl;
           let imageUrl = hasExistingImage || hasPfgImage || null;
           let needsAiImage = !imageUrl;
           
-          // Check if another location already has an AI-generated image for this item
+          // Check if another location already has an image for this item
           if (needsAiImage && product.itemNumber) {
             const { data: crossLocationItem } = await supabase
               .from("inventory_items")
@@ -679,46 +711,27 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             }
           }
           
-          const itemData = {
-            name: product.name,
-            unit: product.unit?.toLowerCase() || "case",
-            storage_location_id: existing?.storage_location_id || storageLocationId,
+          const itemData: Record<string, any> = {
             cost_per_unit: price,
             pack_size: product.packSize || null,
             pack_quantity: packQuantity,
-            brand: product.brand || null,
             item_number: product.itemNumber || null,
             image_url: imageUrl,
             is_active: (existing as any)?.user_hidden ? false : true,
             last_synced_at: new Date().toISOString()
           };
-          
-          let itemId: string | null = null;
-          
-          if (existing) {
-            await supabase
-              .from("inventory_items")
-              .update(itemData)
-              .eq("id", existing.id);
-            itemsUpdated++;
-            itemId = existing.id;
-          } else {
-            const { data: inserted, error: insertError } = await supabase
-              .from("inventory_items")
-              .insert({
-                location_id: locationId,
-                qubeyond_item_id: product.id,
-                display_order: itemsAdded,
-                ...itemData
-              })
-              .select("id")
-              .single();
-            
-            if (!insertError && inserted) {
-              itemsAdded++;
-              itemId = inserted.id;
-            }
+          // Preserve existing shelf assignment
+          if (!existing.storage_location_id && storageLocationId) {
+            itemData.storage_location_id = storageLocationId;
           }
+          
+          let itemId: string | null = existing.id;
+          
+          await supabase
+            .from("inventory_items")
+            .update(itemData)
+            .eq("id", existing.id);
+          itemsUpdated++;
           
           // Queue for AI image generation only if no existing image AND no PFG image
           if (itemId && needsAiImage) {
@@ -729,6 +742,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             });
           }
         }
+      }
+
+      if (skippedUnmapped > 0) {
+        console.log(`[PFG Sync] Skipped ${skippedUnmapped} unmapped items (not in brand catalog)`);
       }
       
       // Step 3: Generate AI images for items without images (batch of 3 at a time)
@@ -824,7 +841,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         started_at: syncStartedAt,
         completed_at: new Date().toISOString(),
         status: "completed",
-        items_synced: itemsAdded + itemsUpdated,
+        items_synced: itemsUpdated,
         orders_processed: 0,
         triggered_by: (await supabase.auth.getUser()).data.user?.id || null,
       });
@@ -878,7 +895,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       }).catch(console.warn);
       
       const messages = [];
-      if (itemsAdded > 0) messages.push(`${itemsAdded} items`);
+      if (skippedUnmapped > 0) messages.push(`${skippedUnmapped} unmapped (skipped)`);
       if (itemsUpdated > 0) messages.push(`${itemsUpdated} updated`);
       if (flaggedCount > 0) messages.push(`${flaggedCount} flagged for remap`);
       
