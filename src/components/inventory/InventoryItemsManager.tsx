@@ -1346,6 +1346,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   }}
                                   onContextMenu={(e) => {
                                     e.preventDefault();
+                                    if (selectionContext === 'deactivated') setSelectionContext(null);
+                                    setSelectionContext('active');
                                     setActiveSelectGroup(loc.id);
                                     setSelectedItemIds(new Set([item.id]));
                                   }}
@@ -1426,6 +1428,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                 }}
                                 onContextMenu={(e) => {
                                   e.preventDefault();
+                                  if (selectionContext === 'deactivated') setSelectionContext(null);
+                                  setSelectionContext('active');
                                   setActiveSelectGroup("__unassigned__");
                                   setSelectedItemIds(new Set([item.id]));
                                 }}
