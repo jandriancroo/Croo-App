@@ -79,6 +79,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
             cost_per_unit,
             pack_quantity,
             pack_quantity_override,
+            count_units_per_case,
             pack_size,
             item_number,
             display_order,
@@ -174,7 +175,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   const getItemValue = (item: CountItem) => {
     const overrideQty = (item.item as any)?.pack_quantity_override;
     const baseQty = item.item?.pack_quantity || 1;
-    const packQty = overrideQty ?? baseQty;
+    const packQty = overrideQty ?? (item.item as any)?.count_units_per_case ?? baseQty;
     return item.quantity * ((item.item?.cost_per_unit || 0) / Math.max(packQty, 1));
   };
 
