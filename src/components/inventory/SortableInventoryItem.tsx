@@ -145,7 +145,7 @@ export function SortableInventoryItem({
         <span className="text-[10px] sm:text-xs">{item.pack_size || item.unit || "ea"}</span>
         {item.cost_per_unit && !isShortcut && (
           <span className="text-[10px] sm:text-xs text-primary">
-            ${Number(item.cost_per_unit).toFixed(2)}
+            ${(Number(item.cost_per_unit) / Math.max(item.pack_quantity_override ?? item.count_units_per_case ?? item.pack_quantity ?? 1, 1)).toFixed(2)}
           </span>
         )}
       </div>
