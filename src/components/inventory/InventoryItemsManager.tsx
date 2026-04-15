@@ -841,7 +841,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         started_at: syncStartedAt,
         completed_at: new Date().toISOString(),
         status: "completed",
-        items_synced: itemsAdded + itemsUpdated,
+        items_synced: itemsUpdated,
         orders_processed: 0,
         triggered_by: (await supabase.auth.getUser()).data.user?.id || null,
       });
