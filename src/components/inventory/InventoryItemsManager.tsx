@@ -1073,7 +1073,12 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 sm:gap-2 font-semibold text-sm min-w-0">
               <Package className="h-4 w-4 flex-shrink-0" />
-              <span className="whitespace-nowrap">Items ({items?.length || 0})</span>
+              <span className="whitespace-nowrap">Items ({items?.length || 0}{deactivatedBrandItems && deactivatedBrandItems.length > 0 ? `/${(items?.length || 0) + deactivatedBrandItems.length}` : ''})</span>
+              {deactivatedBrandItems && deactivatedBrandItems.length > 0 && (
+                <span className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+                  — {deactivatedBrandItems.length} deactivated
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
                 <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)} className="gap-1">
