@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     }
     const { data: existingItems } = await supabase
       .from("inventory_items")
-      .select("id, name, item_number, pa_item_id, brand_item_id, is_active")
+      .select("id, name, item_number, pa_item_id, brand_item_id, is_active, storage_location_id")
       .eq("location_id", locationId);
 
     const existingByBrandItemId = new Set(
@@ -248,7 +248,9 @@ Deno.serve(async (req) => {
       // Check for existing item linked to this template
       if (existingByBrandItemId.has(tmpl.id)) {
         // Already deployed — find existing item id and re-activate if needed
-        const existing = (existingItems || []).find((i: any) => i.brand_item_id === tmpl.id);
+        // GHOST FILTER: Prefer active items over inactive ghosts
+        const candidates = (existingItems || []).filter((i: any) => i.brand_item_id === tmpl.id);
+        const existing = candidates.find((i: any) => i.is_active) || candidates[0] || null;
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
           // Re-activate and sync name/category/pack/vendor IDs to brand standard
@@ -259,12 +261,19 @@ Deno.serve(async (req) => {
           const reactivateVendorIds = vendorMappingMap.get(tmpl.id);
           const backfillItemNumber = (!existing.item_number && reactivateVendorIds?.item_number) ? reactivateVendorIds.item_number : undefined;
           const backfillPaItemId = (!existing.pa_item_id && reactivateVendorIds?.pa_item_id) ? reactivateVendorIds.pa_item_id : undefined;
+          
+          // SHELF RESTORATION: If item has no shelf, restore from source location
+          const shelfRestore = (!existing.storage_location_id && brandItemToShelf.has(tmpl.id))
+            ? { storage_location_id: brandItemToShelf.get(tmpl.id) }
+            : {};
+
           await supabase
             .from("inventory_items")
             .update({
               is_active: true,
               name: tmpl.product_name,
               category: tmpl.category,
+              ...shelfRestore,
               ...(reactivatePackOverride != null ? { pack_quantity_override: reactivatePackOverride } : {}),
               ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
               ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
