@@ -394,7 +394,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         .eq('location_id', locationId)
         .eq('is_active', false)
         .not('brand_item_id', 'is', null)
-        .eq('brand_inventory_templates.status', 'active')
+        .neq('brand_inventory_templates.status', 'archived')
         .order('name');
       if (error) throw error;
       return data;
