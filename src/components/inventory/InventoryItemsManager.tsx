@@ -129,7 +129,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [reorderModeGroup, setReorderModeGroup] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectionContext, setSelectionContext] = useState<'active' | 'deactivated' | null>(null);
-  const [deactivatedCollapsed, setDeactivatedCollapsed] = useState(true);
+  const [deactivatedCollapsed, setDeactivatedCollapsed] = useState(false);
 
   // Optimistic reorder state: maps storageLocId -> ordered item id list
   const [optimisticOrder, setOptimisticOrder] = useState<Record<string, string[]>>({});
