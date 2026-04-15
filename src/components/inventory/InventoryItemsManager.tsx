@@ -390,10 +390,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inventory_items')
-        .select('id, name, category, brand_item_id, storage_location_id')
+        .select('id, name, category, brand_item_id, storage_location_id, brand_inventory_templates!inner(status)')
         .eq('location_id', locationId)
         .eq('is_active', false)
         .not('brand_item_id', 'is', null)
+        .eq('brand_inventory_templates.status', 'active')
         .order('name');
       if (error) throw error;
       return data;
