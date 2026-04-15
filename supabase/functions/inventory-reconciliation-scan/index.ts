@@ -116,6 +116,16 @@ serve(async (req) => {
           }
         }
 
+        // Load brand templates for name resolution
+        const { data: templates } = await admin
+          .from("brand_inventory_templates")
+          .select("id, product_name")
+          .eq("brand_id", brandId);
+        const templateNameMap = new Map<string, string>();
+        for (const t of templates || []) {
+          templateNameMap.set(t.id, t.product_name);
+        }
+
         // Load all active items at this location for collision detection
         const { data: activeItems } = await admin
           .from("inventory_items")
