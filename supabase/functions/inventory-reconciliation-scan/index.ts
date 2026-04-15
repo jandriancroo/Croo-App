@@ -116,6 +116,16 @@ serve(async (req) => {
           }
         }
 
+        // Load brand templates for name resolution
+        const { data: templates } = await admin
+          .from("brand_inventory_templates")
+          .select("id, product_name")
+          .eq("brand_id", brandId);
+        const templateNameMap = new Map<string, string>();
+        for (const t of templates || []) {
+          templateNameMap.set(t.id, t.product_name);
+        }
+
         // Load all active items at this location for collision detection
         const { data: activeItems } = await admin
           .from("inventory_items")
@@ -149,10 +159,11 @@ serve(async (req) => {
             const existingBrandItemRow = activeBrandItemIds.get(matchedTemplateId);
 
             if (!existingBrandItemRow) {
-              // No collision — auto-upgrade this orphan
+              // No collision — auto-upgrade this orphan with correct brand name
+              const brandName = templateNameMap.get(matchedTemplateId) || orphan.name;
               const { error: upErr } = await admin
                 .from("inventory_items")
-                .update({ brand_item_id: matchedTemplateId })
+                .update({ brand_item_id: matchedTemplateId, name: brandName })
                 .eq("id", orphan.id);
               
               if (upErr) {
@@ -160,7 +171,7 @@ serve(async (req) => {
               } else {
                 report.phase1_orphan_resolution.auto_matched++;
                 activeBrandItemIds.set(matchedTemplateId, orphan.id);
-                console.log(`[Reconciliation] Auto-matched orphan "${orphan.name}" → template ${matchedTemplateId}`);
+                console.log(`[Reconciliation] Auto-matched orphan "${orphan.name}" → "${brandName}" (template ${matchedTemplateId})`);
               }
             } else {
               // COLLISION: brand item already exists at this location
