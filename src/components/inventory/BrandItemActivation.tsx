@@ -112,6 +112,39 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
     return missing;
   };
 
+  // Resolve shelf ID from brand template's storage_location_name
+  const resolveShelfId = async (brandItemId: string): Promise<string | null> => {
+    const { data: tmpl } = await supabase
+      .from('brand_inventory_templates')
+      .select('storage_location_name')
+      .eq('id', brandItemId)
+      .maybeSingle();
+    if (!tmpl?.storage_location_name) return null;
+    const { data: shelf } = await supabase
+      .from('inventory_locations')
+      .select('id')
+      .eq('location_id', locationId)
+      .eq('name', tmpl.storage_location_name)
+      .limit(1)
+      .maybeSingle();
+    return shelf?.id || null;
+  };
+
+  // Resolve vendor IDs from brand_vendor_mappings
+  const resolveVendorIds = async (brandItemId: string): Promise<{ item_number?: string; pa_item_id?: string }> => {
+    const { data: mappings } = await supabase
+      .from('brand_vendor_mappings')
+      .select('vendor, vendor_item_id')
+      .eq('brand_template_id', brandItemId);
+    if (!mappings?.length) return {};
+    const result: { item_number?: string; pa_item_id?: string } = {};
+    for (const m of mappings) {
+      if (m.vendor === 'pfg') result.item_number = m.vendor_item_id;
+      if (m.vendor === 'produce_alliance') result.pa_item_id = m.vendor_item_id;
+    }
+    return result;
+  };
+
   // Core activation function
   const activateSingle = async (brandItemId: string, activate: boolean) => {
     const existingItemId = linkedBrandIds.get(brandItemId);
@@ -139,7 +172,7 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
       // FIRST: check for any existing deactivated item already linked to this brand template
       const { data: deactivatedLinked } = await supabase
         .from('inventory_items')
-        .select('id')
+        .select('id, storage_location_id')
         .eq('location_id', locationId)
         .eq('brand_item_id', brandItemId)
         .eq('is_active', false)
@@ -147,39 +180,54 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
         .maybeSingle();
 
       if (deactivatedLinked) {
-        // Re-activate the existing item instead of creating a new one
+        // Resolve shelf if missing
+        let shelfId = deactivatedLinked.storage_location_id;
+        if (!shelfId) shelfId = await resolveShelfId(brandItemId);
+
         const { error } = await supabase
           .from('inventory_items')
-          .update({ is_active: true, name: brandItem.product_name, category: brandItem.category })
+          .update({
+            is_active: true,
+            name: brandItem.product_name,
+            category: brandItem.category,
+            ...(shelfId ? { storage_location_id: shelfId } : {}),
+          })
           .eq('id', deactivatedLinked.id);
         if (error) throw error;
         return;
       }
 
-      // Fetch pack metadata from an existing deployment (source location's item)
-      let packMeta: { count_unit?: string; count_units_per_case?: number; pack_size?: string; pack_quantity?: number } = {};
-      const { data: existingDeploy } = await supabase
-        .from('brand_inventory_deployments')
-        .select('inventory_item_id')
-        .eq('template_id', brandItemId)
-        .order('deployed_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (existingDeploy?.inventory_item_id) {
-        const { data: sourceItem } = await supabase
-          .from('inventory_items')
-          .select('count_unit, count_units_per_case, pack_size, pack_quantity')
-          .eq('id', existingDeploy.inventory_item_id)
-          .maybeSingle();
-        if (sourceItem) {
-          packMeta = {
-            ...(sourceItem.count_unit ? { count_unit: sourceItem.count_unit } : {}),
-            ...(sourceItem.count_units_per_case ? { count_units_per_case: sourceItem.count_units_per_case } : {}),
-            ...(sourceItem.pack_size ? { pack_size: sourceItem.pack_size } : {}),
-            ...(sourceItem.pack_quantity ? { pack_quantity: sourceItem.pack_quantity } : {}),
-          };
-        }
-      }
+      // Resolve shelf + vendor IDs + pack metadata in parallel
+      const [shelfId, vendorIds, packMeta] = await Promise.all([
+        resolveShelfId(brandItemId),
+        resolveVendorIds(brandItemId),
+        (async () => {
+          let meta: { count_unit?: string; count_units_per_case?: number; pack_size?: string; pack_quantity?: number } = {};
+          const { data: existingDeploy } = await supabase
+            .from('brand_inventory_deployments')
+            .select('inventory_item_id')
+            .eq('template_id', brandItemId)
+            .order('deployed_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (existingDeploy?.inventory_item_id) {
+            const { data: sourceItem } = await supabase
+              .from('inventory_items')
+              .select('count_unit, count_units_per_case, pack_size, pack_quantity')
+              .eq('id', existingDeploy.inventory_item_id)
+              .maybeSingle();
+            if (sourceItem) {
+              meta = {
+                ...(sourceItem.count_unit ? { count_unit: sourceItem.count_unit } : {}),
+                ...(sourceItem.count_units_per_case ? { count_units_per_case: sourceItem.count_units_per_case } : {}),
+                ...(sourceItem.pack_size ? { pack_size: sourceItem.pack_size } : {}),
+                ...(sourceItem.pack_quantity ? { pack_quantity: sourceItem.pack_quantity } : {}),
+              };
+            }
+          }
+          return meta;
+        })(),
+      ]);
 
       // Try to find an existing unlinked local item that matches by name/keywords
       const matchTerms = [
@@ -201,16 +249,20 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
         );
       });
 
+      const commonFields = {
+        brand_item_id: brandItemId,
+        name: brandItem.product_name,
+        category: brandItem.category,
+        is_active: true,
+        ...(shelfId ? { storage_location_id: shelfId } : {}),
+        ...vendorIds,
+        ...packMeta,
+      };
+
       if (matchedLocal) {
         const { error } = await supabase
           .from('inventory_items')
-          .update({
-            brand_item_id: brandItemId,
-            name: brandItem.product_name,
-            category: brandItem.category,
-            is_active: true,
-            ...packMeta,
-          })
+          .update(commonFields)
           .eq('id', matchedLocal.id);
         if (error) throw error;
         toast.info(`Linked existing "${matchedLocal.name}" to brand item`);
@@ -219,12 +271,8 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
           .from('inventory_items')
           .insert({
             location_id: locationId,
-            name: brandItem.product_name,
-            brand_item_id: brandItemId,
-            category: brandItem.category,
-            is_active: true,
             is_recipe: brandItem.is_recipe || false,
-            ...packMeta,
+            ...commonFields,
           });
         if (error) throw error;
       }

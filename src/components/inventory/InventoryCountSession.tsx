@@ -572,6 +572,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
           entered_cases: countState.cases,
           entered_units: countState.units,
+          // Snapshot fields for historical integrity
+          item_name_at_count: item.item_name,
+          cost_at_count: item.cost_per_unit,
+          unit_at_count: item.unit,
         };
       });
       return { itemCounts, snapshot: JSON.stringify(itemCounts) };
@@ -652,6 +656,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             storage_location_id: ic.storage_location_id,
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
+            item_name_at_count: ic.item_name_at_count,
+            cost_at_count: ic.cost_at_count,
+            unit_at_count: ic.unit_at_count,
           });
         }
       }
