@@ -1352,6 +1352,11 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     return jsonResponse({ success: true, message: ordersPersisted > 0 ? `${ordersPersisted} orders saved` : 'No items found', synced: 0, ordersPersisted });
   }
 
+  // Get brand_id for this location (for gap alerts)
+  const { data: locOrg } = await supabase.from('locations').select('organization_id').eq('id', locationId).single();
+  const { data: orgBrand } = await supabase.from('organizations').select('brand_id').eq('id', locOrg?.organization_id).single();
+  const brandId = orgBrand?.brand_id;
+
   // Build brand_vendor_mappings → brand_inventory_deployments lookup for this location
   // Step 4: Smart matching through the mapping table
   const { data: vmRows } = await supabase
