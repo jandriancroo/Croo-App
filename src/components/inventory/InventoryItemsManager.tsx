@@ -384,8 +384,24 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   });
 
 
+  // Fetch deactivated brand items for this location
+  const { data: deactivatedBrandItems } = useQuery({
+    queryKey: ['deactivated-brand-items', locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('*, brand_inventory_templates!inner(product_name, category)')
+        .eq('location_id', locationId)
+        .eq('is_active', false)
+        .not('brand_item_id', 'is', null)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
 
-  // Fetch item-location shortcuts (junction table)
+
   const { data: itemLocationShortcuts } = useQuery({
     queryKey: ["inventory-item-locations", locationId],
     queryFn: async () => {
