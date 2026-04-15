@@ -388,16 +388,29 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const { data: deactivatedBrandItems } = useQuery({
     queryKey: ['deactivated-brand-items', locationId],
     queryFn: async () => {
+      // Step 1: Get all deactivated items with a brand link
       const { data, error } = await supabase
         .from('inventory_items')
-        .select('id, name, category, brand_item_id, storage_location_id, brand_inventory_templates!inner(status)')
+        .select('id, name, category, brand_item_id, storage_location_id')
         .eq('location_id', locationId)
         .eq('is_active', false)
         .not('brand_item_id', 'is', null)
-        .neq('brand_inventory_templates.status', 'archived')
         .order('name');
       if (error) throw error;
-      return data;
+      if (!data || data.length === 0) return [];
+
+      // Step 2: Find which of those brand templates are archived — exclude them
+      const brandItemIds = data.map((d: any) => d.brand_item_id!);
+      const { data: archivedTemplates } = await supabase
+        .from('brand_inventory_templates')
+        .select('id')
+        .in('id', brandItemIds)
+        .eq('status', 'archived');
+
+      const archivedIds = new Set((archivedTemplates || []).map((t: any) => t.id));
+
+      // Step 3: Filter out archived — return everything else
+      return data.filter((item: any) => !archivedIds.has(item.brand_item_id));
     },
     enabled: !!locationId
   });
