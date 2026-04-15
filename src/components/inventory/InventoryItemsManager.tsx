@@ -2111,10 +2111,87 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             </button>
 
             <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+              onClick={async () => {
+                setIsBulkUpdating(true);
+                try {
+                  const ids = Array.from(selectedItemIds);
+                  const { error } = await supabase
+                    .from("inventory_items")
+                    .update({ is_active: false } as any)
+                    .in("id", ids);
+                  if (error) throw error;
+                  toast.success(`Deactivated ${ids.length} items`);
+                  queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                  queryClient.invalidateQueries({ queryKey: ["deactivated-brand-items", locationId] });
+                  setSelectedItemIds(new Set());
+                  setActiveSelectGroup(null);
+                  setSelectionContext(null);
+                } catch {
+                  toast.error("Failed to deactivate items");
+                } finally {
+                  setIsBulkUpdating(false);
+                }
+              }}
+            >
+              <PowerOff className="h-3.5 w-3.5" />
+              Deactivate
+            </button>
+
+            <button
               className="p-1.5 rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors shrink-0"
               onClick={() => {
                 setSelectedItemIds(new Set());
                 setActiveSelectGroup(null);
+                setSelectionContext(null);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Bulk Action Bar — deactivated items */}
+      {selectionContext === 'deactivated' && selectedItemIds.size > 0 && (
+        <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)] animate-in slide-in-from-bottom-4 fade-in">
+          <div className="flex items-center gap-1 rounded-full border border-border bg-primary px-1 py-1 shadow-lg overflow-x-auto">
+            <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-xs font-semibold bg-primary-foreground text-primary shrink-0">
+              {selectedItemIds.size} selected
+            </Badge>
+
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors whitespace-nowrap"
+              onClick={async () => {
+                setIsBulkUpdating(true);
+                try {
+                  const ids = Array.from(selectedItemIds);
+                  const { error } = await supabase
+                    .from("inventory_items")
+                    .update({ is_active: true } as any)
+                    .in("id", ids);
+                  if (error) throw error;
+                  toast.success(`Activated ${ids.length} items`);
+                  queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                  queryClient.invalidateQueries({ queryKey: ["deactivated-brand-items", locationId] });
+                  setSelectedItemIds(new Set());
+                  setSelectionContext(null);
+                } catch {
+                  toast.error("Failed to activate items");
+                } finally {
+                  setIsBulkUpdating(false);
+                }
+              }}
+            >
+              <Power className="h-3.5 w-3.5" />
+              Activate
+            </button>
+
+            <button
+              className="p-1.5 rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors shrink-0"
+              onClick={() => {
+                setSelectedItemIds(new Set());
+                setSelectionContext(null);
               }}
             >
               <X className="h-4 w-4" />
