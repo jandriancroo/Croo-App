@@ -36,18 +36,8 @@ if (isStandaloneMode) {
   document.documentElement.setAttribute('data-standalone', 'true');
 }
 
-// Kiosk PWA guard: if opened as a standalone PWA with a kiosk location saved,
-// force-navigate to kiosk. On subdomain, "/" is already kiosk. On main domain, go to /kiosk.
-if (isStandaloneMode && localStorage.getItem('croohq_kiosk_location')) {
-  if (isKioskSubdomain) {
-    // On subdomain, all routes are kiosk — no redirect needed
-  } else {
-    const path = window.location.pathname;
-    if (!path.startsWith('/kiosk')) {
-      window.location.replace('/kiosk');
-    }
-  }
-}
+// Kiosk PWA guard: on subdomain, all routes are kiosk — no redirect needed.
+// No main-domain /kiosk path anymore.
 
 // Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
 // __APP_VERSION__ is injected at build time in vite.config.ts.
