@@ -1401,7 +1401,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   console.log('[PA Sync] Pre-fetched', allLocalItems?.length ?? 0, 'local items for in-memory matching');
 
   let synced = 0;
-  const syncMatchLog = { mapping: 0, fallback_pa_id: 0, fallback_name: 0, fallback_brand_item: 0, new_item: 0 };
+  const syncMatchLog = { mapping: 0, fallback_brand_item: 0, new_item: 0, gap_alert: 0 };
   const toUpsert: any[] = [];
   const gapAlerts: any[] = [];
 
@@ -1418,17 +1418,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (existingItem) matchSource = 'mapping';
     }
 
-    // Fallback: direct pa_item_id match (in-memory)
-    if (!existingItem && item.pa_product_id) {
-      existingItem = localByPaId.get(item.pa_product_id) || null;
-      if (existingItem) matchSource = 'fallback_pa_id';
-    }
-
-    // Fallback: name match (in-memory, case-insensitive)
-    if (!existingItem) {
-      existingItem = localByName.get(item.description.toLowerCase()) || null;
-      if (existingItem) matchSource = 'fallback_name';
-    }
+    // VENDOR GATE: Tier 2 (fallback_pa_id) and Tier 3 (fallback_name) REMOVED.
+    // Only brand_vendor_mappings (Tier 1) and fallback_brand_item (Tier 3.5) are allowed.
 
     // Step 3.5: brand_item_id match — if this PA item maps to a brand template
     // that already has a local item at this location, UPDATE that item instead of creating a duplicate.
@@ -1442,9 +1433,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     }
 
     if (matchSource === 'mapping') syncMatchLog.mapping++;
-    else if (matchSource === 'fallback_pa_id') syncMatchLog.fallback_pa_id++;
-    else if (matchSource === 'fallback_name') syncMatchLog.fallback_name++;
     else if (matchSource === 'fallback_brand_item') syncMatchLog.fallback_brand_item++;
+    else if (existingItem) syncMatchLog.mapping++; // shouldn't happen but safe
     else syncMatchLog.new_item++;
 
     const itemData: any = {

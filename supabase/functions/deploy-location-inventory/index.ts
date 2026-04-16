@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       .eq("location_id", locationId);
 
     const existingByBrandItemId = new Set(
-      (existingItems || []).filter((i: any) => i.brand_item_id).map((i: any) => i.brand_item_id)
+      (existingItems || []).filter((i: any) => i.brand_item_id && i.is_active).map((i: any) => i.brand_item_id)
     );
     // For SKU matching, prefer active items to avoid re-pointing inactive dupes
     const existingBySku = new Map<string, string>();
@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
         // Already deployed — find existing item id and re-activate if needed
         // GHOST FILTER: Prefer active items over inactive ghosts
         const candidates = (existingItems || []).filter((i: any) => i.brand_item_id === tmpl.id);
-        const existing = candidates.find((i: any) => i.is_active) || candidates[0] || null;
+        const existing = candidates.find((i: any) => i.is_active) || null;
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
           // Re-activate and sync name/category/pack/vendor IDs to brand standard
