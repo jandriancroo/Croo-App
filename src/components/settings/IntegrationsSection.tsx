@@ -761,9 +761,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                             <SelectValue placeholder="Choose a list..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {pfgAvailableGuides.map((guide) => (
+                            {pfgAvailableGuides.filter((g) => g.id).map((guide) => (
                               <SelectItem key={guide.id} value={guide.id} className="text-xs">
-                                {guide.name}
+                                {guide.name}{guide.type ? ` (${guide.type})` : ''}
                               </SelectItem>
                             ))}
                           </SelectContent>
