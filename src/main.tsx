@@ -2,6 +2,27 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+// Kiosk mode: swap PWA manifest so "Add to Home Screen" uses kiosk identity
+if (window.location.pathname.startsWith('/kiosk')) {
+  const mainManifest = document.querySelector('link[rel="manifest"]');
+  if (mainManifest) {
+    mainManifest.setAttribute('href', '/kiosk-manifest.json');
+  } else {
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = '/kiosk-manifest.json';
+    document.head.appendChild(link);
+  }
+  // Also update the apple-mobile-web-app-title for iOS
+  let titleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (!titleMeta) {
+    titleMeta = document.createElement('meta');
+    titleMeta.setAttribute('name', 'apple-mobile-web-app-title');
+    document.head.appendChild(titleMeta);
+  }
+  titleMeta.setAttribute('content', 'Kiosk');
+}
+
 // Initialize theme and text size from localStorage before React renders to prevent flash
 const THEME_MIGRATION: Record<string, string> = { ocean: 'beach', sage: 'beach', lavender: 'default', vibrant: 'default' };
 let savedTheme = localStorage.getItem('app-theme') || 'default';
