@@ -366,7 +366,6 @@ Deno.serve(async (req) => {
           ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
           ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
           ...(sourceOrder != null ? { display_order: sourceOrder } : {}),
-          ...(brandItemToCost.has(tmpl.id) ? { cost_per_unit: brandItemToCost.get(tmpl.id) } : {}),
         })
         .select("id")
         .single();
