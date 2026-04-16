@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
         .in("brand_template_id", chunk);
       for (const m of mappings || []) {
         const existing = vendorMappingMap.get(m.brand_template_id) || { item_number: null, pa_item_id: null };
-        if (m.vendor === "pa") {
+        if (m.vendor === "pa" || m.vendor === "produce_alliance") {
           existing.pa_item_id = m.vendor_item_id;
         } else {
           // PFG or other vendors → use as item_number

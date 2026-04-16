@@ -1362,7 +1362,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   const { data: vmRows } = await supabase
     .from('brand_vendor_mappings')
     .select('brand_template_id, vendor_item_id')
-    .eq('vendor', 'produce_alliance');
+    .in('vendor', ['produce_alliance', 'pa']);
 
   const { data: deployRows } = await supabase
     .from('brand_inventory_deployments')
@@ -2273,7 +2273,7 @@ async function autoSeedPaVendorMappings(supabase: any, items: Array<{ pa_item_id
     const { data: existingMappings } = await supabase
       .from('brand_vendor_mappings')
       .select('brand_template_id, vendor_item_id')
-      .eq('vendor', 'produce_alliance')
+      .in('vendor', ['produce_alliance', 'pa'])
       .in('brand_template_id', templateIds);
 
     const existingSet = new Set(
