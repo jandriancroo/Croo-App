@@ -12,10 +12,14 @@
     <link rel="icon" href="/kiosk-icon.png" type="image/png" />
     <title>CrooHQ Kiosk</title>
   </head>
-  <body>
+  <body style="margin:0;font-family:-apple-system,system-ui,sans-serif;background:#3D2B1F;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;">
+    <div>
+      <p style="font-size:18px;margin:0 0 8px;">Redirecting to Kiosk…</p>
+      <p style="font-size:13px;opacity:0.7;margin:0;">If adding to Home Screen, tap <b>Share → Add to Home Screen</b> now.</p>
+    </div>
     <script>
-      // Redirect to the kiosk route in the main SPA
-      window.location.replace('/kiosk');
+      // Give iOS a moment to parse the manifest before redirecting
+      setTimeout(function() { window.location.replace('/kiosk'); }, 800);
     </script>
   </body>
 </html>
