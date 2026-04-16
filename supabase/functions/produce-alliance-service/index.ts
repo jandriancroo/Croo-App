@@ -1433,9 +1433,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     }
 
     if (matchSource === 'mapping') syncMatchLog.mapping++;
-    else if (matchSource === 'fallback_pa_id') syncMatchLog.fallback_pa_id++;
-    else if (matchSource === 'fallback_name') syncMatchLog.fallback_name++;
     else if (matchSource === 'fallback_brand_item') syncMatchLog.fallback_brand_item++;
+    else if (existingItem) syncMatchLog.mapping++; // shouldn't happen but safe
     else syncMatchLog.new_item++;
 
     const itemData: any = {
