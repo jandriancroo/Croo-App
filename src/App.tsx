@@ -18,6 +18,7 @@ import { AppSplashScreen } from "@/components/AppSplashScreen";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { usePrefetchDashboard } from "@/hooks/usePrefetchDashboard";
 import { PWAInstallTutorial } from "@/components/PWAInstallTutorial";
+import { KioskGuard } from "@/components/KioskGuard";
 
 // Critical routes - loaded eagerly (auth flow)
 import Auth from "./pages/Auth";
@@ -143,23 +144,10 @@ const AppWithSplash = () => {
   );
 };
 
-// Detect kiosk subdomain — separate origin for iOS PWA isolation
-const isKioskSubdomain = window.location.hostname === 'kiosk.croohq.com';
-
 const AppContent = () => {
-  // On kiosk subdomain, render ONLY the kiosk punch clock at every route
-  if (isKioskSubdomain) {
-    return (
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="*" element={<KioskPunchClock />} />
-        </Routes>
-      </Suspense>
-    );
-  }
-
   return (
     <Suspense fallback={<PageLoader />}>
+      <KioskGuard />
       <Routes>
         <Route path="/" element={<Navigate to="/auth" replace />} />
         <Route path="/auth" element={<Auth />} />
@@ -196,7 +184,7 @@ const AppContent = () => {
         <Route path="/availability" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/punch-clock" element={<PunchClock />} />
-        {/* Kiosk is now subdomain-only (kiosk.croohq.com) — no /kiosk route on main domain */}
+        <Route path="/kiosk" element={<KioskPunchClock />} />
         <Route path="/biometric-demo" element={<BiometricDemo />} />
         <Route path="/time-tracking" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
