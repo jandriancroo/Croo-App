@@ -483,7 +483,18 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
 
   // Enter fullscreen on mount, exit on unmount
   useEffect(() => {
+    // Detect if running as an installed PWA (standalone mode).
+    // In standalone mode the app is already fullscreen — calling
+    // requestFullscreen() is redundant AND triggers the browser's
+    // "CrooHQ is in full screen" badge with an X button, which staff
+    // could tap to escape kiosk mode. Skip it entirely for PWAs.
+    const isStandalonePWA =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      // iOS Safari
+      (window.navigator as any).standalone === true;
+
     const enterFullscreen = async () => {
+      if (isStandalonePWA) return;
       try {
         await document.documentElement.requestFullscreen();
       } catch (error) {
