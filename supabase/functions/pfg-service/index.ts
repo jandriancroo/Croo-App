@@ -1577,68 +1577,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         }
       }
 
-      // --- Post-sync: Write PFG prices back to inventory_items ---
-      let pricesUpdated = 0;
-      try {
-        // Get the most recent orders for this location (last 21 days)
-        const { data: recentOrders } = await supabase
-          .from('pfg_orders')
-          .select('items, delivery_date')
-          .eq('location_id', integration.location_id)
-          .not('items', 'is', null)
-          .order('delivery_date', { ascending: false })
-          .limit(20);
-
-        if (recentOrders && recentOrders.length > 0) {
-          // Build a map of itemNumber → latest price (most recent order wins)
-          const priceMap = new Map<string, { price: number; packSize: string | null }>();
-          for (const order of recentOrders) {
-            const items = order.items as any[];
-            if (!Array.isArray(items)) continue;
-            for (const item of items) {
-              const itemNum = String(item.itemNumber || '').trim();
-              if (!itemNum || !item.price || item.price <= 0) continue;
-              // Only set if not already set (most recent order is first)
-              if (!priceMap.has(itemNum)) {
-                priceMap.set(itemNum, { price: item.price, packSize: item.packSize || null });
-              }
-            }
-          }
-
-          if (priceMap.size > 0) {
-            // Fetch inventory items for this location that have item_numbers
-            const { data: invItems } = await supabase
-              .from('inventory_items')
-              .select('id, item_number, cost_per_unit')
-              .eq('location_id', integration.location_id)
-              .eq('is_active', true)
-              .not('item_number', 'is', null);
-
-            for (const inv of invItems || []) {
-              const itemNum = String(inv.item_number || '').trim();
-              const match = priceMap.get(itemNum);
-              if (match) {
-                const currentCost = inv.cost_per_unit != null ? Number(inv.cost_per_unit) : null;
-                // Update if no price exists or price changed
-                if (currentCost == null || Math.abs(currentCost - match.price) > 0.001) {
-                  const updateData: any = { cost_per_unit: match.price };
-                  if (match.packSize) updateData.pack_size = match.packSize;
-                  const { error: upErr } = await supabase
-                    .from('inventory_items')
-                    .update(updateData)
-                    .eq('id', inv.id);
-                  if (!upErr) pricesUpdated++;
-                }
-              }
-            }
-            console.log(`[PFG Sync] Updated ${pricesUpdated} inventory item prices for location ${integration.location_id}`);
-          }
-        }
-      } catch (priceErr) {
-        console.warn(`[PFG Sync] Price writeback error for ${integration.location_id}:`, priceErr);
-      }
-
-      results.push({ locationId: integration.location_id, success: true, ordersImported: importedCount, pricesUpdated });
+      results.push({ locationId: integration.location_id, success: true, ordersImported: importedCount });
 
     } catch (error) {
       console.error(`[PFG Sync] Error for location ${integration.location_id}:`, error);
