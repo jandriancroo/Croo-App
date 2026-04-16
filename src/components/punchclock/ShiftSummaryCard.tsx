@@ -400,8 +400,42 @@ export function ShiftSummaryCard({
           </div>
         </div>
       </div>
-      {/* Right column: spacer to keep the card perfectly centered */}
-      <div />
+      {/* Right column: Exit Kiosk button (admin-only, kiosk mode only) */}
+      <div className="flex justify-start">
+        {onExitKiosk && (
+          <Button
+            variant="ghost"
+            onClick={() => setShowExitConfirm(true)}
+            className={`mt-6 shrink-0 h-12 px-5 text-lg border ${
+              isDayMode
+                ? 'border-border/60 bg-background/80 text-foreground hover:bg-muted'
+                : 'border-white/15 bg-white/10 text-white hover:bg-white/15'
+            }`}
+          >
+            <Monitor className="mr-2 h-6 w-6" />
+            Exit Kiosk
+          </Button>
+        )}
+      </div>
+
+      <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Exit Kiosk Mode?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This tablet will leave kiosk mode and return to the regular app.
+              You'll need to set up the kiosk again before employees can use it
+              to clock in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={onExitKiosk}>
+              Exit Kiosk
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
