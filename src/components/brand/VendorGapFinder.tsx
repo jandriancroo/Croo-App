@@ -177,59 +177,86 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     let discrepancies: { itemNumber: string; name: string }[] = [];
 
     try {
-      // --- PFG Scan (Bid Guide) ---
-      const loc = pfgLocations[0];
-      if (loc) {
-        const { data, error } = await supabase.functions.invoke('pfg-service', {
-          body: {
-            locationId: loc.locationId,
-            action: 'search_bid_guide',
-            bidGuideHeaderId: loc.bidGuideHeaderId,
-            customerId: loc.customerId,
-            searchQuery: '',
-          },
-        });
-        if (error) throw error;
+      // --- PFG Scan (Bid Guide) — scan ALL locations, not just the first ---
+      for (const loc of pfgLocations) {
+        try {
+          const { data, error } = await supabase.functions.invoke('pfg-service', {
+            body: {
+              locationId: loc.locationId,
+              action: 'search_bid_guide',
+              bidGuideHeaderId: loc.bidGuideHeaderId,
+              customerId: loc.customerId,
+              searchQuery: '',
+            },
+          });
+          if (error) {
+            console.warn(`PFG scan failed for ${loc.name}:`, error);
+            continue;
+          }
 
-        const bidProducts: any[] = data?.data?.products || [];
-        totalVendorItems += bidProducts.length;
+          const bidProducts: any[] = data?.data?.products || [];
+          totalVendorItems += bidProducts.length;
 
-        const pfgOutliers: OutlierItem[] = bidProducts
-          .filter(p => {
-            const itemNum = String(p.itemNumber || '').trim();
-            const itemName = (p.fullDescription || p.name || '').toLowerCase();
-            // Check templates AND vendor mappings
-            return !existingNumbers.has(itemNum) &&
-                   !existingVendorIds.has(itemNum) &&
-                   !existingNames.has(itemName);
-          })
-          .map(p => ({
-            itemNumber: p.itemNumber,
-            name: p.name || p.fullDescription,
-            fullDescription: p.fullDescription || p.name,
-            brand: p.brand || '',
-            packSize: p.packSize || '',
-            categoryName: p.categoryName || 'Uncategorized',
-            price: p.price,
-            vendorSource: 'pfg' as const,
-          }));
+          const pfgOutliers: OutlierItem[] = bidProducts
+            .filter(p => {
+              const itemNum = String(p.itemNumber || '').trim();
+              const itemName = (p.fullDescription || p.name || '').toLowerCase();
+              // Check templates AND vendor mappings
+              return !existingNumbers.has(itemNum) &&
+                     !existingVendorIds.has(itemNum) &&
+                     !existingNames.has(itemName);
+            })
+            .map(p => ({
+              itemNumber: p.itemNumber,
+              name: p.name || p.fullDescription,
+              fullDescription: p.fullDescription || p.name,
+              brand: p.brand || '',
+              packSize: p.packSize || '',
+              categoryName: p.categoryName || 'Uncategorized',
+              price: p.price,
+              vendorSource: 'pfg' as const,
+            }));
 
-        totalMatched += bidProducts.length - pfgOutliers.length;
-        newOutliers.push(...pfgOutliers);
-
-        // Discrepancies (in catalog but not in bid) — only PFG-sourced items
-        const bidNumbers = new Set(bidProducts.map((p: any) => String(p.itemNumber || '').trim()));
-        discrepancies = templates
-          .filter(t => t.item_number && !bidNumbers.has(t.item_number) && t.status === 'live')
-          .filter(t => {
-            // Only flag PFG items, not heimark/other vendor items
-            const mapping = vendorMappings.find(m => 
-              m.vendor_item_id === t.item_number && m.vendor !== 'pfg'
-            );
-            return !mapping;
-          })
-          .map(t => ({ itemNumber: t.item_number!, name: t.product_name }));
+          totalMatched += bidProducts.length - pfgOutliers.length;
+          newOutliers.push(...pfgOutliers);
+        } catch (err) {
+          console.warn(`PFG scan error for ${loc.name}:`, err);
+        }
       }
+
+      // Discrepancies — only check against first location's bid guide for now
+      if (pfgLocations[0]) {
+        try {
+          const { data } = await supabase.functions.invoke('pfg-service', {
+            body: {
+              locationId: pfgLocations[0].locationId,
+              action: 'search_bid_guide',
+              bidGuideHeaderId: pfgLocations[0].bidGuideHeaderId,
+              customerId: pfgLocations[0].customerId,
+              searchQuery: '',
+            },
+          });
+          const bidProducts: any[] = data?.data?.products || [];
+          const bidNumbers = new Set(bidProducts.map((p: any) => String(p.itemNumber || '').trim()));
+          discrepancies = templates
+            .filter(t => t.item_number && !bidNumbers.has(t.item_number) && t.status === 'live')
+            .filter(t => {
+              const mapping = vendorMappings.find(m => 
+                m.vendor_item_id === t.item_number && m.vendor !== 'pfg'
+              );
+              return !mapping;
+            })
+            .map(t => ({ itemNumber: t.item_number!, name: t.product_name }));
+        } catch {}
+      }
+
+      // Deduplicate outliers by itemNumber (across multiple location scans)
+      const seenItemNumbers = new Set<string>();
+      newOutliers = newOutliers.filter(o => {
+        if (seenItemNumbers.has(o.itemNumber)) return false;
+        seenItemNumbers.add(o.itemNumber);
+        return true;
+      });
 
       // --- PA Scan (Catalog only — no order history fallback) ---
       if (brandLocationIds.length > 0) {

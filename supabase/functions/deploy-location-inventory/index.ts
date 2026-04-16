@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     // Build a brand_item_id → storage_location_name map from source location's items
     const { data: sourceItems } = await supabase
       .from("inventory_items")
-      .select("brand_item_id, storage_location_id, display_order")
+      .select("brand_item_id, storage_location_id, display_order, cost_per_unit")
       .eq("location_id", shelfSourceId)
       .eq("is_active", true)
       .not("brand_item_id", "is", null);
@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
     // brand_item_id → target storage location id (via source shelf assignment)
     const brandItemToShelf = new Map<string, string>();
     const brandItemToOrder = new Map<string, number>();
+    const brandItemToCost = new Map<string, number>();
     for (const si of sourceItems || []) {
       if (si.brand_item_id && si.storage_location_id) {
         const sourceName = sourceStorageIdToName.get(si.storage_location_id);
@@ -176,6 +177,9 @@ Deno.serve(async (req) => {
       }
       if (si.brand_item_id && si.display_order != null) {
         brandItemToOrder.set(si.brand_item_id, si.display_order);
+      }
+      if (si.brand_item_id && si.cost_per_unit != null && si.cost_per_unit > 0) {
+        brandItemToCost.set(si.brand_item_id, si.cost_per_unit);
       }
     }
 
@@ -366,6 +370,7 @@ Deno.serve(async (req) => {
           ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
           ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
           ...(sourceOrder != null ? { display_order: sourceOrder } : {}),
+          ...(brandItemToCost.has(tmpl.id) ? { cost_per_unit: brandItemToCost.get(tmpl.id) } : {}),
         })
         .select("id")
         .single();
