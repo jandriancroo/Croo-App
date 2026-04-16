@@ -1401,7 +1401,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   console.log('[PA Sync] Pre-fetched', allLocalItems?.length ?? 0, 'local items for in-memory matching');
 
   let synced = 0;
-  const syncMatchLog = { mapping: 0, fallback_pa_id: 0, fallback_name: 0, fallback_brand_item: 0, new_item: 0 };
+  const syncMatchLog = { mapping: 0, fallback_brand_item: 0, new_item: 0, gap_alert: 0 };
   const toUpsert: any[] = [];
   const gapAlerts: any[] = [];
 
