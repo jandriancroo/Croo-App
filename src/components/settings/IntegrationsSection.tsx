@@ -778,6 +778,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                         <span>Manual IDs</span>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-2 pt-2">
+                        <p className="text-xs text-muted-foreground">If "Load Available Lists" returns empty, find these IDs manually:</p>
+                        <p className="text-xs text-muted-foreground">• <strong>Customer ID</strong> → Log in at customerfirstsolutions.com → F12 → Application → Local Storage → copy <code className="bg-muted px-1 rounded">SELECTED_CUSTOMER_ID</code></p>
+                        <p className="text-xs text-muted-foreground">• <strong>Product List Header ID</strong> → Navigate to your Order Guide → F12 → Network tab → find a <code className="bg-muted px-1 rounded">SearchProductList</code> request → copy <code className="bg-muted px-1 rounded">ProductListHeaderId</code> from the request body</p>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
                             <Label htmlFor="pfg-guide-id" className="text-xs text-muted-foreground">Product List Header ID</Label>
