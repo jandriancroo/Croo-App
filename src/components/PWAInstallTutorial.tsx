@@ -21,9 +21,6 @@ export function PWAInstallTutorial() {
 
     if (isStandalone) return;
 
-    // Never show on kiosk route
-    if (window.location.pathname.startsWith('/kiosk')) return;
-
     // Dismissed this session already
     if (sessionStorage.getItem('pwa-tutorial-dismissed')) return;
 

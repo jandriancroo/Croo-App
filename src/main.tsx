@@ -2,9 +2,6 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Kiosk mode is now app-level: locked via localStorage 'croohq_kiosk_location'
-// at the route guard layer (see src/components/KioskGuard.tsx). No subdomain.
-
 // Initialize theme and text size from localStorage before React renders to prevent flash
 const THEME_MIGRATION: Record<string, string> = { ocean: 'beach', sage: 'beach', lavender: 'default', vibrant: 'default' };
 let savedTheme = localStorage.getItem('app-theme') || 'default';
