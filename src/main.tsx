@@ -50,11 +50,15 @@ if (isStandaloneMode) {
 }
 
 // Kiosk PWA guard: if opened as a standalone PWA with a kiosk location saved,
-// force-navigate to /kiosk so iOS doesn't drop the path back to / or /auth→/dashboard
+// force-navigate to kiosk. On subdomain, "/" is already kiosk. On main domain, go to /kiosk.
 if (isStandaloneMode && localStorage.getItem('croohq_kiosk_location')) {
-  const path = window.location.pathname;
-  if (!path.startsWith('/kiosk')) {
-    window.location.replace('/kiosk');
+  if (isKioskSubdomain) {
+    // On subdomain, all routes are kiosk — no redirect needed
+  } else {
+    const path = window.location.pathname;
+    if (!path.startsWith('/kiosk')) {
+      window.location.replace('/kiosk');
+    }
   }
 }
 
