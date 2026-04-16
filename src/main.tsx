@@ -14,20 +14,7 @@ if (isKioskSubdomain) {
     document.head.appendChild(titleMeta);
   }
   titleMeta.setAttribute('content', 'Kiosk');
-} else if (window.location.pathname.startsWith('/kiosk')) {
-  // Legacy /kiosk path on main domain — still swap for non-iOS use cases
-  const mainManifest = document.querySelector('link[rel="manifest"]');
-  if (mainManifest) {
-    mainManifest.setAttribute('href', '/kiosk-manifest.json');
-  }
-  let titleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-  if (!titleMeta) {
-    titleMeta = document.createElement('meta');
-    titleMeta.setAttribute('name', 'apple-mobile-web-app-title');
-    document.head.appendChild(titleMeta);
-  }
-  titleMeta.setAttribute('content', 'Kiosk');
-}
+} // No legacy /kiosk path handling — kiosk is subdomain-only now
 
 // Initialize theme and text size from localStorage before React renders to prevent flash
 const THEME_MIGRATION: Record<string, string> = { ocean: 'beach', sage: 'beach', lavender: 'default', vibrant: 'default' };
@@ -49,18 +36,8 @@ if (isStandaloneMode) {
   document.documentElement.setAttribute('data-standalone', 'true');
 }
 
-// Kiosk PWA guard: if opened as a standalone PWA with a kiosk location saved,
-// force-navigate to kiosk. On subdomain, "/" is already kiosk. On main domain, go to /kiosk.
-if (isStandaloneMode && localStorage.getItem('croohq_kiosk_location')) {
-  if (isKioskSubdomain) {
-    // On subdomain, all routes are kiosk — no redirect needed
-  } else {
-    const path = window.location.pathname;
-    if (!path.startsWith('/kiosk')) {
-      window.location.replace('/kiosk');
-    }
-  }
-}
+// Kiosk PWA guard: on subdomain, all routes are kiosk — no redirect needed.
+// No main-domain /kiosk path anymore.
 
 // Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
 // __APP_VERSION__ is injected at build time in vite.config.ts.
