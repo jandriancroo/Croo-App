@@ -16,7 +16,18 @@
     />
     <meta name="author" content="Lovable" />
     <link rel="icon" href="/croo-logo-inverted.webp" type="image/webp">
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      // Kiosk subdomain: serve kiosk manifest BEFORE parser sees a static link.
+      // iOS Safari reads manifest from initial HTML — JS swapping after load doesn't work.
+      if (location.hostname === 'kiosk.croohq.com') {
+        document.write('<link rel="manifest" href="/kiosk-manifest.json" />');
+        // Also fix apple-mobile-web-app-title for iOS
+        document.querySelector('meta[name="apple-mobile-web-app-title"]').setAttribute('content', 'Kiosk');
+        document.querySelector('link[rel="apple-touch-icon"]').setAttribute('href', '/kiosk-icon.png');
+      } else {
+        document.write('<link rel="manifest" href="/manifest.webmanifest" />');
+      }
+    </script>
     <!-- Preload critical LCP asset (Croo logo on Auth page) -->
     <link rel="preload" href="/src/assets/croo-logo.webp" as="image" type="image/webp">
     <link rel="preconnect" href="https://fonts.googleapis.com">

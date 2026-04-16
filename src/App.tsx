@@ -143,7 +143,21 @@ const AppWithSplash = () => {
   );
 };
 
+// Detect kiosk subdomain — separate origin for iOS PWA isolation
+const isKioskSubdomain = window.location.hostname === 'kiosk.croohq.com';
+
 const AppContent = () => {
+  // On kiosk subdomain, render ONLY the kiosk punch clock at every route
+  if (isKioskSubdomain) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="*" element={<KioskPunchClock />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>

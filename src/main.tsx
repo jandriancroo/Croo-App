@@ -2,18 +2,24 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Kiosk mode: swap PWA manifest so "Add to Home Screen" uses kiosk identity
-if (window.location.pathname.startsWith('/kiosk')) {
+// Kiosk subdomain: manifest is handled in index.html via document.write (before parser).
+// No JS swapping needed here — iOS reads manifest from initial HTML parse.
+const isKioskSubdomain = window.location.hostname === 'kiosk.croohq.com';
+if (isKioskSubdomain) {
+  // Update apple-mobile-web-app-title for iOS (belt-and-suspenders with index.html)
+  let titleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (!titleMeta) {
+    titleMeta = document.createElement('meta');
+    titleMeta.setAttribute('name', 'apple-mobile-web-app-title');
+    document.head.appendChild(titleMeta);
+  }
+  titleMeta.setAttribute('content', 'Kiosk');
+} else if (window.location.pathname.startsWith('/kiosk')) {
+  // Legacy /kiosk path on main domain — still swap for non-iOS use cases
   const mainManifest = document.querySelector('link[rel="manifest"]');
   if (mainManifest) {
     mainManifest.setAttribute('href', '/kiosk-manifest.json');
-  } else {
-    const link = document.createElement('link');
-    link.rel = 'manifest';
-    link.href = '/kiosk-manifest.json';
-    document.head.appendChild(link);
   }
-  // Also update the apple-mobile-web-app-title for iOS
   let titleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (!titleMeta) {
     titleMeta = document.createElement('meta');
@@ -44,11 +50,15 @@ if (isStandaloneMode) {
 }
 
 // Kiosk PWA guard: if opened as a standalone PWA with a kiosk location saved,
-// force-navigate to /kiosk so iOS doesn't drop the path back to / or /auth→/dashboard
+// force-navigate to kiosk. On subdomain, "/" is already kiosk. On main domain, go to /kiosk.
 if (isStandaloneMode && localStorage.getItem('croohq_kiosk_location')) {
-  const path = window.location.pathname;
-  if (!path.startsWith('/kiosk')) {
-    window.location.replace('/kiosk');
+  if (isKioskSubdomain) {
+    // On subdomain, all routes are kiosk — no redirect needed
+  } else {
+    const path = window.location.pathname;
+    if (!path.startsWith('/kiosk')) {
+      window.location.replace('/kiosk');
+    }
   }
 }
 

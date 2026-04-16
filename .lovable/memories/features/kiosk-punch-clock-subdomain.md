@@ -1,32 +1,22 @@
-# Memory: features/kiosk-punch-clock-subdomain
-Updated: 2026-04-11
+---
+name: Kiosk Punch Clock Subdomain
+description: kiosk.croohq.com as separate-origin PWA for iOS — document.write manifest in index.html, wildcard route in App.tsx
+type: feature
+---
 
-## Kiosk Mode Punch Clock via Subdomain
+# Kiosk PWA via Subdomain
 
-**Status:** Planned (not yet implemented)
+## Why
+iOS Safari allows only ONE PWA per origin. `croohq.com/kiosk` merges with `croohq.com`. JS manifest swapping doesn't work — iOS reads manifest before JS runs.
 
-### Concept
-Set up `punch.croohq.com` as a dedicated kiosk entry point for the punch clock, so managers can leave an Android tablet running as a time clock terminal without exposing the rest of CrooHQ.
+## Architecture
+- **`kiosk.croohq.com`** = separate origin = separate PWA install
+- **`index.html`**: Synchronous `document.write` outputs correct manifest link based on `location.hostname` BEFORE parser continues. No static `<link rel="manifest">` in HTML.
+- **`public/kiosk-manifest.json`**: `start_url: "/"`, `scope: "/"` (relative to subdomain root)
+- **`src/App.tsx`**: `isKioskSubdomain` check renders `<KioskPunchClock />` at `*` routes when on `kiosk.croohq.com`
+- **`src/main.tsx`**: Subdomain-aware PWA guard; legacy `/kiosk` path still works on main domain
+- **`/kiosk` route**: Kept for backward compat on main domain (Android, non-PWA use)
 
-### How It Works
-1. **Subdomain routing**: `punch.croohq.com` → custom domain pointing to the app → auto-redirects to `/punch-clock`
-2. **Existing features already support this**:
-   - Fullscreen mode ✅
-   - Wake lock (works on Android) ✅
-   - Punch clock UI at `/punch-clock` ✅
-3. **Android App Pinning**: Manager enables Settings → Security → App Pinning to lock Chrome to the punch clock tab (disables back/home/recents)
-4. **Optional future enhancements**:
-   - Kiosk-specific route (`/kiosk`) that strips all navigation/sidebar
-   - Manager PIN to exit kiosk mode
-   - Block route changes / intercept browser back/forward
-   - Hostname detection to auto-redirect when accessed via `punch.croohq.com`
-
-### Implementation Steps (When Ready)
-1. Add `punch.croohq.com` as custom domain in Project Settings → Domains (A record: `185.158.133.1`)
-2. Add hostname detection in router to redirect `punch.croohq.com` → `/punch-clock` (or a new `/kiosk` route)
-3. Optionally build a stripped-down kiosk wrapper component with no navigation
-4. Consider manager PIN lock/unlock for exiting kiosk mode
-
-### Target Platform
-- Android tablets (Chrome browser)
-- iOS Guided Access is the equivalent for iPads
+## Setup Required
+1. Add `kiosk.croohq.com` as custom domain in Project Settings → Domains
+2. DNS: CNAME `kiosk` → same host, or A record → `185.158.133.1`

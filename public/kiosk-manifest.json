@@ -6,8 +6,8 @@
   "background_color": "#3D2B1F",
   "display": "standalone",
   "orientation": "any",
-  "scope": "/kiosk",
-  "start_url": "/kiosk",
+  "scope": "/",
+  "start_url": "/",
   "icons": [
     {
       "src": "/kiosk-icon.png",
