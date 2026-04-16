@@ -178,6 +178,9 @@ Deno.serve(async (req) => {
       if (si.brand_item_id && si.display_order != null) {
         brandItemToOrder.set(si.brand_item_id, si.display_order);
       }
+      if (si.brand_item_id && si.cost_per_unit != null && si.cost_per_unit > 0) {
+        brandItemToCost.set(si.brand_item_id, si.cost_per_unit);
+      }
     }
 
     console.log(`[deploy] Shelf mirroring from ${shelfSourceId === HEMET_LOCATION_ID ? 'Hemet (default)' : shelfSourceId}: ${brandItemToShelf.size} item-to-shelf mappings`);
