@@ -14,20 +14,7 @@ if (isKioskSubdomain) {
     document.head.appendChild(titleMeta);
   }
   titleMeta.setAttribute('content', 'Kiosk');
-} else if (window.location.pathname.startsWith('/kiosk')) {
-  // Legacy /kiosk path on main domain — still swap for non-iOS use cases
-  const mainManifest = document.querySelector('link[rel="manifest"]');
-  if (mainManifest) {
-    mainManifest.setAttribute('href', '/kiosk-manifest.json');
-  }
-  let titleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-  if (!titleMeta) {
-    titleMeta = document.createElement('meta');
-    titleMeta.setAttribute('name', 'apple-mobile-web-app-title');
-    document.head.appendChild(titleMeta);
-  }
-  titleMeta.setAttribute('content', 'Kiosk');
-}
+} // No legacy /kiosk path handling — kiosk is subdomain-only now
 
 // Initialize theme and text size from localStorage before React renders to prevent flash
 const THEME_MIGRATION: Record<string, string> = { ocean: 'beach', sage: 'beach', lavender: 'default', vibrant: 'default' };

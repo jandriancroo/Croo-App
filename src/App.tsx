@@ -196,7 +196,7 @@ const AppContent = () => {
         <Route path="/availability" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/punch-clock" element={<PunchClock />} />
-        <Route path="/kiosk" element={<KioskPunchClock />} />
+        {/* Kiosk is now subdomain-only (kiosk.croohq.com) — no /kiosk route on main domain */}
         <Route path="/biometric-demo" element={<BiometricDemo />} />
         <Route path="/time-tracking" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
