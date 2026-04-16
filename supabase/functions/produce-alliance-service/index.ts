@@ -1572,9 +1572,18 @@ async function handleSaveCredentials(supabase: any, body: any): Promise<Response
     return jsonResponse({ success: false, error: 'Missing locationId, username, or password' }, 400);
   }
 
-  const rid = restaurantId || paLocationId || '';
+  let rid = restaurantId || paLocationId || '';
+  
+  // Auto-discover restaurantId if not provided
   if (!rid) {
-    return jsonResponse({ success: false, error: 'Missing restaurantId — find it in the PA portal URL' }, 400);
+    console.log('[PA Save] No restaurantId provided, auto-discovering...');
+    const discoverSession = await loginToPA({ username, password, restaurant_id: '' });
+    if (discoverSession?.restaurantId) {
+      rid = discoverSession.restaurantId;
+      console.log('[PA Save] Auto-discovered restaurantId:', rid);
+    } else {
+      return jsonResponse({ success: false, error: 'Could not auto-discover restaurantId. Click Discover first or find it in the PA portal URL.' }, 400);
+    }
   }
 
   // Test credentials
