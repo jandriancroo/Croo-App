@@ -25,8 +25,6 @@ if (isStandaloneMode) {
   document.documentElement.setAttribute('data-standalone', 'true');
 }
 
-// Kiosk PWA guard: on subdomain, all routes are kiosk — no redirect needed.
-// No main-domain /kiosk path anymore.
 
 // Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
 // __APP_VERSION__ is injected at build time in vite.config.ts.
