@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     // Build a brand_item_id → storage_location_name map from source location's items
     const { data: sourceItems } = await supabase
       .from("inventory_items")
-      .select("brand_item_id, storage_location_id, display_order")
+      .select("brand_item_id, storage_location_id, display_order, cost_per_unit")
       .eq("location_id", shelfSourceId)
       .eq("is_active", true)
       .not("brand_item_id", "is", null);
