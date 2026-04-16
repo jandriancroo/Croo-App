@@ -250,6 +250,12 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
   }, [currentLocation?.organization_id]);
 
   const MASTER_EXIT_CODE = '0223';
+  const KIOSK_LOCATION_KEY = 'croohq_kiosk_location';
+
+  // Roles permitted to exit kiosk mode from the punch clock UI
+  const KIOSK_EXIT_ROLES = ['admin', 'org_admin', 'brand_admin', 'super_admin'];
+  const canExitKiosk =
+    kioskMode && currentUserRole !== null && KIOSK_EXIT_ROLES.includes(currentUserRole);
 
   const handleMasterExit = async () => {
     // Exit fullscreen before navigating away
@@ -264,6 +270,23 @@ export default function PunchClock({ kioskMode = false, kioskLocationOverride }:
     setTodayShift(null);
     setLastPunch(null);
     window.location.href = '/';
+  };
+
+  const handleExitKiosk = async () => {
+    // Clear the kiosk lock so the global guard stops redirecting
+    localStorage.removeItem(KIOSK_LOCATION_KEY);
+
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+    }
+
+    setPin('');
+    setCurrentUser(null);
+    setCurrentUserRole(null);
+    setTodayShift(null);
+    setLastPunch(null);
+    // Hard navigate to drop kiosk component state and land on dashboard
+    window.location.href = '/dashboard';
   };
 
 
@@ -1576,6 +1599,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               isClockedIn={isClockedIn}
               isOnBreak={isOnBreak}
               isDayMode={isDayMode}
+              onExitKiosk={canExitKiosk ? handleExitKiosk : undefined}
             />
           )}
         </div>

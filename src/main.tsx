@@ -2,19 +2,8 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Kiosk subdomain: manifest is handled in index.html via document.write (before parser).
-// No JS swapping needed here — iOS reads manifest from initial HTML parse.
-const isKioskSubdomain = window.location.hostname === 'kiosk.croohq.com';
-if (isKioskSubdomain) {
-  // Update apple-mobile-web-app-title for iOS (belt-and-suspenders with index.html)
-  let titleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-  if (!titleMeta) {
-    titleMeta = document.createElement('meta');
-    titleMeta.setAttribute('name', 'apple-mobile-web-app-title');
-    document.head.appendChild(titleMeta);
-  }
-  titleMeta.setAttribute('content', 'Kiosk');
-} // No legacy /kiosk path handling — kiosk is subdomain-only now
+// Kiosk mode is now app-level: locked via localStorage 'croohq_kiosk_location'
+// at the route guard layer (see src/components/KioskGuard.tsx). No subdomain.
 
 // Initialize theme and text size from localStorage before React renders to prevent flash
 const THEME_MIGRATION: Record<string, string> = { ocean: 'beach', sage: 'beach', lavender: 'default', vibrant: 'default' };
@@ -36,8 +25,6 @@ if (isStandaloneMode) {
   document.documentElement.setAttribute('data-standalone', 'true');
 }
 
-// Kiosk PWA guard: on subdomain, all routes are kiosk — no redirect needed.
-// No main-domain /kiosk path anymore.
 
 // Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
 // __APP_VERSION__ is injected at build time in vite.config.ts.
