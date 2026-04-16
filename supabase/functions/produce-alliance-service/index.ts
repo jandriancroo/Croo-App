@@ -1418,17 +1418,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (existingItem) matchSource = 'mapping';
     }
 
-    // Fallback: direct pa_item_id match (in-memory)
-    if (!existingItem && item.pa_product_id) {
-      existingItem = localByPaId.get(item.pa_product_id) || null;
-      if (existingItem) matchSource = 'fallback_pa_id';
-    }
-
-    // Fallback: name match (in-memory, case-insensitive)
-    if (!existingItem) {
-      existingItem = localByName.get(item.description.toLowerCase()) || null;
-      if (existingItem) matchSource = 'fallback_name';
-    }
+    // VENDOR GATE: Tier 2 (fallback_pa_id) and Tier 3 (fallback_name) REMOVED.
+    // Only brand_vendor_mappings (Tier 1) and fallback_brand_item (Tier 3.5) are allowed.
 
     // Step 3.5: brand_item_id match — if this PA item maps to a brand template
     // that already has a local item at this location, UPDATE that item instead of creating a duplicate.
