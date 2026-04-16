@@ -43,6 +43,15 @@ if (isStandaloneMode) {
   document.documentElement.setAttribute('data-standalone', 'true');
 }
 
+// Kiosk PWA guard: if opened as a standalone PWA with a kiosk location saved,
+// force-navigate to /kiosk so iOS doesn't drop the path back to / or /auth→/dashboard
+if (isStandaloneMode && localStorage.getItem('croohq_kiosk_location')) {
+  const path = window.location.pathname;
+  if (!path.startsWith('/kiosk')) {
+    window.location.replace('/kiosk');
+  }
+}
+
 // Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
 // __APP_VERSION__ is injected at build time in vite.config.ts.
 declare const __APP_VERSION__: string;
