@@ -67,6 +67,8 @@ export function SortableInventoryItem({
           ? "bg-primary/10 ring-1 ring-primary/30"
           : isShortcut
           ? "bg-orange-100 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700/50"
+          : !isShortcut && (!item.cost_per_unit || Number(item.cost_per_unit) === 0)
+          ? "bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/30 hover:bg-amber-100/60 dark:hover:bg-amber-950/30"
           : "bg-background hover:bg-muted/30"
       }`}
       onClick={onClick}
