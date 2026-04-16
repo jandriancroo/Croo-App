@@ -1586,7 +1586,6 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               isClockedIn={isClockedIn}
               isOnBreak={isOnBreak}
               isDayMode={isDayMode}
-              onExitKiosk={canExitKiosk ? handleExitKiosk : undefined}
             />
           )}
         </div>

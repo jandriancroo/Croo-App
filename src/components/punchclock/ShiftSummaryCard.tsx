@@ -4,19 +4,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 
 import { Badge } from '@/components/ui/badge';
-import { Clock, Coffee, LogOut, Play, Check, ArrowLeft, Monitor } from 'lucide-react';
+import { Clock, Coffee, LogOut, Play, Check, ArrowLeft } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
 interface ShiftSummaryCardProps {
   user: {
@@ -53,8 +43,6 @@ interface ShiftSummaryCardProps {
   isClockedIn: boolean;
   isOnBreak: boolean;
   isDayMode: boolean;
-  /** When provided, shows an "Exit Kiosk" button (admin-only). */
-  onExitKiosk?: () => void;
 }
 
 interface BreakRecord {
@@ -82,7 +70,6 @@ export function ShiftSummaryCard({
   isClockedIn,
   isOnBreak,
   isDayMode,
-  onExitKiosk,
 }: ShiftSummaryCardProps) {
   const currentTime = useClock(1000);
   const [hoursWorked, setHoursWorked] = useState({ hours: 0, minutes: 0 });
