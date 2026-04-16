@@ -386,19 +386,34 @@ async function fetchProductListHeaders(accessToken: string, customerId?: string)
       });
       console.log('[PFG API] Headers response from', ep.path, '→', JSON.stringify(data).slice(0, 500));
       const result = data?.ResultObject || data;
-      if (Array.isArray(result) && result.length > 0) {
-        console.log('[PFG API] Found', result.length, 'product list headers via', ep.path);
-        return { guides: result, customerId: resolvedCustomerId };
+      // Guard: API sometimes returns error strings inside arrays
+      if (typeof result === 'string') {
+        console.warn('[PFG API] Got string response from', ep.path, ':', result.slice(0, 200));
+        continue;
+      }
+      if (Array.isArray(result)) {
+        const validGuides = result.filter((g: any) => g && typeof g === 'object' && !Array.isArray(g));
+        if (validGuides.length > 0) {
+          console.log('[PFG API] Found', validGuides.length, 'product list headers via', ep.path);
+          return { guides: validGuides, customerId: resolvedCustomerId };
+        }
+        if (result.length > 0 && validGuides.length === 0) {
+          console.warn('[PFG API] Array from', ep.path, 'contained no valid objects, first item:', JSON.stringify(result[0]).slice(0, 200));
+        }
+        continue;
       }
       // If ResultObject is an object with nested arrays, try common patterns
-      if (result && typeof result === 'object' && !Array.isArray(result)) {
+      if (result && typeof result === 'object') {
         const keys = Object.keys(result);
         console.log('[PFG API] ResultObject keys:', keys.join(', '));
         for (const key of keys) {
           if (Array.isArray(result[key]) && result[key].length > 0) {
-            console.log('[PFG API] Found array at key', key, 'with', result[key].length, 'items');
-            console.log('[PFG API] First item sample:', JSON.stringify(result[key][0]).slice(0, 300));
-            return { guides: result[key], customerId: resolvedCustomerId };
+            const validItems = result[key].filter((g: any) => g && typeof g === 'object');
+            if (validItems.length > 0) {
+              console.log('[PFG API] Found array at key', key, 'with', validItems.length, 'items');
+              console.log('[PFG API] First item sample:', JSON.stringify(validItems[0]).slice(0, 300));
+              return { guides: validItems, customerId: resolvedCustomerId };
+            }
           }
         }
       }
