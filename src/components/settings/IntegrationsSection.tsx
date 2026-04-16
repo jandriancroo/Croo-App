@@ -778,6 +778,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                         <span>Manual IDs</span>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-2 pt-2">
+                        <p className="text-xs text-muted-foreground">If "Load Available Lists" returns empty, find these IDs manually:</p>
+                        <p className="text-xs text-muted-foreground">• <strong>Customer ID</strong> → Log in at customerfirstsolutions.com → F12 → Application → Local Storage → copy <code className="bg-muted px-1 rounded">SELECTED_CUSTOMER_ID</code></p>
+                        <p className="text-xs text-muted-foreground">• <strong>Product List Header ID</strong> → Navigate to your Order Guide → F12 → Network tab → find a <code className="bg-muted px-1 rounded">SearchProductList</code> request → copy <code className="bg-muted px-1 rounded">ProductListHeaderId</code> from the request body</p>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1.5">
                             <Label htmlFor="pfg-guide-id" className="text-xs text-muted-foreground">Product List Header ID</Label>
@@ -816,9 +819,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-foreground">Use a desktop computer for this step:</p>
                   <p className="text-xs text-muted-foreground">1. Log in at <a href="https://www.customerfirstsolutions.com" target="_blank" rel="noopener noreferrer" className="underline text-primary">customerfirstsolutions.com</a></p>
-                  <p className="text-xs text-muted-foreground">2. Press F12 → Application tab → Local Storage</p>
-                  <p className="text-xs text-muted-foreground">3. Copy the value from the key containing "refreshToken"</p>
-                  <p className="text-xs text-muted-foreground">4. Paste it below:</p>
+                  <p className="text-xs text-muted-foreground">2. Press F12 → Application tab → <strong>Session Storage</strong> (not Local Storage)</p>
+                  <p className="text-xs text-muted-foreground">3. Click the <code className="bg-muted px-1 rounded">customerfirstsolutions.com</code> entry</p>
+                  <p className="text-xs text-muted-foreground">4. Find the key containing <code className="bg-muted px-1 rounded">refreshToken</code> and copy its value</p>
+                  <p className="text-xs text-muted-foreground">5. Paste it below:</p>
                   <Input placeholder="Paste refresh token here..." value={pfgPastedToken} onChange={(e) => setPfgPastedToken(e.target.value)} className="text-xs font-mono" />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={savePfgToken} disabled={!pfgPastedToken.trim() || pfgIsConnecting} className="flex-1">
