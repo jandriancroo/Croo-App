@@ -662,13 +662,17 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         if (m.vendor_item_id) pfgSkuToTemplate.set(m.vendor_item_id, m.brand_template_id);
       }
 
+      // Resolve brand_id for vendor gap alerts
+      const { data: locRow } = await supabase.from("locations").select("organization_id").eq("id", locationId).single();
+      const { data: orgRow } = await supabase.from("organizations").select("brand_id").eq("id", locRow?.organization_id).single();
+      const brandId = orgRow?.brand_id;
+
       // Pre-fetch all local items for in-memory matching
       const { data: allLocalItems } = await supabase
         .from("inventory_items")
         .select("id, item_number, qubeyond_item_id, brand_item_id, image_url, storage_location_id, user_hidden")
         .eq("location_id", locationId)
         .eq("is_active", true);
-      // Note: qubeyond_item_id is fetched for remap flagging, NOT for matching
       const localByItemNumber = new Map((allLocalItems || []).filter(i => i.item_number).map(i => [i.item_number!, i]));
       const localByBrandItemId = new Map((allLocalItems || []).filter(i => i.brand_item_id).map(i => [i.brand_item_id!, i]));
 
@@ -676,6 +680,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       let itemsUpdated = 0;
       let processedItems = 0;
       let skippedUnmapped = 0;
+      const gapAlerts: any[] = [];
       
       // Collect items needing AI images
       const itemsNeedingImages: { itemId: string; productName: string; brand?: string }[] = [];
@@ -711,6 +716,17 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           if (!existing) {
             // VENDOR GATE: Do NOT create new inventory_items.
             skippedUnmapped++;
+            if (brandId && product.itemNumber) {
+              gapAlerts.push({
+                brand_id: brandId,
+                vendor_source: 'pfg',
+                item_number: product.itemNumber,
+                vendor_name: product.name || 'Unknown',
+                vendor_description: product.name || null,
+                pack_size: product.packSize || null,
+                status: 'new',
+              });
+            }
             continue;
           }
           
@@ -774,6 +790,18 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
       if (skippedUnmapped > 0) {
         console.log(`[PFG Sync] Skipped ${skippedUnmapped} unmapped items (not in brand catalog)`);
+      }
+
+      // Route unmatched PFG items to vendor_gap_alerts
+      if (gapAlerts.length > 0) {
+        for (let i = 0; i < gapAlerts.length; i += 50) {
+          const chunk = gapAlerts.slice(i, i + 50);
+          const { error: gapErr } = await supabase
+            .from("vendor_gap_alerts" as any)
+            .upsert(chunk, { onConflict: 'brand_id,vendor_source,item_number', ignoreDuplicates: true });
+          if (gapErr) console.warn('[PFG Sync] Gap alert write error:', gapErr.message);
+        }
+        console.log(`[PFG Sync] Routed ${gapAlerts.length} unmatched items to vendor_gap_alerts`);
       }
       
       // Step 3: Generate AI images for items without images (batch of 3 at a time)
