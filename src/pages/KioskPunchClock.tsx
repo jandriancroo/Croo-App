@@ -182,34 +182,7 @@ export default function KioskPunchClock() {
   const [kioskLocation, setKioskLocation] = useState<KioskLocation | null>(null);
   const [checking, setChecking] = useState(true);
 
-  // Swap manifest to kiosk version so PWA install uses kiosk icon + start_url
-  useEffect(() => {
-    const existing = document.querySelector('link[rel="manifest"]');
-    if (existing) {
-      existing.setAttribute('href', '/kiosk-manifest.json');
-    } else {
-      const link = document.createElement('link');
-      link.rel = 'manifest';
-      link.href = '/kiosk-manifest.json';
-      document.head.appendChild(link);
-    }
-
-    // Also swap apple-touch-icon for iOS
-    const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
-    if (appleIcon) {
-      appleIcon.setAttribute('href', '/kiosk-icon.png');
-    }
-
-    return () => {
-      // Restore original manifest if navigating away
-      if (existing) {
-        existing.setAttribute('href', '/manifest.webmanifest');
-      }
-      if (appleIcon) {
-        appleIcon.setAttribute('href', '/croo-logo-inverted.webp');
-      }
-    };
-  }, []);
+  // Manifest is handled by index.html document.write for subdomain — no JS swap needed
 
   useEffect(() => {
     const stored = localStorage.getItem(KIOSK_LOCATION_KEY);
