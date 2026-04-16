@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
     // brand_item_id → target storage location id (via source shelf assignment)
     const brandItemToShelf = new Map<string, string>();
     const brandItemToOrder = new Map<string, number>();
+    const brandItemToCost = new Map<string, number>();
     for (const si of sourceItems || []) {
       if (si.brand_item_id && si.storage_location_id) {
         const sourceName = sourceStorageIdToName.get(si.storage_location_id);
