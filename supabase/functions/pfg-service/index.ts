@@ -1283,6 +1283,12 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
   if (action === 'list_guides') {
     const customerIdToUse = customerId || credentials.customer_id;
     const result = await fetchProductListHeaders(accessToken, customerIdToUse);
+    if (result.guides.length > 0) {
+      console.log('[PFG list_guides] First guide keys:', JSON.stringify(Object.keys(result.guides[0])));
+      console.log('[PFG list_guides] First guide sample:', JSON.stringify(result.guides[0]).slice(0, 500));
+    } else {
+      console.log('[PFG list_guides] No guides returned');
+    }
     return new Response(JSON.stringify({ 
       authenticated: true,
       data: result
