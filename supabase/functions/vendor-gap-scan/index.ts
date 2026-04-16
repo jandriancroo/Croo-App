@@ -46,15 +46,21 @@ serve(async (req) => {
       );
 
       // Also check brand_vendor_mappings for ALL mapped vendor IDs
+      // Batch in chunks of 50 to avoid PostgREST URL length limits
       let existingVendorIds = new Set<string>();
       if (templateIds.length > 0) {
-        const { data: mappings } = await supabase
-          .from("brand_vendor_mappings")
-          .select("vendor_item_id")
-          .in("brand_template_id", templateIds);
-        existingVendorIds = new Set(
-          (mappings || []).map(m => String(m.vendor_item_id || "").trim()).filter(Boolean)
-        );
+        const CHUNK_SIZE = 50;
+        for (let i = 0; i < templateIds.length; i += CHUNK_SIZE) {
+          const chunk = templateIds.slice(i, i + CHUNK_SIZE);
+          const { data: mappings } = await supabase
+            .from("brand_vendor_mappings")
+            .select("vendor_item_id")
+            .in("brand_template_id", chunk);
+          for (const m of (mappings || [])) {
+            const vid = String(m.vendor_item_id || "").trim();
+            if (vid) existingVendorIds.add(vid);
+          }
+        }
       }
 
       // Fetch already-resolved/dismissed vendor names to skip alternate IDs for the same product
