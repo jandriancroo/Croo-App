@@ -1,0 +1,24 @@
+{
+  "name": "CrooHQ",
+  "short_name": "CrooHQ",
+  "description": "Food Service Made Smart",
+  "theme_color": "#3D2B1F",
+  "background_color": "#3D2B1F",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/croo-logo-inverted.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/croo-logo-inverted.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ]
+}
