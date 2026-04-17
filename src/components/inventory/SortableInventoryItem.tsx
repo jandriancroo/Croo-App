@@ -20,6 +20,9 @@ interface SortableInventoryItemProps {
   isLast?: boolean;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  /** Live unit cost computed from blueprint ingredients (overrides stored cost_per_unit when present) */
+  liveUnitCost?: number;
+  liveCostIsPartial?: boolean;
 }
 
 export function SortableInventoryItem({
@@ -36,6 +39,8 @@ export function SortableInventoryItem({
   isLast = false,
   onClick,
   onContextMenu,
+  liveUnitCost,
+  liveCostIsPartial,
 }: SortableInventoryItemProps) {
   const {
     setNodeRef,
