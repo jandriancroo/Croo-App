@@ -250,7 +250,7 @@ export function DeployLocationWizard({ open, onOpenChange, onSuccess }: DeployLo
       setSyncResult(prev => ({ ...prev, pa: { status: 'running' } }));
       try {
         const { data, error } = await supabase.functions.invoke('produce-alliance-service', {
-          body: { action: 'sync', locationId },
+          body: { action: 'sync_items', locationId },
         });
         if (error) throw error;
         setSyncResult(prev => ({
