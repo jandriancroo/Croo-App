@@ -84,7 +84,9 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         packSize: d.pack_size || '',
         categoryName: d.category_name || 'Uncategorized',
         price: null,
-        vendorSource: d.vendor_source as 'pfg' | 'pa' | 'invoice',
+        vendorSource: (d.vendor_source === 'produce_alliance' ? 'pa'
+          : d.vendor_source === 'pfg' ? 'pfg'
+          : 'invoice') as 'pfg' | 'pa' | 'invoice',
         status: d.status,
         reportedByLocations: Array.isArray(d.reported_by_locations) ? d.reported_by_locations : [],
       })) as OutlierItem[];
