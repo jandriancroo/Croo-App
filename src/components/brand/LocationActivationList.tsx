@@ -132,7 +132,7 @@ export default function LocationActivationList({
                 </p>
               )}
               {needsDeploy && integrationStatus && !vendorsReady && (
-                <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1 pl-0.5 flex items-center gap-1">
+                <p className="text-[10px] text-destructive mt-1 pl-0.5 flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
                   {missingVendors.join(' + ')} not connected
                 </p>
