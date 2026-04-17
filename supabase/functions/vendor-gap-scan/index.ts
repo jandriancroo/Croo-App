@@ -89,11 +89,12 @@ serve(async (req) => {
         const orgIds = orgs.map(o => o.id);
         const { data: locs } = await supabase
           .from("locations")
-          .select("id")
+          .select("id, name")
           .in("organization_id", orgIds);
 
         if (locs?.length) {
           const locIds = locs.map(l => l.id);
+          const locNameById = new Map((locs || []).map(l => [l.id, l.name]));
           const { data: pfgInt } = await supabase
             .from("location_integrations")
             .select("credentials")
