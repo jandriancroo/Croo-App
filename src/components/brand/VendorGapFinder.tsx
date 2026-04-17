@@ -99,6 +99,59 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     [allAlerts],
   );
 
+  // Auto-resolve any active gap whose SKU is already mapped to a live/draft template.
+  // Handles stale alerts created before the SKU was linked (or when the linker fired
+  // an upsert that didn't trigger a rescan).
+  const autoResolvedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!activeOutliers.length) return;
+
+    // Build set of SKUs claimed by LIVE/DRAFT templates (archived = dead, ignore)
+    const liveTemplateIds = new Set(
+      templates.filter(t => (t as any).status !== 'archived').map(t => t.id),
+    );
+    const claimedPfg = new Set<string>();
+    const claimedPa = new Set<string>();
+
+    for (const t of templates) {
+      if ((t as any).status === 'archived') continue;
+      if (t.item_number) claimedPfg.add(String(t.item_number).trim());
+      if ((t as any).pa_item_id) claimedPa.add(String((t as any).pa_item_id).trim());
+    }
+    for (const m of vendorMappings) {
+      if (!liveTemplateIds.has(m.brand_template_id)) continue;
+      const vid = String(m.vendor_item_id || '').trim();
+      if (!vid) continue;
+      if (m.vendor === 'pfg') claimedPfg.add(vid);
+      else if (m.vendor === 'produce_alliance') claimedPa.add(vid);
+    }
+
+    const toResolve: string[] = [];
+    for (const o of activeOutliers) {
+      if (!o.id || autoResolvedRef.current.has(o.id)) continue;
+      const sku = String(o.itemNumber || '').trim();
+      if (!sku) continue;
+      const claimed =
+        (o.vendorSource === 'pfg' && claimedPfg.has(sku)) ||
+        (o.vendorSource === 'pa' && claimedPa.has(sku));
+      if (claimed) toResolve.push(o.id);
+    }
+
+    if (toResolve.length === 0) return;
+    toResolve.forEach(id => autoResolvedRef.current.add(id));
+
+    (async () => {
+      const { error } = await supabase
+        .from('vendor_gap_alerts' as any)
+        .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+        .in('id', toResolve);
+      if (!error) {
+        console.log(`[VendorGapFinder] Auto-resolved ${toResolve.length} stale gap alerts`);
+        refetchOutliers();
+      }
+    })();
+  }, [activeOutliers, templates, vendorMappings, refetchOutliers]);
+
   // Get locations with PFG integration for this brand
   const { data: pfgLocations = [] } = useQuery({
     queryKey: ['brand-pfg-locations', brandId],
