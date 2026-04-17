@@ -97,7 +97,7 @@ serve(async (req) => {
           const locNameById = new Map((locs || []).map(l => [l.id, l.name]));
           const { data: pfgInt } = await supabase
             .from("location_integrations")
-            .select("credentials")
+            .select("credentials, location_id")
             .in("location_id", locIds)
             .eq("integration_type", "pfg")
             .eq("is_active", true)
@@ -108,6 +108,8 @@ serve(async (req) => {
             const creds = pfgInt.credentials as any;
             const accessToken = creds?.access_token;
             const customerId = creds?.customer_id;
+            const pfgLocId = pfgInt.location_id;
+            const pfgLocName = locNameById.get(pfgLocId) || "Unknown";
 
             if (accessToken && customerId) {
               try {
@@ -128,28 +130,22 @@ serve(async (req) => {
                   for (const item of bidItems) {
                     const itemNumber = String(item.itemNumber || "").trim();
                     if (!itemNumber) continue;
-                    // Check all three sources
                     if (existingPfgNumbers.has(itemNumber) || existingVendorIds.has(itemNumber)) continue;
 
                     const vendorName = item.fullDescription || item.description || "";
-                    // Skip if this exact alert already exists (avoid overwriting status)
                     if (existingAlertKeys.has(`pfg:${itemNumber}`)) continue;
 
-                    const { error } = await supabase
-                      .from("vendor_gap_alerts")
-                      .upsert(
-                        {
-                          brand_id: brand.id,
-                          vendor_source: "pfg",
-                          item_number: itemNumber,
-                          vendor_name: vendorName,
-                          vendor_description: item.fullDescription || "",
-                          pack_size: item.packSize || "",
-                          category_name: item.categoryName || "",
-                          status: "new",
-                        },
-                        { onConflict: "brand_id,vendor_source,item_number" }
-                      );
+                    const { error } = await supabase.rpc('upsert_vendor_gap_with_location', {
+                      _brand_id: brand.id,
+                      _vendor_source: "pfg",
+                      _item_number: itemNumber,
+                      _vendor_name: vendorName,
+                      _vendor_description: item.fullDescription || "",
+                      _pack_size: item.packSize || "",
+                      _category_name: item.categoryName || "",
+                      _location_id: pfgLocId,
+                      _location_name: pfgLocName,
+                    });
 
                     if (!error) newItemCount++;
                   }
@@ -163,7 +159,9 @@ serve(async (req) => {
           }
 
           // --- PA Scan (Catalog only — no order history fallback) ---
+          // Track first-seen location per PA item so we can tag the gap with that source
           const seenPaItems = new Map<string, any>();
+          const paItemFirstLoc = new Map<string, string>();
 
           for (const locId of locIds) {
             const { data: catalogItems } = await supabase
@@ -174,13 +172,16 @@ serve(async (req) => {
             if (catalogItems?.length) {
               for (const item of catalogItems) {
                 const paId = String(item.pa_item_id || "").trim();
-                if (!paId || existingPaIds.has(paId) || existingVendorIds.has(paId) || seenPaItems.has(paId)) continue;
-                seenPaItems.set(paId, {
-                  description: item.description,
-                  pack_size: item.pack_size,
-                  category: item.category,
-                  unit_price: item.unit_price,
-                });
+                if (!paId || existingPaIds.has(paId) || existingVendorIds.has(paId)) continue;
+                if (!seenPaItems.has(paId)) {
+                  seenPaItems.set(paId, {
+                    description: item.description,
+                    pack_size: item.pack_size,
+                    category: item.category,
+                    unit_price: item.unit_price,
+                  });
+                  paItemFirstLoc.set(paId, locId);
+                }
               }
             }
           }
@@ -189,24 +190,22 @@ serve(async (req) => {
 
           for (const [paId, item] of seenPaItems) {
             const vendorName = item.description || "";
-            // Skip if this exact alert already exists (avoid overwriting status)
             if (existingAlertKeys.has(`pa:${paId}`)) continue;
 
-            const { error } = await supabase
-              .from("vendor_gap_alerts")
-              .upsert(
-                {
-                  brand_id: brand.id,
-                  vendor_source: "pa",
-                  item_number: paId,
-                  vendor_name: vendorName,
-                  vendor_description: vendorName,
-                  pack_size: item.pack_size || "",
-                  category_name: item.category || "",
-                  status: "new",
-                },
-                { onConflict: "brand_id,vendor_source,item_number" }
-              );
+            const paLocId = paItemFirstLoc.get(paId)!;
+            const paLocName = locNameById.get(paLocId) || "Unknown";
+
+            const { error } = await supabase.rpc('upsert_vendor_gap_with_location', {
+              _brand_id: brand.id,
+              _vendor_source: "pa",
+              _item_number: paId,
+              _vendor_name: vendorName,
+              _vendor_description: vendorName,
+              _pack_size: item.pack_size || "",
+              _category_name: item.category || "",
+              _location_id: paLocId,
+              _location_name: paLocName,
+            });
 
             if (!error) newItemCount++;
           }
