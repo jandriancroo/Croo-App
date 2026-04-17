@@ -1506,6 +1506,17 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (matchSource === 'fallback_brand_item' && item.pa_product_id) {
         updateData.pa_item_id = item.pa_product_id;
       }
+      // Carry brand_item_id forward so trg_validate_active_brand_link doesn't reject the row.
+      // PostgREST upsert with onConflict:'id' can cause the trigger to evaluate NEW.brand_item_id
+      // as NULL when the column is omitted from the payload — explicitly include it.
+      const localFull = localById.get(existingItem.id) as any;
+      if (localFull?.brand_item_id) {
+        updateData.brand_item_id = localFull.brand_item_id;
+      } else if (matchSource === 'fallback_brand_item' && item.pa_product_id) {
+        // fallback_brand_item match means we matched by brand template — use that template id
+        const templateId = paIdToTemplateId.get(item.pa_product_id);
+        if (templateId) updateData.brand_item_id = templateId;
+      }
       toUpsert.push(updateData);
     } else {
       // VENDOR GATE: Do NOT create new inventory_items.
