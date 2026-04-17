@@ -422,14 +422,18 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     onError: (err: any) => toast.error('Link failed: ' + (err.message || 'Unknown')),
   });
 
-  // Pre-link collision check
+  // Pre-link collision check — only flag conflicts against LIVE/DRAFT templates.
+  // Archived templates are dead inventory and shouldn't block re-linking the SKU.
   const handleLinkClick = async (gap: OutlierItem, targetTemplateId: string, targetName: string) => {
     const vendorKey = gap.vendorSource === 'pa' ? 'produce_alliance' : gap.vendorSource;
-    const collision = vendorMappings.find(
-      m => m.vendor_item_id === gap.itemNumber
-        && (m.vendor === vendorKey)
-        && m.brand_template_id !== targetTemplateId,
-    );
+    const collision = vendorMappings.find(m => {
+      if (m.vendor_item_id !== gap.itemNumber) return false;
+      if (m.vendor !== vendorKey) return false;
+      if (m.brand_template_id === targetTemplateId) return false;
+      const owner = templates.find(t => t.id === m.brand_template_id);
+      // Ignore mappings owned by archived templates
+      return owner && (owner as any).status !== 'archived';
+    });
     if (collision) {
       const existing = templates.find(t => t.id === collision.brand_template_id);
       setCollisionConfirm({
