@@ -1506,6 +1506,14 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (matchSource === 'fallback_brand_item' && item.pa_product_id) {
         updateData.pa_item_id = item.pa_product_id;
       }
+      // GUARD FIX: the inventory_items "must have brand_item_id" trigger blocks the
+      // entire chunked upsert if any row is missing brand_item_id. Backfill it here
+      // from the mapping lookup whenever the local row doesn't already have one.
+      const localFull = localById.get(existingItem.id) as any;
+      if (localFull && !localFull.brand_item_id && item.pa_product_id) {
+        const templateId = paIdToTemplateId.get(item.pa_product_id);
+        if (templateId) updateData.brand_item_id = templateId;
+      }
       toUpsert.push(updateData);
     } else {
       // VENDOR GATE: Do NOT create new inventory_items.
@@ -1527,12 +1535,33 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     synced++;
   }
 
-  // Bulk upsert existing items (chunks of 100)
+  // Bulk upsert existing items, but fall back to per-row writes when the chunk
+  // fails. The "Active inventory items must have a brand_item_id" trigger
+  // rejects the WHOLE chunk on one bad row, which historically caused PA prices
+  // to silently never land.
+  let upsertOk = 0;
+  let upsertFail = 0;
   for (let i = 0; i < toUpsert.length; i += 100) {
     const chunk = toUpsert.slice(i, i + 100);
     const { error } = await supabase.from('inventory_items').upsert(chunk, { onConflict: 'id' });
-    if (error) console.warn('[PA Sync] Bulk upsert error:', error.message);
+    if (!error) {
+      upsertOk += chunk.length;
+      continue;
+    }
+    console.warn('[PA Sync] Bulk upsert error, falling back to per-row:', error.message);
+    for (const row of chunk) {
+      const { error: rowErr } = await supabase
+        .from('inventory_items')
+        .upsert(row, { onConflict: 'id' });
+      if (rowErr) {
+        upsertFail++;
+        console.warn(`[PA Sync] Per-row upsert failed (id=${row.id}):`, rowErr.message);
+      } else {
+        upsertOk++;
+      }
+    }
   }
+  console.log(`[PA Sync] Upsert results — ok: ${upsertOk}, failed: ${upsertFail}`);
 
   // Write gap alerts for unmatched items via RPC (atomic location-merge)
   if (gapAlerts.length > 0) {
