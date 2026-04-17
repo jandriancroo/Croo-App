@@ -133,7 +133,9 @@ serve(async (req) => {
                     if (existingPfgNumbers.has(itemNumber) || existingVendorIds.has(itemNumber)) continue;
 
                     const vendorName = item.fullDescription || item.description || "";
-                    if (existingAlertKeys.has(`pfg:${itemNumber}`)) continue;
+                    // NOTE: do NOT skip when alert already exists — the RPC merges
+                    // reported_by_locations so existing gaps accumulate location tags.
+                    const isNewAlert = !existingAlertKeys.has(`pfg:${itemNumber}`);
 
                     const { error } = await supabase.rpc('upsert_vendor_gap_with_location', {
                       _brand_id: brand.id,
@@ -147,7 +149,7 @@ serve(async (req) => {
                       _location_name: pfgLocName,
                     });
 
-                    if (!error) newItemCount++;
+                    if (!error && isNewAlert) newItemCount++;
                   }
                 } else {
                   console.warn(`[vendor-gap-scan] PFG API error for ${brand.name}: ${bidRes.status}`);
@@ -190,7 +192,9 @@ serve(async (req) => {
 
           for (const [paId, item] of seenPaItems) {
             const vendorName = item.description || "";
-            if (existingAlertKeys.has(`pa:${paId}`)) continue;
+            // NOTE: do NOT skip when alert already exists — the RPC merges
+            // reported_by_locations so existing gaps accumulate location tags.
+            const isNewAlert = !existingAlertKeys.has(`pa:${paId}`);
 
             const paLocId = paItemFirstLoc.get(paId)!;
             const paLocName = locNameById.get(paLocId) || "Unknown";
@@ -207,7 +211,7 @@ serve(async (req) => {
               _location_name: paLocName,
             });
 
-            if (!error) newItemCount++;
+            if (!error && isNewAlert) newItemCount++;
           }
         }
       }
