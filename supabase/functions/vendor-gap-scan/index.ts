@@ -194,14 +194,14 @@ serve(async (req) => {
             const vendorName = item.description || "";
             // NOTE: do NOT skip when alert already exists — the RPC merges
             // reported_by_locations so existing gaps accumulate location tags.
-            const isNewAlert = !existingAlertKeys.has(`pa:${paId}`);
+            const isNewAlert = !existingAlertKeys.has(`produce_alliance:${paId}`);
 
             const paLocId = paItemFirstLoc.get(paId)!;
             const paLocName = locNameById.get(paLocId) || "Unknown";
 
             const { error } = await supabase.rpc('upsert_vendor_gap_with_location', {
               _brand_id: brand.id,
-              _vendor_source: "pa",
+              _vendor_source: "produce_alliance",
               _item_number: paId,
               _vendor_name: vendorName,
               _vendor_description: vendorName,
