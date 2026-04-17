@@ -745,26 +745,20 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
               pan_sizes: panSizesConfig as any,
             } as any).eq("id", existingProducesId);
           } else {
-            const { data: newItem, error: itemErr } = await supabase
-              .from("inventory_items")
-              .insert({
-                location_id: locationId,
-                name: recipeName.trim(),
-                unit: yieldUnit,
-                is_recipe: false,
-                is_active: true,
-                recipe_yield_qty: parseFloat(yieldQty),
-                recipe_yield_unit: yieldUnit,
-                count_unit: yieldUnit,
-                count_units_per_case: parseFloat(yieldQty),
-                cost_per_unit: batchCost,
-                display_order: 0,
-                countable: true,
-                pan_sizes: panSizesConfig as any,
-              } as any)
-              .select("id").single();
-            if (itemErr || !newItem) throw itemErr || new Error("Failed to create countable item");
-            await supabase.from("recipe_blueprints" as any).update({ produces_item_id: newItem.id } as any).eq("id", editBlueprintId);
+            // Use heal RPC to create brand template + linked local item with brand_item_id set
+            const { data: healed, error: healErr } = await supabase.rpc(
+              "heal_orphan_blueprint" as any,
+              { _blueprint_id: editBlueprintId, _target_location_id: locationId } as any
+            );
+            if (healErr) throw healErr;
+            const newItemId = (healed as any)?.produces_item_id;
+            if (!newItemId) throw new Error("Failed to create countable item");
+            // Apply countable-specific fields the RPC doesn't set
+            await supabase.from("inventory_items").update({
+              cost_per_unit: batchCost,
+              count_units_per_case: parseFloat(yieldQty),
+              pan_sizes: panSizesConfig as any,
+            } as any).eq("id", newItemId);
           }
         } else if (existingProducesId) {
           await supabase.from("inventory_items").update({ is_active: false } as any).eq("id", existingProducesId);
@@ -803,26 +797,20 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         }
 
         if (countable) {
-          const { data: newItem, error: itemErr } = await supabase
-            .from("inventory_items")
-            .insert({
-              location_id: locationId,
-              name: recipeName.trim(),
-              unit: yieldUnit,
-              is_recipe: false,
-              is_active: true,
-              recipe_yield_qty: parseFloat(yieldQty),
-              recipe_yield_unit: yieldUnit,
-              count_unit: yieldUnit,
-              count_units_per_case: parseFloat(yieldQty),
-              cost_per_unit: batchCost,
-              display_order: 0,
-              countable: true,
-              pan_sizes: panSizesConfig as any,
-            } as any)
-            .select("id").single();
-          if (itemErr || !newItem) throw itemErr || new Error("Failed to create countable item");
-          await supabase.from("recipe_blueprints" as any).update({ produces_item_id: newItem.id } as any).eq("id", blueprintId);
+          // Use heal RPC to create brand template + linked local item with brand_item_id set
+          const { data: healed, error: healErr } = await supabase.rpc(
+            "heal_orphan_blueprint" as any,
+            { _blueprint_id: blueprintId, _target_location_id: locationId } as any
+          );
+          if (healErr) throw healErr;
+          const newItemId = (healed as any)?.produces_item_id;
+          if (!newItemId) throw new Error("Failed to create countable item");
+          // Apply countable-specific fields the RPC doesn't set
+          await supabase.from("inventory_items").update({
+            cost_per_unit: batchCost,
+            count_units_per_case: parseFloat(yieldQty),
+            pan_sizes: panSizesConfig as any,
+          } as any).eq("id", newItemId);
         }
       }
     },
