@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronUp, ChevronDown, Link2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Link2, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -20,6 +20,9 @@ interface SortableInventoryItemProps {
   isLast?: boolean;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  /** Live unit cost computed from blueprint ingredients (overrides stored cost_per_unit when present) */
+  liveUnitCost?: number;
+  liveCostIsPartial?: boolean;
 }
 
 export function SortableInventoryItem({
@@ -36,6 +39,8 @@ export function SortableInventoryItem({
   isLast = false,
   onClick,
   onContextMenu,
+  liveUnitCost,
+  liveCostIsPartial,
 }: SortableInventoryItemProps) {
   const {
     setNodeRef,
@@ -56,6 +61,14 @@ export function SortableInventoryItem({
         zIndex: isDragging ? 50 : undefined,
       };
 
+  // Effective per-unit cost: prefer live blueprint cost (recipes), else stored cost_per_unit
+  const storedUnitCost = item.cost_per_unit
+    ? Number(item.cost_per_unit) /
+      Math.max(item.pack_quantity_override ?? item.count_units_per_case ?? item.pack_quantity ?? 1, 1)
+    : 0;
+  const displayUnitCost = liveUnitCost && liveUnitCost > 0 ? liveUnitCost : storedUnitCost;
+  const hasNoCost = !displayUnitCost || displayUnitCost === 0;
+
   return (
     <div
       ref={setNodeRef}
@@ -67,7 +80,7 @@ export function SortableInventoryItem({
           ? "bg-primary/10 ring-1 ring-primary/30"
           : isShortcut
           ? "bg-orange-100 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700/50"
-          : !isShortcut && (!item.cost_per_unit || Number(item.cost_per_unit) === 0)
+          : !isShortcut && hasNoCost
           ? "bg-red-50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-800/30 hover:bg-red-100/60 dark:hover:bg-red-950/30"
           : "bg-background hover:bg-muted/30"
       }`}
@@ -145,9 +158,10 @@ export function SortableInventoryItem({
       {/* Price/unit column */}
       <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground flex-shrink-0">
         <span className="text-[10px] sm:text-xs">{item.pack_size || item.unit || "ea"}</span>
-        {item.cost_per_unit && !isShortcut && (
-          <span className="text-[10px] sm:text-xs text-primary">
-            ${(Number(item.cost_per_unit) / Math.max(item.pack_quantity_override ?? item.count_units_per_case ?? item.pack_quantity ?? 1, 1)).toFixed(2)}
+        {displayUnitCost > 0 && !isShortcut && (
+          <span className="text-[10px] sm:text-xs text-primary inline-flex items-center gap-0.5">
+            ${displayUnitCost.toFixed(2)}
+            {liveCostIsPartial && <AlertCircle className="h-2.5 w-2.5 text-amber-500" />}
           </span>
         )}
       </div>

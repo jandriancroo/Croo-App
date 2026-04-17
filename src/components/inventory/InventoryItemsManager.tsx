@@ -27,6 +27,8 @@ import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import ShortcutConfigSheet from "./ShortcutConfigSheet";
 import StorageLocationManager from "./StorageLocationManager";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
+import { fetchBlueprintCosts, getBlueprintUnitCost } from "@/utils/blueprintCostCalculation";
+import { fetchBlueprintsForLocation } from "@/utils/resolveBrandId";
 import {
   DndContext,
   closestCenter,
@@ -423,11 +425,43 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     enabled: !!items && items.length > 0,
   });
 
-  // Fetch recipe costs for items without stored cost_per_unit
+  // Fetch recipe costs for legacy (non-blueprint) recipes
   const { data: recipeCosts } = useQuery({
     queryKey: ["recipe-costs", locationId],
     queryFn: () => fetchRecipeCosts(locationId),
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Live blueprint costs for recipe items at this location.
+  // Returns Map<inventory_item_id, { unitCost, isPartial }> so the Items list
+  // can show an accurate per-unit cost even when inventory_items.cost_per_unit
+  // hasn't been backfilled at this location.
+  const { data: liveRecipeCostMap } = useQuery({
+    queryKey: ["live-recipe-costs", locationId],
+    queryFn: async () => {
+      const [bpCosts, blueprints] = await Promise.all([
+        fetchBlueprintCosts(locationId),
+        fetchBlueprintsForLocation(locationId, "id, name, yield_qty"),
+      ]);
+      // Match blueprint → local recipe inventory item by case-insensitive name
+      const recipeItems = (items || []).filter((i: any) => i.is_recipe);
+      const itemByName = new Map<string, any>();
+      recipeItems.forEach((i: any) => itemByName.set(i.name.toLowerCase(), i));
+
+      const result = new Map<string, { unitCost: number; isPartial: boolean }>();
+      for (const bp of (blueprints as any[])) {
+        const item = itemByName.get(String(bp.name).toLowerCase());
+        if (!item) continue;
+        const cost = bpCosts.get(bp.id);
+        if (!cost || cost.batchCost <= 0) continue;
+        const yieldQty = bp.yield_qty || item.recipe_yield_qty || 1;
+        const unitCost = getBlueprintUnitCost(cost.batchCost, yieldQty);
+        result.set(item.id, { unitCost, isPartial: cost.isPartial });
+      }
+      return result;
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!locationId && !!items && items.length > 0,
   });
 
 
@@ -1372,6 +1406,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   onMoveDown={isReorderThisGroup ? () => handleArrowMove('down', allLocItems, item.id, shortcutIdSet, loc.id) : undefined}
                                   isFirst={itemIdx === 0}
                                   isLast={itemIdx === renderItems.length - 1}
+                                  liveUnitCost={liveRecipeCostMap?.get(item.id)?.unitCost}
+                                  liveCostIsPartial={liveRecipeCostMap?.get(item.id)?.isPartial}
                                   onClick={() => {
                                     if (isBulkDragThisGroup || isReorderThisGroup) return;
                                     if (isSelectingThisGroup) {
@@ -1462,6 +1498,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                 isReorderMode={false}
                                 reorderState="idle"
                                 pickedCount={0}
+                                liveUnitCost={liveRecipeCostMap?.get(item.id)?.unitCost}
+                                liveCostIsPartial={liveRecipeCostMap?.get(item.id)?.isPartial}
                                 onClick={() => {
                                   if (isSelectingThisGroup) {
                                     const next = new Set(selectedItemIds);
