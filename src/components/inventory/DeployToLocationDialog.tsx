@@ -230,6 +230,24 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     enabled: open,
   });
 
+  // Vendor integration status for the *target* location.
+  // Deploy is blocked unless both PFG and PA are connected — without them, post-deploy
+  // syncs cannot stamp SKUs/costs and the location ends up in a broken half-deployed state.
+  const { data: integrationStatus, isLoading: integrationStatusLoading } = useQuery({
+    queryKey: ["target-integrations", targetLocationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("location_integrations")
+        .select("integration_type, is_active")
+        .eq("location_id", targetLocationId)
+        .in("integration_type", ["pfg", "produce_alliance"]);
+      const pfg = (data || []).some(i => i.integration_type === "pfg" && i.is_active);
+      const pa = (data || []).some(i => i.integration_type === "produce_alliance" && i.is_active);
+      return { pfg, pa, ok: pfg && pa };
+    },
+    enabled: open && !!targetLocationId,
+  });
+
   // Fetch templates
   const { data: templates } = useQuery({
     queryKey: ["brand-templates-deploy", brandId],
@@ -972,14 +990,48 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
               })}
             </div>
 
-            <Button
-              onClick={() => setStep(2)}
-              disabled={!targetLocationId || selectedFeatures.size === 0}
-              className="w-full"
-            >
-              Continue to Review
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
+            {/* Vendor integration gate — block deploy if PFG/PA not connected */}
+            {targetLocationId && !integrationStatusLoading && integrationStatus && !integrationStatus.ok && (
+              <div className="rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-amber-900 dark:text-amber-100">
+                      Vendor integrations required
+                    </p>
+                    <p className="text-[10px] text-amber-800 dark:text-amber-200">
+                      Both PFG and Produce Alliance must be connected before deploying — costs and pack data flow from those syncs.
+                    </p>
+                    <ul className="text-[10px] text-amber-800 dark:text-amber-200 list-disc list-inside">
+                      <li>PFG: {integrationStatus.pfg ? "✅ Connected" : "❌ Not connected"}</li>
+                      <li>Produce Alliance: {integrationStatus.pa ? "✅ Connected" : "❌ Not connected"}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {targetLocationId && integrationStatus && !integrationStatus.ok ? (
+              <Button
+                onClick={() => {
+                  window.location.href = `/settings/integrations?locationId=${targetLocationId}`;
+                }}
+                className="w-full"
+                variant="outline"
+              >
+                CONNECT VENDORS
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setStep(2)}
+                disabled={!targetLocationId || selectedFeatures.size === 0 || integrationStatusLoading || !integrationStatus?.ok}
+                className="w-full"
+              >
+                Continue to Review
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            )}
           </div>
         )}
 
