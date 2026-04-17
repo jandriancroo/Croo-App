@@ -1498,6 +1498,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                 isReorderMode={false}
                                 reorderState="idle"
                                 pickedCount={0}
+                                liveUnitCost={liveRecipeCostMap?.get(item.id)?.unitCost}
+                                liveCostIsPartial={liveRecipeCostMap?.get(item.id)?.isPartial}
                                 onClick={() => {
                                   if (isSelectingThisGroup) {
                                     const next = new Set(selectedItemIds);
