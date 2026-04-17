@@ -31,11 +31,13 @@ serve(async (req) => {
     const results: { brandId: string; brandName: string; newItems: number }[] = [];
 
     for (const brand of brands) {
-      // Get existing templates for this brand
+      // Get existing templates for this brand — EXCLUDE archived rows so they
+      // don't falsely block new gap alerts or trigger auto-resolution.
       const { data: templates } = await supabase
         .from("brand_inventory_templates")
-        .select("id, item_number, pa_item_id")
-        .eq("brand_id", brand.id);
+        .select("id, item_number, pa_item_id, status")
+        .eq("brand_id", brand.id)
+        .neq("status", "archived");
 
       const templateIds = (templates || []).map(t => t.id);
       const existingPfgNumbers = new Set(
