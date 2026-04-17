@@ -488,10 +488,11 @@ const StartCountDialog = ({
         if (m.vendor_item_id) pfgSkuToTemplate.set(m.vendor_item_id, m.brand_template_id);
       }
 
-      // Resolve brand_id for vendor gap alerts
-      const { data: locRow } = await supabase.from("locations").select("organization_id").eq("id", locationId).single();
+      // Resolve brand_id + location name for vendor gap alerts
+      const { data: locRow } = await supabase.from("locations").select("organization_id, name").eq("id", locationId).single();
       const { data: orgRow } = await supabase.from("organizations").select("brand_id").eq("id", locRow?.organization_id).single();
       const brandId = orgRow?.brand_id;
+      const locationName = locRow?.name || 'Unknown';
 
       // Pre-fetch all local items for in-memory matching
       const { data: allLocalItems } = await supabase
@@ -593,13 +594,20 @@ const StartCountDialog = ({
         console.log(`[PFG Sync] Skipped ${skippedUnmapped} unmapped items (not in brand catalog)`);
       }
 
-      // Route unmatched PFG items to vendor_gap_alerts
+      // Route unmatched PFG items to vendor_gap_alerts (atomic location-merge via RPC)
       if (gapAlerts.length > 0) {
-        for (let i = 0; i < gapAlerts.length; i += 50) {
-          const chunk = gapAlerts.slice(i, i + 50);
-          const { error: gapErr } = await supabase
-            .from("vendor_gap_alerts" as any)
-            .upsert(chunk, { onConflict: 'brand_id,vendor_source,item_number', ignoreDuplicates: true });
+        for (const gap of gapAlerts) {
+          const { error: gapErr } = await supabase.rpc('upsert_vendor_gap_with_location' as any, {
+            _brand_id: gap.brand_id,
+            _vendor_source: gap.vendor_source,
+            _item_number: gap.item_number,
+            _vendor_name: gap.vendor_name,
+            _vendor_description: gap.vendor_description,
+            _pack_size: gap.pack_size,
+            _category_name: null,
+            _location_id: locationId,
+            _location_name: locationName,
+          });
           if (gapErr) console.warn('[PFG Sync] Gap alert write error:', gapErr.message);
         }
         console.log(`[PFG Sync] Routed ${gapAlerts.length} unmatched items to vendor_gap_alerts`);
