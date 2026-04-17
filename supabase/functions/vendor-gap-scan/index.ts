@@ -77,6 +77,45 @@ serve(async (req) => {
         existingAlertKeys.add(`${alert.vendor_source}:${alert.item_number}`);
       }
 
+      // AUTO-RESOLVE: Any existing 'new' alert whose item_number is now mapped
+      // (either as a template item_number/pa_item_id OR in brand_vendor_mappings)
+      // should be flipped to 'resolved' so it disappears from the gap finder.
+      // This handles the race where a user links the item AFTER an alert was created.
+      const { data: openAlerts } = await supabase
+        .from("vendor_gap_alerts")
+        .select("id, vendor_source, item_number")
+        .eq("brand_id", brand.id)
+        .eq("status", "new");
+
+      const idsToResolve: string[] = [];
+      for (const a of (openAlerts || [])) {
+        const itemNum = String(a.item_number || "").trim();
+        if (!itemNum) continue;
+        const isMapped =
+          existingVendorIds.has(itemNum) ||
+          (a.vendor_source === "pfg" && existingPfgNumbers.has(itemNum)) ||
+          (a.vendor_source === "produce_alliance" && existingPaIds.has(itemNum));
+        if (isMapped) idsToResolve.push(a.id);
+      }
+
+      if (idsToResolve.length > 0) {
+        // Chunk to avoid URL length limits
+        for (let i = 0; i < idsToResolve.length; i += 50) {
+          const chunk = idsToResolve.slice(i, i + 50);
+          await supabase
+            .from("vendor_gap_alerts")
+            .update({ status: "resolved", resolved_at: new Date().toISOString() })
+            .in("id", chunk);
+        }
+        console.log(`[vendor-gap-scan] Auto-resolved ${idsToResolve.length} alerts for ${brand.name} (now mapped)`);
+        // Also remove from existingAlertKeys so logic below treats them fresh
+        for (const a of (openAlerts || [])) {
+          if (idsToResolve.includes(a.id)) {
+            existingAlertKeys.delete(`${a.vendor_source}:${a.item_number}`);
+          }
+        }
+      }
+
       let newItemCount = 0;
 
       // --- PFG Scan (Bid Guide) ---
