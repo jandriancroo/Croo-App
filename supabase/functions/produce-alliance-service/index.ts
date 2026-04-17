@@ -2060,7 +2060,6 @@ async function handleListPendingScrapes(supabase: any, _body: any): Promise<Resp
     // Current week start (Monday) in PST
     const now = new Date();
     const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-    const dayOfWeek = pst.getDay();
     // Find pa_orders with no items: only orders from last 30 days, limit 4
     // Skip orders older than 30 days to prevent infinite zombie retries
     const thirtyDaysAgo = new Date(pst);
