@@ -84,7 +84,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         packSize: d.pack_size || '',
         categoryName: d.category_name || 'Uncategorized',
         price: null,
-        vendorSource: (d.vendor_source === 'produce_alliance' ? 'pa'
+        vendorSource: (d.vendor_source === 'produce_alliance' || d.vendor_source === 'pa' ? 'pa'
           : d.vendor_source === 'pfg' ? 'pfg'
           : 'invoice') as 'pfg' | 'pa' | 'invoice',
         status: d.status,
