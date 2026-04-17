@@ -1007,11 +1007,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       queryClient.invalidateQueries({ queryKey: ["last-pa-sync", locationId] });
 
-      const itemCount = data?.itemsSynced || data?.items_synced || 0;
+      const itemCount = data?.itemsSynced ?? data?.items_synced ?? data?.synced ?? 0;
       if (itemCount > 0) {
         toast.success(`Synced ${itemCount} items from Produce Alliance`);
       } else {
-        toast.info("Already in sync with Produce Alliance");
+        toast.info(data?.message || "Already in sync with Produce Alliance");
       }
 
       if (data?.errors?.length > 0) {

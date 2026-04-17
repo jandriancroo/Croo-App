@@ -1285,21 +1285,63 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     return jsonResponse({ success: false, error: 'PA login failed' });
   }
 
-  // ── PRIMARY: Use current-prices REST API for full catalog with prices ──
+  // ── PRIMARY: Use current-prices REST API for live prices, but merge in cached PA catalog rows
+  // because some locations expose only a partial live feed while pa_catalog_items already contains
+  // the full priced catalog discovered by the catalog scraper.
   const catalogItems = await fetchCurrentPricesCatalog(session);
-  
-  // Convert catalog items to PALineItem format for the sync logic below
+  const { data: cachedCatalogRows } = await supabase
+    .from('pa_catalog_items')
+    .select('pa_item_id, pa_internal_id, description, pack_size, category, unit_price')
+    .eq('location_id', locationId)
+    .gt('unit_price', 0);
+
   const allItems = new Map<string, PALineItem>();
-  for (const ci of catalogItems) {
-    if (!ci.pa_item_id) continue;
-    allItems.set(ci.pa_item_id, {
-      item_code: ci.distributor_product_id || ci.master_product_code || '',
-      description: ci.description,
-      pa_product_id: ci.pa_item_id,
-      unit_price: ci.unit_price || 0,
+  const upsertCatalogItem = (
+    item: {
+      pa_item_id: string;
+      description: string;
+      unit_price: number | null;
+      distributor_product_id?: string | null;
+      master_product_code?: string | null;
+      pa_internal_id?: string | null;
+    },
+    preferIncoming = false,
+  ) => {
+    if (!item.pa_item_id || !item.description) return;
+
+    const normalized: PALineItem = {
+      item_code: item.distributor_product_id || item.master_product_code || item.pa_internal_id || '',
+      description: item.description,
+      pa_product_id: item.pa_item_id,
+      unit_price: item.unit_price || 0,
       quantity: 0,
       cost: 0,
+    };
+
+    const existing = allItems.get(item.pa_item_id);
+    if (!existing) {
+      allItems.set(item.pa_item_id, normalized);
+      return;
+    }
+
+    const nextPrice = preferIncoming && normalized.unit_price > 0
+      ? normalized.unit_price
+      : (existing.unit_price > 0 ? existing.unit_price : normalized.unit_price);
+
+    allItems.set(item.pa_item_id, {
+      ...existing,
+      ...normalized,
+      item_code: existing.item_code || normalized.item_code,
+      description: existing.description || normalized.description,
+      unit_price: nextPrice,
     });
+  };
+
+  for (const row of cachedCatalogRows || []) {
+    upsertCatalogItem(row, false);
+  }
+  for (const ci of catalogItems) {
+    upsertCatalogItem(ci, true);
   }
 
   // Also fetch recent orders for persistence (COGS reconciliation)
@@ -1313,7 +1355,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   const orderList = await fetchOrderList(session, startDate, endDate);
   let ordersProcessed = orderList.length;
   
-  console.log('[PA Sync] Got', allItems.size, 'items from current-prices API,', orderList.length, 'orders');
+  console.log('[PA Sync] Catalog merge — live:', catalogItems.length, 'cached:', cachedCatalogRows?.length || 0, 'merged:', allItems.size, 'orders:', orderList.length);
 
   // Persist orders to pa_orders from summary data (even without line items)
   // This ensures they show up in the Order Reconciliation Picker for COGS
