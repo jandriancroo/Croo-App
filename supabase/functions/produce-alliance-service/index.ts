@@ -289,7 +289,7 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
 }
 
 // Build auth headers for API requests (matching Angular HttpClient behavior)
-function getAuthHeaders(session: PASession, isPost = false): Record<string, string> {
+function getAuthHeaders(session: PASession, _isPost = false): Record<string, string> {
   const headers: Record<string, string> = {
     'User-Agent': UA,
     'Accept': 'application/json, text/plain, */*',
@@ -573,7 +573,7 @@ interface PAOrderDetail {
   lineItems: PALineItem[];
 }
 
-async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string, credentials?: PACredentials | null): Promise<PAOrderDetail | null> {
+async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string, _credentials?: PACredentials | null): Promise<PAOrderDetail | null> {
   console.log('[PA Detail] Fetching order:', webOrderId);
 
   const authHeaders = getAuthHeaders(session);
@@ -1436,8 +1436,6 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     .eq('location_id', locationId);
 
   const localById = new Map((allLocalItems || []).map(i => [i.id, i]));
-  const localByPaId = new Map((allLocalItems || []).filter(i => i.pa_item_id).map(i => [i.pa_item_id!, i]));
-  const localByName = new Map((allLocalItems || []).map(i => [i.name.toLowerCase(), i]));
   // brand_item_id → local item (for step 3.5: prevent duplicates when brand template already has a local item)
   const localByBrandItemId = new Map((allLocalItems || []).filter(i => i.brand_item_id).map(i => [i.brand_item_id!, i]));
 
@@ -2064,10 +2062,6 @@ async function handleListPendingScrapes(supabase: any, _body: any): Promise<Resp
     const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
     const dayOfWeek = pst.getDay();
     const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const weekStart = new Date(pst);
-    weekStart.setDate(pst.getDate() - mondayOffset);
-    const weekStartStr = weekStart.toISOString().split('T')[0];
-
     // Find pa_orders with no items: only orders from last 30 days, limit 4
     // Skip orders older than 30 days to prevent infinite zombie retries
     const thirtyDaysAgo = new Date(pst);
@@ -2510,8 +2504,7 @@ function parseWeeklyPricesHtml(html: string): Array<{
 
   // Find ALL table rows
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-  let headerCells: string[] = [];
-  let nameIdx = -1, paIdIdx = -1, packIdx = -1, priceIdx = -1, codeIdx = -1;
+  let nameIdx = -1, paIdIdx = -1, packIdx = -1, priceIdx = -1;
   let foundHeader = false;
   let match;
 
@@ -2527,10 +2520,8 @@ function parseWeeklyPricesHtml(html: string): Array<{
         thCells.push(stripTags(thMatch[1]).toLowerCase());
       }
       if (thCells.length >= 3) {
-        headerCells = thCells;
         nameIdx = thCells.findIndex(h => h.includes('master product name') || h.includes('product name') || h.includes('description'));
         paIdIdx = thCells.findIndex(h => h.includes('pa product id') || (h.includes('product id') && !h.includes('name')));
-        codeIdx = thCells.findIndex(h => h.includes('master product code') || h.includes('product code') || h.includes('item code'));
         packIdx = thCells.findIndex(h => h.includes('pack') || h.includes('size') || h.includes('unit'));
         priceIdx = thCells.findIndex(h => h.includes('price') || h.includes('cost'));
         foundHeader = true;
