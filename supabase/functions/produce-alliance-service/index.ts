@@ -1501,22 +1501,21 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (existingItem.user_hidden) {
         delete updateData.is_active;
       }
+      // When matched via brand_item_id fallback, stamp pa_item_id on the surviving item
+      // so future syncs find it directly via step 2 (pa_item_id lookup)
       if (matchSource === 'fallback_brand_item' && item.pa_product_id) {
         updateData.pa_item_id = item.pa_product_id;
       }
-      // GUARD FIX: always carry brand_item_id forward so the
-      // "active items must have brand_item_id" trigger never sees NULL.
-      const localFull: any = localById.get(existingItem.id);
-      const carriedBrandItemId =
-        localFull?.brand_item_id ||
-        (item.pa_product_id ? paIdToTemplateId.get(item.pa_product_id) : null) ||
-        null;
-      if (carriedBrandItemId) {
-        updateData.brand_item_id = carriedBrandItemId;
-      } else {
-        // No brand link known — skip rather than trigger-fail the whole batch.
-        console.warn(`[PA Sync] Skipping ${existingItem.id} — no brand_item_id resolvable`);
-        continue;
+      // Carry brand_item_id forward so trg_validate_active_brand_link doesn't reject the row.
+      // PostgREST upsert with onConflict:'id' can cause the trigger to evaluate NEW.brand_item_id
+      // as NULL when the column is omitted from the payload — explicitly include it.
+      const localFull = localById.get(existingItem.id) as any;
+      if (localFull?.brand_item_id) {
+        updateData.brand_item_id = localFull.brand_item_id;
+      } else if (matchSource === 'fallback_brand_item' && item.pa_product_id) {
+        // fallback_brand_item match means we matched by brand template — use that template id
+        const templateId = paIdToTemplateId.get(item.pa_product_id);
+        if (templateId) updateData.brand_item_id = templateId;
       }
       toUpsert.push(updateData);
     } else {
@@ -1539,33 +1538,12 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     synced++;
   }
 
-  // Bulk upsert existing items, but fall back to per-row writes when the chunk
-  // fails. The "Active inventory items must have a brand_item_id" trigger
-  // rejects the WHOLE chunk on one bad row, which historically caused PA prices
-  // to silently never land.
-  let upsertOk = 0;
-  let upsertFail = 0;
+  // Bulk upsert existing items (chunks of 100)
   for (let i = 0; i < toUpsert.length; i += 100) {
     const chunk = toUpsert.slice(i, i + 100);
     const { error } = await supabase.from('inventory_items').upsert(chunk, { onConflict: 'id' });
-    if (!error) {
-      upsertOk += chunk.length;
-      continue;
-    }
-    console.warn('[PA Sync] Bulk upsert error, falling back to per-row:', error.message);
-    for (const row of chunk) {
-      const { error: rowErr } = await supabase
-        .from('inventory_items')
-        .upsert(row, { onConflict: 'id' });
-      if (rowErr) {
-        upsertFail++;
-        console.warn(`[PA Sync] Per-row upsert failed (id=${row.id}):`, rowErr.message);
-      } else {
-        upsertOk++;
-      }
-    }
+    if (error) console.warn('[PA Sync] Bulk upsert error:', error.message);
   }
-  console.log(`[PA Sync] Upsert results — ok: ${upsertOk}, failed: ${upsertFail}`);
 
   // Write gap alerts for unmatched items via RPC (atomic location-merge)
   if (gapAlerts.length > 0) {
