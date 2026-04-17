@@ -331,6 +331,10 @@ Deno.serve(async (req) => {
     }
 
     // 6. Deploy recipe ingredients
+    // IDEMPOTENT: We delete existing ingredients first so this step can safely re-run
+    // after vendor syncs populate item_number / pa_item_id (the second-pass deploy that
+    // the LocationActivationList orchestrates). Without this, repeated deploys would
+    // multiply ingredient rows.
     for (const tmpl of recipeTemplates) {
       const recipeItemId = templateToItemId.get(tmpl.id);
       if (!recipeItemId) continue;
@@ -381,7 +385,13 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Only rewrite ingredients if we resolved at least one — protects against wiping
+      // a previously-good link list when an unrelated sync issue blanks vendor IDs.
       if (ingredientInserts.length > 0) {
+        await supabase
+          .from("inventory_recipe_ingredients")
+          .delete()
+          .eq("recipe_item_id", recipeItemId);
         await supabase.from("inventory_recipe_ingredients").insert(ingredientInserts);
       }
     }
