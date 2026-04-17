@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Rocket, Loader2 } from 'lucide-react';
+import { Rocket, Loader2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import { useNavigate } from 'react-router-dom';
 
 interface LocationActivationListProps {
   locations: any[];
@@ -16,6 +17,12 @@ interface LocationActivationListProps {
   onNavigate: (locationId: string) => void;
 }
 
+type IntegrationStatus = {
+  pfg: boolean;
+  pa: boolean;
+  ok: boolean;
+};
+
 export default function LocationActivationList({
   locations,
   locationActivationMap,
@@ -24,7 +31,39 @@ export default function LocationActivationList({
   onNavigate,
 }: LocationActivationListProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [deployingLocId, setDeployingLocId] = useState<string | null>(null);
+
+  // Fetch vendor integration status for ALL locations on this list at once.
+  // Deploy is hard-blocked unless both PFG and Produce Alliance are connected,
+  // because the structure-only deploy depends on those syncs to fill in costs/SKUs.
+  const locationIds = locations.map((l) => l.id);
+  const { data: integrationMap } = useQuery({
+    queryKey: ['location-integrations-status', locationIds.sort().join(',')],
+    enabled: locationIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_integrations')
+        .select('location_id, integration_type, is_active')
+        .in('location_id', locationIds)
+        .in('integration_type', ['pfg', 'produce_alliance'])
+        .eq('is_active', true);
+      if (error) throw error;
+      const map = new Map<string, IntegrationStatus>();
+      for (const id of locationIds) {
+        map.set(id, { pfg: false, pa: false, ok: false });
+      }
+      for (const row of data || []) {
+        const status = map.get(row.location_id) || { pfg: false, pa: false, ok: false };
+        if (row.integration_type === 'pfg') status.pfg = true;
+        if (row.integration_type === 'produce_alliance') status.pa = true;
+        status.ok = status.pfg && status.pa;
+        map.set(row.location_id, status);
+      }
+      return map;
+    },
+    staleTime: 30_000,
+  });
 
   const handleDeploy = async (locationId: string) => {
     setDeployingLocId(locationId);
@@ -59,6 +98,13 @@ export default function LocationActivationList({
         const isDeploying = deployingLocId === loc.id;
         const needsDeploy = liveCount > 0;
         const lastDeployed = formatDeployDate(loc.last_deployed_at);
+        const integrationStatus = integrationMap?.get(loc.id);
+        const vendorsReady = integrationStatus?.ok ?? true; // optimistic until query resolves
+        const missingVendors: string[] = [];
+        if (integrationStatus) {
+          if (!integrationStatus.pfg) missingVendors.push('PFG');
+          if (!integrationStatus.pa) missingVendors.push('Produce Alliance');
+        }
 
         return (
           <div key={loc.id} className="flex items-center justify-between py-3">
@@ -85,23 +131,41 @@ export default function LocationActivationList({
                   Last deployed {lastDeployed}
                 </p>
               )}
+              {needsDeploy && integrationStatus && !vendorsReady && (
+                <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1 pl-0.5 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  {missingVendors.join(' + ')} not connected
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               {needsDeploy && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5"
-                  disabled={isDeploying}
-                  onClick={() => handleDeploy(loc.id)}
-                >
-                  {isDeploying ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Rocket className="h-3.5 w-3.5" />
-                  )}
-                  {active === 0 ? 'Deploy' : 'Sync'}
-                </Button>
+                vendorsReady ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5"
+                    disabled={isDeploying}
+                    onClick={() => handleDeploy(loc.id)}
+                  >
+                    {isDeploying ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Rocket className="h-3.5 w-3.5" />
+                    )}
+                    {active === 0 ? 'Deploy' : 'Sync'}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5 border-amber-400 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                    onClick={() => navigate(`/location/${loc.id}#integrations`)}
+                  >
+                    Connect Vendors
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                )
               )}
               <Button
                 variant="ghost"
