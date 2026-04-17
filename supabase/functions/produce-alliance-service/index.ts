@@ -1538,11 +1538,28 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     synced++;
   }
 
-  // Bulk upsert existing items (chunks of 100)
-  for (let i = 0; i < toUpsert.length; i += 100) {
-    const chunk = toUpsert.slice(i, i + 100);
-    const { error } = await supabase.from('inventory_items').upsert(chunk, { onConflict: 'id' });
-    if (error) console.warn('[PA Sync] Bulk upsert error:', error.message);
+  // Existing local items only: use UPDATE, not UPSERT.
+  // UPSERT can hit the trigger path with a partial NEW row and null out brand_item_id.
+  const updateFailures: Array<{ id: string; message: string }> = [];
+  for (let i = 0; i < toUpsert.length; i += 25) {
+    const chunk = toUpsert.slice(i, i + 25);
+    const results = await Promise.all(
+      chunk.map(async ({ id, ...payload }) => {
+        const { error } = await supabase
+          .from('inventory_items')
+          .update(payload)
+          .eq('id', id);
+
+        if (error) {
+          updateFailures.push({ id, message: error.message });
+        }
+      })
+    );
+    await Promise.all(results);
+  }
+
+  if (updateFailures.length > 0) {
+    console.warn('[PA Sync] Item update failures:', updateFailures.slice(0, 20));
   }
 
   // Write gap alerts for unmatched items via RPC (atomic location-merge)
@@ -1564,7 +1581,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     console.log(`[PA Sync] Routed ${gapAlerts.length} unmatched items to vendor_gap_alerts`);
   }
 
-  console.log('[PA Sync] Bulk write complete — upserted:', toUpsert.length, 'gap alerts:', gapAlerts.length);
+  console.log('[PA Sync] Bulk write complete — updated:', toUpsert.length - updateFailures.length, 'failed:', updateFailures.length, 'gap alerts:', gapAlerts.length);
 
   // Propagate count_unit + count_units_per_case to brand templates
   const brandTemplateUpdates = new Map<string, { count_unit: string; count_units_per_case: number }>();
