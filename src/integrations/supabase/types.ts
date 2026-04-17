@@ -8884,6 +8884,10 @@ export type Database = {
         Args: { _minimum_role: string; _user_id: string }
         Returns: boolean
       }
+      heal_orphan_blueprint: {
+        Args: { _blueprint_id: string; _target_location_id?: string }
+        Returns: Json
+      }
       increment_croo_cash: {
         Args: { amount: number; user_id: string }
         Returns: undefined
