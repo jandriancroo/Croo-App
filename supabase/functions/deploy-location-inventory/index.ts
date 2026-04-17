@@ -497,8 +497,8 @@ Deno.serve(async (req) => {
       triggerSyncs.push(
         Promise.race([
           supabase.functions.invoke("pfg-service", {
-            body: { locationId, action: "sync" },
-          }).then(() => console.log(`[deploy] PFG sync triggered for ${locationId}`))
+            body: { locationId, action: "sync_orders" },
+          }).then(() => console.log(`[deploy] PFG sync_orders triggered for ${locationId}`))
             .catch((e) => console.warn(`[deploy] PFG sync invoke error:`, e?.message || e)),
           new Promise((r) => setTimeout(r, 2000)),
         ])
