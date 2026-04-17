@@ -510,8 +510,18 @@ Deno.serve(async (req) => {
         Promise.race([
           supabase.functions.invoke("produce-alliance-service", {
             body: { action: "sync_items", locationId, triggeredBy: "deploy" },
-          }).then(() => console.log(`[deploy] PA sync triggered for ${locationId}`))
-            .catch((e) => console.warn(`[deploy] PA sync invoke error:`, e?.message || e)),
+          }).then(() => console.log(`[deploy] PA sync_items triggered for ${locationId}`))
+            .catch((e) => console.warn(`[deploy] PA sync_items invoke error:`, e?.message || e)),
+          new Promise((r) => setTimeout(r, 2000)),
+        ])
+      );
+      // Also pull recent order history so cost reconciliation has data to work with
+      triggerSyncs.push(
+        Promise.race([
+          supabase.functions.invoke("produce-alliance-service", {
+            body: { action: "orders", locationId, triggeredBy: "deploy" },
+          }).then(() => console.log(`[deploy] PA orders triggered for ${locationId}`))
+            .catch((e) => console.warn(`[deploy] PA orders invoke error:`, e?.message || e)),
           new Promise((r) => setTimeout(r, 2000)),
         ])
       );
