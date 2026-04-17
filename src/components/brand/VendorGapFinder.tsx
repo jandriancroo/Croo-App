@@ -256,33 +256,88 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
   // Promote selected outliers to draft templates
   const promoteMutation = useMutation({
     mutationFn: async (items: OutlierItem[]) => {
-      const inserts = items.map(item => ({
-        brand_id: brandId,
-        product_name: item.fullDescription || item.name,
-        item_number: item.vendorSource === 'pfg' ? item.itemNumber : null,
-        pa_item_id: item.vendorSource === 'pa' ? item.itemNumber : null,
-        vendor_source: item.vendorSource === 'pa' ? 'produce_alliance'
-          : item.vendorSource === 'pfg' ? 'pfg'
-          : `invoice:${item.brand || 'unknown'}`,
-        category: item.categoryName,
-        status: 'draft',
-      }));
-      const { data: createdTemplates, error } = await supabase
+      // Step 1: Find any existing templates that match by vendor item_number/pa_item_id
+      // or product_name. If they exist (even archived), revive them as draft instead
+      // of silently skipping the insert (the old onConflict:ignoreDuplicates lost rows).
+      const productNames = items.map(i => i.fullDescription || i.name);
+      const itemNumbers = items.map(i => i.itemNumber).filter(Boolean) as string[];
+
+      const { data: existingByName } = await supabase
         .from('brand_inventory_templates')
-        .upsert(inserts as any, { onConflict: 'brand_id,product_name', ignoreDuplicates: true })
-        .select('id, item_number, pa_item_id, vendor_source');
-      if (error) throw error;
+        .select('id, product_name, item_number, pa_item_id, status, vendor_source')
+        .eq('brand_id', brandId)
+        .in('product_name', productNames);
+
+      const { data: existingByNumber } = itemNumbers.length > 0 ? await supabase
+        .from('brand_inventory_templates')
+        .select('id, product_name, item_number, pa_item_id, status, vendor_source')
+        .eq('brand_id', brandId)
+        .or(`item_number.in.(${itemNumbers.join(',')}),pa_item_id.in.(${itemNumbers.join(',')})`) : { data: [] as any[] };
+
+      const existingMap = new Map<string, any>();
+      for (const t of [...(existingByName || []), ...(existingByNumber || [])]) {
+        existingMap.set(t.id, t);
+      }
+
+      const reviveIds: string[] = [];
+      const itemToTemplateId = new Map<string, string>();
+      const newInserts: any[] = [];
+
+      for (const item of items) {
+        const matched = [...existingMap.values()].find(t => {
+          if (item.vendorSource === 'pfg' && t.item_number === item.itemNumber) return true;
+          if (item.vendorSource === 'pa' && t.pa_item_id === item.itemNumber) return true;
+          if (t.product_name === (item.fullDescription || item.name)) return true;
+          return false;
+        });
+        if (matched) {
+          itemToTemplateId.set(item.id || '', matched.id);
+          if (matched.status === 'archived') reviveIds.push(matched.id);
+        } else {
+          newInserts.push({
+            brand_id: brandId,
+            product_name: item.fullDescription || item.name,
+            item_number: item.vendorSource === 'pfg' ? item.itemNumber : null,
+            pa_item_id: item.vendorSource === 'pa' ? item.itemNumber : null,
+            vendor_source: item.vendorSource === 'pa' ? 'produce_alliance'
+              : item.vendorSource === 'pfg' ? 'pfg'
+              : `invoice:${item.brand || 'unknown'}`,
+            category: item.categoryName,
+            status: 'draft',
+          });
+        }
+      }
+
+      if (reviveIds.length > 0) {
+        await supabase.from('brand_inventory_templates')
+          .update({ status: 'draft' }).in('id', reviveIds);
+      }
+
+      let createdTemplates: any[] = [];
+      if (newInserts.length > 0) {
+        const { data, error } = await supabase
+          .from('brand_inventory_templates')
+          .insert(newInserts as any)
+          .select('id, product_name, item_number, pa_item_id, vendor_source');
+        if (error) throw error;
+        createdTemplates = data || [];
+        for (const item of items) {
+          if (itemToTemplateId.has(item.id || '')) continue;
+          const t = createdTemplates.find((x: any) => {
+            if (item.vendorSource === 'pfg') return x.item_number === item.itemNumber;
+            if (item.vendorSource === 'pa') return x.pa_item_id === item.itemNumber;
+            return x.product_name === (item.fullDescription || item.name);
+          });
+          if (t) itemToTemplateId.set(item.id || '', t.id);
+        }
+      }
 
       const mappingInserts: any[] = [];
       for (const item of items) {
-        const template = (createdTemplates || []).find((t: any) => {
-          if (item.vendorSource === 'pfg') return t.item_number === item.itemNumber;
-          if (item.vendorSource === 'pa') return t.pa_item_id === item.itemNumber;
-          return t.vendor_source?.startsWith('invoice');
-        });
-        if (template && item.itemNumber) {
+        const tid = itemToTemplateId.get(item.id || '');
+        if (tid && item.itemNumber) {
           mappingInserts.push({
-            brand_template_id: template.id,
+            brand_template_id: tid,
             vendor_item_id: item.itemNumber,
             vendor: item.vendorSource === 'pa' ? 'produce_alliance' : item.vendorSource || 'invoice',
           });
@@ -292,6 +347,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         await supabase.from('brand_vendor_mappings')
           .upsert(mappingInserts as any, { onConflict: 'brand_template_id,vendor_item_id', ignoreDuplicates: true });
       }
+
       const alertIds = items.map(i => i.id).filter(Boolean);
       if (alertIds.length > 0) {
         await supabase.from('vendor_gap_alerts' as any)
