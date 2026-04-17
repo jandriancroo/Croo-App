@@ -158,9 +158,10 @@ export function SortableInventoryItem({
       {/* Price/unit column */}
       <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground flex-shrink-0">
         <span className="text-[10px] sm:text-xs">{item.pack_size || item.unit || "ea"}</span>
-        {item.cost_per_unit && !isShortcut && (
-          <span className="text-[10px] sm:text-xs text-primary">
-            ${(Number(item.cost_per_unit) / Math.max(item.pack_quantity_override ?? item.count_units_per_case ?? item.pack_quantity ?? 1, 1)).toFixed(2)}
+        {displayUnitCost > 0 && !isShortcut && (
+          <span className="text-[10px] sm:text-xs text-primary inline-flex items-center gap-0.5">
+            ${displayUnitCost.toFixed(2)}
+            {liveCostIsPartial && <AlertCircle className="h-2.5 w-2.5 text-amber-500" />}
           </span>
         )}
       </div>
