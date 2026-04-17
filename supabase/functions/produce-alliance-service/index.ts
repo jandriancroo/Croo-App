@@ -1506,13 +1506,17 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (matchSource === 'fallback_brand_item' && item.pa_product_id) {
         updateData.pa_item_id = item.pa_product_id;
       }
-      // GUARD FIX: the inventory_items "must have brand_item_id" trigger blocks the
-      // entire chunked upsert if any row is missing brand_item_id. Backfill it here
-      // from the mapping lookup whenever the local row doesn't already have one.
+      // GUARD FIX: PostgREST upsert treats omitted columns as NULL on the candidate row,
+      // so the "active items must have brand_item_id" trigger rejected every PA price
+      // update. Always carry brand_item_id forward — prefer the existing local value, then
+      // the mapping table, so the trigger sees a non-NULL value.
       const localFull = localById.get(existingItem.id) as any;
-      if (localFull && !localFull.brand_item_id && item.pa_product_id) {
-        const templateId = paIdToTemplateId.get(item.pa_product_id);
-        if (templateId) updateData.brand_item_id = templateId;
+      const carriedBrandItemId =
+        (localFull && localFull.brand_item_id) ||
+        (item.pa_product_id ? paIdToTemplateId.get(item.pa_product_id) : null) ||
+        null;
+      if (carriedBrandItemId) {
+        updateData.brand_item_id = carriedBrandItemId;
       }
       toUpsert.push(updateData);
     } else {
