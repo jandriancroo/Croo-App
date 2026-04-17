@@ -63,21 +63,18 @@ serve(async (req) => {
         }
       }
 
-      // Fetch already-resolved/dismissed vendor names to skip alternate IDs for the same product
+      // Track existing alert keys (vendor_source + item_number) to avoid overwriting status
+      // on rows that have already been resolved/ignored/dismissed by a human.
+      // We deliberately do NOT name-blacklist anymore — a different SKU for the same product
+      // name is a legitimate new gap and should surface so it can be linked.
       const { data: existingAlerts } = await supabase
         .from("vendor_gap_alerts")
-        .select("vendor_name, item_number, status")
+        .select("vendor_source, item_number")
         .eq("brand_id", brand.id);
 
-      const dismissedOrResolvedNames = new Set<string>();
       const existingAlertKeys = new Set<string>();
       for (const alert of (existingAlerts || [])) {
-        const name = (alert.vendor_name || "").toLowerCase().trim();
-        const key = `${alert.item_number}`;
-        existingAlertKeys.add(key);
-        if (alert.status === "dismissed" || alert.status === "resolved") {
-          if (name) dismissedOrResolvedNames.add(name);
-        }
+        existingAlertKeys.add(`${alert.vendor_source}:${alert.item_number}`);
       }
 
       let newItemCount = 0;
@@ -134,10 +131,8 @@ serve(async (req) => {
                     if (existingPfgNumbers.has(itemNumber) || existingVendorIds.has(itemNumber)) continue;
 
                     const vendorName = item.fullDescription || item.description || "";
-                    // Skip if a same-named product was already dismissed/resolved
-                    if (dismissedOrResolvedNames.has(vendorName.toLowerCase().trim())) continue;
                     // Skip if this exact alert already exists (avoid overwriting status)
-                    if (existingAlertKeys.has(itemNumber)) continue;
+                    if (existingAlertKeys.has(`pfg:${itemNumber}`)) continue;
 
                     const { error } = await supabase
                       .from("vendor_gap_alerts")
@@ -193,10 +188,8 @@ serve(async (req) => {
 
           for (const [paId, item] of seenPaItems) {
             const vendorName = item.description || "";
-            // Skip if a same-named product was already dismissed/resolved
-            if (dismissedOrResolvedNames.has(vendorName.toLowerCase().trim())) continue;
             // Skip if this exact alert already exists (avoid overwriting status)
-            if (existingAlertKeys.has(paId)) continue;
+            if (existingAlertKeys.has(`pa:${paId}`)) continue;
 
             const { error } = await supabase
               .from("vendor_gap_alerts")

@@ -51,27 +51,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1b. Fetch vendor mappings for all templates (authoritative source for vendor IDs)
-    const templateIds = templates.map((t: any) => t.id);
-    const vendorMappingMap = new Map<string, { item_number: string | null; pa_item_id: string | null }>();
-    // Fetch in chunks of 200 to avoid query limits
-    for (let i = 0; i < templateIds.length; i += 200) {
-      const chunk = templateIds.slice(i, i + 200);
-      const { data: mappings } = await supabase
-        .from("brand_vendor_mappings")
-        .select("brand_template_id, vendor, vendor_item_id")
-        .in("brand_template_id", chunk);
-      for (const m of mappings || []) {
-        const existing = vendorMappingMap.get(m.brand_template_id) || { item_number: null, pa_item_id: null };
-        if (m.vendor === "pa" || m.vendor === "produce_alliance") {
-          existing.pa_item_id = m.vendor_item_id;
-        } else {
-          // PFG or other vendors → use as item_number
-          existing.item_number = m.vendor_item_id;
-        }
-        vendorMappingMap.set(m.brand_template_id, existing);
-      }
-    }
+    // STRUCTURE-ONLY DEPLOY:
+    // We intentionally do NOT stamp PFG/PA vendor SKU codes onto deployed items.
+    // Vendor SKUs are location-specific (Hemet's PFG SKU != Palm Desert's PFG SKU
+    // for the same product). The post-deploy PFG and PA syncs at the target location
+    // are responsible for stamping the correct local SKUs and unmatched vendor items
+    // surface as gaps in the GAPS UI for manual linking.
     const { data: existingItems } = await supabase
       .from("inventory_items")
       .select("id, name, item_number, pa_item_id, brand_item_id, is_active, storage_location_id")
@@ -80,19 +65,6 @@ Deno.serve(async (req) => {
     const existingByBrandItemId = new Set(
       (existingItems || []).filter((i: any) => i.brand_item_id && i.is_active).map((i: any) => i.brand_item_id)
     );
-    // For SKU matching, prefer active items to avoid re-pointing inactive dupes
-    const existingBySku = new Map<string, string>();
-    const activeItemIds = new Set((existingItems || []).filter((i: any) => i.is_active).map((i: any) => i.id));
-    for (const item of existingItems || []) {
-      const addMapping = (key: string) => {
-        // Only overwrite if current entry is inactive and this one is active
-        if (!existingBySku.has(key) || (activeItemIds.has(item.id) && !activeItemIds.has(existingBySku.get(key)!))) {
-          existingBySku.set(key, item.id);
-        }
-      };
-      if (item.item_number) addMapping(item.item_number.trim().toLowerCase());
-      if (item.pa_item_id) addMapping(`pa:${item.pa_item_id.trim().toLowerCase()}`);
-    }
 
     // 3. Mirror storage locations from source location (default: Hemet)
     // Fetch source location's shelf layout
@@ -253,15 +225,13 @@ Deno.serve(async (req) => {
         const existing = candidates.find((i: any) => i.is_active) || null;
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
-          // Re-activate and sync name/category/pack/vendor IDs to brand standard
+          // Re-activate and sync name/category/pack to brand standard.
+          // NOTE: vendor SKUs (item_number, pa_item_id) are NOT touched here —
+          // local syncs own those fields.
           const reactivatePackOverride = tmpl.pack_override_outer_qty
             ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
             : null;
-          // Backfill vendor IDs from brand_vendor_mappings if missing locally
-          const reactivateVendorIds = vendorMappingMap.get(tmpl.id);
-          const backfillItemNumber = (!existing.item_number && reactivateVendorIds?.item_number) ? reactivateVendorIds.item_number : undefined;
-          const backfillPaItemId = (!existing.pa_item_id && reactivateVendorIds?.pa_item_id) ? reactivateVendorIds.pa_item_id : undefined;
-          
+
           // SHELF RESTORATION: If item has no shelf, restore from source location
           const shelfRestore = (!existing.storage_location_id && brandItemToShelf.has(tmpl.id))
             ? { storage_location_id: brandItemToShelf.get(tmpl.id) }
@@ -277,47 +247,20 @@ Deno.serve(async (req) => {
               ...(reactivatePackOverride != null ? { pack_quantity_override: reactivatePackOverride } : {}),
               ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
               ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
-              ...(backfillItemNumber ? { item_number: backfillItemNumber } : {}),
-              ...(backfillPaItemId ? { pa_item_id: backfillPaItemId } : {}),
             })
             .eq("id", existing.id);
+
+          // CRITICAL: Always record a deployment row for the existing-item skip path.
+          // PA sync's Tier 1 matching chain (brand_template_id → deployment → item)
+          // requires this row, otherwise costs silently stay at $0.
+          deploymentRecords.push({
+            template_id: tmpl.id,
+            inventory_item_id: existing.id,
+            location_id: locationId,
+            needs_review: false,
+            review_reason: null,
+          });
         }
-        skipped++;
-        continue;
-      }
-
-      // Check for SKU collision — re-point existing item instead of creating new
-      // Use vendor mappings as authoritative source for vendor IDs
-      const vendorIds = vendorMappingMap.get(tmpl.id);
-      const tmplItemNumber = vendorIds?.item_number || null;
-      const tmplPaItemId = vendorIds?.pa_item_id || null;
-
-      let existingItemId: string | null = null;
-      if (tmplItemNumber) {
-        existingItemId = existingBySku.get(tmplItemNumber.trim().toLowerCase()) || null;
-      }
-      if (!existingItemId && tmplPaItemId) {
-        existingItemId = existingBySku.get(`pa:${tmplPaItemId.trim().toLowerCase()}`) || null;
-      }
-
-      if (existingItemId) {
-        // Re-point existing item to brand template — sync all brand-owned fields
-        const rePointPackOverride = tmpl.pack_override_outer_qty
-          ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
-          : null;
-        await supabase
-          .from("inventory_items")
-          .update({
-            brand_item_id: tmpl.id,
-            is_active: true,
-            name: tmpl.product_name,
-            category: tmpl.category,
-            ...(rePointPackOverride != null ? { pack_quantity_override: rePointPackOverride } : {}),
-            ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
-            ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
-          })
-          .eq("id", existingItemId);
-        templateToItemId.set(tmpl.id, existingItemId);
         skipped++;
         continue;
       }
@@ -346,6 +289,8 @@ Deno.serve(async (req) => {
         ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
         : null;
 
+      // STRUCTURE-ONLY: do NOT stamp item_number / pa_item_id.
+      // Local PFG / PA syncs will fill these in with the correct location-specific SKUs.
       const { data: newItem, error: createErr } = await supabase
         .from("inventory_items")
         .insert({
@@ -358,8 +303,6 @@ Deno.serve(async (req) => {
           recipe_yield_qty: tmpl.recipe_yield_qty,
           recipe_yield_unit: tmpl.recipe_yield_unit,
           vendor_source: tmpl.vendor_source,
-          item_number: tmplItemNumber,
-          pa_item_id: tmplPaItemId,
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
           ...(packOverride != null ? { pack_quantity_override: packOverride } : {}),
@@ -527,11 +470,57 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Tell the user the syncs are about to fire — gives context for the
+    // "PFG SKU is empty right now, that's expected" state immediately after deploy.
+    const itemsNeedingSync = templates.filter((t: any) =>
+      t.vendor_source && templateToItemId.has(t.id)
+    ).length;
+    if (itemsNeedingSync > 0) {
+      warnings.push(
+        `${itemsNeedingSync} items need vendor sync for costs — syncs will run automatically`
+      );
+    }
+
     // Stamp last_deployed_at on the location
     await supabase
       .from("locations")
       .update({ last_deployed_at: new Date().toISOString() })
       .eq("id", locationId);
+
+    // ── Auto-trigger vendor syncs (do not pure fire-and-forget) ──
+    // Edge runtime may terminate this function before invoke()'s HTTP request leaves
+    // the environment. Promise.race with a 2s timeout guarantees the request is sent
+    // without forcing the deploy response to wait for the (potentially long) sync.
+    const triggerSyncs: Promise<unknown>[] = [];
+
+    if (pfgInt) {
+      triggerSyncs.push(
+        Promise.race([
+          supabase.functions.invoke("pfg-service", {
+            body: { locationId, action: "sync" },
+          }).then(() => console.log(`[deploy] PFG sync triggered for ${locationId}`))
+            .catch((e) => console.warn(`[deploy] PFG sync invoke error:`, e?.message || e)),
+          new Promise((r) => setTimeout(r, 2000)),
+        ])
+      );
+    }
+
+    if (paInt) {
+      triggerSyncs.push(
+        Promise.race([
+          supabase.functions.invoke("produce-alliance-service", {
+            body: { action: "sync_items", locationId, triggeredBy: "deploy" },
+          }).then(() => console.log(`[deploy] PA sync triggered for ${locationId}`))
+            .catch((e) => console.warn(`[deploy] PA sync invoke error:`, e?.message || e)),
+          new Promise((r) => setTimeout(r, 2000)),
+        ])
+      );
+    }
+
+    // Wait up to ~2s total for both invokes to leave; do not block on full sync run.
+    if (triggerSyncs.length > 0) {
+      await Promise.allSettled(triggerSyncs);
+    }
 
     return new Response(
       JSON.stringify({
@@ -540,6 +529,10 @@ Deno.serve(async (req) => {
         total: templates.length,
         message: `Deployed ${deployed} items, skipped ${skipped} existing`,
         warnings,
+        syncsTriggered: {
+          pfg: !!pfgInt,
+          produce_alliance: !!paInt,
+        },
       }),
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } }
     );

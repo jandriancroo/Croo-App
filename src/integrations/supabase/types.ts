@@ -8336,6 +8336,7 @@ export type Database = {
           id: string
           item_number: string
           pack_size: string | null
+          reported_by_locations: Json
           resolved_at: string | null
           status: string
           vendor_description: string | null
@@ -8349,6 +8350,7 @@ export type Database = {
           id?: string
           item_number: string
           pack_size?: string | null
+          reported_by_locations?: Json
           resolved_at?: string | null
           status?: string
           vendor_description?: string | null
@@ -8362,6 +8364,7 @@ export type Database = {
           id?: string
           item_number?: string
           pack_size?: string | null
+          reported_by_locations?: Json
           resolved_at?: string | null
           status?: string
           vendor_description?: string | null
