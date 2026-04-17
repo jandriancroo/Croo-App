@@ -61,6 +61,14 @@ export function SortableInventoryItem({
         zIndex: isDragging ? 50 : undefined,
       };
 
+  // Effective per-unit cost: prefer live blueprint cost (recipes), else stored cost_per_unit
+  const storedUnitCost = item.cost_per_unit
+    ? Number(item.cost_per_unit) /
+      Math.max(item.pack_quantity_override ?? item.count_units_per_case ?? item.pack_quantity ?? 1, 1)
+    : 0;
+  const displayUnitCost = liveUnitCost && liveUnitCost > 0 ? liveUnitCost : storedUnitCost;
+  const hasNoCost = !displayUnitCost || displayUnitCost === 0;
+
   return (
     <div
       ref={setNodeRef}
@@ -72,7 +80,7 @@ export function SortableInventoryItem({
           ? "bg-primary/10 ring-1 ring-primary/30"
           : isShortcut
           ? "bg-orange-100 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700/50"
-          : !isShortcut && (!item.cost_per_unit || Number(item.cost_per_unit) === 0)
+          : !isShortcut && hasNoCost
           ? "bg-red-50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-800/30 hover:bg-red-100/60 dark:hover:bg-red-950/30"
           : "bg-background hover:bg-muted/30"
       }`}
