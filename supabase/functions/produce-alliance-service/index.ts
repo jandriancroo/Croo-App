@@ -1501,22 +1501,22 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       if (existingItem.user_hidden) {
         delete updateData.is_active;
       }
-      // When matched via brand_item_id fallback, stamp pa_item_id on the surviving item
-      // so future syncs find it directly via step 2 (pa_item_id lookup)
       if (matchSource === 'fallback_brand_item' && item.pa_product_id) {
         updateData.pa_item_id = item.pa_product_id;
       }
-      // GUARD FIX: PostgREST upsert treats omitted columns as NULL on the candidate row,
-      // so the "active items must have brand_item_id" trigger rejected every PA price
-      // update. Always carry brand_item_id forward — prefer the existing local value, then
-      // the mapping table, so the trigger sees a non-NULL value.
-      const localFull = localById.get(existingItem.id) as any;
+      // GUARD FIX: always carry brand_item_id forward so the
+      // "active items must have brand_item_id" trigger never sees NULL.
+      const localFull: any = localById.get(existingItem.id);
       const carriedBrandItemId =
-        (localFull && localFull.brand_item_id) ||
+        localFull?.brand_item_id ||
         (item.pa_product_id ? paIdToTemplateId.get(item.pa_product_id) : null) ||
         null;
       if (carriedBrandItemId) {
         updateData.brand_item_id = carriedBrandItemId;
+      } else {
+        // No brand link known — skip rather than trigger-fail the whole batch.
+        console.warn(`[PA Sync] Skipping ${existingItem.id} — no brand_item_id resolvable`);
+        continue;
       }
       toUpsert.push(updateData);
     } else {
