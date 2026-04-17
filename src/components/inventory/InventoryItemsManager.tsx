@@ -2,14 +2,14 @@ import { useState, useCallback, useRef } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered, Trash2, CheckSquare, Search, Power, PowerOff } from "lucide-react";
+import { MapPin, Package, Loader2, EyeOff, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, RefreshCw, Link2, Tag, ListOrdered, CheckSquare, Search, Power, PowerOff } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -18,9 +18,7 @@ import { useAuth } from "@/lib/auth";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
-import ProductGroupsManager from "./ProductGroupsManager";
 
-import RecipeBuilderDialog from "./RecipeBuilderDialog";
 import RemapItemDialog from "./RemapItemDialog";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
@@ -28,10 +26,6 @@ import type { PanSizesConfig } from "./PanSizesSection";
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import ShortcutConfigSheet from "./ShortcutConfigSheet";
 import StorageLocationManager from "./StorageLocationManager";
-import { lazyWithRetry } from "@/utils/lazyWithRetry";
-import { Suspense } from "react";
-
-
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import {
   DndContext,
@@ -85,7 +79,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const isBuildMode = mode === "build";
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { canEditRecipes, canEditProductGroups, canEditCategories, canEditCommonNames, canEditPanBaselines, canTriggerSync } = useInventoryPermissions();
+  const { canEditCategories, canTriggerSync } = useInventoryPermissions();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPaSyncing, setIsPaSyncing] = useState(false);
   const [isDailyTracked, setIsDailyTracked] = useState(false);
@@ -1007,11 +1001,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       queryClient.invalidateQueries({ queryKey: ["last-pa-sync", locationId] });
 
-      const itemCount = data?.itemsSynced || data?.items_synced || 0;
+      const itemCount = data?.itemsSynced ?? data?.items_synced ?? data?.synced ?? 0;
       if (itemCount > 0) {
         toast.success(`Synced ${itemCount} items from Produce Alliance`);
       } else {
-        toast.info("Already in sync with Produce Alliance");
+        toast.info(data?.message || "Already in sync with Produce Alliance");
       }
 
       if (data?.errors?.length > 0) {
