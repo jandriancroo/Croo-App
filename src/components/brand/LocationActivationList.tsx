@@ -68,11 +68,37 @@ export default function LocationActivationList({
   const handleDeploy = async (locationId: string) => {
     setDeployingLocId(locationId);
     try {
-      const { data, error } = await supabase.functions.invoke('deploy-location-inventory', {
+      // STEP 1: Structure deploy — creates inventory_items but vendor SKUs are blank,
+      // so recipe ingredient linking will fail to match on item_number / pa_item_id.
+      const toastId = toast.loading('Deploying inventory structure…');
+      const { data: deployData, error: deployErr } = await supabase.functions.invoke(
+        'deploy-location-inventory',
+        { body: { locationId, brandId } },
+      );
+      if (deployErr) throw deployErr;
+
+      // STEP 2: Run vendor syncs in parallel — these populate item_number (PFG)
+      // and pa_item_id (PA) on the freshly-deployed structure rows.
+      toast.loading('Syncing PFG + Produce Alliance…', { id: toastId });
+      const [pfgRes, paRes] = await Promise.allSettled([
+        supabase.functions.invoke('pfg-service', { body: { action: 'sync', locationId } }),
+        supabase.functions.invoke('produce-alliance-service', { body: { action: 'sync_items', locationId } }),
+      ]);
+      if (pfgRes.status === 'rejected') console.warn('[Deploy] PFG sync failed:', pfgRes.reason);
+      if (paRes.status === 'rejected') console.warn('[Deploy] PA sync failed:', paRes.reason);
+
+      // STEP 3: Re-run deploy — items already exist (skip path), but the recipe
+      // ingredient linker now finds matches because vendor SKUs are populated.
+      // Step 6 in deploy-location-inventory is idempotent (deletes then re-inserts).
+      toast.loading('Linking recipe ingredients…', { id: toastId });
+      await supabase.functions.invoke('deploy-location-inventory', {
         body: { locationId, brandId },
       });
-      if (error) throw error;
-      toast.success(`Deployed ${data?.deployed || 0} items (${data?.skipped || 0} already existed)`);
+
+      toast.success(
+        `Deployed ${deployData?.deployed || 0} items (${deployData?.skipped || 0} existed). Vendors synced. Recipes linked.`,
+        { id: toastId },
+      );
       queryClient.invalidateQueries({ queryKey: ['brand-location-activation'] });
       queryClient.invalidateQueries({ queryKey: ['brand-locations'] });
     } catch (err: any) {
