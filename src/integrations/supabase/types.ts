@@ -8944,6 +8944,20 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       trigger_alarm_tasks_sql: { Args: never; Returns: undefined }
+      upsert_vendor_gap_with_location: {
+        Args: {
+          _brand_id: string
+          _category_name: string
+          _item_number: string
+          _location_id: string
+          _location_name: string
+          _pack_size: string
+          _vendor_description: string
+          _vendor_name: string
+          _vendor_source: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role:

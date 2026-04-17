@@ -1352,10 +1352,11 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     return jsonResponse({ success: true, message: ordersPersisted > 0 ? `${ordersPersisted} orders saved` : 'No items found', synced: 0, ordersPersisted });
   }
 
-  // Get brand_id for this location (for gap alerts)
-  const { data: locOrg } = await supabase.from('locations').select('organization_id').eq('id', locationId).single();
+  // Get brand_id + location name for this location (for gap alerts with location tags)
+  const { data: locOrg } = await supabase.from('locations').select('organization_id, name').eq('id', locationId).single();
   const { data: orgBrand } = await supabase.from('organizations').select('brand_id').eq('id', locOrg?.organization_id).single();
   const brandId = orgBrand?.brand_id;
+  const locationName = locOrg?.name || 'Unknown';
 
   // Build brand_vendor_mappings → brand_inventory_deployments lookup for this location
   // Step 4: Smart matching through the mapping table
@@ -1491,12 +1492,20 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     if (error) console.warn('[PA Sync] Bulk upsert error:', error.message);
   }
 
-  // Write gap alerts for unmatched items (instead of creating orphan inventory_items)
+  // Write gap alerts for unmatched items via RPC (atomic location-merge)
   if (gapAlerts.length > 0) {
-    for (let i = 0; i < gapAlerts.length; i += 50) {
-      const chunk = gapAlerts.slice(i, i + 50);
-      const { error } = await supabase.from('vendor_gap_alerts')
-        .upsert(chunk, { onConflict: 'brand_id,vendor_source,item_number', ignoreDuplicates: true });
+    for (const gap of gapAlerts) {
+      const { error } = await supabase.rpc('upsert_vendor_gap_with_location', {
+        _brand_id: gap.brand_id,
+        _vendor_source: gap.vendor_source,
+        _item_number: gap.item_number,
+        _vendor_name: gap.vendor_name,
+        _vendor_description: gap.vendor_description,
+        _pack_size: gap.pack_size,
+        _category_name: gap.category_name,
+        _location_id: locationId,
+        _location_name: locationName,
+      });
       if (error) console.warn('[PA Sync] Gap alert write error:', error.message);
     }
     console.log(`[PA Sync] Routed ${gapAlerts.length} unmatched items to vendor_gap_alerts`);
