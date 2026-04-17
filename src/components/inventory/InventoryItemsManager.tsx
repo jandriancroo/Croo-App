@@ -1406,6 +1406,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   onMoveDown={isReorderThisGroup ? () => handleArrowMove('down', allLocItems, item.id, shortcutIdSet, loc.id) : undefined}
                                   isFirst={itemIdx === 0}
                                   isLast={itemIdx === renderItems.length - 1}
+                                  liveUnitCost={liveRecipeCostMap?.get(item.id)?.unitCost}
+                                  liveCostIsPartial={liveRecipeCostMap?.get(item.id)?.isPartial}
                                   onClick={() => {
                                     if (isBulkDragThisGroup || isReorderThisGroup) return;
                                     if (isSelectingThisGroup) {
