@@ -159,7 +159,7 @@ export default function LocationActivationList({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-xs gap-1.5 border-amber-400 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                    className="text-xs gap-1.5 border-destructive/50 text-destructive hover:bg-destructive/10"
                     onClick={() => navigate(`/location/${loc.id}#integrations`)}
                   >
                     Connect Vendors
