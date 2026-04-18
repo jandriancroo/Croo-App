@@ -207,6 +207,73 @@ async function logRefreshAudit(supabase: any, row: {
   }
 }
 
+// Hard-coded super-admin to attribute system-generated tickets to.
+// Required because support_tickets.user_id is NOT NULL with FK to profiles.
+const SYSTEM_TICKET_OWNER_ID = 'a2e81a39-0e0b-47b1-a1aa-0e53f3869d37';
+
+// Auto-create a deduped support ticket when a PFG refresh chain breaks.
+// One open ticket per location at a time — close/resolve it to allow a new one.
+// Prevents flooding the support inbox when the cron fires every 5 min.
+async function maybeCreateChainBrokenTicket(
+  supabase: any,
+  locationId: string,
+  failReason: string,
+): Promise<void> {
+  try {
+    const { data: loc } = await supabase
+      .from('locations')
+      .select('name')
+      .eq('id', locationId)
+      .maybeSingle();
+    const locName = loc?.name || locationId;
+
+    const dedupMarker = `[pfg-chain-broken:${locationId}]`;
+
+    const { data: existing } = await supabase
+      .from('support_tickets')
+      .select('id')
+      .eq('status', 'open')
+      .ilike('description', `%${dedupMarker}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.id) {
+      console.log(`[PFG Ticket] Dedup hit for ${locName} — open ticket ${existing.id} exists`);
+      return;
+    }
+
+    const description = [
+      `${dedupMarker}`,
+      ``,
+      `🚨 PFG token refresh chain BROKEN for ${locName}.`,
+      ``,
+      `Both the standard refresh AND the ROPC password fallback failed.`,
+      `A manager needs to manually reconnect PFG in Settings → Integrations.`,
+      ``,
+      `Failure detail: ${failReason}`,
+      ``,
+      `Generated automatically by pfg-service keep-alive at ${new Date().toISOString()}.`,
+    ].join('\n');
+
+    const { error: insertErr } = await supabase
+      .from('support_tickets')
+      .insert({
+        user_id: SYSTEM_TICKET_OWNER_ID,
+        category: 'broken_feature',
+        description,
+        occurrence_time: new Date().toISOString(),
+      });
+
+    if (insertErr) {
+      console.error('[PFG Ticket] Insert failed:', insertErr);
+    } else {
+      console.log(`[PFG Ticket] Created chain-broken ticket for ${locName}`);
+    }
+  } catch (e) {
+    console.error('[PFG Ticket] Unexpected error creating ticket:', e);
+  }
+}
+
 // ROPC (Resource Owner Password Credentials) — re-authenticate using stored username/password
 async function ropcAuthenticate(username: string, password: string): Promise<TokenResponse | null> {
   try {
