@@ -241,6 +241,115 @@ export type Database = {
           },
         ]
       }
+      auto_punch_events: {
+        Row: {
+          clock_in_punch_id: string | null
+          created_at: string
+          id: string
+          location_id: string
+          punched_out_at: string
+          reason: string
+          scheduled_shift_end: string | null
+          shift_hours: number | null
+          store_close_time: string
+          time_punch_id: string | null
+          user_id: string
+        }
+        Insert: {
+          clock_in_punch_id?: string | null
+          created_at?: string
+          id?: string
+          location_id: string
+          punched_out_at: string
+          reason: string
+          scheduled_shift_end?: string | null
+          shift_hours?: number | null
+          store_close_time: string
+          time_punch_id?: string | null
+          user_id: string
+        }
+        Update: {
+          clock_in_punch_id?: string | null
+          created_at?: string
+          id?: string
+          location_id?: string
+          punched_out_at?: string
+          reason?: string
+          scheduled_shift_end?: string | null
+          shift_hours?: number | null
+          store_close_time?: string
+          time_punch_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_punch_events_clock_in_punch_id_fkey"
+            columns: ["clock_in_punch_id"]
+            isOneToOne: false
+            referencedRelation: "time_punches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_punch_events_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_punch_events_time_punch_id_fkey"
+            columns: ["time_punch_id"]
+            isOneToOne: false
+            referencedRelation: "time_punches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_punch_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_punch_log: {
+        Row: {
+          cron_run_at: string
+          id: string
+          location_id: string
+          notes: string | null
+          processed_at: string
+          processed_date: string
+          punches_created: number
+        }
+        Insert: {
+          cron_run_at?: string
+          id?: string
+          location_id: string
+          notes?: string | null
+          processed_at?: string
+          processed_date: string
+          punches_created?: number
+        }
+        Update: {
+          cron_run_at?: string
+          id?: string
+          location_id?: string
+          notes?: string | null
+          processed_at?: string
+          processed_date?: string
+          punches_created?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_punch_log_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       availability_requests: {
         Row: {
           created_at: string

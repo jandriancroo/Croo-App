@@ -7,9 +7,10 @@ const corsHeaders = {
 };
 
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
-const POST_CLOSE_BUFFER_HOURS = 3; // Hours after close to trigger auto-punch
-const MIN_SHIFT_HOURS = 4; // Minimum hours worked to qualify for auto-punch
-const MAX_SHIFT_HOURS = 16; // Skip if shift would be longer (likely data error)
+const POST_CLOSE_BUFFER_HOURS = 3;
+const SCHEDULED_END_BUFFER_HOURS = 1; // Auto-punch at scheduled_end + 1hr
+const PROCESSING_WINDOW_MINUTES = 59; // Window for cron to fire within
+const MAX_SHIFT_HOURS = 18; // Sanity guard
 
 interface AutoPunchResult {
   location_id: string;
@@ -19,56 +20,76 @@ interface AutoPunchResult {
   clock_in_time: string;
   auto_punch_time: string;
   shift_hours: number;
+  reason: string;
   status: 'punched' | 'skipped' | 'error';
-  reason?: string;
+  detail?: string;
 }
 
-// Helper to get timezone offset hours (accounts for DST)
-function getTimezoneOffsetHours(timezone: string, date: Date): number {
-  const formatter = new Intl.DateTimeFormat('en-US', {
+// ============================================================
+// TIMEZONE UTILITIES (DST-safe)
+// ============================================================
+
+/** Get the date string (YYYY-MM-DD) for "now" in a given timezone */
+function getDateInTimezone(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(date);
+}
+
+/** Get day of week (0=Sun, 6=Sat) for a date string interpreted as local */
+function getDayOfWeekForDate(dateStr: string): number {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  // Use UTC to avoid local-tz drift; the date itself has no tz
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/**
+ * Convert a "wall clock" date+time in a given timezone to a UTC Date.
+ * DST-safe: uses Intl to discover the actual UTC offset at that moment.
+ */
+function wallTimeToUTC(dateStr: string, timeStr: string, timezone: string): Date {
+  // dateStr: "2026-04-18", timeStr: "22:00" (or "22:00:00")
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h, mi] = timeStr.split(':').map(Number);
+
+  // First guess: treat the wall time as if it were UTC
+  let guess = new Date(Date.UTC(y, mo - 1, d, h, mi, 0));
+
+  // Discover the offset that timezone has at that guessed moment
+  // We do this by formatting `guess` in the target tz and seeing what wall time appears
+  const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
-    timeZoneName: 'shortOffset',
-  });
-  const parts = formatter.formatToParts(date);
-  const offsetPart = parts.find(p => p.type === 'timeZoneName')?.value || '';
-  // Parse "GMT-8" or "GMT-7" format
-  const match = offsetPart.match(/GMT([+-]\d+)/);
-  return match ? parseInt(match[1]) : -8; // Default to -8 (PST)
-}
-
-// Get "yesterday" date string in a specific timezone
-function getYesterdayInTimezone(now: Date, timezone: string): string {
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(yesterday);
-}
-
-// Get "today" date string in a specific timezone
-function getTodayInTimezone(now: Date, timezone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now);
-}
-
-// Get current hour in a specific timezone
-function getCurrentHourInTimezone(now: Date, timezone: string): number {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    hour: '2-digit',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
     hour12: false,
   });
-  return parseInt(formatter.format(now));
+  const parts = fmt.formatToParts(guess);
+  const get = (t: string) => Number(parts.find(p => p.type === t)?.value || 0);
+  const tzWall = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') === 24 ? 0 : get('hour'), get('minute'), get('second'));
+  const offsetMs = tzWall - guess.getTime();
+
+  // Adjust: real UTC = guess - offset
+  return new Date(guess.getTime() - offsetMs);
 }
 
-// Calculate UTC time range for a business day in a specific timezone
-function getBusinessDayUTCRange(yesterdayStr: string, todayStr: string, offsetHours: number): { start: string; end: string } {
-  // Convert offset to positive hours to add to local midnight to get UTC
-  // e.g., PST is UTC-8, so midnight PST = 08:00 UTC
-  const utcOffsetHours = Math.abs(offsetHours);
-  const startHour = String(utcOffsetHours).padStart(2, '0');
-  
-  return {
-    start: `${yesterdayStr}T${startHour}:00:00Z`, // midnight local = X:00 UTC
-    end: `${todayStr}T${String(utcOffsetHours - 1).padStart(2, '0')}:59:59Z`, // 11:59:59 PM local
-  };
+/**
+ * Compute the close-time UTC moment for a given business date in a tz.
+ * Handles midnight closes (00:00) by treating them as the next day's 00:00.
+ */
+function computeCloseUTC(businessDateStr: string, closeTimeStr: string, timezone: string): Date {
+  const [h, m] = closeTimeStr.split(':').map(Number);
+  // Midnight close = next calendar day at 00:00 local
+  if (h === 0 && m === 0) {
+    const [y, mo, d] = businessDateStr.split('-').map(Number);
+    const next = new Date(Date.UTC(y, mo - 1, d + 1));
+    const nextStr = next.toISOString().slice(0, 10);
+    return wallTimeToUTC(nextStr, '00:00', timezone);
+  }
+  // Otherwise, close happens on the business date itself
+  return wallTimeToUTC(businessDateStr, closeTimeStr, timezone);
 }
+
+// ============================================================
+// MAIN
+// ============================================================
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -76,255 +97,287 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
 
-    const results: AutoPunchResult[] = [];
     const now = new Date();
+    const results: AutoPunchResult[] = [];
+    console.log(`[Auto-Punch] Run started at ${now.toISOString()}`);
 
-    console.log(`[Auto-Punch] Running at ${now.toISOString()}`);
-
-    // Fetch all locations with their close times and timezone settings
+    // Fetch all active locations with hours + timezone
     const { data: locations, error: locError } = await supabase
       .from('locations')
       .select(`
         id,
         name,
+        is_active,
         location_settings(timezone),
         location_hours(day_of_week, close_time, is_closed)
-      `);
+      `)
+      .eq('is_active', true);
 
-    if (locError) {
-      throw new Error(`Failed to fetch locations: ${locError.message}`);
-    }
-
-    console.log(`[Auto-Punch] Found ${locations?.length || 0} locations to process`);
+    if (locError) throw new Error(`Failed to fetch locations: ${locError.message}`);
 
     for (const location of locations || []) {
-      // Get location's timezone (fall back to default)
-      const locationSettings = (location.location_settings as any[])?.[0];
-      const timezone = locationSettings?.timezone || DEFAULT_TIMEZONE;
-      
-      // Calculate dates in location's timezone
-      const yesterdayStr = getYesterdayInTimezone(now, timezone);
-      const todayStr = getTodayInTimezone(now, timezone);
-      const currentHour = getCurrentHourInTimezone(now, timezone);
-      
-      // Get day of week for yesterday in location's timezone
-      const [yYear, yMonth, yDay] = yesterdayStr.split('-').map(Number);
-      const yesterdayDayOfWeek = new Date(yYear, yMonth - 1, yDay).getDay();
-      
-      // Find hours for yesterday
-      const locationHours = (location.location_hours as any[])?.find(
-        h => h.day_of_week === yesterdayDayOfWeek
-      );
-      
-      if (!locationHours || locationHours.is_closed) {
-        console.log(`[Auto-Punch] ${location.name} (${timezone}): Closed yesterday, skipping`);
+      const tz = (location.location_settings as any[])?.[0]?.timezone || DEFAULT_TIMEZONE;
+      const hours = (location.location_hours as any[]) || [];
+
+      // Skip silently if no hours configured
+      if (hours.length === 0) {
+        console.log(`[Auto-Punch] ${location.name}: no hours configured, skipping`);
         continue;
       }
 
-      const closeTime = locationHours.close_time;
-      if (!closeTime) {
-        console.log(`[Auto-Punch] ${location.name} (${timezone}): No close time configured, skipping`);
-        continue;
-      }
+      // Determine which "business date" we're potentially closing out.
+      // We check both yesterday and today (in location's tz) to cover late-night closes.
+      const todayLocal = getDateInTimezone(now, tz);
+      const yesterdayLocal = getDateInTimezone(new Date(now.getTime() - 86400000), tz);
 
-      // Parse close time (e.g., "22:00" or "00:00" for midnight)
-      const [closeHour, closeMinute] = closeTime.split(':').map(Number);
-      let closeTimeMinutes = closeHour * 60 + closeMinute;
-      
-      // Handle midnight (00:00) as 24:00 (end of day)
-      if (closeTimeMinutes === 0) {
-        closeTimeMinutes = 24 * 60;
-      }
-      
-      // Calculate cutoff: close_time + buffer hours
-      const cutoffMinutes = closeTimeMinutes + (POST_CLOSE_BUFFER_HOURS * 60);
-      
-      console.log(`[Auto-Punch] ${location.name} (${timezone}): Yesterday=${yesterdayStr}, Close=${closeTime}, Cutoff=${Math.floor(cutoffMinutes / 60)}:${String(cutoffMinutes % 60).padStart(2, '0')}`);
+      for (const businessDate of [yesterdayLocal, todayLocal]) {
+        const dow = getDayOfWeekForDate(businessDate);
+        const dayHours = hours.find((h: any) => h.day_of_week === dow);
 
-      // Calculate UTC time range for the location's business day
-      const offsetHours = getTimezoneOffsetHours(timezone, now);
-      const { start: yesterdayStartUTC, end: yesterdayEndUTC } = getBusinessDayUTCRange(yesterdayStr, todayStr, offsetHours);
-      
-      console.log(`[Auto-Punch] ${location.name}: Query window ${yesterdayStartUTC} to ${yesterdayEndUTC}`);
+        if (!dayHours || dayHours.is_closed || !dayHours.close_time) continue;
 
-      // Find open clock-ins from yesterday at this location
-      const { data: openPunches, error: punchError } = await supabase
-        .from('time_punches')
-        .select(`
-          id,
-          user_id,
-          punch_time,
-          profiles:user_id!inner(full_name)
-        `)
-        .eq('location_id', location.id)
-        .eq('punch_type', 'clock_in')
-        .gte('punch_time', yesterdayStartUTC)
-        .lte('punch_time', yesterdayEndUTC);
+        // Compute close moment + buffer in UTC (DST-safe)
+        const closeUTC = computeCloseUTC(businessDate, dayHours.close_time, tz);
+        const cutoffUTC = new Date(closeUTC.getTime() + POST_CLOSE_BUFFER_HOURS * 3600 * 1000);
+        const windowEndUTC = new Date(cutoffUTC.getTime() + PROCESSING_WINDOW_MINUTES * 60 * 1000);
 
-      if (punchError) {
-        console.error(`[Auto-Punch] ${location.name}: Error fetching punches: ${punchError.message}`);
-        continue;
-      }
+        // Are we currently inside the firing window for this business date?
+        if (now < cutoffUTC || now > windowEndUTC) continue;
 
-      console.log(`[Auto-Punch] ${location.name}: Found ${openPunches?.length || 0} clock-ins from yesterday`);
-
-      for (const punch of openPunches || []) {
-        const employeeName = (punch.profiles as any)?.full_name || 'Unknown';
-        
-        // Check if there's already a clock_out after this clock_in
-        const { data: clockOuts, error: coError } = await supabase
-          .from('time_punches')
-          .select('id')
-          .eq('user_id', punch.user_id)
+        // ---- IDEMPOTENCY CHECK ----
+        const { data: existingLog } = await supabase
+          .from('auto_punch_log')
+          .select('id, punches_created')
           .eq('location_id', location.id)
-          .eq('punch_type', 'clock_out')
-          .gt('punch_time', punch.punch_time)
-          .limit(1);
+          .eq('processed_date', businessDate)
+          .maybeSingle();
 
-        if (coError) {
-          results.push({
-            location_id: location.id,
-            location_name: location.name,
-            employee_name: employeeName,
-            user_id: punch.user_id,
-            clock_in_time: punch.punch_time,
-            auto_punch_time: '',
-            shift_hours: 0,
-            status: 'error',
-            reason: `Error checking clock-outs: ${coError.message}`,
-          });
+        if (existingLog) {
+          console.log(`[Auto-Punch] ${location.name} ${businessDate}: already processed, skipping`);
           continue;
         }
 
-        if (clockOuts && clockOuts.length > 0) {
-          // Already has a clock-out, skip
-          continue;
-        }
+        console.log(`[Auto-Punch] ${location.name} ${businessDate} (${tz}): processing. Close=${closeUTC.toISOString()}, Cutoff=${cutoffUTC.toISOString()}`);
 
-        // Calculate shift duration from clock-in to now
-        const clockInTime = new Date(punch.punch_time);
-        const shiftHours = (now.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
+        // Find open clock-ins (no matching clock-out) for this location/date window
+        // Look back to 24h before close to catch normal-day shifts
+        const lookbackUTC = new Date(closeUTC.getTime() - 24 * 3600 * 1000);
 
-        // Validate shift duration
-        if (shiftHours < MIN_SHIFT_HOURS) {
-          results.push({
-            location_id: location.id,
-            location_name: location.name,
-            employee_name: employeeName,
-            user_id: punch.user_id,
-            clock_in_time: punch.punch_time,
-            auto_punch_time: '',
-            shift_hours: Math.round(shiftHours * 100) / 100,
-            status: 'skipped',
-            reason: `Shift too short (${shiftHours.toFixed(1)} hrs < ${MIN_SHIFT_HOURS} hrs minimum)`,
-          });
-          continue;
-        }
-
-        if (shiftHours > MAX_SHIFT_HOURS) {
-          results.push({
-            location_id: location.id,
-            location_name: location.name,
-            employee_name: employeeName,
-            user_id: punch.user_id,
-            clock_in_time: punch.punch_time,
-            auto_punch_time: '',
-            shift_hours: Math.round(shiftHours * 100) / 100,
-            status: 'skipped',
-            reason: `Shift too long (${shiftHours.toFixed(1)} hrs > ${MAX_SHIFT_HOURS} hrs max) - likely data error`,
-          });
-          continue;
-        }
-
-        // Calculate auto-punch time: close_time + buffer on the close day
-        // We need to create a timestamp in the location's timezone, then convert to UTC
-        const autoPunchDate = new Date(yesterdayStr + 'T00:00:00');
-        autoPunchDate.setMinutes(cutoffMinutes);
-        
-        // Convert to UTC by applying the timezone offset
-        const autoPunchUTC = new Date(
-          autoPunchDate.getTime() + 
-          (autoPunchDate.getTimezoneOffset() * 60 * 1000) + 
-          (offsetHours * 60 * 60 * 1000 * -1) // Negate because offset is already negative for west
-        );
-        const autoPunchTimeStr = autoPunchUTC.toISOString();
-
-        // Insert the auto clock-out
-        const { error: insertError } = await supabase
+        const { data: clockIns, error: ciErr } = await supabase
           .from('time_punches')
-          .insert({
-            user_id: punch.user_id,
+          .select('id, user_id, punch_time, profiles:user_id(full_name)')
+          .eq('location_id', location.id)
+          .eq('punch_type', 'clock_in')
+          .gte('punch_time', lookbackUTC.toISOString())
+          .lte('punch_time', cutoffUTC.toISOString());
+
+        if (ciErr) {
+          console.error(`[Auto-Punch] ${location.name}: clock-in fetch error: ${ciErr.message}`);
+          continue;
+        }
+
+        let punchesCreated = 0;
+
+        for (const ci of clockIns || []) {
+          const employeeName = (ci.profiles as any)?.full_name || 'Unknown';
+
+          // Check if there's already a clock_out after this clock_in
+          const { data: existingOut } = await supabase
+            .from('time_punches')
+            .select('id')
+            .eq('user_id', ci.user_id)
+            .eq('location_id', location.id)
+            .eq('punch_type', 'clock_out')
+            .gt('punch_time', ci.punch_time)
+            .limit(1);
+
+          if (existingOut && existingOut.length > 0) continue; // already clocked out
+
+          // Look up scheduled shift for that user on the business date
+          const { data: schedShifts } = await supabase
+            .from('scheduled_shifts')
+            .select('end_time, shift_date')
+            .eq('user_id', ci.user_id)
+            .eq('shift_date', businessDate)
+            .eq('is_time_off', false);
+
+          // Determine punch-out time and reason
+          let autoPunchUTC: Date;
+          let scheduledEndUTC: Date | null = null;
+          let reason: 'no_schedule' | 'past_scheduled_end' | 'past_close_buffer';
+
+          if (schedShifts && schedShifts.length > 0) {
+            // Use the latest scheduled end of the day
+            let latestEnd: { date: string; time: string } | null = null;
+            for (const s of schedShifts) {
+              if (!s.end_time) continue;
+              if (!latestEnd || s.end_time > latestEnd.time) {
+                latestEnd = { date: s.shift_date, time: s.end_time };
+              }
+            }
+
+            if (latestEnd) {
+              // Handle scheduled end that crosses midnight (end_time < start_time scenario)
+              // For simplicity, assume end_time on shift_date; if end is "02:00" treat as next day
+              const [eh] = latestEnd.time.split(':').map(Number);
+              let endDateStr = latestEnd.date;
+              // Heuristic: if scheduled end is before 6am, it's likely next-day close
+              if (eh < 6) {
+                const [yy, mm, dd] = latestEnd.date.split('-').map(Number);
+                endDateStr = new Date(Date.UTC(yy, mm - 1, dd + 1)).toISOString().slice(0, 10);
+              }
+              scheduledEndUTC = wallTimeToUTC(endDateStr, latestEnd.time, tz);
+
+              const scheduledPunchUTC = new Date(
+                scheduledEndUTC.getTime() + SCHEDULED_END_BUFFER_HOURS * 3600 * 1000
+              );
+
+              // Only auto-punch if we're past scheduled_end + buffer
+              if (now < scheduledPunchUTC) {
+                console.log(`[Auto-Punch] ${employeeName}: scheduled until ${scheduledEndUTC.toISOString()}, not yet at +1hr cutoff, skip`);
+                continue;
+              }
+
+              autoPunchUTC = scheduledPunchUTC;
+              reason = 'past_scheduled_end';
+            } else {
+              autoPunchUTC = cutoffUTC;
+              reason = 'no_schedule';
+            }
+          } else {
+            // No scheduled shift → use close + buffer
+            autoPunchUTC = cutoffUTC;
+            reason = 'no_schedule';
+          }
+
+          // Sanity: cap shift length
+          const clockInTime = new Date(ci.punch_time);
+          const shiftHours = (autoPunchUTC.getTime() - clockInTime.getTime()) / 3600000;
+
+          if (shiftHours <= 0 || shiftHours > MAX_SHIFT_HOURS) {
+            results.push({
+              location_id: location.id,
+              location_name: location.name,
+              employee_name: employeeName,
+              user_id: ci.user_id,
+              clock_in_time: ci.punch_time,
+              auto_punch_time: autoPunchUTC.toISOString(),
+              shift_hours: Math.round(shiftHours * 100) / 100,
+              reason,
+              status: 'skipped',
+              detail: `Invalid shift duration: ${shiftHours.toFixed(2)}h`,
+            });
+            continue;
+          }
+
+          // If reason is no_schedule but we're past close buffer, label appropriately
+          if (reason === 'no_schedule' && now >= cutoffUTC) {
+            reason = 'past_close_buffer';
+          }
+
+          // Insert auto clock-out
+          const { data: inserted, error: insErr } = await supabase
+            .from('time_punches')
+            .insert({
+              user_id: ci.user_id,
+              location_id: location.id,
+              punch_type: 'clock_out',
+              punch_time: autoPunchUTC.toISOString(),
+              is_auto_punched_out: true,
+              has_break_violation: shiftHours > 5,
+              notes: `Auto-punched: ${reason} (close ${dayHours.close_time} ${tz})`,
+            })
+            .select('id')
+            .single();
+
+          if (insErr) {
+            results.push({
+              location_id: location.id,
+              location_name: location.name,
+              employee_name: employeeName,
+              user_id: ci.user_id,
+              clock_in_time: ci.punch_time,
+              auto_punch_time: autoPunchUTC.toISOString(),
+              shift_hours: Math.round(shiftHours * 100) / 100,
+              reason,
+              status: 'error',
+              detail: insErr.message,
+            });
+            continue;
+          }
+
+          // Audit event
+          await supabase.from('auto_punch_events').insert({
+            user_id: ci.user_id,
             location_id: location.id,
-            punch_type: 'clock_out',
-            punch_time: autoPunchTimeStr,
-            notes: `Auto clocked out by system - ${POST_CLOSE_BUFFER_HOURS} hours post-close (${closeTime} ${timezone})`,
-            is_auto_punched_out: true,
-            has_break_violation: shiftHours > 5, // If worked > 5 hrs without break
+            time_punch_id: inserted?.id,
+            clock_in_punch_id: ci.id,
+            punched_out_at: autoPunchUTC.toISOString(),
+            scheduled_shift_end: scheduledEndUTC?.toISOString() || null,
+            store_close_time: closeUTC.toISOString(),
+            reason,
+            shift_hours: Math.round(shiftHours * 100) / 100,
           });
 
-        if (insertError) {
+          // Mark labor cache stale
+          await supabase
+            .from('labor_cache')
+            .update({ is_stale: true })
+            .eq('location_id', location.id)
+            .eq('labor_date', businessDate)
+            .eq('source', 'punch_clock');
+
+          punchesCreated++;
           results.push({
             location_id: location.id,
             location_name: location.name,
             employee_name: employeeName,
-            user_id: punch.user_id,
-            clock_in_time: punch.punch_time,
-            auto_punch_time: autoPunchTimeStr,
+            user_id: ci.user_id,
+            clock_in_time: ci.punch_time,
+            auto_punch_time: autoPunchUTC.toISOString(),
             shift_hours: Math.round(shiftHours * 100) / 100,
-            status: 'error',
-            reason: `Failed to insert: ${insertError.message}`,
+            reason,
+            status: 'punched',
           });
-          continue;
+
+          console.log(`[Auto-Punch] ✅ ${employeeName} @ ${location.name}: ${reason}, ${shiftHours.toFixed(2)}h`);
         }
 
-        // Mark labor cache as stale for this date
-        await supabase
-          .from('labor_cache')
-          .update({ is_stale: true })
-          .eq('location_id', location.id)
-          .eq('labor_date', yesterdayStr)
-          .eq('source', 'punch_clock');
-
-        results.push({
+        // Record idempotency log
+        await supabase.from('auto_punch_log').insert({
           location_id: location.id,
-          location_name: location.name,
-          employee_name: employeeName,
-          user_id: punch.user_id,
-          clock_in_time: punch.punch_time,
-          auto_punch_time: autoPunchTimeStr,
-          shift_hours: Math.round(shiftHours * 100) / 100,
-          status: 'punched',
+          processed_date: businessDate,
+          cron_run_at: now.toISOString(),
+          punches_created: punchesCreated,
+          notes: `tz=${tz}, close=${dayHours.close_time}, cutoff=${cutoffUTC.toISOString()}`,
         });
-
-        console.log(`[Auto-Punch] ✅ ${employeeName} at ${location.name}: Auto-punched at ${autoPunchTimeStr} (${shiftHours.toFixed(1)} hrs)`);
       }
     }
 
     const summary = {
       run_at: now.toISOString(),
-      total_processed: results.length,
+      total: results.length,
       punched: results.filter(r => r.status === 'punched').length,
       skipped: results.filter(r => r.status === 'skipped').length,
       errors: results.filter(r => r.status === 'error').length,
       results,
     };
 
-    console.log(`[Auto-Punch] Complete: ${summary.punched} punched, ${summary.skipped} skipped, ${summary.errors} errors`);
-
+    console.log(`[Auto-Punch] Done: ${summary.punched} punched / ${summary.skipped} skipped / ${summary.errors} errors`);
     return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
-  } catch (error: unknown) {
-    console.error('[Auto-Punch] Fatal error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  } catch (err: unknown) {
+    console.error('[Auto-Punch] Fatal:', err);
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
