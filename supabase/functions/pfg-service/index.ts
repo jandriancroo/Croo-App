@@ -1089,60 +1089,107 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
       const oldRefresh = creds.refresh_token;
       const startedAt = Date.now();
       const refreshResult = await refreshAccessToken(oldRefresh);
+      const CRON_CALLER = 'scheduled_cron_keepalive';
 
       if (!refreshResult.ok) {
-        // ROPC FALLBACK: try password grant if credentials are stored
-        const pfgUser = creds.pfg_username;
-        const pfgPass = creds.pfg_password;
-
-        // Log the B2C failure with the real error code (AADB2C90080, etc.)
+        // Audit the B2C failure with the real error code (AADB2C90080, etc.)
         await logRefreshAudit(supabase, {
           integration_id: integration.id,
           location_id: integration.location_id,
           handler: 'keep_alive_cron',
+          caller_action: CRON_CALLER,
           outcome: refreshResult.outcome,
           b2c_error_code: refreshResult.errorCode ?? null,
           b2c_error_message: refreshResult.errorDescription ?? null,
           duration_ms: Date.now() - startedAt,
-          old_token_prefix: oldRefresh.slice(0, 12),
+          old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
         });
 
-        if (pfgUser && pfgPass) {
-          console.log(`[PFG Keep-Alive] Refresh failed for ${integration.location_id} (${refreshResult.errorCode || refreshResult.outcome}), attempting ROPC fallback...`);
-          const ropcData = await ropcAuthenticate(pfgUser, pfgPass);
+        const pfgUser = creds.pfg_username;
+        const pfgPass = creds.pfg_password;
+        const refreshSummary = `${refreshResult.outcome}${refreshResult.errorCode ? ` (${refreshResult.errorCode})` : ''}`;
 
-          if (ropcData) {
-            const now = new Date();
-            const updatedCreds: PFGCredentials = {
-              ...creds,
-              refresh_token: ropcData.refresh_token,
-              access_token: ropcData.access_token,
-              token_expires_at: new Date(now.getTime() + ropcData.expires_in * 1000).toISOString(),
-              refresh_token_updated_at: now.toISOString(),
-              ropc_last_success: now.toISOString(),
-            };
-            // ROPC bypasses the rotation chain entirely (new grant from username/password),
-            // so the CAS check would always lose the race. Use a direct write here.
-            await supabase
-              .from('location_integrations')
-              .update({ credentials: updatedCreds })
-              .eq('id', integration.id);
-            results.push({ locationId: integration.location_id, success: true, error: 'Recovered via ROPC' });
-            console.log(`[PFG Keep-Alive] ✓ ROPC recovery successful for ${integration.location_id}`);
-            continue;
-          } else {
-            const now = new Date();
-            await supabase
-              .from('location_integrations')
-              .update({ credentials: { ...creds, ropc_last_failure: now.toISOString(), ropc_failure_reason: `ROPC failed; B2C ${refreshResult.errorCode || refreshResult.outcome}` } })
-              .eq('id', integration.id);
-            results.push({ locationId: integration.location_id, success: false, error: `Both refresh and ROPC failed — ${refreshResult.errorCode || refreshResult.errorDescription || 'check credentials'}` });
-            console.error(`[PFG Keep-Alive] ✗ ROPC also failed for ${integration.location_id}`);
-            continue;
-          }
+        // No stored ROPC creds — log it instead of silently skipping.
+        if (!pfgUser || !pfgPass) {
+          await logRefreshAudit(supabase, {
+            integration_id: integration.id,
+            location_id: integration.location_id,
+            handler: 'keep_alive_cron',
+            caller_action: CRON_CALLER,
+            outcome: 'no_ropc_credentials',
+            b2c_error_code: refreshResult.errorCode ?? null,
+            b2c_error_message: 'B2C refresh failed and no ROPC username/password on file',
+            old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
+          });
+          results.push({ locationId: integration.location_id, success: false, error: `Refresh failed (${refreshSummary}); no ROPC credentials stored` });
+          continue;
         }
 
-        results.push({ locationId: integration.location_id, success: false, error: `Refresh failed: ${refreshResult.errorCode || refreshResult.errorDescription || 'no ROPC credentials stored'}` });
+        console.log(`[PFG Keep-Alive] Refresh failed for ${integration.location_id} (${refreshSummary}), attempting ROPC fallback...`);
+        const ropcStart = Date.now();
+        const ropcData = await ropcAuthenticate(pfgUser, pfgPass);
+
+        if (ropcData) {
+          const ropcNow = new Date();
+          const updatedCreds: PFGCredentials = {
+            ...creds,
+            refresh_token: ropcData.refresh_token,
+            access_token: ropcData.access_token,
+            token_expires_at: new Date(ropcNow.getTime() + ropcData.expires_in * 1000).toISOString(),
+            refresh_token_updated_at: ropcNow.toISOString(),
+            ropc_last_success: ropcNow.toISOString(),
+          };
+
+          // LOCKED ROPC WRITE. ROPC generates a fresh grant chain unrelated to
+          // the (now-dead) old refresh token, so the token-match CAS would always
+          // fail. This RPC takes a FOR UPDATE lock without the match — two
+          // concurrent ROPC writers serialize, last writer wins, both equally valid.
+          const { data: ropcSwapped, error: ropcSwapErr } = await supabase.rpc(
+            'pfg_swap_credentials_ropc',
+            { p_integration_id: integration.id, p_new_credentials: updatedCreds },
+          );
+          if (ropcSwapErr) console.error('[PFG Keep-Alive] ROPC swap error:', ropcSwapErr);
+
+          await logRefreshAudit(supabase, {
+            integration_id: integration.id,
+            location_id: integration.location_id,
+            handler: 'keep_alive_cron',
+            caller_action: CRON_CALLER,
+            outcome: 'ropc_recovery',
+            duration_ms: Date.now() - ropcStart,
+            old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
+            new_token_prefix: ropcData.refresh_token?.slice(0, TOKEN_PREFIX_LEN) ?? null,
+          });
+
+          results.push({ locationId: integration.location_id, success: true, error: 'Recovered via ROPC' });
+          console.log(`[PFG Keep-Alive] ✓ ROPC recovery successful for ${integration.location_id} (swap=${ropcSwapped})`);
+          continue;
+        }
+
+        // ROPC also failed — record reason on the integration row + audit
+        const failNow = new Date();
+        const failReason = `ROPC failed: refresh returned ${refreshSummary}`;
+        await supabase
+          .from('location_integrations')
+          .update({
+            credentials: { ...creds, ropc_last_failure: failNow.toISOString(), ropc_failure_reason: failReason },
+          })
+          .eq('id', integration.id);
+
+        await logRefreshAudit(supabase, {
+          integration_id: integration.id,
+          location_id: integration.location_id,
+          handler: 'keep_alive_cron',
+          caller_action: CRON_CALLER,
+          outcome: 'ropc_failed',
+          duration_ms: Date.now() - ropcStart,
+          b2c_error_code: refreshResult.errorCode ?? null,
+          b2c_error_message: failReason,
+          old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
+        });
+
+        results.push({ locationId: integration.location_id, success: false, error: `Both refresh and ROPC failed (${refreshSummary})` });
+        console.error(`[PFG Keep-Alive] ✗ ROPC also failed for ${integration.location_id}`);
         continue;
       }
 
@@ -1169,10 +1216,11 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
         integration_id: integration.id,
         location_id: integration.location_id,
         handler: 'keep_alive_cron',
+        caller_action: CRON_CALLER,
         outcome: swapped === true ? 'swapped' : 'lost_race',
         duration_ms: Date.now() - startedAt,
-        old_token_prefix: oldRefresh.slice(0, 12),
-        new_token_prefix: tokenData.refresh_token?.slice(0, 12) ?? null,
+        old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
+        new_token_prefix: tokenData.refresh_token?.slice(0, TOKEN_PREFIX_LEN) ?? null,
       });
 
       results.push({ locationId: integration.location_id, success: true });
