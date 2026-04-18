@@ -207,6 +207,73 @@ async function logRefreshAudit(supabase: any, row: {
   }
 }
 
+// Hard-coded super-admin to attribute system-generated tickets to.
+// Required because support_tickets.user_id is NOT NULL with FK to profiles.
+const SYSTEM_TICKET_OWNER_ID = 'a2e81a39-0e0b-47b1-a1aa-0e53f3869d37';
+
+// Auto-create a deduped support ticket when a PFG refresh chain breaks.
+// One open ticket per location at a time — close/resolve it to allow a new one.
+// Prevents flooding the support inbox when the cron fires every 5 min.
+async function maybeCreateChainBrokenTicket(
+  supabase: any,
+  locationId: string,
+  failReason: string,
+): Promise<void> {
+  try {
+    const { data: loc } = await supabase
+      .from('locations')
+      .select('name')
+      .eq('id', locationId)
+      .maybeSingle();
+    const locName = loc?.name || locationId;
+
+    const dedupMarker = `[pfg-chain-broken:${locationId}]`;
+
+    const { data: existing } = await supabase
+      .from('support_tickets')
+      .select('id')
+      .eq('status', 'open')
+      .ilike('description', `%${dedupMarker}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.id) {
+      console.log(`[PFG Ticket] Dedup hit for ${locName} — open ticket ${existing.id} exists`);
+      return;
+    }
+
+    const description = [
+      `${dedupMarker}`,
+      ``,
+      `🚨 PFG token refresh chain BROKEN for ${locName}.`,
+      ``,
+      `Both the standard refresh AND the ROPC password fallback failed.`,
+      `A manager needs to manually reconnect PFG in Settings → Integrations.`,
+      ``,
+      `Failure detail: ${failReason}`,
+      ``,
+      `Generated automatically by pfg-service keep-alive at ${new Date().toISOString()}.`,
+    ].join('\n');
+
+    const { error: insertErr } = await supabase
+      .from('support_tickets')
+      .insert({
+        user_id: SYSTEM_TICKET_OWNER_ID,
+        category: 'broken_feature',
+        description,
+        occurrence_time: new Date().toISOString(),
+      });
+
+    if (insertErr) {
+      console.error('[PFG Ticket] Insert failed:', insertErr);
+    } else {
+      console.log(`[PFG Ticket] Created chain-broken ticket for ${locName}`);
+    }
+  } catch (e) {
+    console.error('[PFG Ticket] Unexpected error creating ticket:', e);
+  }
+}
+
 // ROPC (Resource Owner Password Credentials) — re-authenticate using stored username/password
 async function ropcAuthenticate(username: string, password: string): Promise<TokenResponse | null> {
   try {
@@ -1070,7 +1137,7 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
   // If locationId specified, refresh just that one; otherwise refresh ALL active PFG integrations
   let query = supabase
     .from('location_integrations')
-    .select('id, location_id, credentials')
+    .select('id, location_id, credentials, pfg_auto_revert_on_failure, pfg_keep_alive_minutes')
     .eq('integration_type', 'pfg')
     .eq('is_active', true);
   
@@ -1182,11 +1249,21 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
         // ROPC also failed — record reason on the integration row + audit
         const failNow = new Date();
         const failReason = `ROPC failed: refresh returned ${refreshSummary}`;
+
+        // Build update payload. If this integration had auto_revert_on_failure
+        // set (i.e. it's running an experimental cadence), reset to safe 5-min.
+        const failureUpdate: Record<string, unknown> = {
+          credentials: { ...creds, ropc_last_failure: failNow.toISOString(), ropc_failure_reason: failReason },
+        };
+        if ((integration as any).pfg_auto_revert_on_failure === true) {
+          failureUpdate.pfg_keep_alive_minutes = 5;
+          failureUpdate.pfg_auto_revert_on_failure = false;
+          console.warn(`[PFG Keep-Alive] Auto-reverting ${integration.location_id} to 5-min cadence after ropc_failed`);
+        }
+
         await supabase
           .from('location_integrations')
-          .update({
-            credentials: { ...creds, ropc_last_failure: failNow.toISOString(), ropc_failure_reason: failReason },
-          })
+          .update(failureUpdate)
           .eq('id', integration.id);
 
         await logRefreshAudit(supabase, {
@@ -1200,6 +1277,10 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
           b2c_error_message: failReason,
           old_token_prefix: tokenFingerprint(oldRefresh),
         });
+
+        // Auto-create a deduped support ticket so the chain break is visible
+        // in the support inbox without flooding (one ticket per 24h per location).
+        await maybeCreateChainBrokenTicket(supabase, integration.location_id, failReason);
 
         results.push({ locationId: integration.location_id, success: false, error: `Both refresh and ROPC failed (${refreshSummary})` });
         console.error(`[PFG Keep-Alive] ✗ ROPC also failed for ${integration.location_id}`);
@@ -2129,19 +2210,17 @@ serve(async (req) => {
       }
       
       case 'headless_login_failed': {
-        // GitHub Actions headless login failed — create support ticket
+        // GitHub Actions headless login failed — create deduped support ticket
         const failLocationId = body?.locationId;
         const failError = body?.error || 'Unknown headless login failure';
         console.error('[PFG Headless] Login failed for location:', failLocationId, failError);
         
         if (failLocationId) {
-          await supabase.from('support_tickets').insert({
-            title: 'PFG Headless Login Failed',
-            description: `The automated PFG token refresh via GitHub Actions failed.\n\nLocation: ${failLocationId}\nError: ${failError}\n\nA manager may need to manually reconnect PFG in Settings → Integrations.`,
-            status: 'open',
-            priority: 'high',
-            source: 'system',
-          });
+          await maybeCreateChainBrokenTicket(
+            supabase,
+            failLocationId,
+            `Headless login failure: ${failError}`,
+          );
         }
         
         return new Response(JSON.stringify({ success: true, message: 'Failure logged' }), {

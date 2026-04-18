@@ -4529,6 +4529,9 @@ export type Database = {
           integration_type: string
           is_active: boolean
           location_id: string
+          pfg_auto_revert_on_failure: boolean
+          pfg_keep_alive_minutes: number
+          pfg_last_keep_alive_at: string | null
           token_expires_at: string | null
           updated_at: string
         }
@@ -4545,6 +4548,9 @@ export type Database = {
           integration_type: string
           is_active?: boolean
           location_id: string
+          pfg_auto_revert_on_failure?: boolean
+          pfg_keep_alive_minutes?: number
+          pfg_last_keep_alive_at?: string | null
           token_expires_at?: string | null
           updated_at?: string
         }
@@ -4561,6 +4567,9 @@ export type Database = {
           integration_type?: string
           is_active?: boolean
           location_id?: string
+          pfg_auto_revert_on_failure?: boolean
+          pfg_keep_alive_minutes?: number
+          pfg_last_keep_alive_at?: string | null
           token_expires_at?: string | null
           updated_at?: string
         }
