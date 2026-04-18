@@ -156,12 +156,14 @@ serve(async (req) => {
         continue;
       }
 
-      // Determine which "business date" we're potentially closing out.
-      // We check both yesterday and today (in location's tz) to cover late-night closes.
+      // Determine which "business date(s)" to process.
+      // Normal cron: yesterday + today (local) to catch late-night closes.
+      // Manual override: only the specified date.
       const todayLocal = getDateInTimezone(now, tz);
       const yesterdayLocal = getDateInTimezone(new Date(now.getTime() - 86400000), tz);
+      const datesToProcess = forceBusinessDate ? [forceBusinessDate] : [yesterdayLocal, todayLocal];
 
-      for (const businessDate of [yesterdayLocal, todayLocal]) {
+      for (const businessDate of datesToProcess) {
         const dow = getDayOfWeekForDate(businessDate);
         const dayHours = hours.find((h: any) => h.day_of_week === dow);
 
@@ -172,20 +174,24 @@ serve(async (req) => {
         const cutoffUTC = new Date(closeUTC.getTime() + POST_CLOSE_BUFFER_HOURS * 3600 * 1000);
         const windowEndUTC = new Date(cutoffUTC.getTime() + PROCESSING_WINDOW_MINUTES * 60 * 1000);
 
-        // Are we currently inside the firing window for this business date?
-        if (now < cutoffUTC || now > windowEndUTC) continue;
+        // Normal mode: only fire inside the cron window. Manual mode bypasses this.
+        if (!forceMode && (now < cutoffUTC || now > windowEndUTC)) continue;
 
-        // ---- IDEMPOTENCY CHECK ----
-        const { data: existingLog } = await supabase
-          .from('auto_punch_log')
-          .select('id, punches_created')
-          .eq('location_id', location.id)
-          .eq('processed_date', businessDate)
-          .maybeSingle();
+        // ---- IDEMPOTENCY CHECK (skipped in manual mode for backfills) ----
+        if (!forceMode) {
+          const { data: existingLog } = await supabase
+            .from('auto_punch_log')
+            .select('id, punches_created')
+            .eq('location_id', location.id)
+            .eq('processed_date', businessDate)
+            .maybeSingle();
 
-        if (existingLog) {
-          console.log(`[Auto-Punch] ${location.name} ${businessDate}: already processed, skipping`);
-          continue;
+          if (existingLog) {
+            console.log(`[Auto-Punch] ${location.name} ${businessDate}: already processed, skipping`);
+            continue;
+          }
+        } else {
+          console.log(`[Auto-Punch] ${location.name} ${businessDate}: MANUAL run — bypassing idempotency check`);
         }
 
         console.log(`[Auto-Punch] ${location.name} ${businessDate} (${tz}): processing. Close=${closeUTC.toISOString()}, Cutoff=${cutoffUTC.toISOString()}`);
