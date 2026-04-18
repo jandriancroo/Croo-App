@@ -739,17 +739,39 @@ async function getValidAccessToken(
     }
   }
 
-  // 2. Try refresh_token
-  const tokenData = credentials.refresh_token
-    ? await refreshAccessToken(credentials.refresh_token)
-    : null;
-
-  if (!tokenData) {
-    console.error('[PFG Auth] Token refresh failed — manual re-login required via OAuth popup');
+  // 2. Try refresh_token — atomic via DB compare-and-swap to prevent race-condition stomping.
+  if (!credentials.refresh_token) {
+    if (integrationId) {
+      await logRefreshAudit(supabase, {
+        integration_id: integrationId,
+        handler: 'get_valid_access_token',
+        outcome: 'no_token',
+      });
+    }
     return null;
   }
 
-  // 3. Build updated credentials with cached access_token + expiry
+  const oldRefresh = credentials.refresh_token;
+  const startedAt = Date.now();
+  const refreshResult = await refreshAccessToken(oldRefresh);
+
+  if (!refreshResult.ok) {
+    if (integrationId) {
+      await logRefreshAudit(supabase, {
+        integration_id: integrationId,
+        handler: 'get_valid_access_token',
+        outcome: refreshResult.outcome,
+        b2c_error_code: refreshResult.errorCode ?? null,
+        b2c_error_message: refreshResult.errorDescription ?? null,
+        duration_ms: Date.now() - startedAt,
+        old_token_prefix: oldRefresh.slice(0, 12),
+      });
+    }
+    console.error('[PFG Auth] Token refresh failed —', refreshResult.errorCode || refreshResult.outcome, refreshResult.errorDescription || '');
+    return null;
+  }
+
+  const tokenData = refreshResult.token;
   const now = new Date();
   const expiresAtIso = new Date(now.getTime() + tokenData.expires_in * 1000).toISOString();
   const updatedCredentials: PFGCredentials = {
@@ -760,13 +782,34 @@ async function getValidAccessToken(
     refresh_token_updated_at: now.toISOString(),
   };
 
-  // 4. Persist
+  // 4. Persist via locked compare-and-swap. If another concurrent caller already
+  // wrote a newer token between our read and our write, the swap returns false
+  // and we DO NOT overwrite — their token is the live one, ours is already dead.
   if (integrationId) {
-    await supabase
-      .from('location_integrations')
-      .update({ credentials: updatedCredentials })
-      .eq('id', integrationId);
-    console.log('[PFG Auth] Tokens cached until', expiresAtIso);
+    const { data: swapped, error: swapErr } = await supabase.rpc('pfg_swap_credentials', {
+      p_integration_id: integrationId,
+      p_expected_old_refresh_token: oldRefresh,
+      p_new_credentials: updatedCredentials,
+    });
+
+    if (swapErr) {
+      console.error('[PFG Auth] CAS swap error:', swapErr);
+    }
+
+    await logRefreshAudit(supabase, {
+      integration_id: integrationId,
+      handler: 'get_valid_access_token',
+      outcome: swapped === true ? 'swapped' : 'lost_race',
+      duration_ms: Date.now() - startedAt,
+      old_token_prefix: oldRefresh.slice(0, 12),
+      new_token_prefix: tokenData.refresh_token?.slice(0, 12) ?? null,
+    });
+
+    if (swapped === true) {
+      console.log('[PFG Auth] Tokens cached until', expiresAtIso, '(locked swap OK)');
+    } else {
+      console.warn('[PFG Auth] Lost race — another caller already rotated the token. Skipping write to avoid stomping live credentials.');
+    }
   }
 
   return { accessToken: tokenData.access_token, updatedCredentials };
