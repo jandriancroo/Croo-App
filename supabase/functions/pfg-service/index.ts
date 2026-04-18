@@ -110,11 +110,26 @@ type RefreshResult =
 
 // 10s hard cap — if B2C hangs past this, we release the DB lock and let the next
 // caller try with a fresh attempt instead of pinning the row indefinitely.
+// Returns a fingerprint that's safe to log AND actually distinguishes JWTs.
+// Strips the shared header by slicing from char 30 inward + appending the
+// last 8 chars of the signature for tie-breaking.
+function tokenFingerprint(t: string | null | undefined): string | null {
+  if (!t) return null;
+  const mid = t.slice(TOKEN_PREFIX_LEN, TOKEN_PREFIX_LEN + TOKEN_PREFIX_WINDOW);
+  const tail = t.slice(-8);
+  return `${mid}…${tail}`;
+}
+
 const B2C_TIMEOUT_MS = 10_000;
 
-// First N chars of a refresh token kept in audit logs. 16 distinguishes B2C
-// vs ROPC chains in practice; bump to 20 if real data shows prefix collisions.
-const TOKEN_PREFIX_LEN = 16;
+// Refresh tokens are JWTs that share a long, identical header prefix
+// (kid + alg + ver). Real-world inspection shows the first ~30 chars match
+// across every token. We capture chars 30..60 — that's the start of the
+// payload section, where the actual token identity diverges. Plus the last
+// 8 chars of the signature so two tokens issued microseconds apart still
+// disambiguate visibly in the audit log.
+const TOKEN_PREFIX_LEN = 30;          // skip the shared JWT header
+const TOKEN_PREFIX_WINDOW = 30;       // capture this many chars of payload
 
 // Refresh an existing token. NEVER persists — caller is responsible for the locked write.
 async function refreshAccessToken(refreshToken: string): Promise<RefreshResult> {
