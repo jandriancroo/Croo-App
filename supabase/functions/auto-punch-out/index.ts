@@ -380,14 +380,16 @@ serve(async (req) => {
           console.log(`[Auto-Punch] ✅ ${employeeName} @ ${location.name}: ${reason}, ${shiftHours.toFixed(2)}h`);
         }
 
-        // Record idempotency log
-        await supabase.from('auto_punch_log').insert({
-          location_id: location.id,
-          processed_date: businessDate,
-          cron_run_at: now.toISOString(),
-          punches_created: punchesCreated,
-          notes: `tz=${tz}, close=${dayHours.close_time}, cutoff=${cutoffUTC.toISOString()}`,
-        });
+        // Record idempotency log (skip in manual mode so future cron runs aren't blocked)
+        if (!forceMode) {
+          await supabase.from('auto_punch_log').insert({
+            location_id: location.id,
+            processed_date: businessDate,
+            cron_run_at: now.toISOString(),
+            punches_created: punchesCreated,
+            notes: `tz=${tz}, close=${dayHours.close_time}, cutoff=${cutoffUTC.toISOString()}`,
+          });
+        }
       }
     }
 
