@@ -395,6 +395,8 @@ serve(async (req) => {
 
     const summary = {
       run_at: now.toISOString(),
+      mode: forceMode ? 'manual' : 'cron',
+      manual_filters: forceMode ? { location_id: forceLocationId, business_date: forceBusinessDate } : null,
       total: results.length,
       punched: results.filter(r => r.status === 'punched').length,
       skipped: results.filter(r => r.status === 'skipped').length,
