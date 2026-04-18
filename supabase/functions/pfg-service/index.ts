@@ -1257,7 +1257,7 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  const tokenResult = await getValidAccessToken(supabase, credentials, integrationId);
+  const tokenResult = await getValidAccessToken(supabase, credentials, integrationId, locationId ?? null, `fetch_action:${action || 'unknown'}`);
 
   if (!tokenResult) {
     return new Response(JSON.stringify({ 
@@ -1507,7 +1507,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
     }
 
     try {
-      const tokenResult = await getValidAccessToken(supabase, credentials, integration.id);
+      const tokenResult = await getValidAccessToken(supabase, credentials, integration.id, integration.location_id, 'sync_orders');
 
       if (!tokenResult) {
         results.push({ locationId: integration.location_id, success: false, ordersImported: 0, error: 'Auth failed — re-login needed' });
@@ -1768,7 +1768,7 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
   }
 
   const credentials = integration.credentials as unknown as PFGCredentials;
-  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id);
+  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id, locationId, 'list_delivery_locations');
   if (!tokenResult) {
     return new Response(JSON.stringify({ error: 'Auth failed — re-login needed' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1884,7 +1884,7 @@ async function handleCustomerInfo(supabase: any, body: any): Promise<Response> {
   }
 
   const credentials = integration.credentials as unknown as PFGCredentials;
-  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id);
+  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id, locationId, 'customer_info');
   if (!tokenResult) {
     return new Response(JSON.stringify({ error: 'Auth failed' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
