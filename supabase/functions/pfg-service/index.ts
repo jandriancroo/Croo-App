@@ -1071,17 +1071,31 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
     }
 
     try {
-      const tokenData = await refreshAccessToken(creds.refresh_token);
-      
-      if (!tokenData) {
+      const oldRefresh = creds.refresh_token;
+      const startedAt = Date.now();
+      const refreshResult = await refreshAccessToken(oldRefresh);
+
+      if (!refreshResult.ok) {
         // ROPC FALLBACK: try password grant if credentials are stored
         const pfgUser = creds.pfg_username;
         const pfgPass = creds.pfg_password;
-        
+
+        // Log the B2C failure with the real error code (AADB2C90080, etc.)
+        await logRefreshAudit(supabase, {
+          integration_id: integration.id,
+          location_id: integration.location_id,
+          handler: 'keep_alive_cron',
+          outcome: refreshResult.outcome,
+          b2c_error_code: refreshResult.errorCode ?? null,
+          b2c_error_message: refreshResult.errorDescription ?? null,
+          duration_ms: Date.now() - startedAt,
+          old_token_prefix: oldRefresh.slice(0, 12),
+        });
+
         if (pfgUser && pfgPass) {
-          console.log(`[PFG Keep-Alive] Refresh failed for ${integration.location_id}, attempting ROPC fallback...`);
+          console.log(`[PFG Keep-Alive] Refresh failed for ${integration.location_id} (${refreshResult.errorCode || refreshResult.outcome}), attempting ROPC fallback...`);
           const ropcData = await ropcAuthenticate(pfgUser, pfgPass);
-          
+
           if (ropcData) {
             const now = new Date();
             const updatedCreds: PFGCredentials = {
@@ -1092,6 +1106,8 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
               refresh_token_updated_at: now.toISOString(),
               ropc_last_success: now.toISOString(),
             };
+            // ROPC bypasses the rotation chain entirely (new grant from username/password),
+            // so the CAS check would always lose the race. Use a direct write here.
             await supabase
               .from('location_integrations')
               .update({ credentials: updatedCreds })
@@ -1100,22 +1116,22 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
             console.log(`[PFG Keep-Alive] ✓ ROPC recovery successful for ${integration.location_id}`);
             continue;
           } else {
-            // ROPC also failed — update failure tracking
             const now = new Date();
             await supabase
               .from('location_integrations')
-              .update({ credentials: { ...creds, ropc_last_failure: now.toISOString(), ropc_failure_reason: 'ROPC auth failed after grant expiry' } })
+              .update({ credentials: { ...creds, ropc_last_failure: now.toISOString(), ropc_failure_reason: `ROPC failed; B2C ${refreshResult.errorCode || refreshResult.outcome}` } })
               .eq('id', integration.id);
-            results.push({ locationId: integration.location_id, success: false, error: 'Both refresh and ROPC failed — check credentials' });
+            results.push({ locationId: integration.location_id, success: false, error: `Both refresh and ROPC failed — ${refreshResult.errorCode || refreshResult.errorDescription || 'check credentials'}` });
             console.error(`[PFG Keep-Alive] ✗ ROPC also failed for ${integration.location_id}`);
             continue;
           }
         }
-        
-        results.push({ locationId: integration.location_id, success: false, error: 'Refresh failed — no ROPC credentials stored' });
+
+        results.push({ locationId: integration.location_id, success: false, error: `Refresh failed: ${refreshResult.errorCode || refreshResult.errorDescription || 'no ROPC credentials stored'}` });
         continue;
       }
 
+      const tokenData = refreshResult.token;
       const now = new Date();
       const updatedCreds: PFGCredentials = {
         ...creds,
@@ -1125,13 +1141,32 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
         refresh_token_updated_at: now.toISOString(),
       };
 
-      await supabase
-        .from('location_integrations')
-        .update({ credentials: updatedCreds })
-        .eq('id', integration.id);
+      // Locked compare-and-swap — never stomp a fresher token written by a concurrent caller.
+      const { data: swapped, error: swapErr } = await supabase.rpc('pfg_swap_credentials', {
+        p_integration_id: integration.id,
+        p_expected_old_refresh_token: oldRefresh,
+        p_new_credentials: updatedCreds,
+      });
+
+      if (swapErr) console.error('[PFG Keep-Alive] CAS swap error:', swapErr);
+
+      await logRefreshAudit(supabase, {
+        integration_id: integration.id,
+        location_id: integration.location_id,
+        handler: 'keep_alive_cron',
+        outcome: swapped === true ? 'swapped' : 'lost_race',
+        duration_ms: Date.now() - startedAt,
+        old_token_prefix: oldRefresh.slice(0, 12),
+        new_token_prefix: tokenData.refresh_token?.slice(0, 12) ?? null,
+      });
 
       results.push({ locationId: integration.location_id, success: true });
-      console.log(`[PFG Keep-Alive] ✓ Refreshed token for location ${integration.location_id}`);
+      if (swapped === true) {
+        console.log(`[PFG Keep-Alive] ✓ Refreshed token for location ${integration.location_id}`);
+      } else {
+        console.warn(`[PFG Keep-Alive] ⚠ Lost race for ${integration.location_id} — concurrent caller wrote first; skipping our (now-dead) token write`);
+      }
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       results.push({ locationId: integration.location_id, success: false, error: msg });
