@@ -9082,6 +9082,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      pfg_swap_credentials_ropc: {
+        Args: { p_integration_id: string; p_new_credentials: Json }
+        Returns: boolean
+      }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
       read_email_batch: {

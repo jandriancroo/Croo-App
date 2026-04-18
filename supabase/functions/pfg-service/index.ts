@@ -112,6 +112,23 @@ type RefreshResult =
 // caller try with a fresh attempt instead of pinning the row indefinitely.
 const B2C_TIMEOUT_MS = 10_000;
 
+// Refresh tokens are JWTs that share a long, identical header prefix
+// (kid + alg + ver). Real-world inspection of pfg_refresh_audit confirmed
+// every token starts with `eyJraWQiOiJB...` so logging the first 16 chars
+// is useless for disambiguation. We capture chars 30..60 — that's the start
+// of the payload section, where the token identity actually diverges — plus
+// the last 8 chars of the signature for tie-breaking.
+const TOKEN_PREFIX_LEN = 30;          // skip the shared JWT header
+const TOKEN_PREFIX_WINDOW = 30;       // capture this many chars of payload
+
+// Returns a fingerprint that's safe to log AND actually distinguishes JWTs.
+function tokenFingerprint(t: string | null | undefined): string | null {
+  if (!t) return null;
+  const mid = t.slice(TOKEN_PREFIX_LEN, TOKEN_PREFIX_LEN + TOKEN_PREFIX_WINDOW);
+  const tail = t.slice(-8);
+  return `${mid}…${tail}`;
+}
+
 // Refresh an existing token. NEVER persists — caller is responsible for the locked write.
 async function refreshAccessToken(refreshToken: string): Promise<RefreshResult> {
   console.log('[PFG Auth] Refreshing access token (token prefix:', refreshToken.slice(0, 12), ')');
@@ -173,7 +190,10 @@ async function logRefreshAudit(supabase: any, row: {
   location_id?: string | null;
   handler: string;
   caller_action?: string | null;
-  outcome: 'swapped' | 'lost_race' | 'b2c_error' | 'b2c_timeout' | 'no_token' | 'network_error';
+  outcome:
+    | 'swapped' | 'lost_race' | 'b2c_error' | 'b2c_timeout'
+    | 'no_token' | 'network_error'
+    | 'ropc_recovery' | 'ropc_failed' | 'no_ropc_credentials';
   b2c_error_code?: string | null;
   b2c_error_message?: string | null;
   duration_ms?: number;
@@ -715,6 +735,8 @@ async function getValidAccessToken(
   supabase: any,
   credentials: PFGCredentials,
   integrationId: string | null,
+  locationId: string | null = null,
+  callerAction: string = 'unknown',
 ): Promise<{ accessToken: string; updatedCredentials: PFGCredentials } | null> {
 
   // 1. Check if cached access_token is still fresh
@@ -744,7 +766,9 @@ async function getValidAccessToken(
     if (integrationId) {
       await logRefreshAudit(supabase, {
         integration_id: integrationId,
+        location_id: locationId,
         handler: 'get_valid_access_token',
+        caller_action: callerAction,
         outcome: 'no_token',
       });
     }
@@ -759,12 +783,14 @@ async function getValidAccessToken(
     if (integrationId) {
       await logRefreshAudit(supabase, {
         integration_id: integrationId,
+        location_id: locationId,
         handler: 'get_valid_access_token',
+        caller_action: callerAction,
         outcome: refreshResult.outcome,
         b2c_error_code: refreshResult.errorCode ?? null,
         b2c_error_message: refreshResult.errorDescription ?? null,
         duration_ms: Date.now() - startedAt,
-        old_token_prefix: oldRefresh.slice(0, 12),
+        old_token_prefix: tokenFingerprint(oldRefresh),
       });
     }
     console.error('[PFG Auth] Token refresh failed —', refreshResult.errorCode || refreshResult.outcome, refreshResult.errorDescription || '');
@@ -798,11 +824,13 @@ async function getValidAccessToken(
 
     await logRefreshAudit(supabase, {
       integration_id: integrationId,
+      location_id: locationId,
       handler: 'get_valid_access_token',
+      caller_action: callerAction,
       outcome: swapped === true ? 'swapped' : 'lost_race',
       duration_ms: Date.now() - startedAt,
-      old_token_prefix: oldRefresh.slice(0, 12),
-      new_token_prefix: tokenData.refresh_token?.slice(0, 12) ?? null,
+      old_token_prefix: tokenFingerprint(oldRefresh),
+      new_token_prefix: tokenFingerprint(tokenData.refresh_token),
     });
 
     if (swapped === true) {
@@ -1074,60 +1102,107 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
       const oldRefresh = creds.refresh_token;
       const startedAt = Date.now();
       const refreshResult = await refreshAccessToken(oldRefresh);
+      const CRON_CALLER = 'scheduled_cron_keepalive';
 
       if (!refreshResult.ok) {
-        // ROPC FALLBACK: try password grant if credentials are stored
-        const pfgUser = creds.pfg_username;
-        const pfgPass = creds.pfg_password;
-
-        // Log the B2C failure with the real error code (AADB2C90080, etc.)
+        // Audit the B2C failure with the real error code (AADB2C90080, etc.)
         await logRefreshAudit(supabase, {
           integration_id: integration.id,
           location_id: integration.location_id,
           handler: 'keep_alive_cron',
+          caller_action: CRON_CALLER,
           outcome: refreshResult.outcome,
           b2c_error_code: refreshResult.errorCode ?? null,
           b2c_error_message: refreshResult.errorDescription ?? null,
           duration_ms: Date.now() - startedAt,
-          old_token_prefix: oldRefresh.slice(0, 12),
+          old_token_prefix: tokenFingerprint(oldRefresh),
         });
 
-        if (pfgUser && pfgPass) {
-          console.log(`[PFG Keep-Alive] Refresh failed for ${integration.location_id} (${refreshResult.errorCode || refreshResult.outcome}), attempting ROPC fallback...`);
-          const ropcData = await ropcAuthenticate(pfgUser, pfgPass);
+        const pfgUser = creds.pfg_username;
+        const pfgPass = creds.pfg_password;
+        const refreshSummary = `${refreshResult.outcome}${refreshResult.errorCode ? ` (${refreshResult.errorCode})` : ''}`;
 
-          if (ropcData) {
-            const now = new Date();
-            const updatedCreds: PFGCredentials = {
-              ...creds,
-              refresh_token: ropcData.refresh_token,
-              access_token: ropcData.access_token,
-              token_expires_at: new Date(now.getTime() + ropcData.expires_in * 1000).toISOString(),
-              refresh_token_updated_at: now.toISOString(),
-              ropc_last_success: now.toISOString(),
-            };
-            // ROPC bypasses the rotation chain entirely (new grant from username/password),
-            // so the CAS check would always lose the race. Use a direct write here.
-            await supabase
-              .from('location_integrations')
-              .update({ credentials: updatedCreds })
-              .eq('id', integration.id);
-            results.push({ locationId: integration.location_id, success: true, error: 'Recovered via ROPC' });
-            console.log(`[PFG Keep-Alive] ✓ ROPC recovery successful for ${integration.location_id}`);
-            continue;
-          } else {
-            const now = new Date();
-            await supabase
-              .from('location_integrations')
-              .update({ credentials: { ...creds, ropc_last_failure: now.toISOString(), ropc_failure_reason: `ROPC failed; B2C ${refreshResult.errorCode || refreshResult.outcome}` } })
-              .eq('id', integration.id);
-            results.push({ locationId: integration.location_id, success: false, error: `Both refresh and ROPC failed — ${refreshResult.errorCode || refreshResult.errorDescription || 'check credentials'}` });
-            console.error(`[PFG Keep-Alive] ✗ ROPC also failed for ${integration.location_id}`);
-            continue;
-          }
+        // No stored ROPC creds — log it instead of silently skipping.
+        if (!pfgUser || !pfgPass) {
+          await logRefreshAudit(supabase, {
+            integration_id: integration.id,
+            location_id: integration.location_id,
+            handler: 'keep_alive_cron',
+            caller_action: CRON_CALLER,
+            outcome: 'no_ropc_credentials',
+            b2c_error_code: refreshResult.errorCode ?? null,
+            b2c_error_message: 'B2C refresh failed and no ROPC username/password on file',
+            old_token_prefix: tokenFingerprint(oldRefresh),
+          });
+          results.push({ locationId: integration.location_id, success: false, error: `Refresh failed (${refreshSummary}); no ROPC credentials stored` });
+          continue;
         }
 
-        results.push({ locationId: integration.location_id, success: false, error: `Refresh failed: ${refreshResult.errorCode || refreshResult.errorDescription || 'no ROPC credentials stored'}` });
+        console.log(`[PFG Keep-Alive] Refresh failed for ${integration.location_id} (${refreshSummary}), attempting ROPC fallback...`);
+        const ropcStart = Date.now();
+        const ropcData = await ropcAuthenticate(pfgUser, pfgPass);
+
+        if (ropcData) {
+          const ropcNow = new Date();
+          const updatedCreds: PFGCredentials = {
+            ...creds,
+            refresh_token: ropcData.refresh_token,
+            access_token: ropcData.access_token,
+            token_expires_at: new Date(ropcNow.getTime() + ropcData.expires_in * 1000).toISOString(),
+            refresh_token_updated_at: ropcNow.toISOString(),
+            ropc_last_success: ropcNow.toISOString(),
+          };
+
+          // LOCKED ROPC WRITE. ROPC generates a fresh grant chain unrelated to
+          // the (now-dead) old refresh token, so the token-match CAS would always
+          // fail. This RPC takes a FOR UPDATE lock without the match — two
+          // concurrent ROPC writers serialize, last writer wins, both equally valid.
+          const { data: ropcSwapped, error: ropcSwapErr } = await supabase.rpc(
+            'pfg_swap_credentials_ropc',
+            { p_integration_id: integration.id, p_new_credentials: updatedCreds },
+          );
+          if (ropcSwapErr) console.error('[PFG Keep-Alive] ROPC swap error:', ropcSwapErr);
+
+          await logRefreshAudit(supabase, {
+            integration_id: integration.id,
+            location_id: integration.location_id,
+            handler: 'keep_alive_cron',
+            caller_action: CRON_CALLER,
+            outcome: 'ropc_recovery',
+            duration_ms: Date.now() - ropcStart,
+            old_token_prefix: tokenFingerprint(oldRefresh),
+            new_token_prefix: tokenFingerprint(ropcData.refresh_token),
+          });
+
+          results.push({ locationId: integration.location_id, success: true, error: 'Recovered via ROPC' });
+          console.log(`[PFG Keep-Alive] ✓ ROPC recovery successful for ${integration.location_id} (swap=${ropcSwapped})`);
+          continue;
+        }
+
+        // ROPC also failed — record reason on the integration row + audit
+        const failNow = new Date();
+        const failReason = `ROPC failed: refresh returned ${refreshSummary}`;
+        await supabase
+          .from('location_integrations')
+          .update({
+            credentials: { ...creds, ropc_last_failure: failNow.toISOString(), ropc_failure_reason: failReason },
+          })
+          .eq('id', integration.id);
+
+        await logRefreshAudit(supabase, {
+          integration_id: integration.id,
+          location_id: integration.location_id,
+          handler: 'keep_alive_cron',
+          caller_action: CRON_CALLER,
+          outcome: 'ropc_failed',
+          duration_ms: Date.now() - ropcStart,
+          b2c_error_code: refreshResult.errorCode ?? null,
+          b2c_error_message: failReason,
+          old_token_prefix: tokenFingerprint(oldRefresh),
+        });
+
+        results.push({ locationId: integration.location_id, success: false, error: `Both refresh and ROPC failed (${refreshSummary})` });
+        console.error(`[PFG Keep-Alive] ✗ ROPC also failed for ${integration.location_id}`);
         continue;
       }
 
@@ -1154,10 +1229,11 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
         integration_id: integration.id,
         location_id: integration.location_id,
         handler: 'keep_alive_cron',
+        caller_action: CRON_CALLER,
         outcome: swapped === true ? 'swapped' : 'lost_race',
         duration_ms: Date.now() - startedAt,
-        old_token_prefix: oldRefresh.slice(0, 12),
-        new_token_prefix: tokenData.refresh_token?.slice(0, 12) ?? null,
+        old_token_prefix: tokenFingerprint(oldRefresh),
+        new_token_prefix: tokenFingerprint(tokenData.refresh_token),
       });
 
       results.push({ locationId: integration.location_id, success: true });
@@ -1242,7 +1318,7 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  const tokenResult = await getValidAccessToken(supabase, credentials, integrationId);
+  const tokenResult = await getValidAccessToken(supabase, credentials, integrationId, locationId ?? null, `fetch_action:${action || 'unknown'}`);
 
   if (!tokenResult) {
     return new Response(JSON.stringify({ 
@@ -1492,7 +1568,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
     }
 
     try {
-      const tokenResult = await getValidAccessToken(supabase, credentials, integration.id);
+      const tokenResult = await getValidAccessToken(supabase, credentials, integration.id, integration.location_id, 'sync_orders');
 
       if (!tokenResult) {
         results.push({ locationId: integration.location_id, success: false, ordersImported: 0, error: 'Auth failed — re-login needed' });
@@ -1753,7 +1829,7 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
   }
 
   const credentials = integration.credentials as unknown as PFGCredentials;
-  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id);
+  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id, locationId, 'list_delivery_locations');
   if (!tokenResult) {
     return new Response(JSON.stringify({ error: 'Auth failed — re-login needed' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1869,7 +1945,7 @@ async function handleCustomerInfo(supabase: any, body: any): Promise<Response> {
   }
 
   const credentials = integration.credentials as unknown as PFGCredentials;
-  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id);
+  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id, locationId, 'customer_info');
   if (!tokenResult) {
     return new Response(JSON.stringify({ error: 'Auth failed' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
