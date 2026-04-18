@@ -104,10 +104,30 @@ serve(async (req) => {
 
     const now = new Date();
     const results: AutoPunchResult[] = [];
-    console.log(`[Auto-Punch] Run started at ${now.toISOString()}`);
 
-    // Fetch all active locations with hours + timezone
-    const { data: locations, error: locError } = await supabase
+    // ---- MANUAL OVERRIDE SUPPORT ----
+    // Allow POST body to target a specific location and/or business_date for backfill
+    let forceLocationId: string | null = null;
+    let forceBusinessDate: string | null = null;
+    let forceMode = false;
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        forceLocationId = body?.location_id || null;
+        forceBusinessDate = body?.business_date || null;
+        forceMode = !!(forceLocationId || forceBusinessDate);
+      } catch {
+        // empty body is fine
+      }
+    }
+
+    console.log(
+      `[Auto-Punch] Run started at ${now.toISOString()}` +
+        (forceMode ? ` [MANUAL: location=${forceLocationId || 'all'}, date=${forceBusinessDate || 'auto'}]` : '')
+    );
+
+    // Fetch active locations with hours + timezone (filtered if manual override)
+    let locationsQuery = supabase
       .from('locations')
       .select(`
         id,
@@ -117,6 +137,12 @@ serve(async (req) => {
         location_hours(day_of_week, close_time, is_closed)
       `)
       .eq('is_active', true);
+
+    if (forceLocationId) {
+      locationsQuery = locationsQuery.eq('id', forceLocationId);
+    }
+
+    const { data: locations, error: locError } = await locationsQuery;
 
     if (locError) throw new Error(`Failed to fetch locations: ${locError.message}`);
 
