@@ -112,6 +112,10 @@ type RefreshResult =
 // caller try with a fresh attempt instead of pinning the row indefinitely.
 const B2C_TIMEOUT_MS = 10_000;
 
+// First N chars of a refresh token kept in audit logs. 16 distinguishes B2C
+// vs ROPC chains in practice; bump to 20 if real data shows prefix collisions.
+const TOKEN_PREFIX_LEN = 16;
+
 // Refresh an existing token. NEVER persists — caller is responsible for the locked write.
 async function refreshAccessToken(refreshToken: string): Promise<RefreshResult> {
   console.log('[PFG Auth] Refreshing access token (token prefix:', refreshToken.slice(0, 12), ')');
@@ -173,7 +177,10 @@ async function logRefreshAudit(supabase: any, row: {
   location_id?: string | null;
   handler: string;
   caller_action?: string | null;
-  outcome: 'swapped' | 'lost_race' | 'b2c_error' | 'b2c_timeout' | 'no_token' | 'network_error';
+  outcome:
+    | 'swapped' | 'lost_race' | 'b2c_error' | 'b2c_timeout'
+    | 'no_token' | 'network_error'
+    | 'ropc_recovery' | 'ropc_failed' | 'no_ropc_credentials';
   b2c_error_code?: string | null;
   b2c_error_message?: string | null;
   duration_ms?: number;
@@ -715,6 +722,8 @@ async function getValidAccessToken(
   supabase: any,
   credentials: PFGCredentials,
   integrationId: string | null,
+  locationId: string | null = null,
+  callerAction: string = 'unknown',
 ): Promise<{ accessToken: string; updatedCredentials: PFGCredentials } | null> {
 
   // 1. Check if cached access_token is still fresh
