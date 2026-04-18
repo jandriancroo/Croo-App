@@ -6032,6 +6032,51 @@ export type Database = {
           },
         ]
       }
+      pfg_refresh_audit: {
+        Row: {
+          b2c_error_code: string | null
+          b2c_error_message: string | null
+          caller_action: string | null
+          created_at: string
+          duration_ms: number | null
+          handler: string
+          id: string
+          integration_id: string
+          location_id: string | null
+          new_token_prefix: string | null
+          old_token_prefix: string | null
+          outcome: string
+        }
+        Insert: {
+          b2c_error_code?: string | null
+          b2c_error_message?: string | null
+          caller_action?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          handler: string
+          id?: string
+          integration_id: string
+          location_id?: string | null
+          new_token_prefix?: string | null
+          old_token_prefix?: string | null
+          outcome: string
+        }
+        Update: {
+          b2c_error_code?: string | null
+          b2c_error_message?: string | null
+          caller_action?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          handler?: string
+          id?: string
+          integration_id?: string
+          location_id?: string | null
+          new_token_prefix?: string | null
+          old_token_prefix?: string | null
+          outcome?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           all_locations_enabled: boolean
@@ -9028,6 +9073,14 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      pfg_swap_credentials: {
+        Args: {
+          p_expected_old_refresh_token: string
+          p_integration_id: string
+          p_new_credentials: Json
+        }
+        Returns: boolean
       }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
