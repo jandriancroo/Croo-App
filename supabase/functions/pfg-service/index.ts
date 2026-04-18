@@ -1137,7 +1137,7 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
   // If locationId specified, refresh just that one; otherwise refresh ALL active PFG integrations
   let query = supabase
     .from('location_integrations')
-    .select('id, location_id, credentials')
+    .select('id, location_id, credentials, pfg_auto_revert_on_failure, pfg_keep_alive_minutes')
     .eq('integration_type', 'pfg')
     .eq('is_active', true);
   
