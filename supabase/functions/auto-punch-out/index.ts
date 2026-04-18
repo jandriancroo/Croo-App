@@ -104,10 +104,30 @@ serve(async (req) => {
 
     const now = new Date();
     const results: AutoPunchResult[] = [];
-    console.log(`[Auto-Punch] Run started at ${now.toISOString()}`);
 
-    // Fetch all active locations with hours + timezone
-    const { data: locations, error: locError } = await supabase
+    // ---- MANUAL OVERRIDE SUPPORT ----
+    // Allow POST body to target a specific location and/or business_date for backfill
+    let forceLocationId: string | null = null;
+    let forceBusinessDate: string | null = null;
+    let forceMode = false;
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        forceLocationId = body?.location_id || null;
+        forceBusinessDate = body?.business_date || null;
+        forceMode = !!(forceLocationId || forceBusinessDate);
+      } catch {
+        // empty body is fine
+      }
+    }
+
+    console.log(
+      `[Auto-Punch] Run started at ${now.toISOString()}` +
+        (forceMode ? ` [MANUAL: location=${forceLocationId || 'all'}, date=${forceBusinessDate || 'auto'}]` : '')
+    );
+
+    // Fetch active locations with hours + timezone (filtered if manual override)
+    let locationsQuery = supabase
       .from('locations')
       .select(`
         id,
@@ -117,6 +137,12 @@ serve(async (req) => {
         location_hours(day_of_week, close_time, is_closed)
       `)
       .eq('is_active', true);
+
+    if (forceLocationId) {
+      locationsQuery = locationsQuery.eq('id', forceLocationId);
+    }
+
+    const { data: locations, error: locError } = await locationsQuery;
 
     if (locError) throw new Error(`Failed to fetch locations: ${locError.message}`);
 
@@ -130,12 +156,14 @@ serve(async (req) => {
         continue;
       }
 
-      // Determine which "business date" we're potentially closing out.
-      // We check both yesterday and today (in location's tz) to cover late-night closes.
+      // Determine which "business date(s)" to process.
+      // Normal cron: yesterday + today (local) to catch late-night closes.
+      // Manual override: only the specified date.
       const todayLocal = getDateInTimezone(now, tz);
       const yesterdayLocal = getDateInTimezone(new Date(now.getTime() - 86400000), tz);
+      const datesToProcess = forceBusinessDate ? [forceBusinessDate] : [yesterdayLocal, todayLocal];
 
-      for (const businessDate of [yesterdayLocal, todayLocal]) {
+      for (const businessDate of datesToProcess) {
         const dow = getDayOfWeekForDate(businessDate);
         const dayHours = hours.find((h: any) => h.day_of_week === dow);
 
@@ -146,20 +174,24 @@ serve(async (req) => {
         const cutoffUTC = new Date(closeUTC.getTime() + POST_CLOSE_BUFFER_HOURS * 3600 * 1000);
         const windowEndUTC = new Date(cutoffUTC.getTime() + PROCESSING_WINDOW_MINUTES * 60 * 1000);
 
-        // Are we currently inside the firing window for this business date?
-        if (now < cutoffUTC || now > windowEndUTC) continue;
+        // Normal mode: only fire inside the cron window. Manual mode bypasses this.
+        if (!forceMode && (now < cutoffUTC || now > windowEndUTC)) continue;
 
-        // ---- IDEMPOTENCY CHECK ----
-        const { data: existingLog } = await supabase
-          .from('auto_punch_log')
-          .select('id, punches_created')
-          .eq('location_id', location.id)
-          .eq('processed_date', businessDate)
-          .maybeSingle();
+        // ---- IDEMPOTENCY CHECK (skipped in manual mode for backfills) ----
+        if (!forceMode) {
+          const { data: existingLog } = await supabase
+            .from('auto_punch_log')
+            .select('id, punches_created')
+            .eq('location_id', location.id)
+            .eq('processed_date', businessDate)
+            .maybeSingle();
 
-        if (existingLog) {
-          console.log(`[Auto-Punch] ${location.name} ${businessDate}: already processed, skipping`);
-          continue;
+          if (existingLog) {
+            console.log(`[Auto-Punch] ${location.name} ${businessDate}: already processed, skipping`);
+            continue;
+          }
+        } else {
+          console.log(`[Auto-Punch] ${location.name} ${businessDate}: MANUAL run — bypassing idempotency check`);
         }
 
         console.log(`[Auto-Punch] ${location.name} ${businessDate} (${tz}): processing. Close=${closeUTC.toISOString()}, Cutoff=${cutoffUTC.toISOString()}`);
@@ -348,19 +380,23 @@ serve(async (req) => {
           console.log(`[Auto-Punch] ✅ ${employeeName} @ ${location.name}: ${reason}, ${shiftHours.toFixed(2)}h`);
         }
 
-        // Record idempotency log
-        await supabase.from('auto_punch_log').insert({
-          location_id: location.id,
-          processed_date: businessDate,
-          cron_run_at: now.toISOString(),
-          punches_created: punchesCreated,
-          notes: `tz=${tz}, close=${dayHours.close_time}, cutoff=${cutoffUTC.toISOString()}`,
-        });
+        // Record idempotency log (skip in manual mode so future cron runs aren't blocked)
+        if (!forceMode) {
+          await supabase.from('auto_punch_log').insert({
+            location_id: location.id,
+            processed_date: businessDate,
+            cron_run_at: now.toISOString(),
+            punches_created: punchesCreated,
+            notes: `tz=${tz}, close=${dayHours.close_time}, cutoff=${cutoffUTC.toISOString()}`,
+          });
+        }
       }
     }
 
     const summary = {
       run_at: now.toISOString(),
+      mode: forceMode ? 'manual' : 'cron',
+      manual_filters: forceMode ? { location_id: forceLocationId, business_date: forceBusinessDate } : null,
       total: results.length,
       punched: results.filter(r => r.status === 'punched').length,
       skipped: results.filter(r => r.status === 'skipped').length,
