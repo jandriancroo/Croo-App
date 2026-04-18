@@ -281,105 +281,158 @@ export function MobileScheduleView({
 
       const punchSummaries: DayPunch[] = [];
 
-        Object.entries(userPunches).forEach(([userId, punches]) => {
-        let isClockedIn = false;
-        let isOnBreak = false;
-        let firstClockIn: { id: string; punch_time: string; created_by: string | null } | null = null;
-        let lastClockOut: { punch_time: string } | null = null;
-        let breakStart: { punch_time: string; notes: string } | null = null;
-        let breakEnd: { punch_time: string } | null = null;
+      // Sanity cap: any "active" shift longer than this is treated as orphaned/stale data
+      const MAX_REASONABLE_SHIFT_HOURS = 16;
+
+      Object.entries(userPunches).forEach(([userId, punches]) => {
+        // STEP 1: Split the user's punches into discrete shift groups.
+        // A new shift starts whenever we see a clock_in (after the previous shift was closed,
+        // OR when we see a second clock_in without an intervening clock_out — in which case
+        // we treat the prior open shift as orphaned and abandon it).
+        type ShiftGroup = {
+          clockIn: { id: string; punch_time: string; created_by: string | null };
+          clockOut: { punch_time: string } | null;
+          breakStart: { punch_time: string; notes: string } | null;
+          breakEnd: { punch_time: string } | null;
+        };
+        const shiftGroups: ShiftGroup[] = [];
+        let current: ShiftGroup | null = null;
 
         punches.forEach((p) => {
           if (p.punch_type === 'clock_in') {
-            if (isOnBreak && breakStart && !breakEnd) {
-              breakEnd = { punch_time: p.punch_time };
-              isOnBreak = false;
-            }
-            if (!isClockedIn) {
-              isClockedIn = true;
-                firstClockIn = { id: p.id, punch_time: p.punch_time, created_by: p.created_by };
-                lastClockOut = null;
-                breakStart = null;
-                breakEnd = null;
-            }
+            // If there's an open shift with no clock_out, push it (orphaned) and start fresh.
+            if (current) shiftGroups.push(current);
+            current = {
+              clockIn: { id: p.id, punch_time: p.punch_time, created_by: p.created_by },
+              clockOut: null,
+              breakStart: null,
+              breakEnd: null,
+            };
             return;
           }
           if (p.punch_type === 'clock_out') {
-              if (!firstClockIn) return;
-              isClockedIn = false;
-              isOnBreak = false;
-              lastClockOut = { punch_time: p.punch_time };
+            if (!current) return; // orphan clock_out, ignore
+            current.clockOut = { punch_time: p.punch_time };
+            shiftGroups.push(current);
+            current = null;
             return;
           }
           if (p.punch_type === 'break_start') {
-            breakStart = { punch_time: p.punch_time, notes: p.notes || '' };
-            breakEnd = null;
-            isOnBreak = true;
+            if (!current) return;
+            current.breakStart = { punch_time: p.punch_time, notes: p.notes || '' };
+            current.breakEnd = null;
             return;
           }
           if (p.punch_type === 'break_end') {
-            breakEnd = { punch_time: p.punch_time };
-            isOnBreak = false;
+            if (!current) return;
+            current.breakEnd = { punch_time: p.punch_time };
             return;
           }
         });
+        // Don't forget a still-open shift at the end (someone currently clocked in)
+        if (current) shiftGroups.push(current);
 
-        if (firstClockIn) {
-          const profile = profileMap.get(userId) || profiles.find(p => p.id === userId);
-          const clockOutTime = lastClockOut?.punch_time || null;
-          const clockInMs = new Date(firstClockIn.punch_time).getTime();
-          const endTime = clockOutTime ? new Date(clockOutTime).getTime() : new Date().getTime();
-          // Deduct unpaid break time (30-min meal breaks)
-          let breakDeductionMs = 0;
-          if (breakStart?.punch_time) {
-            const isUnpaidBreak = breakStart.notes?.includes('30') || 
-              breakStart.notes?.toLowerCase().includes('unpaid') || 
-              breakStart.notes?.toLowerCase().includes('meal');
-            if (isUnpaidBreak) {
-              const breakStartMs = new Date(breakStart.punch_time).getTime();
-              const breakEndMs = breakEnd?.punch_time 
-                ? new Date(breakEnd.punch_time).getTime() 
-                : (isOnBreak ? new Date().getTime() : breakStartMs + 30 * 60000);
-              breakDeductionMs = breakEndMs - breakStartMs;
-            }
+        if (shiftGroups.length === 0) return;
+
+        // STEP 2: Pick the shift that belongs to the viewed day.
+        // Priority: (1) any shift currently open/active, (2) a shift whose clock_in is on
+        // the viewed local date, (3) a shift whose clock_out is on the viewed local date
+        // (overnight shifts ending today).
+        const matchesDate = (iso: string) =>
+          new Date(iso).toLocaleDateString('en-CA', { timeZone: timezone }) === punchDateStr;
+
+        const activeShift = shiftGroups.find((s) => !s.clockOut);
+        const inOnDate = shiftGroups.find((s) => matchesDate(s.clockIn.punch_time));
+        const outOnDate = shiftGroups.find((s) => s.clockOut && matchesDate(s.clockOut.punch_time));
+
+        const chosen = activeShift || inOnDate || outOnDate;
+        if (!chosen) return;
+
+        // STEP 3: Compute hours, with sanity cap on stale "active" shifts.
+        const profile = profileMap.get(userId) || profiles.find((p) => p.id === userId);
+        const clockOutTime = chosen.clockOut?.punch_time || null;
+        const isClockedIn = !chosen.clockOut;
+        const isOnBreak = !!(chosen.breakStart && !chosen.breakEnd);
+        const clockInMs = new Date(chosen.clockIn.punch_time).getTime();
+        const endTime = clockOutTime ? new Date(clockOutTime).getTime() : Date.now();
+
+        // Deduct unpaid (meal) break time
+        let breakDeductionMs = 0;
+        if (chosen.breakStart?.punch_time) {
+          const notes = chosen.breakStart.notes || '';
+          const isUnpaidBreak =
+            notes.includes('30') ||
+            notes.toLowerCase().includes('unpaid') ||
+            notes.toLowerCase().includes('meal');
+          if (isUnpaidBreak) {
+            const breakStartMs = new Date(chosen.breakStart.punch_time).getTime();
+            const breakEndMs = chosen.breakEnd?.punch_time
+              ? new Date(chosen.breakEnd.punch_time).getTime()
+              : isOnBreak
+              ? Date.now()
+              : breakStartMs + 30 * 60000;
+            breakDeductionMs = breakEndMs - breakStartMs;
           }
-          const hoursWorked = Math.max(0, (endTime - clockInMs - breakDeductionMs) / 3600000);
-          const scheduledShift = todayScheduledShifts.find(s => s.user_id === userId);
-          
-          const createdByOther = firstClockIn.created_by && firstClockIn.created_by !== userId;
-          const createdByName = createdByOther ? creatorMap.get(firstClockIn.created_by!) || null : null;
-          
-          punchSummaries.push({
-            id: firstClockIn.id,
-            user_id: userId,
-            clockInTime: firstClockIn.punch_time,
-            clockOutTime,
-            breakStartTime: breakStart?.punch_time || null,
-            breakEndTime: breakEnd?.punch_time || null,
-            breakType: breakStart?.notes || null,
-            isActive: isClockedIn,
-            isOnBreak,
-            profile: profile || { id: userId, full_name: 'Unknown', nickname: null, profile_photo_url: null },
-            hoursWorked,
-            createdByName,
-            scheduledShift: scheduledShift ? { 
-              id: scheduledShift.id, 
-              start_time: scheduledShift.start_time, 
-              end_time: scheduledShift.end_time, 
-              day_of_week: scheduledShift.day_of_week, 
-              shift_date: scheduledShift.shift_date 
-            } : null
-          });
         }
+        const rawHours = Math.max(0, (endTime - clockInMs - breakDeductionMs) / 3600000);
+
+        // Sanity guard: if shift is "active" but spans more than 16 hours, it's a stale
+        // orphaned punch from a prior day (e.g., someone forgot to clock out long ago).
+        // Skip rendering rather than showing 79h on the card.
+        if (isClockedIn && rawHours > MAX_REASONABLE_SHIFT_HOURS) {
+          return;
+        }
+        const hoursWorked = rawHours;
+
+        const scheduledShift = todayScheduledShifts.find((s) => s.user_id === userId);
+        const createdByOther = chosen.clockIn.created_by && chosen.clockIn.created_by !== userId;
+        const createdByName = createdByOther
+          ? creatorMap.get(chosen.clockIn.created_by!) || null
+          : null;
+
+        punchSummaries.push({
+          id: chosen.clockIn.id,
+          user_id: userId,
+          clockInTime: chosen.clockIn.punch_time,
+          clockOutTime,
+          breakStartTime: chosen.breakStart?.punch_time || null,
+          breakEndTime: chosen.breakEnd?.punch_time || null,
+          breakType: chosen.breakStart?.notes || null,
+          isActive: isClockedIn,
+          isOnBreak,
+          profile: profile || { id: userId, full_name: 'Unknown', nickname: null, profile_photo_url: null },
+          hoursWorked,
+          createdByName,
+          scheduledShift: scheduledShift
+            ? {
+                id: scheduledShift.id,
+                start_time: scheduledShift.start_time,
+                end_time: scheduledShift.end_time,
+                day_of_week: scheduledShift.day_of_week,
+                shift_date: scheduledShift.shift_date,
+              }
+            : null,
+        });
       });
-      
-      // Filter punches: always show ACTIVE punches (even if clocked in yesterday),
-      // but only show COMPLETED punches if clock-in was on target date
-      const filteredPunches = punchSummaries.filter(punch => {
-        if (punch.isActive || punch.isOnBreak) return true;
-        const clockInDate = new Date(punch.clockInTime);
-        const clockInLocalDate = clockInDate.toLocaleDateString('en-CA', { timeZone: timezone });
-        return clockInLocalDate === punchDateStr;
+
+      // Filter: keep active shifts only if they were started today (prevents orphans from
+      // bleeding onto wrong days); always keep completed shifts already date-matched above.
+      const filteredPunches = punchSummaries.filter((punch) => {
+        if (punch.isActive || punch.isOnBreak) {
+          const clockInLocalDate = new Date(punch.clockInTime).toLocaleDateString('en-CA', {
+            timeZone: timezone,
+          });
+          return clockInLocalDate === punchDateStr;
+        }
+        const clockInLocalDate = new Date(punch.clockInTime).toLocaleDateString('en-CA', {
+          timeZone: timezone,
+        });
+        const clockOutLocalDate = punch.clockOutTime
+          ? new Date(punch.clockOutTime).toLocaleDateString('en-CA', { timeZone: timezone })
+          : null;
+        // Show on the viewed day if either the clock_in OR the clock_out happened on that day
+        // (handles overnight shifts that started yesterday and ended today).
+        return clockInLocalDate === punchDateStr || clockOutLocalDate === punchDateStr;
       });
       
       // Sort: active first, then by clock-in time
