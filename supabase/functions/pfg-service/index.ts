@@ -792,7 +792,7 @@ async function getValidAccessToken(
         b2c_error_code: refreshResult.errorCode ?? null,
         b2c_error_message: refreshResult.errorDescription ?? null,
         duration_ms: Date.now() - startedAt,
-        old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
+        old_token_prefix: tokenFingerprint(oldRefresh),
       });
     }
     console.error('[PFG Auth] Token refresh failed —', refreshResult.errorCode || refreshResult.outcome, refreshResult.errorDescription || '');
@@ -831,8 +831,8 @@ async function getValidAccessToken(
       caller_action: callerAction,
       outcome: swapped === true ? 'swapped' : 'lost_race',
       duration_ms: Date.now() - startedAt,
-      old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
-      new_token_prefix: tokenData.refresh_token?.slice(0, TOKEN_PREFIX_LEN) ?? null,
+      old_token_prefix: tokenFingerprint(oldRefresh),
+      new_token_prefix: tokenFingerprint(tokenData.refresh_token),
     });
 
     if (swapped === true) {
@@ -1117,7 +1117,7 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
           b2c_error_code: refreshResult.errorCode ?? null,
           b2c_error_message: refreshResult.errorDescription ?? null,
           duration_ms: Date.now() - startedAt,
-          old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
+          old_token_prefix: tokenFingerprint(oldRefresh),
         });
 
         const pfgUser = creds.pfg_username;
@@ -1134,7 +1134,7 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
             outcome: 'no_ropc_credentials',
             b2c_error_code: refreshResult.errorCode ?? null,
             b2c_error_message: 'B2C refresh failed and no ROPC username/password on file',
-            old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
+            old_token_prefix: tokenFingerprint(oldRefresh),
           });
           results.push({ locationId: integration.location_id, success: false, error: `Refresh failed (${refreshSummary}); no ROPC credentials stored` });
           continue;
@@ -1172,8 +1172,8 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
             caller_action: CRON_CALLER,
             outcome: 'ropc_recovery',
             duration_ms: Date.now() - ropcStart,
-            old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
-            new_token_prefix: ropcData.refresh_token?.slice(0, TOKEN_PREFIX_LEN) ?? null,
+            old_token_prefix: tokenFingerprint(oldRefresh),
+            new_token_prefix: tokenFingerprint(ropcData.refresh_token),
           });
 
           results.push({ locationId: integration.location_id, success: true, error: 'Recovered via ROPC' });
@@ -1200,7 +1200,7 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
           duration_ms: Date.now() - ropcStart,
           b2c_error_code: refreshResult.errorCode ?? null,
           b2c_error_message: failReason,
-          old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
+          old_token_prefix: tokenFingerprint(oldRefresh),
         });
 
         results.push({ locationId: integration.location_id, success: false, error: `Both refresh and ROPC failed (${refreshSummary})` });
@@ -1234,8 +1234,8 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
         caller_action: CRON_CALLER,
         outcome: swapped === true ? 'swapped' : 'lost_race',
         duration_ms: Date.now() - startedAt,
-        old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
-        new_token_prefix: tokenData.refresh_token?.slice(0, TOKEN_PREFIX_LEN) ?? null,
+        old_token_prefix: tokenFingerprint(oldRefresh),
+        new_token_prefix: tokenFingerprint(tokenData.refresh_token),
       });
 
       results.push({ locationId: integration.location_id, success: true });
