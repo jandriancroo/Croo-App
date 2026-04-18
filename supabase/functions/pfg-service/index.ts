@@ -102,37 +102,88 @@ async function generatePKCE(): Promise<{ verifier: string; challenge: string }> 
   return { verifier, challenge };
 }
 
-// Refresh an existing token
-async function refreshAccessToken(refreshToken: string): Promise<TokenResponse | null> {
+// Result type so callers can surface real B2C error codes (AADB2C90080, etc.)
+// instead of a generic null.
+type RefreshResult =
+  | { ok: true; token: TokenResponse }
+  | { ok: false; outcome: 'b2c_error' | 'b2c_timeout' | 'network_error'; status?: number; errorCode?: string; errorDescription?: string; raw?: string };
+
+// 10s hard cap — if B2C hangs past this, we release the DB lock and let the next
+// caller try with a fresh attempt instead of pinning the row indefinitely.
+const B2C_TIMEOUT_MS = 10_000;
+
+// Refresh an existing token. NEVER persists — caller is responsible for the locked write.
+async function refreshAccessToken(refreshToken: string): Promise<RefreshResult> {
+  console.log('[PFG Auth] Refreshing access token (token prefix:', refreshToken.slice(0, 12), ')');
+
+  const params = new URLSearchParams({
+    client_id: PFG_CLIENT_ID,
+    scope: PFG_SCOPE,
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_info: '1',
+  });
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), B2C_TIMEOUT_MS);
+
   try {
-    console.log('[PFG Auth] Refreshing access token');
-
-    const params = new URLSearchParams({
-      client_id: PFG_CLIENT_ID,
-      scope: PFG_SCOPE,
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-      client_info: '1',
-    });
-
     const response = await fetch(PFG_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString(),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
+    const text = await response.text();
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[PFG Auth] Token refresh failed:', response.status, errorText);
-      return null;
+      // Try to parse Azure B2C's structured error so the UI / logs see the real code.
+      let errorCode: string | undefined;
+      let errorDescription: string | undefined;
+      try {
+        const j = JSON.parse(text);
+        errorCode = j.error;
+        errorDescription = j.error_description;
+      } catch { /* not JSON, fall through */ }
+
+      console.error('[PFG Auth] Token refresh failed:', response.status, errorCode || '(no code)', errorDescription || text.slice(0, 300));
+      return { ok: false, outcome: 'b2c_error', status: response.status, errorCode, errorDescription, raw: text.slice(0, 500) };
     }
 
-    const tokenData = await response.json();
+    const tokenData = JSON.parse(text) as TokenResponse;
     console.log('[PFG Auth] Token refresh successful. expires_in:', tokenData.expires_in, 'refresh_token_expires_in:', tokenData.refresh_token_expires_in);
-    return tokenData;
+    return { ok: true, token: tokenData };
   } catch (error) {
-    console.error('[PFG Auth] Refresh error:', error);
-    return null;
+    clearTimeout(timeoutId);
+    const isAbort = error instanceof DOMException && error.name === 'AbortError';
+    console.error('[PFG Auth] Refresh error:', isAbort ? `timeout after ${B2C_TIMEOUT_MS}ms` : error);
+    return {
+      ok: false,
+      outcome: isAbort ? 'b2c_timeout' : 'network_error',
+      errorDescription: isAbort ? `B2C timeout after ${B2C_TIMEOUT_MS}ms` : (error instanceof Error ? error.message : String(error)),
+    };
+  }
+}
+
+// Forensic audit insert — fire-and-forget, never blocks the refresh path.
+async function logRefreshAudit(supabase: any, row: {
+  integration_id: string;
+  location_id?: string | null;
+  handler: string;
+  caller_action?: string | null;
+  outcome: 'swapped' | 'lost_race' | 'b2c_error' | 'b2c_timeout' | 'no_token' | 'network_error';
+  b2c_error_code?: string | null;
+  b2c_error_message?: string | null;
+  duration_ms?: number;
+  old_token_prefix?: string | null;
+  new_token_prefix?: string | null;
+}): Promise<void> {
+  try {
+    await supabase.from('pfg_refresh_audit').insert(row);
+  } catch (e) {
+    console.error('[PFG Audit] Failed to write audit row:', e);
   }
 }
 
