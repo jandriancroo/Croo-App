@@ -1182,11 +1182,21 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
         // ROPC also failed — record reason on the integration row + audit
         const failNow = new Date();
         const failReason = `ROPC failed: refresh returned ${refreshSummary}`;
+
+        // Build update payload. If this integration had auto_revert_on_failure
+        // set (i.e. it's running an experimental cadence), reset to safe 5-min.
+        const failureUpdate: Record<string, unknown> = {
+          credentials: { ...creds, ropc_last_failure: failNow.toISOString(), ropc_failure_reason: failReason },
+        };
+        if ((integration as any).pfg_auto_revert_on_failure === true) {
+          failureUpdate.pfg_keep_alive_minutes = 5;
+          failureUpdate.pfg_auto_revert_on_failure = false;
+          console.warn(`[PFG Keep-Alive] Auto-reverting ${integration.location_id} to 5-min cadence after ropc_failed`);
+        }
+
         await supabase
           .from('location_integrations')
-          .update({
-            credentials: { ...creds, ropc_last_failure: failNow.toISOString(), ropc_failure_reason: failReason },
-          })
+          .update(failureUpdate)
           .eq('id', integration.id);
 
         await logRefreshAudit(supabase, {
@@ -1200,6 +1210,10 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
           b2c_error_message: failReason,
           old_token_prefix: tokenFingerprint(oldRefresh),
         });
+
+        // Auto-create a deduped support ticket so the chain break is visible
+        // in the support inbox without flooding (one ticket per 24h per location).
+        await maybeCreateChainBrokenTicket(supabase, integration.location_id, failReason);
 
         results.push({ locationId: integration.location_id, success: false, error: `Both refresh and ROPC failed (${refreshSummary})` });
         console.error(`[PFG Keep-Alive] ✗ ROPC also failed for ${integration.location_id}`);
