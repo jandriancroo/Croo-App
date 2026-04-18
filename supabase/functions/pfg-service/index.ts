@@ -753,7 +753,9 @@ async function getValidAccessToken(
     if (integrationId) {
       await logRefreshAudit(supabase, {
         integration_id: integrationId,
+        location_id: locationId,
         handler: 'get_valid_access_token',
+        caller_action: callerAction,
         outcome: 'no_token',
       });
     }
@@ -768,12 +770,14 @@ async function getValidAccessToken(
     if (integrationId) {
       await logRefreshAudit(supabase, {
         integration_id: integrationId,
+        location_id: locationId,
         handler: 'get_valid_access_token',
+        caller_action: callerAction,
         outcome: refreshResult.outcome,
         b2c_error_code: refreshResult.errorCode ?? null,
         b2c_error_message: refreshResult.errorDescription ?? null,
         duration_ms: Date.now() - startedAt,
-        old_token_prefix: oldRefresh.slice(0, 12),
+        old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
       });
     }
     console.error('[PFG Auth] Token refresh failed —', refreshResult.errorCode || refreshResult.outcome, refreshResult.errorDescription || '');
@@ -807,11 +811,13 @@ async function getValidAccessToken(
 
     await logRefreshAudit(supabase, {
       integration_id: integrationId,
+      location_id: locationId,
       handler: 'get_valid_access_token',
+      caller_action: callerAction,
       outcome: swapped === true ? 'swapped' : 'lost_race',
       duration_ms: Date.now() - startedAt,
-      old_token_prefix: oldRefresh.slice(0, 12),
-      new_token_prefix: tokenData.refresh_token?.slice(0, 12) ?? null,
+      old_token_prefix: oldRefresh.slice(0, TOKEN_PREFIX_LEN),
+      new_token_prefix: tokenData.refresh_token?.slice(0, TOKEN_PREFIX_LEN) ?? null,
     });
 
     if (swapped === true) {
