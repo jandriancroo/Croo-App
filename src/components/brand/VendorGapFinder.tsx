@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -18,7 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Search, RefreshCw, PackagePlus, AlertTriangle, CheckCircle2,
-  Loader2, Filter, EyeOff, RotateCcw, Link2, ChevronDown, MapPin,
+  Loader2, Filter, EyeOff, RotateCcw, Link2, ChevronDown, MapPin, X, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
