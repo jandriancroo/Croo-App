@@ -330,6 +330,39 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 5b. Stamp PFG item_numbers from brand_vendor_mappings.
+    // PFG SKUs are brand-wide (not territory-scoped like PA), so we can stamp them
+    // here at deploy time without waiting for a separate sync. This closes the gap
+    // where the (unbuilt) `pfg-service` `sync` action was supposed to backfill these.
+    // The vendor label in brand_vendor_mappings is lowercase "pfg" (verified).
+    try {
+      const templateIds = Array.from(templateToItemId.keys());
+      if (templateIds.length > 0) {
+        const { data: pfgMappings, error: mapErr } = await supabase
+          .from("brand_vendor_mappings")
+          .select("brand_template_id, vendor_item_id")
+          .eq("vendor", "pfg")
+          .in("brand_template_id", templateIds);
+        if (mapErr) {
+          console.warn("[Deploy] PFG mapping fetch failed:", mapErr);
+        } else {
+          let stamped = 0;
+          for (const m of pfgMappings || []) {
+            const itemId = templateToItemId.get(m.brand_template_id);
+            if (!itemId || !m.vendor_item_id) continue;
+            const { error: stampErr } = await supabase
+              .from("inventory_items")
+              .update({ item_number: m.vendor_item_id })
+              .eq("id", itemId);
+            if (!stampErr) stamped++;
+          }
+          console.log(`[Deploy] Stamped PFG item_number on ${stamped}/${pfgMappings?.length || 0} items.`);
+        }
+      }
+    } catch (e) {
+      console.warn("[Deploy] PFG stamping pass threw:", e);
+    }
+
     // 6. Deploy recipe ingredients
     // IDEMPOTENT: We delete existing ingredients first so this step can safely re-run
     // after vendor syncs populate item_number / pa_item_id (the second-pass deploy that
