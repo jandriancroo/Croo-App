@@ -2055,7 +2055,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const crewKey = Array.from(crew).sort().join(",");
           if (!crewMap[crewKey]) {
             crewMap[crewKey] = {
-              members: Array.from(crew).map((id) => nameMap[id]).sort(),
+              members: Array.from(crew).map((id) => nameMap[id] || "Unknown").sort(),
               shifts_worked: 0,
               total_sales: 0,
               total_labor_cost: 0,
