@@ -89,26 +89,37 @@ Deno.serve(async (req) => {
     );
 
     // If we only have an 8-char prefix, look up by prefix
-    let query = supabase
-      .from("job_listings")
-      .select(`
-        *,
-        location:locations(id, name, address),
-        organization:organizations(id, name, slug, brand_name)
-      `)
-      .eq("status", "active")
-      .eq("syndication_enabled", true)
-      .limit(1);
-
+    let data: any = null;
     if (listingId.length === 36) {
-      query = query.eq("id", listingId);
+      const res = await supabase
+        .from("job_listings")
+        .select(`
+          *,
+          location:locations(id, name, address),
+          organization:organizations(id, name, slug, brand_name)
+        `)
+        .eq("status", "active")
+        .eq("syndication_enabled", true)
+        .eq("id", listingId)
+        .maybeSingle();
+      if (res.error) throw res.error;
+      data = res.data;
     } else {
-      // Prefix match on UUID text representation
-      query = query.like("id::text", `${listingId}%`);
+      // Fetch active syndicated listings and match prefix in code
+      const res = await supabase
+        .from("job_listings")
+        .select(`
+          *,
+          location:locations(id, name, address),
+          organization:organizations(id, name, slug, brand_name)
+        `)
+        .eq("status", "active")
+        .eq("syndication_enabled", true);
+      if (res.error) throw res.error;
+      data = (res.data || []).find((l: any) => (l.id || "").toLowerCase().startsWith(listingId!.toLowerCase())) || null;
     }
 
-    const { data, error } = await query.maybeSingle();
-    if (error || !data) {
+    if (!data) {
       return new Response(notFoundHtml(), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" },

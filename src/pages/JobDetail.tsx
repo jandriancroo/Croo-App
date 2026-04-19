@@ -53,12 +53,11 @@ export default function JobDetail() {
           location:locations(id, name, address),
           organization:organizations(id, name, slug, brand_name)
         `)
-        .like('id::text', `${idPrefix}%`)
         .eq('status', 'active')
-        .eq('syndication_enabled', true)
-        .maybeSingle();
+        .eq('syndication_enabled', true);
       if (error) throw error;
-      return data as any;
+      const found = (data || []).find((l: any) => (l.id || '').toLowerCase().startsWith(idPrefix!.toLowerCase()));
+      return (found || null) as any;
     },
   });
 
