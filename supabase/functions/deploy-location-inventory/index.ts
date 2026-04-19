@@ -363,11 +363,11 @@ Deno.serve(async (req) => {
       console.warn("[Deploy] PFG stamping pass threw:", e);
     }
 
-    // 5c. Backfill PFG cost_per_unit from sibling brand locations.
-    // PFG pricing is brand-wide for our use case. Rather than hitting the PFG API
-    // at deploy time, we look up the most recent non-zero cost for each stamped
-    // item_number from any other location in the same brand and copy it onto the
-    // freshly deployed items. Subsequent PFG order/invoice cycles refresh prices.
+    // 5c. Backfill PFG cost_per_unit from THIS LOCATION'S own PFG order history.
+    // PFG pricing is contract-specific per customer/location, so we cannot copy
+    // from sibling locations. Instead we read the most recent line-item price
+    // for each stamped SKU from this location's `pfg_orders.items` JSON.
+    // Subsequent PFG order/invoice cycles will refresh prices as they arrive.
     try {
       const itemIds = Array.from(templateToItemId.values());
       if (itemIds.length > 0) {
@@ -378,32 +378,37 @@ Deno.serve(async (req) => {
           .eq("vendor_source", "pfg")
           .not("item_number", "is", null);
 
-        const skusNeedingPrice = (stampedItems || [])
-          .filter((i: any) => !i.cost_per_unit || i.cost_per_unit <= 0)
-          .map((i: any) => i.item_number);
+        const needPrice = (stampedItems || []).filter(
+          (i: any) => !i.cost_per_unit || i.cost_per_unit <= 0,
+        );
 
-        if (skusNeedingPrice.length > 0) {
-          const { data: siblingRows, error: sibErr } = await supabase
-            .from("inventory_items")
-            .select("item_number, cost_per_unit, updated_at, location_id")
-            .eq("vendor_source", "pfg")
-            .in("item_number", skusNeedingPrice)
-            .gt("cost_per_unit", 0)
-            .neq("location_id", locationId)
-            .order("updated_at", { ascending: false });
+        if (needPrice.length > 0) {
+          const { data: orders, error: ordErr } = await supabase
+            .from("pfg_orders")
+            .select("items, order_date")
+            .eq("location_id", locationId)
+            .not("items", "is", null)
+            .order("order_date", { ascending: false })
+            .limit(50);
 
-          if (sibErr) {
-            console.warn("[Deploy] PFG price backfill query failed:", sibErr);
+          if (ordErr) {
+            console.warn("[Deploy] PFG orders fetch failed:", ordErr);
           } else {
+            // Walk lines newest-first, take first non-zero price per SKU.
             const priceBySku = new Map<string, number>();
-            for (const row of siblingRows || []) {
-              if (!priceBySku.has(row.item_number)) {
-                priceBySku.set(row.item_number, Number(row.cost_per_unit));
+            for (const ord of orders || []) {
+              const lines = Array.isArray(ord.items) ? ord.items : [];
+              for (const line of lines) {
+                const sku = line?.itemNumber ? String(line.itemNumber) : null;
+                const price = Number(line?.price) || 0;
+                if (sku && price > 0 && !priceBySku.has(sku)) {
+                  priceBySku.set(sku, price);
+                }
               }
             }
+
             let priced = 0;
-            for (const item of stampedItems || []) {
-              if (item.cost_per_unit && item.cost_per_unit > 0) continue;
+            for (const item of needPrice) {
               const price = priceBySku.get(item.item_number);
               if (price == null) continue;
               const { error: priceErr } = await supabase
@@ -412,13 +417,14 @@ Deno.serve(async (req) => {
                 .eq("id", item.id);
               if (!priceErr) priced++;
             }
-            console.log(`[Deploy] Backfilled PFG cost on ${priced}/${skusNeedingPrice.length} items from sibling locations.`);
+            console.log(`[Deploy] Backfilled PFG cost on ${priced}/${needPrice.length} items from this location's own PFG orders.`);
           }
         }
       }
     } catch (e) {
       console.warn("[Deploy] PFG price backfill pass threw:", e);
     }
+
 
     // 6. Deploy recipe ingredients
     // IDEMPOTENT: We delete existing ingredients first so this step can safely re-run
