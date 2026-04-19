@@ -486,20 +486,36 @@ export function AiAssistantBubble() {
                           ) : (
                             <span className="leading-relaxed">{msg.content}</span>
                           )}
-                          {msg.role === 'assistant' && !loading && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handlePin(i, msg.content); }}
-                              disabled={pinnedIndices.has(i)}
-                              className={cn(
-                                'self-start flex items-center gap-1 text-[10px] mt-1 px-1.5 py-0.5 rounded-md transition-all',
-                                pinnedIndices.has(i)
-                                  ? 'text-green-500 bg-green-500/10'
-                                  : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40'
-                              )}
-                            >
-                              <Pin className="h-2.5 w-2.5" />
-                              {pinnedIndices.has(i) ? 'Pinned' : 'Pin'}
-                            </button>
+                          {msg.role === 'assistant' && !loading && i > 0 && (
+                            <div className="self-start flex items-center gap-1 mt-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handlePin(i, msg.content); }}
+                                disabled={pinnedIndices.has(i)}
+                                className={cn(
+                                  'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md transition-all',
+                                  pinnedIndices.has(i)
+                                    ? 'text-green-500 bg-green-500/10'
+                                    : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40'
+                                )}
+                              >
+                                <Pin className="h-2.5 w-2.5" />
+                                {pinnedIndices.has(i) ? 'Pinned' : 'Pin'}
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleHelpful(i, msg.content); }}
+                                disabled={helpfulIndices.has(i)}
+                                className={cn(
+                                  'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md transition-all',
+                                  helpfulIndices.has(i)
+                                    ? 'text-primary bg-primary/10'
+                                    : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40'
+                                )}
+                                aria-label={helpfulIndices.has(i) ? 'Marked helpful' : 'Mark as helpful'}
+                              >
+                                <ThumbsUp className="h-2.5 w-2.5" />
+                                {helpfulIndices.has(i) ? 'Helpful' : 'Helpful'}
+                              </button>
+                            </div>
                           )}
                         </div>
                         </div>
