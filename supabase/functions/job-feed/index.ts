@@ -14,13 +14,26 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const format = url.searchParams.get("format") || "xml";
+    const organizationId = url.searchParams.get("organization_id");
+    const orgSlug = url.searchParams.get("organization_slug");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch all active+syndicated listings across all orgs/locations
-    const { data: listings, error } = await supabase
+    // Resolve slug → id if provided
+    let resolvedOrgId = organizationId;
+    if (!resolvedOrgId && orgSlug) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("id")
+        .eq("slug", orgSlug)
+        .maybeSingle();
+      resolvedOrgId = org?.id || null;
+    }
+
+    // Fetch active+syndicated listings (optionally filtered by org)
+    let query = supabase
       .from("job_listings")
       .select(`
         *,
@@ -31,6 +44,12 @@ Deno.serve(async (req) => {
       .eq("syndication_enabled", true)
       .lte("posted_at", new Date().toISOString())
       .order("posted_at", { ascending: false });
+
+    if (resolvedOrgId) {
+      query = query.eq("organization_id", resolvedOrgId);
+    }
+
+    const { data: listings, error } = await query;
 
     if (error) throw error;
 
