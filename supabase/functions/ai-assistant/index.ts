@@ -1765,7 +1765,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             .filter((s: any) => s.shift_date === shift.shift_date)
             .map((s: any) => s.user_id);
           const replacementPunch = (punches || []).find((p: any) => {
-            if (p.punch_type !== "in") return false;
+            if (p.punch_type !== "clock_in") return false;
             if (scheduledUserIdsToday.includes(p.user_id)) return false;
             const pTime = new Date(p.punch_time).getTime();
             return Math.abs(pTime - shiftStart) <= 2 * 60 * 60 * 1000;
@@ -1779,10 +1779,10 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
           callouts.push({
             date: shift.shift_date,
-            employee: shift.profiles?.full_name || "Unknown",
+            employee: nameMap[shift.user_id] || "Unknown",
             scheduled_start: shift.start_time,
             scheduled_end: shift.end_time,
-            replacement: replacementPunch ? (replacementPunch.profiles?.full_name || "Unknown") : null,
+            replacement: replacementPunch ? (nameMap[replacementPunch.user_id] || "Unknown") : null,
             replacement_cost_estimate: Math.round(cost * 100) / 100,
           });
         }
