@@ -1697,7 +1697,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         const { data: shifts, error: sErr } = await supabase
           .from("scheduled_shifts")
-          .select("id, user_id, shift_date, start_time, end_time, is_time_off, profiles!inner(full_name)")
+          .select("id, user_id, shift_date, start_time, end_time, is_time_off")
           .in("schedule_id", scheduleIds)
           .gte("shift_date", args.start_date)
           .lte("shift_date", endDate)
@@ -1706,10 +1706,20 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         const { data: punches } = await supabase
           .from("time_punches")
-          .select("user_id, shift_id, punch_type, punch_time, profiles!inner(full_name)")
+          .select("user_id, shift_id, punch_type, punch_time")
           .eq("location_id", args.location_id)
           .gte("punch_time", `${args.start_date}T00:00:00`)
           .lte("punch_time", `${endDate}T23:59:59`);
+
+        // Resolve names in one batch
+        const userIdSet = new Set<string>();
+        (shifts || []).forEach((s: any) => userIdSet.add(s.user_id));
+        (punches || []).forEach((p: any) => userIdSet.add(p.user_id));
+        const { data: profileRows } = userIdSet.size > 0
+          ? await supabase.from("profiles").select("id, full_name").in("id", Array.from(userIdSet))
+          : { data: [] as any[] };
+        const nameMap: Record<string, string> = {};
+        (profileRows || []).forEach((p: any) => { nameMap[p.id] = p.full_name; });
 
         const { data: timeOffs } = await supabase
           .from("availability_requests")
@@ -1735,7 +1745,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const userPunchedForShift = (userId: string, shiftDate: string, startTime: string) => {
           const shiftStart = new Date(`${shiftDate}T${startTime}`).getTime();
           return (punches || []).some((p: any) => {
-            if (p.user_id !== userId || p.punch_type !== "in") return false;
+            if (p.user_id !== userId || p.punch_type !== "clock_in") return false;
             const pTime = new Date(p.punch_time).getTime();
             return Math.abs(pTime - shiftStart) <= 90 * 60 * 1000;
           });
@@ -1755,7 +1765,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             .filter((s: any) => s.shift_date === shift.shift_date)
             .map((s: any) => s.user_id);
           const replacementPunch = (punches || []).find((p: any) => {
-            if (p.punch_type !== "in") return false;
+            if (p.punch_type !== "clock_in") return false;
             if (scheduledUserIdsToday.includes(p.user_id)) return false;
             const pTime = new Date(p.punch_time).getTime();
             return Math.abs(pTime - shiftStart) <= 2 * 60 * 60 * 1000;
@@ -1769,10 +1779,10 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
           callouts.push({
             date: shift.shift_date,
-            employee: shift.profiles?.full_name || "Unknown",
+            employee: nameMap[shift.user_id] || "Unknown",
             scheduled_start: shift.start_time,
             scheduled_end: shift.end_time,
-            replacement: replacementPunch ? (replacementPunch.profiles?.full_name || "Unknown") : null,
+            replacement: replacementPunch ? (nameMap[replacementPunch.user_id] || "Unknown") : null,
             replacement_cost_estimate: Math.round(cost * 100) / 100,
           });
         }
@@ -1809,7 +1819,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         const { data: punches, error: pErr } = await supabase
           .from("time_punches")
-          .select("user_id, shift_id, punch_type, punch_time, is_auto_punched_out, profiles!inner(full_name)")
+          .select("user_id, shift_id, punch_type, punch_time, is_auto_punched_out")
           .eq("location_id", args.location_id)
           .gte("punch_time", `${args.start_date}T00:00:00`)
           .lte("punch_time", `${endDate}T23:59:59`)
@@ -1848,12 +1858,20 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           });
         });
 
+        const userIdSet2 = new Set<string>();
+        (punches || []).forEach((p: any) => userIdSet2.add(p.user_id));
+        const { data: profileRows2 } = userIdSet2.size > 0
+          ? await supabase.from("profiles").select("id, full_name").in("id", Array.from(userIdSet2))
+          : { data: [] as any[] };
+        const nameMap: Record<string, string> = {};
+        (profileRows2 || []).forEach((p: any) => { nameMap[p.id] = p.full_name; });
+
         const shiftPunches: Record<string, any> = {};
         (punches || []).forEach((p: any) => {
           const key = p.shift_id || `${p.user_id}-${p.punch_time.slice(0, 10)}`;
-          if (!shiftPunches[key]) shiftPunches[key] = { user_id: p.user_id, name: p.profiles?.full_name, in: null, out: null, auto: false };
-          if (p.punch_type === "in") shiftPunches[key].in = p.punch_time;
-          if (p.punch_type === "out") {
+          if (!shiftPunches[key]) shiftPunches[key] = { user_id: p.user_id, name: nameMap[p.user_id] || "Unknown", in: null, out: null, auto: false };
+          if (p.punch_type === "clock_in") shiftPunches[key].in = p.punch_time;
+          if (p.punch_type === "clock_out") {
             shiftPunches[key].out = p.punch_time;
             if (p.is_auto_punched_out) shiftPunches[key].auto = true;
           }
@@ -1944,7 +1962,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         const { data: punches, error: pErr } = await supabase
           .from("time_punches")
-          .select("user_id, punch_type, punch_time, profiles!inner(full_name)")
+          .select("user_id, punch_type, punch_time")
           .eq("location_id", args.location_id)
           .gte("punch_time", `${args.start_date}T00:00:00`)
           .lte("punch_time", `${args.end_date}T23:59:59`)
@@ -1970,10 +1988,17 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const laborMap: Record<string, any> = {};
         (laborRows || []).forEach((r: any) => laborMap[r.labor_date] = r);
 
-        const dayBlockCrew: Record<string, Set<string>> = {};
+        const userIdSet3 = new Set<string>();
+        (punches || []).forEach((p: any) => userIdSet3.add(p.user_id));
+        const { data: profileRows3 } = userIdSet3.size > 0
+          ? await supabase.from("profiles").select("id, full_name").in("id", Array.from(userIdSet3))
+          : { data: [] as any[] };
         const nameMap: Record<string, string> = {};
+        (profileRows3 || []).forEach((p: any) => { nameMap[p.id] = p.full_name; });
+
+        const dayBlockCrew: Record<string, Set<string>> = {};
         (punches || []).forEach((p: any) => {
-          if (p.punch_type !== "in") return;
+          if (p.punch_type !== "clock_in") return;
           const date = p.punch_time.slice(0, 10);
           const hour = parseInt(p.punch_time.slice(11, 13), 10);
           const block = hour < 14 ? "am" : "pm";
@@ -1985,7 +2010,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const key = `${date}|${block}`;
           if (!dayBlockCrew[key]) dayBlockCrew[key] = new Set();
           dayBlockCrew[key].add(p.user_id);
-          nameMap[p.user_id] = p.profiles?.full_name || "Unknown";
         });
 
         const dayBlockOutcome = (date: string, block: string) => {
@@ -2031,7 +2055,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const crewKey = Array.from(crew).sort().join(",");
           if (!crewMap[crewKey]) {
             crewMap[crewKey] = {
-              members: Array.from(crew).map((id) => nameMap[id]).sort(),
+              members: Array.from(crew).map((id) => nameMap[id] || "Unknown").sort(),
               shifts_worked: 0,
               total_sales: 0,
               total_labor_cost: 0,
