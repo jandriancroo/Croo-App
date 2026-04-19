@@ -105,6 +105,20 @@ function getApplicationUrl(listing: any, supabaseUrl: string, source: string) {
   return `${baseUrl}/apply/${orgSlug}?utm_source=${source}&listing=${listing.id}`;
 }
 
+function slugifyFeed(s: string): string {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function getJobDetailUrl(listing: any, source: string): string {
+  const baseUrl = Deno.env.get("APP_URL") || "https://croohq.com";
+  const addr = parseAddress(listing.location?.address);
+  const city = addr.city || listing.location?.name || "";
+  const slug = [slugifyFeed(city), slugifyFeed(listing.title), (listing.id || "").slice(0, 8)]
+    .filter(Boolean)
+    .join("-");
+  return `${baseUrl}/jobs/${slug}?utm_source=${source}`;
+}
+
 function toJsonLd(listing: any, supabaseUrl: string) {
   const addr = parseAddress(listing.location?.address);
   const org = listing.organization;
@@ -137,7 +151,7 @@ function toJsonLd(listing: any, supabaseUrl: string) {
       },
     },
     directApply: true,
-    url: getApplicationUrl(listing, supabaseUrl, "google_jobs"),
+    url: getJobDetailUrl(listing, "google_jobs"),
   };
 
   if (listing.pay_min || listing.pay_max) {
@@ -186,7 +200,7 @@ function toXmlFeed(listings: any[], supabaseUrl: string): string {
     .map((listing) => {
       const addr = parseAddress(listing.location?.address);
       const org = listing.organization;
-      const applyUrl = getApplicationUrl(listing, supabaseUrl, "xml_feed");
+      const applyUrl = getJobDetailUrl(listing, "xml_feed");
 
       return `    <job>
       <title><![CDATA[${listing.title}]]></title>
