@@ -227,6 +227,29 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     [templates],
   );
 
+  // Map: brand_template_id -> { pfg: string[], pa: string[] } merged from
+  // template-level item_number/pa_item_id and brand_vendor_mappings.
+  const templateVendorIds = useMemo(() => {
+    const map = new Map<string, { pfg: Set<string>; pa: Set<string> }>();
+    const ensure = (id: string) => {
+      let v = map.get(id);
+      if (!v) { v = { pfg: new Set(), pa: new Set() }; map.set(id, v); }
+      return v;
+    };
+    for (const t of templates as any[]) {
+      if (t.item_number) ensure(t.id).pfg.add(String(t.item_number).trim());
+      if (t.pa_item_id) ensure(t.id).pa.add(String(t.pa_item_id).trim());
+    }
+    for (const m of vendorMappings) {
+      const vid = String(m.vendor_item_id || '').trim();
+      if (!vid) continue;
+      const bucket = ensure(m.brand_template_id);
+      if (m.vendor === 'pfg') bucket.pfg.add(vid);
+      else if (m.vendor === 'produce_alliance') bucket.pa.add(vid);
+    }
+    return map;
+  }, [templates, vendorMappings]);
+
   const filteredLiveTemplates = useMemo(() => {
     if (!linkSearch.trim()) {
       // Seed initial results with fuzzy word-overlap matches against the gap name.
