@@ -2202,10 +2202,27 @@ serve(async (req) => {
           }
         }
 
+        // Honesty check: if @OPUS is invoked but this location has no active OPUS integration,
+        // short-circuit with a clear "not connected" notice instead of silently returning empty.
+        let opusNotConnected = false;
+        if (isOpusQuery) {
+          const { data: opusIntegration } = await supabaseAdmin
+            .from("location_integrations")
+            .select("id")
+            .eq("location_id", location_id)
+            .eq("integration_type", "opus")
+            .eq("is_active", true)
+            .maybeSingle();
+          if (!opusIntegration) {
+            opusNotConnected = true;
+            console.log(`[ai-assistant] @OPUS query but no active integration for location ${location_id}`);
+          }
+        }
+
         // Fallback / primary OPUS search
         // OPUS resources are shared across locations in the same brand,
         // so search brand-wide instead of just the current location.
-        if (relevant.length === 0) {
+        if (relevant.length === 0 && !opusNotConnected) {
           // Resolve all sibling location IDs in the same brand
           let opusLocationIds: string[] = [location_id];
           try {
@@ -2354,12 +2371,19 @@ serve(async (req) => {
           console.log(`[ai-assistant] @OPUS usable results after filter: ${relevant.length}`);
         }
         
-        if (relevant.length > 0) {
+        if (opusNotConnected) {
+          memoryContext = "\n\nOPUS INTEGRATION STATUS: This location does NOT have an active OPUS connection. " +
+            "You CANNOT search OPUS training resources for this location. Tell the user plainly that OPUS isn't connected " +
+            "for this store and suggest they connect it via Settings → Integrations. Do NOT pretend to search or fabricate results.\n";
+        } else if (relevant.length > 0) {
           const header = isOpusQuery 
             ? "\n\nOPUS TRAINING LIBRARY (filtered by @OPUS tag — these are training resources & modules from your LMS):\n"
             : "\n\nTHEO'S PINNED KNOWLEDGE (facts saved by managers at this location — treat as ground truth):\n";
           memoryContext = header +
             relevant.map((m: any) => `- [${m.topic}]: ${m.content}`).join("\n");
+        } else if (isOpusQuery) {
+          memoryContext = "\n\nOPUS SEARCH RESULT: No matching OPUS resources found for this query at this location. " +
+            "Tell the user nothing matched — do NOT fabricate resources.\n";
         }
       }
     } catch (e) {
