@@ -1745,7 +1745,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const userPunchedForShift = (userId: string, shiftDate: string, startTime: string) => {
           const shiftStart = new Date(`${shiftDate}T${startTime}`).getTime();
           return (punches || []).some((p: any) => {
-            if (p.user_id !== userId || p.punch_type !== "in") return false;
+            if (p.user_id !== userId || p.punch_type !== "clock_in") return false;
             const pTime = new Date(p.punch_time).getTime();
             return Math.abs(pTime - shiftStart) <= 90 * 60 * 1000;
           });
