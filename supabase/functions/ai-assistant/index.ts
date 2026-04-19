@@ -1126,22 +1126,28 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const endingCount = recentCounts[0];
           const beginningCount = recentCounts[1];
 
-          const { data: invItems } = await supabase
-            .from("inventory_items")
-            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override")
-            .eq("location_id", args.location_id)
-            .eq("is_active", true);
-
-          const itemCostMap = new Map((invItems || []).map((i: any) => {
-            const packQty = i.pack_quantity_override ?? i.pack_quantity ?? 1;
-            const perUnit = (Number(i.cost_per_unit) || 0) / (packQty || 1);
-            return [i.id, perUnit];
-          }));
-
           const [beginItemsRes, endItemsRes] = await Promise.all([
             supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", beginningCount.id),
             supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", endingCount.id),
           ]);
+
+          // Collect all item_ids referenced in either count (matches UI logic in PeriodDetailPanel.tsx)
+          // CRITICAL: do NOT filter by is_active — deactivated items still need to be valued
+          const referencedIds = new Set<string>();
+          for (const ci of (beginItemsRes.data || [])) referencedIds.add(ci.item_id);
+          for (const ci of (endItemsRes.data || [])) referencedIds.add(ci.item_id);
+
+          const { data: invItems } = await supabase
+            .from("inventory_items")
+            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case")
+            .in("id", Array.from(referencedIds));
+
+          // Match UI pack-qty hierarchy: override → count_units_per_case → pack_quantity
+          const itemCostMap = new Map((invItems || []).map((i: any) => {
+            const packQty = i.pack_quantity_override ?? i.count_units_per_case ?? i.pack_quantity ?? 1;
+            const perUnit = (Number(i.cost_per_unit) || 0) / Math.max(packQty, 1);
+            return [i.id, perUnit];
+          }));
 
           let beginValue = 0;
           for (const ci of (beginItemsRes.data || [])) {
