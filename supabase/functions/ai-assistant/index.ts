@@ -310,7 +310,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_labor_intelligence",
-      description: "Query AI-generated labor intelligence reports with grades (A-F), findings, and staffing suggestions. Use for questions about labor efficiency, labor grade, overstaffing, understaffing, or scheduling optimization insights.",
+      description: "Query AI-generated labor intelligence reports with grades (A-F), findings, and staffing suggestions. Use for questions about labor efficiency, labor grade, overstaffing, understaffing, or scheduling optimization insights. IMPORTANT: Reports are generated nightly for the PREVIOUS day — never request today's date. Omit the `date` param to get the most recent reports (best for 'this week', 'lately', or improvement questions). Only pass `date` if the user names a specific past day.",
       parameters: {
         type: "object",
         properties: {
@@ -2481,7 +2481,17 @@ Don't match keywords to tools. Reason about intent. Ask yourself: "What data wou
 - Use multiple tools in parallel when a question spans multiple data sources (e.g. "did we crush it this week" → sales + labor; "who bounced last night" → punches + schedule to compare scheduled vs actual).
 - Cross-reference proactively. If a punch question implies comparing to a schedule, call both. If a guest review names an employee, also pull schedule/punches for that shift.
 - Prefer fewer, broader calls over many narrow ones, but don't hesitate to call 2-3 tools at once when needed.
-- If the first tool returns nothing useful, reason about what other data source might have it before giving up.
+
+NEVER GIVE UP AFTER ONE EMPTY RESULT:
+If a tool returns empty/no data, do NOT tell the user you can't help. Instead:
+1. Try the same tool with broader parameters (drop the date, widen the range, remove filters).
+2. Try a different tool that holds adjacent data (e.g. no labor intelligence report? Pull raw query_labor + query_sales and analyze the gap yourself).
+3. Only after 2-3 genuine attempts should you tell the user what's missing — and even then, give them whatever partial answer the data DOES support.
+
+For "how can I improve my labor" / "labor recommendations" / "what should I fix":
+- Call query_labor_intelligence WITHOUT a date (gets the most recent grade + findings + suggestions).
+- In parallel, call query_labor and query_sales for the current week (week-to-date raw numbers).
+- Synthesize: cite the most recent grade, surface the top 1-3 findings, then add concrete week-to-date observations (which day was worst, where labor % spiked vs sales). Always end with 2-3 specific, actionable recommendations.
 
 DOMAIN DISAMBIGUATION (only when terms are non-obvious):
 - "Flip the line" = Shift Change Line Check completion. Submission time IS when the line was flipped.
