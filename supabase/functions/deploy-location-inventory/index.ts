@@ -206,6 +206,34 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 4b. Prefetch vendor mappings for ALL templates being deployed.
+    // Vendor labels in brand_vendor_mappings: 'pfg', 'produce_alliance' (verified).
+    // We stamp item_number (PFG) and pa_item_id (PA) at INSERT time so deployed items
+    // are immediately ready for syncs/recipe matching — no separate stamping pass needed.
+    const allTemplateIds = templates.map((t: any) => t.id);
+    const pfgByTemplate = new Map<string, string>();
+    const paByTemplate = new Map<string, string>();
+    if (allTemplateIds.length > 0) {
+      const { data: vendorMaps, error: vmErr } = await supabase
+        .from("brand_vendor_mappings")
+        .select("brand_template_id, vendor, vendor_item_id")
+        .in("brand_template_id", allTemplateIds)
+        .in("vendor", ["pfg", "produce_alliance", "pa"]);
+      if (vmErr) {
+        console.warn("[deploy] vendor mapping prefetch failed:", vmErr);
+      } else {
+        for (const m of vendorMaps || []) {
+          if (!m.vendor_item_id) continue;
+          if (m.vendor === "pfg" && !pfgByTemplate.has(m.brand_template_id)) {
+            pfgByTemplate.set(m.brand_template_id, m.vendor_item_id);
+          } else if ((m.vendor === "produce_alliance" || m.vendor === "pa") && !paByTemplate.has(m.brand_template_id)) {
+            paByTemplate.set(m.brand_template_id, m.vendor_item_id);
+          }
+        }
+        console.log(`[deploy] Prefetched vendor maps: ${pfgByTemplate.size} PFG, ${paByTemplate.size} PA`);
+      }
+    }
+
     // 5. Create inventory_items for each template (skip dupes)
     const templateToItemId = new Map<string, string>();
     const deploymentRecords: any[] = [];
@@ -289,8 +317,11 @@ Deno.serve(async (req) => {
         ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
         : null;
 
-      // STRUCTURE-ONLY: do NOT stamp item_number / pa_item_id.
-      // Local PFG / PA syncs will fill these in with the correct location-specific SKUs.
+      // Stamp vendor IDs from prefetched brand_vendor_mappings at INSERT time.
+      // Mappings are brand-wide identity (not territory-scoped pricing), so it's safe
+      // to stamp at deploy. Syncs remain price-only and don't touch these IDs.
+      const pfgSku = pfgByTemplate.get(tmpl.id);
+      const paSku = paByTemplate.get(tmpl.id);
       const { data: newItem, error: createErr } = await supabase
         .from("inventory_items")
         .insert({
@@ -305,6 +336,8 @@ Deno.serve(async (req) => {
           vendor_source: tmpl.vendor_source,
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
+          ...(pfgSku ? { item_number: pfgSku } : {}),
+          ...(paSku ? { pa_item_id: paSku } : {}),
           ...(packOverride != null ? { pack_quantity_override: packOverride } : {}),
           ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
           ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
@@ -330,38 +363,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 5b. Stamp PFG item_numbers from brand_vendor_mappings.
-    // PFG SKUs are brand-wide (not territory-scoped like PA), so we can stamp them
-    // here at deploy time without waiting for a separate sync. This closes the gap
-    // where the (unbuilt) `pfg-service` `sync` action was supposed to backfill these.
-    // The vendor label in brand_vendor_mappings is lowercase "pfg" (verified).
-    try {
-      const templateIds = Array.from(templateToItemId.keys());
-      if (templateIds.length > 0) {
-        const { data: pfgMappings, error: mapErr } = await supabase
-          .from("brand_vendor_mappings")
-          .select("brand_template_id, vendor_item_id")
-          .eq("vendor", "pfg")
-          .in("brand_template_id", templateIds);
-        if (mapErr) {
-          console.warn("[Deploy] PFG mapping fetch failed:", mapErr);
-        } else {
-          let stamped = 0;
-          for (const m of pfgMappings || []) {
-            const itemId = templateToItemId.get(m.brand_template_id);
-            if (!itemId || !m.vendor_item_id) continue;
-            const { error: stampErr } = await supabase
-              .from("inventory_items")
-              .update({ item_number: m.vendor_item_id })
-              .eq("id", itemId);
-            if (!stampErr) stamped++;
-          }
-          console.log(`[Deploy] Stamped PFG item_number on ${stamped}/${pfgMappings?.length || 0} items.`);
-        }
-      }
-    } catch (e) {
-      console.warn("[Deploy] PFG stamping pass threw:", e);
-    }
+    // 5b. (Removed) Separate PFG stamping pass — vendor IDs are now stamped at INSERT time above.
 
     // 5c. Backfill PFG cost_per_unit from THIS LOCATION'S own PFG order history.
     // PFG pricing is contract-specific per customer/location, so we cannot copy
