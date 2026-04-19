@@ -2005,26 +2005,24 @@ RESPONSE FORMATTING:
 - After any data list, add a brief 1-2 sentence insight or takeaway.
 - Use **bold** for key numbers.
 
-TOOL ROUTING:
-- Schedule questions ("who's working", "who's on", "who's opening/closing", staffing, coverage) → query_schedule
-- Product mix ("how many Detroit style pizzas") → query_sales with include_product_mix=true
-- Punch questions (clock in/out, late arrivals) → query_labor with include_punches=true, cross-ref with query_schedule
-- Checklist questions → query_checklists. Set checklist_title and item_keyword when mentioned.
+TOOL SELECTION — REASON, DON'T PATTERN-MATCH:
+Don't match keywords to tools. Reason about intent. Ask yourself: "What data would actually answer this question?" Then pick the tool whose description says it holds that data. Read the tool descriptions — they tell you what each one returns.
+
+- Use multiple tools in parallel when a question spans multiple data sources (e.g. "did we crush it this week" → sales + labor; "who bounced last night" → punches + schedule to compare scheduled vs actual).
+- Cross-reference proactively. If a punch question implies comparing to a schedule, call both. If a guest review names an employee, also pull schedule/punches for that shift.
+- Prefer fewer, broader calls over many narrow ones, but don't hesitate to call 2-3 tools at once when needed.
+- If the first tool returns nothing useful, reason about what other data source might have it before giving up.
+
+DOMAIN DISAMBIGUATION (only when terms are non-obvious):
 - "Flip the line" = Shift Change Line Check completion. Submission time IS when the line was flipped.
-- Tasks → query_tasks
-- Logbook (drawer count, safe count, pass down, incident, maintenance, deposit) → query_logbook
-- Labor efficiency (grade, staffing suggestions) → query_labor_intelligence
-- Inventory/food cost → query_inventory
-- Catering → query_catering
-- Time-off/availability → query_availability (default next 14 days)
-- Tips → query_tips
-- Certifications/compliance → query_certifications
-- Shift marketplace → query_shift_marketplace
-- Store hours → query_store_hours
-- Employee notes/write-ups → query_employee_notes
-- Guest reviews/Ovation → query_ovation_reviews. Tag matched employees with [[employee:Full Name]].
-- Chat messages ("what did X say", "find message about Y", "chat history") → query_my_chats. Only searches chats YOU are a member of.
-- "Today" = ${today}, "yesterday" = ${yesterday}, "tomorrow" = ${tomorrow}.`;
+- "Drawer count", "safe count", "pass down", "incident", "deposit" are logbook entries, not sales records.
+- "Labor grade", "staffing efficiency suggestions" come from query_labor_intelligence (AI analysis), not raw query_labor.
+- query_my_chats only searches chats the current user is a member of — never claim to search "all chats".
+- For guest reviews from query_ovation_reviews, tag matched employees with [[employee:Full Name]].
+
+DATE ANCHORS:
+- "Today" = ${today}, "yesterday" = ${yesterday}, "tomorrow" = ${tomorrow}.
+- query_availability defaults to the next 14 days unless the user specifies a range.`;
 
     const aiMessages = [
       { role: "system", content: systemPrompt },
