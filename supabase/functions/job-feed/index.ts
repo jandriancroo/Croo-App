@@ -110,13 +110,15 @@ function slugifyFeed(s: string): string {
 }
 
 function getJobDetailUrl(listing: any, source: string): string {
-  const baseUrl = Deno.env.get("APP_URL") || "https://croohq.com";
+  // Point directly at the SSR edge function so crawlers get fully-rendered HTML
+  // with JobPosting JSON-LD baked in (no SPA hydration required).
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const addr = parseAddress(listing.location?.address);
   const city = addr.city || listing.location?.name || "";
   const slug = [slugifyFeed(city), slugifyFeed(listing.title), (listing.id || "").slice(0, 8)]
     .filter(Boolean)
     .join("-");
-  return `${baseUrl}/jobs/${slug}?utm_source=${source}`;
+  return `${supabaseUrl}/functions/v1/job-detail/${slug}?utm_source=${source}`;
 }
 
 function toJsonLd(listing: any, supabaseUrl: string) {
