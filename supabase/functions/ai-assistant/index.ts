@@ -2202,10 +2202,27 @@ serve(async (req) => {
           }
         }
 
+        // Honesty check: if @OPUS is invoked but this location has no active OPUS integration,
+        // short-circuit with a clear "not connected" notice instead of silently returning empty.
+        let opusNotConnected = false;
+        if (isOpusQuery) {
+          const { data: opusIntegration } = await supabaseAdmin
+            .from("location_integrations")
+            .select("id")
+            .eq("location_id", location_id)
+            .eq("integration_type", "opus")
+            .eq("is_active", true)
+            .maybeSingle();
+          if (!opusIntegration) {
+            opusNotConnected = true;
+            console.log(`[ai-assistant] @OPUS query but no active integration for location ${location_id}`);
+          }
+        }
+
         // Fallback / primary OPUS search
         // OPUS resources are shared across locations in the same brand,
         // so search brand-wide instead of just the current location.
-        if (relevant.length === 0) {
+        if (relevant.length === 0 && !opusNotConnected) {
           // Resolve all sibling location IDs in the same brand
           let opusLocationIds: string[] = [location_id];
           try {
