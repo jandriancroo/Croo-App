@@ -404,7 +404,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       }
       if (mappingInserts.length > 0) {
         await supabase.from('brand_vendor_mappings')
-          .upsert(mappingInserts as any, { onConflict: 'brand_template_id,vendor_item_id', ignoreDuplicates: true });
+          .upsert(mappingInserts as any, { onConflict: 'brand_template_id,vendor,vendor_item_id', ignoreDuplicates: true });
       }
 
       const alertIds = items.map(i => i.id).filter(Boolean);
@@ -462,7 +462,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
         .from('brand_vendor_mappings')
         .upsert(
           { brand_template_id: targetTemplateId, vendor: vendorKey, vendor_item_id: gap.itemNumber } as any,
-          { onConflict: 'brand_template_id,vendor_item_id', ignoreDuplicates: true },
+          { onConflict: 'brand_template_id,vendor,vendor_item_id', ignoreDuplicates: true },
         );
       if (mapErr) throw mapErr;
       if (gap.id) {
