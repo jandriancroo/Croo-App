@@ -310,7 +310,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_labor_intelligence",
-      description: "Query AI-generated labor intelligence reports with grades (A-F), findings, and staffing suggestions. Use for questions about labor efficiency, labor grade, overstaffing, understaffing, or scheduling optimization insights.",
+      description: "Query AI-generated labor intelligence reports with grades (A-F), findings, and staffing suggestions. Use for questions about labor efficiency, labor grade, overstaffing, understaffing, or scheduling optimization insights. IMPORTANT: Reports are generated nightly for the PREVIOUS day — never request today's date. Omit the `date` param to get the most recent reports (best for 'this week', 'lately', or improvement questions). Only pass `date` if the user names a specific past day.",
       parameters: {
         type: "object",
         properties: {
