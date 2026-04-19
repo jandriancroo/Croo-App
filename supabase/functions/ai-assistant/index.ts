@@ -507,6 +507,61 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_callout_patterns",
+      description: "Detect callouts (scheduled but didn't show), find replacement workers, and calculate dollar impact. Use for questions about who missed shifts, who covered them, repeat no-show offenders, attendance reliability, and the cost of absenteeism. Cross-references published schedule against actual punches and approved time-off requests.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "Location UUID" },
+          start_date: { type: "string", description: "ISO date YYYY-MM-DD" },
+          end_date: { type: "string", description: "ISO date YYYY-MM-DD (defaults to start_date)" },
+          employee_name: { type: "string", description: "Optional partial name filter" },
+        },
+        required: ["location_id", "start_date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_punch_patterns",
+      description: "Analyze scheduled-vs-actual punch behavior over time. Detects employees who clock in early, clock out late, work without being scheduled, or get auto-punched out (forgot to clock out). Calculates 'stolen' labor minutes and dollar impact. Use for time theft, punch abuse, payroll integrity, and attendance discipline questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "Location UUID" },
+          start_date: { type: "string", description: "ISO date YYYY-MM-DD" },
+          end_date: { type: "string", description: "ISO date YYYY-MM-DD (defaults to start_date)" },
+          pattern_type: { type: "string", enum: ["early_in", "late_out", "no_schedule", "auto_punch", "all"], description: "Filter to a single pattern (default 'all')" },
+          employee_name: { type: "string", description: "Optional partial name filter" },
+          threshold_minutes: { type: "number", description: "Minimum variance in minutes to count as a pattern (default 7)" },
+        },
+        required: ["location_id", "start_date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_crew_performance",
+      description: "Identify which crew compositions (groups of employees working together) drive the best — or worst — operational outcomes. Correlates who was clocked in during a shift block (AM/PM) with sales, labor %, SPLH, and checklist completion over a date range. Use for cross-domain questions like 'which team crushes Saturday nights', 'who works best together', 'which crew runs the cleanest shift'.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "Location UUID" },
+          start_date: { type: "string", description: "ISO date YYYY-MM-DD" },
+          end_date: { type: "string", description: "ISO date YYYY-MM-DD" },
+          shift_block: { type: "string", enum: ["am", "pm", "all"], description: "AM = before 14:00, PM = 14:00 onward (default 'all')" },
+          min_occurrences: { type: "number", description: "Only include crews that worked together this many times (default 2)" },
+          day_of_week: { type: "number", description: "Optional: filter to a single day of week (0=Sun..6=Sat)" },
+        },
+        required: ["location_id", "start_date", "end_date"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
