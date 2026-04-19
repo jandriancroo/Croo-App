@@ -404,7 +404,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       }
       if (mappingInserts.length > 0) {
         await supabase.from('brand_vendor_mappings')
-          .upsert(mappingInserts as any, { onConflict: 'brand_template_id,vendor_item_id', ignoreDuplicates: true });
+          .upsert(mappingInserts as any, { onConflict: 'brand_template_id,vendor,vendor_item_id', ignoreDuplicates: true });
       }
 
       const alertIds = items.map(i => i.id).filter(Boolean);
