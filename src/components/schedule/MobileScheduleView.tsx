@@ -25,7 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 
-import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
+import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone, parseDateStringInTimezone, getEndOfDateStringInTimezone, getBusinessDateForTimestamp } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 
 interface Profile {
@@ -152,7 +152,7 @@ export function MobileScheduleView({
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { user } = useAuth();
   const { currentLocation } = useLocation();
-  const { timezone } = useLocationTimezone();
+  const { timezone, closeTime } = useLocationTimezone();
   const queryClient = useQueryClient();
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
@@ -415,24 +415,12 @@ export function MobileScheduleView({
         });
       });
 
-      // Filter: keep active shifts only if they were started today (prevents orphans from
-      // bleeding onto wrong days); always keep completed shifts already date-matched above.
+      // Filter using the Business Date standard: every punch is attributed to exactly ONE
+      // business day (open → next-day cutoff = close + 3h). This prevents overnight shifts
+      // from appearing on both the day they started and the day they ended.
       const filteredPunches = punchSummaries.filter((punch) => {
-        if (punch.isActive || punch.isOnBreak) {
-          const clockInLocalDate = new Date(punch.clockInTime).toLocaleDateString('en-CA', {
-            timeZone: timezone,
-          });
-          return clockInLocalDate === punchDateStr;
-        }
-        const clockInLocalDate = new Date(punch.clockInTime).toLocaleDateString('en-CA', {
-          timeZone: timezone,
-        });
-        const clockOutLocalDate = punch.clockOutTime
-          ? new Date(punch.clockOutTime).toLocaleDateString('en-CA', { timeZone: timezone })
-          : null;
-        // Show on the viewed day if either the clock_in OR the clock_out happened on that day
-        // (handles overnight shifts that started yesterday and ended today).
-        return clockInLocalDate === punchDateStr || clockOutLocalDate === punchDateStr;
+        const businessDate = getBusinessDateForTimestamp(punch.clockInTime, timezone, closeTime);
+        return businessDate === punchDateStr;
       });
       
       // Sort: active first, then by clock-in time

@@ -371,6 +371,39 @@ export const getBusinessDateInTimezone = (
 };
 
 /**
+ * Map any timestamp to its business date string (YYYY-MM-DD) in the given timezone.
+ *
+ * Mirrors getBusinessDateInTimezone but works on a historical timestamp instead of "now".
+ * If the timestamp's local hour is before the cutoff (close + 3h), it rolls back to the
+ * previous calendar day — ensuring overnight shifts/punches are attributed to a single
+ * business day across all UI surfaces.
+ *
+ * Use this for grouping/filtering punches, shifts, completions on the schedule UI.
+ */
+export const getBusinessDateForTimestamp = (
+  timestamp: string | Date,
+  timezone: string = DEFAULT_TIMEZONE,
+  closeTime?: string | null
+): string => {
+  const cutoffHour = calculateCutoffHour(closeTime);
+  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+
+  const hourStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    hour12: false,
+  }).format(date);
+  const hour = parseInt(hourStr, 10);
+
+  if (hour < cutoffHour) {
+    const prev = new Date(date);
+    prev.setDate(prev.getDate() - 1);
+    return getDateInTimezone(prev, timezone);
+  }
+  return getDateInTimezone(date, timezone);
+};
+
+/**
  * Get the business day start and end for checklist completion tracking.
  * The business day runs from cutoff hour today to cutoff hour tomorrow.
  * This allows late-night submissions (after midnight) to count for the previous business day.
