@@ -136,68 +136,98 @@ serve(async (req) => {
         if (locs?.length) {
           const locIds = locs.map(l => l.id);
           const locNameById = new Map((locs || []).map(l => [l.id, l.name]));
-          const { data: pfgInt } = await supabase
+
+          // --- PFG Scan: loop EVERY active PFG integration for this brand ---
+          // Bug-fix history: previously we did .limit(1).maybeSingle() against
+          // .in(location_id, locIds) which scanned exactly one location's bid
+          // guide per brand. Locations with unique SKU sets (e.g. Rowlett vs
+          // Hemet) produced zero gap alerts because their bid was never fetched.
+          // Now we iterate every PFG-connected location and call the same
+          // pfg-service `categories` action that deploy-location-inventory uses
+          // — that's the territory-scoped, authoritative product list.
+          const { data: pfgInts } = await supabase
             .from("location_integrations")
             .select("credentials, location_id")
             .in("location_id", locIds)
             .eq("integration_type", "pfg")
-            .eq("is_active", true)
-            .limit(1)
-            .maybeSingle();
+            .eq("is_active", true);
 
-          if (pfgInt?.credentials) {
-            const creds = pfgInt.credentials as any;
-            const accessToken = creds?.access_token;
+          console.log(`[vendor-gap-scan] ${brand.name}: ${pfgInts?.length || 0} active PFG integrations to scan`);
+
+          for (const pfgInt of (pfgInts || [])) {
+            const creds = (pfgInt.credentials || {}) as any;
+            const productListHeaderId = creds?.product_list_header_id;
             const customerId = creds?.customer_id;
             const pfgLocId = pfgInt.location_id;
             const pfgLocName = locNameById.get(pfgLocId) || "Unknown";
 
-            if (accessToken && customerId) {
-              try {
-                const bidRes = await fetch(
-                  `https://www3.pfgc.com/api/ecommerce/v3/customers/${customerId}/bidguide?pageSize=500&currentPage=1`,
-                  {
-                    headers: {
-                      Authorization: `Bearer ${accessToken}`,
-                      Accept: "application/json",
-                    },
-                  }
-                );
+            // Skip locations missing the bid-guide config rather than crashing the brand scan.
+            if (!productListHeaderId || !customerId) {
+              console.warn(`[vendor-gap-scan] Skipping ${pfgLocName} — missing product_list_header_id or customer_id`);
+              continue;
+            }
 
-                if (bidRes.ok) {
-                  const bidData = await bidRes.json();
-                  const bidItems = bidData?.products || [];
-
-                  for (const item of bidItems) {
-                    const itemNumber = String(item.itemNumber || "").trim();
-                    if (!itemNumber) continue;
-                    if (existingPfgNumbers.has(itemNumber) || existingVendorIds.has(itemNumber)) continue;
-
-                    const vendorName = item.fullDescription || item.description || "";
-                    // NOTE: do NOT skip when alert already exists — the RPC merges
-                    // reported_by_locations so existing gaps accumulate location tags.
-                    const isNewAlert = !existingAlertKeys.has(`pfg:${itemNumber}`);
-
-                    const { error } = await supabase.rpc('upsert_vendor_gap_with_location', {
-                      _brand_id: brand.id,
-                      _vendor_source: "pfg",
-                      _item_number: itemNumber,
-                      _vendor_name: vendorName,
-                      _vendor_description: item.fullDescription || "",
-                      _pack_size: item.packSize || "",
-                      _category_name: item.categoryName || "",
-                      _location_id: pfgLocId,
-                      _location_name: pfgLocName,
-                    });
-
-                    if (!error && isNewAlert) newItemCount++;
-                  }
-                } else {
-                  console.warn(`[vendor-gap-scan] PFG API error for ${brand.name}: ${bidRes.status}`);
+            try {
+              const { data: catData, error: catErr } = await supabase.functions.invoke(
+                "pfg-service",
+                {
+                  body: {
+                    action: "categories",
+                    locationId: pfgLocId,
+                    productListHeaderId,
+                    customerId,
+                  },
                 }
-              } catch (e) {
-                console.error(`[vendor-gap-scan] PFG scan error for ${brand.name}:`, e);
+              );
+
+              if (catErr) {
+                console.warn(`[vendor-gap-scan] pfg-service categories failed for ${pfgLocName}: ${catErr.message}`);
+                continue;
               }
+
+              const categories = catData?.data?.categories || [];
+              let scannedSkus = 0;
+              let locNewCount = 0;
+
+              // Flatten products across ALL categories — not just the first one.
+              for (const cat of categories) {
+                for (const item of (cat.products || [])) {
+                  const itemNumber = String(item?.itemNumber || "").trim();
+                  if (!itemNumber) continue;
+                  scannedSkus++;
+                  if (existingPfgNumbers.has(itemNumber) || existingVendorIds.has(itemNumber)) continue;
+
+                  const vendorName = item.fullDescription || item.description || item.name || "";
+                  // The RPC merges reported_by_locations so a SKU missing at
+                  // multiple locations becomes ONE alert row with both tagged.
+                  const isNewAlert = !existingAlertKeys.has(`pfg:${itemNumber}`);
+
+                  const { error } = await supabase.rpc('upsert_vendor_gap_with_location', {
+                    _brand_id: brand.id,
+                    _vendor_source: "pfg",
+                    _item_number: itemNumber,
+                    _vendor_name: vendorName,
+                    _vendor_description: item.fullDescription || vendorName,
+                    _pack_size: item.packSize || "",
+                    _category_name: cat.name || cat.categoryName || item.categoryName || "",
+                    _location_id: pfgLocId,
+                    _location_name: pfgLocName,
+                  });
+
+                  if (!error) {
+                    if (isNewAlert) {
+                      newItemCount++;
+                      locNewCount++;
+                      // Track so the next location in this loop merges instead of double-counting as new.
+                      existingAlertKeys.add(`pfg:${itemNumber}`);
+                    }
+                  }
+                }
+              }
+
+              console.log(`[vendor-gap-scan] PFG ${pfgLocName}: scanned ${scannedSkus} SKUs, ${locNewCount} new gap alerts`);
+            } catch (e) {
+              console.error(`[vendor-gap-scan] PFG scan error for ${pfgLocName}:`, e);
             }
           }
 
