@@ -858,8 +858,15 @@ serve(async (req) => {
         console.log(`[opus-service] bulk_extract: Processing "${title}" from ${pdfUrl}`);
 
         try {
-          // Download the file
-          const pdfResp = await fetch(pdfUrl);
+          // Download the file (with OPUS session cookie — protected media URLs require it)
+          const pdfResp = await fetch(pdfUrl, {
+            headers: {
+              "Cookie": `sessionid=${sessionId}`,
+              "Origin": "https://dashboard.opus.so",
+              "Referer": "https://dashboard.opus.so/",
+              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            },
+          });
           if (!pdfResp.ok) {
             results.push({ id: row.id, title, success: false, error: `Download failed: ${pdfResp.status}` });
             continue;
@@ -867,7 +874,12 @@ serve(async (req) => {
 
           const contentType = pdfResp.headers.get("content-type") || "";
           let mimeType = "application/pdf";
-          if (contentType.includes("image")) mimeType = contentType.split(";")[0].trim();
+          if (contentType.includes("image")) {
+            mimeType = contentType.split(";")[0].trim();
+          } else if (contentType.includes("html") || contentType.includes("text")) {
+            results.push({ id: row.id, title, success: false, error: "OPUS session expired (got HTML, not file)" });
+            continue;
+          }
 
           const arrayBuf = await pdfResp.arrayBuffer();
           const bytes = new Uint8Array(arrayBuf);
