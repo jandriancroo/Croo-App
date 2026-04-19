@@ -942,15 +942,25 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
               <Link2 className="h-4 w-4" />
               Link to Existing Catalog Item
             </DialogTitle>
-            <DialogDescription>
-              {linkDialogItem && (
-                <>
-                  Pick the catalog item that matches{' '}
-                  <span className="font-medium text-foreground">{linkDialogItem.name}</span>{' '}
-                  (<span className="uppercase">{linkDialogItem.vendorSource}</span> #{linkDialogItem.itemNumber}).
-                  Future syncs will auto-match.
-                </>
-              )}
+            <DialogDescription asChild>
+              {linkDialogItem ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Pick the catalog item that matches the vendor item below. Future syncs will auto-match.
+                  </p>
+                  <div className="rounded-md border bg-muted/40 p-3 space-y-1">
+                    <div className="text-sm font-medium text-foreground leading-snug">
+                      {linkDialogItem.name}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                      <span className="uppercase font-medium">{linkDialogItem.vendorSource}</span>
+                      <span>#{linkDialogItem.itemNumber}</span>
+                      {linkDialogItem.packSize && <span>• {linkDialogItem.packSize}</span>}
+                      {linkDialogItem.categoryName && <span>• {linkDialogItem.categoryName}</span>}
+                    </div>
+                  </div>
+                </div>
+              ) : <span />}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
