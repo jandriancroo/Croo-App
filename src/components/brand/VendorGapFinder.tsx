@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -18,7 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Search, RefreshCw, PackagePlus, AlertTriangle, CheckCircle2,
-  Loader2, Filter, EyeOff, RotateCcw, Link2, ChevronDown, MapPin,
+  Loader2, Filter, EyeOff, RotateCcw, Link2, ChevronDown, MapPin, X, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -44,9 +47,12 @@ interface OutlierItem {
 
 export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedLocationId = searchParams.get('location');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [locationPopoverOpen, setLocationPopoverOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [linkDialogItem, setLinkDialogItem] = useState<OutlierItem | null>(null);
   const [linkSearch, setLinkSearch] = useState('');
@@ -504,9 +510,39 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     [activeOutliers],
   );
 
+  // Build the list of locations that appear in at least one active gap
+  const locationsInGaps = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of activeOutliers) {
+      for (const loc of o.reportedByLocations) {
+        if (loc.id && !map.has(loc.id)) map.set(loc.id, loc.name || 'Unknown');
+      }
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeOutliers]);
+
+  const selectedLocationName = useMemo(
+    () => selectedLocationId ? locationsInGaps.find(l => l.id === selectedLocationId)?.name : null,
+    [selectedLocationId, locationsInGaps],
+  );
+
+  const setLocationFilter = (locId: string | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (locId) next.set('location', locId);
+      else next.delete('location');
+      return next;
+    }, { replace: true });
+  };
+
   const filteredOutliers = useMemo(() => {
     let items = activeOutliers;
     if (categoryFilter !== 'all') items = items.filter(o => o.categoryName === categoryFilter);
+    if (selectedLocationId) {
+      items = items.filter(o => o.reportedByLocations.some(l => l.id === selectedLocationId));
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       items = items.filter(o =>
@@ -516,7 +552,23 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       );
     }
     return items;
-  }, [activeOutliers, categoryFilter, searchQuery]);
+  }, [activeOutliers, categoryFilter, selectedLocationId, searchQuery]);
+
+  // Auto-clear location filter when its gaps reach zero
+  const lastClearedLocationRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedLocationId) return;
+    if (lastClearedLocationRef.current === selectedLocationId) return;
+    const stillHasGaps = activeOutliers.some(o =>
+      o.reportedByLocations.some(l => l.id === selectedLocationId),
+    );
+    if (!stillHasGaps && activeOutliers.length >= 0) {
+      const name = selectedLocationName || 'location';
+      lastClearedLocationRef.current = selectedLocationId;
+      setLocationFilter(null);
+      toast.success(`All gaps resolved for ${name}`);
+    }
+  }, [activeOutliers, selectedLocationId, selectedLocationName]);
 
   const toggleSelect = (itemNumber: string) => {
     setSelectedIds(prev => {
@@ -625,8 +677,8 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
             </div>
           </CardHeader>
           <CardContent className="px-4 pb-3 space-y-2">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
+            <div className="flex gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[180px]">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input placeholder="Search gaps..." value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)} className="h-8 pl-8 text-xs" />
@@ -641,6 +693,83 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                   {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <Popover open={locationPopoverOpen} onOpenChange={setLocationPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs justify-between min-w-[160px] max-w-[220px]"
+                    disabled={locationsInGaps.length === 0}
+                  >
+                    <span className="flex items-center gap-1 truncate">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{selectedLocationName || 'All Locations'}</span>
+                    </span>
+                    {selectedLocationId ? (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocationFilter(null);
+                          lastClearedLocationRef.current = null;
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setLocationFilter(null);
+                            lastClearedLocationRef.current = null;
+                          }
+                        }}
+                        className="ml-1 inline-flex items-center justify-center rounded-sm hover:bg-muted p-0.5"
+                        aria-label="Clear location filter"
+                      >
+                        <X className="h-3 w-3" />
+                      </span>
+                    ) : (
+                      <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[240px] p-0 bg-popover" align="end">
+                  <Command>
+                    <CommandInput placeholder="Search locations..." className="h-8 text-xs" autoFocus />
+                    <CommandList>
+                      <CommandEmpty>No locations found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="__all__"
+                          onSelect={() => {
+                            setLocationFilter(null);
+                            lastClearedLocationRef.current = null;
+                            setLocationPopoverOpen(false);
+                          }}
+                          className="text-xs"
+                        >
+                          <Check className={`mr-2 h-3.5 w-3.5 ${!selectedLocationId ? 'opacity-100' : 'opacity-0'}`} />
+                          All Locations
+                        </CommandItem>
+                        {locationsInGaps.map(loc => (
+                          <CommandItem
+                            key={loc.id}
+                            value={loc.name}
+                            onSelect={() => {
+                              setLocationFilter(loc.id);
+                              lastClearedLocationRef.current = null;
+                              setLocationPopoverOpen(false);
+                            }}
+                            className="text-xs"
+                          >
+                            <Check className={`mr-2 h-3.5 w-3.5 ${selectedLocationId === loc.id ? 'opacity-100' : 'opacity-0'}`} />
+                            {loc.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="flex items-center gap-2 px-1">
