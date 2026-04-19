@@ -228,12 +228,30 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
   );
 
   const filteredLiveTemplates = useMemo(() => {
-    if (!linkSearch.trim()) return liveTemplates.slice(0, 50);
+    if (!linkSearch.trim()) {
+      // Seed initial results with fuzzy word-overlap matches against the gap name.
+      // No auto-link — user must still pick. Falls back to alphabetical if no fuzzy hits.
+      const gapName = linkDialogItem?.name || linkDialogItem?.fullDescription || '';
+      if (!gapName) return liveTemplates.slice(0, 50);
+      const words = gapName.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(w => w.length >= 3);
+      if (words.length === 0) return liveTemplates.slice(0, 50);
+      const scored = liveTemplates
+        .map((t: any) => {
+          const name = (t.product_name || '').toLowerCase();
+          const hits = words.reduce((acc, w) => acc + (name.includes(w) ? 1 : 0), 0);
+          return { t, score: hits / words.length };
+        })
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 50)
+        .map(x => x.t);
+      return scored.length > 0 ? scored : liveTemplates.slice(0, 50);
+    }
     const q = linkSearch.toLowerCase();
     return liveTemplates
       .filter((t: any) => t.product_name?.toLowerCase().includes(q))
       .slice(0, 50);
-  }, [liveTemplates, linkSearch]);
+  }, [liveTemplates, linkSearch, linkDialogItem]);
 
   const runScan = async () => {
     setIsScanning(true);
