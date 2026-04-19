@@ -1819,7 +1819,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         const { data: punches, error: pErr } = await supabase
           .from("time_punches")
-          .select("user_id, shift_id, punch_type, punch_time, is_auto_punched_out, profiles!inner(full_name)")
+          .select("user_id, shift_id, punch_type, punch_time, is_auto_punched_out")
           .eq("location_id", args.location_id)
           .gte("punch_time", `${args.start_date}T00:00:00`)
           .lte("punch_time", `${endDate}T23:59:59`)
