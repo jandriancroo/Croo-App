@@ -122,6 +122,8 @@ serve(async (req) => {
         if (salesData.data) {
           const s = salesData.data;
           context.push(`Yesterday's Sales: $${Math.round(s.net_sales || 0).toLocaleString()}, ${s.guest_count || 0} guests`);
+        } else {
+          context.push(`Yesterday's Sales: DATA UNAVAILABLE`);
         }
 
         if (laborInsight.data?.analysis) {
@@ -129,13 +131,23 @@ serve(async (req) => {
           if (a.summary) {
             context.push(`Labor Grade: ${a.summary.overallGrade} — ${a.summary.headline}`);
             context.push(`Labor %: ${a.summary.laborPercent}%, Savings Opportunity: $${Math.round(a.summary.totalSavingsOpportunity || 0)}`);
+          } else {
+            context.push(`Labor Grade: DATA UNAVAILABLE`);
           }
           if (a.keyFindings?.length) {
             context.push(`Key Findings: ${a.keyFindings.slice(0, 3).map((f: any) => `[${f.severity}] ${f.title}: ${f.detail}`).join(" | ")}`);
+          } else {
+            context.push(`Key Findings: DATA UNAVAILABLE`);
           }
           if (a.todaySuggestions?.length) {
             context.push(`AI Suggestions: ${a.todaySuggestions.map((s: any) => s.suggestion).join(" | ")}`);
+          } else {
+            context.push(`AI Suggestions: DATA UNAVAILABLE`);
           }
+        } else {
+          context.push(`Labor Grade: DATA UNAVAILABLE`);
+          context.push(`Key Findings: DATA UNAVAILABLE`);
+          context.push(`AI Suggestions: DATA UNAVAILABLE`);
         }
 
         if (todaySchedule.data?.length) {
@@ -147,14 +159,20 @@ serve(async (req) => {
             })
             .slice(0, 15);
           context.push(`Today's Schedule (${todaySchedule.data.length} shifts): ${names.join(", ")}`);
+        } else {
+          context.push(`Today's Schedule: DATA UNAVAILABLE`);
         }
 
         if (pendingRequests.data?.length) {
           context.push(`Pending Time-Off Requests: ${pendingRequests.data.length}`);
+        } else {
+          context.push(`Pending Time-Off Requests: 0`);
         }
 
         if (cateringOrders.data?.length) {
           context.push(`Today's Catering: ${cateringOrders.data.map((c: any) => `${c.customer_name} at ${c.pickup_time} ($${c.total_price || 0})`).join(", ")}`);
+        } else {
+          context.push(`Today's Catering: NONE SCHEDULED`);
         }
 
         // Generate the briefing via AI
@@ -170,6 +188,8 @@ serve(async (req) => {
               {
                 role: "system",
                 content: `You are Theo, the morning operations assistant for a restaurant location. Generate a concise, actionable morning briefing that a manager reads with their coffee. Use markdown formatting.
+
+CRITICAL ANTI-HALLUCINATION RULE: Only reference data explicitly provided in the context below. If any item says "DATA UNAVAILABLE", say so naturally (e.g., "Yesterday's sales data isn't available yet" or "Labor grade not posted yet") — NEVER invent numbers, employee names, catering customers, or events. If catering says "NONE SCHEDULED", do not mention catering. Do not fabricate any specifics that are not in the provided context. It is far better to omit a section or say data is missing than to invent a single fact.
 
 Structure:
 1. **Good Morning** — One-line energy-setting summary of the day ahead
