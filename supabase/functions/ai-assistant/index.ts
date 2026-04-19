@@ -1697,7 +1697,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         const { data: shifts, error: sErr } = await supabase
           .from("scheduled_shifts")
-          .select("id, user_id, shift_date, start_time, end_time, is_time_off, profiles!inner(full_name)")
+          .select("id, user_id, shift_date, start_time, end_time, is_time_off")
           .in("schedule_id", scheduleIds)
           .gte("shift_date", args.start_date)
           .lte("shift_date", endDate)
@@ -1706,10 +1706,20 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         const { data: punches } = await supabase
           .from("time_punches")
-          .select("user_id, shift_id, punch_type, punch_time, profiles!inner(full_name)")
+          .select("user_id, shift_id, punch_type, punch_time")
           .eq("location_id", args.location_id)
           .gte("punch_time", `${args.start_date}T00:00:00`)
           .lte("punch_time", `${endDate}T23:59:59`);
+
+        // Resolve names in one batch
+        const userIdSet = new Set<string>();
+        (shifts || []).forEach((s: any) => userIdSet.add(s.user_id));
+        (punches || []).forEach((p: any) => userIdSet.add(p.user_id));
+        const { data: profileRows } = userIdSet.size > 0
+          ? await supabase.from("profiles").select("id, full_name").in("id", Array.from(userIdSet))
+          : { data: [] as any[] };
+        const nameMap: Record<string, string> = {};
+        (profileRows || []).forEach((p: any) => { nameMap[p.id] = p.full_name; });
 
         const { data: timeOffs } = await supabase
           .from("availability_requests")
