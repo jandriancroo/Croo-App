@@ -1858,12 +1858,20 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           });
         });
 
+        const userIdSet2 = new Set<string>();
+        (punches || []).forEach((p: any) => userIdSet2.add(p.user_id));
+        const { data: profileRows2 } = userIdSet2.size > 0
+          ? await supabase.from("profiles").select("id, full_name").in("id", Array.from(userIdSet2))
+          : { data: [] as any[] };
+        const nameMap: Record<string, string> = {};
+        (profileRows2 || []).forEach((p: any) => { nameMap[p.id] = p.full_name; });
+
         const shiftPunches: Record<string, any> = {};
         (punches || []).forEach((p: any) => {
           const key = p.shift_id || `${p.user_id}-${p.punch_time.slice(0, 10)}`;
-          if (!shiftPunches[key]) shiftPunches[key] = { user_id: p.user_id, name: p.profiles?.full_name, in: null, out: null, auto: false };
-          if (p.punch_type === "in") shiftPunches[key].in = p.punch_time;
-          if (p.punch_type === "out") {
+          if (!shiftPunches[key]) shiftPunches[key] = { user_id: p.user_id, name: nameMap[p.user_id] || "Unknown", in: null, out: null, auto: false };
+          if (p.punch_type === "clock_in") shiftPunches[key].in = p.punch_time;
+          if (p.punch_type === "clock_out") {
             shiftPunches[key].out = p.punch_time;
             if (p.is_auto_punched_out) shiftPunches[key].auto = true;
           }
