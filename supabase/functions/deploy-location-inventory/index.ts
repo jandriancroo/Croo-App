@@ -322,6 +322,12 @@ Deno.serve(async (req) => {
       // to stamp at deploy. Syncs remain price-only and don't touch these IDs.
       const pfgSku = pfgByTemplate.get(tmpl.id);
       const paSku = paByTemplate.get(tmpl.id);
+      // Derive vendor_source from mappings if template's is blank.
+      // Many older brand templates have NULL vendor_source even though they have
+      // a PFG/PA mapping — without this, the cost-backfill loop below skips them
+      // (it filters on vendor_source = 'pfg') and items deploy with $0 cost.
+      const resolvedVendorSource = tmpl.vendor_source
+        || (pfgSku ? "pfg" : (paSku ? "produce_alliance" : null));
       const { data: newItem, error: createErr } = await supabase
         .from("inventory_items")
         .insert({
@@ -333,7 +339,7 @@ Deno.serve(async (req) => {
           is_recipe: tmpl.is_recipe || false,
           recipe_yield_qty: tmpl.recipe_yield_qty,
           recipe_yield_unit: tmpl.recipe_yield_unit,
-          vendor_source: tmpl.vendor_source,
+          vendor_source: resolvedVendorSource,
           brand_item_id: tmpl.id,
           pan_sizes: panSizes,
           ...(pfgSku ? { item_number: pfgSku } : {}),
