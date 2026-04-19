@@ -1988,10 +1988,17 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const laborMap: Record<string, any> = {};
         (laborRows || []).forEach((r: any) => laborMap[r.labor_date] = r);
 
-        const dayBlockCrew: Record<string, Set<string>> = {};
+        const userIdSet3 = new Set<string>();
+        (punches || []).forEach((p: any) => userIdSet3.add(p.user_id));
+        const { data: profileRows3 } = userIdSet3.size > 0
+          ? await supabase.from("profiles").select("id, full_name").in("id", Array.from(userIdSet3))
+          : { data: [] as any[] };
         const nameMap: Record<string, string> = {};
+        (profileRows3 || []).forEach((p: any) => { nameMap[p.id] = p.full_name; });
+
+        const dayBlockCrew: Record<string, Set<string>> = {};
         (punches || []).forEach((p: any) => {
-          if (p.punch_type !== "in") return;
+          if (p.punch_type !== "clock_in") return;
           const date = p.punch_time.slice(0, 10);
           const hour = parseInt(p.punch_time.slice(11, 13), 10);
           const block = hour < 14 ? "am" : "pm";
@@ -2003,7 +2010,6 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const key = `${date}|${block}`;
           if (!dayBlockCrew[key]) dayBlockCrew[key] = new Set();
           dayBlockCrew[key].add(p.user_id);
-          nameMap[p.user_id] = p.profiles?.full_name || "Unknown";
         });
 
         const dayBlockOutcome = (date: string, block: string) => {
