@@ -507,6 +507,61 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_callout_patterns",
+      description: "Detect callouts (scheduled but didn't show), find replacement workers, and calculate dollar impact. Use for questions about who missed shifts, who covered them, repeat no-show offenders, attendance reliability, and the cost of absenteeism. Cross-references published schedule against actual punches and approved time-off requests.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "Location UUID" },
+          start_date: { type: "string", description: "ISO date YYYY-MM-DD" },
+          end_date: { type: "string", description: "ISO date YYYY-MM-DD (defaults to start_date)" },
+          employee_name: { type: "string", description: "Optional partial name filter" },
+        },
+        required: ["location_id", "start_date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_punch_patterns",
+      description: "Analyze scheduled-vs-actual punch behavior over time. Detects employees who clock in early, clock out late, work without being scheduled, or get auto-punched out (forgot to clock out). Calculates 'stolen' labor minutes and dollar impact. Use for time theft, punch abuse, payroll integrity, and attendance discipline questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "Location UUID" },
+          start_date: { type: "string", description: "ISO date YYYY-MM-DD" },
+          end_date: { type: "string", description: "ISO date YYYY-MM-DD (defaults to start_date)" },
+          pattern_type: { type: "string", enum: ["early_in", "late_out", "no_schedule", "auto_punch", "all"], description: "Filter to a single pattern (default 'all')" },
+          employee_name: { type: "string", description: "Optional partial name filter" },
+          threshold_minutes: { type: "number", description: "Minimum variance in minutes to count as a pattern (default 7)" },
+        },
+        required: ["location_id", "start_date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_crew_performance",
+      description: "Identify which crew compositions (groups of employees working together) drive the best — or worst — operational outcomes. Correlates who was clocked in during a shift block (AM/PM) with sales, labor %, SPLH, and checklist completion over a date range. Use for cross-domain questions like 'which team crushes Saturday nights', 'who works best together', 'which crew runs the cleanest shift'.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "Location UUID" },
+          start_date: { type: "string", description: "ISO date YYYY-MM-DD" },
+          end_date: { type: "string", description: "ISO date YYYY-MM-DD" },
+          shift_block: { type: "string", enum: ["am", "pm", "all"], description: "AM = before 14:00, PM = 14:00 onward (default 'all')" },
+          min_occurrences: { type: "number", description: "Only include crews that worked together this many times (default 2)" },
+          day_of_week: { type: "number", description: "Optional: filter to a single day of week (0=Sun..6=Sat)" },
+        },
+        required: ["location_id", "start_date", "end_date"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
@@ -1623,6 +1678,397 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         }
 
         return JSON.stringify({ messages: results, total: results.length });
+      }
+
+      case "query_callout_patterns": {
+        const endDate = args.end_date || args.start_date;
+
+        const { data: schedules } = await supabase
+          .from("schedules")
+          .select("id")
+          .eq("location_id", args.location_id)
+          .eq("is_published", true)
+          .gte("week_end_date", args.start_date)
+          .lte("week_start_date", endDate);
+        const scheduleIds = (schedules || []).map((s: any) => s.id);
+        if (scheduleIds.length === 0) {
+          return JSON.stringify({ message: "No published schedules in this date range." });
+        }
+
+        const { data: shifts, error: sErr } = await supabase
+          .from("scheduled_shifts")
+          .select("id, user_id, shift_date, start_time, end_time, is_time_off, profiles!inner(full_name)")
+          .in("schedule_id", scheduleIds)
+          .gte("shift_date", args.start_date)
+          .lte("shift_date", endDate)
+          .eq("is_time_off", false);
+        if (sErr) return JSON.stringify({ error: sErr.message });
+
+        const { data: punches } = await supabase
+          .from("time_punches")
+          .select("user_id, shift_id, punch_type, punch_time, profiles!inner(full_name)")
+          .eq("location_id", args.location_id)
+          .gte("punch_time", `${args.start_date}T00:00:00`)
+          .lte("punch_time", `${endDate}T23:59:59`);
+
+        const { data: timeOffs } = await supabase
+          .from("availability_requests")
+          .select("user_id, start_date, end_date, request_type")
+          .eq("location_id", args.location_id)
+          .eq("status", "approved")
+          .lte("start_date", endDate)
+          .gte("end_date", args.start_date);
+
+        const { data: laborRows } = await supabase
+          .from("labor_cache")
+          .select("labor_date, employee_breakdown")
+          .eq("location_id", args.location_id)
+          .gte("labor_date", args.start_date)
+          .lte("labor_date", endDate);
+        const wageMap: Record<string, number> = {};
+        (laborRows || []).forEach((row: any) => {
+          (row.employee_breakdown || []).forEach((e: any) => {
+            if (e.user_id && e.wage) wageMap[e.user_id] = Number(e.wage);
+          });
+        });
+
+        const userPunchedForShift = (userId: string, shiftDate: string, startTime: string) => {
+          const shiftStart = new Date(`${shiftDate}T${startTime}`).getTime();
+          return (punches || []).some((p: any) => {
+            if (p.user_id !== userId || p.punch_type !== "in") return false;
+            const pTime = new Date(p.punch_time).getTime();
+            return Math.abs(pTime - shiftStart) <= 90 * 60 * 1000;
+          });
+        };
+        const userOnApprovedTimeOff = (userId: string, shiftDate: string) =>
+          (timeOffs || []).some((t: any) =>
+            t.user_id === userId && t.start_date <= shiftDate && t.end_date >= shiftDate
+          );
+
+        const callouts: any[] = [];
+        for (const shift of shifts || []) {
+          if (userPunchedForShift(shift.user_id, shift.shift_date, shift.start_time)) continue;
+          if (userOnApprovedTimeOff(shift.user_id, shift.shift_date)) continue;
+
+          const shiftStart = new Date(`${shift.shift_date}T${shift.start_time}`).getTime();
+          const scheduledUserIdsToday = (shifts || [])
+            .filter((s: any) => s.shift_date === shift.shift_date)
+            .map((s: any) => s.user_id);
+          const replacementPunch = (punches || []).find((p: any) => {
+            if (p.punch_type !== "in") return false;
+            if (scheduledUserIdsToday.includes(p.user_id)) return false;
+            const pTime = new Date(p.punch_time).getTime();
+            return Math.abs(pTime - shiftStart) <= 2 * 60 * 60 * 1000;
+          });
+
+          const startMs = new Date(`${shift.shift_date}T${shift.start_time}`).getTime();
+          const endMs = new Date(`${shift.shift_date}T${shift.end_time}`).getTime();
+          const hours = Math.max(0, (endMs - startMs) / 3600000);
+          const wage = replacementPunch ? (wageMap[replacementPunch.user_id] || 0) : 0;
+          const cost = hours * wage;
+
+          callouts.push({
+            date: shift.shift_date,
+            employee: shift.profiles?.full_name || "Unknown",
+            scheduled_start: shift.start_time,
+            scheduled_end: shift.end_time,
+            replacement: replacementPunch ? (replacementPunch.profiles?.full_name || "Unknown") : null,
+            replacement_cost_estimate: Math.round(cost * 100) / 100,
+          });
+        }
+
+        let filtered = callouts;
+        if (args.employee_name) {
+          const q = args.employee_name.toLowerCase();
+          filtered = callouts.filter((c) => c.employee.toLowerCase().includes(q));
+        }
+
+        const byEmployee: Record<string, any> = {};
+        filtered.forEach((c) => {
+          if (!byEmployee[c.employee]) byEmployee[c.employee] = { name: c.employee, callouts: 0, cost_impact: 0, dates: [] };
+          byEmployee[c.employee].callouts++;
+          byEmployee[c.employee].cost_impact += c.replacement_cost_estimate;
+          byEmployee[c.employee].dates.push(c.date);
+        });
+        const ranked = Object.values(byEmployee).sort((a: any, b: any) => b.callouts - a.callouts);
+
+        return JSON.stringify({
+          total_scheduled_shifts: shifts?.length || 0,
+          total_callouts: filtered.length,
+          callout_rate_pct: shifts?.length ? Math.round((filtered.length / shifts.length) * 1000) / 10 : 0,
+          total_dollar_impact: Math.round(filtered.reduce((s, c) => s + c.replacement_cost_estimate, 0) * 100) / 100,
+          by_employee: ranked,
+          callouts: filtered.slice(0, 50),
+        });
+      }
+
+      case "query_punch_patterns": {
+        const endDate = args.end_date || args.start_date;
+        const threshold = (args.threshold_minutes || 7) * 60 * 1000;
+        const patternFilter = args.pattern_type || "all";
+
+        const { data: punches, error: pErr } = await supabase
+          .from("time_punches")
+          .select("user_id, shift_id, punch_type, punch_time, is_auto_punched_out, profiles!inner(full_name)")
+          .eq("location_id", args.location_id)
+          .gte("punch_time", `${args.start_date}T00:00:00`)
+          .lte("punch_time", `${endDate}T23:59:59`)
+          .order("punch_time");
+        if (pErr) return JSON.stringify({ error: pErr.message });
+
+        const { data: schedules } = await supabase
+          .from("schedules")
+          .select("id")
+          .eq("location_id", args.location_id)
+          .eq("is_published", true)
+          .gte("week_end_date", args.start_date)
+          .lte("week_start_date", endDate);
+        const scheduleIds = (schedules || []).map((s: any) => s.id);
+        const shiftsRes = scheduleIds.length > 0
+          ? await supabase
+              .from("scheduled_shifts")
+              .select("id, user_id, shift_date, start_time, end_time, is_time_off")
+              .in("schedule_id", scheduleIds)
+              .gte("shift_date", args.start_date)
+              .lte("shift_date", endDate)
+              .eq("is_time_off", false)
+          : { data: [] as any[] };
+        const shifts = shiftsRes.data || [];
+
+        const { data: laborRows } = await supabase
+          .from("labor_cache")
+          .select("employee_breakdown")
+          .eq("location_id", args.location_id)
+          .gte("labor_date", args.start_date)
+          .lte("labor_date", endDate);
+        const wageMap: Record<string, number> = {};
+        (laborRows || []).forEach((row: any) => {
+          (row.employee_breakdown || []).forEach((e: any) => {
+            if (e.user_id && e.wage) wageMap[e.user_id] = Number(e.wage);
+          });
+        });
+
+        const shiftPunches: Record<string, any> = {};
+        (punches || []).forEach((p: any) => {
+          const key = p.shift_id || `${p.user_id}-${p.punch_time.slice(0, 10)}`;
+          if (!shiftPunches[key]) shiftPunches[key] = { user_id: p.user_id, name: p.profiles?.full_name, in: null, out: null, auto: false };
+          if (p.punch_type === "in") shiftPunches[key].in = p.punch_time;
+          if (p.punch_type === "out") {
+            shiftPunches[key].out = p.punch_time;
+            if (p.is_auto_punched_out) shiftPunches[key].auto = true;
+          }
+        });
+
+        const findScheduled = (userId: string, punchInIso: string | null) => {
+          if (!punchInIso) return null;
+          const date = punchInIso.slice(0, 10);
+          const punchMs = new Date(punchInIso).getTime();
+          let best: any = null;
+          let bestDiff = Infinity;
+          shifts.forEach((s: any) => {
+            if (s.user_id !== userId || s.shift_date !== date) return;
+            const schedMs = new Date(`${s.shift_date}T${s.start_time}`).getTime();
+            const diff = Math.abs(schedMs - punchMs);
+            if (diff < bestDiff && diff <= 4 * 60 * 60 * 1000) {
+              bestDiff = diff;
+              best = s;
+            }
+          });
+          return best;
+        };
+
+        const findings: any[] = [];
+        Object.values(shiftPunches).forEach((sp: any) => {
+          const sched = findScheduled(sp.user_id, sp.in);
+
+          if (sp.auto && (patternFilter === "all" || patternFilter === "auto_punch")) {
+            findings.push({ type: "auto_punch", employee: sp.name, date: (sp.in || sp.out || "").slice(0, 10), detail: "Forgot to clock out — system auto-punched" });
+          }
+
+          if (!sched && sp.in && (patternFilter === "all" || patternFilter === "no_schedule")) {
+            findings.push({ type: "no_schedule", employee: sp.name, date: sp.in.slice(0, 10), detail: "Worked without being on the schedule" });
+            return;
+          }
+
+          if (sched && sp.in && (patternFilter === "all" || patternFilter === "early_in")) {
+            const schedMs = new Date(`${sched.shift_date}T${sched.start_time}`).getTime();
+            const inMs = new Date(sp.in).getTime();
+            const earlyMs = schedMs - inMs;
+            if (earlyMs > threshold) {
+              const minutes = Math.round(earlyMs / 60000);
+              const wage = wageMap[sp.user_id] || 0;
+              const cost = (minutes / 60) * wage;
+              findings.push({ type: "early_in", employee: sp.name, date: sched.shift_date, minutes_early: minutes, cost_impact: Math.round(cost * 100) / 100 });
+            }
+          }
+
+          if (sched && sp.out && (patternFilter === "all" || patternFilter === "late_out")) {
+            const schedMs = new Date(`${sched.shift_date}T${sched.end_time}`).getTime();
+            const outMs = new Date(sp.out).getTime();
+            const lateMs = outMs - schedMs;
+            if (lateMs > threshold) {
+              const minutes = Math.round(lateMs / 60000);
+              const wage = wageMap[sp.user_id] || 0;
+              const cost = (minutes / 60) * wage;
+              findings.push({ type: "late_out", employee: sp.name, date: sched.shift_date, minutes_late: minutes, cost_impact: Math.round(cost * 100) / 100 });
+            }
+          }
+        });
+
+        let filtered = findings;
+        if (args.employee_name) {
+          const q = args.employee_name.toLowerCase();
+          filtered = findings.filter((f) => (f.employee || "").toLowerCase().includes(q));
+        }
+
+        const byEmployee: Record<string, any> = {};
+        filtered.forEach((f) => {
+          if (!byEmployee[f.employee]) byEmployee[f.employee] = { name: f.employee, total: 0, early_in: 0, late_out: 0, no_schedule: 0, auto_punch: 0, cost_impact: 0 };
+          byEmployee[f.employee].total++;
+          byEmployee[f.employee][f.type]++;
+          if (f.cost_impact) byEmployee[f.employee].cost_impact += f.cost_impact;
+        });
+        const ranked = Object.values(byEmployee).sort((a: any, b: any) => b.total - a.total);
+
+        return JSON.stringify({
+          total_findings: filtered.length,
+          total_dollar_impact: Math.round(filtered.reduce((s, f) => s + (f.cost_impact || 0), 0) * 100) / 100,
+          by_employee: ranked,
+          findings: filtered.slice(0, 100),
+        });
+      }
+
+      case "query_crew_performance": {
+        const minOccurrences = args.min_occurrences || 2;
+        const shiftBlock = args.shift_block || "all";
+
+        const { data: punches, error: pErr } = await supabase
+          .from("time_punches")
+          .select("user_id, punch_type, punch_time, profiles!inner(full_name)")
+          .eq("location_id", args.location_id)
+          .gte("punch_time", `${args.start_date}T00:00:00`)
+          .lte("punch_time", `${args.end_date}T23:59:59`)
+          .order("punch_time");
+        if (pErr) return JSON.stringify({ error: pErr.message });
+
+        const { data: salesRows } = await supabase
+          .from("sales_cache")
+          .select("sale_date, net_sales, hourly_data")
+          .eq("location_id", args.location_id)
+          .gte("sale_date", args.start_date)
+          .lte("sale_date", args.end_date);
+
+        const { data: laborRows } = await supabase
+          .from("labor_cache")
+          .select("labor_date, labor_cost, labor_hours, hourly_breakdown")
+          .eq("location_id", args.location_id)
+          .gte("labor_date", args.start_date)
+          .lte("labor_date", args.end_date);
+
+        const salesMap: Record<string, any> = {};
+        (salesRows || []).forEach((r: any) => salesMap[r.sale_date] = r);
+        const laborMap: Record<string, any> = {};
+        (laborRows || []).forEach((r: any) => laborMap[r.labor_date] = r);
+
+        const dayBlockCrew: Record<string, Set<string>> = {};
+        const nameMap: Record<string, string> = {};
+        (punches || []).forEach((p: any) => {
+          if (p.punch_type !== "in") return;
+          const date = p.punch_time.slice(0, 10);
+          const hour = parseInt(p.punch_time.slice(11, 13), 10);
+          const block = hour < 14 ? "am" : "pm";
+          if (shiftBlock !== "all" && block !== shiftBlock) return;
+          if (args.day_of_week !== undefined && args.day_of_week !== null) {
+            const dow = new Date(`${date}T12:00:00`).getDay();
+            if (dow !== args.day_of_week) return;
+          }
+          const key = `${date}|${block}`;
+          if (!dayBlockCrew[key]) dayBlockCrew[key] = new Set();
+          dayBlockCrew[key].add(p.user_id);
+          nameMap[p.user_id] = p.profiles?.full_name || "Unknown";
+        });
+
+        const dayBlockOutcome = (date: string, block: string) => {
+          const sales = salesMap[date];
+          const labor = laborMap[date];
+          let blockSales = 0;
+          let blockLaborCost = 0;
+          let blockLaborHours = 0;
+
+          if (sales?.hourly_data && Array.isArray(sales.hourly_data)) {
+            sales.hourly_data.forEach((h: any) => {
+              const hour = h.hour;
+              if (block === "am" && hour < 14) blockSales += Number(h.sales || 0);
+              if (block === "pm" && hour >= 14) blockSales += Number(h.sales || 0);
+            });
+          }
+          if (labor?.hourly_breakdown && Array.isArray(labor.hourly_breakdown)) {
+            labor.hourly_breakdown.forEach((h: any) => {
+              const hour = h.hour;
+              if (block === "am" && hour < 14) {
+                blockLaborCost += Number(h.cost || h.labor_cost || 0);
+                blockLaborHours += Number(h.hours || h.labor_hours || 0);
+              }
+              if (block === "pm" && hour >= 14) {
+                blockLaborCost += Number(h.cost || h.labor_cost || 0);
+                blockLaborHours += Number(h.hours || h.labor_hours || 0);
+              }
+            });
+          }
+          if (blockLaborCost === 0 && labor?.labor_cost) {
+            blockLaborCost = Number(labor.labor_cost) * 0.5;
+            blockLaborHours = Number(labor.labor_hours || 0) * 0.5;
+          }
+          if (blockSales === 0 && sales?.net_sales) {
+            blockSales = Number(sales.net_sales) * 0.5;
+          }
+          return { sales: blockSales, laborCost: blockLaborCost, laborHours: blockLaborHours };
+        };
+
+        const crewMap: Record<string, any> = {};
+        Object.entries(dayBlockCrew).forEach(([key, crew]) => {
+          const [date, block] = key.split("|");
+          const crewKey = Array.from(crew).sort().join(",");
+          if (!crewMap[crewKey]) {
+            crewMap[crewKey] = {
+              members: Array.from(crew).map((id) => nameMap[id]).sort(),
+              shifts_worked: 0,
+              total_sales: 0,
+              total_labor_cost: 0,
+              total_labor_hours: 0,
+            };
+          }
+          const out = dayBlockOutcome(date, block);
+          crewMap[crewKey].shifts_worked++;
+          crewMap[crewKey].total_sales += out.sales;
+          crewMap[crewKey].total_labor_cost += out.laborCost;
+          crewMap[crewKey].total_labor_hours += out.laborHours;
+        });
+
+        const crews = Object.values(crewMap)
+          .filter((c: any) => c.shifts_worked >= minOccurrences)
+          .map((c: any) => {
+            const avg_sales = c.total_sales / c.shifts_worked;
+            const avg_labor_pct = c.total_sales > 0 ? (c.total_labor_cost / c.total_sales) * 100 : 0;
+            const avg_splh = c.total_labor_hours > 0 ? c.total_sales / c.total_labor_hours : 0;
+            return {
+              members: c.members,
+              shifts_worked: c.shifts_worked,
+              avg_sales: Math.round(avg_sales * 100) / 100,
+              avg_labor_pct: Math.round(avg_labor_pct * 10) / 10,
+              avg_splh: Math.round(avg_splh * 100) / 100,
+              composite_score: Math.round(avg_splh * 10) / 10,
+            };
+          })
+          .sort((a: any, b: any) => b.composite_score - a.composite_score);
+
+        return JSON.stringify({
+          total_unique_crews: crews.length,
+          total_shift_blocks_analyzed: Object.keys(dayBlockCrew).length,
+          top_crews: crews.slice(0, 10),
+          worst_crews: crews.slice(-5).reverse(),
+          note: "SPLH = Sales Per Labor Hour. Composite is currently SPLH-based. AM = before 14:00, PM = 14:00 onward. Labor split between AM/PM uses hourly breakdown when available, otherwise 50/50 estimate.",
+        });
       }
 
       default:
