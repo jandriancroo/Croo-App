@@ -997,18 +997,36 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                 {filteredLiveTemplates.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-8">No matching items.</p>
                 ) : (
-                  filteredLiveTemplates.map((t: any) => (
+                  filteredLiveTemplates.map((t: any) => {
+                    const ids = templateVendorIds.get(t.id);
+                    const pfgIds = ids ? Array.from(ids.pfg) : [];
+                    const paIds = ids ? Array.from(ids.pa) : [];
+                    const hasIds = pfgIds.length > 0 || paIds.length > 0;
+                    return (
                     <button key={t.id} type="button"
                       disabled={linkToExistingMutation.isPending}
                       onClick={() => linkDialogItem && handleLinkClick(linkDialogItem, t.id, t.product_name)}
-                      className="w-full flex items-center gap-2 py-2 px-2 text-xs hover:bg-muted/50 rounded-md transition-colors text-left disabled:opacity-50">
-                      <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
-                      <span className="truncate flex-1 font-medium">{t.product_name}</span>
-                      {t.category && (
-                        <span className="text-[10px] text-muted-foreground shrink-0">{t.category}</span>
-                      )}
+                      className="w-full flex items-start gap-2 py-2 px-2 text-xs hover:bg-muted/50 rounded-md transition-colors text-left disabled:opacity-50">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate flex-1 font-medium">{t.product_name}</span>
+                          {t.category && (
+                            <span className="text-[10px] text-muted-foreground shrink-0">{t.category}</span>
+                          )}
+                        </div>
+                        {hasIds ? (
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 text-[10px] text-muted-foreground font-mono">
+                            {pfgIds.map(id => <span key={`pfg-${id}`}>PFG #{id}</span>)}
+                            {paIds.map(id => <span key={`pa-${id}`}>PA #{id}</span>)}
+                          </div>
+                        ) : (
+                          <div className="mt-0.5 text-[10px] text-muted-foreground/60 italic">No vendor IDs linked</div>
+                        )}
+                      </div>
                     </button>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </ScrollArea>
