@@ -677,8 +677,8 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
             </div>
           </CardHeader>
           <CardContent className="px-4 pb-3 space-y-2">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
+            <div className="flex gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[180px]">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input placeholder="Search gaps..." value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)} className="h-8 pl-8 text-xs" />
@@ -693,6 +693,83 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                   {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <Popover open={locationPopoverOpen} onOpenChange={setLocationPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs justify-between min-w-[160px] max-w-[220px]"
+                    disabled={locationsInGaps.length === 0}
+                  >
+                    <span className="flex items-center gap-1 truncate">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{selectedLocationName || 'All Locations'}</span>
+                    </span>
+                    {selectedLocationId ? (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocationFilter(null);
+                          lastClearedLocationRef.current = null;
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setLocationFilter(null);
+                            lastClearedLocationRef.current = null;
+                          }
+                        }}
+                        className="ml-1 inline-flex items-center justify-center rounded-sm hover:bg-muted p-0.5"
+                        aria-label="Clear location filter"
+                      >
+                        <X className="h-3 w-3" />
+                      </span>
+                    ) : (
+                      <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[240px] p-0 bg-popover" align="end">
+                  <Command>
+                    <CommandInput placeholder="Search locations..." className="h-8 text-xs" autoFocus />
+                    <CommandList>
+                      <CommandEmpty>No locations found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="__all__"
+                          onSelect={() => {
+                            setLocationFilter(null);
+                            lastClearedLocationRef.current = null;
+                            setLocationPopoverOpen(false);
+                          }}
+                          className="text-xs"
+                        >
+                          <Check className={`mr-2 h-3.5 w-3.5 ${!selectedLocationId ? 'opacity-100' : 'opacity-0'}`} />
+                          All Locations
+                        </CommandItem>
+                        {locationsInGaps.map(loc => (
+                          <CommandItem
+                            key={loc.id}
+                            value={loc.name}
+                            onSelect={() => {
+                              setLocationFilter(loc.id);
+                              lastClearedLocationRef.current = null;
+                              setLocationPopoverOpen(false);
+                            }}
+                            className="text-xs"
+                          >
+                            <Check className={`mr-2 h-3.5 w-3.5 ${selectedLocationId === loc.id ? 'opacity-100' : 'opacity-0'}`} />
+                            {loc.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="flex items-center gap-2 px-1">
