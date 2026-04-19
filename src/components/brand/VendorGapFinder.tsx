@@ -47,9 +47,12 @@ interface OutlierItem {
 
 export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedLocationId = searchParams.get('location');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [locationPopoverOpen, setLocationPopoverOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [linkDialogItem, setLinkDialogItem] = useState<OutlierItem | null>(null);
   const [linkSearch, setLinkSearch] = useState('');
