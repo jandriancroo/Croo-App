@@ -151,7 +151,7 @@ function toJsonLd(listing: any, supabaseUrl: string) {
       },
     },
     directApply: true,
-    url: getApplicationUrl(listing, supabaseUrl, "google_jobs"),
+    url: getJobDetailUrl(listing, "google_jobs"),
   };
 
   if (listing.pay_min || listing.pay_max) {
@@ -200,7 +200,7 @@ function toXmlFeed(listings: any[], supabaseUrl: string): string {
     .map((listing) => {
       const addr = parseAddress(listing.location?.address);
       const org = listing.organization;
-      const applyUrl = getApplicationUrl(listing, supabaseUrl, "xml_feed");
+      const applyUrl = getJobDetailUrl(listing, "xml_feed");
 
       return `    <job>
       <title><![CDATA[${listing.title}]]></title>
