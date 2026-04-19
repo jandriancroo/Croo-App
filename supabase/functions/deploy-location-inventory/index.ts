@@ -371,11 +371,14 @@ Deno.serve(async (req) => {
 
     // 5b. (Removed) Separate PFG stamping pass — vendor IDs are now stamped at INSERT time above.
 
-    // 5c. Backfill PFG cost_per_unit from THIS LOCATION'S own PFG order history.
-    // PFG pricing is contract-specific per customer/location, so we cannot copy
-    // from sibling locations. Instead we read the most recent line-item price
-    // for each stamped SKU from this location's `pfg_orders.items` JSON.
-    // Subsequent PFG order/invoice cycles will refresh prices as they arrive.
+    // 5c. Backfill PFG cost_per_unit. Two-tier strategy:
+    //   Tier 1 — PFG Bid Guide (preferred): contract pricing for every SKU on the
+    //     location's bid, regardless of whether it's been ordered. Pulled live via
+    //     pfg-service `categories` action against the stored product_list_header_id.
+    //   Tier 2 — Local PFG order history: fallback for SKUs not on the bid guide
+    //     (off-bid items still ordered ad-hoc). Reads pfg_orders.items JSON.
+    // PFG pricing is contract-specific per customer/location, so we never copy
+    // from sibling locations. Subsequent order/invoice cycles refresh prices.
     try {
       const itemIds = Array.from(templateToItemId.values());
       if (itemIds.length > 0) {
@@ -391,42 +394,99 @@ Deno.serve(async (req) => {
         );
 
         if (needPrice.length > 0) {
-          const { data: orders, error: ordErr } = await supabase
-            .from("pfg_orders")
-            .select("items, order_date")
-            .eq("location_id", locationId)
-            .not("items", "is", null)
-            .order("order_date", { ascending: false })
-            .limit(50);
+          const priceBySku = new Map<string, number>();
 
-          if (ordErr) {
-            console.warn("[Deploy] PFG orders fetch failed:", ordErr);
-          } else {
-            // Walk lines newest-first, take first non-zero price per SKU.
-            const priceBySku = new Map<string, number>();
-            for (const ord of orders || []) {
-              const lines = Array.isArray(ord.items) ? ord.items : [];
-              for (const line of lines) {
-                const sku = line?.itemNumber ? String(line.itemNumber) : null;
-                const price = Number(line?.price) || 0;
-                if (sku && price > 0 && !priceBySku.has(sku)) {
-                  priceBySku.set(sku, price);
+          // ─── Tier 1: PFG Bid Guide ────────────────────────────────────────────
+          // Look up the location's stored bid guide ID + customer ID, then call
+          // pfg-service to fetch every SKU on the bid with contract pricing.
+          try {
+            const { data: pfgIntegration } = await supabase
+              .from("location_integrations")
+              .select("credentials")
+              .eq("location_id", locationId)
+              .eq("integration_type", "pfg")
+              .eq("is_active", true)
+              .maybeSingle();
+
+            const creds: any = pfgIntegration?.credentials || {};
+            const bidGuideId = creds.product_list_header_id;
+            const customerId = creds.customer_id;
+
+            if (bidGuideId && customerId) {
+              const { data: catData, error: catErr } = await supabase.functions.invoke(
+                "pfg-service",
+                {
+                  body: {
+                    action: "categories",
+                    locationId,
+                    productListHeaderId: bidGuideId,
+                    customerId,
+                  },
+                },
+              );
+              if (catErr) {
+                console.warn("[Deploy] PFG bid guide fetch failed:", catErr.message);
+              } else {
+                const categories = catData?.data?.categories || [];
+                let bidProducts = 0;
+                for (const cat of categories) {
+                  for (const p of cat.products || []) {
+                    const sku = p?.itemNumber ? String(p.itemNumber) : null;
+                    const price = Number(p?.price) || 0;
+                    if (sku && price > 0 && !priceBySku.has(sku)) {
+                      priceBySku.set(sku, price);
+                      bidProducts++;
+                    }
+                  }
+                }
+                console.log(`[Deploy] PFG Bid Guide loaded: ${bidProducts} SKUs with prices.`);
+              }
+            } else {
+              console.log("[Deploy] No PFG bid guide configured for this location — skipping Tier 1.");
+            }
+          } catch (bidErr) {
+            console.warn("[Deploy] PFG bid guide pass threw:", bidErr);
+          }
+
+          // ─── Tier 2: Local PFG order history (fallback for off-bid SKUs) ──────
+          const stillNeed = needPrice.filter((i: any) => !priceBySku.has(i.item_number));
+          if (stillNeed.length > 0) {
+            const { data: orders, error: ordErr } = await supabase
+              .from("pfg_orders")
+              .select("items, order_date")
+              .eq("location_id", locationId)
+              .not("items", "is", null)
+              .order("order_date", { ascending: false })
+              .limit(50);
+
+            if (ordErr) {
+              console.warn("[Deploy] PFG orders fetch failed:", ordErr);
+            } else {
+              for (const ord of orders || []) {
+                const lines = Array.isArray(ord.items) ? ord.items : [];
+                for (const line of lines) {
+                  const sku = line?.itemNumber ? String(line.itemNumber) : null;
+                  const price = Number(line?.price) || 0;
+                  if (sku && price > 0 && !priceBySku.has(sku)) {
+                    priceBySku.set(sku, price);
+                  }
                 }
               }
             }
-
-            let priced = 0;
-            for (const item of needPrice) {
-              const price = priceBySku.get(item.item_number);
-              if (price == null) continue;
-              const { error: priceErr } = await supabase
-                .from("inventory_items")
-                .update({ cost_per_unit: price })
-                .eq("id", item.id);
-              if (!priceErr) priced++;
-            }
-            console.log(`[Deploy] Backfilled PFG cost on ${priced}/${needPrice.length} items from this location's own PFG orders.`);
           }
+
+          // ─── Apply prices ─────────────────────────────────────────────────────
+          let priced = 0;
+          for (const item of needPrice) {
+            const price = priceBySku.get(item.item_number);
+            if (price == null) continue;
+            const { error: priceErr } = await supabase
+              .from("inventory_items")
+              .update({ cost_per_unit: price })
+              .eq("id", item.id);
+            if (!priceErr) priced++;
+          }
+          console.log(`[Deploy] Backfilled PFG cost on ${priced}/${needPrice.length} items (bid guide + order history).`);
         }
       }
     } catch (e) {
