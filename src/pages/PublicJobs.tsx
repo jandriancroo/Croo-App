@@ -79,6 +79,15 @@ function buildSyndicationTitle(title: string, company: string, city: string): st
   return title;
 }
 
+function slugifyPart(s: string): string {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function buildJobSlug(job: JobListing): string {
+  const city = parseCity(job.location?.address || null) || job.location?.name || '';
+  return [slugifyPart(city), slugifyPart(job.title), (job.id || '').slice(0, 8)].filter(Boolean).join('-');
+}
+
 function buildJobPostingJsonLd(job: JobListing) {
   const addr = parseAddress(job.location?.address || null);
   const company = job.organization?.brand_name || job.organization?.name || 'Company';
@@ -116,7 +125,7 @@ function buildJobPostingJsonLd(job: JobListing) {
       },
     },
     directApply: true,
-    url: `https://croohq.com/apply/${job.organization?.slug}?utm_source=google_jobs&listing=${job.id}`,
+    url: `https://croohq.com/jobs/${buildJobSlug(job)}`,
   };
 
   if (job.pay_min || job.pay_max) {
@@ -239,7 +248,7 @@ export default function PublicJobs() {
                 return (
                   <Link
                     key={job.id}
-                    to={`/apply/${job.organization?.slug}?utm_source=jobs_page&listing=${job.id}`}
+                    to={`/jobs/${buildJobSlug(job)}`}
                     className="block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-gray-300 transition-all"
                   >
                     <div className="flex items-start justify-between gap-4">
