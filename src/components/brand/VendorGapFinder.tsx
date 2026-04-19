@@ -510,9 +510,39 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
     [activeOutliers],
   );
 
+  // Build the list of locations that appear in at least one active gap
+  const locationsInGaps = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of activeOutliers) {
+      for (const loc of o.reportedByLocations) {
+        if (loc.id && !map.has(loc.id)) map.set(loc.id, loc.name || 'Unknown');
+      }
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeOutliers]);
+
+  const selectedLocationName = useMemo(
+    () => selectedLocationId ? locationsInGaps.find(l => l.id === selectedLocationId)?.name : null,
+    [selectedLocationId, locationsInGaps],
+  );
+
+  const setLocationFilter = (locId: string | null) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (locId) next.set('location', locId);
+      else next.delete('location');
+      return next;
+    }, { replace: true });
+  };
+
   const filteredOutliers = useMemo(() => {
     let items = activeOutliers;
     if (categoryFilter !== 'all') items = items.filter(o => o.categoryName === categoryFilter);
+    if (selectedLocationId) {
+      items = items.filter(o => o.reportedByLocations.some(l => l.id === selectedLocationId));
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       items = items.filter(o =>
@@ -522,7 +552,23 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       );
     }
     return items;
-  }, [activeOutliers, categoryFilter, searchQuery]);
+  }, [activeOutliers, categoryFilter, selectedLocationId, searchQuery]);
+
+  // Auto-clear location filter when its gaps reach zero
+  const lastClearedLocationRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedLocationId) return;
+    if (lastClearedLocationRef.current === selectedLocationId) return;
+    const stillHasGaps = activeOutliers.some(o =>
+      o.reportedByLocations.some(l => l.id === selectedLocationId),
+    );
+    if (!stillHasGaps && activeOutliers.length >= 0) {
+      const name = selectedLocationName || 'location';
+      lastClearedLocationRef.current = selectedLocationId;
+      setLocationFilter(null);
+      toast.success(`All gaps resolved for ${name}`);
+    }
+  }, [activeOutliers, selectedLocationId, selectedLocationName]);
 
   const toggleSelect = (itemNumber: string) => {
     setSelectedIds(prev => {
