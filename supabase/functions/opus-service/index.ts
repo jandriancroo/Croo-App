@@ -666,11 +666,19 @@ serve(async (req) => {
       const pdfUrl = mediaUrlMatch[1].trim();
       console.log("[opus-service] Downloading PDF from: " + pdfUrl);
 
-      // Actually download the PDF file first
+      // Actually download the PDF file first — include OPUS session cookie + stealth headers,
+      // otherwise protected media URLs return an HTML login redirect instead of the file.
       let pdfBase64: string;
       let mimeType = "application/pdf";
       try {
-        const pdfResp = await fetch(pdfUrl);
+        const pdfResp = await fetch(pdfUrl, {
+          headers: {
+            "Cookie": `sessionid=${sessionId}`,
+            "Origin": "https://dashboard.opus.so",
+            "Referer": "https://dashboard.opus.so/",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
+        });
         if (!pdfResp.ok) {
           console.error("[opus-service] PDF download failed:", pdfResp.status);
           return new Response(JSON.stringify({ error: "Failed to download resource file", status: pdfResp.status }), {
@@ -682,6 +690,12 @@ serve(async (req) => {
           mimeType = contentType.split(";")[0].trim();
         } else if (contentType.includes("pdf")) {
           mimeType = "application/pdf";
+        } else if (contentType.includes("html") || contentType.includes("text")) {
+          // OPUS returned a login/HTML page — session likely expired
+          console.error("[opus-service] PDF download returned HTML, session may be expired:", contentType);
+          return new Response(JSON.stringify({ error: "OPUS session expired or media URL not authorized — please reconnect OPUS in integrations" }), {
+            status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
         const arrayBuf = await pdfResp.arrayBuffer();
         // Convert to base64
@@ -844,8 +858,15 @@ serve(async (req) => {
         console.log(`[opus-service] bulk_extract: Processing "${title}" from ${pdfUrl}`);
 
         try {
-          // Download the file
-          const pdfResp = await fetch(pdfUrl);
+          // Download the file (with OPUS session cookie — protected media URLs require it)
+          const pdfResp = await fetch(pdfUrl, {
+            headers: {
+              "Cookie": `sessionid=${sessionId}`,
+              "Origin": "https://dashboard.opus.so",
+              "Referer": "https://dashboard.opus.so/",
+              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            },
+          });
           if (!pdfResp.ok) {
             results.push({ id: row.id, title, success: false, error: `Download failed: ${pdfResp.status}` });
             continue;
@@ -853,7 +874,12 @@ serve(async (req) => {
 
           const contentType = pdfResp.headers.get("content-type") || "";
           let mimeType = "application/pdf";
-          if (contentType.includes("image")) mimeType = contentType.split(";")[0].trim();
+          if (contentType.includes("image")) {
+            mimeType = contentType.split(";")[0].trim();
+          } else if (contentType.includes("html") || contentType.includes("text")) {
+            results.push({ id: row.id, title, success: false, error: "OPUS session expired (got HTML, not file)" });
+            continue;
+          }
 
           const arrayBuf = await pdfResp.arrayBuffer();
           const bytes = new Uint8Array(arrayBuf);
