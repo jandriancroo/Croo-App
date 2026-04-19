@@ -1,0 +1,1 @@
+DELETE FROM public.croo_ai_briefings WHERE briefing_date = CURRENT_DATE;
