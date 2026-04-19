@@ -244,6 +244,42 @@ export function AiAssistantBubble() {
     }
   };
 
+  const handleHelpful = async (msgIndex: number, answer: string) => {
+    if (helpfulIndices.has(msgIndex)) return;
+    // Optimistic update so the button feels instant
+    setHelpfulIndices(prev => new Set(prev).add(msgIndex));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      // Find the most recent user question above this assistant message
+      let question: string | null = null;
+      for (let i = msgIndex - 1; i >= 0; i--) {
+        if (messages[i]?.role === 'user') {
+          question = messages[i].content;
+          break;
+        }
+      }
+      const { error } = await (supabase.from('theo_helpful_feedback' as any) as any).insert({
+        user_id: user.id,
+        location_id: currentLocation?.id ?? null,
+        question,
+        answer,
+        message_index: msgIndex,
+        chat_date: today,
+      });
+      if (error && error.code !== '23505') throw error; // 23505 = unique violation, already marked
+      toast.success('Thanks — saved as helpful');
+    } catch (e) {
+      console.error('Helpful feedback error:', e);
+      setHelpfulIndices(prev => {
+        const next = new Set(prev);
+        next.delete(msgIndex);
+        return next;
+      });
+      toast.error('Could not save feedback');
+    }
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !currentLocation) return;
     if (isListening) toggleListening();
