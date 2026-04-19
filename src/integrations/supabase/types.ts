@@ -8032,6 +8032,39 @@ export type Database = {
           },
         ]
       }
+      theo_helpful_feedback: {
+        Row: {
+          answer: string
+          chat_date: string
+          created_at: string
+          id: string
+          location_id: string | null
+          message_index: number | null
+          question: string | null
+          user_id: string
+        }
+        Insert: {
+          answer: string
+          chat_date?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          message_index?: number | null
+          question?: string | null
+          user_id: string
+        }
+        Update: {
+          answer?: string
+          chat_date?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          message_index?: number | null
+          question?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       theo_knowledge: {
         Row: {
           content: string

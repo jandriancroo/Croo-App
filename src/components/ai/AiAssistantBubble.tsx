@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Pin } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { X, Send, Loader2, Sparkles, Mic, MicOff, RotateCcw } from 'lucide-react';
+import { X, Send, Loader2, Sparkles, Mic, MicOff, RotateCcw, ThumbsUp } from 'lucide-react';
 import theoAvatar from '@/assets/theo-avatar.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
@@ -48,6 +48,7 @@ export function AiAssistantBubble() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [pinnedIndices, setPinnedIndices] = useState<Set<number>>(new Set());
+  const [helpfulIndices, setHelpfulIndices] = useState<Set<number>>(new Set());
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -240,6 +241,42 @@ export function AiAssistantBubble() {
     } catch (e) {
       console.error('Pin error:', e);
       toast.error('Failed to save to memory');
+    }
+  };
+
+  const handleHelpful = async (msgIndex: number, answer: string) => {
+    if (helpfulIndices.has(msgIndex)) return;
+    // Optimistic update so the button feels instant
+    setHelpfulIndices(prev => new Set(prev).add(msgIndex));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      // Find the most recent user question above this assistant message
+      let question: string | null = null;
+      for (let i = msgIndex - 1; i >= 0; i--) {
+        if (messages[i]?.role === 'user') {
+          question = messages[i].content;
+          break;
+        }
+      }
+      const { error } = await (supabase.from('theo_helpful_feedback' as any) as any).insert({
+        user_id: user.id,
+        location_id: currentLocation?.id ?? null,
+        question,
+        answer,
+        message_index: msgIndex,
+        chat_date: today,
+      });
+      if (error && error.code !== '23505') throw error; // 23505 = unique violation, already marked
+      toast.success('Thanks — saved as helpful');
+    } catch (e) {
+      console.error('Helpful feedback error:', e);
+      setHelpfulIndices(prev => {
+        const next = new Set(prev);
+        next.delete(msgIndex);
+        return next;
+      });
+      toast.error('Could not save feedback');
     }
   };
 
@@ -449,20 +486,36 @@ export function AiAssistantBubble() {
                           ) : (
                             <span className="leading-relaxed">{msg.content}</span>
                           )}
-                          {msg.role === 'assistant' && !loading && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handlePin(i, msg.content); }}
-                              disabled={pinnedIndices.has(i)}
-                              className={cn(
-                                'self-start flex items-center gap-1 text-[10px] mt-1 px-1.5 py-0.5 rounded-md transition-all',
-                                pinnedIndices.has(i)
-                                  ? 'text-green-500 bg-green-500/10'
-                                  : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40'
-                              )}
-                            >
-                              <Pin className="h-2.5 w-2.5" />
-                              {pinnedIndices.has(i) ? 'Pinned' : 'Pin'}
-                            </button>
+                          {msg.role === 'assistant' && !loading && i > 0 && (
+                            <div className="self-start flex items-center gap-1 mt-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handlePin(i, msg.content); }}
+                                disabled={pinnedIndices.has(i)}
+                                className={cn(
+                                  'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md transition-all',
+                                  pinnedIndices.has(i)
+                                    ? 'text-green-500 bg-green-500/10'
+                                    : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40'
+                                )}
+                              >
+                                <Pin className="h-2.5 w-2.5" />
+                                {pinnedIndices.has(i) ? 'Pinned' : 'Pin'}
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleHelpful(i, msg.content); }}
+                                disabled={helpfulIndices.has(i)}
+                                className={cn(
+                                  'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md transition-all',
+                                  helpfulIndices.has(i)
+                                    ? 'text-primary bg-primary/10'
+                                    : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40'
+                                )}
+                                aria-label={helpfulIndices.has(i) ? 'Marked helpful' : 'Mark as helpful'}
+                              >
+                                <ThumbsUp className="h-2.5 w-2.5" />
+                                {helpfulIndices.has(i) ? 'Helpful' : 'Helpful'}
+                              </button>
+                            </div>
                           )}
                         </div>
                         </div>
