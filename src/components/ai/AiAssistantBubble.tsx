@@ -48,6 +48,7 @@ export function AiAssistantBubble() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [pinnedIndices, setPinnedIndices] = useState<Set<number>>(new Set());
+  const [helpfulIndices, setHelpfulIndices] = useState<Set<number>>(new Set());
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
