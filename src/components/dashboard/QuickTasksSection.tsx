@@ -6,7 +6,6 @@ import { OpusBackgroundSync } from '@/components/dashboard/OpusBackgroundSync';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
-import { DataStreamTask } from '@/components/dashboard/DataStreamTask';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 
 interface QuickTasksSectionProps {
@@ -34,7 +33,6 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
           </>
         }
       />
-      <DataStreamTask />
       <CateringOrdersAlert />
     </div>
   );
