@@ -2873,6 +2873,57 @@ export type Database = {
           },
         ]
       }
+      inventory_count_items_backup_20260420: {
+        Row: {
+          cost_at_count: number | null
+          count_id: string | null
+          counted_at: string | null
+          entered_cases: number | null
+          entered_units: number | null
+          id: string | null
+          item_id: string | null
+          item_name_at_count: string | null
+          quantity: number | null
+          storage_location_id: string | null
+          theoretical_quantity: number | null
+          unit_at_count: string | null
+          variance: number | null
+          variance_cost: number | null
+        }
+        Insert: {
+          cost_at_count?: number | null
+          count_id?: string | null
+          counted_at?: string | null
+          entered_cases?: number | null
+          entered_units?: number | null
+          id?: string | null
+          item_id?: string | null
+          item_name_at_count?: string | null
+          quantity?: number | null
+          storage_location_id?: string | null
+          theoretical_quantity?: number | null
+          unit_at_count?: string | null
+          variance?: number | null
+          variance_cost?: number | null
+        }
+        Update: {
+          cost_at_count?: number | null
+          count_id?: string | null
+          counted_at?: string | null
+          entered_cases?: number | null
+          entered_units?: number | null
+          id?: string | null
+          item_id?: string | null
+          item_name_at_count?: string | null
+          quantity?: number | null
+          storage_location_id?: string | null
+          theoretical_quantity?: number | null
+          unit_at_count?: string | null
+          variance?: number | null
+          variance_cost?: number | null
+        }
+        Relationships: []
+      }
       inventory_counts: {
         Row: {
           completed_at: string | null
