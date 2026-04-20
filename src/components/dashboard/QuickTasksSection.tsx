@@ -33,7 +33,6 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
           </>
         }
       />
-      <DataStreamTask />
       <CateringOrdersAlert />
     </div>
   );
