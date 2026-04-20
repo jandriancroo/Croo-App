@@ -346,7 +346,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       const costMap = new Map<string, number>();
       for (const i of items || []) {
-        const packQty = (i as any).pack_quantity_override ?? (i as any).count_units_per_case ?? (i.pack_quantity || 1);
+        const packQty = (i as any).pack_quantity_override ?? (i.pack_quantity || 1);
         costMap.set(i.id, (Number(i.cost_per_unit) || 0) / Math.max(packQty, 1));
       }
 
