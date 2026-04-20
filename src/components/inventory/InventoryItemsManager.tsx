@@ -405,8 +405,15 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
       const archivedIds = new Set((archivedTemplates || []).map((t: any) => t.id));
 
-      // Step 3: Filter out archived — return everything else
-      return data.filter((item: any) => !archivedIds.has(item.brand_item_id));
+      // Step 3: Filter out archived, then sort by category → name so similar items group together
+      return data
+        .filter((item: any) => !archivedIds.has(item.brand_item_id))
+        .sort((a: any, b: any) => {
+          const catA = (a.category || 'zzz').toLowerCase();
+          const catB = (b.category || 'zzz').toLowerCase();
+          if (catA !== catB) return catA.localeCompare(catB);
+          return (a.name || '').localeCompare(b.name || '');
+        });
     },
     enabled: !!locationId
   });
