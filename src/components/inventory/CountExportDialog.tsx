@@ -95,7 +95,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
 
       const rows = exportItems.map((ci: any) => {
         const item = ci.item;
-        const packQty = item?.pack_quantity_override ?? item?.count_units_per_case ?? item?.pack_quantity ?? 1;
+        const packQty = item?.pack_quantity_override ?? item?.pack_quantity ?? 1;
         const costPerUnit = item?.cost_per_unit || 0;
         const unitValue = ci.quantity * (costPerUnit / Math.max(packQty, 1));
 
@@ -160,7 +160,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const countedItems = exportItems?.filter((i: any) => i.quantity > 0).length || 0;
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
     const item = ci.item;
-    const packQty = item?.pack_quantity_override ?? item?.count_units_per_case ?? item?.pack_quantity ?? 1;
+    const packQty = item?.pack_quantity_override ?? item?.pack_quantity ?? 1;
     const costPerUnit = item?.cost_per_unit || 0;
     return sum + ci.quantity * (costPerUnit / Math.max(packQty, 1));
   }, 0) || 0;

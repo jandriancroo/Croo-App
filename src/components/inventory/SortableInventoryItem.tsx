@@ -64,7 +64,7 @@ export function SortableInventoryItem({
   // Effective per-unit cost: prefer live blueprint cost (recipes), else stored cost_per_unit
   const storedUnitCost = item.cost_per_unit
     ? Number(item.cost_per_unit) /
-      Math.max(item.pack_quantity_override ?? item.count_units_per_case ?? item.pack_quantity ?? 1, 1)
+      Math.max(item.pack_quantity_override ?? item.pack_quantity ?? 1, 1)
     : 0;
   const displayUnitCost = liveUnitCost && liveUnitCost > 0 ? liveUnitCost : storedUnitCost;
   const hasNoCost = !displayUnitCost || displayUnitCost === 0;
