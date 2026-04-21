@@ -474,7 +474,12 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
   const hideItemMutation = useMutation({
     mutationFn: async ({ itemId, linkedItemId }: { itemId: string; linkedItemId?: string }) => {
-      const updateData: any = { user_hidden: true, is_active: false };
+      const updateData: any = {
+        user_hidden: true,
+        is_active: false,
+        deactivated_by: 'manager',
+        deactivated_reason: `Deactivated by store — ${new Date().toLocaleDateString()}`,
+      };
       if (linkedItemId) {
         updateData.linked_item_id = linkedItemId;
       }
@@ -2208,7 +2213,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                   const ids = Array.from(selectedItemIds);
                   const { error } = await supabase
                     .from("inventory_items")
-                    .update({ is_active: false } as any)
+                    .update({
+                      is_active: false,
+                      deactivated_by: 'manager',
+                      deactivated_reason: `Deactivated by store — ${new Date().toLocaleDateString()}`,
+                    } as any)
                     .in("id", ids);
                   if (error) throw error;
                   toast.success(`Deactivated ${ids.length} items`);
