@@ -645,7 +645,10 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 className="text-center p-2 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.97] transition-all cursor-pointer ring-1 ring-primary/25"
                 onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
               >
-                <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
+                <p className={`text-base font-bold ${count.status === "in_progress" ? "text-muted-foreground/60" : ""}`}>
+                  ${Math.round(cogsData.endValue).toLocaleString()}
+                  {count.status === "in_progress" && <span className="text-[10px] font-normal ml-0.5">partial</span>}
+                </p>
                 <div className="flex items-center justify-center gap-1.5 mt-0.5">
                   <p className="text-[11px] text-primary uppercase tracking-wide font-medium">REVIEW</p>
                   <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
