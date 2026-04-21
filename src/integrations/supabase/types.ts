@@ -8921,13 +8921,17 @@ export type Database = {
       }
       vendor_sku_health: {
         Row: {
+          available_since: string | null
           brand_id: string
           created_at: string
+          days_not_seen: number
           first_seen_at: string
           id: string
           last_location_id: string | null
           last_price: number | null
           last_seen_at: string
+          last_seen_on_bid_list: string | null
+          manager_deactivated_override: boolean
           product_name: string | null
           status: Database["public"]["Enums"]["vendor_sku_status"]
           updated_at: string
@@ -8936,13 +8940,17 @@ export type Database = {
           vendor_territory: string
         }
         Insert: {
+          available_since?: string | null
           brand_id: string
           created_at?: string
+          days_not_seen?: number
           first_seen_at?: string
           id?: string
           last_location_id?: string | null
           last_price?: number | null
           last_seen_at?: string
+          last_seen_on_bid_list?: string | null
+          manager_deactivated_override?: boolean
           product_name?: string | null
           status?: Database["public"]["Enums"]["vendor_sku_status"]
           updated_at?: string
@@ -8951,13 +8959,17 @@ export type Database = {
           vendor_territory?: string
         }
         Update: {
+          available_since?: string | null
           brand_id?: string
           created_at?: string
+          days_not_seen?: number
           first_seen_at?: string
           id?: string
           last_location_id?: string | null
           last_price?: number | null
           last_seen_at?: string
+          last_seen_on_bid_list?: string | null
+          manager_deactivated_override?: boolean
           product_name?: string | null
           status?: Database["public"]["Enums"]["vendor_sku_status"]
           updated_at?: string
