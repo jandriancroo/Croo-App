@@ -3220,6 +3220,147 @@ export type Database = {
           },
         ]
       }
+      inventory_items_produce_backup_20260421: {
+        Row: {
+          attention_acknowledged: boolean | null
+          available_since: string | null
+          blended_price: number | null
+          brand: string | null
+          brand_archived_at: string | null
+          brand_item_id: string | null
+          category: string | null
+          cost_per_unit: number | null
+          count_unit: string | null
+          count_units_per_case: number | null
+          countable: boolean | null
+          created_at: string | null
+          deactivated_by: string | null
+          deactivated_reason: string | null
+          display_order: number | null
+          id: string | null
+          image_url: string | null
+          is_active: boolean | null
+          is_daily_tracked: boolean | null
+          is_recipe: boolean | null
+          item_number: string | null
+          last_seen_on_bid_list: string | null
+          last_seen_on_bid_list_vendor: string | null
+          last_synced_at: string | null
+          linked_item_id: string | null
+          location_id: string | null
+          manually_activated: boolean | null
+          name: string | null
+          pa_item_id: string | null
+          pack_quantity: number | null
+          pack_quantity_override: number | null
+          pack_size: string | null
+          pan_sizes: Json | null
+          par_level: number | null
+          qubeyond_item_id: string | null
+          recipe_yield_qty: number | null
+          recipe_yield_unit: string | null
+          remap_status: string | null
+          source: string | null
+          storage_location_id: string | null
+          unit: string | null
+          updated_at: string | null
+          user_hidden: boolean | null
+          vendor_source: string | null
+        }
+        Insert: {
+          attention_acknowledged?: boolean | null
+          available_since?: string | null
+          blended_price?: number | null
+          brand?: string | null
+          brand_archived_at?: string | null
+          brand_item_id?: string | null
+          category?: string | null
+          cost_per_unit?: number | null
+          count_unit?: string | null
+          count_units_per_case?: number | null
+          countable?: boolean | null
+          created_at?: string | null
+          deactivated_by?: string | null
+          deactivated_reason?: string | null
+          display_order?: number | null
+          id?: string | null
+          image_url?: string | null
+          is_active?: boolean | null
+          is_daily_tracked?: boolean | null
+          is_recipe?: boolean | null
+          item_number?: string | null
+          last_seen_on_bid_list?: string | null
+          last_seen_on_bid_list_vendor?: string | null
+          last_synced_at?: string | null
+          linked_item_id?: string | null
+          location_id?: string | null
+          manually_activated?: boolean | null
+          name?: string | null
+          pa_item_id?: string | null
+          pack_quantity?: number | null
+          pack_quantity_override?: number | null
+          pack_size?: string | null
+          pan_sizes?: Json | null
+          par_level?: number | null
+          qubeyond_item_id?: string | null
+          recipe_yield_qty?: number | null
+          recipe_yield_unit?: string | null
+          remap_status?: string | null
+          source?: string | null
+          storage_location_id?: string | null
+          unit?: string | null
+          updated_at?: string | null
+          user_hidden?: boolean | null
+          vendor_source?: string | null
+        }
+        Update: {
+          attention_acknowledged?: boolean | null
+          available_since?: string | null
+          blended_price?: number | null
+          brand?: string | null
+          brand_archived_at?: string | null
+          brand_item_id?: string | null
+          category?: string | null
+          cost_per_unit?: number | null
+          count_unit?: string | null
+          count_units_per_case?: number | null
+          countable?: boolean | null
+          created_at?: string | null
+          deactivated_by?: string | null
+          deactivated_reason?: string | null
+          display_order?: number | null
+          id?: string | null
+          image_url?: string | null
+          is_active?: boolean | null
+          is_daily_tracked?: boolean | null
+          is_recipe?: boolean | null
+          item_number?: string | null
+          last_seen_on_bid_list?: string | null
+          last_seen_on_bid_list_vendor?: string | null
+          last_synced_at?: string | null
+          linked_item_id?: string | null
+          location_id?: string | null
+          manually_activated?: boolean | null
+          name?: string | null
+          pa_item_id?: string | null
+          pack_quantity?: number | null
+          pack_quantity_override?: number | null
+          pack_size?: string | null
+          pan_sizes?: Json | null
+          par_level?: number | null
+          qubeyond_item_id?: string | null
+          recipe_yield_qty?: number | null
+          recipe_yield_unit?: string | null
+          remap_status?: string | null
+          source?: string | null
+          storage_location_id?: string | null
+          unit?: string | null
+          updated_at?: string | null
+          user_hidden?: boolean | null
+          vendor_source?: string | null
+        }
+        Relationships: []
+      }
       inventory_locations: {
         Row: {
           created_at: string
