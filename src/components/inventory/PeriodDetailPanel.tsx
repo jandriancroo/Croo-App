@@ -563,15 +563,20 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                 <div className="text-right">
                   {(() => {
+                    const isInProgress = count.status === "in_progress";
                     const adjCogs = cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut;
                     const adjPct = cogsData.netSales > 0 ? (adjCogs / cogsData.netSales) * 100 : 0;
+                    if (isInProgress) {
+                      return (
+                        <>
+                          <p className="text-2xl font-bold leading-none text-muted-foreground/40">--.--%</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">COGS PENDING</p>
+                        </>
+                      );
+                    }
                     return (
                       <>
-                        <p className={`text-2xl font-bold leading-none ${
-                          count.status === "completed"
-                            ? (adjPct > 22 ? "text-destructive" : "")
-                            : "text-muted-foreground"
-                        }`}>
+                        <p className={`text-2xl font-bold leading-none ${adjPct > 22 ? "text-destructive" : ""}`}>
                           {adjPct.toFixed(1)}%
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
@@ -640,7 +645,10 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 className="text-center p-2 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.97] transition-all cursor-pointer ring-1 ring-primary/25"
                 onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
               >
-                <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
+                <p className={`text-base font-bold ${count.status === "in_progress" ? "text-muted-foreground/60" : ""}`}>
+                  ${Math.round(cogsData.endValue).toLocaleString()}
+                  {count.status === "in_progress" && <span className="text-[10px] font-normal ml-0.5">partial</span>}
+                </p>
                 <div className="flex items-center justify-center gap-1.5 mt-0.5">
                   <p className="text-[11px] text-primary uppercase tracking-wide font-medium">REVIEW</p>
                   <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
@@ -758,13 +766,29 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               {transferTotals.transfersOut > 0 && (
                 <FormulaRow label="− Transfers Out" value={transferTotals.transfersOut} />
               )}
-              <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
+              {count.status === "in_progress" ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">− Ending Inventory</span>
+                  <span className="text-sm font-medium text-muted-foreground/60">
+                    ${Math.round(cogsData.endValue).toLocaleString()} <span className="text-[10px]">(partial)</span>
+                  </span>
+                </div>
+              ) : (
+                <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
+              )}
               <div className="border-t border-border/60 pt-1.5 mt-1.5">
-                <FormulaRow 
-                  label="= Cost of Goods Sold" 
-                  value={cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut} 
-                  bold 
-                />
+                {count.status === "in_progress" ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold">= Cost of Goods Sold</span>
+                    <span className="text-sm font-bold text-muted-foreground/60">Pending count completion</span>
+                  </div>
+                ) : (
+                  <FormulaRow 
+                    label="= Cost of Goods Sold" 
+                    value={cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut} 
+                    bold 
+                  />
+                )}
               </div>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-xs text-muted-foreground">Net Sales</span>
