@@ -766,12 +766,16 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               {transferTotals.transfersOut > 0 && (
                 <FormulaRow label="− Transfers Out" value={transferTotals.transfersOut} />
               )}
-              <FormulaRow 
-                label="− Ending Inventory" 
-                value={cogsData.endValue}
-                muted={count.status === "in_progress"}
-                suffix={count.status === "in_progress" ? " (partial)" : undefined}
-              />
+              {count.status === "in_progress" ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">− Ending Inventory</span>
+                  <span className="text-sm font-medium text-muted-foreground/60">
+                    ${Math.round(cogsData.endValue).toLocaleString()} <span className="text-[10px]">(partial)</span>
+                  </span>
+                </div>
+              ) : (
+                <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
+              )}
               <div className="border-t border-border/60 pt-1.5 mt-1.5">
                 {count.status === "in_progress" ? (
                   <div className="flex items-center justify-between">
