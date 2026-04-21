@@ -766,13 +766,25 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               {transferTotals.transfersOut > 0 && (
                 <FormulaRow label="− Transfers Out" value={transferTotals.transfersOut} />
               )}
-              <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
+              <FormulaRow 
+                label="− Ending Inventory" 
+                value={cogsData.endValue}
+                muted={count.status === "in_progress"}
+                suffix={count.status === "in_progress" ? " (partial)" : undefined}
+              />
               <div className="border-t border-border/60 pt-1.5 mt-1.5">
-                <FormulaRow 
-                  label="= Cost of Goods Sold" 
-                  value={cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut} 
-                  bold 
-                />
+                {count.status === "in_progress" ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold">= Cost of Goods Sold</span>
+                    <span className="text-sm font-bold text-muted-foreground/60">Pending count completion</span>
+                  </div>
+                ) : (
+                  <FormulaRow 
+                    label="= Cost of Goods Sold" 
+                    value={cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut} 
+                    bold 
+                  />
+                )}
               </div>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-xs text-muted-foreground">Net Sales</span>
