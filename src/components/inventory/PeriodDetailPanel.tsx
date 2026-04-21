@@ -563,15 +563,20 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                 <div className="text-right">
                   {(() => {
+                    const isInProgress = count.status === "in_progress";
                     const adjCogs = cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut;
                     const adjPct = cogsData.netSales > 0 ? (adjCogs / cogsData.netSales) * 100 : 0;
+                    if (isInProgress) {
+                      return (
+                        <>
+                          <p className="text-2xl font-bold leading-none text-muted-foreground/40">--.--%</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">COGS PENDING</p>
+                        </>
+                      );
+                    }
                     return (
                       <>
-                        <p className={`text-2xl font-bold leading-none ${
-                          count.status === "completed"
-                            ? (adjPct > 22 ? "text-destructive" : "")
-                            : "text-muted-foreground"
-                        }`}>
+                        <p className={`text-2xl font-bold leading-none ${adjPct > 22 ? "text-destructive" : ""}`}>
                           {adjPct.toFixed(1)}%
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
