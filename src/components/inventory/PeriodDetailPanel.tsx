@@ -66,7 +66,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       if (!count.period_end_date) return null;
       const { data } = await supabase
         .from("inventory_counts")
-        .select("id, period_end_date, is_late_close, counted_at")
+        .select("id, period_end_date, is_late_close, counted_at, sales_end_override")
         .eq("location_id", locationId)
         .eq("status", "completed")
         .lt("period_end_date", count.period_end_date)
@@ -146,19 +146,35 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       return null;
     }
 
-    // If previous count was flex/late close, adjust start to day after its counted_at
+    // If previous count was flex (late close OR sales_end_override extended past its period_end),
+    // adjust the current period's start to the day after the previous period's effective end.
+    // Determine the effective sales-end date of the previous count using the same priority
+    // as a count's own sales window: sales_end_override > is_late_close+counted_at > period_end_date.
     let adjustedStart = standardStart;
     let isFlexAdjusted = false;
-    if (prevCountData?.is_late_close && prevCountData?.counted_at) {
-      const prevCountedDate = formatInTimeZone(new Date(prevCountData.counted_at), timezone, 'yyyy-MM-dd');
-      const dayAfterPrevCount = format(
-        new Date(new Date(prevCountedDate + "T12:00:00").getTime() + 86400000),
-        "yyyy-MM-dd"
-      );
-      // Only adjust if the day after prev count is later than standard start
-      if (dayAfterPrevCount > standardStart) {
-        adjustedStart = dayAfterPrevCount;
-        isFlexAdjusted = true;
+    if (prevCountData) {
+      let prevEffectiveEnd: string | null = null;
+      if (prevCountData.sales_end_override) {
+        prevEffectiveEnd = prevCountData.sales_end_override;
+      } else if (prevCountData.is_late_close && prevCountData.counted_at) {
+        const prevCountedAt = new Date(prevCountData.counted_at);
+        const prevLocalDateStr = formatInTimeZone(prevCountedAt, timezone, 'yyyy-MM-dd');
+        const prevLocalHour = parseInt(formatInTimeZone(prevCountedAt, timezone, 'HH'), 10);
+        // Counted before 10 AM → store wasn't open yet → sales thru previous day
+        prevEffectiveEnd = prevLocalHour < 10
+          ? format(subDays(new Date(prevLocalDateStr + 'T12:00:00'), 1), 'yyyy-MM-dd')
+          : prevLocalDateStr;
+      }
+
+      if (prevEffectiveEnd && prevEffectiveEnd >= (prevCountData.period_end_date || '')) {
+        const dayAfterPrev = format(
+          new Date(new Date(prevEffectiveEnd + "T12:00:00").getTime() + 86400000),
+          "yyyy-MM-dd"
+        );
+        if (dayAfterPrev > standardStart) {
+          adjustedStart = dayAfterPrev;
+          isFlexAdjusted = true;
+        }
       }
     }
 
@@ -177,7 +193,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       activeDays,
       isNonStandard,
     };
-  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, count.sales_end_override, prevCountData, timezone]);
+  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, count.sales_end_override, prevCountData?.id, prevCountData?.is_late_close, prevCountData?.counted_at, prevCountData?.sales_end_override, prevCountData?.period_end_date, timezone]);
 
   // Compute transfer totals for this period
   const transferTotals = useMemo(() => {
