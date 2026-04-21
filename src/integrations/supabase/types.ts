@@ -3052,8 +3052,11 @@ export type Database = {
       }
       inventory_items: {
         Row: {
+          attention_acknowledged: boolean
+          available_since: string | null
           blended_price: number | null
           brand: string | null
+          brand_archived_at: string | null
           brand_item_id: string | null
           category: string | null
           cost_per_unit: number | null
@@ -3061,6 +3064,8 @@ export type Database = {
           count_units_per_case: number | null
           countable: boolean
           created_at: string
+          deactivated_by: string | null
+          deactivated_reason: string | null
           display_order: number | null
           id: string
           image_url: string | null
@@ -3068,9 +3073,12 @@ export type Database = {
           is_daily_tracked: boolean
           is_recipe: boolean
           item_number: string | null
+          last_seen_on_bid_list: string | null
+          last_seen_on_bid_list_vendor: string | null
           last_synced_at: string | null
           linked_item_id: string | null
           location_id: string | null
+          manually_activated: boolean
           name: string
           pa_item_id: string | null
           pack_quantity: number | null
@@ -3090,8 +3098,11 @@ export type Database = {
           vendor_source: string | null
         }
         Insert: {
+          attention_acknowledged?: boolean
+          available_since?: string | null
           blended_price?: number | null
           brand?: string | null
+          brand_archived_at?: string | null
           brand_item_id?: string | null
           category?: string | null
           cost_per_unit?: number | null
@@ -3099,6 +3110,8 @@ export type Database = {
           count_units_per_case?: number | null
           countable?: boolean
           created_at?: string
+          deactivated_by?: string | null
+          deactivated_reason?: string | null
           display_order?: number | null
           id?: string
           image_url?: string | null
@@ -3106,9 +3119,12 @@ export type Database = {
           is_daily_tracked?: boolean
           is_recipe?: boolean
           item_number?: string | null
+          last_seen_on_bid_list?: string | null
+          last_seen_on_bid_list_vendor?: string | null
           last_synced_at?: string | null
           linked_item_id?: string | null
           location_id?: string | null
+          manually_activated?: boolean
           name: string
           pa_item_id?: string | null
           pack_quantity?: number | null
@@ -3128,8 +3144,11 @@ export type Database = {
           vendor_source?: string | null
         }
         Update: {
+          attention_acknowledged?: boolean
+          available_since?: string | null
           blended_price?: number | null
           brand?: string | null
+          brand_archived_at?: string | null
           brand_item_id?: string | null
           category?: string | null
           cost_per_unit?: number | null
@@ -3137,6 +3156,8 @@ export type Database = {
           count_units_per_case?: number | null
           countable?: boolean
           created_at?: string
+          deactivated_by?: string | null
+          deactivated_reason?: string | null
           display_order?: number | null
           id?: string
           image_url?: string | null
@@ -3144,9 +3165,12 @@ export type Database = {
           is_daily_tracked?: boolean
           is_recipe?: boolean
           item_number?: string | null
+          last_seen_on_bid_list?: string | null
+          last_seen_on_bid_list_vendor?: string | null
           last_synced_at?: string | null
           linked_item_id?: string | null
           location_id?: string | null
+          manually_activated?: boolean
           name?: string
           pa_item_id?: string | null
           pack_quantity?: number | null
