@@ -150,17 +150,33 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
     const existingItemId = linkedBrandIds.get(brandItemId);
     if (existingItemId) {
       if (activate) {
-        // Activate just the primary item
+        // Check if this row was previously flagged by sync — only then mark as a deliberate override
+        const { data: existingRow } = await supabase
+          .from('inventory_items')
+          .select('deactivated_by')
+          .eq('id', existingItemId)
+          .maybeSingle();
+        const wasSystemFlagged = (existingRow as any)?.deactivated_by === 'sync_auto';
+
         const { error } = await supabase
           .from('inventory_items')
-          .update({ is_active: true })
+          .update({
+            is_active: true,
+            deactivated_by: null,
+            deactivated_reason: null,
+            manually_activated: wasSystemFlagged,
+          } as any)
           .eq('id', existingItemId);
         if (error) throw error;
       } else {
         // Deactivate ALL local items linked to this brand template (handles duplicates)
         const { error } = await supabase
           .from('inventory_items')
-          .update({ is_active: false })
+          .update({
+            is_active: false,
+            deactivated_by: 'manager',
+            deactivated_reason: `Deactivated by store — ${new Date().toLocaleDateString()}`,
+          } as any)
           .eq('location_id', locationId)
           .eq('brand_item_id', brandItemId);
         if (error) throw error;
@@ -172,7 +188,7 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
       // FIRST: check for any existing deactivated item already linked to this brand template
       const { data: deactivatedLinked } = await supabase
         .from('inventory_items')
-        .select('id, storage_location_id')
+        .select('id, storage_location_id, deactivated_by')
         .eq('location_id', locationId)
         .eq('brand_item_id', brandItemId)
         .eq('is_active', false)
@@ -184,14 +200,19 @@ export default function BrandItemActivation({ locationId, brandId }: BrandItemAc
         let shelfId = deactivatedLinked.storage_location_id;
         if (!shelfId) shelfId = await resolveShelfId(brandItemId);
 
+        const wasSystemFlagged = (deactivatedLinked as any).deactivated_by === 'sync_auto';
+
         const { error } = await supabase
           .from('inventory_items')
           .update({
             is_active: true,
             name: brandItem.product_name,
             category: brandItem.category,
+            deactivated_by: null,
+            deactivated_reason: null,
+            manually_activated: wasSystemFlagged,
             ...(shelfId ? { storage_location_id: shelfId } : {}),
-          })
+          } as any)
           .eq('id', deactivatedLinked.id);
         if (error) throw error;
         return;

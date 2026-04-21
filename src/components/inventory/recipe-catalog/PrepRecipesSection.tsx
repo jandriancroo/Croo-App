@@ -209,7 +209,12 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
       }
       if (legacyIds.length > 0) {
         await supabase.from("inventory_recipe_ingredients").delete().in("recipe_item_id", legacyIds);
-        await supabase.from("inventory_items").update({ is_active: false, is_recipe: false } as any).in("id", legacyIds);
+        await supabase.from("inventory_items").update({
+          is_active: false,
+          is_recipe: false,
+          deactivated_by: 'manager',
+          deactivated_reason: `Recipe deleted by store — ${new Date().toLocaleDateString()}`,
+        } as any).in("id", legacyIds);
       }
 
       toast.success(`Removed ${ids.length} recipe${ids.length > 1 ? "s" : ""}`);
