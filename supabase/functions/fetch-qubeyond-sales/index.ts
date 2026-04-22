@@ -2545,7 +2545,8 @@ serve(async (req) => {
       
       console.log(`[LABOR] MTD: $${monthlyLaborData.laborCost.toFixed(2)} / ${monthlyLaborData.hoursWorked.toFixed(1)}h`);
       
-      // NOTE: Historical labor caching removed — labor-service handles past-date
+      // REMOVED: cacheLaborData() call formerly lived here.
+      // Reason: fetch-qubeyond-sales is read-only for labor. labor-service owns
       // labor_cache writes with proper overnight-shift handling and breakdown
       // validation. The simpler calculateLaborFromPunches here uses a narrow UTC
       // range that misses clock_outs past midnight, treating them as "still clocked
@@ -3116,6 +3117,12 @@ serve(async (req) => {
           } catch (tipsErr) {
             console.error(`[BACKGROUND] Tips fetch/save error:`, tipsErr);
           }
+
+          // REMOVED: background labor_cache upsert block formerly lived here.
+          // Reason: this function may calculate transient/open-shift labor for
+          // response display, but it must not persist labor totals. Dedicated
+          // labor-service writes labor_cache with source tracking and validated
+          // employee breakdowns so historical reporting remains auditable.
         }
       } catch (bgError) {
         console.error('[BACKGROUND] Error in background save task:', bgError);
