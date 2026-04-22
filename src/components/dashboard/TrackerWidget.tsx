@@ -151,6 +151,9 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const myVisibleStats = activeItemRef === 'all'
     ? { units: myStore?.units || 0, sales: myStore?.sales || 0, pmix: myStore?.pmix || 0 }
     : myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 };
+  const leaderUnits = sortedRanking[0] ? getMetricValue(sortedRanking[0], 'units') : 0;
+  const myUnits = myStore ? getMetricValue(myStore, 'units') : 0;
+  const progressToLeader = leaderUnits > 0 ? Math.min(100, Math.max(2, (myUnits / leaderUnits) * 100)) : 0;
   const rankMetrics = tracker.trackerRankMetrics?.length ? tracker.trackerRankMetrics : ['units', 'sales', 'pmix'];
   const canExpand = tracker.trackerDisplayMode === 'expandable';
   const promoName = tracker.title && tracker.title !== 'Promo Tracker'
@@ -171,55 +174,67 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   );
 
   return (
-    <Card className="overflow-hidden border-primary/20 bg-card/95 shadow-sm">
-      <CardContent className="space-y-1.5 p-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
-              <Trophy className="h-3.5 w-3.5 text-primary" />
-            </span>
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold leading-tight">{promoName}</h2>
-              <p className="truncate text-[10px] leading-tight text-muted-foreground">{activeItemRef === 'all' ? `${trackedItemRefs.length || 0} tracked item${trackedItemRefs.length === 1 ? '' : 's'}` : activeItemRef}</p>
-            </div>
+    <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
+      <CardContent className="p-0">
+        <div className="flex items-center justify-between gap-3 bg-primary px-3 py-2 text-primary-foreground">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
+            <h2 className="mt-0.5 truncate text-base font-semibold leading-tight">{promoName}</h2>
           </div>
-          <Badge variant="secondary" className="h-6 shrink-0 rounded-full px-2 text-[11px] font-semibold">#{myStore?.rank || '--'} / {sortedRanking.length || '--'}</Badge>
+          <Badge className="h-7 shrink-0 rounded-full border-0 bg-accent px-3 text-sm font-bold text-accent-foreground shadow-sm">#{myStore?.rank || '--'} <span className="font-medium opacity-80">of {sortedRanking.length || '--'}</span></Badge>
         </div>
 
-        <div className="grid grid-cols-3 gap-0.5 rounded-md bg-muted/80 p-0.5">
-          {(['day', 'wtd', 'promo'] as PeriodKey[]).map(key => (
-            <Button key={key} size="sm" variant={period === key ? 'default' : 'ghost'} className="h-6 rounded text-[10px] font-semibold" onClick={() => setPeriod(key)}>
-              {key === 'day' ? 'DAY' : key === 'wtd' ? 'WTD' : 'PROMO'}
-            </Button>
-          ))}
-        </div>
-
-        {trackedItemRefs.length > 1 && (
-          <div className="flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {['all', ...trackedItemRefs].map(item => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setSelectedItemRef(item)}
-                className={`h-6 max-w-28 shrink-0 truncate rounded-full border px-2 text-[10px] font-semibold transition-colors ${
-                  activeItemRef === item ? 'border-primary/35 bg-primary/10 text-primary' : 'border-border/60 bg-muted/35 text-muted-foreground'
-                }`}
-              >
-                {item === 'all' ? 'All items' : item}
-              </button>
+        <div className="space-y-3 bg-card px-3 py-3">
+          <div className="grid grid-cols-3 gap-1">
+            {(['day', 'wtd', 'promo'] as PeriodKey[]).map(key => (
+              <Button key={key} size="sm" variant={period === key ? 'secondary' : 'outline'} className="h-8 rounded-md text-xs font-semibold" onClick={() => setPeriod(key)}>
+                {key === 'day' ? 'Today' : key === 'wtd' ? 'Week' : 'Campaign'}
+              </Button>
             ))}
           </div>
-        )}
 
-        <div className="grid grid-cols-3 gap-1">
-          {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
-          {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
-          {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myVisibleStats.pmix)} />}
+          {trackedItemRefs.length > 1 && (
+            <div className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {['all', ...trackedItemRefs].map(item => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setSelectedItemRef(item)}
+                  className={`h-7 max-w-32 shrink-0 truncate rounded-md border px-2 text-[11px] font-semibold transition-colors ${
+                    activeItemRef === item ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border/70 bg-muted/25 text-muted-foreground'
+                  }`}
+                >
+                  {item === 'all' ? 'All promo' : item}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <span>Distance to #1</span>
+              <span><span className="text-primary">{number(myUnits)}</span> / {number(leaderUnits)} units</span>
+            </div>
+            <div className="relative h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressToLeader}%` }} />
+              <div className="absolute inset-y-0 w-0.5 bg-accent" style={{ left: `${progressToLeader}%` }} />
+            </div>
+            <div className="flex justify-between text-[10px] font-semibold text-muted-foreground">
+              <span>You</span>
+              <span>Leader</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
+            {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
+            {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myVisibleStats.pmix)} />}
+          </div>
         </div>
 
         {canExpand && (
-          <Button variant="ghost" size="sm" className="h-6 w-full rounded-md text-[11px] text-muted-foreground" onClick={() => setExpanded(value => !value)}>
-            Ranking List <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <Button variant="ghost" size="sm" className="h-9 w-full justify-between rounded-none border-t border-border/60 px-3 text-xs font-semibold text-muted-foreground" onClick={() => setExpanded(value => !value)}>
+            See all {sortedRanking.length || '--'} locations <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </Button>
         )}
 
