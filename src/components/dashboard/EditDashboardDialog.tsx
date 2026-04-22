@@ -138,7 +138,7 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
         className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${accentClass}`}
         style={accentBg ? { backgroundColor: accentBg } : undefined}
       >
-        <Box className="h-4 w-4 text-white" />
+        {cube.cubeType === 'tracker' ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">
@@ -147,7 +147,9 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
         <p className="text-[11px] text-muted-foreground">
           {cube.cubeType === 'data-3d'
             ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
-            : `${cube.size} · ${cube.metrics.length} metrics`}
+            : cube.cubeType === 'tracker'
+              ? `${cube.trackerDisplayMode === 'expandable' ? 'Expandable' : 'My rank'} · DAY/WTD/Promo`
+              : `${cube.size} · ${cube.metrics.length} metrics`}
         </p>
       </div>
       <Button
