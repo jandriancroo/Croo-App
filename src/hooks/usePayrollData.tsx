@@ -1616,6 +1616,7 @@ export function usePayrollData() {
 
     // Pay periods
     payPeriods,
+    periodSummaries,
     selectedPeriod,
     setSelectedPeriod,
     getPeriodStatus,
