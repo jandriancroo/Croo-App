@@ -171,8 +171,8 @@ export function AddWidgetDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)]">
+        <DialogHeader className="shrink-0 border-b px-4 py-3">
           <DialogTitle className="flex items-center gap-2">
             {step !== 'type' && (
               <Button 
@@ -292,7 +292,7 @@ export function AddWidgetDialog({
 
         {/* Step 3: Configure Data Cube */}
         {step === 'configure' && (
-          <div className="space-y-4 py-4">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
             {/* Title */}
             <div className="space-y-2">
               <Label htmlFor="title">{selectedType === 'tracker' ? 'Promo Name' : 'Title'}</Label>
@@ -305,22 +305,22 @@ export function AddWidgetDialog({
             </div>
 
             {selectedType === 'tracker' && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="promo-start">Promo Start</Label>
-                    <Input id="promo-start" type="date" value={config.trackerPromoStart || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoStart: e.target.value || null }))} />
+                    <Input id="promo-start" type="date" className="h-9" value={config.trackerPromoStart || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoStart: e.target.value || null }))} />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="promo-end">Promo End</Label>
-                    <Input id="promo-end" type="date" value={config.trackerPromoEnd || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
+                    <Input id="promo-end" type="date" className="h-9" value={config.trackerPromoEnd || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
                   </div>
                 </div>
                 <TrackerPosItemPicker
                   value={config.trackerItemRefs || []}
                   onChange={(items) => setConfig(prev => ({ ...prev, trackerItemRefs: items }))}
                 />
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Scope</Label>
                   <div className="grid grid-cols-3 gap-2">
                     {(['user', 'role', 'location'] as TrackerScopeType[]).map(scope => (
@@ -330,7 +330,7 @@ export function AddWidgetDialog({
                     ))}
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Dashboard View</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <Button type="button" variant={config.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
@@ -399,7 +399,7 @@ export function AddWidgetDialog({
         )}
 
         {step === 'configure' && (
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
             <Button
               onClick={handleAddDataCube}
               disabled={selectedType !== 'tracker' && config.metrics.length === 0}
