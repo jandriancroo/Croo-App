@@ -21,10 +21,11 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DashboardWidget, MetricType, WidgetSize, SalesDataForWidgets } from './DashboardWidget';
-import { AddWidgetDialog, NewDataCubeConfig, CubeType } from './AddWidgetDialog';
+import { AddWidgetDialog, NewDataCubeConfig, CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
 import { Add3DCubeDialog, New3DCubeConfig } from './Add3DCubeDialog';
 import { DataCube3D } from './DataCube3D';
 import { SalesSummary } from './SalesSummary';
+import { TrackerWidget } from './TrackerWidget';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { GripVertical } from 'lucide-react';
@@ -43,6 +44,13 @@ interface DataCubeConfig {
   accentColor: string;
   displayOrder: number;
   cubeType: CubeType | 'data-3d';
+  trackerScope?: { type: TrackerScopeType; role?: string };
+  trackerDisplayMode?: TrackerDisplayMode;
+  trackerItemRefs?: string[];
+  trackerPromoStart?: string | null;
+  trackerPromoEnd?: string | null;
+  trackerLocationRefs?: string[];
+  trackerRankMetrics?: TrackerRankMetric[];
   // 3D cube specific
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
