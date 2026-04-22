@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ChevronDown, Trophy } from 'lucide-react';
+import { ArrowDown, ChevronDown, Trophy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,7 @@ interface TrackerWidgetProps {
 }
 
 type PeriodKey = 'day' | 'wtd' | 'promo';
+type TrackerSortMetric = 'units' | 'sales' | 'pmix';
 
 interface StoreRankRow {
   locationId: string;
@@ -57,6 +58,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const { currentLocation, locations } = useAppLocation();
   const [period, setPeriod] = useState<PeriodKey>('day');
   const [expanded, setExpanded] = useState(false);
+  const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
@@ -104,61 +106,75 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         }
       }
 
-      const ranked = Array.from(byLocation.values())
-        .map(store => ({ ...store, pmix: store.totalSales > 0 ? (store.sales / store.totalSales) * 100 : 0 }))
-        .sort((a, b) => b.pmix - a.pmix || b.units - a.units || b.sales - a.sales);
-
-      return ranked.map((store, index) => ({ ...store, rank: index + 1 }));
+      return Array.from(byLocation.values())
+        .map(store => ({ ...store, pmix: store.totalSales > 0 ? (store.sales / store.totalSales) * 100 : 0 }));
     },
     enabled: !!currentLocation?.id,
     staleTime: 60 * 1000,
   });
 
-  const myStore = useMemo(() => ranking.find(store => store.locationId === currentLocation?.id), [ranking, currentLocation?.id]);
+  const sortedRanking = useMemo(() => {
+    return [...ranking]
+      .sort((a, b) => b[sortMetric] - a[sortMetric] || b.units - a.units || b.sales - a.sales || b.pmix - a.pmix)
+      .map((store, index) => ({ ...store, rank: index + 1 }));
+  }, [ranking, sortMetric]);
+  const myStore = useMemo(() => sortedRanking.find(store => store.locationId === currentLocation?.id), [sortedRanking, currentLocation?.id]);
   const rankMetrics = tracker.trackerRankMetrics?.length ? tracker.trackerRankMetrics : ['units', 'sales', 'pmix'];
   const canExpand = tracker.trackerDisplayMode === 'expandable';
 
   return (
-    <Card className="overflow-hidden border-primary/20 bg-card">
-      <CardContent className="p-3 space-y-3">
-        <div className="flex items-start justify-between gap-3">
+    <Card className="overflow-hidden border-primary/20 bg-card/95">
+      <CardContent className="p-2.5 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-primary shrink-0" />
-              <h2 className="font-semibold truncate">{tracker.title || 'Promo Tracker'}</h2>
+              <Trophy className="h-3.5 w-3.5 text-primary shrink-0" />
+              <h2 className="text-sm font-semibold truncate">{tracker.title || 'Promo Tracker'}</h2>
             </div>
             <p className="text-[11px] text-muted-foreground truncate">{trackedItems.length ? tracker.trackerItemRefs?.join(', ') : 'Add promo items'}</p>
           </div>
-          <Badge variant="secondary" className="shrink-0">#{myStore?.rank || '--'} of {ranking.length || '--'}</Badge>
+          <Badge variant="secondary" className="h-6 shrink-0 rounded-md px-2 text-[11px]">#{myStore?.rank || '--'} / {sortedRanking.length || '--'}</Badge>
         </div>
 
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-md bg-muted p-0.5">
           {(['day', 'wtd', 'promo'] as PeriodKey[]).map(key => (
-            <Button key={key} size="sm" variant={period === key ? 'default' : 'ghost'} className="h-8 text-xs" onClick={() => setPeriod(key)}>
+            <Button key={key} size="sm" variant={period === key ? 'default' : 'ghost'} className="h-7 rounded text-[11px]" onClick={() => setPeriod(key)}>
               {key === 'day' ? 'DAY' : key === 'wtd' ? 'WTD' : 'PROMO'}
             </Button>
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {rankMetrics.includes('units') && <div><p className="text-[10px] text-muted-foreground">Units</p><p className="font-semibold">{isLoading ? '--' : number(myStore?.units || 0)}</p></div>}
-          {rankMetrics.includes('sales') && <div><p className="text-[10px] text-muted-foreground">Sales</p><p className="font-semibold">{isLoading ? '--' : money(myStore?.sales || 0)}</p></div>}
-          {rankMetrics.includes('pmix') && <div><p className="text-[10px] text-muted-foreground">PMIX</p><p className="font-semibold">{isLoading ? '--' : percent(myStore?.pmix || 0)}</p></div>}
+        <div className="grid grid-cols-3 gap-1.5">
+          {rankMetrics.includes('units') && <button type="button" onClick={() => setSortMetric('units')} className="rounded-md bg-muted/45 px-2 py-1.5 text-left"><p className="text-[10px] uppercase text-muted-foreground">Units</p><p className="text-sm font-semibold leading-tight">{isLoading ? '--' : number(myStore?.units || 0)}</p></button>}
+          {rankMetrics.includes('sales') && <button type="button" onClick={() => setSortMetric('sales')} className="rounded-md bg-muted/45 px-2 py-1.5 text-left"><p className="text-[10px] uppercase text-muted-foreground">Sales</p><p className="text-sm font-semibold leading-tight">{isLoading ? '--' : money(myStore?.sales || 0)}</p></button>}
+          {rankMetrics.includes('pmix') && <button type="button" onClick={() => setSortMetric('pmix')} className="rounded-md bg-muted/45 px-2 py-1.5 text-left"><p className="text-[10px] uppercase text-muted-foreground">PMIX</p><p className="text-sm font-semibold leading-tight">{isLoading ? '--' : percent(myStore?.pmix || 0)}</p></button>}
         </div>
 
         {canExpand && (
-          <Button variant="ghost" size="sm" className="w-full h-8" onClick={() => setExpanded(value => !value)}>
-            Ranking List <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <Button variant="ghost" size="sm" className="h-7 w-full text-xs" onClick={() => setExpanded(value => !value)}>
+            Ranking List <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </Button>
         )}
 
         {canExpand && expanded && (
-          <div className="space-y-1 pt-1">
-            {ranking.slice(0, 20).map(store => (
-              <div key={store.locationId} className="grid grid-cols-[2rem_1fr_auto] items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs">
+          <div className="space-y-1 pt-0.5">
+            <div className="grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 px-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+              <span>#</span>
+              <span>Store</span>
+              {(['units', 'sales', 'pmix'] as TrackerSortMetric[]).map(metric => (
+                <button key={metric} type="button" onClick={() => setSortMetric(metric)} className="flex items-center justify-end gap-0.5">
+                  {metric === 'units' ? 'Items' : metric === 'sales' ? 'Sales' : 'PMIX'}
+                  {sortMetric === metric && <ArrowDown className="h-2.5 w-2.5" />}
+                </button>
+              ))}
+            </div>
+            {sortedRanking.slice(0, 20).map(store => (
+              <div key={store.locationId} className="grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 rounded-md bg-muted/45 px-1.5 py-1.5 text-[11px]">
                 <span className="font-semibold">#{store.rank}</span>
                 <span className="truncate">{store.locationName}</span>
-                <span className="font-medium">{number(store.units)} · {money(store.sales)} · {percent(store.pmix)}</span>
+                <span className="text-right font-medium tabular-nums">{number(store.units)}</span>
+                <span className="text-right font-medium tabular-nums">{money(store.sales)}</span>
+                <span className="text-right font-medium tabular-nums">{percent(store.pmix)}</span>
               </div>
             ))}
           </div>
