@@ -8487,6 +8487,13 @@ export type Database = {
           num_faces: number | null
           reference_id: string | null
           title: string | null
+          tracker_display_mode: string
+          tracker_item_refs: Json
+          tracker_location_refs: Json
+          tracker_promo_end: string | null
+          tracker_promo_start: string | null
+          tracker_rank_metrics: Json
+          tracker_scope: Json
           updated_at: string
           user_id: string
           widget_size: string
@@ -8504,6 +8511,13 @@ export type Database = {
           num_faces?: number | null
           reference_id?: string | null
           title?: string | null
+          tracker_display_mode?: string
+          tracker_item_refs?: Json
+          tracker_location_refs?: Json
+          tracker_promo_end?: string | null
+          tracker_promo_start?: string | null
+          tracker_rank_metrics?: Json
+          tracker_scope?: Json
           updated_at?: string
           user_id: string
           widget_size?: string
@@ -8521,6 +8535,13 @@ export type Database = {
           num_faces?: number | null
           reference_id?: string | null
           title?: string | null
+          tracker_display_mode?: string
+          tracker_item_refs?: Json
+          tracker_location_refs?: Json
+          tracker_promo_end?: string | null
+          tracker_promo_start?: string | null
+          tracker_rank_metrics?: Json
+          tracker_scope?: Json
           updated_at?: string
           user_id?: string
           widget_size?: string
