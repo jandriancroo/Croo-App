@@ -281,7 +281,7 @@ export const WidgetsSection = memo(function WidgetsSection({
         .select('*')
         .eq('user_id', user.id)
         .eq('location_id', currentLocation.id)
-        .in('cube_type', ['data', 'data-3d', 'sales-chart'])
+        .in('cube_type', ['data', 'data-3d', 'sales-chart', 'tracker'])
         .order('display_order');
 
       if (error) {
@@ -300,6 +300,13 @@ export const WidgetsSection = memo(function WidgetsSection({
         faceMetrics: (cube.face_metrics as MetricType[][]) || [],
         faceTitles: (cube.face_titles as string[]) || [],
         numFaces: cube.num_faces || 1,
+        trackerScope: (cube.tracker_scope as { type: TrackerScopeType; role?: string }) || { type: 'location' },
+        trackerDisplayMode: (cube.tracker_display_mode as TrackerDisplayMode) || 'summary',
+        trackerItemRefs: (cube.tracker_item_refs as string[]) || [],
+        trackerPromoStart: cube.tracker_promo_start || null,
+        trackerPromoEnd: cube.tracker_promo_end || null,
+        trackerLocationRefs: (cube.tracker_location_refs as string[]) || [],
+        trackerRankMetrics: (cube.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
       })) as DataCubeConfig[];
     },
     enabled: !!user?.id && !!currentLocation?.id && !useRoleCubes,
