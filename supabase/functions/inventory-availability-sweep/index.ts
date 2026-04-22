@@ -121,6 +121,18 @@ async function buildPaBidList(
       out.set(territory, set);
     }
   }
+
+  // Debug: surface the PA SKU shape so we can verify field-name match
+  // against vendor_sku_health.vendor_sku after the first real sweep.
+  console.log(
+    "[sweep] PA bid list sample:",
+    Array.from(out.entries()).slice(0, 3).map(([t, s]) => ({
+      territory: t,
+      skuCount: s.size,
+      sample: Array.from(s).slice(0, 3),
+    })),
+  );
+
   return out;
 }
 
