@@ -121,6 +121,18 @@ async function buildPaBidList(
       out.set(territory, set);
     }
   }
+
+  // Debug: surface the PA SKU shape so we can verify field-name match
+  // against vendor_sku_health.vendor_sku after the first real sweep.
+  console.log(
+    "[sweep] PA bid list sample:",
+    Array.from(out.entries()).slice(0, 3).map(([t, s]) => ({
+      territory: t,
+      skuCount: s.size,
+      sample: Array.from(s).slice(0, 3),
+    })),
+  );
+
   return out;
 }
 
@@ -234,6 +246,7 @@ async function syncToInventoryItems(
       .from("inventory_items")
       .update({
         last_seen_on_bid_list: patch.last_seen_on_bid_list,
+        days_not_seen: patch.days_not_seen,
         available_since: patch.available_since,
       }, { count: "exact" })
       .eq("brand_item_id", m.brand_template_id)

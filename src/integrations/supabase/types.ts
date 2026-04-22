@@ -3064,6 +3064,7 @@ export type Database = {
           count_units_per_case: number | null
           countable: boolean
           created_at: string
+          days_not_seen: number
           deactivated_by: string | null
           deactivated_reason: string | null
           display_order: number | null
@@ -3110,6 +3111,7 @@ export type Database = {
           count_units_per_case?: number | null
           countable?: boolean
           created_at?: string
+          days_not_seen?: number
           deactivated_by?: string | null
           deactivated_reason?: string | null
           display_order?: number | null
@@ -3156,6 +3158,7 @@ export type Database = {
           count_units_per_case?: number | null
           countable?: boolean
           created_at?: string
+          days_not_seen?: number
           deactivated_by?: string | null
           deactivated_reason?: string | null
           display_order?: number | null
