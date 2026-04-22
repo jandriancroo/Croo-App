@@ -1213,41 +1213,6 @@ async function calculateLaborFromPunchesForDates(
 
 // QU labor fetch removed — all locations now use punch clock exclusively
 
-// Cache labor data to dedicated labor_cache table with source tracking
-async function cacheLaborData(
-  supabase: any,
-  locationId: string,
-  dateStr: string,
-  laborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number },
-  source: 'punch_clock' | 'qubeyond' = 'punch_clock'
-): Promise<void> {
-  try {
-    const { error } = await supabase
-      .from('labor_cache')
-      .upsert({
-        location_id: locationId,
-        labor_date: dateStr,
-        labor_cost: laborData.laborCost,
-        labor_hours: laborData.hoursWorked,
-        regular_hours: laborData.regularHours,
-        overtime_hours: laborData.overtimeHours,
-        source: source,
-        fetched_at: new Date().toISOString()
-      }, {
-        onConflict: 'location_id,labor_date,source',
-        ignoreDuplicates: false
-      });
-    
-    if (error) {
-      console.error(`[LABOR-CACHE] Error caching labor for ${dateStr}:`, error.message);
-    } else {
-      console.log(`[LABOR-CACHE] Cached labor to labor_cache for ${dateStr}: $${laborData.laborCost.toFixed(2)} / ${laborData.hoursWorked.toFixed(1)}h (source: ${source})`);
-    }
-  } catch (e) {
-    console.error(`[LABOR-CACHE] Exception caching labor:`, e);
-  }
-}
-
 // Get cached labor data from dedicated labor_cache table
 // PRIORITIZES punch_clock over qubeyond (does NOT aggregate sources - picks the best one per date)
 async function getCachedLaborData(
@@ -2580,11 +2545,6 @@ serve(async (req) => {
       
       console.log(`[LABOR] MTD: $${monthlyLaborData.laborCost.toFixed(2)} / ${monthlyLaborData.hoursWorked.toFixed(1)}h`);
       
-      // Cache today's punch labor
-      if (todayLaborData.laborCost > 0) {
-        await cacheLaborData(cacheSupabase, locationId, todayStr, todayLaborData, 'punch_clock');
-      }
-      
       // NOTE: Historical labor caching removed — labor-service handles past-date
       // labor_cache writes with proper overnight-shift handling and breakdown
       // validation. The simpler calculateLaborFromPunches here uses a narrow UTC
@@ -3129,31 +3089,6 @@ serve(async (req) => {
             console.error(`[BACKGROUND] Failed to save today's sales:`, upsertError.message);
           } else {
             console.log(`[BACKGROUND] Saved today's sales: $${dailySales}, ${dailyGuestCount} guests, ${finalPizzaCount} pizzas`);
-          }
-          
-          // Save today's labor to labor_cache
-          if (laborData && (laborData.laborCost > 0 || laborData.hoursWorked > 0)) {
-            const { error: laborError } = await cacheSupabase
-              .from('labor_cache')
-              .upsert({
-                location_id: locationId,
-                labor_date: todayStr,
-                source: 'punch_clock',
-                labor_cost: laborData.laborCost || 0,
-                labor_hours: laborData.hoursWorked || 0,
-                regular_hours: laborData.regularHours || 0,
-                overtime_hours: laborData.overtimeHours || 0,
-                double_time_hours: 0,
-                fetched_at: new Date().toISOString()
-              }, {
-                onConflict: 'location_id,labor_date,source'
-              });
-            
-            if (laborError) {
-              console.error(`[BACKGROUND] Failed to save labor to labor_cache:`, laborError.message);
-            } else {
-              console.log(`[BACKGROUND] Saved labor to labor_cache: ${laborSource} source, $${laborData.laborCost.toFixed(2)}, ${laborData.hoursWorked.toFixed(2)}h`);
-            }
           }
           
           // Fetch and save today's tips to daily_tips cache (tips only need live fetch at sync time, not on every dashboard load)
