@@ -185,7 +185,7 @@ export function AddWidgetDialog({
             )}
             {step === 'type' && 'Add Widget'}
             {step === 'size' && 'Choose Size'}
-            {step === 'configure' && 'Configure Data Cube'}
+            {step === 'configure' && (selectedType === 'tracker' ? 'Configure Tracker' : 'Configure Data Cube')}
           </DialogTitle>
         </DialogHeader>
 
@@ -234,6 +234,20 @@ export function AddWidgetDialog({
                   <span className="text-[10px] text-muted-foreground">
                     {hasSalesChart ? 'Already added' : 'Visual overview'}
                   </span>
+                </div>
+              </button>
+
+              {/* Tracker */}
+              <button
+                className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
+                onClick={() => handleTypeSelect('tracker')}
+              >
+                <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <Trophy className="h-6 w-6 text-primary" />
+                </div>
+                <div className="text-center">
+                  <span className="text-sm font-medium block">Tracker</span>
+                  <span className="text-[10px] text-muted-foreground">Promo ranking</span>
                 </div>
               </button>
             </div>
@@ -289,8 +303,44 @@ export function AddWidgetDialog({
               />
             </div>
 
+            {selectedType === 'tracker' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="promo-start">Promo Start</Label>
+                    <Input id="promo-start" type="date" value={config.trackerPromoStart || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoStart: e.target.value || null }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="promo-end">Promo End</Label>
+                    <Input id="promo-end" type="date" value={config.trackerPromoEnd || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tracker-items">Promo Item(s)</Label>
+                  <Input id="tracker-items" placeholder="Item names, comma separated" value={(config.trackerItemRefs || []).join(', ')} onChange={(e) => setConfig(prev => ({ ...prev, trackerItemRefs: e.target.value.split(',').map(v => v.trim()).filter(Boolean) }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Scope</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['user', 'role', 'location'] as TrackerScopeType[]).map(scope => (
+                      <Button key={scope} type="button" variant={config.trackerScope?.type === scope ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerScope: { type: scope } }))}>
+                        {scope === 'user' ? 'User' : scope === 'role' ? 'Role' : 'Location'}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Dashboard View</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={config.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
+                    <Button type="button" variant={config.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Metrics Selection */}
-            <div className="space-y-2">
+            {selectedType !== 'tracker' && <div className="space-y-2">
               <Label>
                 Metrics 
                 <span className="text-muted-foreground font-normal ml-1">
@@ -324,7 +374,7 @@ export function AddWidgetDialog({
                   </div>
                 </div>
               ))}
-            </div>
+            </div>}
 
             {/* Color Selection */}
             <div className="space-y-2">
@@ -353,7 +403,7 @@ export function AddWidgetDialog({
               onClick={handleAddDataCube}
               disabled={config.metrics.length === 0}
             >
-              Add Data Cube
+              {selectedType === 'tracker' ? 'Add Tracker' : 'Add Data Cube'}
             </Button>
           </DialogFooter>
         )}
