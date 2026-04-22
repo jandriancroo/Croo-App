@@ -12,6 +12,7 @@ import {
   METRIC_GROUPS,
 } from "./DashboardWidget";
 import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeColors";
+import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
 
 export type TrackerScopeType = 'user' | 'role' | 'location';
 export type TrackerDisplayMode = 'summary' | 'expandable';
@@ -315,10 +316,10 @@ export function AddWidgetDialog({
                     <Input id="promo-end" type="date" value={config.trackerPromoEnd || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tracker-items">Promo Item(s)</Label>
-                  <Input id="tracker-items" placeholder="Item names, comma separated" value={(config.trackerItemRefs || []).join(', ')} onChange={(e) => setConfig(prev => ({ ...prev, trackerItemRefs: e.target.value.split(',').map(v => v.trim()).filter(Boolean) }))} />
-                </div>
+                <TrackerPosItemPicker
+                  value={config.trackerItemRefs || []}
+                  onChange={(items) => setConfig(prev => ({ ...prev, trackerItemRefs: items }))}
+                />
                 <div className="space-y-2">
                   <Label>Scope</Label>
                   <div className="grid grid-cols-3 gap-2">
