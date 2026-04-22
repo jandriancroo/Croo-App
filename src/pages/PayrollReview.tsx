@@ -106,6 +106,7 @@ export default function PayrollReview() {
                 const periodLabel = index === 0 ? 'This Period' : index === 1 ? 'Last Period' : null;
                 const summary = periodSummaries?.[`${period.startDate}_${period.endDate}`];
                 const summaryStats = [
+                  { label: 'Sales', value: summary ? summary.sales.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '—' },
                   { label: 'Hours', value: summary ? summary.hours.toFixed(1) : '—' },
                   { label: 'Labor', value: summary ? summary.cost.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '—' },
                   { label: 'Labor %', value: summary?.laborPercent != null ? `${summary.laborPercent.toFixed(1)}%` : '—' },
@@ -145,9 +146,9 @@ export default function PayrollReview() {
                             {period.label}
                           </CardTitle>
                         </div>
-                        <div className="grid grid-cols-3 overflow-hidden rounded-full border bg-muted/35 sm:min-w-[420px]">
+                        <div className="grid grid-cols-4 overflow-hidden rounded-full border bg-muted/35 sm:min-w-[520px]">
                           {summaryStats.map((stat) => (
-                            <div key={stat.label} className="border-r px-3 py-2 text-center last:border-r-0 sm:px-5">
+                            <div key={stat.label} className="border-r px-2 py-2 text-center last:border-r-0 sm:px-4">
                               <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-xs">{stat.label}</div>
                               <div className="mt-0.5 text-base font-bold leading-tight sm:text-lg">{stat.value}</div>
                             </div>
