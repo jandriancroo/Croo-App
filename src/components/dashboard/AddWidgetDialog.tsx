@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, Square, RectangleHorizontal, LayoutGrid, LineChart, Box } from "lucide-react";
+import { ArrowLeft, Check, Square, RectangleHorizontal, LineChart, Box, Trophy } from "lucide-react";
 import { 
   WidgetSize, 
   MetricType, 
@@ -13,7 +13,10 @@ import {
 } from "./DashboardWidget";
 import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeColors";
 
-export type CubeType = 'data' | 'sales-chart';
+export type TrackerScopeType = 'user' | 'role' | 'location';
+export type TrackerDisplayMode = 'summary' | 'expandable';
+export type TrackerRankMetric = 'units' | 'sales' | 'pmix';
+export type CubeType = 'data' | 'sales-chart' | 'tracker';
 
 export interface NewDataCubeConfig {
   title: string;
@@ -21,6 +24,13 @@ export interface NewDataCubeConfig {
   metrics: MetricType[];
   accentColor: string;
   cubeType: CubeType;
+  trackerScope?: { type: TrackerScopeType; role?: string };
+  trackerDisplayMode?: TrackerDisplayMode;
+  trackerItemRefs?: string[];
+  trackerPromoStart?: string | null;
+  trackerPromoEnd?: string | null;
+  trackerLocationRefs?: string[];
+  trackerRankMetrics?: TrackerRankMetric[];
 }
 
 interface AddWidgetDialogProps {
@@ -51,6 +61,13 @@ export function AddWidgetDialog({
     metrics: [],
     accentColor: THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key,
     cubeType: 'data',
+    trackerScope: { type: 'location' },
+    trackerDisplayMode: 'expandable',
+    trackerItemRefs: [],
+    trackerPromoStart: null,
+    trackerPromoEnd: null,
+    trackerLocationRefs: [],
+    trackerRankMetrics: ['units', 'sales', 'pmix'],
   });
 
   const resetDialog = () => {
@@ -63,6 +80,13 @@ export function AddWidgetDialog({
       metrics: [],
       accentColor: THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key,
       cubeType: 'data',
+        trackerScope: { type: 'location' },
+        trackerDisplayMode: 'expandable',
+        trackerItemRefs: [],
+        trackerPromoStart: null,
+        trackerPromoEnd: null,
+        trackerLocationRefs: [],
+        trackerRankMetrics: ['units', 'sales', 'pmix'],
     });
   };
 
@@ -77,7 +101,19 @@ export function AddWidgetDialog({
     setSelectedType(type);
     setConfig(prev => ({ ...prev, cubeType: type }));
     
-    if (type === 'sales-chart') {
+    if (type === 'tracker') {
+      setConfig(prev => ({
+        ...prev,
+        cubeType: 'tracker',
+        size: 'large',
+        title: 'Promo Tracker',
+        metrics: [],
+        trackerScope: { type: 'location' },
+        trackerDisplayMode: 'expandable',
+        trackerRankMetrics: ['units', 'sales', 'pmix'],
+      }));
+      setStep('configure');
+    } else if (type === 'sales-chart') {
       // Sales chart is always large and skips size/configure steps
       setConfig(prev => ({ 
         ...prev, 
@@ -117,7 +153,7 @@ export function AddWidgetDialog({
   };
 
   const handleAddDataCube = () => {
-    if (config.metrics.length === 0) return;
+    if (config.cubeType !== 'tracker' && config.metrics.length === 0) return;
     onAdd(config);
     handleClose(false);
   };
@@ -126,7 +162,7 @@ export function AddWidgetDialog({
 
   const handleBack = () => {
     if (step === 'configure') {
-      setStep('size');
+      setStep(selectedType === 'tracker' ? 'type' : 'size');
     } else if (step === 'size') {
       setStep('type');
     }
