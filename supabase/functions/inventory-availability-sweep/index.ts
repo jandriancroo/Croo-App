@@ -246,6 +246,7 @@ async function syncToInventoryItems(
       .from("inventory_items")
       .update({
         last_seen_on_bid_list: patch.last_seen_on_bid_list,
+        days_not_seen: patch.days_not_seen,
         available_since: patch.available_since,
       }, { count: "exact" })
       .eq("brand_item_id", m.brand_template_id)
