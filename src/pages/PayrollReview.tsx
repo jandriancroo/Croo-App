@@ -110,30 +110,32 @@ export default function PayrollReview() {
                     className="cursor-pointer hover:shadow-lg transition-shadow"
                     onClick={() => setSelectedPeriod(period)}
                   >
-                    <CardHeader>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <CardTitle className="text-lg truncate">{period.label}</CardTitle>
+                    <CardHeader className="p-4 sm:p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <CardTitle className="min-w-0 text-xl leading-snug break-words whitespace-normal">
+                          {period.label}
+                        </CardTitle>
+                        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                           {periodLabel && (
                             <Badge 
                               variant={index === 0 ? "default" : "secondary"}
-                              className="shrink-0 text-xs"
+                              className="text-xs"
                             >
                               {periodLabel}
                             </Badge>
                           )}
+                          {isClosed ? (
+                            <Badge variant="outline" className="bg-muted">
+                              <Lock className="mr-1 h-3 w-3" />
+                              Closed
+                            </Badge>
+                          ) : (
+                            <Badge variant="default">
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              Open
+                            </Badge>
+                          )}
                         </div>
-                        {isClosed ? (
-                          <Badge variant="outline" className="bg-muted shrink-0">
-                            <Lock className="mr-1 h-3 w-3" />
-                            Closed
-                          </Badge>
-                        ) : (
-                          <Badge variant="default" className="shrink-0">
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                            Open
-                          </Badge>
-                        )}
                       </div>
                     </CardHeader>
                   </Card>
