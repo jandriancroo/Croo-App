@@ -31,6 +31,7 @@ export function usePayrollData() {
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
   const [payPeriods, setPayPeriods] = useState<any[]>([]);
+  const [periodSummaries, setPeriodSummaries] = useState<Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null }>>({});
   const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
   const [timeCards, setTimeCards] = useState<any[]>([]);
   const [editingShift, setEditingShift] = useState<{ dayPunches: any[], userId: string, locationId: string, shiftDate: string } | null>(null);
@@ -154,6 +155,83 @@ export function usePayrollData() {
   };
 
   // ─── Pay Periods ───────────────────────────────────────────────────
+  const getPeriodKey = (period: any) => `${period.startDate}_${period.endDate}`;
+
+  const fetchPeriodSummaries = async (periods: any[]) => {
+    if (!currentLocation?.id || periods.length === 0) {
+      setPeriodSummaries({});
+      return;
+    }
+
+    const oldestPeriod = periods[periods.length - 1];
+    const newestPeriod = periods[0];
+
+    const [salesResult, laborResult] = await Promise.all([
+      supabase
+        .from('sales_cache')
+        .select('sale_date, net_sales')
+        .eq('location_id', currentLocation.id)
+        .gte('sale_date', oldestPeriod.startDate)
+        .lte('sale_date', newestPeriod.endDate),
+      supabase
+        .from('labor_cache')
+        .select('labor_date, labor_hours, labor_cost, source')
+        .eq('location_id', currentLocation.id)
+        .gte('labor_date', oldestPeriod.startDate)
+        .lte('labor_date', newestPeriod.endDate),
+    ]);
+
+    if (salesResult.error || laborResult.error) {
+      console.error('[PayrollReview] period summary query error:', salesResult.error || laborResult.error);
+      setPeriodSummaries({});
+      return;
+    }
+
+    const salesByDate = new Map<string, number>();
+    (salesResult.data || []).forEach((row: any) => {
+      salesByDate.set(row.sale_date, (salesByDate.get(row.sale_date) || 0) + (Number(row.net_sales) || 0));
+    });
+
+    const laborByDate = new Map<string, { hours: number; cost: number; priority: number }>();
+    (laborResult.data || []).forEach((row: any) => {
+      const priority = row.source === 'punch_clock' ? 2 : 1;
+      const existing = laborByDate.get(row.labor_date);
+      if (!existing || priority > existing.priority) {
+        laborByDate.set(row.labor_date, {
+          hours: Number(row.labor_hours) || 0,
+          cost: Number(row.labor_cost) || 0,
+          priority,
+        });
+      }
+    });
+
+    const nextSummaries = periods.reduce((acc: Record<string, { hours: number; cost: number; sales: number; laborPercent: number | null }>, period) => {
+      let hours = 0;
+      let cost = 0;
+      let sales = 0;
+
+      salesByDate.forEach((value, date) => {
+        if (date >= period.startDate && date <= period.endDate) sales += value;
+      });
+      laborByDate.forEach((value, date) => {
+        if (date >= period.startDate && date <= period.endDate) {
+          hours += value.hours;
+          cost += value.cost;
+        }
+      });
+
+      acc[getPeriodKey(period)] = {
+        hours,
+        cost,
+        sales,
+        laborPercent: sales > 0 ? (cost / sales) * 100 : null,
+      };
+      return acc;
+    }, {});
+
+    setPeriodSummaries(nextSummaries);
+  };
+
   const generatePayPeriods = async () => {
     const today = getStartOfTodayInTimezone(timezone);
     const periods: any[] = [];
@@ -285,6 +363,7 @@ export function usePayrollData() {
 
     periods.reverse();
     setPayPeriods(periods);
+    await fetchPeriodSummaries(periods);
 
     const { data: statuses } = await supabase.from('pay_periods').select('*');
 
@@ -1537,6 +1616,7 @@ export function usePayrollData() {
 
     // Pay periods
     payPeriods,
+    periodSummaries,
     selectedPeriod,
     setSelectedPeriod,
     getPeriodStatus,

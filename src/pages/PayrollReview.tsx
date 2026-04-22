@@ -29,6 +29,7 @@ export default function PayrollReview() {
     currentLocation,
     timezone,
     payPeriods,
+    periodSummaries,
     selectedPeriod,
     setSelectedPeriod,
     getPeriodStatus,
@@ -98,43 +99,59 @@ export default function PayrollReview() {
               <h1 className="text-3xl font-bold">Time Tracking</h1>
               <p className="text-muted-foreground">Select a pay period to review time cards</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-3">
               {payPeriods.map((period, index) => {
                 const status = getPeriodStatus(period);
                 const isClosed = status?.status === 'closed';
                 const periodLabel = index === 0 ? 'This Period' : index === 1 ? 'Last Period' : null;
+                const summary = periodSummaries?.[`${period.startDate}_${period.endDate}`];
+                const summaryStats = [
+                  { label: 'Hours', value: summary ? summary.hours.toFixed(1) : '—' },
+                  { label: 'Labor', value: summary ? summary.cost.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '—' },
+                  { label: 'Labor %', value: summary?.laborPercent != null ? `${summary.laborPercent.toFixed(1)}%` : '—' },
+                ];
                 
                 return (
                   <Card
                     key={index}
-                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    className="cursor-pointer transition-shadow hover:shadow-lg"
                     onClick={() => setSelectedPeriod(period)}
                   >
                     <CardHeader className="p-4 sm:p-5">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <CardTitle className="min-w-0 text-xl leading-snug break-words whitespace-normal">
-                          {period.label}
-                        </CardTitle>
-                        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-                          {periodLabel && (
-                            <Badge 
-                              variant={index === 0 ? "default" : "secondary"}
-                              className="text-xs"
-                            >
-                              {periodLabel}
-                            </Badge>
-                          )}
-                          {isClosed ? (
-                            <Badge variant="outline" className="bg-muted">
-                              <Lock className="mr-1 h-3 w-3" />
-                              Closed
-                            </Badge>
-                          ) : (
-                            <Badge variant="default">
-                              <CheckCircle2 className="mr-1 h-3 w-3" />
-                              Open
-                            </Badge>
-                          )}
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                        <div className="min-w-0 space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {periodLabel && (
+                              <Badge 
+                                variant={index === 0 ? "default" : "secondary"}
+                                className="text-xs"
+                              >
+                                {periodLabel}
+                              </Badge>
+                            )}
+                            {isClosed ? (
+                              <Badge variant="outline" className="bg-muted">
+                                <Lock className="mr-1 h-3 w-3" />
+                                Closed
+                              </Badge>
+                            ) : (
+                              <Badge variant="default">
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                                Open
+                              </Badge>
+                            )}
+                          </div>
+                          <CardTitle className="max-w-3xl text-2xl leading-snug break-words whitespace-normal sm:text-3xl">
+                            {period.label}
+                          </CardTitle>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 sm:min-w-[420px]">
+                          {summaryStats.map((stat) => (
+                            <div key={stat.label} className="rounded-md border bg-muted/40 px-3 py-2 text-right">
+                              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{stat.label}</div>
+                              <div className="mt-1 text-lg font-bold leading-none sm:text-xl">{stat.value}</div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </CardHeader>
