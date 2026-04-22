@@ -89,6 +89,23 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
     transition,
   };
 
+  if (cube.cubeType === 'tracker') {
+    return (
+      <div ref={setNodeRef} style={style} className={`col-span-2 ${isDragging ? 'opacity-50' : ''} relative`} {...(isReorderMode ? { ...attributes, ...listeners } : {})}>
+        {isReorderMode && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 rounded-lg">
+            <div className="p-3 rounded-full bg-primary/20">
+              <GripVertical className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+        )}
+        <div className={isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''}>
+          <TrackerWidget tracker={cube} />
+        </div>
+      </div>
+    );
+  }
+
   // For sales-chart type, render the SalesOverview component with matching cube style
   if (cube.cubeType === 'sales-chart') {
     return (
