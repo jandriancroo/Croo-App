@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ClipboardCheck, Settings2 } from 'lucide-react';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
-import { CubeType } from '@/components/dashboard/AddWidgetDialog';
+import { CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from '@/components/dashboard/AddWidgetDialog';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
@@ -210,6 +210,13 @@ export default function Dashboard() {
         faceMetrics: (cube.face_metrics as MetricType[][]) || [],
         faceTitles: (cube.face_titles as string[]) || [],
         numFaces: cube.num_faces || 1,
+        trackerScope: (cube.tracker_scope as { type: TrackerScopeType; role?: string }) || { type: 'location' },
+        trackerDisplayMode: (cube.tracker_display_mode as TrackerDisplayMode) || 'summary',
+        trackerItemRefs: (cube.tracker_item_refs as string[]) || [],
+        trackerPromoStart: cube.tracker_promo_start || null,
+        trackerPromoEnd: cube.tracker_promo_end || null,
+        trackerLocationRefs: (cube.tracker_location_refs as string[]) || [],
+        trackerRankMetrics: (cube.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
       })) as CubeConfig[];
     },
     enabled: !!user?.id && !!currentLocation?.id,
@@ -235,6 +242,13 @@ export default function Dashboard() {
       if (updates.numFaces !== undefined) {
         updateData.num_faces = updates.numFaces;
       }
+      if (updates.trackerScope !== undefined) updateData.tracker_scope = updates.trackerScope;
+      if (updates.trackerDisplayMode !== undefined) updateData.tracker_display_mode = updates.trackerDisplayMode;
+      if (updates.trackerItemRefs !== undefined) updateData.tracker_item_refs = updates.trackerItemRefs;
+      if (updates.trackerPromoStart !== undefined) updateData.tracker_promo_start = updates.trackerPromoStart;
+      if (updates.trackerPromoEnd !== undefined) updateData.tracker_promo_end = updates.trackerPromoEnd;
+      if (updates.trackerLocationRefs !== undefined) updateData.tracker_location_refs = updates.trackerLocationRefs;
+      if (updates.trackerRankMetrics !== undefined) updateData.tracker_rank_metrics = updates.trackerRankMetrics;
       
       const { error } = await supabase
         .from('user_dashboard_cubes')
