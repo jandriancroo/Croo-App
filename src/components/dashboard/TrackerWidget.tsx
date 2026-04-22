@@ -35,6 +35,7 @@ interface StoreRankRow {
   sales: number;
   pmix: number;
   totalSales: number;
+  itemStats: Record<string, { units: number; sales: number; pmix: number }>;
   rank: number;
 }
 
@@ -64,7 +65,8 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
   const promoStart = tracker.trackerPromoStart || wtdStart;
   const promoEnd = tracker.trackerPromoEnd || today;
-  const trackedItems = (tracker.trackerItemRefs || []).map(item => item.toLowerCase());
+  const trackedItemRefs = tracker.trackerItemRefs || [];
+  const trackedItems = trackedItemRefs.map(item => item.toLowerCase());
   const locationPool = tracker.trackerLocationRefs?.length ? tracker.trackerLocationRefs : locations.map(location => location.id);
 
   const range = period === 'day'
@@ -91,7 +93,16 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
       const byLocation = new Map<string, StoreRankRow>();
       for (const locationId of locationPool) {
         const location = locations.find(loc => loc.id === locationId);
-        byLocation.set(locationId, { locationId, locationName: location?.name || 'Store', units: 0, sales: 0, pmix: 0, totalSales: 0, rank: 0 });
+        byLocation.set(locationId, {
+          locationId,
+          locationName: location?.name || 'Store',
+          units: 0,
+          sales: 0,
+          pmix: 0,
+          totalSales: 0,
+          itemStats: Object.fromEntries(trackedItemRefs.map(item => [item, { units: 0, sales: 0, pmix: 0 }])),
+          rank: 0,
+        });
       }
 
       for (const row of data || []) {
@@ -99,15 +110,26 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         if (!entry) continue;
         entry.totalSales += Number(row.net_sales) || 0;
         for (const item of normalizeMix(row.product_mix)) {
-          if (trackedItems.some(target => item.itemName.toLowerCase().includes(target))) {
+          const matchedRef = trackedItemRefs.find(target => item.itemName.toLowerCase().includes(target.toLowerCase()));
+          if (matchedRef) {
             entry.units += item.quantity;
             entry.sales += item.netSales;
+            entry.itemStats[matchedRef] ||= { units: 0, sales: 0, pmix: 0 };
+            entry.itemStats[matchedRef].units += item.quantity;
+            entry.itemStats[matchedRef].sales += item.netSales;
           }
         }
       }
 
       return Array.from(byLocation.values())
-        .map(store => ({ ...store, pmix: store.totalSales > 0 ? (store.sales / store.totalSales) * 100 : 0 }));
+        .map(store => ({
+          ...store,
+          pmix: store.totalSales > 0 ? (store.sales / store.totalSales) * 100 : 0,
+          itemStats: Object.fromEntries(Object.entries(store.itemStats).map(([name, stats]) => [
+            name,
+            { ...stats, pmix: store.totalSales > 0 ? (stats.sales / store.totalSales) * 100 : 0 },
+          ])),
+        }));
     },
     enabled: !!currentLocation?.id,
     staleTime: 60 * 1000,
