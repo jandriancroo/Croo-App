@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck } from "lucide-react";
+import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy } from "lucide-react";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -17,7 +17,7 @@ import {
   METRIC_GROUPS,
   WidgetSize,
 } from "./DashboardWidget";
-import { CubeType } from "./AddWidgetDialog";
+import { CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from "./AddWidgetDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +62,13 @@ export interface CubeConfig {
   metrics: MetricType[];
   accentColor: string;
   cubeType: CubeType | 'data-3d';
+  trackerScope?: { type: TrackerScopeType; role?: string };
+  trackerDisplayMode?: TrackerDisplayMode;
+  trackerItemRefs?: string[];
+  trackerPromoStart?: string | null;
+  trackerPromoEnd?: string | null;
+  trackerLocationRefs?: string[];
+  trackerRankMetrics?: TrackerRankMetric[];
   // 3D cube specific
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
