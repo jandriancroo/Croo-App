@@ -107,7 +107,7 @@ export function AddWidgetDialog({
         ...prev,
         cubeType: 'tracker',
         size: 'large',
-        title: 'Promo Tracker',
+        title: '',
         metrics: [],
         trackerScope: { type: 'location' },
         trackerDisplayMode: 'expandable',
@@ -295,10 +295,10 @@ export function AddWidgetDialog({
           <div className="space-y-4 py-4">
             {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">{selectedType === 'tracker' ? 'Promo Name' : 'Title'}</Label>
               <Input
                 id="title"
-                placeholder="e.g., Today's Sales"
+                placeholder={selectedType === 'tracker' ? 'e.g., Sweet Heat' : "e.g., Today's Sales"}
                 value={config.title}
                 onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
               />
