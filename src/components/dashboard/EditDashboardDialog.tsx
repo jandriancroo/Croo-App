@@ -96,13 +96,15 @@ function SortableSectionRow({ sectionKey, children }: { sectionKey: string; chil
     opacity: isDragging ? 0.5 : 1,
   };
   return (
-    <div ref={setNodeRef} style={style} className="space-y-1">
-      <div className="flex items-center gap-2">
-        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing shrink-0 touch-none p-1">
-          <GripVertical className="h-4 w-4 text-muted-foreground/50" />
-        </div>
-        <div className="flex-1 min-w-0">{children}</div>
+    <div ref={setNodeRef} style={style} className="relative">
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute left-0 top-4 z-10 flex h-7 w-7 cursor-grab items-center justify-center rounded-md border bg-background/95 text-muted-foreground/60 shadow-sm transition-colors hover:bg-accent active:cursor-grabbing"
+      >
+        <GripVertical className="h-4 w-4" />
       </div>
+      <div className="min-w-0 pl-9">{children}</div>
     </div>
   );
 }
@@ -124,13 +126,13 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 p-2 pl-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors ml-6"
+      className="flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors hover:bg-accent/50"
       onClick={() => onEdit(cube)}
     >
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        className="flex h-7 w-7 cursor-grab items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent active:cursor-grabbing"
         onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
@@ -141,11 +143,11 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
       >
         {cube.cubeType === 'tracker' ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm truncate">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium leading-tight">
           {cube.title || '3D Data Cube'}
         </p>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
           {cube.cubeType === 'data-3d'
             ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
             : cube.cubeType === 'tracker'
@@ -391,7 +393,7 @@ export function EditDashboardDialog({
     switch (section) {
       case 'data-cubes':
         return (
-          <div className="space-y-1">
+          <div className="space-y-2">
             <div className="p-3 rounded-lg border bg-accent/30">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-md bg-primary/20 flex items-center justify-center">
@@ -404,7 +406,7 @@ export function EditDashboardDialog({
               </div>
             </div>
             {/* Individual cubes within - separate from section DnD (rendered outside section context) */}
-            <div className="ml-6 space-y-1">
+            <div className="space-y-1.5 pl-3">
               {dataCubes.map(cube => (
                 <SortableCubeRow
                   key={cube.id}
@@ -513,14 +515,16 @@ export function EditDashboardDialog({
                   </DndContext>
                 </div>
               </ScrollArea>
-              
-              <Button 
-                onClick={handleAddClick}
-                className="w-full mt-4"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Widget
-              </Button>
+
+              <div className="shrink-0 border-t px-4 py-3">
+                <Button 
+                  onClick={handleAddClick}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Widget
+                </Button>
+              </div>
             </div>
           )}
 
