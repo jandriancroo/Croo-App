@@ -67,13 +67,13 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
   const canAddTyped = search.trim().length > 0 && !selected.has(search.trim().toLowerCase());
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <Label>{label}</Label>
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex max-h-14 flex-wrap gap-1 overflow-y-auto pr-1">
           {value.map(item => (
-            <Badge key={item} variant="secondary" className="gap-1 pr-1">
-              <span className="max-w-[180px] truncate">{item}</span>
+            <Badge key={item} variant="secondary" className="h-6 gap-1 pr-1 text-[10px]">
+              <span className="max-w-[150px] truncate">{item}</span>
               <button type="button" onClick={() => removeItem(item)} className="rounded-sm hover:bg-background/70">
                 <X className="h-3 w-3" />
               </button>
@@ -99,7 +99,7 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
           />
         </div>
 
-        <ScrollArea className="mt-2 h-[180px] pr-2">
+        <ScrollArea className="mt-1.5 h-[136px] pr-2">
           {isLoading && (
             <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -121,7 +121,7 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
                   key={item.name}
                   type="button"
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-primary/10",
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs transition-colors hover:bg-primary/10",
                     isSelected && "bg-primary/10 text-primary"
                   )}
                   onClick={() => isSelected ? removeItem(item.name) : addItem(item.name)}
