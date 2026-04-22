@@ -202,7 +202,7 @@ export function EditDashboardDialog({
   useEffect(() => { setLocalCubes(cubes); }, [cubes]);
 
   // Drag-and-drop reorder for data cubes within data-cubes section
-  const dataCubes = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
+  const dataCubes = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d' || c.cubeType === 'tracker');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
   
   const handleCubeDragEnd = async (event: DragEndEvent) => {
@@ -274,7 +274,19 @@ export function EditDashboardDialog({
       ? cube.accentColor 
       : migrateAccentColor(cube.accentColor);
     
-    if (cube.cubeType === 'data-3d') {
+    if (cube.cubeType === 'tracker') {
+      setEditForm({
+        title: cube.title,
+        accentColor: themeColor,
+        trackerScope: cube.trackerScope || { type: 'location' },
+        trackerDisplayMode: cube.trackerDisplayMode || 'summary',
+        trackerItemRefs: cube.trackerItemRefs || [],
+        trackerPromoStart: cube.trackerPromoStart || null,
+        trackerPromoEnd: cube.trackerPromoEnd || null,
+        trackerLocationRefs: cube.trackerLocationRefs || [],
+        trackerRankMetrics: cube.trackerRankMetrics || ['units', 'sales', 'pmix'],
+      });
+    } else if (cube.cubeType === 'data-3d') {
       const faces = cube.faceMetrics || [[], [], [], []];
       const titles = cube.faceTitles || ['', '', '', ''];
       setFaceMetrics([faces[0] || [], faces[1] || [], faces[2] || [], faces[3] || []]);
