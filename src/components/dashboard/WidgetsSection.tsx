@@ -484,11 +484,18 @@ export const WidgetsSection = memo(function WidgetsSection({
           metrics: config.metrics,
           accent_color: config.accentColor,
           display_order: nextOrder,
+          tracker_scope: config.trackerScope,
+          tracker_display_mode: config.trackerDisplayMode,
+          tracker_item_refs: config.trackerItemRefs || [],
+          tracker_promo_start: config.trackerPromoStart,
+          tracker_promo_end: config.trackerPromoEnd,
+          tracker_location_refs: config.trackerLocationRefs || [],
+          tracker_rank_metrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
         });
 
       if (error) throw error;
 
-      toast.success(config.cubeType === 'sales-chart' ? 'Sales Overview added' : 'Data cube added');
+      toast.success(config.cubeType === 'sales-chart' ? 'Sales Overview added' : config.cubeType === 'tracker' ? 'Tracker added' : 'Data cube added');
       queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
     } catch (error: any) {
       console.error('Error adding data cube:', error);
@@ -539,7 +546,7 @@ export const WidgetsSection = memo(function WidgetsSection({
   };
 
   // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
-  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
+  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data' || c.cubeType === 'tracker');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
 
   // Section order: use prop if provided, else read from localStorage
