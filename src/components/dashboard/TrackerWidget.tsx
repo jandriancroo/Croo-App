@@ -262,9 +262,9 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div key={store.locationId} className="grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 rounded-md bg-muted/45 px-1.5 py-1.5 text-[11px]">
                 <span className="font-semibold">#{store.rank}</span>
                 <span className="truncate">{store.locationName}</span>
-                <span className="text-right font-medium tabular-nums">{number(store.units)}</span>
-                <span className="text-right font-medium tabular-nums">{money(store.sales)}</span>
-                <span className="text-right font-medium tabular-nums">{percent(store.pmix)}</span>
+                <span className="text-right font-medium tabular-nums">{number(getMetricValue(store, 'units'))}</span>
+                <span className="text-right font-medium tabular-nums">{money(getMetricValue(store, 'sales'))}</span>
+                <span className="text-right font-medium tabular-nums">{percent(getMetricValue(store, 'pmix'))}</span>
               </div>
             ))}
           </div>
