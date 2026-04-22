@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { THEME_COLORS, migrateAccentColor, getThemeColorClass, isThemeColorKey } from "@/utils/themeColors";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
 
@@ -727,10 +728,10 @@ export function EditDashboardDialog({
                       <Input id="edit-promo-end" type="date" value={editForm.trackerPromoEnd || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-tracker-items">Promo Item(s)</Label>
-                    <Input id="edit-tracker-items" placeholder="Item names, comma separated" value={(editForm.trackerItemRefs || []).join(', ')} onChange={(e) => setEditForm(prev => ({ ...prev, trackerItemRefs: e.target.value.split(',').map(v => v.trim()).filter(Boolean) }))} />
-                  </div>
+                  <TrackerPosItemPicker
+                    value={editForm.trackerItemRefs || []}
+                    onChange={(items) => setEditForm(prev => ({ ...prev, trackerItemRefs: items }))}
+                  />
                   <div className="space-y-2">
                     <Label>Scope</Label>
                     <div className="grid grid-cols-3 gap-2">
