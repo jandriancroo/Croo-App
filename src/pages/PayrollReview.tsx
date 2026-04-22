@@ -145,11 +145,11 @@ export default function PayrollReview() {
                             {period.label}
                           </CardTitle>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 sm:min-w-[420px]">
+                        <div className="grid grid-cols-3 overflow-hidden rounded-full border bg-muted/35 sm:min-w-[420px]">
                           {summaryStats.map((stat) => (
-                            <div key={stat.label} className="rounded-md border bg-muted/40 px-3 py-2 text-right">
-                              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{stat.label}</div>
-                              <div className="mt-1 text-lg font-bold leading-none sm:text-xl">{stat.value}</div>
+                            <div key={stat.label} className="border-r px-3 py-2 text-center last:border-r-0 sm:px-5">
+                              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-xs">{stat.label}</div>
+                              <div className="mt-0.5 text-base font-bold leading-tight sm:text-lg">{stat.value}</div>
                             </div>
                           ))}
                         </div>
