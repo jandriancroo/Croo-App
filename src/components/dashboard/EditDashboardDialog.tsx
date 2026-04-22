@@ -715,6 +715,42 @@ export function EditDashboardDialog({
                 </div>
               )}
 
+              {editingCube.cubeType === 'tracker' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-promo-start">Promo Start</Label>
+                      <Input id="edit-promo-start" type="date" value={editForm.trackerPromoStart || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoStart: e.target.value || null }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-promo-end">Promo End</Label>
+                      <Input id="edit-promo-end" type="date" value={editForm.trackerPromoEnd || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-tracker-items">Promo Item(s)</Label>
+                    <Input id="edit-tracker-items" placeholder="Item names, comma separated" value={(editForm.trackerItemRefs || []).join(', ')} onChange={(e) => setEditForm(prev => ({ ...prev, trackerItemRefs: e.target.value.split(',').map(v => v.trim()).filter(Boolean) }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Scope</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['user', 'role', 'location'] as TrackerScopeType[]).map(scope => (
+                        <Button key={scope} type="button" variant={editForm.trackerScope?.type === scope ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerScope: { type: scope } }))}>
+                          {scope === 'user' ? 'User' : scope === 'role' ? 'Role' : 'Location'}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Dashboard View</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button type="button" variant={editForm.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
+                      <Button type="button" variant={editForm.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Color Selection */}
               <div className="space-y-2">
                 <Label>Accent Color</Label>
