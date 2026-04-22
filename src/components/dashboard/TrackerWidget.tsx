@@ -60,6 +60,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const [period, setPeriod] = useState<PeriodKey>('day');
   const [expanded, setExpanded] = useState(false);
   const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
+  const [selectedItemRef, setSelectedItemRef] = useState<string>('all');
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
@@ -135,12 +136,21 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     staleTime: 60 * 1000,
   });
 
+  const activeItemRef = selectedItemRef !== 'all' && trackedItemRefs.includes(selectedItemRef) ? selectedItemRef : 'all';
+  const getMetricValue = (store: StoreRankRow, metric: TrackerSortMetric) => {
+    if (activeItemRef === 'all') return store[metric];
+    return store.itemStats[activeItemRef]?.[metric] || 0;
+  };
+
   const sortedRanking = useMemo(() => {
     return [...ranking]
-      .sort((a, b) => b[sortMetric] - a[sortMetric] || b.units - a.units || b.sales - a.sales || b.pmix - a.pmix)
+      .sort((a, b) => getMetricValue(b, sortMetric) - getMetricValue(a, sortMetric) || getMetricValue(b, 'units') - getMetricValue(a, 'units') || getMetricValue(b, 'sales') - getMetricValue(a, 'sales') || getMetricValue(b, 'pmix') - getMetricValue(a, 'pmix'))
       .map((store, index) => ({ ...store, rank: index + 1 }));
-  }, [ranking, sortMetric]);
+  }, [ranking, sortMetric, activeItemRef]);
   const myStore = useMemo(() => sortedRanking.find(store => store.locationId === currentLocation?.id), [sortedRanking, currentLocation?.id]);
+  const myVisibleStats = activeItemRef === 'all'
+    ? { units: myStore?.units || 0, sales: myStore?.sales || 0, pmix: myStore?.pmix || 0 }
+    : myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 };
   const rankMetrics = tracker.trackerRankMetrics?.length ? tracker.trackerRankMetrics : ['units', 'sales', 'pmix'];
   const canExpand = tracker.trackerDisplayMode === 'expandable';
   const promoName = tracker.title && tracker.title !== 'Promo Tracker'
@@ -170,7 +180,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             </span>
             <div className="min-w-0">
               <h2 className="truncate text-sm font-semibold leading-tight">{promoName}</h2>
-              <p className="truncate text-[10px] leading-tight text-muted-foreground">{trackedItems.length ? tracker.trackerItemRefs?.join(', ') : 'Add promo items'}</p>
+              <p className="truncate text-[10px] leading-tight text-muted-foreground">{activeItemRef === 'all' ? `${trackedItemRefs.length || 0} tracked item${trackedItemRefs.length === 1 ? '' : 's'}` : activeItemRef}</p>
             </div>
           </div>
           <Badge variant="secondary" className="h-6 shrink-0 rounded-full px-2 text-[11px] font-semibold">#{myStore?.rank || '--'} / {sortedRanking.length || '--'}</Badge>
@@ -184,10 +194,27 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           ))}
         </div>
 
+        {trackedItemRefs.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {['all', ...trackedItemRefs].map(item => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setSelectedItemRef(item)}
+                className={`h-6 max-w-28 shrink-0 truncate rounded-full border px-2 text-[10px] font-semibold transition-colors ${
+                  activeItemRef === item ? 'border-primary/35 bg-primary/10 text-primary' : 'border-border/60 bg-muted/35 text-muted-foreground'
+                }`}
+              >
+                {item === 'all' ? 'All items' : item}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-1">
-          {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myStore?.units || 0)} />}
-          {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myStore?.sales || 0)} />}
-          {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myStore?.pmix || 0)} />}
+          {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
+          {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
+          {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myVisibleStats.pmix)} />}
         </div>
 
         {canExpand && (
@@ -235,9 +262,9 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div key={store.locationId} className="grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 rounded-md bg-muted/45 px-1.5 py-1.5 text-[11px]">
                 <span className="font-semibold">#{store.rank}</span>
                 <span className="truncate">{store.locationName}</span>
-                <span className="text-right font-medium tabular-nums">{number(store.units)}</span>
-                <span className="text-right font-medium tabular-nums">{money(store.sales)}</span>
-                <span className="text-right font-medium tabular-nums">{percent(store.pmix)}</span>
+                <span className="text-right font-medium tabular-nums">{number(getMetricValue(store, 'units'))}</span>
+                <span className="text-right font-medium tabular-nums">{money(getMetricValue(store, 'sales'))}</span>
+                <span className="text-right font-medium tabular-nums">{percent(getMetricValue(store, 'pmix'))}</span>
               </div>
             ))}
           </div>
