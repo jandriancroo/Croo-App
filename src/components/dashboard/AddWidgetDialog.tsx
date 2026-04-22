@@ -401,7 +401,7 @@ export function AddWidgetDialog({
           <DialogFooter>
             <Button
               onClick={handleAddDataCube}
-              disabled={config.metrics.length === 0}
+              disabled={selectedType !== 'tracker' && config.metrics.length === 0}
             >
               {selectedType === 'tracker' ? 'Add Tracker' : 'Add Data Cube'}
             </Button>
