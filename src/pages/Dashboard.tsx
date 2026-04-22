@@ -192,7 +192,7 @@ export default function Dashboard() {
         .select('*')
         .eq('user_id', user.id)
         .eq('location_id', currentLocation.id)
-        .in('cube_type', ['data', 'data-3d', 'sales-chart'])
+        .in('cube_type', ['data', 'data-3d', 'sales-chart', 'tracker'])
         .order('display_order');
 
       if (error) {
