@@ -141,7 +141,7 @@ export default function PayrollReview() {
                               </Badge>
                             )}
                           </div>
-                          <CardTitle className="max-w-3xl text-2xl leading-snug break-words whitespace-normal sm:text-3xl">
+                          <CardTitle className="max-w-3xl text-xl leading-snug break-words whitespace-normal sm:text-2xl lg:text-3xl">
                             {period.label}
                           </CardTitle>
                         </div>
