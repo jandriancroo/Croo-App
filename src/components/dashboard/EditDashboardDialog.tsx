@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -462,8 +462,8 @@ export function EditDashboardDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)]">
+          <DialogHeader className="shrink-0 border-b px-4 py-3">
             <DialogTitle className="flex items-center gap-2">
               {view === 'edit' && (
                 <Button 
@@ -526,11 +526,11 @@ export function EditDashboardDialog({
 
           {/* Edit View */}
           {view === 'edit' && editingCube && (
-            <div className="space-y-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
               {/* Widget Label - for all cube types */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="edit-title">
-                  {editingCube.cubeType === 'data' ? 'Title' : 'Label'}
+                  {editingCube.cubeType === 'tracker' ? 'Promo Name' : editingCube.cubeType === 'data' ? 'Title' : 'Label'}
                 </Label>
                 <Input
                   id="edit-title"
@@ -543,8 +543,9 @@ export function EditDashboardDialog({
                   }
                   value={editForm.title || ''}
                   onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="h-9"
                 />
-                {editingCube.cubeType !== 'data' && (
+                {editingCube.cubeType !== 'data' && editingCube.cubeType !== 'tracker' && (
                   <p className="text-[11px] text-muted-foreground">
                     A name to identify this widget in the edit list
                   </p>
@@ -717,22 +718,22 @@ export function EditDashboardDialog({
               )}
 
               {editingCube.cubeType === 'tracker' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="edit-promo-start">Promo Start</Label>
-                      <Input id="edit-promo-start" type="date" value={editForm.trackerPromoStart || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoStart: e.target.value || null }))} />
+                      <Input id="edit-promo-start" type="date" className="h-9" value={editForm.trackerPromoStart || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoStart: e.target.value || null }))} />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label htmlFor="edit-promo-end">Promo End</Label>
-                      <Input id="edit-promo-end" type="date" value={editForm.trackerPromoEnd || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
+                      <Input id="edit-promo-end" type="date" className="h-9" value={editForm.trackerPromoEnd || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
                     </div>
                   </div>
                   <TrackerPosItemPicker
                     value={editForm.trackerItemRefs || []}
                     onChange={(items) => setEditForm(prev => ({ ...prev, trackerItemRefs: items }))}
                   />
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label>Scope</Label>
                     <div className="grid grid-cols-3 gap-2">
                       {(['user', 'role', 'location'] as TrackerScopeType[]).map(scope => (
@@ -742,7 +743,7 @@ export function EditDashboardDialog({
                       ))}
                     </div>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label>Dashboard View</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <Button type="button" variant={editForm.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
@@ -753,7 +754,7 @@ export function EditDashboardDialog({
               )}
 
               {/* Color Selection */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Accent Color</Label>
                 <div className="flex flex-wrap gap-2">
                   {THEME_COLORS.map(color => (
@@ -771,7 +772,11 @@ export function EditDashboardDialog({
                 </div>
               </div>
 
-              {/* Save button */}
+            </div>
+          )}
+
+          {view === 'edit' && editingCube && (
+            <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
               <Button
                 onClick={handleSave}
                 disabled={isSaving || (editingCube.cubeType === 'data' && (editForm.metrics || []).length === 0) || (editingCube.cubeType === 'data-3d' && faceMetrics.slice(0, numFaces).every(f => f.length === 0))}
@@ -779,7 +784,7 @@ export function EditDashboardDialog({
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </Button>
-            </div>
+            </DialogFooter>
           )}
         </DialogContent>
       </Dialog>
