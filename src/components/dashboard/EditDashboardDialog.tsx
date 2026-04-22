@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck } from "lucide-react";
+import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy } from "lucide-react";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -17,7 +17,7 @@ import {
   METRIC_GROUPS,
   WidgetSize,
 } from "./DashboardWidget";
-import { CubeType } from "./AddWidgetDialog";
+import { CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from "./AddWidgetDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +62,13 @@ export interface CubeConfig {
   metrics: MetricType[];
   accentColor: string;
   cubeType: CubeType | 'data-3d';
+  trackerScope?: { type: TrackerScopeType; role?: string };
+  trackerDisplayMode?: TrackerDisplayMode;
+  trackerItemRefs?: string[];
+  trackerPromoStart?: string | null;
+  trackerPromoEnd?: string | null;
+  trackerLocationRefs?: string[];
+  trackerRankMetrics?: TrackerRankMetric[];
   // 3D cube specific
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
@@ -131,7 +138,7 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
         className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${accentClass}`}
         style={accentBg ? { backgroundColor: accentBg } : undefined}
       >
-        <Box className="h-4 w-4 text-white" />
+        {cube.cubeType === 'tracker' ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">
@@ -140,7 +147,9 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
         <p className="text-[11px] text-muted-foreground">
           {cube.cubeType === 'data-3d'
             ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
-            : `${cube.size} · ${cube.metrics.length} metrics`}
+            : cube.cubeType === 'tracker'
+              ? `${cube.trackerDisplayMode === 'expandable' ? 'Expandable' : 'My rank'} · DAY/WTD/Promo`
+              : `${cube.size} · ${cube.metrics.length} metrics`}
         </p>
       </div>
       <Button
@@ -195,7 +204,7 @@ export function EditDashboardDialog({
   useEffect(() => { setLocalCubes(cubes); }, [cubes]);
 
   // Drag-and-drop reorder for data cubes within data-cubes section
-  const dataCubes = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
+  const dataCubes = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d' || c.cubeType === 'tracker');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
   
   const handleCubeDragEnd = async (event: DragEndEvent) => {
@@ -267,7 +276,19 @@ export function EditDashboardDialog({
       ? cube.accentColor 
       : migrateAccentColor(cube.accentColor);
     
-    if (cube.cubeType === 'data-3d') {
+    if (cube.cubeType === 'tracker') {
+      setEditForm({
+        title: cube.title,
+        accentColor: themeColor,
+        trackerScope: cube.trackerScope || { type: 'location' },
+        trackerDisplayMode: cube.trackerDisplayMode || 'summary',
+        trackerItemRefs: cube.trackerItemRefs || [],
+        trackerPromoStart: cube.trackerPromoStart || null,
+        trackerPromoEnd: cube.trackerPromoEnd || null,
+        trackerLocationRefs: cube.trackerLocationRefs || [],
+        trackerRankMetrics: cube.trackerRankMetrics || ['units', 'sales', 'pmix'],
+      });
+    } else if (cube.cubeType === 'data-3d') {
       const faces = cube.faceMetrics || [[], [], [], []];
       const titles = cube.faceTitles || ['', '', '', ''];
       setFaceMetrics([faces[0] || [], faces[1] || [], faces[2] || [], faces[3] || []]);
@@ -690,6 +711,42 @@ export function EditDashboardDialog({
                         </TabsContent>
                       ))}
                     </Tabs>
+                  </div>
+                </div>
+              )}
+
+              {editingCube.cubeType === 'tracker' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-promo-start">Promo Start</Label>
+                      <Input id="edit-promo-start" type="date" value={editForm.trackerPromoStart || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoStart: e.target.value || null }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-promo-end">Promo End</Label>
+                      <Input id="edit-promo-end" type="date" value={editForm.trackerPromoEnd || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-tracker-items">Promo Item(s)</Label>
+                    <Input id="edit-tracker-items" placeholder="Item names, comma separated" value={(editForm.trackerItemRefs || []).join(', ')} onChange={(e) => setEditForm(prev => ({ ...prev, trackerItemRefs: e.target.value.split(',').map(v => v.trim()).filter(Boolean) }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Scope</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['user', 'role', 'location'] as TrackerScopeType[]).map(scope => (
+                        <Button key={scope} type="button" variant={editForm.trackerScope?.type === scope ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerScope: { type: scope } }))}>
+                          {scope === 'user' ? 'User' : scope === 'role' ? 'Role' : 'Location'}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Dashboard View</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button type="button" variant={editForm.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
+                      <Button type="button" variant={editForm.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
+                    </div>
                   </div>
                 </div>
               )}

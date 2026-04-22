@@ -21,10 +21,11 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DashboardWidget, MetricType, WidgetSize, SalesDataForWidgets } from './DashboardWidget';
-import { AddWidgetDialog, NewDataCubeConfig, CubeType } from './AddWidgetDialog';
+import { AddWidgetDialog, NewDataCubeConfig, CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
 import { Add3DCubeDialog, New3DCubeConfig } from './Add3DCubeDialog';
 import { DataCube3D } from './DataCube3D';
 import { SalesSummary } from './SalesSummary';
+import { TrackerWidget } from './TrackerWidget';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { GripVertical } from 'lucide-react';
@@ -43,6 +44,13 @@ interface DataCubeConfig {
   accentColor: string;
   displayOrder: number;
   cubeType: CubeType | 'data-3d';
+  trackerScope?: { type: TrackerScopeType; role?: string };
+  trackerDisplayMode?: TrackerDisplayMode;
+  trackerItemRefs?: string[];
+  trackerPromoStart?: string | null;
+  trackerPromoEnd?: string | null;
+  trackerLocationRefs?: string[];
+  trackerRankMetrics?: TrackerRankMetric[];
   // 3D cube specific
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
@@ -80,6 +88,23 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
     transform: CSS.Translate.toString(transform),
     transition,
   };
+
+  if (cube.cubeType === 'tracker') {
+    return (
+      <div ref={setNodeRef} style={style} className={`col-span-2 ${isDragging ? 'opacity-50' : ''} relative`} {...(isReorderMode ? { ...attributes, ...listeners } : {})}>
+        {isReorderMode && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 rounded-lg">
+            <div className="p-3 rounded-full bg-primary/20">
+              <GripVertical className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+        )}
+        <div className={isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''}>
+          <TrackerWidget tracker={cube} />
+        </div>
+      </div>
+    );
+  }
 
   // For sales-chart type, render the SalesOverview component with matching cube style
   if (cube.cubeType === 'sales-chart') {
@@ -256,7 +281,7 @@ export const WidgetsSection = memo(function WidgetsSection({
         .select('*')
         .eq('user_id', user.id)
         .eq('location_id', currentLocation.id)
-        .in('cube_type', ['data', 'data-3d', 'sales-chart'])
+        .in('cube_type', ['data', 'data-3d', 'sales-chart', 'tracker'])
         .order('display_order');
 
       if (error) {
@@ -275,6 +300,13 @@ export const WidgetsSection = memo(function WidgetsSection({
         faceMetrics: (cube.face_metrics as MetricType[][]) || [],
         faceTitles: (cube.face_titles as string[]) || [],
         numFaces: cube.num_faces || 1,
+        trackerScope: (cube.tracker_scope as { type: TrackerScopeType; role?: string }) || { type: 'location' },
+        trackerDisplayMode: (cube.tracker_display_mode as TrackerDisplayMode) || 'summary',
+        trackerItemRefs: (cube.tracker_item_refs as string[]) || [],
+        trackerPromoStart: cube.tracker_promo_start || null,
+        trackerPromoEnd: cube.tracker_promo_end || null,
+        trackerLocationRefs: (cube.tracker_location_refs as string[]) || [],
+        trackerRankMetrics: (cube.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
       })) as DataCubeConfig[];
     },
     enabled: !!user?.id && !!currentLocation?.id && !useRoleCubes,
@@ -452,11 +484,18 @@ export const WidgetsSection = memo(function WidgetsSection({
           metrics: config.metrics,
           accent_color: config.accentColor,
           display_order: nextOrder,
+          tracker_scope: config.trackerScope,
+          tracker_display_mode: config.trackerDisplayMode,
+          tracker_item_refs: config.trackerItemRefs || [],
+          tracker_promo_start: config.trackerPromoStart,
+          tracker_promo_end: config.trackerPromoEnd,
+          tracker_location_refs: config.trackerLocationRefs || [],
+          tracker_rank_metrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
         });
 
       if (error) throw error;
 
-      toast.success(config.cubeType === 'sales-chart' ? 'Sales Overview added' : 'Data cube added');
+      toast.success(config.cubeType === 'sales-chart' ? 'Sales Overview added' : config.cubeType === 'tracker' ? 'Tracker added' : 'Data cube added');
       queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
     } catch (error: any) {
       console.error('Error adding data cube:', error);
@@ -507,7 +546,7 @@ export const WidgetsSection = memo(function WidgetsSection({
   };
 
   // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
-  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
+  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data' || c.cubeType === 'tracker');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
 
   // Section order: use prop if provided, else read from localStorage
