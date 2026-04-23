@@ -631,7 +631,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return null;
     }
 
-    const salesData = data as SalesData;
+    let salesData = data as SalesData;
 
     // --- Repair weekly breakdown for CURRENT week ---
     // The live integration can return partial/incorrect historical daily totals for earlier days in the current week.
