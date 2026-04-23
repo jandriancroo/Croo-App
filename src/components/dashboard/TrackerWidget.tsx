@@ -271,7 +271,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                 key={store.locationId}
                 className={`grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 rounded-md px-1.5 py-1.5 text-[11px] ${
                   store.locationId === currentLocation?.id
-                    ? 'bg-primary/12 text-primary ring-1 ring-primary/25'
+                    ? 'bg-accent text-accent-foreground shadow-sm'
                     : 'bg-muted/45'
                 }`}
               >
