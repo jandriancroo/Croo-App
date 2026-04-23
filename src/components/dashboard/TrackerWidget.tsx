@@ -192,13 +192,13 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   return (
     <Card className="overflow-visible border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0 md:p-0">
-        <div className="relative min-h-[58px] bg-primary text-primary-foreground">
+        <div className="relative min-h-[58px] rounded-t-lg bg-primary text-primary-foreground">
           {promoImageUrl && (
-            <>
+            <div className="absolute inset-0 overflow-hidden rounded-t-lg">
               <img src={promoImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
               <div className="absolute inset-0 bg-background/30" />
               <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
-            </>
+            </div>
           )}
           <div className="relative z-40 w-[68%] px-3 py-2 pr-5">
             <div className="relative z-40 inline-flex max-w-full flex-col">
