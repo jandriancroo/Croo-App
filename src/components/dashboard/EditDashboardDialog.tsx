@@ -68,6 +68,7 @@ export interface CubeConfig {
   trackerItemRefs?: string[];
   trackerPromoStart?: string | null;
   trackerPromoEnd?: string | null;
+  trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
   // 3D cube specific
@@ -288,6 +289,7 @@ export function EditDashboardDialog({
         trackerItemRefs: cube.trackerItemRefs || [],
         trackerPromoStart: cube.trackerPromoStart || null,
         trackerPromoEnd: cube.trackerPromoEnd || null,
+        trackerPromoImageUrl: cube.trackerPromoImageUrl || null,
         trackerLocationRefs: cube.trackerLocationRefs || [],
         trackerRankMetrics: cube.trackerRankMetrics || ['units', 'sales', 'pmix'],
       });
@@ -732,6 +734,10 @@ export function EditDashboardDialog({
                       <Label htmlFor="edit-promo-end">Promo End</Label>
                       <Input id="edit-promo-end" type="date" className="h-9" value={editForm.trackerPromoEnd || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
                     </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-promo-image-url">Promo Image URL</Label>
+                    <Input id="edit-promo-image-url" className="h-9" placeholder="https://..." value={editForm.trackerPromoImageUrl || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoImageUrl: e.target.value.trim() || null }))} />
                   </div>
                   <TrackerPosItemPicker
                     value={editForm.trackerItemRefs || []}
