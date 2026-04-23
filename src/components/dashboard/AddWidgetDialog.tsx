@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, Square, RectangleHorizontal, LineChart, Box, Trophy } from "lucide-react";
+import { ArrowLeft, Check, Square, RectangleHorizontal, LineChart, Box, Trophy, Upload, X, Crop, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { 
   WidgetSize, 
   MetricType, 
@@ -13,6 +14,8 @@ import {
 } from "./DashboardWidget";
 import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeColors";
 import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
+import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 export type TrackerScopeType = 'user' | 'role' | 'location';
 export type TrackerDisplayMode = 'summary' | 'expandable';
@@ -54,9 +57,13 @@ export function AddWidgetDialog({
   hasSalesChart = false,
   onAdd3DCube,
 }: AddWidgetDialogProps) {
+  const promoImageInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>('type');
   const [selectedType, setSelectedType] = useState<CubeType>('data');
   const [selectedSize, setSelectedSize] = useState<WidgetSize>('small');
+  const [promoImageToCrop, setPromoImageToCrop] = useState('');
+  const [promoCropDialogOpen, setPromoCropDialogOpen] = useState(false);
+  const [isPromoImageUploading, setIsPromoImageUploading] = useState(false);
   const [config, setConfig] = useState<NewDataCubeConfig>({
     title: '',
     size: 'small',
@@ -160,6 +167,41 @@ export function AddWidgetDialog({
     if (config.cubeType !== 'tracker' && config.metrics.length === 0) return;
     onAdd(config);
     handleClose(false);
+  };
+
+  const handlePromoImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const previewUrl = URL.createObjectURL(file);
+    setPromoImageToCrop(previewUrl);
+    setPromoCropDialogOpen(true);
+    event.target.value = '';
+  };
+
+  const handlePromoImageCropComplete = async (croppedBlob: Blob) => {
+    setIsPromoImageUploading(true);
+    try {
+      const filePath = `promo-trackers/promo-${Date.now()}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from('brand-assets')
+        .upload(filePath, croppedBlob, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('brand-assets')
+        .getPublicUrl(filePath);
+
+      setConfig(prev => ({ ...prev, trackerPromoImageUrl: data.publicUrl }));
+      toast.success('Promo image uploaded');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload promo image');
+    } finally {
+      setIsPromoImageUploading(false);
+      if (promoImageToCrop.startsWith('blob:')) URL.revokeObjectURL(promoImageToCrop);
+      setPromoImageToCrop('');
+    }
   };
 
   const maxMetrics = selectedSize === 'small' ? 3 : selectedSize === 'medium' ? 4 : 6;
@@ -320,8 +362,33 @@ export function AddWidgetDialog({
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="promo-image-url">Promo Image URL</Label>
-                  <Input id="promo-image-url" className="h-9" placeholder="https://..." value={config.trackerPromoImageUrl || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoImageUrl: e.target.value.trim() || null }))} />
+                  <Label>Promo Image</Label>
+                  <input ref={promoImageInputRef} type="file" accept="image/*" className="hidden" onChange={handlePromoImageSelect} disabled={isPromoImageUploading} />
+                  {config.trackerPromoImageUrl ? (
+                    <div className="space-y-2">
+                      <div className="relative h-24 overflow-hidden rounded-lg border bg-primary">
+                        <img src={config.trackerPromoImageUrl} alt="Promo preview" className="h-full w-full object-cover" />
+                        <div className="absolute inset-0 bg-background/30" />
+                        <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 h-7 w-7" onClick={() => setConfig(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => promoImageInputRef.current?.click()} disabled={isPromoImageUploading}>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Replace
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => { setPromoImageToCrop(config.trackerPromoImageUrl || ''); setPromoCropDialogOpen(true); }} disabled={isPromoImageUploading}>
+                          <Crop className="mr-2 h-4 w-4" />
+                          Crop
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" className="flex h-24 w-full items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 text-muted-foreground transition-colors hover:border-muted-foreground/50" onClick={() => promoImageInputRef.current?.click()} disabled={isPromoImageUploading}>
+                      {isPromoImageUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                    </button>
+                  )}
                 </div>
                 <TrackerPosItemPicker
                   value={config.trackerItemRefs || []}
@@ -409,13 +476,21 @@ export function AddWidgetDialog({
           <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
             <Button
               onClick={handleAddDataCube}
-              disabled={selectedType !== 'tracker' && config.metrics.length === 0}
+              disabled={(selectedType !== 'tracker' && config.metrics.length === 0) || isPromoImageUploading}
             >
               {selectedType === 'tracker' ? 'Add Tracker' : 'Add Data Cube'}
             </Button>
           </DialogFooter>
         )}
       </DialogContent>
+      <ImageCropDialog
+        open={promoCropDialogOpen}
+        onOpenChange={setPromoCropDialogOpen}
+        imageSrc={promoImageToCrop}
+        onCropComplete={handlePromoImageCropComplete}
+        cropShape="rect"
+        aspect={16 / 9}
+      />
     </Dialog>
   );
 }
