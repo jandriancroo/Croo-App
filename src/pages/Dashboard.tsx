@@ -215,6 +215,7 @@ export default function Dashboard() {
         trackerItemRefs: (cube.tracker_item_refs as string[]) || [],
         trackerPromoStart: cube.tracker_promo_start || null,
         trackerPromoEnd: cube.tracker_promo_end || null,
+        trackerPromoImageUrl: cube.tracker_promo_image_url || null,
         trackerLocationRefs: (cube.tracker_location_refs as string[]) || [],
         trackerRankMetrics: (cube.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
       })) as CubeConfig[];
@@ -247,6 +248,7 @@ export default function Dashboard() {
       if (updates.trackerItemRefs !== undefined) updateData.tracker_item_refs = updates.trackerItemRefs;
       if (updates.trackerPromoStart !== undefined) updateData.tracker_promo_start = updates.trackerPromoStart;
       if (updates.trackerPromoEnd !== undefined) updateData.tracker_promo_end = updates.trackerPromoEnd;
+      if (updates.trackerPromoImageUrl !== undefined) updateData.tracker_promo_image_url = updates.trackerPromoImageUrl;
       if (updates.trackerLocationRefs !== undefined) updateData.tracker_location_refs = updates.trackerLocationRefs;
       if (updates.trackerRankMetrics !== undefined) updateData.tracker_rank_metrics = updates.trackerRankMetrics;
       
