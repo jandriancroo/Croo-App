@@ -187,41 +187,43 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0">
-        <div className="flex items-center justify-between gap-3 bg-primary px-3 py-2 text-primary-foreground">
-          <div className="min-w-0">
+        <div className="bg-primary px-3 py-2 text-primary-foreground">
+          <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
-            <h2 className="mt-0.5 truncate text-base font-semibold leading-tight">{promoName}</h2>
+            <Badge className="h-7 shrink-0 rounded-full border-0 bg-accent px-3 text-sm font-bold text-accent-foreground shadow-sm">#{myStore?.rank || '--'} <span className="font-medium opacity-80">of {sortedRanking.length || '--'}</span></Badge>
           </div>
-          <Badge className="h-7 shrink-0 rounded-full border-0 bg-accent px-3 text-sm font-bold text-accent-foreground shadow-sm">#{myStore?.rank || '--'} <span className="font-medium opacity-80">of {sortedRanking.length || '--'}</span></Badge>
+
+          <div className="mt-1 flex items-center gap-2">
+            <h2 className="min-w-0 flex-1 truncate text-base font-semibold leading-tight">{promoName}</h2>
+            <div className="flex shrink-0 items-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => cyclePeriod('prev')}
+                className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <button
+                type="button"
+                onClick={() => cyclePeriod('next')}
+                className="min-w-16 select-none rounded-full px-1.5 text-center text-xs font-semibold leading-6 transition-colors hover:bg-primary-foreground/10"
+              >
+                {PERIOD_LABELS[period]}
+              </button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => cyclePeriod('next')}
+                className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-3 bg-card px-3 py-3">
-          <div className="flex items-center justify-between rounded-lg bg-primary px-2 py-1 text-primary-foreground">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => cyclePeriod('prev')}
-              className="h-7 w-7 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <button
-              type="button"
-              onClick={() => cyclePeriod('next')}
-              className="min-w-0 flex-1 select-none rounded-md px-3 py-1 text-center text-sm font-semibold transition-colors hover:bg-primary-foreground/10"
-            >
-              <span className="truncate">{PERIOD_LABELS[period]}</span>
-            </button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => cyclePeriod('next')}
-              className="h-7 w-7 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-
           {trackedItemRefs.length > 1 && (
             <div className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {['all', ...trackedItemRefs].map(item => (
