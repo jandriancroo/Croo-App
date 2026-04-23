@@ -175,6 +175,15 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     setPeriod(PERIOD_MODES[nextIndex]);
   };
 
+  const itemSwitchOptions = ['all', ...trackedItemRefs];
+  const cycleSelectedItem = (direction: 'prev' | 'next') => {
+    const currentIndex = Math.max(0, itemSwitchOptions.indexOf(activeItemRef));
+    const nextIndex = direction === 'next'
+      ? (currentIndex + 1) % itemSwitchOptions.length
+      : (currentIndex - 1 + itemSwitchOptions.length) % itemSwitchOptions.length;
+    setSelectedItemRef(itemSwitchOptions[nextIndex]);
+  };
+
   const MetricButton = ({ metric, label, value }: { metric: TrackerSortMetric; label: string; value: string }) => (
     <button
       type="button"
@@ -233,24 +242,37 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           </div>
         </div>
 
-        <div className="space-y-3 bg-card px-3 py-3">
-          {trackedItemRefs.length > 1 && (
-            <div className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {['all', ...trackedItemRefs].map(item => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setSelectedItemRef(item)}
-                  className={`h-7 max-w-32 shrink-0 truncate rounded-md border px-2 text-[11px] font-semibold transition-colors ${
-                    activeItemRef === item ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border/70 bg-muted/25 text-muted-foreground'
-                  }`}
-                >
-                  {item === 'all' ? 'All promo' : item}
-                </button>
-              ))}
+        {trackedItemRefs.length > 1 && (
+          <div className="relative z-20 -mt-3 flex justify-center px-3">
+            <div className="flex max-w-full items-center rounded-full border border-border/70 bg-card/95 p-1 text-card-foreground shadow-lg shadow-background/20 backdrop-blur-md">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => cycleSelectedItem('prev')}
+                className="h-7 w-7 shrink-0 rounded-full p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <button
+                type="button"
+                onClick={() => cycleSelectedItem('next')}
+                className="mx-0.5 h-7 min-w-[108px] max-w-[188px] truncate rounded-full border border-primary/35 bg-primary/10 px-3 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary/15"
+              >
+                {activeItemRef === 'all' ? 'All promo' : activeItemRef}
+              </button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => cycleSelectedItem('next')}
+                className="h-7 w-7 shrink-0 rounded-full p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
             </div>
-          )}
+          </div>
+        )}
 
+        <div className={`space-y-3 bg-card px-3 pb-3 ${trackedItemRefs.length > 1 ? 'pt-2' : 'py-3'}`}>
           <div className="flex gap-2">
             {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
             {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
