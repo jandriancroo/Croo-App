@@ -190,13 +190,13 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0 md:p-0">
         <div className="relative min-h-[58px] overflow-hidden bg-primary text-primary-foreground">
-          <div className="absolute inset-y-0 right-0 w-[56%] bg-primary">
+          <div className="absolute inset-y-0 right-0 w-1/2 bg-primary">
             {promoImageUrl && (
               <img src={promoImageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
             )}
             {promoImageUrl && <div className="absolute inset-0 bg-background/30" />}
           </div>
-          <div className="absolute inset-y-0 left-0 w-[66%] bg-primary [clip-path:polygon(0_0,82%_0,100%_100%,0_100%)]" />
+          <div className="absolute inset-y-0 left-0 w-[56%] bg-primary [clip-path:polygon(0_0,89%_0,100%_100%,0_100%)]" />
           <Badge className="absolute right-3 top-2 z-10 inline-flex h-6 shrink-0 items-center rounded-full border-0 bg-accent px-2 text-[11px] font-bold leading-none text-accent-foreground shadow-sm tabular-nums">
             #{myStore?.rank || '--'}/{sortedRanking.length || '--'}
           </Badge>
