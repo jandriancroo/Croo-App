@@ -188,14 +188,9 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0">
         <div className="bg-primary px-3 py-2 text-primary-foreground">
-          <div className="flex items-center justify-between gap-2">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <p className="text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
-            <Badge className="h-7 shrink-0 rounded-full border-0 bg-accent px-3 text-sm font-bold text-accent-foreground shadow-sm">#{myStore?.rank || '--'} <span className="font-medium opacity-80">of {sortedRanking.length || '--'}</span></Badge>
-          </div>
-
-          <div className="mt-1 flex items-center gap-2">
-            <h2 className="min-w-0 flex-1 truncate text-base font-semibold leading-tight">{promoName}</h2>
-            <div className="flex shrink-0 items-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
+            <div className="flex items-center justify-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
               <Button
                 variant="ghost"
                 size="sm"
@@ -220,6 +215,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
+            <Badge className="ml-auto h-7 shrink-0 rounded-full border-0 bg-accent px-3 text-sm font-bold text-accent-foreground shadow-sm">#{myStore?.rank || '--'} <span className="font-medium opacity-80">of {sortedRanking.length || '--'}</span></Badge>
+          </div>
+
+          <div className="mt-1 flex items-center gap-2">
+            <h2 className="min-w-0 flex-1 truncate text-base font-semibold leading-tight">{promoName}</h2>
           </div>
         </div>
 
