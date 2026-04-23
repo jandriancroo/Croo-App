@@ -199,19 +199,19 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
             </>
           )}
-          <div className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center justify-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
+          <div className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center justify-center rounded-full border border-background/15 bg-foreground/60 px-0.5 py-0.5 text-background shadow-md shadow-foreground/20 backdrop-blur-md">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => cyclePeriod('prev')}
-              className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+              className="h-6 w-6 rounded-full p-0 text-background hover:bg-background/15 hover:text-background"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
             <button
               type="button"
               onClick={() => cyclePeriod('next')}
-              className="min-w-[72px] select-none rounded-full px-1.5 text-center text-xs font-semibold leading-6 transition-colors hover:bg-primary-foreground/10"
+              className="min-w-[72px] select-none rounded-full px-1.5 text-center text-xs font-semibold leading-6 transition-colors hover:bg-background/10"
             >
               {PERIOD_LABELS[period]}
             </button>
@@ -219,15 +219,15 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               variant="ghost"
               size="sm"
               onClick={() => cyclePeriod('next')}
-              className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+              className="h-6 w-6 rounded-full p-0 text-background hover:bg-background/15 hover:text-background"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>
 
           <div className="relative z-10 w-[68%] px-3 py-2 pr-5">
-            <div className="inline-flex max-w-full flex-col rounded-md border border-border/40 bg-background/85 px-2.5 py-1.5 text-foreground shadow-md shadow-background/25 backdrop-blur-sm">
-              <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-muted-foreground">Live promo</p>
+            <div className="inline-flex max-w-full flex-col rounded-md border border-background/15 bg-foreground/70 px-2.5 py-1.5 text-background shadow-md shadow-foreground/20 backdrop-blur-md">
+              <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-background/70">Live promo</p>
               <h2 className="mt-1 min-w-0 max-w-full truncate text-sm font-semibold leading-tight">{promoName}</h2>
             </div>
           </div>
