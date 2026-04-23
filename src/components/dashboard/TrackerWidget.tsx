@@ -226,14 +226,9 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           </div>
 
           <div className="relative z-10 w-[68%] px-3 py-2 pr-5">
-            <div className="rounded-md bg-primary/80 px-2 py-1 shadow-sm backdrop-blur-sm">
-            <div className="flex h-5 items-center">
-              <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">{promoName}</h2>
-            </div>
+            <div className="inline-flex max-w-full flex-col rounded-md border border-border/40 bg-background/85 px-2.5 py-1.5 text-foreground shadow-md shadow-background/25 backdrop-blur-sm">
+              <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-muted-foreground">Live promo</p>
+              <h2 className="mt-1 min-w-0 max-w-full truncate text-sm font-semibold leading-tight">{promoName}</h2>
             </div>
           </div>
         </div>

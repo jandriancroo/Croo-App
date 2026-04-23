@@ -370,9 +370,9 @@ export function AddWidgetDialog({
                         <img src={config.trackerPromoImageUrl} alt="Promo preview" className="absolute inset-0 h-full w-full object-cover" />
                         <div className="absolute inset-0 bg-background/30" />
                         <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
-                        <div className="absolute left-3 top-2 rounded-md bg-primary/80 px-2 py-1 text-primary-foreground shadow-sm backdrop-blur-sm">
-                          <p className="text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
-                          <p className="mt-2 max-w-44 truncate text-sm font-semibold leading-tight">{config.title || 'Promo'}</p>
+                        <div className="absolute left-3 top-2 inline-flex max-w-[68%] flex-col rounded-md border border-border/40 bg-background/85 px-2.5 py-1.5 text-foreground shadow-md shadow-background/25 backdrop-blur-sm">
+                          <p className="text-[10px] font-bold uppercase leading-none tracking-wider text-muted-foreground">Live promo</p>
+                          <p className="mt-1 max-w-full truncate text-sm font-semibold leading-tight">{config.title || 'Promo'}</p>
                         </div>
                         <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 h-7 w-7" onClick={() => setConfig(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
                           <X className="h-3.5 w-3.5" />
