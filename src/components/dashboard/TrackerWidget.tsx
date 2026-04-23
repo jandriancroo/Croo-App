@@ -277,18 +277,20 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
             {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
             {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myVisibleStats.pmix)} />}
-            <div className="ml-auto min-w-[72px] rounded-md border border-accent/45 bg-accent px-2 py-1 text-left text-accent-foreground shadow-sm">
-              <p className="text-[9px] font-medium uppercase leading-none text-accent-foreground/75">Rank</p>
-              <p className="mt-0.5 truncate text-[13px] font-bold leading-none tabular-nums">{rankChipLabel}</p>
-            </div>
+            <button
+              type="button"
+              disabled={!canExpand}
+              onClick={() => canExpand && setExpanded(value => !value)}
+              className="ml-auto flex min-w-[72px] items-center justify-between gap-1 rounded-md border border-accent/45 bg-accent px-2 py-1 text-left text-accent-foreground shadow-sm transition-colors enabled:hover:bg-accent/90 disabled:cursor-default"
+            >
+              <span className="min-w-0">
+                <p className="text-[9px] font-medium uppercase leading-none text-accent-foreground/75">Rank</p>
+                <p className="mt-0.5 truncate text-[13px] font-bold leading-none tabular-nums">{rankChipLabel}</p>
+              </span>
+              {canExpand && <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />}
+            </button>
           </div>
         </div>
-
-        {canExpand && (
-          <Button variant="ghost" size="sm" className="h-9 w-full justify-between rounded-none border-t border-border/60 px-3 text-xs font-semibold text-muted-foreground" onClick={() => setExpanded(value => !value)}>
-            See all {totalLocationCount || '--'} locations <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-          </Button>
-        )}
 
         {canExpand && expanded && (
           <div className="space-y-1 pt-0.5">
