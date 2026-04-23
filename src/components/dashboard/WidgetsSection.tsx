@@ -49,6 +49,7 @@ interface DataCubeConfig {
   trackerItemRefs?: string[];
   trackerPromoStart?: string | null;
   trackerPromoEnd?: string | null;
+  trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
   // 3D cube specific
@@ -305,6 +306,7 @@ export const WidgetsSection = memo(function WidgetsSection({
         trackerItemRefs: (cube.tracker_item_refs as string[]) || [],
         trackerPromoStart: cube.tracker_promo_start || null,
         trackerPromoEnd: cube.tracker_promo_end || null,
+        trackerPromoImageUrl: cube.tracker_promo_image_url || null,
         trackerLocationRefs: (cube.tracker_location_refs as string[]) || [],
         trackerRankMetrics: (cube.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
       })) as DataCubeConfig[];
@@ -489,6 +491,7 @@ export const WidgetsSection = memo(function WidgetsSection({
           tracker_item_refs: config.trackerItemRefs || [],
           tracker_promo_start: config.trackerPromoStart,
           tracker_promo_end: config.trackerPromoEnd,
+          tracker_promo_image_url: config.trackerPromoImageUrl,
           tracker_location_refs: config.trackerLocationRefs || [],
           tracker_rank_metrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
         });

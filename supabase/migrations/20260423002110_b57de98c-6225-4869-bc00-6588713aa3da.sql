@@ -1,0 +1,2 @@
+ALTER TABLE public.user_dashboard_cubes
+ADD COLUMN tracker_promo_image_url text;

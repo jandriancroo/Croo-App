@@ -30,6 +30,7 @@ export interface NewDataCubeConfig {
   trackerItemRefs?: string[];
   trackerPromoStart?: string | null;
   trackerPromoEnd?: string | null;
+  trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
 }
@@ -67,6 +68,7 @@ export function AddWidgetDialog({
     trackerItemRefs: [],
     trackerPromoStart: null,
     trackerPromoEnd: null,
+    trackerPromoImageUrl: null,
     trackerLocationRefs: [],
     trackerRankMetrics: ['units', 'sales', 'pmix'],
   });
@@ -86,6 +88,7 @@ export function AddWidgetDialog({
         trackerItemRefs: [],
         trackerPromoStart: null,
         trackerPromoEnd: null,
+        trackerPromoImageUrl: null,
         trackerLocationRefs: [],
         trackerRankMetrics: ['units', 'sales', 'pmix'],
     });
@@ -315,6 +318,10 @@ export function AddWidgetDialog({
                     <Label htmlFor="promo-end">Promo End</Label>
                     <Input id="promo-end" type="date" className="h-9" value={config.trackerPromoEnd || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoEnd: e.target.value || null }))} />
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="promo-image-url">Promo Image URL</Label>
+                  <Input id="promo-image-url" className="h-9" placeholder="https://..." value={config.trackerPromoImageUrl || ''} onChange={(e) => setConfig(prev => ({ ...prev, trackerPromoImageUrl: e.target.value.trim() || null }))} />
                 </div>
                 <TrackerPosItemPicker
                   value={config.trackerItemRefs || []}
