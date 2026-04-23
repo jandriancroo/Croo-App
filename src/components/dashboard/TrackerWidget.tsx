@@ -243,8 +243,8 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         </div>
 
         {trackedItemRefs.length > 1 && (
-          <div className="relative z-20 -mt-5 flex justify-center px-3">
-            <div className="flex max-w-full items-stretch overflow-hidden rounded-t-md border border-b-0 border-border/70 bg-card/95 text-card-foreground shadow-md shadow-background/15 backdrop-blur-md">
+          <div className="relative z-20 -mt-px flex justify-center px-3">
+            <div className="flex max-w-full items-stretch overflow-hidden rounded-b-md border border-t-0 border-border/70 bg-card/95 text-card-foreground shadow-md shadow-background/15 backdrop-blur-md">
               <Button
                 variant="ghost"
                 size="sm"
