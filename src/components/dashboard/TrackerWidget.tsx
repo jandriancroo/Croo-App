@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ArrowDown, ChevronDown, Trophy } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,12 @@ const TRACKER_TZ = 'America/Los_Angeles';
 const money = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const number = (value: number) => Math.round(value).toLocaleString();
 const percent = (value: number) => `${value.toFixed(1)}%`;
+const PERIOD_MODES: PeriodKey[] = ['day', 'wtd', 'promo'];
+const PERIOD_LABELS: Record<PeriodKey, string> = {
+  day: 'Today',
+  wtd: 'This Week',
+  promo: 'Campaign',
+};
 
 function normalizeMix(rowMix: unknown): Array<{ itemName: string; quantity: number; netSales: number }> {
   const mix = typeof rowMix === 'string' ? JSON.parse(rowMix) : rowMix;
@@ -157,6 +163,14 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     ? tracker.title
     : tracker.trackerItemRefs?.[0] || 'Promo';
 
+  const cyclePeriod = (direction: 'prev' | 'next') => {
+    const index = PERIOD_MODES.indexOf(period);
+    const nextIndex = direction === 'next'
+      ? (index + 1) % PERIOD_MODES.length
+      : (index - 1 + PERIOD_MODES.length) % PERIOD_MODES.length;
+    setPeriod(PERIOD_MODES[nextIndex]);
+  };
+
   const MetricButton = ({ metric, label, value }: { metric: TrackerSortMetric; label: string; value: string }) => (
     <button
       type="button"
@@ -182,12 +196,30 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         </div>
 
         <div className="space-y-3 bg-card px-3 py-3">
-          <div className="grid grid-cols-3 gap-1">
-            {(['day', 'wtd', 'promo'] as PeriodKey[]).map(key => (
-              <Button key={key} size="sm" variant={period === key ? 'secondary' : 'outline'} className="h-8 rounded-md text-xs font-semibold" onClick={() => setPeriod(key)}>
-                {key === 'day' ? 'Today' : key === 'wtd' ? 'Week' : 'Campaign'}
-              </Button>
-            ))}
+          <div className="flex items-center justify-between rounded-lg bg-primary px-2 py-1 text-primary-foreground">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => cyclePeriod('prev')}
+              className="h-7 w-7 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <button
+              type="button"
+              onClick={() => cyclePeriod('next')}
+              className="min-w-0 flex-1 select-none rounded-md px-3 py-1 text-center text-sm font-semibold transition-colors hover:bg-primary-foreground/10"
+            >
+              <span className="truncate">{PERIOD_LABELS[period]}</span>
+            </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => cyclePeriod('next')}
+              className="h-7 w-7 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
 
           {trackedItemRefs.length > 1 && (
