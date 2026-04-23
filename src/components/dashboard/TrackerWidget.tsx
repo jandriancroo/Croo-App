@@ -68,6 +68,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
   const [selectedItemRef, setSelectedItemRef] = useState<string>('all');
   const [itemMenuOpen, setItemMenuOpen] = useState(false);
+  const [periodMenuOpen, setPeriodMenuOpen] = useState(false);
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
@@ -166,6 +167,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
   const itemSwitchOptions = ['all', ...trackedItemRefs];
   const activeItemLabel = activeItemRef === 'all' ? 'All promo' : activeItemRef;
+  const activePeriodLabel = PERIOD_LABELS[period];
 
   const MetricButton = ({ metric, label, value }: { metric: TrackerSortMetric; label: string; value: string }) => (
     <button
@@ -227,29 +229,39 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           </div>
         </div>
 
-        <div className="relative z-20 flex justify-center px-3">
-          <div className="flex max-w-full gap-2 overflow-x-auto py-3 scrollbar-none">
-            {PERIOD_MODES.map(periodKey => {
-              const active = period === periodKey;
-                return (
+        <div className="relative z-20 -mt-px flex px-6">
+          <div className="relative max-w-full">
+            <button
+              type="button"
+              onClick={() => setPeriodMenuOpen(value => !value)}
+              className="flex h-8 max-w-full items-center gap-1.5 rounded-b-md border border-t-0 border-border/70 bg-card/95 px-4 text-xs font-bold uppercase tracking-wide text-foreground shadow-md shadow-background/15 transition-colors hover:bg-muted/50"
+            >
+              <span className="truncate">{activePeriodLabel}</span>
+              <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${periodMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {periodMenuOpen && (
+              <div className="absolute left-0 top-full z-30 mt-1 min-w-full overflow-hidden rounded-md border border-border/70 bg-card text-card-foreground shadow-lg shadow-background/20">
+                {PERIOD_MODES.map(periodKey => (
                   <button
                     key={periodKey}
                     type="button"
-                    onClick={() => setPeriod(periodKey)}
-                    className={`h-9 shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors ${
-                      active
-                        ? 'border-border/80 bg-muted/65 text-foreground'
-                        : 'border-border/70 bg-muted/35 text-foreground hover:bg-muted/60'
+                    onClick={() => {
+                      setPeriod(periodKey);
+                      setPeriodMenuOpen(false);
+                    }}
+                    className={`block w-full px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                      period === periodKey ? 'bg-muted/65 text-foreground' : 'hover:bg-muted/50'
                     }`}
                   >
                     {PERIOD_LABELS[periodKey]}
                   </button>
-                );
-              })}
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="space-y-3 bg-card px-3 pb-3 pt-0">
+        <div className="space-y-3 bg-card px-3 pb-3 pt-3">
           <div className="flex gap-2">
             {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
             {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
