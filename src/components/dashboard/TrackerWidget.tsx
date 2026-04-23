@@ -155,6 +155,8 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
       .map((store, index) => ({ ...store, rank: index + 1 }));
   }, [ranking, sortMetric, activeItemRef]);
   const myStore = useMemo(() => sortedRanking.find(store => store.locationId === currentLocation?.id), [sortedRanking, currentLocation?.id]);
+  const totalLocationCount = locationPool.length;
+  const rankChipLabel = isLoading ? '#--/--' : `#${myStore?.rank ?? '-'}/${totalLocationCount || '-'}`;
   const myVisibleStats = activeItemRef === 'all'
     ? { units: myStore?.units || 0, sales: myStore?.sales || 0, pmix: myStore?.pmix || 0 }
     : myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 };
@@ -194,11 +196,12 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             {promoImageUrl && (
               <img src={promoImageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
             )}
-            {promoImageUrl && <div className="absolute inset-0 bg-background/30" />}
+            {promoImageUrl && <div className="absolute inset-0 bg-background/20" />}
+            {promoImageUrl && <div className="absolute inset-0 bg-gradient-to-r from-background/0 via-background/15 to-background/35" />}
           </div>
           <div className="absolute inset-y-0 left-0 w-[56%] bg-primary [clip-path:polygon(0_0,89%_0,100%_100%,0_100%)]" />
           <Badge className="absolute right-3 top-2 z-10 inline-flex h-6 shrink-0 items-center rounded-full border-0 bg-accent px-2 text-[11px] font-bold leading-none text-accent-foreground shadow-sm tabular-nums">
-            #{myStore?.rank || '--'}/{sortedRanking.length || '--'}
+            {rankChipLabel}
           </Badge>
           <div className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center justify-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
             <Button
@@ -264,7 +267,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
         {canExpand && (
           <Button variant="ghost" size="sm" className="h-9 w-full justify-between rounded-none border-t border-border/60 px-3 text-xs font-semibold text-muted-foreground" onClick={() => setExpanded(value => !value)}>
-            See all {sortedRanking.length || '--'} locations <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+            See all {totalLocationCount || '--'} locations <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </Button>
         )}
 
