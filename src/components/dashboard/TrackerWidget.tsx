@@ -200,8 +200,8 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
             </>
           )}
-          <div className="relative z-10 w-[68%] px-3 py-2 pr-5">
-            <div className="relative inline-flex max-w-full flex-col">
+          <div className="relative z-40 w-[68%] px-3 py-2 pr-5">
+            <div className="relative z-40 inline-flex max-w-full flex-col">
               <button
                 type="button"
                 onClick={() => setItemMenuOpen(value => !value)}
@@ -214,7 +214,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                 </span>
               </button>
               {itemMenuOpen && (
-                <div className="absolute left-0 top-full z-30 mt-1 min-w-full overflow-hidden rounded-md border border-border/70 bg-card text-card-foreground shadow-lg shadow-background/20">
+                <div className="absolute left-0 top-full z-50 mt-1 min-w-full overflow-hidden rounded-md border border-border/70 bg-card text-card-foreground shadow-lg shadow-background/20">
                   {itemSwitchOptions.map(itemRef => (
                     <button
                       key={itemRef}
@@ -236,7 +236,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           </div>
         </div>
 
-        <div className="relative z-20 -mt-px flex justify-center px-6">
+        <div className="relative z-10 -mt-px flex justify-center px-6">
           <div className="flex max-w-full items-stretch overflow-hidden rounded-b-md border border-t-0 border-border/70 bg-card/95 text-foreground shadow-md shadow-background/15">
             <button
               type="button"
