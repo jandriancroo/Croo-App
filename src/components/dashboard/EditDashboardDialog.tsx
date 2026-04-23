@@ -323,6 +323,8 @@ export function EditDashboardDialog({
     setFaceMetrics([[], [], [], []]);
     setFaceTitles(['', '', '', '']);
     setNumFaces(2);
+    setPromoCropDialogOpen(false);
+    setPromoImageToCrop('');
   };
 
   const toggleMetric = (metric: MetricType) => {
@@ -384,6 +386,40 @@ export function EditDashboardDialog({
   const handleAddClick = () => {
     onOpenChange(false);
     setTimeout(() => onAddCube(), 100);
+  };
+
+  const handlePromoImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPromoImageToCrop(URL.createObjectURL(file));
+    setPromoCropDialogOpen(true);
+    event.target.value = '';
+  };
+
+  const handlePromoImageCropComplete = async (croppedBlob: Blob) => {
+    setIsPromoImageUploading(true);
+    try {
+      const filePath = `promo-trackers/promo-${Date.now()}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from('brand-assets')
+        .upload(filePath, croppedBlob, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('brand-assets')
+        .getPublicUrl(filePath);
+
+      setEditForm(prev => ({ ...prev, trackerPromoImageUrl: data.publicUrl }));
+      toast.success('Promo image uploaded');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload promo image');
+    } finally {
+      setIsPromoImageUploading(false);
+      if (promoImageToCrop.startsWith('blob:')) URL.revokeObjectURL(promoImageToCrop);
+      setPromoImageToCrop('');
+    }
   };
 
   const maxMetrics = editingCube 
