@@ -243,20 +243,20 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         </div>
 
         {trackedItemRefs.length > 1 && (
-          <div className="relative z-20 -mt-3 flex justify-center px-3">
-            <div className="flex max-w-full items-center rounded-full border border-border/70 bg-card/95 p-1 text-card-foreground shadow-lg shadow-background/20 backdrop-blur-md">
+          <div className="relative z-20 -mt-5 flex justify-center px-3">
+            <div className="flex max-w-full items-stretch overflow-hidden rounded-t-md border border-b-0 border-border/70 bg-card/95 text-card-foreground shadow-md shadow-background/15 backdrop-blur-md">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => cycleSelectedItem('prev')}
-                className="h-7 w-7 shrink-0 rounded-full p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                className="h-8 w-8 shrink-0 rounded-none border-r border-border/60 p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
               <button
                 type="button"
                 onClick={() => cycleSelectedItem('next')}
-                className="mx-0.5 h-7 min-w-[108px] max-w-[188px] truncate rounded-full border border-primary/35 bg-primary/10 px-3 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary/15"
+                className="h-8 min-w-[112px] max-w-[188px] truncate bg-primary/10 px-3 text-center text-[11px] font-bold uppercase tracking-wide text-primary transition-colors hover:bg-primary/15"
               >
                 {activeItemRef === 'all' ? 'All promo' : activeItemRef}
               </button>
@@ -264,7 +264,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => cycleSelectedItem('next')}
-                className="h-7 w-7 shrink-0 rounded-full p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                className="h-8 w-8 shrink-0 rounded-none border-l border-border/60 p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
               >
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
@@ -272,7 +272,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           </div>
         )}
 
-        <div className={`space-y-3 bg-card px-3 pb-3 ${trackedItemRefs.length > 1 ? 'pt-2' : 'py-3'}`}>
+        <div className={`space-y-3 bg-card px-3 pb-3 ${trackedItemRefs.length > 1 ? 'pt-3' : 'py-3'}`}>
           <div className="flex gap-2">
             {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
             {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
