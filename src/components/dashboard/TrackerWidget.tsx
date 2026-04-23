@@ -229,7 +229,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             <button
               type="button"
               onClick={() => cyclePeriod('next')}
-              className="h-8 min-w-[112px] max-w-[188px] truncate bg-primary/10 px-3 text-center text-[11px] font-bold uppercase tracking-wide text-primary transition-colors hover:bg-primary/15"
+              className="h-8 min-w-[112px] max-w-[188px] truncate bg-card px-3 text-center text-[11px] font-bold uppercase tracking-wide text-foreground transition-colors hover:bg-muted/50"
             >
               {PERIOD_LABELS[period]}
             </button>
