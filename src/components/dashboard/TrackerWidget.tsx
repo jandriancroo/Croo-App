@@ -256,29 +256,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
         {canExpand && expanded && (
           <div className="space-y-1 pt-0.5">
-            {trackedItemRefs.length > 1 && myStore && (
-              <div className="rounded-md border border-border/60 bg-muted/25 px-1.5 py-1">
-                <div className="grid grid-cols-[1fr_3rem_3.6rem_3rem] gap-1 px-0.5 text-[9px] font-medium uppercase text-muted-foreground">
-                  <span>My items</span>
-                  <span className="text-right">Units</span>
-                  <span className="text-right">Sales</span>
-                  <span className="text-right">PMIX</span>
-                </div>
-                <div className="mt-1 space-y-0.5">
-                  {trackedItemRefs.map(item => {
-                    const stats = myStore.itemStats[item] || { units: 0, sales: 0, pmix: 0 };
-                    return (
-                      <div key={item} className="grid grid-cols-[1fr_3rem_3.6rem_3rem] items-center gap-1 rounded bg-background/55 px-1 py-1 text-[10px]">
-                        <span className="truncate font-medium">{item}</span>
-                        <span className="text-right tabular-nums">{number(stats.units)}</span>
-                        <span className="text-right tabular-nums">{money(stats.sales)}</span>
-                        <span className="text-right tabular-nums">{percent(stats.pmix)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
             <div className="grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 px-1.5 text-[10px] font-medium uppercase text-muted-foreground">
               <span>#</span>
               <span>Store</span>
@@ -290,7 +267,14 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               ))}
             </div>
             {sortedRanking.slice(0, 20).map(store => (
-              <div key={store.locationId} className="grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 rounded-md bg-muted/45 px-1.5 py-1.5 text-[11px]">
+              <div
+                key={store.locationId}
+                className={`grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 rounded-md px-1.5 py-1.5 text-[11px] ${
+                  store.locationId === currentLocation?.id
+                    ? 'bg-primary/12 text-primary ring-1 ring-primary/25'
+                    : 'bg-muted/45'
+                }`}
+              >
                 <span className="font-semibold">#{store.rank}</span>
                 <span className="truncate">{store.locationName}</span>
                 <span className="text-right font-medium tabular-nums">{number(getMetricValue(store, 'units'))}</span>
