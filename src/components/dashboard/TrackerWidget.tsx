@@ -68,6 +68,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const [expanded, setExpanded] = useState(false);
   const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
   const [selectedItemRef, setSelectedItemRef] = useState<string>('all');
+  const [itemMenuOpen, setItemMenuOpen] = useState(false);
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
@@ -167,22 +168,8 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     : tracker.trackerItemRefs?.[0] || 'Promo';
   const promoImageUrl = tracker.trackerPromoImageUrl?.trim();
 
-  const cyclePeriod = (direction: 'prev' | 'next') => {
-    const index = PERIOD_MODES.indexOf(period);
-    const nextIndex = direction === 'next'
-      ? (index + 1) % PERIOD_MODES.length
-      : (index - 1 + PERIOD_MODES.length) % PERIOD_MODES.length;
-    setPeriod(PERIOD_MODES[nextIndex]);
-  };
-
   const itemSwitchOptions = ['all', ...trackedItemRefs];
-  const cycleSelectedItem = (direction: 'prev' | 'next') => {
-    const currentIndex = Math.max(0, itemSwitchOptions.indexOf(activeItemRef));
-    const nextIndex = direction === 'next'
-      ? (currentIndex + 1) % itemSwitchOptions.length
-      : (currentIndex - 1 + itemSwitchOptions.length) % itemSwitchOptions.length;
-    setSelectedItemRef(itemSwitchOptions[nextIndex]);
-  };
+  const activeItemLabel = activeItemRef === 'all' ? 'All promo' : activeItemRef;
 
   const MetricButton = ({ metric, label, value }: { metric: TrackerSortMetric; label: string; value: string }) => (
     <button
@@ -209,38 +196,38 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             </>
           )}
           <div className="relative z-10 w-[68%] px-3 py-2 pr-5">
-            <div className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/50 px-2.5 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md">
-              <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-background/70">Live promo</p>
-              <h2 className="mt-1 min-w-0 max-w-full truncate text-sm font-semibold leading-tight">{promoName}</h2>
+            <div className="relative inline-flex max-w-full flex-col">
+              <button
+                type="button"
+                onClick={() => setItemMenuOpen(value => !value)}
+                className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/50 px-2.5 py-1.5 text-left text-background shadow-md shadow-foreground/15 backdrop-blur-md"
+              >
+                <span className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-background/70">Live promo</span>
+                <span className="mt-1 flex min-w-0 max-w-full items-center gap-1 text-sm font-semibold leading-tight">
+                  <span className="min-w-0 truncate">{activeItemLabel}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${itemMenuOpen ? 'rotate-180' : ''}`} />
+                </span>
+              </button>
+              {itemMenuOpen && (
+                <div className="absolute left-0 top-full z-30 mt-1 min-w-full overflow-hidden rounded-md border border-border/70 bg-card text-card-foreground shadow-lg shadow-background/20">
+                  {itemSwitchOptions.map(itemRef => (
+                    <button
+                      key={itemRef}
+                      type="button"
+                      onClick={() => {
+                        setSelectedItemRef(itemRef);
+                        setItemMenuOpen(false);
+                      }}
+                      className={`block w-full px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                        activeItemRef === itemRef ? 'bg-muted/65 text-foreground' : 'hover:bg-muted/50'
+                      }`}
+                    >
+                      {itemRef === 'all' ? 'All promo' : itemRef}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-
-        <div className="relative z-20 -mt-px flex justify-center px-3">
-          <div className="flex max-w-full items-stretch overflow-hidden rounded-b-md border border-t-0 border-border/70 bg-card/95 text-card-foreground shadow-md shadow-background/15 backdrop-blur-md">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => cycleSelectedItem('prev')}
-              className="h-8 w-8 shrink-0 rounded-none p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </Button>
-            <button
-              type="button"
-              onClick={() => cycleSelectedItem('next')}
-              className="h-8 min-w-[112px] max-w-[188px] truncate bg-card px-3 text-center text-[11px] font-bold uppercase tracking-wide text-foreground transition-colors hover:bg-muted/50"
-            >
-              {activeItemRef === 'all' ? 'All promo' : activeItemRef}
-            </button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => cycleSelectedItem('next')}
-              className="h-8 w-8 shrink-0 rounded-none p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
           </div>
         </div>
 
