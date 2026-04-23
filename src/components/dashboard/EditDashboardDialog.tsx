@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy } from "lucide-react";
+import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy, Upload, X, Crop, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -31,6 +32,8 @@ import {
 import { THEME_COLORS, migrateAccentColor, getThemeColorClass, isThemeColorKey } from "@/utils/themeColors";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
+import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
 
@@ -180,11 +183,15 @@ export function EditDashboardDialog({
   onReorderCubes,
   onSectionOrderChange,
 }: EditDashboardDialogProps) {
+  const promoImageInputRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<View>('list');
   const [editingCube, setEditingCube] = useState<CubeConfig | null>(null);
   const [editForm, setEditForm] = useState<Partial<CubeConfig>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [promoImageToCrop, setPromoImageToCrop] = useState('');
+  const [promoCropDialogOpen, setPromoCropDialogOpen] = useState(false);
+  const [isPromoImageUploading, setIsPromoImageUploading] = useState(false);
   const { currentLocation } = useAppLocation();
   
   // Section order state
@@ -316,6 +323,8 @@ export function EditDashboardDialog({
     setFaceMetrics([[], [], [], []]);
     setFaceTitles(['', '', '', '']);
     setNumFaces(2);
+    setPromoCropDialogOpen(false);
+    setPromoImageToCrop('');
   };
 
   const toggleMetric = (metric: MetricType) => {
@@ -377,6 +386,40 @@ export function EditDashboardDialog({
   const handleAddClick = () => {
     onOpenChange(false);
     setTimeout(() => onAddCube(), 100);
+  };
+
+  const handlePromoImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPromoImageToCrop(URL.createObjectURL(file));
+    setPromoCropDialogOpen(true);
+    event.target.value = '';
+  };
+
+  const handlePromoImageCropComplete = async (croppedBlob: Blob) => {
+    setIsPromoImageUploading(true);
+    try {
+      const filePath = `promo-trackers/promo-${Date.now()}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from('brand-assets')
+        .upload(filePath, croppedBlob, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('brand-assets')
+        .getPublicUrl(filePath);
+
+      setEditForm(prev => ({ ...prev, trackerPromoImageUrl: data.publicUrl }));
+      toast.success('Promo image uploaded');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload promo image');
+    } finally {
+      setIsPromoImageUploading(false);
+      if (promoImageToCrop.startsWith('blob:')) URL.revokeObjectURL(promoImageToCrop);
+      setPromoImageToCrop('');
+    }
   };
 
   const maxMetrics = editingCube 
@@ -736,8 +779,37 @@ export function EditDashboardDialog({
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="edit-promo-image-url">Promo Image URL</Label>
-                    <Input id="edit-promo-image-url" className="h-9" placeholder="https://..." value={editForm.trackerPromoImageUrl || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoImageUrl: e.target.value.trim() || null }))} />
+                    <Label>Promo Image</Label>
+                    <input ref={promoImageInputRef} type="file" accept="image/*" className="hidden" onChange={handlePromoImageSelect} disabled={isPromoImageUploading} />
+                    {editForm.trackerPromoImageUrl ? (
+                      <div className="space-y-2">
+                        <div className="relative h-[58px] overflow-hidden rounded-lg border bg-primary">
+                          <div className="absolute inset-y-0 right-0 w-1/2">
+                            <img src={editForm.trackerPromoImageUrl} alt="Promo preview" className="h-full w-full object-cover" />
+                            <div className="absolute inset-0 bg-background/20" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-background/0 via-background/15 to-background/35" />
+                          </div>
+                          <div className="absolute inset-y-0 left-0 w-[56%] bg-primary [clip-path:polygon(0_0,89%_0,100%_100%,0_100%)]" />
+                          <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 h-7 w-7" onClick={() => setEditForm(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => promoImageInputRef.current?.click()} disabled={isPromoImageUploading}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Replace
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => { setPromoImageToCrop(editForm.trackerPromoImageUrl || ''); setPromoCropDialogOpen(true); }} disabled={isPromoImageUploading}>
+                            <Crop className="mr-2 h-4 w-4" />
+                            Crop
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button type="button" className="flex h-24 w-full items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 text-muted-foreground transition-colors hover:border-muted-foreground/50" onClick={() => promoImageInputRef.current?.click()} disabled={isPromoImageUploading}>
+                        {isPromoImageUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                      </button>
+                    )}
                   </div>
                   <TrackerPosItemPicker
                     value={editForm.trackerItemRefs || []}
@@ -789,7 +861,7 @@ export function EditDashboardDialog({
             <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
               <Button
                 onClick={handleSave}
-                disabled={isSaving || (editingCube.cubeType === 'data' && (editForm.metrics || []).length === 0) || (editingCube.cubeType === 'data-3d' && faceMetrics.slice(0, numFaces).every(f => f.length === 0))}
+                disabled={isSaving || isPromoImageUploading || (editingCube.cubeType === 'data' && (editForm.metrics || []).length === 0) || (editingCube.cubeType === 'data-3d' && faceMetrics.slice(0, numFaces).every(f => f.length === 0))}
                 className="w-full"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
@@ -798,6 +870,16 @@ export function EditDashboardDialog({
           )}
         </DialogContent>
       </Dialog>
+
+      <ImageCropDialog
+        open={promoCropDialogOpen}
+        onOpenChange={setPromoCropDialogOpen}
+        imageSrc={promoImageToCrop}
+        onCropComplete={handlePromoImageCropComplete}
+        cropShape="rect"
+        aspect={1 / 0.58}
+        cropAreaClassName="!h-[232px]"
+      />
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>

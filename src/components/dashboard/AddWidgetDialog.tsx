@@ -369,7 +369,8 @@ export function AddWidgetDialog({
                       <div className="relative h-[58px] overflow-hidden rounded-lg border bg-primary">
                         <div className="absolute inset-y-0 right-0 w-1/2">
                           <img src={config.trackerPromoImageUrl} alt="Promo preview" className="h-full w-full object-cover" />
-                          <div className="absolute inset-0 bg-background/30" />
+                          <div className="absolute inset-0 bg-background/20" />
+                          <div className="absolute inset-0 bg-gradient-to-r from-background/0 via-background/15 to-background/35" />
                         </div>
                         <div className="absolute inset-y-0 left-0 w-[56%] bg-primary [clip-path:polygon(0_0,89%_0,100%_100%,0_100%)]" />
                         <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 h-7 w-7" onClick={() => setConfig(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
