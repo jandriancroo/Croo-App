@@ -220,7 +220,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             </Badge>
           </div>
 
-          <div className="mt-1 flex items-center gap-2">
+          <div className="mt-0.5 flex items-center gap-2">
             <h2 className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">{promoName}</h2>
           </div>
         </div>
