@@ -179,7 +179,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     <button
       type="button"
       onClick={() => setSortMetric(metric)}
-      className={`min-w-0 rounded-md border px-2 py-1 text-left transition-colors ${
+      className={`min-w-0 flex-1 rounded-md border px-2 py-1 text-left transition-colors ${
         sortMetric === metric ? 'border-primary/35 bg-primary/10' : 'border-border/60 bg-muted/35 hover:bg-muted/60'
       }`}
     >
@@ -192,14 +192,13 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0 md:p-0">
         <div className="relative min-h-[58px] overflow-hidden bg-primary text-primary-foreground">
-          <div className="absolute inset-y-0 right-0 w-1/2 bg-primary">
-            {promoImageUrl && (
-              <img src={promoImageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-            )}
-            {promoImageUrl && <div className="absolute inset-0 bg-background/20" />}
-            {promoImageUrl && <div className="absolute inset-0 bg-gradient-to-r from-background/0 via-background/15 to-background/35" />}
-          </div>
-          <div className="absolute inset-y-0 left-0 w-[56%] bg-primary [clip-path:polygon(0_0,89%_0,100%_100%,0_100%)]" />
+          {promoImageUrl && (
+            <>
+              <img src={promoImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+              <div className="absolute inset-0 bg-background/30" />
+              <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
+            </>
+          )}
           <div className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center justify-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
             <Button
               variant="ghost"
@@ -227,12 +226,14 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           </div>
 
           <div className="relative z-10 w-[68%] px-3 py-2 pr-5">
-            <div className="flex h-7 items-center">
+            <div className="rounded-md bg-primary/80 px-2 py-1 shadow-sm backdrop-blur-sm">
+            <div className="flex h-5 items-center">
               <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
             </div>
 
-            <div className="mt-0.5 flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <h2 className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">{promoName}</h2>
+            </div>
             </div>
           </div>
         </div>
@@ -255,14 +256,14 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             </div>
           )}
 
-          <div className="grid grid-cols-4 gap-2">
-            <div className="min-w-0 rounded-md border border-accent/45 bg-accent px-2 py-1 text-left text-accent-foreground shadow-sm">
-              <p className="text-[9px] font-medium uppercase leading-none text-accent-foreground/75">Rank</p>
-              <p className="mt-0.5 truncate text-[13px] font-bold leading-none tabular-nums">{rankChipLabel}</p>
-            </div>
+          <div className="flex gap-2">
             {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
             {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
             {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myVisibleStats.pmix)} />}
+            <div className="ml-auto min-w-[72px] rounded-md border border-accent/45 bg-accent px-2 py-1 text-left text-accent-foreground shadow-sm">
+              <p className="text-[9px] font-medium uppercase leading-none text-accent-foreground/75">Rank</p>
+              <p className="mt-0.5 truncate text-[13px] font-bold leading-none tabular-nums">{rankChipLabel}</p>
+            </div>
           </div>
         </div>
 
