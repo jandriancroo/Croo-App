@@ -372,7 +372,6 @@ export function AddWidgetDialog({
                           <div className="absolute inset-0 bg-background/30" />
                         </div>
                         <div className="absolute inset-y-0 left-0 w-[56%] bg-primary [clip-path:polygon(0_0,89%_0,100%_100%,0_100%)]" />
-                        <div className="absolute inset-0 bg-background/30" />
                         <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 h-7 w-7" onClick={() => setConfig(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
                           <X className="h-3.5 w-3.5" />
                         </Button>
