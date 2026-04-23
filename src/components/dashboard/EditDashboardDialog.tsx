@@ -779,8 +779,37 @@ export function EditDashboardDialog({
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="edit-promo-image-url">Promo Image URL</Label>
-                    <Input id="edit-promo-image-url" className="h-9" placeholder="https://..." value={editForm.trackerPromoImageUrl || ''} onChange={(e) => setEditForm(prev => ({ ...prev, trackerPromoImageUrl: e.target.value.trim() || null }))} />
+                    <Label>Promo Image</Label>
+                    <input ref={promoImageInputRef} type="file" accept="image/*" className="hidden" onChange={handlePromoImageSelect} disabled={isPromoImageUploading} />
+                    {editForm.trackerPromoImageUrl ? (
+                      <div className="space-y-2">
+                        <div className="relative h-[58px] overflow-hidden rounded-lg border bg-primary">
+                          <div className="absolute inset-y-0 right-0 w-1/2">
+                            <img src={editForm.trackerPromoImageUrl} alt="Promo preview" className="h-full w-full object-cover" />
+                            <div className="absolute inset-0 bg-background/20" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-background/0 via-background/15 to-background/35" />
+                          </div>
+                          <div className="absolute inset-y-0 left-0 w-[56%] bg-primary [clip-path:polygon(0_0,89%_0,100%_100%,0_100%)]" />
+                          <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 h-7 w-7" onClick={() => setEditForm(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => promoImageInputRef.current?.click()} disabled={isPromoImageUploading}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Replace
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => { setPromoImageToCrop(editForm.trackerPromoImageUrl || ''); setPromoCropDialogOpen(true); }} disabled={isPromoImageUploading}>
+                            <Crop className="mr-2 h-4 w-4" />
+                            Crop
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button type="button" className="flex h-24 w-full items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 text-muted-foreground transition-colors hover:border-muted-foreground/50" onClick={() => promoImageInputRef.current?.click()} disabled={isPromoImageUploading}>
+                        {isPromoImageUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                      </button>
+                    )}
                   </div>
                   <TrackerPosItemPicker
                     value={editForm.trackerItemRefs || []}
@@ -832,7 +861,7 @@ export function EditDashboardDialog({
             <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
               <Button
                 onClick={handleSave}
-                disabled={isSaving || (editingCube.cubeType === 'data' && (editForm.metrics || []).length === 0) || (editingCube.cubeType === 'data-3d' && faceMetrics.slice(0, numFaces).every(f => f.length === 0))}
+                disabled={isSaving || isPromoImageUploading || (editingCube.cubeType === 'data' && (editForm.metrics || []).length === 0) || (editingCube.cubeType === 'data-3d' && faceMetrics.slice(0, numFaces).every(f => f.length === 0))}
                 className="w-full"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
