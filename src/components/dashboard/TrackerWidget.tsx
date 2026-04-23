@@ -200,34 +200,35 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           <Badge className="absolute right-3 top-2 z-10 inline-flex h-6 shrink-0 items-center rounded-full border-0 bg-accent px-2 text-[11px] font-bold leading-none text-accent-foreground shadow-sm tabular-nums">
             #{myStore?.rank || '--'}/{sortedRanking.length || '--'}
           </Badge>
+          <div className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center justify-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => cyclePeriod('prev')}
+              className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <button
+              type="button"
+              onClick={() => cyclePeriod('next')}
+              className="min-w-[72px] select-none rounded-full px-1.5 text-center text-xs font-semibold leading-6 transition-colors hover:bg-primary-foreground/10"
+            >
+              {PERIOD_LABELS[period]}
+            </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => cyclePeriod('next')}
+              className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
           <div className="relative z-10 w-[68%] px-3 py-2 pr-5">
-            <div className="flex items-center gap-2">
+            <div className="flex h-7 items-center">
               <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
-              <div className="flex min-w-0 items-center justify-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => cyclePeriod('prev')}
-                  className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => cyclePeriod('next')}
-                  className="min-w-14 select-none rounded-full px-1.5 text-center text-xs font-semibold leading-6 transition-colors hover:bg-primary-foreground/10"
-                >
-                  {PERIOD_LABELS[period]}
-                </button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => cyclePeriod('next')}
-                  className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
             </div>
 
             <div className="mt-0.5 flex items-center gap-2">
