@@ -66,7 +66,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const [period, setPeriod] = useState<PeriodKey>('day');
   const [expanded, setExpanded] = useState(false);
   const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
-  const [selectedItemRef, setSelectedItemRef] = useState<string>('all');
+  const [selectedItemRef, setSelectedItemRef] = useState<string>(() => tracker.trackerItemRefs?.[0] || '');
   const [itemMenuOpen, setItemMenuOpen] = useState(false);
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
@@ -143,9 +143,9 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     staleTime: 60 * 1000,
   });
 
-  const activeItemRef = selectedItemRef !== 'all' && trackedItemRefs.includes(selectedItemRef) ? selectedItemRef : 'all';
+  const activeItemRef = trackedItemRefs.includes(selectedItemRef) ? selectedItemRef : trackedItemRefs[0] || '';
   const getMetricValue = (store: StoreRankRow, metric: TrackerSortMetric) => {
-    if (activeItemRef === 'all') return store[metric];
+    if (!activeItemRef) return store[metric];
     return store.itemStats[activeItemRef]?.[metric] || 0;
   };
 
@@ -157,15 +157,15 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const myStore = useMemo(() => sortedRanking.find(store => store.locationId === currentLocation?.id), [sortedRanking, currentLocation?.id]);
   const totalLocationCount = locationPool.length;
   const rankChipLabel = isLoading ? '#--/--' : `#${myStore?.rank ?? '-'}/${totalLocationCount || '-'}`;
-  const myVisibleStats = activeItemRef === 'all'
-    ? { units: myStore?.units || 0, sales: myStore?.sales || 0, pmix: myStore?.pmix || 0 }
-    : myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 };
+  const myVisibleStats = activeItemRef
+    ? myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 }
+    : { units: myStore?.units || 0, sales: myStore?.sales || 0, pmix: myStore?.pmix || 0 };
   const rankMetrics = tracker.trackerRankMetrics?.length ? tracker.trackerRankMetrics : ['units', 'sales', 'pmix'];
   const canExpand = tracker.trackerDisplayMode === 'expandable';
   const promoImageUrl = tracker.trackerPromoImageUrl?.trim();
 
-  const itemSwitchOptions = ['all', ...trackedItemRefs];
-  const activeItemLabel = activeItemRef === 'all' ? 'All promo' : activeItemRef;
+  const itemSwitchOptions = trackedItemRefs;
+  const activeItemLabel = activeItemRef || 'Promo item';
   const activePeriodLabel = PERIOD_LABELS[period];
 
   const cyclePeriod = (direction: 'prev' | 'next') => {
@@ -190,9 +190,9 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   );
 
   return (
-    <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
+    <Card className="overflow-visible border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0 md:p-0">
-        <div className="relative min-h-[58px] overflow-hidden bg-primary text-primary-foreground">
+        <div className="relative min-h-[58px] bg-primary text-primary-foreground">
           {promoImageUrl && (
             <>
               <img src={promoImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
@@ -227,7 +227,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                         activeItemRef === itemRef ? 'bg-muted/65 text-foreground' : 'hover:bg-muted/50'
                       }`}
                     >
-                      {itemRef === 'all' ? 'All promo' : itemRef}
+                      {itemRef}
                     </button>
                   ))}
                 </div>
