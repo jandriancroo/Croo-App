@@ -200,9 +200,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             {promoImageUrl && <div className="absolute inset-0 bg-gradient-to-r from-background/0 via-background/15 to-background/35" />}
           </div>
           <div className="absolute inset-y-0 left-0 w-[56%] bg-primary [clip-path:polygon(0_0,89%_0,100%_100%,0_100%)]" />
-          <Badge className="absolute right-3 top-2 z-10 inline-flex h-6 shrink-0 items-center rounded-full border-0 bg-accent px-2 text-[11px] font-bold leading-none text-accent-foreground shadow-sm tabular-nums">
-            {rankChipLabel}
-          </Badge>
           <div className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center justify-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
             <Button
               variant="ghost"
@@ -258,7 +255,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
+            <div className="min-w-0 rounded-md border border-accent/45 bg-accent px-2 py-1 text-left text-accent-foreground shadow-sm">
+              <p className="text-[9px] font-medium uppercase leading-none text-accent-foreground/75">Rank</p>
+              <p className="mt-0.5 truncate text-[13px] font-bold leading-none tabular-nums">{rankChipLabel}</p>
+            </div>
             {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
             {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
             {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myVisibleStats.pmix)} />}
