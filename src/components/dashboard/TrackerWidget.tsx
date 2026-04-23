@@ -17,6 +17,7 @@ interface TrackerConfig {
   trackerItemRefs?: string[];
   trackerPromoStart?: string | null;
   trackerPromoEnd?: string | null;
+  trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
 }
@@ -162,6 +163,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const promoName = tracker.title && tracker.title !== 'Promo Tracker'
     ? tracker.title
     : tracker.trackerItemRefs?.[0] || 'Promo';
+  const promoImageUrl = tracker.trackerPromoImageUrl?.trim();
 
   const cyclePeriod = (direction: 'prev' | 'next') => {
     const index = PERIOD_MODES.indexOf(period);
@@ -187,41 +189,50 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0 md:p-0">
-        <div className="bg-primary px-3 py-2 text-primary-foreground">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <p className="text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
-            <div className="flex items-center justify-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => cyclePeriod('prev')}
-                className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </Button>
-              <button
-                type="button"
-                onClick={() => cyclePeriod('next')}
-                className="min-w-16 select-none rounded-full px-1.5 text-center text-xs font-semibold leading-6 transition-colors hover:bg-primary-foreground/10"
-              >
-                {PERIOD_LABELS[period]}
-              </button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => cyclePeriod('next')}
-                className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            <Badge className="ml-auto inline-flex h-6 shrink-0 items-center rounded-full border-0 bg-accent px-2 text-[11px] font-bold leading-none text-accent-foreground shadow-sm tabular-nums">
-              #{myStore?.rank || '--'}/{sortedRanking.length || '--'}
-            </Badge>
+        <div className="relative min-h-[58px] overflow-hidden bg-primary text-primary-foreground">
+          <div className="absolute inset-y-0 right-0 w-[56%] bg-primary">
+            {promoImageUrl && (
+              <img src={promoImageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+            )}
+            {promoImageUrl && <div className="absolute inset-0 bg-background/30" />}
           </div>
+          <div className="absolute inset-y-0 left-0 w-[66%] bg-primary [clip-path:polygon(0_0,82%_0,100%_100%,0_100%)]" />
+          <Badge className="absolute right-3 top-2 z-10 inline-flex h-6 shrink-0 items-center rounded-full border-0 bg-accent px-2 text-[11px] font-bold leading-none text-accent-foreground shadow-sm tabular-nums">
+            #{myStore?.rank || '--'}/{sortedRanking.length || '--'}
+          </Badge>
+          <div className="relative z-10 w-[68%] px-3 py-2 pr-5">
+            <div className="flex items-center gap-2">
+              <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
+              <div className="flex min-w-0 items-center justify-center rounded-full bg-primary-foreground/15 px-0.5 py-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => cyclePeriod('prev')}
+                  className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => cyclePeriod('next')}
+                  className="min-w-14 select-none rounded-full px-1.5 text-center text-xs font-semibold leading-6 transition-colors hover:bg-primary-foreground/10"
+                >
+                  {PERIOD_LABELS[period]}
+                </button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => cyclePeriod('next')}
+                  className="h-6 w-6 rounded-full p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
 
-          <div className="mt-0.5 flex items-center gap-2">
-            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">{promoName}</h2>
+            <div className="mt-0.5 flex items-center gap-2">
+              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">{promoName}</h2>
+            </div>
           </div>
         </div>
 
