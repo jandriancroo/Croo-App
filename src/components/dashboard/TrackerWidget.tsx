@@ -179,7 +179,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     <button
       type="button"
       onClick={() => setSortMetric(metric)}
-      className={`min-w-0 rounded-md border px-2 py-1 text-left transition-colors ${
+      className={`min-w-0 flex-1 rounded-md border px-2 py-1 text-left transition-colors ${
         sortMetric === metric ? 'border-primary/35 bg-primary/10' : 'border-border/60 bg-muted/35 hover:bg-muted/60'
       }`}
     >
@@ -227,11 +227,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
           <div className="relative z-10 w-[68%] px-3 py-2 pr-5">
             <div className="rounded-md bg-primary/80 px-2 py-1 shadow-sm backdrop-blur-sm">
-            <div className="flex h-7 items-center">
+            <div className="flex h-5 items-center">
               <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
             </div>
 
-            <div className="mt-0.5 flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <h2 className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">{promoName}</h2>
             </div>
             </div>
