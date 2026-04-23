@@ -871,6 +871,16 @@ export function EditDashboardDialog({
         </DialogContent>
       </Dialog>
 
+      <ImageCropDialog
+        open={promoCropDialogOpen}
+        onOpenChange={setPromoCropDialogOpen}
+        imageSrc={promoImageToCrop}
+        onCropComplete={handlePromoImageCropComplete}
+        cropShape="rect"
+        aspect={1 / 0.58}
+        cropAreaClassName="!h-[232px]"
+      />
+
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
