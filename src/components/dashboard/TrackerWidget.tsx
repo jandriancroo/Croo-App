@@ -199,7 +199,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
             </>
           )}
-          <div className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center justify-center rounded-full border border-background/15 bg-foreground/60 px-0.5 py-0.5 text-background shadow-md shadow-foreground/20 backdrop-blur-md">
+          <div className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center justify-center rounded-full border border-background/20 bg-foreground/45 px-0.5 py-0.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md">
             <Button
               variant="ghost"
               size="sm"
@@ -226,7 +226,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           </div>
 
           <div className="relative z-10 w-[68%] px-3 py-2 pr-5">
-            <div className="inline-flex max-w-full flex-col rounded-md border border-background/15 bg-foreground/70 px-2.5 py-1.5 text-background shadow-md shadow-foreground/20 backdrop-blur-md">
+            <div className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/50 px-2.5 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md">
               <p className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-background/70">Live promo</p>
               <h2 className="mt-1 min-w-0 max-w-full truncate text-sm font-semibold leading-tight">{promoName}</h2>
             </div>
