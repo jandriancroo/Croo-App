@@ -186,7 +186,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
   return (
     <Card className="overflow-hidden border-border/50 bg-card shadow-lg shadow-background/20">
-      <CardContent className="p-0">
+      <CardContent className="p-0 md:p-0">
         <div className="bg-primary px-3 py-2 text-primary-foreground">
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <p className="text-[10px] font-bold uppercase leading-none tracking-wider text-primary-foreground/65">Live promo</p>
