@@ -476,13 +476,21 @@ export function AddWidgetDialog({
           <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
             <Button
               onClick={handleAddDataCube}
-              disabled={selectedType !== 'tracker' && config.metrics.length === 0}
+              disabled={(selectedType !== 'tracker' && config.metrics.length === 0) || isPromoImageUploading}
             >
               {selectedType === 'tracker' ? 'Add Tracker' : 'Add Data Cube'}
             </Button>
           </DialogFooter>
         )}
       </DialogContent>
+      <ImageCropDialog
+        open={promoCropDialogOpen}
+        onOpenChange={setPromoCropDialogOpen}
+        imageSrc={promoImageToCrop}
+        onCropComplete={handlePromoImageCropComplete}
+        cropShape="rect"
+        aspect={16 / 9}
+      />
     </Dialog>
   );
 }
