@@ -8491,6 +8491,7 @@ export type Database = {
           tracker_item_refs: Json
           tracker_location_refs: Json
           tracker_promo_end: string | null
+          tracker_promo_image_url: string | null
           tracker_promo_start: string | null
           tracker_rank_metrics: Json
           tracker_scope: Json
@@ -8515,6 +8516,7 @@ export type Database = {
           tracker_item_refs?: Json
           tracker_location_refs?: Json
           tracker_promo_end?: string | null
+          tracker_promo_image_url?: string | null
           tracker_promo_start?: string | null
           tracker_rank_metrics?: Json
           tracker_scope?: Json
@@ -8539,6 +8541,7 @@ export type Database = {
           tracker_item_refs?: Json
           tracker_location_refs?: Json
           tracker_promo_end?: string | null
+          tracker_promo_image_url?: string | null
           tracker_promo_start?: string | null
           tracker_rank_metrics?: Json
           tracker_scope?: Json
