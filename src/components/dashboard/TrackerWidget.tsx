@@ -215,10 +215,8 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <Badge className="ml-auto inline-flex h-6 shrink-0 items-center gap-1 rounded-full border-0 bg-accent px-2 text-[11px] font-bold leading-none text-accent-foreground shadow-sm">
-              <span className="tabular-nums">#{myStore?.rank || '--'}</span>
-              <span className="text-[10px] font-medium opacity-80">of</span>
-              <span className="tabular-nums">{sortedRanking.length || '--'}</span>
+            <Badge className="ml-auto inline-flex h-6 shrink-0 items-center rounded-full border-0 bg-accent px-2 text-[11px] font-bold leading-none text-accent-foreground shadow-sm tabular-nums">
+              #{myStore?.rank || '--'}/{sortedRanking.length || '--'}
             </Badge>
           </div>
 
