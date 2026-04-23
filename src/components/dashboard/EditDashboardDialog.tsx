@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy } from "lucide-react";
+import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy, Upload, X, Crop, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -31,6 +32,8 @@ import {
 import { THEME_COLORS, migrateAccentColor, getThemeColorClass, isThemeColorKey } from "@/utils/themeColors";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
+import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
 
@@ -180,11 +183,15 @@ export function EditDashboardDialog({
   onReorderCubes,
   onSectionOrderChange,
 }: EditDashboardDialogProps) {
+  const promoImageInputRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<View>('list');
   const [editingCube, setEditingCube] = useState<CubeConfig | null>(null);
   const [editForm, setEditForm] = useState<Partial<CubeConfig>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [promoImageToCrop, setPromoImageToCrop] = useState('');
+  const [promoCropDialogOpen, setPromoCropDialogOpen] = useState(false);
+  const [isPromoImageUploading, setIsPromoImageUploading] = useState(false);
   const { currentLocation } = useAppLocation();
   
   // Section order state
