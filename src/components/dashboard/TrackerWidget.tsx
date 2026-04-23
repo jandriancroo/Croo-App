@@ -221,54 +221,52 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => cyclePeriod('prev')}
-              className="h-8 w-8 shrink-0 rounded-none border-r border-border/60 p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+              onClick={() => cycleSelectedItem('prev')}
+              className="h-8 w-8 shrink-0 rounded-none p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
             <button
               type="button"
-              onClick={() => cyclePeriod('next')}
+              onClick={() => cycleSelectedItem('next')}
               className="h-8 min-w-[112px] max-w-[188px] truncate bg-card px-3 text-center text-[11px] font-bold uppercase tracking-wide text-foreground transition-colors hover:bg-muted/50"
             >
-              {PERIOD_LABELS[period]}
+              {activeItemRef === 'all' ? 'All promo' : activeItemRef}
             </button>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => cyclePeriod('next')}
-              className="h-8 w-8 shrink-0 rounded-none border-l border-border/60 p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+              onClick={() => cycleSelectedItem('next')}
+              className="h-8 w-8 shrink-0 rounded-none p-0 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
 
-        {trackedItemRefs.length > 1 && (
-          <div className="relative z-20 -mt-px flex justify-center px-3">
-            <div className="flex max-w-full gap-2 overflow-x-auto py-3 scrollbar-none">
-              {itemSwitchOptions.map(itemRef => {
-                const active = activeItemRef === itemRef;
+        <div className="relative z-20 flex justify-center px-3">
+          <div className="flex max-w-full gap-2 overflow-x-auto py-3 scrollbar-none">
+            {PERIOD_MODES.map(periodKey => {
+              const active = period === periodKey;
                 return (
                   <button
-                    key={itemRef}
+                    key={periodKey}
                     type="button"
-                    onClick={() => setSelectedItemRef(itemRef)}
+                    onClick={() => setPeriod(periodKey)}
                     className={`h-9 shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors ${
                       active
-                        ? 'border-primary/35 bg-primary/10 text-primary'
+                        ? 'border-border/80 bg-muted/65 text-foreground'
                         : 'border-border/70 bg-muted/35 text-foreground hover:bg-muted/60'
                     }`}
                   >
-                    {itemRef === 'all' ? 'All promo' : itemRef}
+                    {PERIOD_LABELS[periodKey]}
                   </button>
                 );
               })}
-            </div>
           </div>
-        )}
+        </div>
 
-        <div className={`space-y-3 bg-card px-3 pb-3 ${trackedItemRefs.length > 1 ? 'pt-0' : 'pt-3'}`}>
+        <div className="space-y-3 bg-card px-3 pb-3 pt-0">
           <div className="flex gap-2">
             {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
             {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
