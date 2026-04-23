@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ArrowDown, ChevronDown } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -68,7 +68,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
   const [selectedItemRef, setSelectedItemRef] = useState<string>('all');
   const [itemMenuOpen, setItemMenuOpen] = useState(false);
-  const [periodMenuOpen, setPeriodMenuOpen] = useState(false);
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
@@ -169,6 +168,14 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const activeItemLabel = activeItemRef === 'all' ? 'All promo' : activeItemRef;
   const activePeriodLabel = PERIOD_LABELS[period];
 
+  const cyclePeriod = (direction: 'prev' | 'next') => {
+    const currentIndex = PERIOD_MODES.indexOf(period);
+    const nextIndex = direction === 'next'
+      ? (currentIndex + 1) % PERIOD_MODES.length
+      : (currentIndex - 1 + PERIOD_MODES.length) % PERIOD_MODES.length;
+    setPeriod(PERIOD_MODES[nextIndex]);
+  };
+
   const MetricButton = ({ metric, label, value }: { metric: TrackerSortMetric; label: string; value: string }) => (
     <button
       type="button"
@@ -229,35 +236,31 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           </div>
         </div>
 
-        <div className="relative z-20 -mt-px flex px-6">
-          <div className="relative max-w-full">
+        <div className="relative z-20 -mt-px flex justify-center px-6">
+          <div className="flex max-w-full items-stretch overflow-hidden rounded-b-md border border-t-0 border-border/70 bg-card/95 text-foreground shadow-md shadow-background/15">
             <button
               type="button"
-              onClick={() => setPeriodMenuOpen(value => !value)}
-              className="flex h-8 max-w-full items-center gap-1.5 rounded-b-md border border-t-0 border-border/70 bg-card/95 px-4 text-xs font-bold uppercase tracking-wide text-foreground shadow-md shadow-background/15 transition-colors hover:bg-muted/50"
+              onClick={() => cyclePeriod('prev')}
+              className="flex h-8 w-8 shrink-0 items-center justify-center transition-colors hover:bg-muted/50"
+              aria-label="Previous period"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => cyclePeriod('next')}
+              className="flex h-8 min-w-[118px] items-center justify-center px-4 text-sm font-semibold leading-none transition-colors hover:bg-muted/50"
             >
               <span className="truncate">{activePeriodLabel}</span>
-              <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${periodMenuOpen ? 'rotate-180' : ''}`} />
             </button>
-            {periodMenuOpen && (
-              <div className="absolute left-0 top-full z-30 mt-1 min-w-full overflow-hidden rounded-md border border-border/70 bg-card text-card-foreground shadow-lg shadow-background/20">
-                {PERIOD_MODES.map(periodKey => (
-                  <button
-                    key={periodKey}
-                    type="button"
-                    onClick={() => {
-                      setPeriod(periodKey);
-                      setPeriodMenuOpen(false);
-                    }}
-                    className={`block w-full px-3 py-2 text-left text-xs font-semibold transition-colors ${
-                      period === periodKey ? 'bg-muted/65 text-foreground' : 'hover:bg-muted/50'
-                    }`}
-                  >
-                    {PERIOD_LABELS[periodKey]}
-                  </button>
-                ))}
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => cyclePeriod('next')}
+              className="flex h-8 w-8 shrink-0 items-center justify-center transition-colors hover:bg-muted/50"
+              aria-label="Next period"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
 
