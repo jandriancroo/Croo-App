@@ -12,15 +12,39 @@ const UNAVAILABLE_THRESHOLD_DAYS = 60;
 // ──────────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────────
+interface SamplePatch {
+  id: string;
+  name: string;
+  matchedVendor: "pfg" | "pa" | null;
+  before: {
+    last_seen_on_bid_list: string | null;
+    days_not_seen: number | null;
+    available_since: string | null;
+  };
+  after: {
+    last_seen_on_bid_list: string | null;
+    days_not_seen: number;
+    available_since: string | null;
+  };
+}
+
 interface LocationSweepResult {
   locationId: string;
   locationName: string;
+  brandId: string | null;
   itemsEvaluated: number;
-  itemsUpdated: number;
+  itemsWithMappings: number;
+  itemsUpdated: number;          // # of rows that WOULD be (or were) changed
+  itemsCommitted: number;        // # of rows actually written this run
   newlyUnavailable60Plus: number;
   reappeared: number;
   pfgSkuCount: number;
   paSkuCount: number;
+  itemsNeverSeen: number;        // days_not_seen IS NULL on inventory_items
+  matchedFromPfg: number;        // items currently on PFG bid list
+  matchedFromPa: number;         // items currently on PA bid list
+  dryRun: boolean;
+  samplePatches: SamplePatch[];
   errors: string[];
 }
 
@@ -42,6 +66,9 @@ interface VendorMappingRow {
 
 interface ItemPatch {
   id: string;
+  name: string;
+  before: InventoryItemRow;
+  matchedVendor: "pfg" | "pa" | null;
   last_seen_on_bid_list: string | null;
   days_not_seen: number;
   available_since: string | null;
@@ -55,7 +82,6 @@ interface ItemPatch {
 // Helpers
 // ──────────────────────────────────────────────────────────────────
 function fmtDate(d: Date): string {
-  // "Apr 21, 2026" — matches existing manager-facing tag style
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
@@ -65,20 +91,19 @@ function vendorLabel(vendor: "pfg" | "pa"): string {
 
 // ──────────────────────────────────────────────────────────────────
 // 1. Per-location bid list builders
-//    Each returns the set of vendor SKUs ordered by THIS location
-//    in the last BID_LIST_WINDOW_DAYS. Pure pull from local order
-//    history — no shared territory state.
 // ──────────────────────────────────────────────────────────────────
 async function buildLocationPfgSkuSet(
   supabase: SupabaseClient,
   locationId: string,
 ): Promise<Set<string>> {
-  const cutoff = new Date(Date.now() - BID_LIST_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff = new Date(Date.now() - BID_LIST_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
   const { data, error } = await supabase
     .from("pfg_orders")
-    .select("items")
+    .select("items, delivery_date")
     .eq("location_id", locationId)
-    .gte("created_at", cutoff);
+    .gte("delivery_date", cutoff);
 
   if (error) throw new Error(`pfg_orders query failed: ${error.message}`);
 
@@ -97,12 +122,14 @@ async function buildLocationPaSkuSet(
   supabase: SupabaseClient,
   locationId: string,
 ): Promise<Set<string>> {
-  const cutoff = new Date(Date.now() - BID_LIST_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff = new Date(Date.now() - BID_LIST_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
   const { data, error } = await supabase
     .from("pa_orders")
-    .select("items")
+    .select("items, delivery_date")
     .eq("location_id", locationId)
-    .gte("created_at", cutoff);
+    .gte("delivery_date", cutoff);
 
   if (error) throw new Error(`pa_orders query failed: ${error.message}`);
 
@@ -118,12 +145,13 @@ async function buildLocationPaSkuSet(
 }
 
 // ──────────────────────────────────────────────────────────────────
-// 2. Pure evaluator — one inventory_item row vs. its vendor SKU set
+// 2. Pure evaluator
 // ──────────────────────────────────────────────────────────────────
 function evaluateItem(
   row: InventoryItemRow,
   onList: boolean,
   vendor: "pfg" | "pa",
+  matchedVendor: "pfg" | "pa" | null,
   nowIso: string,
   todayLabel: string,
 ): ItemPatch | null {
@@ -143,7 +171,6 @@ function evaluateItem(
     }
   } else {
     next_days_not_seen = currentDays + 1;
-    // 0 → 1 transition: clear stale "Back on..." tag
     if (currentDays === 0 && row.available_since !== null) {
       next_available_since = null;
     }
@@ -152,7 +179,6 @@ function evaluateItem(
   const isMissing = next_days_not_seen > 0;
   const isUnavailable60Plus = next_days_not_seen >= UNAVAILABLE_THRESHOLD_DAYS;
 
-  // No-op detection
   const unchanged =
     next_last_seen === row.last_seen_on_bid_list &&
     next_days_not_seen === currentDays &&
@@ -161,6 +187,9 @@ function evaluateItem(
 
   return {
     id: row.id,
+    name: row.name,
+    before: row,
+    matchedVendor,
     last_seen_on_bid_list: next_last_seen,
     days_not_seen: next_days_not_seen,
     available_since: next_available_since,
@@ -177,29 +206,39 @@ function evaluateItem(
 async function sweepLocation(
   supabase: SupabaseClient,
   location: { id: string; name: string; brand_id: string | null },
+  dryRun: boolean,
 ): Promise<LocationSweepResult> {
   const result: LocationSweepResult = {
     locationId: location.id,
     locationName: location.name,
+    brandId: location.brand_id,
     itemsEvaluated: 0,
+    itemsWithMappings: 0,
     itemsUpdated: 0,
+    itemsCommitted: 0,
     newlyUnavailable60Plus: 0,
     reappeared: 0,
     pfgSkuCount: 0,
     paSkuCount: 0,
+    itemsNeverSeen: 0,
+    matchedFromPfg: 0,
+    matchedFromPa: 0,
+    dryRun,
+    samplePatches: [],
     errors: [],
   };
 
   try {
     if (!location.brand_id) {
       console.log(`[sweep] ${location.name}: no brand_id, skipping`);
+      result.errors.push("location has no brand_id (organization not linked to a brand)");
       return result;
     }
 
     const nowIso = new Date().toISOString();
     const todayLabel = fmtDate(new Date());
 
-    // a. Pull this location's bid lists (parallel)
+    // a. Pull bid lists in parallel
     const [pfgSkus, paSkus] = await Promise.all([
       buildLocationPfgSkuSet(supabase, location.id),
       buildLocationPaSkuSet(supabase, location.id),
@@ -211,8 +250,7 @@ async function sweepLocation(
       `[sweep] ${location.name}: PFG=${pfgSkus.size} skus, PA=${paSkus.size} skus`,
     );
 
-    // b. Load brand vendor mappings → (brand_template_id) → (vendor, vendor_item_id)[]
-    //    A single template can have multiple mappings (different vendors / aliases).
+    // b. Brand vendor mappings for this brand
     const { data: mappings, error: mapErr } = await supabase
       .from("brand_vendor_mappings")
       .select("brand_template_id, vendor, vendor_item_id, brand_inventory_templates!inner(brand_id)")
@@ -226,7 +264,7 @@ async function sweepLocation(
       mappingsByTemplate.set(m.brand_template_id, arr);
     }
 
-    // c. Load this location's inventory_items
+    // c. Inventory items at this location
     const { data: items, error: itemsErr } = await supabase
       .from("inventory_items")
       .select("id, name, location_id, brand_item_id, last_seen_on_bid_list, days_not_seen, available_since")
@@ -235,70 +273,93 @@ async function sweepLocation(
     if (itemsErr) throw new Error(`inventory_items query failed: ${itemsErr.message}`);
 
     result.itemsEvaluated = items?.length ?? 0;
+    result.itemsNeverSeen = (items ?? []).filter((r) => r.days_not_seen === null).length;
 
-    // d. Evaluate each item against the union of its vendor mappings
+    // d. Evaluate
     const patches: ItemPatch[] = [];
     for (const row of (items ?? []) as InventoryItemRow[]) {
       if (!row.brand_item_id) continue;
       const itemMappings = mappingsByTemplate.get(row.brand_item_id);
       if (!itemMappings || itemMappings.length === 0) continue;
+      result.itemsWithMappings++;
 
-      // Determine which vendor "owns" the visibility check.
-      // If ANY mapping's vendor sku appears in its respective bid list → onList = true.
-      // Track which vendor matched for the available_since label.
       let onList = false;
-      let matchedVendor: "pfg" | "pa" = "pfg";
+      let matchedVendor: "pfg" | "pa" | null = null;
       let primaryVendor: "pfg" | "pa" = "pfg";
+      let hasPfgMapping = false;
 
       for (const m of itemMappings) {
         const v = m.vendor.toLowerCase();
-        if (v === "pfg") {
-          primaryVendor = "pfg";
-          if (pfgSkus.has(String(m.vendor_item_id))) {
-            onList = true;
-            matchedVendor = "pfg";
-            break;
-          }
-        } else if (v === "pa" || v === "produce_alliance") {
-          primaryVendor = primaryVendor === "pfg" && itemMappings.some((x) => x.vendor.toLowerCase() === "pfg") ? "pfg" : "pa";
-          if (paSkus.has(String(m.vendor_item_id))) {
-            onList = true;
-            matchedVendor = "pa";
-            break;
-          }
+        if (v === "pfg") hasPfgMapping = true;
+      }
+      primaryVendor = hasPfgMapping ? "pfg" : "pa";
+
+      for (const m of itemMappings) {
+        const v = m.vendor.toLowerCase();
+        if (v === "pfg" && pfgSkus.has(String(m.vendor_item_id))) {
+          onList = true;
+          matchedVendor = "pfg";
+          break;
+        } else if ((v === "pa" || v === "produce_alliance") && paSkus.has(String(m.vendor_item_id))) {
+          onList = true;
+          matchedVendor = "pa";
+          break;
         }
       }
 
-      const labelVendor = onList ? matchedVendor : primaryVendor;
-      const patch = evaluateItem(row, onList, labelVendor, nowIso, todayLabel);
+      if (matchedVendor === "pfg") result.matchedFromPfg++;
+      if (matchedVendor === "pa") result.matchedFromPa++;
+
+      const labelVendor = onList && matchedVendor ? matchedVendor : primaryVendor;
+      const patch = evaluateItem(row, onList, labelVendor, matchedVendor, nowIso, todayLabel);
       if (patch) patches.push(patch);
     }
 
-    // e. Tally threshold-crossing events
+    // e. Threshold tallies
     for (const p of patches) {
       if (!p._wasUnavailable60Plus && p._isUnavailable60Plus) result.newlyUnavailable60Plus++;
       if (p._wasMissing && !p._isMissing) result.reappeared++;
     }
+    result.itemsUpdated = patches.length;
 
-    // f. Batch update inventory_items in chunks of parallel calls
-    const CHUNK = 25;
-    for (let i = 0; i < patches.length; i += CHUNK) {
-      const slice = patches.slice(i, i + CHUNK);
-      const updates = await Promise.all(slice.map((p) =>
-        supabase
-          .from("inventory_items")
-          .update({
-            last_seen_on_bid_list: p.last_seen_on_bid_list,
-            days_not_seen: p.days_not_seen,
-            available_since: p.available_since,
-          })
-          .eq("id", p.id)
-      ));
-      for (const u of updates) {
-        if (u.error) {
-          result.errors.push(`inventory_items update failed: ${u.error.message}`);
-        } else {
-          result.itemsUpdated++;
+    // f. Sample 5 before/after
+    result.samplePatches = patches.slice(0, 5).map((p) => ({
+      id: p.id,
+      name: p.name,
+      matchedVendor: p.matchedVendor,
+      before: {
+        last_seen_on_bid_list: p.before.last_seen_on_bid_list,
+        days_not_seen: p.before.days_not_seen,
+        available_since: p.before.available_since,
+      },
+      after: {
+        last_seen_on_bid_list: p.last_seen_on_bid_list,
+        days_not_seen: p.days_not_seen,
+        available_since: p.available_since,
+      },
+    }));
+
+    // g. Commit (skipped on dry run)
+    if (!dryRun) {
+      const CHUNK = 25;
+      for (let i = 0; i < patches.length; i += CHUNK) {
+        const slice = patches.slice(i, i + CHUNK);
+        const updates = await Promise.all(slice.map((p) =>
+          supabase
+            .from("inventory_items")
+            .update({
+              last_seen_on_bid_list: p.last_seen_on_bid_list,
+              days_not_seen: p.days_not_seen,
+              available_since: p.available_since,
+            })
+            .eq("id", p.id)
+        ));
+        for (const u of updates) {
+          if (u.error) {
+            result.errors.push(`inventory_items update failed: ${u.error.message}`);
+          } else {
+            result.itemsCommitted++;
+          }
         }
       }
     }
@@ -327,9 +388,9 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Optional scoping: { location_id?: string, brand_id?: string }
     let targetLocationId: string | null = null;
     let targetBrandId: string | null = null;
+    let dryRun = false;
     if (req.method === "POST") {
       try {
         const body = await req.json();
@@ -339,38 +400,54 @@ serve(async (req) => {
         if (body?.brand_id && typeof body.brand_id === "string") {
           targetBrandId = body.brand_id;
         }
+        if (body?.dry_run === true) dryRun = true;
       } catch { /* no body is fine */ }
     }
 
+    // Locations: brand_id lives on organizations, NOT on locations.
     let locsQuery = supabase
       .from("locations")
-      .select("id, name, brand_id, is_active")
+      .select("id, name, organization_id, is_active, organizations!inner(brand_id)")
       .eq("is_active", true);
     if (targetLocationId) locsQuery = locsQuery.eq("id", targetLocationId);
-    if (targetBrandId) locsQuery = locsQuery.eq("brand_id", targetBrandId);
+    if (targetBrandId) locsQuery = locsQuery.eq("organizations.brand_id", targetBrandId);
 
-    const { data: locations, error: locErr } = await locsQuery;
+    const { data: rawLocations, error: locErr } = await locsQuery;
     if (locErr) throw locErr;
-    if (!locations?.length) {
+    if (!rawLocations?.length) {
       return new Response(
         JSON.stringify({ success: true, message: "No active locations", results: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    const locations = rawLocations.map((l: any) => ({
+      id: l.id as string,
+      name: l.name as string,
+      brand_id: (l.organizations?.brand_id ?? null) as string | null,
+    }));
+
     const results: LocationSweepResult[] = [];
     for (const loc of locations) {
-      results.push(await sweepLocation(supabase, loc));
+      results.push(await sweepLocation(supabase, loc, dryRun));
     }
 
     const durationMs = Date.now() - startedAt;
     console.log(
-      `[inventory-availability-sweep] Complete in ${durationMs}ms:`,
-      JSON.stringify(results),
+      `[inventory-availability-sweep] ${dryRun ? "DRY RUN" : "LIVE"} complete in ${durationMs}ms:`,
+      JSON.stringify(results.map((r) => ({
+        loc: r.locationName,
+        eval: r.itemsEvaluated,
+        wouldUpdate: r.itemsUpdated,
+        committed: r.itemsCommitted,
+        pfgMatched: r.matchedFromPfg,
+        paMatched: r.matchedFromPa,
+        errs: r.errors.length,
+      }))),
     );
 
     return new Response(
-      JSON.stringify({ success: true, durationMs, results }),
+      JSON.stringify({ success: true, dryRun, durationMs, results }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
