@@ -13,6 +13,7 @@ interface ImageCropDialogProps {
   onCropComplete: (croppedImage: Blob) => void;
   cropShape?: 'rect' | 'round';
   aspect?: number;
+  cropAreaClassName?: string;
 }
 
 interface Area {
@@ -66,7 +67,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob> {
   });
 }
 
-export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, cropShape = 'round', aspect = 1 }: ImageCropDialogProps) {
+export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, cropShape = 'round', aspect = 1, cropAreaClassName }: ImageCropDialogProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -102,7 +103,7 @@ export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, 
           <DialogTitle>Crop & Zoom Photo</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className={`relative h-[400px] bg-muted rounded-lg overflow-hidden ${cropShape === 'rect' ? 'crop-rounded-square' : ''}`}>
+          <div className={`relative h-[400px] bg-muted rounded-lg overflow-hidden ${cropShape === 'rect' ? 'crop-rounded-square' : ''} ${cropAreaClassName || ''}`}>
             <Cropper
               image={imageSrc}
               crop={crop}
