@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowDown, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import type { TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
 
@@ -163,9 +162,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     : myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 };
   const rankMetrics = tracker.trackerRankMetrics?.length ? tracker.trackerRankMetrics : ['units', 'sales', 'pmix'];
   const canExpand = tracker.trackerDisplayMode === 'expandable';
-  const promoName = tracker.title && tracker.title !== 'Promo Tracker'
-    ? tracker.title
-    : tracker.trackerItemRefs?.[0] || 'Promo';
   const promoImageUrl = tracker.trackerPromoImageUrl?.trim();
 
   const itemSwitchOptions = ['all', ...trackedItemRefs];
