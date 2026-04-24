@@ -444,7 +444,10 @@ export function ManagerDashboardOverlay({
     refetchInterval: 30000,
   });
 
-  // Fetch labor data — shared key with CompactDashboard
+  // Historical labor only — today's labor comes live from dashboardSalesData.labor
+  // (calculated from open punches by fetch-qubeyond-sales). labor_cache is
+  // intentionally history-only: labor-service excludes today to keep the cache
+  // idempotent and source-tagged. See cache write rules.
   const { data: laborDataRaw } = useQuery({
     queryKey: ['labor-cache-today', locationId, todayStr],
     queryFn: async () => {
@@ -462,11 +465,18 @@ export function ManagerDashboardOverlay({
       const totalHours = (data || []).reduce((sum, row) => sum + (row.labor_hours || 0), 0);
       return { labor_cost: totalCost, labor_hours: totalHours };
     },
+    enabled: false, // Today's labor is served by dashboardSalesData.labor (live punch calc)
     refetchInterval: 60000,
   });
-  
-  // Map to camelCase for this component's usage
-  const laborData = laborDataRaw ? { laborCost: laborDataRaw.labor_cost, laborHours: laborDataRaw.labor_hours } : null;
+
+  // Prefer live labor (from fetch-qubeyond-sales punch calc) for today.
+  // Fall back to labor_cache only if the live response is unavailable.
+  const liveLabor = dashboardSalesData?.labor;
+  const laborData = liveLabor
+    ? { laborCost: liveLabor.laborCost, laborHours: liveLabor.hoursWorked }
+    : laborDataRaw
+      ? { laborCost: laborDataRaw.labor_cost, laborHours: laborDataRaw.labor_hours }
+      : null;
 
   // Fetch quick tasks for shift managers+
   const { data: quickTasks = [] } = useQuery({
