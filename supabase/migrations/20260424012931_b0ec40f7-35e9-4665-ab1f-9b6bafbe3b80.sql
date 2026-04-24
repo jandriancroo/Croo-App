@@ -1,0 +1,1 @@
+ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS fresh_kds_active boolean NOT NULL DEFAULT true;

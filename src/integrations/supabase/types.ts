@@ -4899,6 +4899,7 @@ export type Database = {
           address: string | null
           created_at: string
           created_by: string | null
+          fresh_kds_active: boolean
           fresh_kds_location_id: string | null
           id: string
           is_active: boolean
@@ -4916,6 +4917,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           created_by?: string | null
+          fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
           is_active?: boolean
@@ -4933,6 +4935,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           created_by?: string | null
+          fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
           is_active?: boolean

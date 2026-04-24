@@ -118,11 +118,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
 
   // Fresh KDS state
   const [kdsLocationId, setKdsLocationId] = useState('');
+  const [kdsIsActive, setKdsIsActive] = useState(true);
   const [kdsIsSaving, setKdsIsSaving] = useState(false);
   const [kdsIsSyncing, setKdsIsSyncing] = useState(false);
 
   // OPUS LMS state
   const [opusSessionId, setOpusSessionId] = useState('');
+  const [opusIsActive, setOpusIsActive] = useState(true);
   const [opusIsSaving, setOpusIsSaving] = useState(false);
   const [opusIsTesting, setOpusIsTesting] = useState(false);
   const [opusTestResult, setOpusTestResult] = useState<'success' | 'error' | null>(null);
@@ -138,6 +140,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [ovationCompanyId, setOvationCompanyId] = useState('');
   const [ovationLocationId, setOvationLocationId] = useState('');
   const [ovationShowPassword, setOvationShowPassword] = useState(false);
+  const [ovationIsActive, setOvationIsActive] = useState(true);
   const [ovationIsSaving, setOvationIsSaving] = useState(false);
   const [ovationIsTesting, setOvationIsTesting] = useState(false);
   const [ovationTestResult, setOvationTestResult] = useState<'success' | 'error' | null>(null);
@@ -167,7 +170,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     queryKey: ['location-kds-id', locationId],
     queryFn: async () => {
       if (!locationId) return null;
-      const { data, error } = await supabase.from('locations').select('fresh_kds_location_id').eq('id', locationId).single();
+      const { data, error } = await supabase.from('locations').select('fresh_kds_location_id, fresh_kds_active').eq('id', locationId).single();
       if (error) throw error;
       return data;
     },
@@ -261,7 +264,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   }, [paIntegration]);
 
   useEffect(() => {
-    if (locationKdsData) setKdsLocationId(locationKdsData.fresh_kds_location_id || '');
+    if (locationKdsData) {
+      setKdsLocationId(locationKdsData.fresh_kds_location_id || '');
+      setKdsIsActive((locationKdsData as any).fresh_kds_active ?? true);
+    }
   }, [locationKdsData]);
 
   useEffect(() => {
@@ -290,8 +296,16 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       const creds = opusIntegration.credentials as any;
       setOpusSessionId(creds?.sessionid || '');
       setOpusMappings(creds?.employee_mappings || []);
+      setOpusIsActive(opusIntegration.is_active ?? true);
     }
   }, [opusIntegration]);
+
+  // Load Ovation active state from brand integration
+  useEffect(() => {
+    if (ovationIntegration) {
+      setOvationIsActive((ovationIntegration as any).is_active ?? true);
+    }
+  }, [ovationIntegration]);
 
   // Fetch CrooHQ team members for OPUS mapping dropdown
   const { data: locationTeamMembers } = useQuery({
@@ -542,7 +556,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const qbConnected = !!integration;
   const pfgConnected = !!pfgHasToken;
   const paConnected = !!paIntegration;
-  const kdsConnected = !!locationKdsData?.fresh_kds_location_id;
+  const kdsConnected = !!locationKdsData?.fresh_kds_location_id && ((locationKdsData as any)?.fresh_kds_active ?? true);
 
   return (
     <>
@@ -580,7 +594,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
         <IntegrationCard
           title="OvationUp"
           description="Guest reviews & feedback"
-          connected={!!ovationIntegration && !!ovationMapping}
+          connected={!!ovationIntegration && !!ovationMapping && ((ovationIntegration as any)?.is_active ?? true)}
           onEdit={() => setEditingIntegration('ovation')}
         />
         <IntegrationCard
@@ -944,6 +958,26 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogDescription>Display average ticket times on the dashboard</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Enabled</Label>
+              <Switch
+                checked={kdsIsActive}
+                disabled={!locationKdsData?.fresh_kds_location_id}
+                onCheckedChange={async (checked) => {
+                  if (!locationId) return;
+                  setKdsIsActive(checked);
+                  try {
+                    const { error } = await supabase.from('locations').update({ fresh_kds_active: checked }).eq('id', locationId);
+                    if (error) throw error;
+                    toast.success(checked ? 'Fresh KDS enabled' : 'Fresh KDS disabled');
+                    queryClient.invalidateQueries({ queryKey: ['location-kds-id', locationId] });
+                  } catch {
+                    toast.error('Failed to update status');
+                    setKdsIsActive(!checked);
+                  }
+                }}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="kds-location-id" className="text-sm">Fresh KDS Location ID</Label>
               <Input id="kds-location-id" value={kdsLocationId} onChange={(e) => setKdsLocationId(e.target.value)} placeholder="e.g., abc123-def456-..." className="h-9" />
@@ -993,6 +1027,27 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogDescription>Per-location login credentials for guest reviews</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {ovationIntegration && (
+              <div className="flex items-center justify-between">
+                <Label>Enabled</Label>
+                <Switch
+                  checked={ovationIsActive}
+                  onCheckedChange={async (checked) => {
+                    if (!ovationIntegration) return;
+                    setOvationIsActive(checked);
+                    try {
+                      const { error } = await supabase.from('ovation_integrations').update({ is_active: checked }).eq('id', ovationIntegration.id);
+                      if (error) throw error;
+                      toast.success(checked ? 'OvationUp enabled' : 'OvationUp disabled');
+                      queryClient.invalidateQueries({ queryKey: ['ovation-integration', ovationBrandId] });
+                    } catch {
+                      toast.error('Failed to update status');
+                      setOvationIsActive(!checked);
+                    }
+                  }}
+                />
+              </div>
+            )}
             {/* Brand-level credentials */}
             <div className="space-y-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Account Credentials</p>
@@ -1185,6 +1240,27 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogDescription>Connect OPUS training to sync employee progress</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {opusIntegration && (
+              <div className="flex items-center justify-between">
+                <Label>Enabled</Label>
+                <Switch
+                  checked={opusIsActive}
+                  onCheckedChange={async (checked) => {
+                    if (!opusIntegration) return;
+                    setOpusIsActive(checked);
+                    try {
+                      const { error } = await supabase.from('location_integrations').update({ is_active: checked }).eq('id', opusIntegration.id);
+                      if (error) throw error;
+                      toast.success(checked ? 'OPUS LMS enabled' : 'OPUS LMS disabled');
+                      queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'opus'] });
+                    } catch {
+                      toast.error('Failed to update status');
+                      setOpusIsActive(!checked);
+                    }
+                  }}
+                />
+              </div>
+            )}
             {/* Session Cookie Input */}
             <div className="space-y-1.5">
               <Label htmlFor="opus-session" className="text-sm">Session ID (Cookie)</Label>
