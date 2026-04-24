@@ -2714,7 +2714,7 @@ serve(async (req) => {
     );
     
     // Now generate full projections including pace-adjusted (using hourly projections)
-    let projections = { todayProjected: 0, todayPaceAdjusted: 0, weekProjected: 0, monthProjected: 0, todaySource: 'calculated' as string };
+    let projections: any = { todayProjected: 0, todayPaceAdjusted: 0, weekProjected: 0, monthProjected: 0, todaySource: 'calculated' as string };
     
     if (!skipProjections) {
       console.log('Generating deterministic projections with 4-week average and last year data...');
