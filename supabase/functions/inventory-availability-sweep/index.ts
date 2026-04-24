@@ -122,24 +122,27 @@ async function buildLocationPaSkuSet(
   supabase: SupabaseClient,
   locationId: string,
 ): Promise<Set<string>> {
-  const cutoff = new Date(Date.now() - BID_LIST_WINDOW_DAYS * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
-  const { data, error } = await supabase
-    .from("pa_orders")
-    .select("items, delivery_date")
-    .eq("location_id", locationId)
-    .gte("delivery_date", cutoff);
+  // PA "bid list" equivalent = pa_catalog_items (weekly pricing catalog).
+  // This mirrors the PFG bid-list logic: an item is "available" if it
+  // appeared in the vendor's current catalog within BID_LIST_WINDOW_DAYS.
+  // We previously read pa_orders.items, but those JSONB arrays are often
+  // empty (line-items gap) and orders only reflect what was purchased,
+  // not what's currently offered.
+  const cutoff = new Date(
+    Date.now() - BID_LIST_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
 
-  if (error) throw new Error(`pa_orders query failed: ${error.message}`);
+  const { data, error } = await supabase
+    .from("pa_catalog_items")
+    .select("pa_item_id")
+    .eq("location_id", locationId)
+    .gte("last_seen_at", cutoff);
+
+  if (error) throw new Error(`pa_catalog_items query failed: ${error.message}`);
 
   const out = new Set<string>();
   for (const row of data ?? []) {
-    const items = Array.isArray(row.items) ? row.items : [];
-    for (const it of items) {
-      const sku = it?.item_number ?? it?.pa_item_id ?? it?.productId;
-      if (sku) out.add(String(sku));
-    }
+    if (row?.pa_item_id) out.add(String(row.pa_item_id));
   }
   return out;
 }
