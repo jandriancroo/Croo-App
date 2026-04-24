@@ -1240,6 +1240,27 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogDescription>Connect OPUS training to sync employee progress</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {opusIntegration && (
+              <div className="flex items-center justify-between">
+                <Label>Enabled</Label>
+                <Switch
+                  checked={opusIsActive}
+                  onCheckedChange={async (checked) => {
+                    if (!opusIntegration) return;
+                    setOpusIsActive(checked);
+                    try {
+                      const { error } = await supabase.from('location_integrations').update({ is_active: checked }).eq('id', opusIntegration.id);
+                      if (error) throw error;
+                      toast.success(checked ? 'OPUS LMS enabled' : 'OPUS LMS disabled');
+                      queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'opus'] });
+                    } catch {
+                      toast.error('Failed to update status');
+                      setOpusIsActive(!checked);
+                    }
+                  }}
+                />
+              </div>
+            )}
             {/* Session Cookie Input */}
             <div className="space-y-1.5">
               <Label htmlFor="opus-session" className="text-sm">Session ID (Cookie)</Label>
