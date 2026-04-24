@@ -267,12 +267,13 @@ async function sweepLocation(
       mappingsByTemplate.set(m.brand_template_id, arr);
     }
 
-    // c. Inventory items at this location
+    // c. Inventory items at this location (vendor-mapped only)
     const { data: items, error: itemsErr } = await supabase
       .from("inventory_items")
       .select("id, name, location_id, brand_item_id, last_seen_on_bid_list, days_not_seen, available_since")
       .eq("location_id", location.id)
-      .not("brand_item_id", "is", null);
+      .not("brand_item_id", "is", null)
+      .in("vendor_source", ["pfg", "produce_alliance"]);
     if (itemsErr) throw new Error(`inventory_items query failed: ${itemsErr.message}`);
 
     result.itemsEvaluated = items?.length ?? 0;
