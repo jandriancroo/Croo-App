@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
         let recipientList = item.to_addresses
         if (bouncedAddresses.data && bouncedAddresses.data.length > 0) {
           const bounced = new Set(bouncedAddresses.data.map(b => b.email_address))
-          recipientList = item.to_addresses.filter(addr => !bounced.has(addr))
+          recipientList = item.to_addresses.filter((addr: string) => !bounced.has(addr))
           
           if (recipientList.length === 0) {
             console.log(`[email-queue-sender] ⏭️  Skipping - all recipients bounced: ${item.to_addresses.join(', ')}`)

@@ -33,7 +33,7 @@ serve(async (req: Request): Promise<Response> => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+    const { data: claimsData, error: claimsErr } = await (userClient.auth as any).getClaims(token);
 
     if (claimsErr || !claimsData?.claims?.sub) {
       console.error("Auth error:", claimsErr);

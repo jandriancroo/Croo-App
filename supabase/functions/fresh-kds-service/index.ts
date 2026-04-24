@@ -294,9 +294,9 @@ serve(async (req) => {
             await serviceClient.from('kds_cache').upsert(rows, { onConflict: 'location_id,metric_date' });
           }
           results.push({ locationId: loc.id, name: loc.name, synced: rows.length });
-        } catch (e) {
+        } catch (e: any) {
           console.error(`KDS sync failed for ${loc.name}:`, e);
-          results.push({ locationId: loc.id, name: loc.name, synced: 0, error: e.message });
+          results.push({ locationId: loc.id, name: loc.name, synced: 0, error: e?.message ?? String(e) });
         }
       }
 
@@ -309,9 +309,9 @@ serve(async (req) => {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('Fresh KDS service error:', err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: err?.message ?? String(err) }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
