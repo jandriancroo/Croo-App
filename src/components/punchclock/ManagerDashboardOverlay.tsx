@@ -280,8 +280,10 @@ export function ManagerDashboardOverlay({
     refetchInterval: 60000, // Refresh every minute
   });
   
-  // Use the SAME query key as SalesSummary to get real projections and pace
-  // This ensures we display EXACTLY what Dashboard shows
+  // Use the SAME query key as SalesSummary so React Query dedupes and shares
+  // the cached response. If SalesSummary hasn't loaded yet (cold open from
+  // Punchclock), this query fetches independently from fetch-qubeyond-sales —
+  // the same source of truth SalesSummary uses, so the two screens cannot diverge.
   const { data: dashboardSalesData } = useQuery<{
     daily: number;
     hourly?: Array<{ hour: string; sales: number; projected?: number; checksCount?: number }>;
@@ -291,11 +293,30 @@ export function ManagerDashboardOverlay({
       todayPaceAdjusted?: number;
       todaySource?: ProjectionSource;
     };
+    labor?: {
+      laborCost: number;
+      hoursWorked: number;
+      laborPercent?: number;
+    } | null;
   }>({
     queryKey: ['qubeyond-sales', locationId, todayStr],
-    queryFn: () => Promise.resolve(undefined), // Placeholder - we read from cache only
-    enabled: false, // Don't fetch, just read from cache if SalesSummary already populated it
-    staleTime: Infinity, // Never consider stale since we're reading from cache
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+        body: { locationId, targetDate: todayStr },
+      });
+      if (error) {
+        console.error('[ManagerDashboardOverlay] fetch-qubeyond-sales error:', error);
+        return undefined;
+      }
+      // Mirror SalesSummary: surface integration-not-configured as no data
+      if (data && typeof data === 'object' && 'authenticated' in data && (data as any).authenticated === false) {
+        return undefined;
+      }
+      return data;
+    },
+    enabled: !!locationId && !!todayStr,
+    staleTime: 3 * 60 * 1000, // 3 min — match SalesSummary so dedupe is effective
+    refetchInterval: 60_000, // Keep today's labor% fresh while overlay is open
   });
 
   // Fetch labor target
@@ -423,7 +444,10 @@ export function ManagerDashboardOverlay({
     refetchInterval: 30000,
   });
 
-  // Fetch labor data — shared key with CompactDashboard
+  // Historical labor only — today's labor comes live from dashboardSalesData.labor
+  // (calculated from open punches by fetch-qubeyond-sales). labor_cache is
+  // intentionally history-only: labor-service excludes today to keep the cache
+  // idempotent and source-tagged. See cache write rules.
   const { data: laborDataRaw } = useQuery({
     queryKey: ['labor-cache-today', locationId, todayStr],
     queryFn: async () => {
@@ -441,11 +465,18 @@ export function ManagerDashboardOverlay({
       const totalHours = (data || []).reduce((sum, row) => sum + (row.labor_hours || 0), 0);
       return { labor_cost: totalCost, labor_hours: totalHours };
     },
+    enabled: false, // Today's labor is served by dashboardSalesData.labor (live punch calc)
     refetchInterval: 60000,
   });
-  
-  // Map to camelCase for this component's usage
-  const laborData = laborDataRaw ? { laborCost: laborDataRaw.labor_cost, laborHours: laborDataRaw.labor_hours } : null;
+
+  // Prefer live labor (from fetch-qubeyond-sales punch calc) for today.
+  // Fall back to labor_cache only if the live response is unavailable.
+  const liveLabor = dashboardSalesData?.labor;
+  const laborData = liveLabor
+    ? { laborCost: liveLabor.laborCost, laborHours: liveLabor.hoursWorked }
+    : laborDataRaw
+      ? { laborCost: laborDataRaw.labor_cost, laborHours: laborDataRaw.labor_hours }
+      : null;
 
   // Fetch quick tasks for shift managers+
   const { data: quickTasks = [] } = useQuery({
