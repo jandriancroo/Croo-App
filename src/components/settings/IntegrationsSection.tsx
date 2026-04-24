@@ -118,11 +118,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
 
   // Fresh KDS state
   const [kdsLocationId, setKdsLocationId] = useState('');
+  const [kdsIsActive, setKdsIsActive] = useState(true);
   const [kdsIsSaving, setKdsIsSaving] = useState(false);
   const [kdsIsSyncing, setKdsIsSyncing] = useState(false);
 
   // OPUS LMS state
   const [opusSessionId, setOpusSessionId] = useState('');
+  const [opusIsActive, setOpusIsActive] = useState(true);
   const [opusIsSaving, setOpusIsSaving] = useState(false);
   const [opusIsTesting, setOpusIsTesting] = useState(false);
   const [opusTestResult, setOpusTestResult] = useState<'success' | 'error' | null>(null);
@@ -138,6 +140,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [ovationCompanyId, setOvationCompanyId] = useState('');
   const [ovationLocationId, setOvationLocationId] = useState('');
   const [ovationShowPassword, setOvationShowPassword] = useState(false);
+  const [ovationIsActive, setOvationIsActive] = useState(true);
   const [ovationIsSaving, setOvationIsSaving] = useState(false);
   const [ovationIsTesting, setOvationIsTesting] = useState(false);
   const [ovationTestResult, setOvationTestResult] = useState<'success' | 'error' | null>(null);
@@ -167,7 +170,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     queryKey: ['location-kds-id', locationId],
     queryFn: async () => {
       if (!locationId) return null;
-      const { data, error } = await supabase.from('locations').select('fresh_kds_location_id').eq('id', locationId).single();
+      const { data, error } = await supabase.from('locations').select('fresh_kds_location_id, fresh_kds_active').eq('id', locationId).single();
       if (error) throw error;
       return data;
     },
@@ -261,7 +264,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   }, [paIntegration]);
 
   useEffect(() => {
-    if (locationKdsData) setKdsLocationId(locationKdsData.fresh_kds_location_id || '');
+    if (locationKdsData) {
+      setKdsLocationId(locationKdsData.fresh_kds_location_id || '');
+      setKdsIsActive((locationKdsData as any).fresh_kds_active ?? true);
+    }
   }, [locationKdsData]);
 
   useEffect(() => {
@@ -290,8 +296,16 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       const creds = opusIntegration.credentials as any;
       setOpusSessionId(creds?.sessionid || '');
       setOpusMappings(creds?.employee_mappings || []);
+      setOpusIsActive(opusIntegration.is_active ?? true);
     }
   }, [opusIntegration]);
+
+  // Load Ovation active state from brand integration
+  useEffect(() => {
+    if (ovationIntegration) {
+      setOvationIsActive((ovationIntegration as any).is_active ?? true);
+    }
+  }, [ovationIntegration]);
 
   // Fetch CrooHQ team members for OPUS mapping dropdown
   const { data: locationTeamMembers } = useQuery({
