@@ -556,7 +556,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const qbConnected = !!integration;
   const pfgConnected = !!pfgHasToken;
   const paConnected = !!paIntegration;
-  const kdsConnected = !!locationKdsData?.fresh_kds_location_id;
+  const kdsConnected = !!locationKdsData?.fresh_kds_location_id && ((locationKdsData as any)?.fresh_kds_active ?? true);
 
   return (
     <>
@@ -594,7 +594,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
         <IntegrationCard
           title="OvationUp"
           description="Guest reviews & feedback"
-          connected={!!ovationIntegration && !!ovationMapping}
+          connected={!!ovationIntegration && !!ovationMapping && ((ovationIntegration as any)?.is_active ?? true)}
           onEdit={() => setEditingIntegration('ovation')}
         />
         <IntegrationCard
