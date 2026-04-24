@@ -1251,8 +1251,26 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     try {
                       const { error } = await supabase.from('location_integrations').update({ is_active: checked }).eq('id', opusIntegration.id);
                       if (error) throw error;
+
+                      // When disabling, hide any lingering OPUS quick tasks on the dashboard.
+                      // Credentials & mappings stay intact; re-enabling triggers a fresh sync that recreates them.
+                      if (!checked && locationId) {
+                        await supabase
+                          .from('temporary_tasks')
+                          .update({ is_active: false, show_on_dashboard: false })
+                          .eq('location_id', locationId)
+                          .eq('icon_name', 'opus_logo')
+                          .is('completed_at', null);
+                        // Clear task_id pointers so the next sync recreates fresh tasks
+                        await supabase
+                          .from('opus_training_modules')
+                          .update({ task_id: null })
+                          .eq('location_id', locationId);
+                      }
+
                       toast.success(checked ? 'OPUS LMS enabled' : 'OPUS LMS disabled');
                       queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'opus'] });
+                      queryClient.invalidateQueries({ queryKey: ['assigned-temp-tasks'] });
                     } catch {
                       toast.error('Failed to update status');
                       setOpusIsActive(!checked);
