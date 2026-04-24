@@ -958,6 +958,26 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogDescription>Display average ticket times on the dashboard</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Enabled</Label>
+              <Switch
+                checked={kdsIsActive}
+                disabled={!locationKdsData?.fresh_kds_location_id}
+                onCheckedChange={async (checked) => {
+                  if (!locationId) return;
+                  setKdsIsActive(checked);
+                  try {
+                    const { error } = await supabase.from('locations').update({ fresh_kds_active: checked }).eq('id', locationId);
+                    if (error) throw error;
+                    toast.success(checked ? 'Fresh KDS enabled' : 'Fresh KDS disabled');
+                    queryClient.invalidateQueries({ queryKey: ['location-kds-id', locationId] });
+                  } catch {
+                    toast.error('Failed to update status');
+                    setKdsIsActive(!checked);
+                  }
+                }}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="kds-location-id" className="text-sm">Fresh KDS Location ID</Label>
               <Input id="kds-location-id" value={kdsLocationId} onChange={(e) => setKdsLocationId(e.target.value)} placeholder="e.g., abc123-def456-..." className="h-9" />
@@ -1007,6 +1027,27 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             <DialogDescription>Per-location login credentials for guest reviews</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {ovationIntegration && (
+              <div className="flex items-center justify-between">
+                <Label>Enabled</Label>
+                <Switch
+                  checked={ovationIsActive}
+                  onCheckedChange={async (checked) => {
+                    if (!ovationIntegration) return;
+                    setOvationIsActive(checked);
+                    try {
+                      const { error } = await supabase.from('ovation_integrations').update({ is_active: checked }).eq('id', ovationIntegration.id);
+                      if (error) throw error;
+                      toast.success(checked ? 'OvationUp enabled' : 'OvationUp disabled');
+                      queryClient.invalidateQueries({ queryKey: ['ovation-integration', ovationBrandId] });
+                    } catch {
+                      toast.error('Failed to update status');
+                      setOvationIsActive(!checked);
+                    }
+                  }}
+                />
+              </div>
+            )}
             {/* Brand-level credentials */}
             <div className="space-y-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Account Credentials</p>
