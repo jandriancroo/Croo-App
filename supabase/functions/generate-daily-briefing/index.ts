@@ -76,6 +76,15 @@ serve(async (req) => {
           continue;
         }
 
+        // Resolve schedule(s) covering today for this location so we can pull shifts.
+        const { data: locSchedules } = await supabase
+          .from("schedules")
+          .select("id")
+          .eq("location_id", loc.id)
+          .lte("week_start_date", today)
+          .gte("week_end_date", today);
+        const scheduleIds = (locSchedules || []).map((s: any) => s.id);
+
         // Gather data for the briefing
         const [laborInsight, salesData, todaySchedule, pendingRequests, cateringOrders] = await Promise.all([
           supabase
@@ -86,17 +95,19 @@ serve(async (req) => {
             .maybeSingle(),
           supabase
             .from("sales_cache")
-            .select("net_sales, guest_count, labor_percent")
+            .select("net_sales, guest_count")
             .eq("location_id", loc.id)
             .eq("sale_date", yesterdayStr)
             .maybeSingle(),
-          supabase
-            .from("scheduled_shifts")
-            .select("id, start_time, end_time, user_id")
-            .eq("location_id", loc.id)
-            .gte("start_time", today + "T00:00:00")
-            .lte("start_time", today + "T23:59:59")
-            .order("start_time"),
+          scheduleIds.length
+            ? supabase
+                .from("scheduled_shifts")
+                .select("id, start_time, end_time, user_id, shift_date")
+                .in("schedule_id", scheduleIds)
+                .eq("shift_date", today)
+                .eq("is_time_off", false)
+                .order("start_time")
+            : Promise.resolve({ data: [] as any[] }),
           supabase
             .from("availability_requests")
             .select("id, start_date, request_type, user_id")
