@@ -76,6 +76,15 @@ serve(async (req) => {
           continue;
         }
 
+        // Resolve schedule(s) covering today for this location so we can pull shifts.
+        const { data: locSchedules } = await supabase
+          .from("schedules")
+          .select("id")
+          .eq("location_id", loc.id)
+          .lte("week_start_date", today)
+          .gte("week_end_date", today);
+        const scheduleIds = (locSchedules || []).map((s: any) => s.id);
+
         // Gather data for the briefing
         const [laborInsight, salesData, todaySchedule, pendingRequests, cateringOrders] = await Promise.all([
           supabase
@@ -86,17 +95,19 @@ serve(async (req) => {
             .maybeSingle(),
           supabase
             .from("sales_cache")
-            .select("net_sales, guest_count, labor_percent")
+            .select("net_sales, guest_count")
             .eq("location_id", loc.id)
             .eq("sale_date", yesterdayStr)
             .maybeSingle(),
-          supabase
-            .from("scheduled_shifts")
-            .select("id, start_time, end_time, user_id")
-            .eq("location_id", loc.id)
-            .gte("start_time", today + "T00:00:00")
-            .lte("start_time", today + "T23:59:59")
-            .order("start_time"),
+          scheduleIds.length
+            ? supabase
+                .from("scheduled_shifts")
+                .select("id, start_time, end_time, user_id, shift_date")
+                .in("schedule_id", scheduleIds)
+                .eq("shift_date", today)
+                .eq("is_time_off", false)
+                .order("start_time")
+            : Promise.resolve({ data: [] as any[] }),
           supabase
             .from("availability_requests")
             .select("id, start_date, request_type, user_id")
@@ -167,13 +178,19 @@ serve(async (req) => {
           const names = todaySchedule.data
             .map((s: any) => {
               const name = profileMap[s.user_id] || "Unknown";
-              const start = new Date(s.start_time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles" });
+              // start_time is a TIME (HH:MM:SS) string, not a timestamp.
+              const [hStr, mStr] = String(s.start_time || "00:00").split(":");
+              const h = parseInt(hStr, 10);
+              const m = parseInt(mStr, 10);
+              const period = h >= 12 ? "PM" : "AM";
+              const h12 = ((h + 11) % 12) + 1;
+              const start = `${h12}:${String(m).padStart(2, "0")} ${period}`;
               return `${name.split(" ")[0]} (${start})`;
             })
             .slice(0, 15);
           context.push(`Today's Schedule (${todaySchedule.data.length} shifts): ${names.join(", ")}`);
         } else {
-          context.push(`Today's Schedule: DATA UNAVAILABLE`);
+          context.push(`Today's Schedule: NO SHIFTS POSTED`);
         }
 
         if (pendingRequests.data?.length) {
