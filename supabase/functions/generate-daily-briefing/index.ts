@@ -178,13 +178,19 @@ serve(async (req) => {
           const names = todaySchedule.data
             .map((s: any) => {
               const name = profileMap[s.user_id] || "Unknown";
-              const start = new Date(s.start_time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles" });
+              // start_time is a TIME (HH:MM:SS) string, not a timestamp.
+              const [hStr, mStr] = String(s.start_time || "00:00").split(":");
+              const h = parseInt(hStr, 10);
+              const m = parseInt(mStr, 10);
+              const period = h >= 12 ? "PM" : "AM";
+              const h12 = ((h + 11) % 12) + 1;
+              const start = `${h12}:${String(m).padStart(2, "0")} ${period}`;
               return `${name.split(" ")[0]} (${start})`;
             })
             .slice(0, 15);
           context.push(`Today's Schedule (${todaySchedule.data.length} shifts): ${names.join(", ")}`);
         } else {
-          context.push(`Today's Schedule: DATA UNAVAILABLE`);
+          context.push(`Today's Schedule: NO SHIFTS POSTED`);
         }
 
         if (pendingRequests.data?.length) {
