@@ -130,7 +130,7 @@ serve(async (req) => {
         // Build context for AI
         const context: string[] = [];
         context.push(`Location: ${loc.name}`);
-        context.push(`Today: ${today} (${new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(nowPST)})`);
+        context.push(`Today: ${today} (${new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "America/Los_Angeles" }).format(nowPST)})`);
 
         if (salesData.data) {
           const s = salesData.data;
