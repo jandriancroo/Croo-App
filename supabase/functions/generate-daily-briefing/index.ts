@@ -26,12 +26,25 @@ serve(async (req) => {
       });
     }
 
-    // Get today in PST
-    const nowPST = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
-    const today = nowPST.toISOString().slice(0, 10);
-    const yesterday = new Date(nowPST);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    // Get today in PST as a real yyyy-mm-dd (avoid the toLocaleString -> new Date roundtrip
+    // which silently shifts the date back into UTC).
+    const pstParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Los_Angeles",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const y = pstParts.find((p) => p.type === "year")!.value;
+    const m = pstParts.find((p) => p.type === "month")!.value;
+    const d = pstParts.find((p) => p.type === "day")!.value;
+    const today = `${y}-${m}-${d}`;
+    // Compute yesterday off the PST calendar date (use UTC math on the date-only value
+    // to dodge DST landmines).
+    const yest = new Date(`${today}T12:00:00Z`);
+    yest.setUTCDate(yest.getUTCDate() - 1);
+    const yesterdayStr = yest.toISOString().slice(0, 10);
+    // Re-derive a "now in PST" Date for weekday formatting only.
+    const nowPST = new Date();
 
     // Get all active locations
     const { data: locations, error: locErr } = await supabase
@@ -117,7 +130,7 @@ serve(async (req) => {
         // Build context for AI
         const context: string[] = [];
         context.push(`Location: ${loc.name}`);
-        context.push(`Today: ${today} (${new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(nowPST)})`);
+        context.push(`Today: ${today} (${new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "America/Los_Angeles" }).format(nowPST)})`);
 
         if (salesData.data) {
           const s = salesData.data;
