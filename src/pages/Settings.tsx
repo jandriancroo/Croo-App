@@ -186,6 +186,31 @@ export default function Settings() {
   const currentOrg = organizations.find(o => o.id === currentOrgId) ?? organizations.find(o => o.id === organizationId);
   const orgLabel = currentOrg?.name || 'Organization';
 
+  // Pre-flight check used to decide whether the section card should render at all.
+  // Mirrors the early `return null` cases inside renderSectionContent so we can
+  // avoid mounting heavy panels until the user actually opens the section.
+  const isSectionAvailable = (sectionId: string): boolean => {
+    switch (sectionId) {
+      case 'inventory':
+      case 'punch-clock':
+        return false; // rendered as nav-link buttons elsewhere
+      case 'food-safety-audits':
+        return !!currentLocation;
+      case 'org-members':
+      case 'org-roles':
+      case 'org-positions':
+        return !!currentOrgId;
+      case 'clone-settings':
+      case 'brands':
+      case 'organizations':
+        return isSuperAdmin;
+      case 'maintenance':
+        return isAdmin;
+      default:
+        return true;
+    }
+  };
+
   const renderSectionContent = (sectionId: string): React.ReactNode => {
     switch (sectionId) {
       case 'food-safety-audits':
@@ -459,8 +484,11 @@ export default function Settings() {
 
 
 
-            const content = renderSectionContent(sectionId);
-            if (!content) return null;
+            // Skip rendering the card for sections that aren't available in this context
+            // (e.g., super-admin-only sections for non-admins, org sections without an org).
+            if (!isSectionAvailable(sectionId)) return null;
+
+            const isOpen = !!openSections[sectionId];
 
             // Sections that have their own internal cards — render flush to avoid nesting
             const isFlushSection = ['food-safety-audits', 'notifications', 'org-members', 'org-roles', 'org-positions', 'clone-settings'].includes(sectionId);
@@ -468,7 +496,7 @@ export default function Settings() {
             return (
               <Collapsible
                 key={sectionId}
-                open={openSections[sectionId]}
+                open={isOpen}
                 onOpenChange={() => toggleSection(sectionId)}
                 className="w-full min-w-0"
               >
@@ -482,17 +510,24 @@ export default function Settings() {
                         </div>
                         <ChevronDown
                           className={`h-4 w-4 text-muted-foreground transition-transform duration-200 flex-shrink-0 ${
-                            openSections[sectionId] ? 'rotate-180' : ''
+                            isOpen ? 'rotate-180' : ''
                           }`}
                         />
                       </div>
                     </CardHeader>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    {isFlushSection ? (
-                      <div className="px-4 pb-4 pt-0 min-w-0 overflow-hidden">{content}</div>
-                    ) : (
-                      <CardContent className="pt-0 min-w-0 overflow-hidden">{content}</CardContent>
+                    {/* Only mount the panel after the user opens it. This prevents
+                        heavy children (LocationAuditsSection, UnifiedNotificationSettings,
+                        etc.) from fetching data and running effects while collapsed. */}
+                    {isOpen && (
+                      <Suspense fallback={<PanelFallback />}>
+                        {isFlushSection ? (
+                          <div className="px-4 pb-4 pt-0 min-w-0 overflow-hidden">{renderSectionContent(sectionId)}</div>
+                        ) : (
+                          <CardContent className="pt-0 min-w-0 overflow-hidden">{renderSectionContent(sectionId)}</CardContent>
+                        )}
+                      </Suspense>
                     )}
                   </CollapsibleContent>
                 </Card>
