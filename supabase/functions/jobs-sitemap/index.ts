@@ -46,8 +46,9 @@ Deno.serve(async (req) => {
       const city = parseCity(l.location?.address) || l.location?.name || "";
       const slug = [slugify(city), slugify(l.title), (l.id || "").slice(0, 8)].filter(Boolean).join("-");
       const lastmod = (l.updated_at || l.posted_at || new Date().toISOString()).split("T")[0];
-      // Point sitemap at SSR endpoint so Google crawls fully-rendered HTML
-      return `  <url><loc>${supabaseUrl}/functions/v1/job-detail/${slug}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq></url>`;
+      // Canonical public URL on croohq.com — Cloudflare Worker rewrites this
+      // to the SSR edge function so crawlers get fully-rendered HTML.
+      return `  <url><loc>${APP_URL}/jobs/${slug}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq></url>`;
     }).join("\n");
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
