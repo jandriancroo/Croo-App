@@ -91,6 +91,7 @@ const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboar
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
 const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 const KDSBoard = lazyWithRetry(() => import("./pages/KDSBoard"));
+const DemoGate = lazyWithRetry(() => import("./pages/DemoGate"));
 
 const queryClient = new QueryClient();
 
@@ -151,6 +152,7 @@ const AppContent = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/landing" element={<Index />} />
+        <Route path="/demo" element={<DemoGate />} />
         
         <Route path="/install" element={<InstallGuide />} />
         <Route path="/apply/:orgSlug" element={<PublicApplication />} />
