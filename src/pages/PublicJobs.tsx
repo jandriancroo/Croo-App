@@ -88,60 +88,18 @@ function buildJobSlug(job: JobListing): string {
   return [slugifyPart(city), slugifyPart(job.title), (job.id || '').slice(0, 8)].filter(Boolean).join('-');
 }
 
-function buildJobPostingJsonLd(job: JobListing) {
-  const addr = parseAddress(job.location?.address || null);
-  const company = job.organization?.brand_name || job.organization?.name || 'Company';
-  const titleLower = (job.title || '').toLowerCase();
-  const syndicationTitle = buildSyndicationTitle(job.title, company, addr.city);
-  const validThrough = job.expires_at
-    ? job.expires_at.split('T')[0]
-    : new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
-
-  const posting: any = {
+function buildItemListJsonLd(jobs: JobListing[]) {
+  // Per Google for Jobs guidance: JobPosting JSON-LD belongs on individual
+  // detail pages, not the index. The index uses an ItemList of detail URLs.
+  return {
     '@context': 'https://schema.org/',
-    '@type': 'JobPosting',
-    title: syndicationTitle,
-    description: job.description || job.title,
-    datePosted: job.posted_at?.split('T')[0],
-    validThrough,
-    employmentType: EMPLOYMENT_MAP[job.employment_type] || 'FULL_TIME',
-    occupationalCategory: mapOccupationalCategory(titleLower),
-    industry: 'Food Services',
-    identifier: { '@type': 'PropertyValue', name: company, value: job.id },
-    hiringOrganization: {
-      '@type': 'Organization',
-      name: company,
-      sameAs: `https://croohq.com/apply/${job.organization?.slug}`,
-    },
-    jobLocation: {
-      '@type': 'Place',
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: addr.street,
-        addressLocality: addr.city,
-        addressRegion: addr.state,
-        postalCode: addr.zip,
-        addressCountry: 'US',
-      },
-    },
-    directApply: true,
-    url: `https://croohq.com/jobs/${buildJobSlug(job)}`,
+    '@type': 'ItemList',
+    itemListElement: jobs.map((job, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: `https://croohq.com/jobs/${buildJobSlug(job)}`,
+    })),
   };
-
-  if (job.pay_min || job.pay_max) {
-    posting.baseSalary = {
-      '@type': 'MonetaryAmount',
-      currency: 'USD',
-      value: {
-        '@type': 'QuantitativeValue',
-        minValue: job.pay_min,
-        maxValue: job.pay_max || job.pay_min,
-        unitText: job.pay_type === 'salary' ? 'YEAR' : 'HOUR',
-      },
-    };
-  }
-
-  return posting;
 }
 
 export default function PublicJobs() {
@@ -180,7 +138,7 @@ export default function PublicJobs() {
     );
   });
 
-  const jsonLdItems = (listings || []).map(buildJobPostingJsonLd);
+  const itemListJsonLd = buildItemListJsonLd(listings || []);
 
   return (
     <>
@@ -189,11 +147,7 @@ export default function PublicJobs() {
         <meta name="description" content="Find restaurant and fast food jobs at Blaze Pizza and other brands. Apply for pizza maker, team member, shift manager, cook, and kitchen crew positions near you — no account needed." />
         <meta name="keywords" content="pizza jobs, fast food jobs, restaurant jobs, team member jobs, shift manager jobs, kitchen crew, food service careers, Blaze Pizza hiring, cook jobs near me, cashier restaurant jobs" />
         <link rel="canonical" href="https://croohq.com/jobs" />
-        {jsonLdItems.map((item, i) => (
-          <script key={i} type="application/ld+json">
-            {JSON.stringify(item)}
-          </script>
-        ))}
+        <script type="application/ld+json">{JSON.stringify(itemListJsonLd)}</script>
       </Helmet>
 
       <div className="min-h-screen bg-[#f5f4f1]">
