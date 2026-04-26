@@ -88,7 +88,6 @@ const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
 const TheoPlacementPreview = lazyWithRetry(() => import("./pages/TheoPlacementPreview"));
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboardCustomizer"));
-const BiometricDemo = lazyWithRetry(() => import("./pages/BiometricDemo"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
 const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 const KDSBoard = lazyWithRetry(() => import("./pages/KDSBoard"));
@@ -183,7 +182,6 @@ const AppContent = () => {
         <Route path="/availability" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/punch-clock" element={<PunchClock />} />
-        <Route path="/biometric-demo" element={<BiometricDemo />} />
         <Route path="/time-tracking" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
