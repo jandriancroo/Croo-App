@@ -69,9 +69,14 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    // Accept either ?id=<uuid> or ?slug=<...-<8charid>>
+    // Accept slug from path segment (/job-detail/<slug>) OR query (?slug=, ?id=)
     const id = url.searchParams.get("id");
-    const slug = url.searchParams.get("slug");
+    const querySlug = url.searchParams.get("slug");
+    // Path may be /functions/v1/job-detail/<slug> or /job-detail/<slug>
+    const pathSegments = url.pathname.split("/").filter(Boolean);
+    const fnIdx = pathSegments.indexOf("job-detail");
+    const pathSlug = fnIdx >= 0 && pathSegments.length > fnIdx + 1 ? pathSegments[fnIdx + 1] : null;
+    const slug = querySlug || pathSlug;
 
     let listingId = id;
     if (!listingId && slug) {
@@ -139,9 +144,6 @@ Deno.serve(async (req) => {
     const slugUrl = buildSlug(listing);
     const canonical = `${APP_URL}/jobs/${slugUrl}`;
     const applyUrl = `${APP_URL}/apply/${listing.organization?.slug}?utm_source=job_detail&listing=${listing.id}`;
-    const validThrough = listing.expires_at
-      ? listing.expires_at.split("T")[0]
-      : new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0];
 
     const jsonLd: any = {
       "@context": "https://schema.org/",
@@ -149,7 +151,6 @@ Deno.serve(async (req) => {
       title: listing.title,
       description: listing.description || listing.title,
       datePosted: listing.posted_at?.split("T")[0],
-      validThrough,
       employmentType: empSchema,
       hiringOrganization: { "@type": "Organization", name: company, sameAs: `${APP_URL}/apply/${listing.organization?.slug}` },
       jobLocation: {
@@ -164,10 +165,15 @@ Deno.serve(async (req) => {
         },
       },
       identifier: { "@type": "PropertyValue", name: company, value: listing.id },
-      directApply: true,
+      // Apply happens on a separate page (/apply/...), not inline on this URL
+      directApply: false,
       url: canonical,
       industry: "Food Services",
     };
+    // Only set validThrough when we actually have an expiry — never fake it
+    if (listing.expires_at) {
+      jsonLd.validThrough = listing.expires_at.split("T")[0];
+    }
     if (listing.pay_min || listing.pay_max) {
       jsonLd.baseSalary = {
         "@type": "MonetaryAmount",
