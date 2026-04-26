@@ -4,23 +4,46 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio } from 'lucide-react';
-import { DataStreamStatus } from '@/components/settings/DataStreamStatus';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio, Loader2 } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
-import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
-import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
-import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
-import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
-import { CloneLocationSettings } from '@/components/settings/CloneLocationSettings';
+
+// Lazy-load heavy sub-panels — only fetched when their section is opened.
+// Prior to this, all panels (~5,000+ lines combined) shipped in the Settings chunk.
+const UnifiedNotificationSettings = lazy(() =>
+  import('@/components/settings/UnifiedNotificationSettings').then(m => ({ default: m.UnifiedNotificationSettings }))
+);
+const OrganizationMembersSection = lazy(() =>
+  import('@/components/settings/OrganizationMembersSection').then(m => ({ default: m.OrganizationMembersSection }))
+);
+const RoleManagementSection = lazy(() =>
+  import('@/components/settings/RoleManagementSection').then(m => ({ default: m.RoleManagementSection }))
+);
+const PositionManagementInline = lazy(() =>
+  import('@/components/settings/PositionManagementInline').then(m => ({ default: m.PositionManagementInline }))
+);
+const LocationAuditsSection = lazy(() =>
+  import('@/components/settings/LocationAuditsSection').then(m => ({ default: m.LocationAuditsSection }))
+);
+const CloneLocationSettings = lazy(() =>
+  import('@/components/settings/CloneLocationSettings').then(m => ({ default: m.CloneLocationSettings }))
+);
+const DataStreamStatus = lazy(() =>
+  import('@/components/settings/DataStreamStatus').then(m => ({ default: m.DataStreamStatus }))
+);
+
+const PanelFallback = () => (
+  <div className="flex items-center justify-center py-8">
+    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  </div>
+);
 
 const themes = [
   { value: 'default', label: 'Default' },
