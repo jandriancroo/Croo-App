@@ -88,41 +88,66 @@ export function useChatUnreadCounts(locationId: string | null) {
 
     fetchCounts();
 
-    // Clean up previous channel
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
-
     // Debounced refetch to prevent cascading calls from rapid realtime events
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const debouncedFetch = () => {
+      // Skip work entirely if tab is hidden — we'll resync on return
+      if (typeof document !== 'undefined' && document.hidden) return;
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         fetchCounts();
       }, 1500); // Wait 1.5s after last event before fetching
     };
 
-    // Realtime subscription for badge updates (debounced)
-    channelRef.current = supabase
-      .channel(`chat-counts-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        debouncedFetch
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'chat_members', filter: `user_id=eq.${user.id}` },
-        debouncedFetch
-      )
-      .subscribe();
-
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
+    const subscribe = () => {
+      // Clean up previous channel before re-subscribing
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
+      channelRef.current = supabase
+        .channel(`chat-counts-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages' },
+          debouncedFetch
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'chat_members', filter: `user_id=eq.${user.id}` },
+          debouncedFetch
+        )
+        .subscribe();
+    };
+
+    const unsubscribe = () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+
+    // Start subscription only if visible
+    if (typeof document === 'undefined' || !document.hidden) {
+      subscribe();
+    }
+
+    // Pause realtime + DB chatter while tab is hidden; resume on return.
+    // This is the biggest savings — chat events stop firing for inactive tabs.
+    const onVisibility = () => {
+      if (document.hidden) {
+        unsubscribe();
+      } else {
+        subscribe();
+        fetchCounts(); // one fresh fetch on return
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      document.removeEventListener('visibilitychange', onVisibility);
+      unsubscribe();
     };
   }, [user, locationId, fetchCounts]);
 
