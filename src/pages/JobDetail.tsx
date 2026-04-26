@@ -91,17 +91,12 @@ export default function JobDetail() {
   const metaDesc = (job.description || `Apply for ${job.title} at ${company}${addr.city ? ` in ${addr.city}` : ''}.`).slice(0, 158);
   const canonical = `https://croohq.com/jobs/${slug}`;
   const applyUrl = `/apply/${job.organization?.slug}?utm_source=job_detail&listing=${job.id}`;
-  const validThrough = job.expires_at
-    ? job.expires_at.split('T')[0]
-    : new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
-
   const jsonLd: any = {
     '@context': 'https://schema.org/',
     '@type': 'JobPosting',
     title: job.title,
     description: job.description || job.title,
     datePosted: job.posted_at?.split('T')[0],
-    validThrough,
     employmentType: EMPLOYMENT_SCHEMA[job.employment_type] || 'FULL_TIME',
     hiringOrganization: { '@type': 'Organization', name: company, sameAs: `https://croohq.com/apply/${job.organization?.slug}` },
     jobLocation: {
@@ -116,10 +111,15 @@ export default function JobDetail() {
       },
     },
     identifier: { '@type': 'PropertyValue', name: company, value: job.id },
-    directApply: true,
+    // Apply happens on a separate page (/apply/...), not inline on this URL
+    directApply: false,
     url: canonical,
     industry: 'Food Services',
   };
+  // Only set validThrough when there's a real expiry — never fake it
+  if (job.expires_at) {
+    jsonLd.validThrough = job.expires_at.split('T')[0];
+  }
   if (job.pay_min || job.pay_max) {
     jsonLd.baseSalary = {
       '@type': 'MonetaryAmount',

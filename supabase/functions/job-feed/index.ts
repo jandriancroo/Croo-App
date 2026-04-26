@@ -110,15 +110,16 @@ function slugifyFeed(s: string): string {
 }
 
 function getJobDetailUrl(listing: any, source: string): string {
-  // Point directly at the SSR edge function so crawlers get fully-rendered HTML
-  // with JobPosting JSON-LD baked in (no SPA hydration required).
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  // Point at the canonical public URL on croohq.com. The hosting layer
+  // (Cloudflare Worker) rewrites /jobs/<slug> to the SSR edge function so
+  // both users and crawlers get the same fully-rendered HTML.
+  const baseUrl = Deno.env.get("APP_URL") || "https://croohq.com";
   const addr = parseAddress(listing.location?.address);
   const city = addr.city || listing.location?.name || "";
   const slug = [slugifyFeed(city), slugifyFeed(listing.title), (listing.id || "").slice(0, 8)]
     .filter(Boolean)
     .join("-");
-  return `${supabaseUrl}/functions/v1/job-detail/${slug}?utm_source=${source}`;
+  return `${baseUrl}/jobs/${slug}?utm_source=${source}`;
 }
 
 function toJsonLd(listing: any, supabaseUrl: string) {
@@ -152,7 +153,7 @@ function toJsonLd(listing: any, supabaseUrl: string) {
         addressCountry: "US",
       },
     },
-    directApply: true,
+    directApply: false,
     url: getJobDetailUrl(listing, "google_jobs"),
   };
 
