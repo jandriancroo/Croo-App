@@ -1339,6 +1339,36 @@ export type Database = {
           },
         ]
       }
+      checklist_photo_archive_log: {
+        Row: {
+          action: string
+          id: string
+          new_size_bytes: number | null
+          original_size_bytes: number | null
+          processed_at: string
+          response_id: string | null
+          storage_path: string
+        }
+        Insert: {
+          action: string
+          id?: string
+          new_size_bytes?: number | null
+          original_size_bytes?: number | null
+          processed_at?: string
+          response_id?: string | null
+          storage_path: string
+        }
+        Update: {
+          action?: string
+          id?: string
+          new_size_bytes?: number | null
+          original_size_bytes?: number | null
+          processed_at?: string
+          response_id?: string | null
+          storage_path?: string
+        }
+        Relationships: []
+      }
       checklist_responses: {
         Row: {
           completed_by: string | null
@@ -9387,6 +9417,24 @@ export type Database = {
       pfg_swap_credentials_ropc: {
         Args: { p_integration_id: string; p_new_credentials: Json }
         Returns: boolean
+      }
+      prune_alert_queue: { Args: { days_to_keep?: number }; Returns: number }
+      prune_checklist_notification_logs: {
+        Args: { days_to_keep?: number }
+        Returns: number
+      }
+      prune_email_queue: { Args: { days_to_keep?: number }; Returns: number }
+      prune_inventory_count_audit_log: {
+        Args: { days_to_keep?: number }
+        Returns: number
+      }
+      prune_pfg_refresh_audit: {
+        Args: { days_to_keep?: number }
+        Returns: number
+      }
+      prune_punch_clock_attempts: {
+        Args: { days_to_keep?: number }
+        Returns: number
       }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
