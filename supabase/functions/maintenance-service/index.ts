@@ -44,6 +44,12 @@ Deno.serve(async (req) => {
       
       case "cleanup-images":
         return await handleCleanupImages(supabase, supabaseUrl, payload);
+
+      case "archive-checklist-photos":
+        return await handleArchiveChecklistPhotos(supabase, supabaseUrl, payload);
+
+      case "retention-janitor":
+        return await handleRetentionJanitor(supabase, payload);
       
       case "backfill-photo-completions":
         return await handleBackfillPhotoCompletions(supabase);
@@ -310,6 +316,41 @@ async function handleNightlyMaintenance(
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
     return { analyzed: result.analyzed || 0, skipped: result.skipped || 0 };
+  }));
+
+  // Task 9: Retention janitor — prune stale rows across 6 tables
+  results.push(await runResumableTask(supabase, runDate, completedSet, "retention-janitor", async () => {
+    const prunes: Record<string, number> = {};
+    const tasks: Array<[string, string, number]> = [
+      ["alert_queue", "prune_alert_queue", 30],
+      ["email_queue", "prune_email_queue", 30],
+      ["inventory_count_audit_log", "prune_inventory_count_audit_log", 90],
+      ["pfg_refresh_audit", "prune_pfg_refresh_audit", 30],
+      ["punch_clock_attempts", "prune_punch_clock_attempts", 30],
+      ["checklist_notification_logs", "prune_checklist_notification_logs", 30],
+    ];
+    for (const [name, fn, days] of tasks) {
+      const { data, error } = await supabase.rpc(fn, { days_to_keep: days });
+      if (error) {
+        prunes[name] = -1;
+        console.error(`[RETENTION] ${fn} failed:`, error.message);
+      } else {
+        prunes[name] = data ?? 0;
+      }
+    }
+    return prunes;
+  }));
+
+  // Task 10: Archive checklist photos (thumbnail at 180d, delete at 366d)
+  results.push(await runResumableTask(supabase, runDate, completedSet, "archive-checklist-photos", async () => {
+    const response = await fetch(`${supabaseUrl}/functions/v1/maintenance-service?action=archive-checklist-photos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+      body: JSON.stringify({ batchLimit: 200 }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    return { thumbnailed: result.thumbnailed || 0, deleted: result.deleted || 0, savedMB: result.savedMB || 0 };
   }));
 
   const completedCount = results.filter(r => r.status === "success").length;
@@ -1024,4 +1065,218 @@ async function runResumableTask(
 
     return { task: name, status: "error", details: { error: String(err) } };
   }
+}
+
+// ============================================================================
+// RETENTION JANITOR (manual trigger — also runs inside nightly Task 9)
+// ============================================================================
+async function handleRetentionJanitor(
+  supabase: ReturnType<typeof createClient>,
+  options: Record<string, any>
+) {
+  const overrides = options.overrides || {};
+  const tasks: Array<[string, string, number]> = [
+    ["alert_queue", "prune_alert_queue", overrides.alert_queue ?? 30],
+    ["email_queue", "prune_email_queue", overrides.email_queue ?? 30],
+    ["inventory_count_audit_log", "prune_inventory_count_audit_log", overrides.inventory_count_audit_log ?? 90],
+    ["pfg_refresh_audit", "prune_pfg_refresh_audit", overrides.pfg_refresh_audit ?? 30],
+    ["punch_clock_attempts", "prune_punch_clock_attempts", overrides.punch_clock_attempts ?? 30],
+    ["checklist_notification_logs", "prune_checklist_notification_logs", overrides.checklist_notification_logs ?? 30],
+  ];
+
+  const results: Record<string, { deleted: number; days: number; error?: string }> = {};
+  for (const [name, fn, days] of tasks) {
+    const { data, error } = await supabase.rpc(fn, { days_to_keep: days });
+    results[name] = error
+      ? { deleted: 0, days, error: error.message }
+      : { deleted: data ?? 0, days };
+  }
+
+  const totalDeleted = Object.values(results).reduce((s, r) => s + r.deleted, 0);
+  console.log(`[RETENTION] Pruned ${totalDeleted} rows across ${tasks.length} tables`);
+
+  return new Response(
+    JSON.stringify({ success: true, totalDeleted, results, timestamp: new Date().toISOString() }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// ============================================================================
+// ARCHIVE CHECKLIST PHOTOS
+// At 180+ days: replace original with 400px thumbnail (~20 KB)
+// At 366+ days: delete entirely (full year of thumbnails preserved)
+// ============================================================================
+async function handleArchiveChecklistPhotos(
+  supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  options: Record<string, any>
+) {
+  const batchLimit = Math.min(options.batchLimit || 200, 500);
+  const dryRun = options.dryRun === true;
+  const thumbnailDays = options.thumbnailDays || 180;
+  const deleteDays = options.deleteDays || 366;
+
+  console.log(`[ARCHIVE] dryRun=${dryRun} batch=${batchLimit} thumb>=${thumbnailDays}d delete>=${deleteDays}d`);
+
+  const now = Date.now();
+  const thumbnailCutoff = new Date(now - thumbnailDays * 86400 * 1000);
+  const deleteCutoff = new Date(now - deleteDays * 86400 * 1000);
+
+  // Walk the bucket and collect candidates by created_at age
+  const allFiles: { path: string; size: number; created_at: string }[] = [];
+  let folderOffset = 0;
+
+  while (true) {
+    const { data: folders, error } = await supabase.storage
+      .from("checklist-images")
+      .list("", { limit: 100, offset: folderOffset });
+
+    if (error || !folders || folders.length === 0) break;
+
+    for (const folder of folders) {
+      if (folder.metadata) continue;
+      let fileOffset = 0;
+      while (true) {
+        const { data: files } = await supabase.storage
+          .from("checklist-images")
+          .list(folder.name, { limit: 1000, offset: fileOffset });
+
+        if (!files || files.length === 0) break;
+
+        for (const file of files) {
+          if (!file.metadata || !file.created_at) continue;
+          const size = (file.metadata as any).size || 0;
+          const mimetype = (file.metadata as any).mimetype || "";
+          if (!mimetype.startsWith("image/")) continue;
+          allFiles.push({
+            path: `${folder.name}/${file.name}`,
+            size,
+            created_at: file.created_at,
+          });
+        }
+
+        if (files.length < 1000) break;
+        fileOffset += 1000;
+      }
+    }
+
+    if (folders.length < 100) break;
+    folderOffset += 100;
+  }
+
+  // Pull already-processed paths so we skip them
+  const { data: processedRows } = await supabase
+    .from("checklist_photo_archive_log")
+    .select("storage_path, action");
+  const thumbnailedPaths = new Set(
+    (processedRows || []).filter((r: any) => r.action === "thumbnailed").map((r: any) => r.storage_path)
+  );
+
+  // Bucket files into delete vs thumbnail
+  const toDelete: typeof allFiles = [];
+  const toThumbnail: typeof allFiles = [];
+
+  for (const f of allFiles) {
+    const created = new Date(f.created_at);
+    if (created < deleteCutoff) {
+      toDelete.push(f);
+    } else if (created < thumbnailCutoff && !thumbnailedPaths.has(f.path)) {
+      toThumbnail.push(f);
+    }
+  }
+
+  console.log(`[ARCHIVE] candidates: ${toThumbnail.length} thumb, ${toDelete.length} delete`);
+
+  if (dryRun) {
+    return new Response(
+      JSON.stringify({
+        dryRun: true,
+        candidates: { thumbnail: toThumbnail.length, delete: toDelete.length },
+        sampleThumb: toThumbnail.slice(0, 5),
+        sampleDelete: toDelete.slice(0, 5),
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  let thumbnailed = 0;
+  let deleted = 0;
+  let savedBytes = 0;
+
+  // DELETE old thumbnails (cheap, do first)
+  const deleteBatch = toDelete.slice(0, batchLimit);
+  if (deleteBatch.length > 0) {
+    const paths = deleteBatch.map((f) => f.path);
+    const { error: delErr } = await supabase.storage.from("checklist-images").remove(paths);
+    if (!delErr) {
+      deleted = deleteBatch.length;
+      savedBytes += deleteBatch.reduce((s, f) => s + f.size, 0);
+      // Log each deletion
+      const logRows = deleteBatch.map((f) => ({
+        storage_path: f.path,
+        action: "deleted",
+        original_size_bytes: f.size,
+        new_size_bytes: 0,
+      }));
+      await supabase.from("checklist_photo_archive_log").insert(logRows);
+    } else {
+      console.error("[ARCHIVE] bulk delete failed:", delErr.message);
+    }
+  }
+
+  // THUMBNAIL: download at 400px, replace in-place
+  const thumbBatch = toThumbnail.slice(0, batchLimit - deleted);
+  for (const f of thumbBatch) {
+    try {
+      const { data: thumbData, error: dlErr } = await supabase.storage
+        .from("checklist-images")
+        .download(f.path, { transform: { width: 400, quality: 70, format: "origin" } });
+
+      if (dlErr || !thumbData) continue;
+
+      const newSize = thumbData.size;
+      // Don't bother if savings under 30%
+      if (newSize > f.size * 0.7) {
+        await supabase.from("checklist_photo_archive_log").insert({
+          storage_path: f.path,
+          action: "thumbnailed",
+          original_size_bytes: f.size,
+          new_size_bytes: f.size,
+        });
+        continue;
+      }
+
+      const { error: upErr } = await supabase.storage
+        .from("checklist-images")
+        .upload(f.path, thumbData, { contentType: "image/jpeg", upsert: true });
+
+      if (upErr) continue;
+
+      await supabase.from("checklist_photo_archive_log").insert({
+        storage_path: f.path,
+        action: "thumbnailed",
+        original_size_bytes: f.size,
+        new_size_bytes: newSize,
+      });
+
+      thumbnailed++;
+      savedBytes += f.size - newSize;
+    } catch (err) {
+      console.error(`[ARCHIVE] thumbnail failed for ${f.path}:`, err);
+    }
+  }
+
+  const savedMB = +(savedBytes / 1024 / 1024).toFixed(2);
+  console.log(`[ARCHIVE] thumbnailed=${thumbnailed} deleted=${deleted} savedMB=${savedMB}`);
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      thumbnailed,
+      deleted,
+      savedMB,
+      remaining: { thumbnail: toThumbnail.length - thumbnailed, delete: toDelete.length - deleted },
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
 }
