@@ -9276,6 +9276,7 @@ export type Database = {
         Returns: boolean
       }
       check_alerts_sql: { Args: never; Returns: undefined }
+      cleanup_supabase_internal_logs: { Args: never; Returns: undefined }
       cleanup_theo_chat_messages: { Args: never; Returns: undefined }
       convert_recipe_unit_to_count: {
         Args: { p_count_unit: string; p_recipe_unit: string }
