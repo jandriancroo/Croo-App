@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import logo from "/croo-logo-white.png";
 
-const DEMO_PIN = "1234"; // Change before sharing widely
+const DEMO_PIN = "0223"; // Change before sharing widely
 const STORAGE_KEY = "croohq_demo_unlocked";
 
 const DemoGate = () => {
