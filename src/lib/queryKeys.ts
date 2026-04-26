@@ -80,6 +80,12 @@ export const queryKeys = {
       ['user-management-users', locationId] as const,
     managementLocations: (userId: string, isSuperAdmin: boolean) =>
       ['user-management-locations', userId, isSuperAdmin] as const,
+    /** Lightweight team roster (subset of management profile columns) */
+    team: (locationId: string) =>
+      ['my-team', locationId] as const,
+    /** Current authenticated user's own profile */
+    selfProfile: (userId: string) =>
+      ['my-profile', userId] as const,
   },
 
   // ── Schedule ──
