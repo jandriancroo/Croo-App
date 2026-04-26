@@ -1,12 +1,13 @@
 import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Loader2, Users, Phone, Cake } from 'lucide-react';
 import { format } from 'date-fns';
 import { getDisplayName, getInitials } from '@/utils/displayName';
+import { queryKeys } from '@/lib/queryKeys';
 
 interface TeamMember {
   id: string;
@@ -24,11 +25,29 @@ const parseDateOnlyToLocalDate = (dateStr: string): Date => {
 
 export default function MyTeam() {
   const { currentLocation } = useAppLocation();
+  const queryClient = useQueryClient();
 
   const { data: teamMembers = [], isLoading } = useQuery({
-    queryKey: ['my-team', currentLocation?.id],
+    queryKey: queryKeys.users.team(currentLocation?.id || ''),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    // Seed from UserManagement cache when available — full profile rows are a
+    // superset of what we need here, so we can render instantly on cross-navigation.
+    placeholderData: () => {
+      if (!currentLocation?.id) return undefined;
+      const cached = queryClient.getQueryData<any[]>(queryKeys.users.management(currentLocation.id));
+      if (!cached || cached.length === 0) return undefined;
+      return cached
+        .filter((u: any) => u.is_active !== false)
+        .map((u: any) => ({
+          id: u.id,
+          full_name: u.full_name ?? null,
+          nickname: u.nickname ?? null,
+          profile_photo_url: u.profile_photo_url ?? null,
+          phone_number: u.phone_number ?? null,
+          birthday: u.birthday ?? null,
+        })) as TeamMember[];
+    },
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
