@@ -44,6 +44,12 @@ Deno.serve(async (req) => {
       
       case "cleanup-images":
         return await handleCleanupImages(supabase, supabaseUrl, payload);
+
+      case "archive-checklist-photos":
+        return await handleArchiveChecklistPhotos(supabase, supabaseUrl, payload);
+
+      case "retention-janitor":
+        return await handleRetentionJanitor(supabase, payload);
       
       case "backfill-photo-completions":
         return await handleBackfillPhotoCompletions(supabase);
@@ -310,6 +316,41 @@ async function handleNightlyMaintenance(
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const result = await response.json();
     return { analyzed: result.analyzed || 0, skipped: result.skipped || 0 };
+  }));
+
+  // Task 9: Retention janitor — prune stale rows across 6 tables
+  results.push(await runResumableTask(supabase, runDate, completedSet, "retention-janitor", async () => {
+    const prunes: Record<string, number> = {};
+    const tasks: Array<[string, string, number]> = [
+      ["alert_queue", "prune_alert_queue", 30],
+      ["email_queue", "prune_email_queue", 30],
+      ["inventory_count_audit_log", "prune_inventory_count_audit_log", 90],
+      ["pfg_refresh_audit", "prune_pfg_refresh_audit", 30],
+      ["punch_clock_attempts", "prune_punch_clock_attempts", 30],
+      ["checklist_notification_logs", "prune_checklist_notification_logs", 30],
+    ];
+    for (const [name, fn, days] of tasks) {
+      const { data, error } = await supabase.rpc(fn, { days_to_keep: days });
+      if (error) {
+        prunes[name] = -1;
+        console.error(`[RETENTION] ${fn} failed:`, error.message);
+      } else {
+        prunes[name] = data ?? 0;
+      }
+    }
+    return prunes;
+  }));
+
+  // Task 10: Archive checklist photos (thumbnail at 180d, delete at 366d)
+  results.push(await runResumableTask(supabase, runDate, completedSet, "archive-checklist-photos", async () => {
+    const response = await fetch(`${supabaseUrl}/functions/v1/maintenance-service?action=archive-checklist-photos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+      body: JSON.stringify({ batchLimit: 200 }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    return { thumbnailed: result.thumbnailed || 0, deleted: result.deleted || 0, savedMB: result.savedMB || 0 };
   }));
 
   const completedCount = results.filter(r => r.status === "success").length;
