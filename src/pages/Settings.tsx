@@ -4,23 +4,46 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio } from 'lucide-react';
-import { DataStreamStatus } from '@/components/settings/DataStreamStatus';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio, Loader2 } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
-import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
-import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
-import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
-import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
-import { CloneLocationSettings } from '@/components/settings/CloneLocationSettings';
+
+// Lazy-load heavy sub-panels — only fetched when their section is opened.
+// Prior to this, all panels (~5,000+ lines combined) shipped in the Settings chunk.
+const UnifiedNotificationSettings = lazy(() =>
+  import('@/components/settings/UnifiedNotificationSettings').then(m => ({ default: m.UnifiedNotificationSettings }))
+);
+const OrganizationMembersSection = lazy(() =>
+  import('@/components/settings/OrganizationMembersSection').then(m => ({ default: m.OrganizationMembersSection }))
+);
+const RoleManagementSection = lazy(() =>
+  import('@/components/settings/RoleManagementSection').then(m => ({ default: m.RoleManagementSection }))
+);
+const PositionManagementInline = lazy(() =>
+  import('@/components/settings/PositionManagementInline').then(m => ({ default: m.PositionManagementInline }))
+);
+const LocationAuditsSection = lazy(() =>
+  import('@/components/settings/LocationAuditsSection').then(m => ({ default: m.LocationAuditsSection }))
+);
+const CloneLocationSettings = lazy(() =>
+  import('@/components/settings/CloneLocationSettings').then(m => ({ default: m.CloneLocationSettings }))
+);
+const DataStreamStatus = lazy(() =>
+  import('@/components/settings/DataStreamStatus').then(m => ({ default: m.DataStreamStatus }))
+);
+
+const PanelFallback = () => (
+  <div className="flex items-center justify-center py-8">
+    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  </div>
+);
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -162,6 +185,31 @@ export default function Settings() {
   const currentOrgId = (currentLocation as any)?.organization_id || organizationId;
   const currentOrg = organizations.find(o => o.id === currentOrgId) ?? organizations.find(o => o.id === organizationId);
   const orgLabel = currentOrg?.name || 'Organization';
+
+  // Pre-flight check used to decide whether the section card should render at all.
+  // Mirrors the early `return null` cases inside renderSectionContent so we can
+  // avoid mounting heavy panels until the user actually opens the section.
+  const isSectionAvailable = (sectionId: string): boolean => {
+    switch (sectionId) {
+      case 'inventory':
+      case 'punch-clock':
+        return false; // rendered as nav-link buttons elsewhere
+      case 'food-safety-audits':
+        return !!currentLocation;
+      case 'org-members':
+      case 'org-roles':
+      case 'org-positions':
+        return !!currentOrgId;
+      case 'clone-settings':
+      case 'brands':
+      case 'organizations':
+        return isSuperAdmin;
+      case 'maintenance':
+        return isAdmin;
+      default:
+        return true;
+    }
+  };
 
   const renderSectionContent = (sectionId: string): React.ReactNode => {
     switch (sectionId) {
@@ -436,8 +484,11 @@ export default function Settings() {
 
 
 
-            const content = renderSectionContent(sectionId);
-            if (!content) return null;
+            // Skip rendering the card for sections that aren't available in this context
+            // (e.g., super-admin-only sections for non-admins, org sections without an org).
+            if (!isSectionAvailable(sectionId)) return null;
+
+            const isOpen = !!openSections[sectionId];
 
             // Sections that have their own internal cards — render flush to avoid nesting
             const isFlushSection = ['food-safety-audits', 'notifications', 'org-members', 'org-roles', 'org-positions', 'clone-settings'].includes(sectionId);
@@ -445,7 +496,7 @@ export default function Settings() {
             return (
               <Collapsible
                 key={sectionId}
-                open={openSections[sectionId]}
+                open={isOpen}
                 onOpenChange={() => toggleSection(sectionId)}
                 className="w-full min-w-0"
               >
@@ -459,17 +510,24 @@ export default function Settings() {
                         </div>
                         <ChevronDown
                           className={`h-4 w-4 text-muted-foreground transition-transform duration-200 flex-shrink-0 ${
-                            openSections[sectionId] ? 'rotate-180' : ''
+                            isOpen ? 'rotate-180' : ''
                           }`}
                         />
                       </div>
                     </CardHeader>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    {isFlushSection ? (
-                      <div className="px-4 pb-4 pt-0 min-w-0 overflow-hidden">{content}</div>
-                    ) : (
-                      <CardContent className="pt-0 min-w-0 overflow-hidden">{content}</CardContent>
+                    {/* Only mount the panel after the user opens it. This prevents
+                        heavy children (LocationAuditsSection, UnifiedNotificationSettings,
+                        etc.) from fetching data and running effects while collapsed. */}
+                    {isOpen && (
+                      <Suspense fallback={<PanelFallback />}>
+                        {isFlushSection ? (
+                          <div className="px-4 pb-4 pt-0 min-w-0 overflow-hidden">{renderSectionContent(sectionId)}</div>
+                        ) : (
+                          <CardContent className="pt-0 min-w-0 overflow-hidden">{renderSectionContent(sectionId)}</CardContent>
+                        )}
+                      </Suspense>
                     )}
                   </CollapsibleContent>
                 </Card>

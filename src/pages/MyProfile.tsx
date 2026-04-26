@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,7 +47,7 @@ const MyProfile = () => {
 
   // React Query for profile with caching
   const { data: profile, isLoading: loading } = useQuery({
-    queryKey: ['my-profile', user?.id],
+    queryKey: queryKeys.users.selfProfile(user?.id || ''),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
