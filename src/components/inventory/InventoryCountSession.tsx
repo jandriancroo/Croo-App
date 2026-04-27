@@ -787,7 +787,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     saveInProgressRef.current = false;
     return { saved, failed };
-  }, [countId]);
+  }, [countId, logInputsToAudit]);
 
   // Synchronous flush: fire-and-forget save using sendBeacon + edge fallback
   // IMPORTANT: Does NOT mark as saved — sendBeacon can't confirm success
