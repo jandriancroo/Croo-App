@@ -558,7 +558,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                               {units != null ? (units % 1 === 0 ? units : units.toFixed(2)) : "?"}
                               {units != null && (
                                 <span className="text-[8px] text-muted-foreground ml-0.5">
-                                  {tmpl.pan_units_per_lb != null ? "lb" : "ea"}
+                                  {getBaselineUnitLabel(tmpl, tmpl.pan_units_per_lb != null)}
                                 </span>
                               )}
                             </span>
