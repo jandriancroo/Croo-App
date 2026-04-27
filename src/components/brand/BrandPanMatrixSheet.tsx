@@ -124,15 +124,10 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
       if (error) throw error;
       return nowOnLb ? "each" : "lb";
     },
-    onSuccess: (newBasis, vars) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-pan-matrix"] });
       queryClient.invalidateQueries({ queryKey: ["brand-templates", brandId] });
-      if (newBasis) {
-        toast.success(`Switched to ${newBasis === "each" ? "each / unit" : "per lb"} — enter the new baseline`);
-        // Open the baseline cell for immediate re-entry
-        setEditingCell(`${vars.templateId}::__baseline__`);
-        setEditValue("");
-      }
+      // No toast, no auto-open. The pill label flips when the query refetches.
     },
     onError: () => toast.error("Failed to switch basis"),
   });
