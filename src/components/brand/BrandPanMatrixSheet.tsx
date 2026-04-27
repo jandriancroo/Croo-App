@@ -429,7 +429,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
             Manual override (clear to revert to auto)
           </span>
           <span className="flex items-center gap-1">
-            Tap a number to override · Shift+tap to disable
+            Tap a number to override · Shift+tap to disable · Tap baseline cell to switch ea ↔ lb
           </span>
         </div>
       </SheetContent>
