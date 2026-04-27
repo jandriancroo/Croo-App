@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +11,7 @@ import { FlaskConical, Plus, Trash2, Pencil, X, MapPin, Package, Loader2, Chevro
 import { toast } from "sonner";
 import { fetchBlueprintCosts } from "@/utils/blueprintCostCalculation";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
-import RecipeBuilderDialog from "../RecipeBuilderDialog";
+const RecipeBuilderDialog = lazyWithRetry(() => import("../RecipeBuilderDialog"));
 
 interface PrepRecipesSectionProps {
   locationId: string;
@@ -386,13 +387,17 @@ const PrepRecipesSection = ({ locationId }: PrepRecipesSectionProps) => {
       </Collapsible>
     </Card>
 
-    <RecipeBuilderDialog
-      open={showRecipeDialog}
-      onOpenChange={setShowRecipeDialog}
-      locationId={locationId}
-      editRecipeId={editRecipeId}
-      editBlueprintId={editBlueprintId}
-    />
+    {showRecipeDialog && (
+      <Suspense fallback={null}>
+        <RecipeBuilderDialog
+          open={showRecipeDialog}
+          onOpenChange={setShowRecipeDialog}
+          locationId={locationId}
+          editRecipeId={editRecipeId}
+          editBlueprintId={editBlueprintId}
+        />
+      </Suspense>
+    )}
     </>
   );
 };

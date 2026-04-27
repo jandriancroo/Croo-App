@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FlaskConical, Plus, Loader2, Trash2, AlertCircle } from "lucide-react";
 import { fetchBlueprintCosts, getBlueprintUnitCost } from "@/utils/blueprintCostCalculation";
 import { getCleanDisplayName } from "../recipe-catalog/utils";
-import RecipeBuilderDialog from "../RecipeBuilderDialog";
+const RecipeBuilderDialog = lazyWithRetry(() => import("../RecipeBuilderDialog"));
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -169,16 +170,20 @@ const RecipeGeniusCard = ({ locationId }: RecipeGeniusCardProps) => {
         )}
       </Card>
 
-      <RecipeBuilderDialog
-        open={showBuilder}
-        onOpenChange={(open) => {
-          setShowBuilder(open);
-          if (!open) setEditId(null);
-        }}
-        locationId={locationId}
-        editBlueprintId={editId}
-        simulatorMode
-      />
+      {showBuilder && (
+        <Suspense fallback={null}>
+          <RecipeBuilderDialog
+            open={showBuilder}
+            onOpenChange={(open) => {
+              setShowBuilder(open);
+              if (!open) setEditId(null);
+            }}
+            locationId={locationId}
+            editBlueprintId={editId}
+            simulatorMode
+          />
+        </Suspense>
+      )}
     </>
   );
 };
