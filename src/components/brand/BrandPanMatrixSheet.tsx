@@ -358,17 +358,21 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                         );
                       }
 
+                      const flipBasis = () => {
+                        toggleBaselineBasis.mutate({
+                          templateId: tmpl.id,
+                          currentPerUnit: tmpl.pan_units_per_unit ?? null,
+                          currentPerLb: tmpl.pan_units_per_lb ?? null,
+                        });
+                      };
+
                       return (
                         <td
                           className="text-center px-1.5 py-2 cursor-pointer hover:bg-muted/60 active:bg-muted"
                           onClick={(e) => {
                             // Shift+tap → flip basis (clears value, prompts for re-entry)
                             if (e.shiftKey) {
-                              toggleBaselineBasis.mutate({
-                                templateId: tmpl.id,
-                                currentPerUnit: tmpl.pan_units_per_unit ?? null,
-                                currentPerLb: tmpl.pan_units_per_lb ?? null,
-                              });
+                              flipBasis();
                               return;
                             }
                             // Default tap → edit baseline number on current basis
@@ -377,36 +381,36 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                           }}
                           onContextMenu={(e) => {
                             e.preventDefault();
-                            toggleBaselineBasis.mutate({
-                              templateId: tmpl.id,
-                              currentPerUnit: tmpl.pan_units_per_unit ?? null,
-                              currentPerLb: tmpl.pan_units_per_lb ?? null,
-                            });
+                            flipBasis();
                           }}
-                          title="Tap to edit baseline · Shift+tap (or right-click) to switch ea ↔ lb"
+                          title="Tap to edit baseline · Tap the lb/ea pill to switch basis · Shift+tap (or right-click) also flips"
                         >
-                          {hasBaseline ? (
-                            <div className="flex flex-col items-center gap-0">
-                              <span className="text-[10px] text-muted-foreground">
-                                {baselineContainer?.label.replace(/ \(.*\)/, '') ?? baselineKey}
-                              </span>
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className="text-[10px] text-muted-foreground">
+                              {baselineContainer?.label.replace(/ \(.*\)/, '') ?? baselineKey ?? "—"}
+                            </span>
+                            {hasBaseline ? (
                               <span className="font-mono font-semibold text-[11px] text-primary">
                                 {baselineValue != null && (baselineValue % 1 === 0 ? baselineValue : Number(baselineValue).toFixed(2))}
-                                <span className="text-[8px] text-muted-foreground ml-0.5">
-                                  {currentIsWeight ? "lb" : "ea"}
-                                </span>
                               </span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center gap-0">
-                              <span className="text-[10px] text-muted-foreground">
-                                {baselineContainer?.label.replace(/ \(.*\)/, '') ?? "—"}
-                              </span>
-                              <span className="text-muted-foreground/60 text-[10px] italic">
+                            ) : (
+                              <span className="text-muted-foreground/60 text-[10px] italic leading-none">
                                 tap to set
                               </span>
-                            </div>
-                          )}
+                            )}
+                            {/* Always-visible basis pill — tap to flip ea ↔ lb, even when empty */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                flipBasis();
+                              }}
+                              className="mt-0.5 text-[9px] font-mono px-1.5 py-0 rounded-full border border-border bg-muted/50 hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                              title="Tap to switch between lb and ea"
+                            >
+                              {currentIsWeight ? "lb" : "ea"} ⇄
+                            </button>
+                          </div>
                         </td>
                       );
                     })()}
