@@ -678,7 +678,7 @@ export const WidgetsSection = memo(function WidgetsSection({
       {/* Add Data Cube Dialog - only for personal cubes */}
       {!useRoleCubes && (
         <>
-          {showAddDialog && (
+          {hasOpenedAddDialog && (
             <Suspense fallback={null}>
               <AddWidgetDialog
                 open={showAddDialog}
