@@ -264,6 +264,22 @@ export const WidgetsSection = memo(function WidgetsSection({
   const showAddDialog = externalShowAddDialog !== undefined ? externalShowAddDialog : internalShowAddDialog;
   const setShowAddDialog = onAddDialogChange || setInternalShowAddDialog;
 
+  // Track whether the Add Widget dialog has been opened at least once.
+  // Once mounted, we keep it mounted so Radix close animations play smoothly
+  // and we don't pay the Suspense fallback flicker on subsequent opens.
+  const [hasOpenedAddDialog, setHasOpenedAddDialog] = useState(false);
+  useEffect(() => {
+    if (showAddDialog) setHasOpenedAddDialog(true);
+  }, [showAddDialog]);
+
+  // Prefetch the AddWidgetDialog chunk on idle so the FIRST open is also smooth
+  useEffect(() => {
+    const idle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 200));
+    const cancel = (window as any).cancelIdleCallback || clearTimeout;
+    const handle = idle(prefetchAddWidgetDialog);
+    return () => cancel(handle);
+  }, []);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
