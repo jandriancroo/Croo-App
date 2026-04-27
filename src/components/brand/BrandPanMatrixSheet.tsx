@@ -64,7 +64,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
       if (ids.length === 0) return [];
       const { data, error } = await supabase
         .from("brand_inventory_templates")
-        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb")
+        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb, is_weight_based")
         .in("id", ids)
         .order("category")
         .order("product_name");
