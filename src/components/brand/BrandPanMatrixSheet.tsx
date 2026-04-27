@@ -254,18 +254,33 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                       </div>
                     </td>
 
-                    {/* Baseline info cell */}
-                    <td className="text-center px-1.5 py-2">
+                    {/* Baseline info cell — tap to toggle basis between "each" and "lb" */}
+                    <td
+                      className={`text-center px-1.5 py-2 ${hasBaseline ? "cursor-pointer hover:bg-muted/60 active:bg-muted" : ""}`}
+                      onClick={() => {
+                        if (!hasBaseline) return;
+                        toggleBaselineBasis.mutate({
+                          templateId: tmpl.id,
+                          currentPerUnit: tmpl.pan_units_per_unit ?? null,
+                          currentPerLb: tmpl.pan_units_per_lb ?? null,
+                        });
+                      }}
+                      title={hasBaseline ? "Tap to switch between each / lb" : ""}
+                    >
                       {hasBaseline ? (
                         <div className="flex flex-col items-center gap-0">
                           <span className="text-[10px] text-muted-foreground">
                             {baselineContainer?.label.replace(/ \(.*\)/, '') ?? baselineKey}
                           </span>
                           <span className="font-mono font-semibold text-[11px] text-primary">
-                            {tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb}
-                            {tmpl.pan_units_per_lb && !tmpl.pan_units_per_unit ? (
-                              <span className="text-[8px] text-muted-foreground ml-0.5">lb</span>
-                            ) : null}
+                            {(() => {
+                              const v = tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb;
+                              if (v == null) return null;
+                              return v % 1 === 0 ? v : Number(v).toFixed(2);
+                            })()}
+                            <span className="text-[8px] text-muted-foreground ml-0.5">
+                              {tmpl.pan_units_per_lb != null ? "lb" : "ea"}
+                            </span>
                           </span>
                         </div>
                       ) : (
