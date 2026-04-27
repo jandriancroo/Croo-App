@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, Suspense } from "react";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -21,10 +22,10 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { ShiftCard } from "@/components/schedule/ShiftCard";
 import { EventRow } from "@/components/schedule/EventRow";
 import { EmployeeRow } from "@/components/schedule/EmployeeRow";
-import { EditShiftDialog } from "@/components/schedule/EditShiftDialog";
+const EditShiftDialog = lazyWithRetry(() => import("@/components/schedule/EditShiftDialog").then(m => ({ default: m.EditShiftDialog })));
 import { ConflictWarningDialog } from "@/components/schedule/ConflictWarningDialog";
 import { MobileScheduleView } from "@/components/schedule/MobileScheduleView";
-import { MobileShiftDialog } from "@/components/schedule/MobileShiftDialog";
+const MobileShiftDialog = lazyWithRetry(() => import("@/components/schedule/MobileShiftDialog").then(m => ({ default: m.MobileShiftDialog })));
 import { LaborTotals } from "@/components/schedule/LaborTotals";
 import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
@@ -575,14 +576,16 @@ export default function Schedule() {
           const isShiftPublished = isPublished && snapshotShift && !isShiftModified;
 
           return (
-            <EditShiftDialog
-              open={!!editingShift} onOpenChange={(open) => !open && setEditingShift(null)}
-              shift={editingShift} profiles={profiles} templates={templates}
-              onUpdate={fetchScheduleData} scheduleId={scheduleId || ""}
-              currentWeekStart={currentWeekStart} currentUserId={currentUserId || undefined}
-              availabilityRequests={availabilityRequests} isAdmin={isAdmin}
-              isShiftPublished={isShiftPublished}
-            />
+            <Suspense fallback={null}>
+              <EditShiftDialog
+                open={!!editingShift} onOpenChange={(open) => !open && setEditingShift(null)}
+                shift={editingShift} profiles={profiles} templates={templates}
+                onUpdate={fetchScheduleData} scheduleId={scheduleId || ""}
+                currentWeekStart={currentWeekStart} currentUserId={currentUserId || undefined}
+                availabilityRequests={availabilityRequests} isAdmin={isAdmin}
+                isShiftPublished={isShiftPublished}
+              />
+            </Suspense>
           );
         })()}
 
@@ -594,15 +597,17 @@ export default function Schedule() {
           <DayBreakdownDialog open={dayBreakdownOpen} onOpenChange={setDayBreakdownOpen} date={selectedDayForBreakdown} scheduleId={scheduleId} shifts={shifts} profiles={profiles} locationSettings={locationSettings} />
         )}
 
-        {(isAdmin || isManager) && (
-          <MobileShiftDialog
-            open={isCreatingShift} onOpenChange={setIsCreatingShift}
-            shift={{ id: '', user_id: null, day_of_week: 0, start_time: '09:00', end_time: '17:00', shift_date: format(currentWeekStart, 'yyyy-MM-dd') }}
-            profiles={profiles} isAdmin={isAdmin || isManager}
-            onShiftUpdated={fetchScheduleData} isCreating={true}
-            scheduleId={scheduleId} templates={templates} locationId={currentLocation?.id}
-            currentWeekStart={currentWeekStart}
-          />
+        {(isAdmin || isManager) && isCreatingShift && (
+          <Suspense fallback={null}>
+            <MobileShiftDialog
+              open={isCreatingShift} onOpenChange={setIsCreatingShift}
+              shift={{ id: '', user_id: null, day_of_week: 0, start_time: '09:00', end_time: '17:00', shift_date: format(currentWeekStart, 'yyyy-MM-dd') }}
+              profiles={profiles} isAdmin={isAdmin || isManager}
+              onShiftUpdated={fetchScheduleData} isCreating={true}
+              scheduleId={scheduleId} templates={templates} locationId={currentLocation?.id}
+              currentWeekStart={currentWeekStart}
+            />
+          </Suspense>
         )}
 
         {(isAdmin || isManager) && (
