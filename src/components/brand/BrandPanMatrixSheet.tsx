@@ -91,10 +91,19 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
   }, []);
 
   /**
-   * Flip baseline basis between "each" (pan_units_per_unit) and "lb" (pan_units_per_lb).
-   * CLEARS the value (it's almost always wrong on the new basis) and also flips
-   * is_weight_based to keep the rest of the system consistent. Caller should
-   * immediately startEdit on the baseline cell to prompt re-entry.
+   * Per-row local override for the basis pill, used ONLY when the row has no
+   * saved baseline yet (both pan_units_per_lb and pan_units_per_unit are null).
+   * Lets the user toggle the pill freely without hitting the DB or re-rendering
+   * the whole sheet. Once they enter a number, commitBaselineEdit writes to the
+   * matching column based on this local choice.
+   */
+  const [pendingBasis, setPendingBasis] = useState<Record<string, "weight" | "count">>({});
+
+  /**
+   * Flip baseline basis between "weight" (lb) and "count" (count_unit/yield_unit).
+   * For rows WITH a saved value: writes to DB, clearing the value (it's almost
+   * always wrong on the new basis). For rows with NO saved value: just flips
+   * the local pendingBasis so the UI updates instantly with no flicker.
    */
   const toggleBaselineBasis = useMutation({
     mutationFn: async ({ templateId, currentPerLb }: {
@@ -115,15 +124,10 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
       if (error) throw error;
       return nowOnLb ? "each" : "lb";
     },
-    onSuccess: (newBasis, vars) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brand-pan-matrix"] });
       queryClient.invalidateQueries({ queryKey: ["brand-templates", brandId] });
-      if (newBasis) {
-        toast.success(`Switched to ${newBasis === "each" ? "each / unit" : "per lb"} — enter the new baseline`);
-        // Open the baseline cell for immediate re-entry
-        setEditingCell(`${vars.templateId}::__baseline__`);
-        setEditValue("");
-      }
+      // No toast, no auto-open. The pill label flips when the query refetches.
     },
     onError: () => toast.error("Failed to switch basis"),
   });
@@ -339,12 +343,16 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                       // For prep recipes: weight-based ONLY when yield unit is literally "lb".
                       // Everything else (qt, gal, ea, …) stores in pan_units_per_unit so the label = yield unit.
                       const recipeIsWeight = isPrepRecipe && recipeYieldUnit === "lb";
+                      const hasSavedValue = tmpl.pan_units_per_lb != null || tmpl.pan_units_per_unit != null;
+                      const localPending = pendingBasis[tmpl.id];
                       const currentIsWeight = isPrepRecipe
                         ? recipeIsWeight
                         : tmpl.pan_units_per_lb != null
                         ? true
                         : tmpl.pan_units_per_unit != null
                         ? false
+                        : localPending != null
+                        ? localPending === "weight"
                         : !!tmpl.is_weight_based;
                       const baselineValue = tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb;
                       const unitLabel = getBaselineUnitLabel(tmpl, currentIsWeight);
@@ -386,6 +394,15 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                       }
 
                       const flipBasis = () => {
+                        // No saved value yet → flip locally, no DB write, no flicker.
+                        if (!hasSavedValue) {
+                          setPendingBasis(prev => ({
+                            ...prev,
+                            [tmpl.id]: currentIsWeight ? "count" : "weight",
+                          }));
+                          return;
+                        }
+                        // Has a saved value → must clear & rewrite to switch columns.
                         toggleBaselineBasis.mutate({
                           templateId: tmpl.id,
                           currentPerUnit: tmpl.pan_units_per_unit ?? null,
