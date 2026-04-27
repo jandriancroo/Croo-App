@@ -64,7 +64,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
       if (ids.length === 0) return [];
       const { data, error } = await supabase
         .from("brand_inventory_templates")
-        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb, is_weight_based")
+        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb, is_weight_based, is_recipe, recipe_yield_unit")
         .in("id", ids)
         .order("category")
         .order("product_name");
@@ -315,11 +315,16 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                     {(() => {
                       const baselineCellId = `${tmpl.id}::__baseline__`;
                       const isEditingBaseline = editingCell === baselineCellId;
+                      const recipeYieldUnit = String(tmpl.recipe_yield_unit ?? "").toLowerCase();
+                      const isRecipeCountBased = !!tmpl.is_recipe && recipeYieldUnit === "ea";
+                      const allowBasisFlip = !tmpl.is_recipe || isRecipeCountBased;
                       const currentIsWeight = tmpl.pan_units_per_lb != null
                         ? true
                         : tmpl.pan_units_per_unit != null
                         ? false
-                        : !!tmpl.is_weight_based;
+                        : allowBasisFlip
+                        ? !!tmpl.is_weight_based
+                        : true;
                       const baselineValue = tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb;
 
                       if (isEditingBaseline) {
@@ -399,17 +404,26 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                               </span>
                             )}
                             {/* Always-visible basis pill — tap to flip ea ↔ lb, even when empty */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                flipBasis();
-                              }}
-                              className="mt-0.5 text-[9px] font-mono px-1.5 py-0 rounded-full border border-border bg-muted/50 hover:bg-primary/10 hover:border-primary/40 transition-colors"
-                              title="Tap to switch between lb and ea"
-                            >
-                              {currentIsWeight ? "lb" : "ea"} ⇄
-                            </button>
+                             {allowBasisFlip ? (
+                               <button
+                                 type="button"
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   flipBasis();
+                                 }}
+                                 className="mt-0.5 text-[9px] font-mono px-1.5 py-0 rounded-full border border-border bg-muted/50 hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                                 title="Tap to switch between lb and ea"
+                               >
+                                 {currentIsWeight ? "lb" : "ea"} ⇄
+                               </button>
+                             ) : (
+                               <span
+                                 className="mt-0.5 text-[9px] font-mono px-1.5 py-0 rounded-full border border-border bg-muted/40 text-muted-foreground"
+                                 title="Prep recipes with non-each yields stay weight-based"
+                               >
+                                 lb
+                               </span>
+                             )}
                           </div>
                         </td>
                       );
