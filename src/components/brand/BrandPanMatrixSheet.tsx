@@ -343,12 +343,16 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                       // For prep recipes: weight-based ONLY when yield unit is literally "lb".
                       // Everything else (qt, gal, ea, …) stores in pan_units_per_unit so the label = yield unit.
                       const recipeIsWeight = isPrepRecipe && recipeYieldUnit === "lb";
+                      const hasSavedValue = tmpl.pan_units_per_lb != null || tmpl.pan_units_per_unit != null;
+                      const localPending = pendingBasis[tmpl.id];
                       const currentIsWeight = isPrepRecipe
                         ? recipeIsWeight
                         : tmpl.pan_units_per_lb != null
                         ? true
                         : tmpl.pan_units_per_unit != null
                         ? false
+                        : localPending != null
+                        ? localPending === "weight"
                         : !!tmpl.is_weight_based;
                       const baselineValue = tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb;
                       const unitLabel = getBaselineUnitLabel(tmpl, currentIsWeight);
@@ -390,6 +394,15 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                       }
 
                       const flipBasis = () => {
+                        // No saved value yet → flip locally, no DB write, no flicker.
+                        if (!hasSavedValue) {
+                          setPendingBasis(prev => ({
+                            ...prev,
+                            [tmpl.id]: currentIsWeight ? "count" : "weight",
+                          }));
+                          return;
+                        }
+                        // Has a saved value → must clear & rewrite to switch columns.
                         toggleBaselineBasis.mutate({
                           templateId: tmpl.id,
                           currentPerUnit: tmpl.pan_units_per_unit ?? null,
