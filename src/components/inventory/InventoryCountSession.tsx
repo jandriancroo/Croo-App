@@ -946,6 +946,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
         entered_cases: casesVal,
         entered_units: unitsVal,
+        item_name_at_count: item.item_name,
+        cost_at_count: item.cost_per_unit,
+        unit_at_count: item.unit,
+        // Audit log metadata (Palm Springs forensic logging)
+        _item_name: item.item_name,
+        _storage_location_name: item.storage_location,
+        _pack_quantity: item.pack_quantity,
+        _pan_sizes: item.pan_sizes,
+        _pan_inputs: panCounts[key] || null,
       };
     });
     
