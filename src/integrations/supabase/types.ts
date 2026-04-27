@@ -9300,6 +9300,16 @@ export type Database = {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
       }
+      build_pan_sizes_from_template: {
+        Args: {
+          _baseline_key: string
+          _enabled_keys: string[]
+          _overrides: Json
+          _units_per_lb: number
+          _units_per_unit: number
+        }
+        Returns: Json
+      }
       can_manage_org_applications: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
