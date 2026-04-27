@@ -237,6 +237,29 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     setEditValue(currentValue != null ? String(currentValue) : "");
   }, []);
 
+  const commitBaselineEdit = useCallback((templateId: string, isWeightBased: boolean) => {
+    const trimmed = editValue.trim();
+    if (trimmed === "") {
+      setEditingCell(null);
+      setEditValue("");
+      return;
+    }
+
+    const num = parseFloat(trimmed);
+    if (!isNaN(num) && num >= 0) {
+      setBaseline.mutate({
+        templateId,
+        value: num,
+        isWeightBased,
+      });
+      setEditingCell(null);
+      setEditValue("");
+      return;
+    }
+
+    toast.error("Enter a valid number");
+  }, [editValue, setBaseline]);
+
   const rows = templates ?? [];
 
   return (
@@ -314,27 +337,11 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                                 inputMode="decimal"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() => {
-                                  const trimmed = editValue.trim();
-                                  if (trimmed !== "") {
-                                    const num = parseFloat(trimmed);
-                                    if (!isNaN(num) && num >= 0) {
-                                      setBaseline.mutate({
-                                        templateId: tmpl.id,
-                                        value: num,
-                                        isWeightBased: currentIsWeight,
-                                      });
-                                    } else {
-                                      toast.error("Enter a valid number");
-                                    }
-                                  }
-                                  setEditingCell(null);
-                                  setEditValue("");
-                                }}
+                                 onBlur={() => commitBaselineEdit(tmpl.id, currentIsWeight)}
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
                                     e.preventDefault();
-                                    (e.target as HTMLInputElement).blur();
+                                     commitBaselineEdit(tmpl.id, currentIsWeight);
                                   } else if (e.key === "Escape") {
                                     setEditingCell(null);
                                     setEditValue("");
