@@ -64,7 +64,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
       if (ids.length === 0) return [];
       const { data, error } = await supabase
         .from("brand_inventory_templates")
-        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb, is_weight_based, is_recipe, recipe_yield_unit, count_unit")
+        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb, is_weight_based, is_recipe, recipe_yield_unit, count_unit, pack_override_inner_type, pack_override_inner_qty")
         .in("id", ids)
         .order("category")
         .order("product_name");
@@ -75,10 +75,78 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
   });
 
   /**
+   * Fetch a representative pack_size for each template from any linked
+   * location inventory_item. Used as fallback when the brand template has no
+   * count_unit/pack_override_* set (very common — most catalog rows).
+   */
+  const { data: packSizeByTemplateId } = useQuery({
+    queryKey: ["brand-pan-matrix-packsizes", brandId, ids],
+    queryFn: async () => {
+      if (ids.length === 0) return {} as Record<string, string>;
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("brand_item_id, pack_size")
+        .in("brand_item_id", ids)
+        .not("pack_size", "is", null);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => {
+        if (r.brand_item_id && r.pack_size && !map[r.brand_item_id]) {
+          map[r.brand_item_id] = String(r.pack_size);
+        }
+      });
+      return map;
+    },
+    enabled: open && ids.length > 0,
+  });
+
+  /**
+   * Friendly singular label for a vendor pack inner-unit code.
+   * "LB" → "lb", "OZ" → "oz", "CN" → "can", "EA" → "ea", "GAL" → "gal",
+   * "BAG" → "bag", "PCH"/"POUCH" → "pouch", "JAR" → "jar", "BTL" → "bottle".
+   */
+  const friendlyInnerUnit = (raw: string | null | undefined): string => {
+    if (!raw) return "";
+    const u = String(raw).trim().toUpperCase();
+    const map: Record<string, string> = {
+      LB: "lb", LBS: "lb", POUND: "lb", POUNDS: "lb",
+      OZ: "oz", OUNCE: "oz", OUNCES: "oz",
+      CN: "can", CAN: "can",
+      EA: "ea", EACH: "ea",
+      GAL: "gal", GALLON: "gal",
+      QT: "qt", QUART: "qt",
+      PT: "pt", PINT: "pt",
+      BAG: "bag", BG: "bag",
+      PCH: "pouch", POUCH: "pouch",
+      JAR: "jar", JR: "jar",
+      BTL: "bottle", BOTTLE: "bottle",
+      BX: "box", BOX: "box",
+      CT: "ct", COUNT: "ct",
+      KG: "kg",
+      L: "l", LT: "l", LTR: "l", LITER: "l", LITRE: "l",
+      ML: "ml",
+    };
+    return map[u] ?? u.toLowerCase();
+  };
+
+  /**
+   * Parse pack_size strings like "2/5 LB", "6/1 LB", "4/1 GAL", "6/#10 CN"
+   * → returns the inner unit code ("LB", "GAL", "CN", …) or "".
+   * Falls back gracefully on weird formats.
+   */
+  const parsePackSizeInnerUnit = (packSize: string | null | undefined): string => {
+    if (!packSize) return "";
+    // grab the trailing alpha token
+    const m = String(packSize).trim().match(/([A-Za-z]+)\s*$/);
+    return m?.[1] ?? "";
+  };
+
+  /**
    * Display unit for a row's baseline.
    *  - Prep recipes → recipe_yield_unit (qt for sauce, lb for prepped dough, ea for dough balls)
    *  - Vendor items on weight basis → "lb"
-   *  - Vendor items on count basis → their actual count_unit (pouch, can, bag, ea, …)
+   *  - Vendor items on count basis → in priority: count_unit → pack_override_inner_type
+   *    → parsed pack_size inner unit → "ea"
    */
   const getBaselineUnitLabel = useCallback((tmpl: any, isWeight: boolean): string => {
     if (tmpl.is_recipe) {
@@ -87,8 +155,13 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     }
     if (isWeight) return "lb";
     const cu = String(tmpl.count_unit ?? "").trim().toLowerCase();
-    return cu || "ea";
-  }, []);
+    if (cu) return cu;
+    const pot = friendlyInnerUnit(tmpl.pack_override_inner_type);
+    if (pot) return pot;
+    const fromPack = friendlyInnerUnit(parsePackSizeInnerUnit(packSizeByTemplateId?.[tmpl.id]));
+    if (fromPack) return fromPack;
+    return "ea";
+  }, [packSizeByTemplateId]);
 
   /**
    * Per-row local override for the basis pill, used ONLY when the row has no
