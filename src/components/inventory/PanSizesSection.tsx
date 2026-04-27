@@ -122,7 +122,28 @@ export default function PanSizesSection({ value, onChange, costPerUnit, unitLabe
     setEditingKey(null);
   }, [value]);
 
-  const baseline = ALL_CONTAINERS.find(c => c.key === baselineKey)!;
+  /**
+   * Map legacy / external baseline_key values to current ALL_CONTAINERS keys.
+   * Old data in the wild (374+ items) had `"full"`, `"each"`, `"unit"` —
+   * these would silently break the dialog before this normalization.
+   */
+  const normalizeBaselineKey = (k: string): string => {
+    if (!k) return "third_pan";
+    const map: Record<string, string> = {
+      full: "full_pan",
+      half: "half_pan",
+      third: "third_pan",
+      quarter: "quarter_pan",
+      sixth: "sixth_pan",
+      ninth: "ninth_pan",
+      each: "third_pan", // not a pan; map to default and let user pick a real pan
+      unit: "third_pan",
+    };
+    if (ALL_CONTAINERS.some(c => c.key === k)) return k;
+    return map[k] ?? "third_pan";
+  };
+  const safeBaselineKey = normalizeBaselineKey(baselineKey);
+  const baseline = ALL_CONTAINERS.find(c => c.key === safeBaselineKey) ?? ALL_CONTAINERS.find(c => c.key === "third_pan")!;
   const parsedBaselineUnits = parseFloat(baselineUnits) || 0;
 
   // Build and emit config whenever state changes
