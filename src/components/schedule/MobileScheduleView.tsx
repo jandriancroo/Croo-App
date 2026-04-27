@@ -1352,26 +1352,30 @@ export function MobileScheduleView({
         }}
       />
 
-      <MobileShiftDialog
-        open={shiftDialogOpen}
-        onOpenChange={(open) => {
-          setShiftDialogOpen(open);
-          if (!open) setIsCreatingShift(false);
-        }}
-        shift={selectedShift}
-        profiles={profiles}
-        isAdmin={isAdmin || isManager}
-        isCreating={isCreatingShift}
-        scheduleId={scheduleId}
-        templates={templates}
-        locationId={currentLocation?.id}
-        currentWeekStart={currentWeekStart}
-        onShiftUpdated={() => {
-          onUpdate?.();
-          setShiftDialogOpen(false);
-          setIsCreatingShift(false);
-        }}
-      />
+      {shiftDialogOpen && (
+        <Suspense fallback={null}>
+          <MobileShiftDialog
+            open={shiftDialogOpen}
+            onOpenChange={(open) => {
+              setShiftDialogOpen(open);
+              if (!open) setIsCreatingShift(false);
+            }}
+            shift={selectedShift}
+            profiles={profiles}
+            isAdmin={isAdmin || isManager}
+            isCreating={isCreatingShift}
+            scheduleId={scheduleId}
+            templates={templates}
+            locationId={currentLocation?.id}
+            currentWeekStart={currentWeekStart}
+            onShiftUpdated={() => {
+              onUpdate?.();
+              setShiftDialogOpen(false);
+              setIsCreatingShift(false);
+            }}
+          />
+        </Suspense>
+      )}
 
       <QuickPunchDialog
         open={quickPunchOpen}
