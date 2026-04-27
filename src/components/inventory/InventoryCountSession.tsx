@@ -576,11 +576,53 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           item_name_at_count: item.item_name,
           cost_at_count: item.cost_per_unit,
           unit_at_count: item.unit,
+          // --- Audit log fields (Palm Springs forensic logging) ---
+          _item_name: item.item_name,
+          _storage_location_name: item.storage_location,
+          _pack_quantity: item.pack_quantity,
+          _pan_sizes: item.pan_sizes,
+          _pan_inputs: panCounts[key] || null,
         };
       });
       return { itemCounts, snapshot: JSON.stringify(itemCounts) };
     };
   }, [items, counts, panCounts, getTotalQuantity]);
+
+  // === Palm Springs forensic audit log ===
+  // Logs every save attempt with raw UI inputs (cases, units, pan inputs) verbatim
+  // so we can reconstruct Dave's exact inputs even if conversion math changes later.
+  const PALM_SPRINGS_LOCATION_ID = 'd667741f-6d4c-433e-bb22-307e817ea7f1';
+  const logInputsToAudit = useCallback(async (itemCounts: any[]) => {
+    if (locationId !== PALM_SPRINGS_LOCATION_ID) return;
+    try {
+      const rows = itemCounts
+        .filter(ic => (ic.entered_cases || 0) > 0 || (ic.entered_units || 0) > 0 || (ic._pan_inputs && Object.values(ic._pan_inputs as Record<string, number>).some(v => (v || 0) > 0)))
+        .map(ic => ({
+          count_id: countId,
+          location_id: locationId,
+          item_id: ic.item_id,
+          item_name: ic._item_name ?? ic.item_name_at_count ?? null,
+          storage_location_id: ic.storage_location_id,
+          storage_location_name: ic._storage_location_name ?? null,
+          entered_cases: ic.entered_cases ?? 0,
+          entered_units: ic.entered_units ?? 0,
+          pan_inputs: ic._pan_inputs ?? null,
+          pack_quantity: ic._pack_quantity ?? null,
+          pan_sizes: ic._pan_sizes ?? null,
+          computed_quantity: ic.quantity ?? null,
+          user_id: user?.id ?? null,
+          user_email: (user as any)?.email ?? null,
+          event_type: 'save',
+        }));
+      if (rows.length === 0) return;
+      // Fire-and-forget; never block the actual save
+      supabase.from('inventory_count_input_log' as any).insert(rows as any).then(({ error }) => {
+        if (error) console.warn('[InputLog] insert failed:', error.message);
+      });
+    } catch (e) {
+      console.warn('[InputLog] logging error:', e);
+    }
+  }, [countId, locationId, user]);
 
   // Resilient batch save: ONE bulk SELECT, then only UPDATE/INSERT changed items
   // Protected by mutex to prevent concurrent save operations (race condition)
@@ -599,6 +641,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       saveInProgressRef.current = false;
       return { saved, failed };
     }
+
+    // Forensic input log (Palm Springs only) — fire-and-forget, never blocks
+    logInputsToAudit(itemCounts);
 
     try {
       // ONE query to fetch all existing count items for this count
@@ -742,7 +787,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     saveInProgressRef.current = false;
     return { saved, failed };
-  }, [countId]);
+  }, [countId, logInputsToAudit]);
 
   // Synchronous flush: fire-and-forget save using sendBeacon + edge fallback
   // IMPORTANT: Does NOT mark as saved — sendBeacon can't confirm success
@@ -901,6 +946,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
         entered_cases: casesVal,
         entered_units: unitsVal,
+        item_name_at_count: item.item_name,
+        cost_at_count: item.cost_per_unit,
+        unit_at_count: item.unit,
+        // Audit log metadata (Palm Springs forensic logging)
+        _item_name: item.item_name,
+        _storage_location_name: item.storage_location,
+        _pack_quantity: item.pack_quantity,
+        _pan_sizes: item.pan_sizes,
+        _pan_inputs: panCounts[key] || null,
       };
     });
     
