@@ -384,8 +384,11 @@ export function EditDashboardDialog({
   };
 
   const handleAddClick = () => {
-    onOpenChange(false);
-    setTimeout(() => onAddCube(), 100);
+    // Open the Add Widget dialog FIRST so it animates in over the Edit dialog,
+    // then close the Edit dialog on the next frame. This eliminates the visible
+    // gap between Radix's close-out and open-in animations (the "flicker").
+    onAddCube();
+    requestAnimationFrame(() => onOpenChange(false));
   };
 
   const handlePromoImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
