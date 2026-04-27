@@ -505,8 +505,10 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                               isOverride ? "text-foreground font-bold" : "text-foreground font-semibold"
                             }`}>
                               {units != null ? (units % 1 === 0 ? units : units.toFixed(2)) : "?"}
-                              {units != null && tmpl.pan_units_per_lb != null && (
-                                <span className="text-[8px] text-muted-foreground ml-0.5">lb</span>
+                              {units != null && (
+                                <span className="text-[8px] text-muted-foreground ml-0.5">
+                                  {tmpl.pan_units_per_lb != null ? "lb" : "ea"}
+                                </span>
                               )}
                             </span>
                             {isOverride && !isBaseline && (
