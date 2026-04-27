@@ -23,7 +23,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { DashboardWidget, MetricType, WidgetSize, SalesDataForWidgets } from './DashboardWidget';
 import type { NewDataCubeConfig, CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
-const AddWidgetDialog = lazyWithRetry(() => import('./AddWidgetDialog').then(m => ({ default: m.AddWidgetDialog })));
+const addWidgetDialogImport = () => import('./AddWidgetDialog').then(m => ({ default: m.AddWidgetDialog }));
+const AddWidgetDialog = lazyWithRetry(addWidgetDialogImport);
+// Prefetch the chunk on idle so the first open is instant (no Suspense flicker)
+const prefetchAddWidgetDialog = () => { addWidgetDialogImport().catch(() => {}); };
 import { Add3DCubeDialog, New3DCubeConfig } from './Add3DCubeDialog';
 import { DataCube3D } from './DataCube3D';
 import { SalesSummary } from './SalesSummary';
@@ -260,6 +263,22 @@ export const WidgetsSection = memo(function WidgetsSection({
   // Use external control if provided, otherwise use internal state
   const showAddDialog = externalShowAddDialog !== undefined ? externalShowAddDialog : internalShowAddDialog;
   const setShowAddDialog = onAddDialogChange || setInternalShowAddDialog;
+
+  // Track whether the Add Widget dialog has been opened at least once.
+  // Once mounted, we keep it mounted so Radix close animations play smoothly
+  // and we don't pay the Suspense fallback flicker on subsequent opens.
+  const [hasOpenedAddDialog, setHasOpenedAddDialog] = useState(false);
+  useEffect(() => {
+    if (showAddDialog) setHasOpenedAddDialog(true);
+  }, [showAddDialog]);
+
+  // Prefetch the AddWidgetDialog chunk on idle so the FIRST open is also smooth
+  useEffect(() => {
+    const idle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 200));
+    const cancel = (window as any).cancelIdleCallback || clearTimeout;
+    const handle = idle(prefetchAddWidgetDialog);
+    return () => cancel(handle);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -575,7 +594,7 @@ export const WidgetsSection = memo(function WidgetsSection({
   if (!useRoleCubes && localCubes.length === 0 && !checklistsContent) {
     return (
       <>
-        {showAddDialog && (
+        {hasOpenedAddDialog && (
           <Suspense fallback={null}>
             <AddWidgetDialog
               open={showAddDialog}
@@ -659,7 +678,7 @@ export const WidgetsSection = memo(function WidgetsSection({
       {/* Add Data Cube Dialog - only for personal cubes */}
       {!useRoleCubes && (
         <>
-          {showAddDialog && (
+          {hasOpenedAddDialog && (
             <Suspense fallback={null}>
               <AddWidgetDialog
                 open={showAddDialog}
