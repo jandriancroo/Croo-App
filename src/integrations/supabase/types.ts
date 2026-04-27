@@ -8366,6 +8366,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          break_type: string | null
           created_at: string | null
           created_by: string | null
           edited_at: string | null
@@ -8385,6 +8386,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          break_type?: string | null
           created_at?: string | null
           created_by?: string | null
           edited_at?: string | null
@@ -8404,6 +8406,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          break_type?: string | null
           created_at?: string | null
           created_by?: string | null
           edited_at?: string | null
