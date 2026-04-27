@@ -64,7 +64,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
       if (ids.length === 0) return [];
       const { data, error } = await supabase
         .from("brand_inventory_templates")
-        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb, is_weight_based, is_recipe, recipe_yield_unit")
+        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb, is_weight_based, is_recipe, recipe_yield_unit, count_unit")
         .in("id", ids)
         .order("category")
         .order("product_name");
@@ -73,6 +73,22 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     },
     enabled: open && ids.length > 0,
   });
+
+  /**
+   * Display unit for a row's baseline.
+   *  - Prep recipes → recipe_yield_unit (qt for sauce, lb for prepped dough, ea for dough balls)
+   *  - Vendor items on weight basis → "lb"
+   *  - Vendor items on count basis → their actual count_unit (pouch, can, bag, ea, …)
+   */
+  const getBaselineUnitLabel = useCallback((tmpl: any, isWeight: boolean): string => {
+    if (tmpl.is_recipe) {
+      const yu = String(tmpl.recipe_yield_unit ?? "").trim().toLowerCase();
+      return yu || (isWeight ? "lb" : "ea");
+    }
+    if (isWeight) return "lb";
+    const cu = String(tmpl.count_unit ?? "").trim().toLowerCase();
+    return cu || "ea";
+  }, []);
 
   /**
    * Flip baseline basis between "each" (pan_units_per_unit) and "lb" (pan_units_per_lb).
@@ -311,21 +327,27 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                       </div>
                     </td>
 
-                    {/* Baseline info cell — tap to edit number, shift+tap (or right-click) to flip ea ↔ lb basis */}
+                    {/* Baseline info cell — tap to edit number, shift+tap (or right-click) to flip basis (vendor rows only) */}
                     {(() => {
                       const baselineCellId = `${tmpl.id}::__baseline__`;
                       const isEditingBaseline = editingCell === baselineCellId;
-                      const recipeYieldUnit = String(tmpl.recipe_yield_unit ?? "").toLowerCase();
-                      const isRecipeCountBased = !!tmpl.is_recipe && recipeYieldUnit === "ea";
-                      const allowBasisFlip = !tmpl.is_recipe || isRecipeCountBased;
-                      const currentIsWeight = tmpl.pan_units_per_lb != null
+                      const recipeYieldUnit = String(tmpl.recipe_yield_unit ?? "").trim().toLowerCase();
+                      // Prep recipes are locked to their recipe yield unit (qt for sauce, lb for prepped dough, ea for dough balls).
+                      // Vendor items can flip between lb (weight) and their native count_unit (pouch/can/bag/ea).
+                      const isPrepRecipe = !!tmpl.is_recipe;
+                      const allowBasisFlip = !isPrepRecipe;
+                      // For prep recipes: weight-based ONLY when yield unit is literally "lb".
+                      // Everything else (qt, gal, ea, …) stores in pan_units_per_unit so the label = yield unit.
+                      const recipeIsWeight = isPrepRecipe && recipeYieldUnit === "lb";
+                      const currentIsWeight = isPrepRecipe
+                        ? recipeIsWeight
+                        : tmpl.pan_units_per_lb != null
                         ? true
                         : tmpl.pan_units_per_unit != null
                         ? false
-                        : allowBasisFlip
-                        ? !!tmpl.is_weight_based
-                        : true;
+                        : !!tmpl.is_weight_based;
                       const baselineValue = tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb;
+                      const unitLabel = getBaselineUnitLabel(tmpl, currentIsWeight);
 
                       if (isEditingBaseline) {
                         return (
@@ -352,11 +374,11 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                                     setEditValue("");
                                   }
                                 }}
-                                placeholder={currentIsWeight ? "lb" : "ea"}
+                                placeholder={unitLabel}
                                 className="w-14 text-center font-mono text-[11px] bg-background border border-border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary"
                               />
                               <span className="text-[8px] text-muted-foreground">
-                                {currentIsWeight ? "lb / pan" : "ea / pan"}
+                                {unitLabel} / pan
                               </span>
                             </div>
                           </td>
@@ -375,8 +397,8 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                         <td
                           className="text-center px-1.5 py-2 cursor-pointer hover:bg-muted/60 active:bg-muted"
                           onClick={(e) => {
-                            // Shift+tap → flip basis (clears value, prompts for re-entry)
-                            if (e.shiftKey) {
+                            // Shift+tap → flip basis (vendor rows only)
+                            if (e.shiftKey && allowBasisFlip) {
                               flipBasis();
                               return;
                             }
@@ -385,10 +407,15 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                             setEditValue(baselineValue != null ? String(baselineValue) : "");
                           }}
                           onContextMenu={(e) => {
+                            if (!allowBasisFlip) return;
                             e.preventDefault();
                             flipBasis();
                           }}
-                          title="Tap to edit baseline · Tap the lb/ea pill to switch basis · Shift+tap (or right-click) also flips"
+                          title={
+                            allowBasisFlip
+                              ? `Tap to edit baseline · Tap the ${unitLabel} pill to switch basis`
+                              : `Prep recipe — locked to ${unitLabel} (recipe yield unit)`
+                          }
                         >
                           <div className="flex flex-col items-center gap-0.5">
                             <span className="text-[10px] text-muted-foreground">
@@ -403,27 +430,26 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                                 tap to set
                               </span>
                             )}
-                            {/* Always-visible basis pill — tap to flip ea ↔ lb, even when empty */}
-                             {allowBasisFlip ? (
-                               <button
-                                 type="button"
-                                 onClick={(e) => {
-                                   e.stopPropagation();
-                                   flipBasis();
-                                 }}
-                                 className="mt-0.5 text-[9px] font-mono px-1.5 py-0 rounded-full border border-border bg-muted/50 hover:bg-primary/10 hover:border-primary/40 transition-colors"
-                                 title="Tap to switch between lb and ea"
-                               >
-                                 {currentIsWeight ? "lb" : "ea"} ⇄
-                               </button>
-                             ) : (
-                               <span
-                                 className="mt-0.5 text-[9px] font-mono px-1.5 py-0 rounded-full border border-border bg-muted/40 text-muted-foreground"
-                                 title="Prep recipes with non-each yields stay weight-based"
-                               >
-                                 lb
-                               </span>
-                             )}
+                            {allowBasisFlip ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  flipBasis();
+                                }}
+                                className="mt-0.5 text-[9px] font-mono px-1.5 py-0 rounded-full border border-border bg-muted/50 hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                                title={`Tap to switch between lb and ${getBaselineUnitLabel(tmpl, false)}`}
+                              >
+                                {unitLabel} ⇄
+                              </button>
+                            ) : (
+                              <span
+                                className="mt-0.5 text-[9px] font-mono px-1.5 py-0 rounded-full border border-border bg-muted/40 text-muted-foreground"
+                                title={`Locked to ${unitLabel} (recipe yield unit)`}
+                              >
+                                {unitLabel}
+                              </span>
+                            )}
                           </div>
                         </td>
                       );
@@ -532,7 +558,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                               {units != null ? (units % 1 === 0 ? units : units.toFixed(2)) : "?"}
                               {units != null && (
                                 <span className="text-[8px] text-muted-foreground ml-0.5">
-                                  {tmpl.pan_units_per_lb != null ? "lb" : "ea"}
+                                  {getBaselineUnitLabel(tmpl, tmpl.pan_units_per_lb != null)}
                                 </span>
                               )}
                             </span>
