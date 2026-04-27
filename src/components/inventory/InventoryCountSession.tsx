@@ -642,6 +642,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       return { saved, failed };
     }
 
+    // Forensic input log (Palm Springs only) — fire-and-forget, never blocks
+    logInputsToAudit(itemCounts);
+
     try {
       // ONE query to fetch all existing count items for this count
       const { data: allExisting, error: fetchErr } = await supabase
