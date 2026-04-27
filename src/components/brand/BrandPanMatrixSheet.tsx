@@ -2,9 +2,17 @@
  * BrandPanMatrixSheet — A sheet that shows a mini spreadsheet of pan configurations
  * for selected brand inventory templates. Allows quick visual review and toggle
  * of pan sizes across multiple items at once.
+ *
+ * Each numeric pan cell is INLINE EDITABLE:
+ *   - Empty / no override → auto-calculated from baseline ratio (normal weight)
+ *   - Typed override → bold + dot indicator, stored in pan_overrides JSON
+ *   - Clear value → reverts to auto
+ *
+ * Brand pan_overrides changes auto-propagate to all linked location inventory_items
+ * via DB trigger (trg_propagate_pan_sizes). No deploy step needed.
  */
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -37,6 +45,18 @@ function calcUnits(container: ContainerDef, baseline: ContainerDef, baselineUnit
 export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, brandId }: BrandPanMatrixSheetProps) {
   const queryClient = useQueryClient();
   const ids = useMemo(() => Array.from(selectedIds), [selectedIds]);
+
+  /** Currently-edited cell: `${templateId}::${panKey}` or null */
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingCell && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingCell]);
 
   const { data: templates } = useQuery({
     queryKey: ["brand-pan-matrix", brandId, ids],
@@ -72,24 +92,83 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     onError: () => toast.error("Failed to update pan key"),
   });
 
-  const getUnitsForContainer = useCallback((template: any, container: ContainerDef): number | null => {
+  /**
+   * Set or clear a per-pan numeric override.
+   * Pass null to clear (revert to auto-calc).
+   */
+  const setOverride = useMutation({
+    mutationFn: async ({ templateId, panKey, value, currentOverrides }: {
+      templateId: string;
+      panKey: string;
+      value: number | null;
+      currentOverrides: Record<string, number> | null;
+    }) => {
+      const next = { ...(currentOverrides ?? {}) };
+      if (value == null) {
+        delete next[panKey];
+      } else {
+        next[panKey] = value;
+      }
+      const isEmpty = Object.keys(next).length === 0;
+      const { error } = await supabase
+        .from("brand_inventory_templates")
+        .update({
+          pan_overrides: (isEmpty ? null : next) as any,
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq("id", templateId);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["brand-pan-matrix"] });
+      queryClient.invalidateQueries({ queryKey: ["brand-templates", brandId] });
+      toast.success(vars.value == null ? "Reverted to auto" : "Override saved — pushed to locations");
+    },
+    onError: () => toast.error("Failed to save override"),
+  });
+
+  const getUnitsForContainer = useCallback((template: any, container: ContainerDef): { value: number | null; isOverride: boolean } => {
     const baselineKey = template.pan_baseline_key;
     const baselineContainer = ALL_CONTAINERS.find(c => c.key === baselineKey);
     const unitsPerUnit = template.pan_units_per_unit;
     const unitsPerLb = template.pan_units_per_lb;
 
-    // Need a baseline container and at least one measurement
-    if (!baselineContainer || (unitsPerUnit == null && unitsPerLb == null)) return null;
+    if (!baselineContainer || (unitsPerUnit == null && unitsPerLb == null)) return { value: null, isOverride: false };
 
-    // Use whichever value is available — both represent "how much fits in the baseline container"
     const baselineValue = unitsPerUnit ?? unitsPerLb;
 
     // Check overrides first
     const overrides = template.pan_overrides as Record<string, number> | null;
-    if (overrides?.[container.key] != null) return overrides[container.key];
+    if (overrides?.[container.key] != null) return { value: overrides[container.key], isOverride: true };
 
-    // Auto-calculate from baseline ratio
-    return calcUnits(container, baselineContainer, baselineValue!);
+    return { value: calcUnits(container, baselineContainer, baselineValue!), isOverride: false };
+  }, []);
+
+  const commitEdit = useCallback((templateId: string, panKey: string, currentOverrides: Record<string, number> | null) => {
+    const trimmed = editValue.trim();
+    if (trimmed === "") {
+      // Clear override → revert to auto
+      if (currentOverrides?.[panKey] != null) {
+        setOverride.mutate({ templateId, panKey, value: null, currentOverrides });
+      }
+    } else {
+      const num = parseFloat(trimmed);
+      if (!isNaN(num) && num >= 0) {
+        // Only persist if it actually changed
+        if (currentOverrides?.[panKey] !== num) {
+          setOverride.mutate({ templateId, panKey, value: num, currentOverrides });
+        }
+      } else {
+        toast.error("Enter a valid number");
+      }
+    }
+    setEditingCell(null);
+    setEditValue("");
+  }, [editValue, setOverride]);
+
+  const startEdit = useCallback((templateId: string, panKey: string, currentValue: number | null) => {
+    setEditingCell(`${templateId}::${panKey}`);
+    setEditValue(currentValue != null ? String(currentValue) : "");
   }, []);
 
   const rows = templates ?? [];
@@ -115,18 +194,19 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                   <span className="text-[10px]">Baseline</span>
                 </th>
                 {PAN_COLUMNS.map(col => (
-                  <th key={col.key} className="text-center px-1.5 py-2 font-medium text-muted-foreground min-w-[56px] whitespace-nowrap">
+                  <th key={col.key} className="text-center px-1.5 py-2 font-medium text-muted-foreground min-w-[64px] whitespace-nowrap">
                     <span className="text-[10px]">{col.label.replace(/ \(.*\)/, '')}</span>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map((tmpl, idx) => {
+              {rows.map((tmpl: any, idx) => {
                 const enabledKeys = tmpl.pan_enabled_keys ?? [];
                 const baselineKey = tmpl.pan_baseline_key;
                 const hasBaseline = !!(tmpl.pan_units_per_unit || tmpl.pan_units_per_lb);
                 const baselineContainer = ALL_CONTAINERS.find(c => c.key === baselineKey);
+                const overrides = (tmpl.pan_overrides as Record<string, number> | null) ?? null;
 
                 return (
                   <tr
@@ -164,7 +244,11 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                     {PAN_COLUMNS.map(col => {
                       const isEnabled = enabledKeys.includes(col.key);
                       const isBaseline = baselineKey === col.key;
-                      const units = hasBaseline ? getUnitsForContainer(tmpl, col) : null;
+                      const cellId = `${tmpl.id}::${col.key}`;
+                      const isEditing = editingCell === cellId;
+                      const { value: units, isOverride } = hasBaseline
+                        ? getUnitsForContainer(tmpl, col)
+                        : { value: null, isOverride: false };
 
                       if (!hasBaseline) {
                         return (
@@ -174,6 +258,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                         );
                       }
 
+                      // Disabled cell: tap to enable
                       if (!isEnabled) {
                         return (
                           <td
@@ -190,28 +275,77 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                         );
                       }
 
+                      // Editing: render input
+                      if (isEditing) {
+                        return (
+                          <td key={col.key} className="text-center px-0.5 py-1 bg-primary/5 ring-1 ring-inset ring-primary/40">
+                            <input
+                              ref={inputRef}
+                              type="number"
+                              step="any"
+                              min="0"
+                              inputMode="decimal"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={() => commitEdit(tmpl.id, col.key, overrides)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  commitEdit(tmpl.id, col.key, overrides);
+                                } else if (e.key === "Escape") {
+                                  setEditingCell(null);
+                                  setEditValue("");
+                                }
+                              }}
+                              placeholder="auto"
+                              className="w-full text-center font-mono text-[11px] bg-background border border-border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                          </td>
+                        );
+                      }
+
+                      // Enabled cell: shows units, click to edit (baseline shows star but is also editable for overrides)
                       return (
                         <td
                           key={col.key}
-                          className={`text-center px-1.5 py-2 cursor-pointer hover:bg-muted/50 active:bg-muted ${
+                          className={`text-center px-1.5 py-2 cursor-pointer hover:bg-muted/50 active:bg-muted relative ${
                             isBaseline ? "bg-primary/10 ring-1 ring-inset ring-primary/20" : ""
                           }`}
-                          onClick={() => {
-                            if (isBaseline) return; // Don't disable baseline
+                          onClick={(e) => {
+                            // Long-press / right-click on enabled non-baseline → toggle off
+                            // Default click → start edit
+                            if (e.shiftKey && !isBaseline) {
+                              togglePanKey.mutate({
+                                templateId: tmpl.id,
+                                panKey: col.key,
+                                currentKeys: enabledKeys,
+                              });
+                              return;
+                            }
+                            startEdit(tmpl.id, col.key, units);
+                          }}
+                          onContextMenu={(e) => {
+                            if (isBaseline) return;
+                            e.preventDefault();
                             togglePanKey.mutate({
                               templateId: tmpl.id,
                               panKey: col.key,
                               currentKeys: enabledKeys,
                             });
                           }}
+                          title={isOverride ? "Manual override (click to edit, clear to revert)" : "Auto-calculated (click to override)"}
                         >
                           <div className="flex flex-col items-center gap-0">
                             {isBaseline && <Star className="h-2.5 w-2.5 text-primary fill-primary" />}
-                            <span className={`font-mono font-semibold text-[11px] ${
-                              isBaseline ? "text-primary" : "text-foreground"
+                            <span className={`font-mono text-[11px] ${
+                              isBaseline ? "text-primary font-semibold" :
+                              isOverride ? "text-foreground font-bold" : "text-foreground font-semibold"
                             }`}>
                               {units != null ? (units % 1 === 0 ? units : units.toFixed(2)) : "?"}
                             </span>
+                            {isOverride && !isBaseline && (
+                              <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-500" />
+                            )}
                           </div>
                         </td>
                       );
@@ -231,15 +365,21 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 text-[10px] text-muted-foreground px-4 py-2 border-t border-border shrink-0">
+        <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground px-4 py-2 border-t border-border shrink-0">
           <span className="flex items-center gap-1">
             <Star className="h-2.5 w-2.5 text-primary fill-primary" /> Baseline
           </span>
           <span className="flex items-center gap-1">
-            <span className="text-muted-foreground/50 text-lg leading-none">○</span> Disabled (tap to enable)
+            <span className="text-muted-foreground/50 text-lg leading-none">○</span> Tap to enable
           </span>
           <span className="flex items-center gap-1">
-            <span className="text-muted-foreground/30">—</span> No baseline set
+            <span className="relative inline-block w-3 h-3">
+              <span className="absolute top-0 right-0 h-1.5 w-1.5 rounded-full bg-amber-500" />
+            </span>
+            Manual override (clear to revert to auto)
+          </span>
+          <span className="flex items-center gap-1">
+            Tap a number to override · Shift+tap to disable
           </span>
         </div>
       </SheetContent>
