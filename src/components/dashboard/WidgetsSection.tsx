@@ -659,17 +659,21 @@ export const WidgetsSection = memo(function WidgetsSection({
       {/* Add Data Cube Dialog - only for personal cubes */}
       {!useRoleCubes && (
         <>
-          <AddWidgetDialog
-            open={showAddDialog}
-            onOpenChange={setShowAddDialog}
-            onAdd={handleAddCube}
-            defaultColorIndex={localCubes.length}
-            hasSalesChart={hasSalesChart}
-            onAdd3DCube={() => {
-              setShowAddDialog(false);
-              setShow3DCubeDialog(true);
-            }}
-          />
+          {showAddDialog && (
+            <Suspense fallback={null}>
+              <AddWidgetDialog
+                open={showAddDialog}
+                onOpenChange={setShowAddDialog}
+                onAdd={handleAddCube}
+                defaultColorIndex={localCubes.length}
+                hasSalesChart={hasSalesChart}
+                onAdd3DCube={() => {
+                  setShowAddDialog(false);
+                  setShow3DCubeDialog(true);
+                }}
+              />
+            </Suspense>
+          )}
           
           {/* Add 3D Cube Dialog */}
           <Add3DCubeDialog
