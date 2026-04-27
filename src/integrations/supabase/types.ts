@@ -2830,6 +2830,66 @@ export type Database = {
           },
         ]
       }
+      inventory_count_input_log: {
+        Row: {
+          computed_quantity: number | null
+          count_id: string
+          created_at: string
+          entered_cases: number | null
+          entered_units: number | null
+          event_type: string
+          id: string
+          item_id: string
+          item_name: string | null
+          location_id: string
+          pack_quantity: number | null
+          pan_inputs: Json | null
+          pan_sizes: Json | null
+          storage_location_id: string | null
+          storage_location_name: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          computed_quantity?: number | null
+          count_id: string
+          created_at?: string
+          entered_cases?: number | null
+          entered_units?: number | null
+          event_type?: string
+          id?: string
+          item_id: string
+          item_name?: string | null
+          location_id: string
+          pack_quantity?: number | null
+          pan_inputs?: Json | null
+          pan_sizes?: Json | null
+          storage_location_id?: string | null
+          storage_location_name?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          computed_quantity?: number | null
+          count_id?: string
+          created_at?: string
+          entered_cases?: number | null
+          entered_units?: number | null
+          event_type?: string
+          id?: string
+          item_id?: string
+          item_name?: string | null
+          location_id?: string
+          pack_quantity?: number | null
+          pan_inputs?: Json | null
+          pan_sizes?: Json | null
+          storage_location_id?: string | null
+          storage_location_name?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       inventory_count_items: {
         Row: {
           cost_at_count: number | null
