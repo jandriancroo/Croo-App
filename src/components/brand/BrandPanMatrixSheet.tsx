@@ -74,6 +74,38 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     enabled: open && ids.length > 0,
   });
 
+  /**
+   * Toggle the baseline basis between "each" (pan_units_per_unit) and "lb" (pan_units_per_lb).
+   * Carries the existing numeric value across — only the field (and therefore the unit label)
+   * changes. Used to fix items like Cauliflower Crust that were saved on the wrong basis.
+   */
+  const toggleBaselineBasis = useMutation({
+    mutationFn: async ({ templateId, currentPerUnit, currentPerLb }: {
+      templateId: string;
+      currentPerUnit: number | null;
+      currentPerLb: number | null;
+    }) => {
+      const carry = currentPerUnit ?? currentPerLb;
+      if (carry == null) return; // no baseline yet — nothing to flip
+      const nowOnLb = currentPerLb != null;
+      const patch = nowOnLb
+        ? { pan_units_per_unit: carry, pan_units_per_lb: null }
+        : { pan_units_per_unit: null, pan_units_per_lb: carry };
+      const { error } = await supabase
+        .from("brand_inventory_templates")
+        .update({ ...patch, updated_at: new Date().toISOString() } as any)
+        .eq("id", templateId);
+      if (error) throw error;
+      return nowOnLb ? "each" : "lb";
+    },
+    onSuccess: (newBasis) => {
+      queryClient.invalidateQueries({ queryKey: ["brand-pan-matrix"] });
+      queryClient.invalidateQueries({ queryKey: ["brand-templates", brandId] });
+      if (newBasis) toast.success(`Switched to ${newBasis === "each" ? "each / unit" : "per lb"} — pushed to locations`);
+    },
+    onError: () => toast.error("Failed to switch basis"),
+  });
+
   const togglePanKey = useMutation({
     mutationFn: async ({ templateId, panKey, currentKeys }: { templateId: string; panKey: string; currentKeys: string[] }) => {
       const newKeys = currentKeys.includes(panKey)
