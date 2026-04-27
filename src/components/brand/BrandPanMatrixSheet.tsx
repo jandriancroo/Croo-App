@@ -64,7 +64,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
       if (ids.length === 0) return [];
       const { data, error } = await supabase
         .from("brand_inventory_templates")
-        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb, is_weight_based, is_recipe, recipe_yield_unit")
+        .select("id, product_name, category, pan_baseline_key, pan_enabled_keys, pan_overrides, pan_units_per_unit, pan_units_per_lb, is_weight_based, is_recipe, recipe_yield_unit, count_unit")
         .in("id", ids)
         .order("category")
         .order("product_name");
@@ -73,6 +73,22 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     },
     enabled: open && ids.length > 0,
   });
+
+  /**
+   * Display unit for a row's baseline.
+   *  - Prep recipes → recipe_yield_unit (qt for sauce, lb for prepped dough, ea for dough balls)
+   *  - Vendor items on weight basis → "lb"
+   *  - Vendor items on count basis → their actual count_unit (pouch, can, bag, ea, …)
+   */
+  const getBaselineUnitLabel = useCallback((tmpl: any, isWeight: boolean): string => {
+    if (tmpl.is_recipe) {
+      const yu = String(tmpl.recipe_yield_unit ?? "").trim().toLowerCase();
+      return yu || (isWeight ? "lb" : "ea");
+    }
+    if (isWeight) return "lb";
+    const cu = String(tmpl.count_unit ?? "").trim().toLowerCase();
+    return cu || "ea";
+  }, []);
 
   /**
    * Flip baseline basis between "each" (pan_units_per_unit) and "lb" (pan_units_per_lb).
