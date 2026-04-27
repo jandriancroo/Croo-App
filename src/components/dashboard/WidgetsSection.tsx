@@ -594,7 +594,7 @@ export const WidgetsSection = memo(function WidgetsSection({
   if (!useRoleCubes && localCubes.length === 0 && !checklistsContent) {
     return (
       <>
-        {showAddDialog && (
+        {hasOpenedAddDialog && (
           <Suspense fallback={null}>
             <AddWidgetDialog
               open={showAddDialog}
