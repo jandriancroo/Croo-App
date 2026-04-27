@@ -288,39 +288,121 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                       </div>
                     </td>
 
-                    {/* Baseline info cell — tap to toggle basis between "each" and "lb" */}
-                    <td
-                      className={`text-center px-1.5 py-2 ${hasBaseline ? "cursor-pointer hover:bg-muted/60 active:bg-muted" : ""}`}
-                      onClick={() => {
-                        if (!hasBaseline) return;
-                        toggleBaselineBasis.mutate({
-                          templateId: tmpl.id,
-                          currentPerUnit: tmpl.pan_units_per_unit ?? null,
-                          currentPerLb: tmpl.pan_units_per_lb ?? null,
-                        });
-                      }}
-                      title={hasBaseline ? "Tap to switch between each / lb" : ""}
-                    >
-                      {hasBaseline ? (
-                        <div className="flex flex-col items-center gap-0">
-                          <span className="text-[10px] text-muted-foreground">
-                            {baselineContainer?.label.replace(/ \(.*\)/, '') ?? baselineKey}
-                          </span>
-                          <span className="font-mono font-semibold text-[11px] text-primary">
-                            {(() => {
-                              const v = tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb;
-                              if (v == null) return null;
-                              return v % 1 === 0 ? v : Number(v).toFixed(2);
-                            })()}
-                            <span className="text-[8px] text-muted-foreground ml-0.5">
-                              {tmpl.pan_units_per_lb != null ? "lb" : "ea"}
-                            </span>
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground/40 text-[10px]">—</span>
-                      )}
-                    </td>
+                    {/* Baseline info cell — tap to edit number, shift+tap (or right-click) to flip ea ↔ lb basis */}
+                    {(() => {
+                      const baselineCellId = `${tmpl.id}::__baseline__`;
+                      const isEditingBaseline = editingCell === baselineCellId;
+                      const currentIsWeight = tmpl.pan_units_per_lb != null
+                        ? true
+                        : tmpl.pan_units_per_unit != null
+                        ? false
+                        : !!tmpl.is_weight_based;
+                      const baselineValue = tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb;
+
+                      if (isEditingBaseline) {
+                        return (
+                          <td className="text-center px-0.5 py-1 bg-primary/5 ring-1 ring-inset ring-primary/40">
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="text-[9px] text-muted-foreground">
+                                {baselineContainer?.label.replace(/ \(.*\)/, '') ?? baselineKey}
+                              </span>
+                              <input
+                                ref={inputRef}
+                                type="number"
+                                step="any"
+                                min="0"
+                                inputMode="decimal"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onBlur={() => {
+                                  const trimmed = editValue.trim();
+                                  if (trimmed !== "") {
+                                    const num = parseFloat(trimmed);
+                                    if (!isNaN(num) && num >= 0) {
+                                      setBaseline.mutate({
+                                        templateId: tmpl.id,
+                                        value: num,
+                                        isWeightBased: currentIsWeight,
+                                      });
+                                    } else {
+                                      toast.error("Enter a valid number");
+                                    }
+                                  }
+                                  setEditingCell(null);
+                                  setEditValue("");
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    (e.target as HTMLInputElement).blur();
+                                  } else if (e.key === "Escape") {
+                                    setEditingCell(null);
+                                    setEditValue("");
+                                  }
+                                }}
+                                placeholder={currentIsWeight ? "lb" : "ea"}
+                                className="w-14 text-center font-mono text-[11px] bg-background border border-border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                              <span className="text-[8px] text-muted-foreground">
+                                {currentIsWeight ? "lb / pan" : "ea / pan"}
+                              </span>
+                            </div>
+                          </td>
+                        );
+                      }
+
+                      return (
+                        <td
+                          className="text-center px-1.5 py-2 cursor-pointer hover:bg-muted/60 active:bg-muted"
+                          onClick={(e) => {
+                            // Shift+tap → flip basis (clears value, prompts for re-entry)
+                            if (e.shiftKey) {
+                              toggleBaselineBasis.mutate({
+                                templateId: tmpl.id,
+                                currentPerUnit: tmpl.pan_units_per_unit ?? null,
+                                currentPerLb: tmpl.pan_units_per_lb ?? null,
+                              });
+                              return;
+                            }
+                            // Default tap → edit baseline number on current basis
+                            setEditingCell(baselineCellId);
+                            setEditValue(baselineValue != null ? String(baselineValue) : "");
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            toggleBaselineBasis.mutate({
+                              templateId: tmpl.id,
+                              currentPerUnit: tmpl.pan_units_per_unit ?? null,
+                              currentPerLb: tmpl.pan_units_per_lb ?? null,
+                            });
+                          }}
+                          title="Tap to edit baseline · Shift+tap (or right-click) to switch ea ↔ lb"
+                        >
+                          {hasBaseline ? (
+                            <div className="flex flex-col items-center gap-0">
+                              <span className="text-[10px] text-muted-foreground">
+                                {baselineContainer?.label.replace(/ \(.*\)/, '') ?? baselineKey}
+                              </span>
+                              <span className="font-mono font-semibold text-[11px] text-primary">
+                                {baselineValue != null && (baselineValue % 1 === 0 ? baselineValue : Number(baselineValue).toFixed(2))}
+                                <span className="text-[8px] text-muted-foreground ml-0.5">
+                                  {currentIsWeight ? "lb" : "ea"}
+                                </span>
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-0">
+                              <span className="text-[10px] text-muted-foreground">
+                                {baselineContainer?.label.replace(/ \(.*\)/, '') ?? "—"}
+                              </span>
+                              <span className="text-muted-foreground/60 text-[10px] italic">
+                                tap to set
+                              </span>
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })()}
 
                     {PAN_COLUMNS.map(col => {
                       const isEnabled = enabledKeys.includes(col.key);
