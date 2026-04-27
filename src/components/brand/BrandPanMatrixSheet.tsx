@@ -74,6 +74,38 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     enabled: open && ids.length > 0,
   });
 
+  /**
+   * Toggle the baseline basis between "each" (pan_units_per_unit) and "lb" (pan_units_per_lb).
+   * Carries the existing numeric value across — only the field (and therefore the unit label)
+   * changes. Used to fix items like Cauliflower Crust that were saved on the wrong basis.
+   */
+  const toggleBaselineBasis = useMutation({
+    mutationFn: async ({ templateId, currentPerUnit, currentPerLb }: {
+      templateId: string;
+      currentPerUnit: number | null;
+      currentPerLb: number | null;
+    }) => {
+      const carry = currentPerUnit ?? currentPerLb;
+      if (carry == null) return; // no baseline yet — nothing to flip
+      const nowOnLb = currentPerLb != null;
+      const patch = nowOnLb
+        ? { pan_units_per_unit: carry, pan_units_per_lb: null }
+        : { pan_units_per_unit: null, pan_units_per_lb: carry };
+      const { error } = await supabase
+        .from("brand_inventory_templates")
+        .update({ ...patch, updated_at: new Date().toISOString() } as any)
+        .eq("id", templateId);
+      if (error) throw error;
+      return nowOnLb ? "each" : "lb";
+    },
+    onSuccess: (newBasis) => {
+      queryClient.invalidateQueries({ queryKey: ["brand-pan-matrix"] });
+      queryClient.invalidateQueries({ queryKey: ["brand-templates", brandId] });
+      if (newBasis) toast.success(`Switched to ${newBasis === "each" ? "each / unit" : "per lb"} — pushed to locations`);
+    },
+    onError: () => toast.error("Failed to switch basis"),
+  });
+
   const togglePanKey = useMutation({
     mutationFn: async ({ templateId, panKey, currentKeys }: { templateId: string; panKey: string; currentKeys: string[] }) => {
       const newKeys = currentKeys.includes(panKey)
@@ -222,18 +254,33 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                       </div>
                     </td>
 
-                    {/* Baseline info cell */}
-                    <td className="text-center px-1.5 py-2">
+                    {/* Baseline info cell — tap to toggle basis between "each" and "lb" */}
+                    <td
+                      className={`text-center px-1.5 py-2 ${hasBaseline ? "cursor-pointer hover:bg-muted/60 active:bg-muted" : ""}`}
+                      onClick={() => {
+                        if (!hasBaseline) return;
+                        toggleBaselineBasis.mutate({
+                          templateId: tmpl.id,
+                          currentPerUnit: tmpl.pan_units_per_unit ?? null,
+                          currentPerLb: tmpl.pan_units_per_lb ?? null,
+                        });
+                      }}
+                      title={hasBaseline ? "Tap to switch between each / lb" : ""}
+                    >
                       {hasBaseline ? (
                         <div className="flex flex-col items-center gap-0">
                           <span className="text-[10px] text-muted-foreground">
                             {baselineContainer?.label.replace(/ \(.*\)/, '') ?? baselineKey}
                           </span>
                           <span className="font-mono font-semibold text-[11px] text-primary">
-                            {tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb}
-                            {tmpl.pan_units_per_lb && !tmpl.pan_units_per_unit ? (
-                              <span className="text-[8px] text-muted-foreground ml-0.5">lb</span>
-                            ) : null}
+                            {(() => {
+                              const v = tmpl.pan_units_per_unit ?? tmpl.pan_units_per_lb;
+                              if (v == null) return null;
+                              return v % 1 === 0 ? v : Number(v).toFixed(2);
+                            })()}
+                            <span className="text-[8px] text-muted-foreground ml-0.5">
+                              {tmpl.pan_units_per_lb != null ? "lb" : "ea"}
+                            </span>
                           </span>
                         </div>
                       ) : (
@@ -342,6 +389,9 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
                               isOverride ? "text-foreground font-bold" : "text-foreground font-semibold"
                             }`}>
                               {units != null ? (units % 1 === 0 ? units : units.toFixed(2)) : "?"}
+                              {units != null && tmpl.pan_units_per_lb != null && (
+                                <span className="text-[8px] text-muted-foreground ml-0.5">lb</span>
+                              )}
                             </span>
                             {isOverride && !isBaseline && (
                               <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-500" />
@@ -379,7 +429,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
             Manual override (clear to revert to auto)
           </span>
           <span className="flex items-center gap-1">
-            Tap a number to override · Shift+tap to disable
+            Tap a number to override · Shift+tap to disable · Tap baseline cell to switch ea ↔ lb
           </span>
         </div>
       </SheetContent>
