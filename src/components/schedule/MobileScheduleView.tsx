@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { lazyWithRetry } from '@/utils/lazyWithRetry';
 import { getDisplayName } from '@/utils/displayName';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek } from 'date-fns';
@@ -9,7 +10,7 @@ import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock,
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
-import { MobileShiftDialog } from './MobileShiftDialog';
+const MobileShiftDialog = lazyWithRetry(() => import('./MobileShiftDialog').then(m => ({ default: m.MobileShiftDialog })));
 import { MobileShiftCard } from './MobileShiftCard';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
@@ -1351,26 +1352,30 @@ export function MobileScheduleView({
         }}
       />
 
-      <MobileShiftDialog
-        open={shiftDialogOpen}
-        onOpenChange={(open) => {
-          setShiftDialogOpen(open);
-          if (!open) setIsCreatingShift(false);
-        }}
-        shift={selectedShift}
-        profiles={profiles}
-        isAdmin={isAdmin || isManager}
-        isCreating={isCreatingShift}
-        scheduleId={scheduleId}
-        templates={templates}
-        locationId={currentLocation?.id}
-        currentWeekStart={currentWeekStart}
-        onShiftUpdated={() => {
-          onUpdate?.();
-          setShiftDialogOpen(false);
-          setIsCreatingShift(false);
-        }}
-      />
+      {shiftDialogOpen && (
+        <Suspense fallback={null}>
+          <MobileShiftDialog
+            open={shiftDialogOpen}
+            onOpenChange={(open) => {
+              setShiftDialogOpen(open);
+              if (!open) setIsCreatingShift(false);
+            }}
+            shift={selectedShift}
+            profiles={profiles}
+            isAdmin={isAdmin || isManager}
+            isCreating={isCreatingShift}
+            scheduleId={scheduleId}
+            templates={templates}
+            locationId={currentLocation?.id}
+            currentWeekStart={currentWeekStart}
+            onShiftUpdated={() => {
+              onUpdate?.();
+              setShiftDialogOpen(false);
+              setIsCreatingShift(false);
+            }}
+          />
+        </Suspense>
+      )}
 
       <QuickPunchDialog
         open={quickPunchOpen}

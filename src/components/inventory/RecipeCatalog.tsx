@@ -1,4 +1,5 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, Suspense } from "react";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
 import PrepRecipesSection from "./recipe-catalog/PrepRecipesSection";
 import IngredientsSection from "./recipe-catalog/IngredientsSection";
-import RecipeBuilderDialog from "./RecipeBuilderDialog";
+const RecipeBuilderDialog = lazyWithRetry(() => import("./RecipeBuilderDialog"));
 import BulkReassignBar from "./recipe-catalog/BulkReassignBar";
 import { usePosMapping } from "./recipe-catalog/usePosMapping";
 import UnmappedPosBanner from "./recipe-catalog/UnmappedPosBanner";
@@ -265,16 +266,20 @@ const RecipeCatalog = ({ locationId, readOnly = false, brandId }: RecipeCatalogP
         />
       )}
 
-      <RecipeBuilderDialog
-        open={showBuilderDialog}
-        onOpenChange={(open) => {
-          setShowBuilderDialog(open);
-          if (!open) setEditBlueprintId(null);
-        }}
-        locationId={locationId}
-        editBlueprintId={editBlueprintId}
-        brandId={brandId}
-      />
+      {showBuilderDialog && (
+        <Suspense fallback={null}>
+          <RecipeBuilderDialog
+            open={showBuilderDialog}
+            onOpenChange={(open) => {
+              setShowBuilderDialog(open);
+              if (!open) setEditBlueprintId(null);
+            }}
+            locationId={locationId}
+            editBlueprintId={editBlueprintId}
+            brandId={brandId}
+          />
+        </Suspense>
+      )}
     </>
   );
 };

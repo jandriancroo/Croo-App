@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { getTodayInTimezone } from "@/utils/timezoneUtils";
@@ -23,7 +24,7 @@ import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 
-import StartCountDialog from "@/components/inventory/StartCountDialog";
+const StartCountDialog = lazyWithRetry(() => import("@/components/inventory/StartCountDialog"));
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
 
@@ -406,19 +407,23 @@ const Inventory = () => {
         </SheetContent>
       </Sheet>
 
-      <StartCountDialog
-        open={showStartDialog}
-        onOpenChange={(open) => {
-          setShowStartDialog(open);
-          if (!open) setPreselectedPeriod(null);
-        }}
-        locationId={locationId!}
-        onStartCount={handleConfirmStart}
-        onStartDailyCount={() => setShowDailyCount(true)}
-        isPending={startCountMutation.isPending}
-        preselectedPeriodType={preselectedPeriod?.type}
-        preselectedPeriodEndDate={preselectedPeriod?.endDate}
-      />
+      {showStartDialog && (
+        <Suspense fallback={null}>
+          <StartCountDialog
+            open={showStartDialog}
+            onOpenChange={(open) => {
+              setShowStartDialog(open);
+              if (!open) setPreselectedPeriod(null);
+            }}
+            locationId={locationId!}
+            onStartCount={handleConfirmStart}
+            onStartDailyCount={() => setShowDailyCount(true)}
+            isPending={startCountMutation.isPending}
+            preselectedPeriodType={preselectedPeriod?.type}
+            preselectedPeriodEndDate={preselectedPeriod?.endDate}
+          />
+        </Suspense>
+      )}
 
       <DeleteCountDialog
         open={deleteDialogOpen}

@@ -1,4 +1,5 @@
-import { useState, useEffect, ReactNode, useMemo, memo } from 'react';
+import { useState, useEffect, ReactNode, useMemo, memo, Suspense } from 'react';
+import { lazyWithRetry } from '@/utils/lazyWithRetry';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -21,7 +22,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DashboardWidget, MetricType, WidgetSize, SalesDataForWidgets } from './DashboardWidget';
-import { AddWidgetDialog, NewDataCubeConfig, CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
+import type { NewDataCubeConfig, CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
+const AddWidgetDialog = lazyWithRetry(() => import('./AddWidgetDialog').then(m => ({ default: m.AddWidgetDialog })));
 import { Add3DCubeDialog, New3DCubeConfig } from './Add3DCubeDialog';
 import { DataCube3D } from './DataCube3D';
 import { SalesSummary } from './SalesSummary';
@@ -573,17 +575,21 @@ export const WidgetsSection = memo(function WidgetsSection({
   if (!useRoleCubes && localCubes.length === 0 && !checklistsContent) {
     return (
       <>
-        <AddWidgetDialog
-          open={showAddDialog}
-          onOpenChange={setShowAddDialog}
-          onAdd={handleAddCube}
-          defaultColorIndex={0}
-          hasSalesChart={false}
-          onAdd3DCube={() => {
-            setShowAddDialog(false);
-            setShow3DCubeDialog(true);
-          }}
-        />
+        {showAddDialog && (
+          <Suspense fallback={null}>
+            <AddWidgetDialog
+              open={showAddDialog}
+              onOpenChange={setShowAddDialog}
+              onAdd={handleAddCube}
+              defaultColorIndex={0}
+              hasSalesChart={false}
+              onAdd3DCube={() => {
+                setShowAddDialog(false);
+                setShow3DCubeDialog(true);
+              }}
+            />
+          </Suspense>
+        )}
         <Add3DCubeDialog
           open={show3DCubeDialog}
           onOpenChange={setShow3DCubeDialog}
@@ -653,17 +659,21 @@ export const WidgetsSection = memo(function WidgetsSection({
       {/* Add Data Cube Dialog - only for personal cubes */}
       {!useRoleCubes && (
         <>
-          <AddWidgetDialog
-            open={showAddDialog}
-            onOpenChange={setShowAddDialog}
-            onAdd={handleAddCube}
-            defaultColorIndex={localCubes.length}
-            hasSalesChart={hasSalesChart}
-            onAdd3DCube={() => {
-              setShowAddDialog(false);
-              setShow3DCubeDialog(true);
-            }}
-          />
+          {showAddDialog && (
+            <Suspense fallback={null}>
+              <AddWidgetDialog
+                open={showAddDialog}
+                onOpenChange={setShowAddDialog}
+                onAdd={handleAddCube}
+                defaultColorIndex={localCubes.length}
+                hasSalesChart={hasSalesChart}
+                onAdd3DCube={() => {
+                  setShowAddDialog(false);
+                  setShow3DCubeDialog(true);
+                }}
+              />
+            </Suspense>
+          )}
           
           {/* Add 3D Cube Dialog */}
           <Add3DCubeDialog
