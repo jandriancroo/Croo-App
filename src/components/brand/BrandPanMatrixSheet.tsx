@@ -91,10 +91,19 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
   }, []);
 
   /**
-   * Flip baseline basis between "each" (pan_units_per_unit) and "lb" (pan_units_per_lb).
-   * CLEARS the value (it's almost always wrong on the new basis) and also flips
-   * is_weight_based to keep the rest of the system consistent. Caller should
-   * immediately startEdit on the baseline cell to prompt re-entry.
+   * Per-row local override for the basis pill, used ONLY when the row has no
+   * saved baseline yet (both pan_units_per_lb and pan_units_per_unit are null).
+   * Lets the user toggle the pill freely without hitting the DB or re-rendering
+   * the whole sheet. Once they enter a number, commitBaselineEdit writes to the
+   * matching column based on this local choice.
+   */
+  const [pendingBasis, setPendingBasis] = useState<Record<string, "weight" | "count">>({});
+
+  /**
+   * Flip baseline basis between "weight" (lb) and "count" (count_unit/yield_unit).
+   * For rows WITH a saved value: writes to DB, clearing the value (it's almost
+   * always wrong on the new basis). For rows with NO saved value: just flips
+   * the local pendingBasis so the UI updates instantly with no flicker.
    */
   const toggleBaselineBasis = useMutation({
     mutationFn: async ({ templateId, currentPerLb }: {
