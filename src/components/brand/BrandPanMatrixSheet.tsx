@@ -79,20 +79,40 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
    * location inventory_item. Used as fallback when the brand template has no
    * count_unit/pack_override_* set (very common — most catalog rows).
    */
-  const { data: packSizeByTemplateId } = useQuery({
+  const { data: vendorPackMetaByTemplateId } = useQuery({
     queryKey: ["brand-pan-matrix-packsizes", brandId, ids],
     queryFn: async () => {
-      if (ids.length === 0) return {} as Record<string, string>;
+      if (ids.length === 0) {
+        return {} as Record<string, {
+          packSize: string | null;
+          countUnit: string | null;
+          countUnitsPerCase: number | null;
+          packQuantity: number | null;
+          packQuantityOverride: number | null;
+        }>;
+      }
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("brand_item_id, pack_size")
+        .select("brand_item_id, pack_size, count_unit, count_units_per_case, pack_quantity, pack_quantity_override")
         .in("brand_item_id", ids)
         .not("pack_size", "is", null);
       if (error) throw error;
-      const map: Record<string, string> = {};
+      const map: Record<string, {
+        packSize: string | null;
+        countUnit: string | null;
+        countUnitsPerCase: number | null;
+        packQuantity: number | null;
+        packQuantityOverride: number | null;
+      }> = {};
       (data ?? []).forEach((r: any) => {
-        if (r.brand_item_id && r.pack_size && !map[r.brand_item_id]) {
-          map[r.brand_item_id] = String(r.pack_size);
+        if (r.brand_item_id && !map[r.brand_item_id]) {
+          map[r.brand_item_id] = {
+            packSize: r.pack_size ? String(r.pack_size) : null,
+            countUnit: r.count_unit ? String(r.count_unit) : null,
+            countUnitsPerCase: r.count_units_per_case != null ? Number(r.count_units_per_case) : null,
+            packQuantity: r.pack_quantity != null ? Number(r.pack_quantity) : null,
+            packQuantityOverride: r.pack_quantity_override != null ? Number(r.pack_quantity_override) : null,
+          };
         }
       });
       return map;
@@ -141,12 +161,47 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     return m?.[1] ?? "";
   };
 
+  const parsePackSizeOuterCount = (packSize: string | null | undefined): number | null => {
+    if (!packSize) return null;
+    const m = String(packSize).trim().match(/^(\d+(?:\.\d+)?)\s*\//);
+    return m ? Number(m[1]) : null;
+  };
+
+  const isWeightOrVolumeUnit = (raw: string | null | undefined): boolean => {
+    const normalized = friendlyInnerUnit(raw);
+    return ["lb", "oz", "kg", "g", "gal", "qt", "pt", "l", "ml"].includes(normalized);
+  };
+
+  const getCountSideUnitLabel = useCallback((tmpl: any): string => {
+    if (tmpl.is_recipe) {
+      const yu = String(tmpl.recipe_yield_unit ?? "").trim().toLowerCase();
+      return yu || "ea";
+    }
+
+    const templateCountUnit = friendlyInnerUnit(tmpl.count_unit);
+    if (templateCountUnit && !isWeightOrVolumeUnit(templateCountUnit)) return templateCountUnit;
+
+    const overrideInnerType = friendlyInnerUnit(tmpl.pack_override_inner_type);
+    if (overrideInnerType && !isWeightOrVolumeUnit(overrideInnerType)) return overrideInnerType;
+
+    const vendorMeta = vendorPackMetaByTemplateId?.[tmpl.id];
+    const itemCountUnit = friendlyInnerUnit(vendorMeta?.countUnit);
+    if (itemCountUnit && !isWeightOrVolumeUnit(itemCountUnit)) return itemCountUnit;
+
+    const fromPack = friendlyInnerUnit(parsePackSizeInnerUnit(vendorMeta?.packSize));
+    if (fromPack && !isWeightOrVolumeUnit(fromPack)) return fromPack;
+
+    const packLevelCount = vendorMeta?.packQuantityOverride ?? vendorMeta?.packQuantity ?? parsePackSizeOuterCount(vendorMeta?.packSize);
+    if ((packLevelCount ?? 0) >= 1) return "ea";
+
+    return "ea";
+  }, [vendorPackMetaByTemplateId]);
+
   /**
    * Display unit for a row's baseline.
    *  - Prep recipes → recipe_yield_unit (qt for sauce, lb for prepped dough, ea for dough balls)
    *  - Vendor items on weight basis → "lb"
-   *  - Vendor items on count basis → in priority: count_unit → pack_override_inner_type
-   *    → parsed pack_size inner unit → "ea"
+   *  - Vendor items on count basis → count-side vendor unit (can/bag/pouch/ea)
    */
   const getBaselineUnitLabel = useCallback((tmpl: any, isWeight: boolean): string => {
     if (tmpl.is_recipe) {
@@ -154,14 +209,8 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
       return yu || (isWeight ? "lb" : "ea");
     }
     if (isWeight) return "lb";
-    const cu = String(tmpl.count_unit ?? "").trim().toLowerCase();
-    if (cu) return cu;
-    const pot = friendlyInnerUnit(tmpl.pack_override_inner_type);
-    if (pot) return pot;
-    const fromPack = friendlyInnerUnit(parsePackSizeInnerUnit(packSizeByTemplateId?.[tmpl.id]));
-    if (fromPack) return fromPack;
-    return "ea";
-  }, [packSizeByTemplateId]);
+    return getCountSideUnitLabel(tmpl);
+  }, [getCountSideUnitLabel]);
 
   /**
    * Per-row local override for the basis pill, used ONLY when the row has no
