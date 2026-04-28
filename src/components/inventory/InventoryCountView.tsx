@@ -22,6 +22,8 @@ interface CountItem {
   id: string;
   item_id: string;
   quantity: number;
+  cost_at_count?: number | null;
+  pack_quantity_at_count?: number | null;
   item: {
     name: string;
     unit: string;
@@ -68,6 +70,8 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
           id,
           item_id,
           quantity,
+          cost_at_count,
+          pack_quantity_at_count,
           entered_cases,
           entered_units,
           storage_location_id,
@@ -173,10 +177,17 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   // Helper to get item value using stored cost_per_unit
   // cost_per_unit is per case, pack_quantity is units per case
   const getItemValue = (item: CountItem) => {
-    const overrideQty = (item.item as any)?.pack_quantity_override;
-    const baseQty = item.item?.pack_quantity || 1;
-    const packQty = overrideQty ?? baseQty;
-    return item.quantity * ((item.item?.cost_per_unit || 0) / Math.max(packQty, 1));
+    const packQty = Number(
+      item.pack_quantity_at_count
+      ?? (item.item as any)?.pack_quantity_override
+      ?? item.item?.pack_quantity
+      ?? 1
+    );
+    const perUnitCost = item.cost_at_count != null
+      ? (Number(item.cost_at_count) || 0) / Math.max(packQty, 1)
+      : (Number(item.item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+
+    return item.quantity * perUnitCost;
   };
 
   // Build junction order map: "itemId|storLocId" -> display_order

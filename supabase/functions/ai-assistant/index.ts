@@ -1128,8 +1128,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const beginningCount = recentCounts[1];
 
           const [beginItemsRes, endItemsRes] = await Promise.all([
-            supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", beginningCount.id),
-            supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", endingCount.id),
+            supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count").eq("count_id", beginningCount.id),
+            supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count").eq("count_id", endingCount.id),
           ]);
 
           // Collect all item_ids referenced in either count (matches UI logic in PeriodDetailPanel.tsx)
@@ -1143,20 +1143,25 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case")
             .in("id", Array.from(referencedIds));
 
-          // Match UI pack-qty hierarchy: override → count_units_per_case → pack_quantity
-          const itemCostMap = new Map((invItems || []).map((i: any) => {
-            const packQty = i.pack_quantity_override ?? i.count_units_per_case ?? i.pack_quantity ?? 1;
-            const perUnit = (Number(i.cost_per_unit) || 0) / Math.max(packQty, 1);
-            return [i.id, perUnit];
-          }));
+          const itemMap = new Map((invItems || []).map((i: any) => [i.id, i]));
+          const getCountItemPerUnitCost = (ci: any) => {
+            const item = itemMap.get(ci.item_id);
+            const packQty = Number(ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+
+            if (ci.cost_at_count != null) {
+              return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
+            }
+
+            return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+          };
 
           let beginValue = 0;
           for (const ci of (beginItemsRes.data || [])) {
-            beginValue += Number(ci.quantity) * (itemCostMap.get(ci.item_id) || 0);
+            beginValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
           }
           let endValue = 0;
           for (const ci of (endItemsRes.data || [])) {
-            endValue += Number(ci.quantity) * (itemCostMap.get(ci.item_id) || 0);
+            endValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
           }
 
           const weekStartDate = beginningCount.period_end_date;
@@ -1235,20 +1240,27 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (args.include_items) {
             const { data: items } = await supabase
               .from("inventory_count_items")
-              .select("quantity, entered_cases, entered_units, theoretical_quantity, variance, variance_cost, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity)")
+              .select("quantity, entered_cases, entered_units, theoretical_quantity, variance, variance_cost, cost_at_count, pack_quantity_at_count, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity, pack_quantity_override)")
               .eq("count_id", count.id);
 
-            let itemResults = (items || []).map((i: any) => ({
-              name: i.inventory_items?.common_name || i.inventory_items?.product_name,
-              category: i.inventory_items?.category,
-              quantity: i.quantity,
-              cases: i.entered_cases,
-              units: i.entered_units,
-              cost_per_case: i.inventory_items?.cost_per_case,
-              total_cost: i.quantity && i.inventory_items?.cost_per_unit ? Number((i.quantity * i.inventory_items.cost_per_unit).toFixed(2)) : null,
-              variance: i.variance,
-              variance_cost: i.variance_cost,
-            }));
+            let itemResults = (items || []).map((i: any) => {
+              const packQty = Number(i.pack_quantity_at_count ?? i.inventory_items?.pack_quantity_override ?? i.inventory_items?.pack_quantity ?? 1);
+              const perUnitCost = i.cost_at_count != null
+                ? (Number(i.cost_at_count) || 0) / Math.max(packQty, 1)
+                : (Number(i.inventory_items?.cost_per_unit) || 0) / Math.max(packQty, 1);
+
+              return {
+                name: i.inventory_items?.common_name || i.inventory_items?.product_name,
+                category: i.inventory_items?.category,
+                quantity: i.quantity,
+                cases: i.entered_cases,
+                units: i.entered_units,
+                cost_per_case: i.inventory_items?.cost_per_case,
+                total_cost: i.quantity ? Number((Number(i.quantity) * perUnitCost).toFixed(2)) : null,
+                variance: i.variance,
+                variance_cost: i.variance_cost,
+              };
+            });
 
             if (args.item_keyword) {
               const kw = args.item_keyword.toLowerCase();

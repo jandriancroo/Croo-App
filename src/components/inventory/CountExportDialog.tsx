@@ -47,6 +47,8 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         .from("inventory_count_items")
         .select(`
           quantity,
+          cost_at_count,
+          pack_quantity_at_count,
           entered_cases,
           entered_units,
           item:inventory_items(
@@ -95,9 +97,12 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
 
       const rows = exportItems.map((ci: any) => {
         const item = ci.item;
-        const packQty = item?.pack_quantity_override ?? item?.pack_quantity ?? 1;
-        const costPerUnit = item?.cost_per_unit || 0;
-        const unitValue = ci.quantity * (costPerUnit / Math.max(packQty, 1));
+        const packQty = ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1;
+        const perUnitCost = ci.cost_at_count != null
+          ? (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1)
+          : (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+        const costPerUnit = ci.cost_at_count != null ? Number(ci.cost_at_count) || 0 : Number(item?.cost_per_unit) || 0;
+        const unitValue = ci.quantity * perUnitCost;
 
         const cases = ci.entered_cases ?? "";
         const units = ci.entered_units ?? "";
@@ -160,9 +165,11 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const countedItems = exportItems?.filter((i: any) => i.quantity > 0).length || 0;
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
     const item = ci.item;
-    const packQty = item?.pack_quantity_override ?? item?.pack_quantity ?? 1;
-    const costPerUnit = item?.cost_per_unit || 0;
-    return sum + ci.quantity * (costPerUnit / Math.max(packQty, 1));
+    const packQty = ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1;
+    const perUnitCost = ci.cost_at_count != null
+      ? (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1)
+      : (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+    return sum + ci.quantity * perUnitCost;
   }, 0) || 0;
 
   return (
