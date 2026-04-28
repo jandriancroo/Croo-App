@@ -343,9 +343,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       const [beginItems, endItems] = await Promise.all([
         beginCount
-          ? supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", beginCount.id)
+          ? supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count").eq("count_id", beginCount.id)
           : { data: [] },
-        supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", count.id),
+        supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count").eq("count_id", count.id),
       ]);
 
       // Collect all item_ids referenced in both counts to include inactive items
@@ -360,20 +360,36 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, is_recipe")
         .in("id", Array.from(referencedIds));
 
-      const costMap = new Map<string, number>();
+      const itemMap = new Map<string, any>();
       for (const i of items || []) {
-        const packQty = (i as any).pack_quantity_override ?? (i.pack_quantity || 1);
-        costMap.set(i.id, (Number(i.cost_per_unit) || 0) / Math.max(packQty, 1));
+        itemMap.set(i.id, i);
+      }
+
+      const getCountItemPerUnitCost = (ci: any) => {
+        const item = itemMap.get(ci.item_id);
+        const packQty = Number(ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+
+        if (ci.cost_at_count != null) {
+          return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
+        }
+
+        return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+      };
+
+      const getLivePerUnitCost = (itemId: string) => {
+        const item = itemMap.get(itemId);
+        const packQty = Number(item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+        return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
       }
 
       let beginValue = 0;
       for (const ci of (beginItems.data as any[]) || []) {
-        beginValue += Number(ci.quantity) * (costMap.get(ci.item_id) || 0);
+        beginValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
       }
 
       let endValue = 0;
       for (const ci of (endItems.data as any[]) || []) {
-        endValue += Number(ci.quantity) * (costMap.get(ci.item_id) || 0);
+        endValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
       }
 
       // Purchases: Manage Orders is the single source of truth.
