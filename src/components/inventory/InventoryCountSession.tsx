@@ -706,6 +706,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             item_name_at_count: ic.item_name_at_count,
             cost_at_count: ic.cost_at_count,
             unit_at_count: ic.unit_at_count,
+            pack_quantity_at_count: ic.pack_quantity_at_count,
+            pan_sizes_at_count: ic.pan_sizes_at_count,
           });
         }
       }
