@@ -129,11 +129,15 @@ export async function calculateVarianceReport(
     return itemActual.get(itemId)!;
   };
 
-  const getItemUnitValue = (itemId: string) => {
-    const item = itemMap.get(itemId);
-    if (!item) return 0;
-    const packQty = item.pack_quantity_override ?? item.pack_quantity ?? 1;
-    return (item.cost_per_unit || 0) / Math.max(packQty, 1);
+  const getCountItemUnitValue = (ci: any) => {
+    const item = itemMap.get(ci.item_id);
+    const packQty = Number(ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+
+    if (ci.cost_at_count != null) {
+      return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
+    }
+
+    return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
   };
 
   const getItemCategory = (itemId: string) => {
@@ -152,7 +156,7 @@ export async function calculateVarianceReport(
     if (isRecipeItem(ci.item_id)) continue;
     const entry = getOrCreateItem(ci.item_id);
     entry.beginningQty += ci.quantity;
-    entry.beginning += ci.quantity * getItemUnitValue(ci.item_id);
+    entry.beginning += ci.quantity * getCountItemUnitValue(ci);
   }
 
   // Ending count values
@@ -160,7 +164,7 @@ export async function calculateVarianceReport(
     if (isRecipeItem(ci.item_id)) continue;
     const entry = getOrCreateItem(ci.item_id);
     entry.endingQty += ci.quantity;
-    entry.ending += ci.quantity * getItemUnitValue(ci.item_id);
+    entry.ending += ci.quantity * getCountItemUnitValue(ci);
   }
 
   // Purchases - match PFG items via brand_vendor_mappings first, then fallback to local item_number
@@ -581,7 +585,7 @@ export async function calculateVarianceReport(
 async function fetchCountItems(countId: string) {
   const { data, error } = await supabase
     .from("inventory_count_items")
-    .select("item_id, quantity")
+    .select("item_id, quantity, cost_at_count, pack_quantity_at_count")
     .eq("count_id", countId);
   if (error) throw error;
   return data || [];
