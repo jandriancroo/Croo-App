@@ -2900,6 +2900,8 @@ export type Database = {
           id: string
           item_id: string | null
           item_name_at_count: string | null
+          pack_quantity_at_count: number | null
+          pan_sizes_at_count: Json | null
           quantity: number
           storage_location_id: string | null
           theoretical_quantity: number | null
@@ -2916,6 +2918,8 @@ export type Database = {
           id?: string
           item_id?: string | null
           item_name_at_count?: string | null
+          pack_quantity_at_count?: number | null
+          pan_sizes_at_count?: Json | null
           quantity?: number
           storage_location_id?: string | null
           theoretical_quantity?: number | null
@@ -2932,6 +2936,8 @@ export type Database = {
           id?: string
           item_id?: string | null
           item_name_at_count?: string | null
+          pack_quantity_at_count?: number | null
+          pan_sizes_at_count?: Json | null
           quantity?: number
           storage_location_id?: string | null
           theoretical_quantity?: number | null
