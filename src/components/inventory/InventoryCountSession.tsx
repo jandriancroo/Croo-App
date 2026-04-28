@@ -576,6 +576,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           item_name_at_count: item.item_name,
           cost_at_count: item.cost_per_unit,
           unit_at_count: item.unit,
+          pack_quantity_at_count: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+          pan_sizes_at_count: item.pan_sizes ?? null,
           // --- Audit log fields (Palm Springs forensic logging) ---
           _item_name: item.item_name,
           _storage_location_name: item.storage_location,
@@ -704,6 +706,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             item_name_at_count: ic.item_name_at_count,
             cost_at_count: ic.cost_at_count,
             unit_at_count: ic.unit_at_count,
+            pack_quantity_at_count: ic.pack_quantity_at_count,
+            pan_sizes_at_count: ic.pan_sizes_at_count,
           });
         }
       }
