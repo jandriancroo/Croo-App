@@ -62,11 +62,11 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       const [beginItems, endItems] = await Promise.all([
         beginning ? supabase
           .from("inventory_count_items")
-          .select("item_id, quantity")
+          .select("item_id, quantity, cost_at_count, pack_quantity_at_count")
           .eq("count_id", beginning.id) : { data: [] },
         ending ? supabase
           .from("inventory_count_items")
-          .select("item_id, quantity")
+          .select("item_id, quantity, cost_at_count, pack_quantity_at_count")
           .eq("count_id", ending.id) : { data: [] },
       ]);
 
@@ -204,26 +204,35 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
   const cogs = useMemo(() => {
     if (!inventoryItems?.length) return null;
 
-    const itemCostMap = new Map(inventoryItems.map(i => {
-      const packQty = (i as any).pack_quantity_override ?? (i as any).pack_quantity ?? 1;
-      const perUnitCost = (Number(i.cost_per_unit) || 0) / (packQty || 1);
-      return [i.id, { cost: perUnitCost, name: i.name, vendor: i.vendor_source, category: i.category }];
-    }));
+    const itemMap = new Map(inventoryItems.map(i => [i.id, i]));
+    const getLivePerUnitCost = (itemId: string) => {
+      const item = itemMap.get(itemId) as any;
+      const packQty = Number(item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+      return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+    };
+    const getCountItemPerUnitCost = (ci: any) => {
+      const item = itemMap.get(ci.item_id) as any;
+      const packQty = Number(ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+
+      if (ci.cost_at_count != null) {
+        return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
+      }
+
+      return getLivePerUnitCost(ci.item_id);
+    };
 
     // Beginning inventory value
     let beginValue = 0;
     const beginItems = counts?.beginning?.items || [];
     for (const ci of beginItems) {
-      const cost = itemCostMap.get(ci.item_id)?.cost || 0;
-      beginValue += Number(ci.quantity) * cost;
+      beginValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
     }
 
     // Ending inventory value
     let endValue = 0;
     const endItems = counts?.ending?.items || [];
     for (const ci of endItems) {
-      const cost = itemCostMap.get(ci.item_id)?.cost || 0;
-      endValue += Number(ci.quantity) * cost;
+      endValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
     }
 
     const purchasesCost = purchases?.totalCost || 0;
@@ -247,7 +256,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       const ingredientCostMap = new Map<string, number>(); // ingredient_id -> cost
       for (const ing of bomData.ingredients) {
         if (ing.inventory_item_id) {
-          const cost = itemCostMap.get(ing.inventory_item_id)?.cost || 0;
+          const cost = getLivePerUnitCost(ing.inventory_item_id) || 0;
           ingredientCostMap.set(ing.id, cost);
         }
       }
