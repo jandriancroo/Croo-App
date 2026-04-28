@@ -1243,22 +1243,22 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               .select("quantity, entered_cases, entered_units, theoretical_quantity, variance, variance_cost, cost_at_count, pack_quantity_at_count, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity, pack_quantity_override)")
               .eq("count_id", count.id);
 
-            let itemResults = (items || []).map((i: any) => ({
+            let itemResults = (items || []).map((i: any) => {
               const packQty = Number(i.pack_quantity_at_count ?? i.inventory_items?.pack_quantity_override ?? i.inventory_items?.pack_quantity ?? 1);
               const perUnitCost = i.cost_at_count != null
                 ? (Number(i.cost_at_count) || 0) / Math.max(packQty, 1)
                 : (Number(i.inventory_items?.cost_per_unit) || 0) / Math.max(packQty, 1);
 
               return {
-              name: i.inventory_items?.common_name || i.inventory_items?.product_name,
-              category: i.inventory_items?.category,
-              quantity: i.quantity,
-              cases: i.entered_cases,
-              units: i.entered_units,
-              cost_per_case: i.inventory_items?.cost_per_case,
-              total_cost: i.quantity ? Number((Number(i.quantity) * perUnitCost).toFixed(2)) : null,
-              variance: i.variance,
-              variance_cost: i.variance_cost,
+                name: i.inventory_items?.common_name || i.inventory_items?.product_name,
+                category: i.inventory_items?.category,
+                quantity: i.quantity,
+                cases: i.entered_cases,
+                units: i.entered_units,
+                cost_per_case: i.inventory_items?.cost_per_case,
+                total_cost: i.quantity ? Number((Number(i.quantity) * perUnitCost).toFixed(2)) : null,
+                variance: i.variance,
+                variance_cost: i.variance_cost,
               };
             });
 
