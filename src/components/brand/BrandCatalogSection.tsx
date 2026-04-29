@@ -32,11 +32,15 @@ interface BrandCatalogSectionProps {
   onToggleSelect?: (id: string) => void;
   onStartSelection?: (id: string) => void;
   recipeUsageMap?: Map<string, number>;
+  conversionMap?: Map<string, ActiveConversion>;
+  highlightedItemId?: string | null;
+  onItemClick?: (item: BrandTemplateItem) => void;
 }
 
 export default function BrandCatalogSection({
   category, items, onEdit, onStatusChange,
   selectionMode, selectedIds, onToggleSelect, onStartSelection, recipeUsageMap,
+  conversionMap, highlightedItemId, onItemClick,
 }: BrandCatalogSectionProps) {
   const [isOpen, setIsOpen] = useState(true);
   const recipeCount = items.filter(i => i.is_recipe).length;
