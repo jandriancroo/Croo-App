@@ -331,7 +331,7 @@ export default function ConversionSlideOver({
                     <Button onClick={handleSave} disabled={saving} className="w-full">
                       {saving ? 'Saving…' : 'Save Conversion'}
                     </Button>
-                  ) : sourceLabel === 'vendor_auto' ? (
+                  ) : sourceLabel === 'vendor_auto' || sourceLabel === 'needs_review' ? (
                     <Button onClick={handleConfirm} disabled={saving} className="w-full gap-1.5">
                       <CheckCircle2 className="h-4 w-4" />
                       {saving ? 'Confirming…' : 'Confirm ✓'}
