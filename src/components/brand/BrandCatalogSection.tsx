@@ -99,16 +99,22 @@ export default function BrandCatalogSection({
 
       {isOpen && (
         <div className="px-2 pb-2">
-          {items.map(item => (
+          {items.map(item => {
+            const conv = conversionMap?.get(item.id);
+            const needsReview = !conv || conv.source === 'needs_review';
+            const isHighlighted = highlightedItemId === item.id;
+            return (
             <div
               key={item.id}
               className={`w-full flex items-center gap-2 py-1.5 px-2 text-sm hover:bg-muted/50 transition-colors text-left rounded-sm group cursor-pointer ${
                 selectionMode && selectedIds?.has(item.id) ? 'bg-primary/5' : ''
-              }`}
+              } ${isHighlighted ? 'bg-primary/10 border-l-2 border-primary' : ''}`}
               onClick={() => {
                 if (longPressTriggered.current) return;
                 if (selectionMode && onToggleSelect) {
                   onToggleSelect(item.id);
+                } else if (onItemClick) {
+                  onItemClick(item);
                 } else {
                   onEdit(item);
                 }
@@ -127,6 +133,9 @@ export default function BrandCatalogSection({
                   className="flex-shrink-0"
                   onCheckedChange={() => onToggleSelect?.(item.id)}
                 />
+              )}
+              {conversionMap && needsReview && !item.is_recipe && (
+                <AlertTriangle className="h-3 w-3 text-orange-500 shrink-0" aria-label="Needs conversion review" />
               )}
               <span className="truncate flex-1 font-medium">
                 {item.common_name || item.product_name}
