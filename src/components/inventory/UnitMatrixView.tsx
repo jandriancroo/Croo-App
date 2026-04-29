@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { AlertTriangle, Filter } from "lucide-react";
 import { ALL_CONTAINERS, type PanSizesConfig, getPanUnits } from "./PanSizesSection";
 import BaselineConfigSheet from "./BaselineConfigSheet";
+import { parsePackSizeOz } from "@/utils/legacy/conversionLegacy";
 
 interface UnitMatrixViewProps {
   locationId: string;
@@ -43,32 +44,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Other: "bg-gray-500/10 text-gray-700 dark:text-gray-400",
 };
 
-/** Parse pack_size string to extract weight in oz */
-function parsePackSizeOz(packSize: string | null, packQuantity: number | null): { ozPerUnit: number | null; ozPerCase: number | null } {
-  if (!packSize) return { ozPerUnit: null, ozPerCase: null };
-  
-  const match = packSize.match(/(?:(\d+)\/)?([\d.]+)\s*(LB|OZ|GA|#|KG)/i);
-  if (!match) return { ozPerUnit: null, ozPerCase: null };
-  
-  const countInPack = match[1] ? parseFloat(match[1]) : 1;
-  const amount = parseFloat(match[2]);
-  const unit = match[3].toUpperCase();
-  
-  let ozPerSubUnit = 0;
-  switch (unit) {
-    case "LB": case "#": ozPerSubUnit = amount * 16; break;
-    case "OZ": ozPerSubUnit = amount; break;
-    case "GA": ozPerSubUnit = amount * 128; break;
-    case "KG": ozPerSubUnit = amount * 35.274; break;
-    default: return { ozPerUnit: null, ozPerCase: null };
-  }
-  
-  const ozPerUnit = ozPerSubUnit;
-  const effectivePackQty = packQuantity || countInPack;
-  const ozPerCase = ozPerUnit * effectivePackQty;
-  
-  return { ozPerUnit, ozPerCase };
-}
+// parsePackSizeOz imported from legacy/conversionLegacy
 
 interface CellValue {
   qty: number | null;
