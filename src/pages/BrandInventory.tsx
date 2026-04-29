@@ -55,6 +55,11 @@ export default function BrandInventory() {
   const [newItemIsRecipe, setNewItemIsRecipe] = useState(false);
   const [catalogSelectedIds, setCatalogSelectedIds] = useState<Set<string>>(new Set());
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false);
+  const [conversionsOpen, setConversionsOpen] = useState(false);
+  const [conversionsTargetId, setConversionsTargetId] = useState<string | null>(null);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+
+  const { conversionMap } = useBrandConversions(brandId);
 
   // Source location for recipe catalog
   const [sourceLocationId, setSourceLocationId] = useState<string | null>(null);
