@@ -96,7 +96,7 @@ const CollapsibleSegment = ({ label, items, tagLabel, locationId, brandId, onEdi
 };
 
 const CatalogSectionComponent = ({
-  section, defaultOpen = false, locationId, onEditRecipe,
+  section, defaultOpen = false, locationId, brandId, onEditRecipe,
   reassignMode, selectedIds, onToggleSelect,
   posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking,
 }: CatalogSectionProps) => {
