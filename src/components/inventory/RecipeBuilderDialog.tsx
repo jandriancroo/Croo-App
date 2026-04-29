@@ -575,6 +575,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
           }
           if (subCost.isPartial) {
             allHaveCost = false;
+            missingItems.push(ing.displayName || subBp?.name || ing.ref_id);
           }
         } else {
           allHaveCost = false;
