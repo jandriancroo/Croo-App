@@ -7,7 +7,8 @@ import { ChevronDown, ChevronRight, Pencil, DollarSign, AlertCircle } from "luci
 import { cn } from "@/lib/utils";
 import type { MenuItem, BlueprintIngredient } from "./types";
 import { getCleanDisplayName } from "./utils";
-import { fetchBlueprintCosts, type BlueprintCostResult, parsePackSizeToOz } from "@/utils/blueprintCostCalculation";
+import { fetchBlueprintCosts, type BlueprintCostResult } from "@/utils/blueprintCostCalculation";
+import { parsePackSizeToOz } from "@/utils/legacy/conversionLegacy";
 import PosLinkIndicator from "./PosLinkIndicator";
 import type { PosItem } from "./usePosMapping";
 
