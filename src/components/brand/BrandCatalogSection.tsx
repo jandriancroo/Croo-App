@@ -171,7 +171,8 @@ export default function BrandCatalogSection({
                 </Badge>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
