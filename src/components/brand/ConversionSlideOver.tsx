@@ -235,6 +235,77 @@ export default function ConversionSlideOver({
   const sourceLabel = activeConversion?.source ?? 'needs_review';
   const itemPosition = currentIndex >= 0 ? currentIndex + 1 : 0;
 
+  // ── Count tab state ──────────────────────────────────────────────────────
+  const canonicalUnit = activeConversion?.canonical_unit || form.canonical_unit || 'ea';
+  const [loadedPanConfig, setLoadedPanConfig] = useState<PanSizesConfig | null>(null);
+  const [panConfig, setPanConfig] = useState<PanSizesConfig | null>(null);
+  const [countLoading, setCountLoading] = useState(false);
+  const [countSaving, setCountSaving] = useState(false);
+
+  useEffect(() => {
+    if (!currentItemId || activeTab !== 'count') return;
+    let cancelled = false;
+    setCountLoading(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from('brand_inventory_templates')
+        .select('id, pan_baseline_key, pan_enabled_keys, pan_units_per_lb, pan_units_per_unit, pan_overrides, count_unit, count_units_per_case')
+        .eq('id', currentItemId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        console.error('[ConversionSlideOver] load count config failed', error);
+        toast.error('Failed to load count config');
+        setCountLoading(false);
+        return;
+      }
+      const baseUnits = (data?.pan_units_per_lb ?? data?.pan_units_per_unit ?? 0) as number;
+      const cfg: PanSizesConfig = {
+        enabled: !!data?.pan_baseline_key,
+        baseline_key: data?.pan_baseline_key ?? 'third_pan',
+        baseline_units: baseUnits || 0,
+        enabled_keys: (data?.pan_enabled_keys as string[] | null) ?? [],
+        overrides: (data?.pan_overrides as Record<string, number> | null) ?? undefined,
+      };
+      setLoadedPanConfig(cfg);
+      setPanConfig(cfg);
+      setCountLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [currentItemId, activeTab]);
+
+  const isCountDirty = useMemo(
+    () => JSON.stringify(panConfig) !== JSON.stringify(loadedPanConfig),
+    [panConfig, loadedPanConfig]
+  );
+
+  const saveCountConfig = useCallback(async () => {
+    if (!currentItemId || !panConfig) return;
+    setCountSaving(true);
+    try {
+      const isLb = canonicalUnit === 'lb';
+      const { error } = await supabase
+        .from('brand_inventory_templates')
+        .update({
+          pan_baseline_key: panConfig.enabled ? panConfig.baseline_key : null,
+          pan_enabled_keys: panConfig.enabled ? panConfig.enabled_keys : null,
+          pan_units_per_lb: panConfig.enabled && isLb ? panConfig.baseline_units : null,
+          pan_units_per_unit: panConfig.enabled && !isLb ? panConfig.baseline_units : null,
+          pan_overrides: panConfig.enabled ? (panConfig.overrides ?? null) : null,
+        })
+        .eq('id', currentItemId);
+      if (error) throw error;
+      toast.success('Count config saved');
+      setLoadedPanConfig(panConfig);
+    } catch (e: any) {
+      console.error('[ConversionSlideOver] save count config failed', e);
+      toast.error(e?.message || 'Failed to save count config');
+    } finally {
+      setCountSaving(false);
+    }
+  }, [currentItemId, panConfig, canonicalUnit]);
+
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
