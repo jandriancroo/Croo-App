@@ -130,46 +130,17 @@ export default function ConversionSlideOver({
     if (open) onItemChange?.(currentItemId);
   }, [currentItemId, open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const goPrev = useCallback(() => {
-    if (items.length === 0) return;
-    const idx = currentIndex < 0 ? 0 : (currentIndex - 1 + items.length) % items.length;
-    setCurrentItemId(items[idx].id);
-  }, [items, currentIndex]);
-
-  const goNext = useCallback(() => {
-    if (items.length === 0) return;
-    const idx = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length;
-    setCurrentItemId(items[idx].id);
-  }, [items, currentIndex]);
-
-  const goNextReview = useCallback(() => {
-    if (nextReviewId) setCurrentItemId(nextReviewId);
-  }, [nextReviewId]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev(); }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); goNext(); }
-      else if (e.key.toLowerCase() === 'r') { e.preventDefault(); goNextReview(); }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, goPrev, goNext, goNextReview]);
-
   const baseline = useMemo(() => conversionToForm(activeConversion), [activeConversion?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const isDirty = form.canonical_unit !== baseline.canonical_unit;
 
-  const persistConversion = async (sourceLabel: 'manual_override', valuesFrom: 'form' | 'current') => {
+  const persistConversion = useCallback(async (sourceLabel: 'manual_override', valuesFrom: 'form' | 'current'): Promise<boolean> => {
     if (!currentItemId || !activeConversion) {
       toast.error('No active conversion to update');
-      return;
+      return false;
     }
     if (valuesFrom === 'form' && !form.canonical_unit) {
       toast.error('Tracking unit is required');
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -211,13 +182,51 @@ export default function ConversionSlideOver({
       toast.success(valuesFrom === 'form' ? 'Conversion saved' : 'Confirmed');
       await queryClient.invalidateQueries({ queryKey: ['brand-conversions', brandId] });
       onConversionsChanged?.();
+      return true;
     } catch (e: any) {
       console.error('[ConversionSlideOver] save failed', e);
       toast.error(e?.message || 'Failed to save conversion');
+      return false;
     } finally {
       setSaving(false);
     }
-  };
+  }, [currentItemId, activeConversion, form.canonical_unit, brandId, queryClient, onConversionsChanged]);
+
+  const autoSaveIfNeedsReview = useCallback(async (): Promise<boolean> => {
+    if (activeConversion?.source === 'needs_review' && form.canonical_unit) {
+      return await persistConversion('manual_override', 'form');
+    }
+    return true;
+  }, [activeConversion?.source, form.canonical_unit, persistConversion]);
+
+  const goPrev = useCallback(() => {
+    if (items.length === 0) return;
+    const idx = currentIndex < 0 ? 0 : (currentIndex - 1 + items.length) % items.length;
+    setCurrentItemId(items[idx].id);
+  }, [items, currentIndex]);
+
+  const goNext = useCallback(async () => {
+    if (items.length === 0) return;
+    const ok = await autoSaveIfNeedsReview();
+    if (!ok) return;
+    const idx = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length;
+    setCurrentItemId(items[idx].id);
+  }, [items, currentIndex, autoSaveIfNeedsReview]);
+
+  const goNextReview = useCallback(async () => {
+    const ok = await autoSaveIfNeedsReview();
+    if (!ok) return;
+    // Recompute next review target after save (current item may no longer be needs_review).
+    const fromIdx = currentIndex;
+    let target: string | null = null;
+    for (let step = 1; step <= items.length; step++) {
+      const idx = (fromIdx + step) % items.length;
+      const c = conversionMap.get(items[idx].id);
+      if (!c || c.source === 'needs_review') { target = items[idx].id; break; }
+    }
+    if (target) setCurrentItemId(target);
+  }, [autoSaveIfNeedsReview, currentIndex, items, conversionMap]);
+
 
   const handleSave = () => persistConversion('manual_override', 'form');
   const handleConfirm = () => persistConversion('manual_override', 'current');
