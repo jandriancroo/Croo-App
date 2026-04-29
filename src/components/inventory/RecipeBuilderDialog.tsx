@@ -133,6 +133,8 @@ const parseCansPerCase = (packSize: string | null): number | null => {
   return null;
 };
 
+const CAN_SIZES: Record<string, number> = { "10": 106, "5": 56, "2.5": 26 };
+
 // parsePackSize moved to legacy/conversionLegacy as parsePackSizeRecipeBuilder
 const parsePackSize = parsePackSizeRecipeBuilder;
 
