@@ -736,6 +736,35 @@ export default function BrandInventory() {
           onOpenChange={setCategoryEditorOpen}
         />
       )}
+
+      {brandId && (
+        <ConversionSlideOver
+          open={conversionsOpen}
+          onOpenChange={(o) => {
+            setConversionsOpen(o);
+            if (!o) setHighlightedItemId(null);
+          }}
+          brandId={brandId}
+          items={(() => {
+            const live = templates.filter(t => (t.status || 'live') === 'live' && !t.is_recipe);
+            const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
+            return [...live].sort((a, b) => {
+              const ai = orderMap[a.category || 'Uncategorized'] ?? 999;
+              const bi = orderMap[b.category || 'Uncategorized'] ?? 999;
+              if (ai !== bi) return ai - bi;
+              return (a.product_name || '').localeCompare(b.product_name || '');
+            }).map(t => ({
+              id: t.id,
+              product_name: t.product_name,
+              common_name: t.common_name ?? null,
+              category: t.category ?? null,
+            }));
+          })()}
+          conversionMap={conversionMap}
+          initialItemId={conversionsTargetId}
+          onItemChange={(id) => setHighlightedItemId(id)}
+        />
+      )}
     </Layout>
   );
 }
