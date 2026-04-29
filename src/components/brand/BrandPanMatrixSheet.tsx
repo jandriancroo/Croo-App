@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Star } from "lucide-react";
 import { ALL_CONTAINERS, type ContainerDef } from "@/components/inventory/PanSizesSection";
+import { parsePackSizeInnerUnit, parsePackSizeOuterCount } from "@/utils/legacy/conversionLegacy";
 
 interface BrandPanMatrixSheetProps {
   open: boolean;
@@ -149,23 +150,7 @@ export default function BrandPanMatrixSheet({ open, onOpenChange, selectedIds, b
     return map[u] ?? u.toLowerCase();
   };
 
-  /**
-   * Parse pack_size strings like "2/5 LB", "6/1 LB", "4/1 GAL", "6/#10 CN"
-   * → returns the inner unit code ("LB", "GAL", "CN", …) or "".
-   * Falls back gracefully on weird formats.
-   */
-  const parsePackSizeInnerUnit = (packSize: string | null | undefined): string => {
-    if (!packSize) return "";
-    // grab the trailing alpha token
-    const m = String(packSize).trim().match(/([A-Za-z]+)\s*$/);
-    return m?.[1] ?? "";
-  };
-
-  const parsePackSizeOuterCount = (packSize: string | null | undefined): number | null => {
-    if (!packSize) return null;
-    const m = String(packSize).trim().match(/^(\d+(?:\.\d+)?)\s*\//);
-    return m ? Number(m[1]) : null;
-  };
+  // parsePackSizeInnerUnit and parsePackSizeOuterCount are imported from legacy/conversionLegacy
 
   const isWeightOrVolumeUnit = (raw: string | null | undefined): boolean => {
     const normalized = friendlyInnerUnit(raw);

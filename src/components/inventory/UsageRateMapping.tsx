@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Link2, Loader2, Check, X, Pencil, Search, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { TO_OZ_MAP, parsePackSizeUsageRate, getSmartUnitOptions } from "@/utils/legacy/conversionLegacy";
 
 interface UsageRateMappingProps {
   locationId: string;
@@ -39,78 +40,9 @@ interface InventoryItem {
   storage_location: { name: string } | null;
 }
 
-const TO_OZ_MAP: Record<string, number> = {
-  oz: 1, qt: 32, lb: 16, gal: 128, ml: 0.033814, cups: 8, ea: 1, tbsp: 0.5, tsp: 0.1667,
-};
-
-/** Parse pack_size like "2/5 LB", "6/5#", "25#" → { count, size, unit } */
-const parsePackSize = (packSize: string | null): { count: number; size: number; unit: string } | null => {
-  if (!packSize) return null;
-  // Handle # as LB: "6/5#" → count=6, size=5, unit=LB
-  const poundSlash = packSize.match(/^(\d+)\/([\d.]+)\s*#$/);
-  if (poundSlash) return { count: parseInt(poundSlash[1]), size: parseFloat(poundSlash[2]), unit: "LB" };
-  // Standalone pound: "25#" → count=1, size=25, unit=LB
-  const poundStandalone = packSize.match(/^([\d.]+)\s*#$/);
-  if (poundStandalone) return { count: 1, size: parseFloat(poundStandalone[1]), unit: "LB" };
-  // Standard: "2/5 LB", "1/5 GA"
-  const match = packSize.match(/^(\d+)\/([\d.]+)\s*(.+)$/i);
-  if (!match) return null;
-  return { count: parseInt(match[1]), size: parseFloat(match[2]), unit: match[3].trim().toUpperCase() };
-};
-
-/** Get smart unit options based on pack_size unit type, with auto-calculated units per case */
-const getSmartUnitOptions = (item: InventoryItem): { unit: string; unitsPerCase: number; label: string }[] => {
-  // For recipe items, use the saved count_unit/count_units_per_case (set from yield)
-  if (item.is_recipe && item.count_unit && item.count_units_per_case) {
-    const yieldUnit = item.count_unit;
-    const yieldQty = item.count_units_per_case;
-    const options = [
-      { unit: yieldUnit, unitsPerCase: yieldQty, label: `${yieldUnit} (${yieldQty}/batch)` },
-    ];
-    // Add oz conversion if yield isn't already oz
-    if (yieldUnit !== "oz" && TO_OZ_MAP[yieldUnit]) {
-      const totalOz = yieldQty * TO_OZ_MAP[yieldUnit];
-      options.push({ unit: "oz", unitsPerCase: Math.round(totalOz * 100) / 100, label: `oz (${Math.round(totalOz)}/batch)` });
-    }
-    return options;
-  }
-
-  const parsed = parsePackSize(item.pack_size);
-  if (!parsed) return [{ unit: "ea", unitsPerCase: item.pack_quantity || 1, label: `ea (${item.pack_quantity || 1}/cs)` }];
-
-  const totalRaw = parsed.count * parsed.size;
-  const options: { unit: string; unitsPerCase: number; label: string }[] = [];
-
-  switch (parsed.unit) {
-    case "LB":
-      options.push({ unit: "oz", unitsPerCase: Math.round(totalRaw * 16 * 100) / 100, label: `oz (${Math.round(totalRaw * 16)}/cs)` });
-      options.push({ unit: "lb", unitsPerCase: totalRaw, label: `lb (${totalRaw}/cs)` });
-      break;
-    case "OZ":
-      options.push({ unit: "oz", unitsPerCase: Math.round(totalRaw * 100) / 100, label: `oz (${Math.round(totalRaw)}/cs)` });
-      if (totalRaw >= 16) {
-        options.push({ unit: "lb", unitsPerCase: Math.round(totalRaw / 16 * 100) / 100, label: `lb (${Math.round(totalRaw / 16 * 100) / 100}/cs)` });
-      }
-      break;
-    case "GA":
-      options.push({ unit: "oz", unitsPerCase: Math.round(totalRaw * 128), label: `oz (${Math.round(totalRaw * 128)}/cs)` });
-      options.push({ unit: "gal", unitsPerCase: totalRaw, label: `gal (${totalRaw}/cs)` });
-      break;
-    case "CT":
-      options.push({ unit: "ea", unitsPerCase: totalRaw, label: `ea (${totalRaw}/cs)` });
-      options.push({ unit: "cs", unitsPerCase: 1, label: `cs (1/cs)` });
-      break;
-    case "KG":
-      options.push({ unit: "oz", unitsPerCase: Math.round(totalRaw * 35.274 * 100) / 100, label: `oz (${Math.round(totalRaw * 35.274)}/cs)` });
-      options.push({ unit: "lb", unitsPerCase: Math.round(totalRaw * 2.205 * 100) / 100, label: `lb (${Math.round(totalRaw * 2.205 * 100) / 100}/cs)` });
-      break;
-    default:
-      options.push({ unit: "ea", unitsPerCase: parsed.count * parsed.size, label: `ea (${parsed.count * parsed.size}/cs)` });
-      break;
-  }
-
-  return options;
-};
+// TO_OZ_MAP, parsePackSize (renamed parsePackSizeUsageRate), and getSmartUnitOptions
+// moved to legacy/conversionLegacy
+const parsePackSize = parsePackSizeUsageRate;
 
 const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const queryClient = useQueryClient();

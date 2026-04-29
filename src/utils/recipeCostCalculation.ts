@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { parsePackSizeToOz } from "./blueprintCostCalculation";
+import { parsePackSizeToOz } from "./legacy/conversionLegacy";
 import { TO_OZ, normalizeUnit } from "./unitConversion";
 
 interface RecipeIngredient {
