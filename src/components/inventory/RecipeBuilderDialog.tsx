@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
+import { TO_OZ, parsePackSizeRecipeBuilder } from "@/utils/legacy/conversionLegacy";
 
 
 type BlueprintType = "MI" | "CORE" | "BASE" | "PREP" | "INGREDIENT";
@@ -101,9 +102,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
 
 const UNIT_OPTIONS = ["oz", "qt", "gal", "lb", "kg", "g", "ea", "tbsp", "tsp", "ml", "cups", "bags", "ct"];
 
-const TO_OZ: Record<string, number> = {
-  oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, bags: 1, ct: 1, kg: 35.274, g: 0.03527,
-};
+// TO_OZ imported from legacy/conversionLegacy
 
 const UNIT_ALIASES: Record<string, string> = {
   "oz-wt": "oz", "oz-fl": "oz", "fl-oz": "oz", "fl_oz": "oz", "oz_fl": "oz",
@@ -127,12 +126,6 @@ const normalizeUnit = (unit: string | null | undefined): string => {
   return cleaned;
 };
 
-const PACK_UNIT_MAP: Record<string, string> = {
-  OZ: "oz", LB: "lb", GA: "gal", GAL: "gal", ML: "ml", CT: "ct", EA: "ea", CN: "ea", KG: "kg", G: "g",
-};
-
-const CAN_SIZES: Record<string, number> = { "10": 106, "5": 56, "2.5": 26 };
-
 const parseCansPerCase = (packSize: string | null): number | null => {
   if (!packSize) return null;
   const canMatch = packSize.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]+)$/);
@@ -140,30 +133,8 @@ const parseCansPerCase = (packSize: string | null): number | null => {
   return null;
 };
 
-const parsePackSize = (packSize: string | null): { count: number; unit: string } | null => {
-  if (!packSize) return null;
-  const canMatch = packSize.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]+)$/);
-  if (canMatch) {
-    const packs = parseInt(canMatch[1]);
-    const canSize = canMatch[2];
-    const rawUnit = canMatch[3].toUpperCase();
-    const unit = PACK_UNIT_MAP[rawUnit];
-    if (!unit) return null;
-    const ozPerCan = CAN_SIZES[canSize];
-    if (ozPerCan) return { count: packs * ozPerCan, unit: "oz" };
-    return { count: packs, unit };
-  }
-  const poundSlash = packSize.match(/^(\d+)\s*\/\s*(\d+\.?\d*)\s*#$/);
-  if (poundSlash) return { count: parseInt(poundSlash[1]) * parseFloat(poundSlash[2]), unit: "lb" };
-  const poundStandalone = packSize.match(/^(\d+\.?\d*)\s*#$/);
-  if (poundStandalone) return { count: parseFloat(poundStandalone[1]), unit: "lb" };
-  const match = packSize.match(/^(\d+)\s*\/\s*(\d+\.?\d*)\s*([A-Za-z]+)$/);
-  if (!match) return null;
-  const rawUnit = match[3].toUpperCase();
-  const unit = PACK_UNIT_MAP[rawUnit];
-  if (!unit) return null;
-  return { count: parseInt(match[1]) * parseFloat(match[2]), unit };
-};
+// parsePackSize moved to legacy/conversionLegacy as parsePackSizeRecipeBuilder
+const parsePackSize = parsePackSizeRecipeBuilder;
 
 /** Get effective units-per-case considering pack_quantity_override */
 const getEffectiveUnitsPerCase = (item: { pack_quantity_override?: number | null; count_units_per_case?: number | null; count_unit?: string | null; pack_size?: string | null }): { upc: number | null; unit: string } => {
