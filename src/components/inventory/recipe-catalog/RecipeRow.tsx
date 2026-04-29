@@ -12,12 +12,14 @@ import { parsePackSizeToOz } from "@/utils/legacy/conversionLegacy";
 import PosLinkIndicator from "./PosLinkIndicator";
 import type { PosItem } from "./usePosMapping";
 
-import { TO_OZ } from "@/utils/unitConversion";
+import { TO_OZ, normalizeUnit } from "@/utils/unitConversion";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
 
 interface RecipeRowProps {
   item: MenuItem;
   tagLabel?: string;
   locationId: string;
+  brandId: string;
   onEditRecipe?: (blueprintId: string) => void;
   posMapping?: { groupId: string; posItems: string[]; mappingType?: string; reconciliationGroup?: string | null };
   posItems?: PosItem[];
@@ -27,7 +29,8 @@ interface RecipeRowProps {
   isPosLinking?: boolean;
 }
 
-const RecipeRow = ({ item, tagLabel, locationId, onEditRecipe, posMapping, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking }: RecipeRowProps) => {
+const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMapping, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking }: RecipeRowProps) => {
+  const { conversionMap } = useBrandConversions(brandId);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const displayName = getCleanDisplayName(item.name || item.r365_name || "");
