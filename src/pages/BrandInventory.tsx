@@ -526,10 +526,6 @@ export default function BrandInventory() {
                             recipeUsageMap={recipeUsageMap}
                             conversionMap={conversionMap}
                             highlightedItemId={conversionsOpen ? highlightedItemId : null}
-                            onItemClick={(item) => {
-                              setConversionsTargetId(item.id);
-                              setConversionsOpen(true);
-                            }}
                           />
                         ))}
                       {catalogFilter === 'archived' && brandId && (
