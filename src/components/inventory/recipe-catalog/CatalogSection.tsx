@@ -10,6 +10,7 @@ interface CatalogSectionProps {
   section: CatalogSectionType;
   defaultOpen?: boolean;
   locationId: string;
+  brandId: string;
   onEditRecipe?: (bomMenuItemId: string) => void;
   reassignMode?: boolean;
   selectedIds?: Set<string>;
@@ -44,6 +45,7 @@ interface CollapsibleSegmentProps {
   items: MenuItem[];
   tagLabel: string;
   locationId: string;
+  brandId: string;
   onEditRecipe?: (id: string) => void;
   posMappings?: CatalogSectionProps["posMappings"];
   posItems?: PosItem[];
@@ -53,7 +55,7 @@ interface CollapsibleSegmentProps {
   isPosLinking?: boolean;
 }
 
-const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking, defaultOpen = false }: CollapsibleSegmentProps & { defaultOpen?: boolean }) => {
+const CollapsibleSegment = ({ label, items, tagLabel, locationId, brandId, onEditRecipe, posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking, defaultOpen = false }: CollapsibleSegmentProps & { defaultOpen?: boolean }) => {
   const [open, setOpen] = useState(defaultOpen);
 
   if (items.length === 0) return null;
@@ -79,6 +81,7 @@ const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, 
           item={item}
           tagLabel={tagLabel}
           locationId={locationId}
+          brandId={brandId}
           onEditRecipe={onEditRecipe}
           posMapping={posMappings?.get(item.id)}
           posItems={posItems}
@@ -93,7 +96,7 @@ const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, 
 };
 
 const CatalogSectionComponent = ({
-  section, defaultOpen = false, locationId, onEditRecipe,
+  section, defaultOpen = false, locationId, brandId, onEditRecipe,
   reassignMode, selectedIds, onToggleSelect,
   posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking,
 }: CatalogSectionProps) => {
@@ -147,9 +150,9 @@ const CatalogSectionComponent = ({
             ))
           ) : (
             <>
-              <CollapsibleSegment label="Foundation" items={section.bases} tagLabel="base" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
-              <CollapsibleSegment label="Build" items={section.cores} tagLabel="core" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
-              <CollapsibleSegment label="Menu Items" items={section.menuItems} tagLabel="mi" locationId={locationId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} defaultOpen />
+              <CollapsibleSegment label="Foundation" items={section.bases} tagLabel="base" locationId={locationId} brandId={brandId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
+              <CollapsibleSegment label="Build" items={section.cores} tagLabel="core" locationId={locationId} brandId={brandId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} />
+              <CollapsibleSegment label="Menu Items" items={section.menuItems} tagLabel="mi" locationId={locationId} brandId={brandId} onEditRecipe={onEditRecipe} posMappings={posMappings} posItems={posItems} onPosLink={onPosLink} onPosUnlink={onPosUnlink} onUpdateMappingMeta={onUpdateMappingMeta} isPosLinking={isPosLinking} defaultOpen />
             </>
           )}
         </div>

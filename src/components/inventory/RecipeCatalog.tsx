@@ -231,6 +231,7 @@ const RecipeCatalog = ({ locationId, readOnly = false, brandId }: RecipeCatalogP
                   section={section}
                   defaultOpen={i === 0}
                   locationId={locationId}
+                  brandId={brandId ?? ""}
                   onEditRecipe={readOnly || reassignMode ? undefined : handleEditRecipe}
                   reassignMode={reassignMode}
                   selectedIds={selectedIds}
