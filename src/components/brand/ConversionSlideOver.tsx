@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { ActiveConversion } from '@/hooks/useBrandConversions';
+import PanSizesSection, { type PanSizesConfig } from '@/components/inventory/PanSizesSection';
 
 interface CatalogItem {
   id: string;
