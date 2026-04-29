@@ -3956,7 +3956,8 @@ export type Database = {
       }
       item_conversions: {
         Row: {
-          brand_id: string | null
+          brand_id: string
+          brand_template_id: string
           canonical_qty_per_inner: number
           canonical_unit: string
           created_at: string
@@ -3966,7 +3967,6 @@ export type Database = {
           id: string
           inner_qty: number | null
           inner_unit: string | null
-          item_id: string
           outer_qty: number
           outer_unit: string
           source: string
@@ -3974,7 +3974,8 @@ export type Database = {
           version: number
         }
         Insert: {
-          brand_id?: string | null
+          brand_id: string
+          brand_template_id: string
           canonical_qty_per_inner: number
           canonical_unit: string
           created_at?: string
@@ -3984,7 +3985,6 @@ export type Database = {
           id?: string
           inner_qty?: number | null
           inner_unit?: string | null
-          item_id: string
           outer_qty: number
           outer_unit: string
           source?: string
@@ -3992,7 +3992,8 @@ export type Database = {
           version?: number
         }
         Update: {
-          brand_id?: string | null
+          brand_id?: string
+          brand_template_id?: string
           canonical_qty_per_inner?: number
           canonical_unit?: string
           created_at?: string
@@ -4002,7 +4003,6 @@ export type Database = {
           id?: string
           inner_qty?: number | null
           inner_unit?: string | null
-          item_id?: string
           outer_qty?: number
           outer_unit?: string
           source?: string
@@ -4011,17 +4011,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "item_conversions_brand_id_fkey"
-            columns: ["brand_id"]
+            foreignKeyName: "item_conversions_brand_template_id_fkey"
+            columns: ["brand_template_id"]
             isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "item_conversions_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_items"
+            referencedRelation: "brand_inventory_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -9473,9 +9466,10 @@ export type Database = {
       }
       generate_unique_pin: { Args: never; Returns: string }
       get_active_conversion: {
-        Args: { p_item_id: string }
+        Args: { p_template_id: string }
         Returns: {
-          brand_id: string | null
+          brand_id: string
+          brand_template_id: string
           canonical_qty_per_inner: number
           canonical_unit: string
           created_at: string
@@ -9485,7 +9479,6 @@ export type Database = {
           id: string
           inner_qty: number | null
           inner_unit: string | null
-          item_id: string
           outer_qty: number
           outer_unit: string
           source: string
