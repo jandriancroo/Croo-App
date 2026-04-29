@@ -453,10 +453,24 @@ export default function BrandInventory() {
                   />
                 </div>
                 {catalogFilter === 'live' && (
-                  <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setCategoryEditorOpen(true)}>
-                    <Tag className="h-3.5 w-3.5" />
-                    Edit Categories
-                  </Button>
+                  <>
+                    <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setCategoryEditorOpen(true)}>
+                      <Tag className="h-3.5 w-3.5" />
+                      Edit Categories
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => {
+                        setConversionsTargetId(null);
+                        setConversionsOpen(true);
+                      }}
+                    >
+                      <GitBranch className="h-3.5 w-3.5" />
+                      Conversions
+                    </Button>
+                  </>
                 )}
                 <Button size="sm" className="gap-1.5 shrink-0" onClick={() => setNewItemDialog(true)}>
                   <Plus className="h-3.5 w-3.5" />
