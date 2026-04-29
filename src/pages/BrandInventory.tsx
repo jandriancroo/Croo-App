@@ -32,6 +32,8 @@ import TheoMappingTab from '@/components/brand/TheoMappingTab';
 import ArchivedRecipesSection from '@/components/brand/ArchivedRecipesSection';
 import LocationActivationList from '@/components/brand/LocationActivationList';
 import VendorHealthDashboard from '@/components/brand/VendorHealthDashboard';
+import ConversionSlideOver from '@/components/brand/ConversionSlideOver';
+import { useBrandConversions } from '@/hooks/useBrandConversions';
 
 const FALLBACK_CATEGORIES = [
   "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts",
@@ -53,6 +55,11 @@ export default function BrandInventory() {
   const [newItemIsRecipe, setNewItemIsRecipe] = useState(false);
   const [catalogSelectedIds, setCatalogSelectedIds] = useState<Set<string>>(new Set());
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false);
+  const [conversionsOpen, setConversionsOpen] = useState(false);
+  const [conversionsTargetId, setConversionsTargetId] = useState<string | null>(null);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+
+  const { conversionMap } = useBrandConversions(brandId);
 
   // Source location for recipe catalog
   const [sourceLocationId, setSourceLocationId] = useState<string | null>(null);
@@ -446,10 +453,24 @@ export default function BrandInventory() {
                   />
                 </div>
                 {catalogFilter === 'live' && (
-                  <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setCategoryEditorOpen(true)}>
-                    <Tag className="h-3.5 w-3.5" />
-                    Edit Categories
-                  </Button>
+                  <>
+                    <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setCategoryEditorOpen(true)}>
+                      <Tag className="h-3.5 w-3.5" />
+                      Edit Categories
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => {
+                        setConversionsTargetId(null);
+                        setConversionsOpen(true);
+                      }}
+                    >
+                      <GitBranch className="h-3.5 w-3.5" />
+                      Conversions
+                    </Button>
+                  </>
                 )}
                 <Button size="sm" className="gap-1.5 shrink-0" onClick={() => setNewItemDialog(true)}>
                   <Plus className="h-3.5 w-3.5" />
@@ -503,6 +524,8 @@ export default function BrandInventory() {
                             onToggleSelect={toggleCatalogSelect}
                             onStartSelection={(id) => setCatalogSelectedIds(new Set([id]))}
                             recipeUsageMap={recipeUsageMap}
+                            conversionMap={conversionMap}
+                            highlightedItemId={conversionsOpen ? highlightedItemId : null}
                           />
                         ))}
                       {catalogFilter === 'archived' && brandId && (
@@ -711,6 +734,35 @@ export default function BrandInventory() {
           categories={brandCategories as any[]}
           open={categoryEditorOpen}
           onOpenChange={setCategoryEditorOpen}
+        />
+      )}
+
+      {brandId && (
+        <ConversionSlideOver
+          open={conversionsOpen}
+          onOpenChange={(o) => {
+            setConversionsOpen(o);
+            if (!o) setHighlightedItemId(null);
+          }}
+          brandId={brandId}
+          items={(() => {
+            const live = templates.filter(t => (t.status || 'live') === 'live' && !t.is_recipe);
+            const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
+            return [...live].sort((a, b) => {
+              const ai = orderMap[a.category || 'Uncategorized'] ?? 999;
+              const bi = orderMap[b.category || 'Uncategorized'] ?? 999;
+              if (ai !== bi) return ai - bi;
+              return (a.product_name || '').localeCompare(b.product_name || '');
+            }).map(t => ({
+              id: t.id,
+              product_name: t.product_name,
+              common_name: t.common_name ?? null,
+              category: t.category ?? null,
+            }));
+          })()}
+          conversionMap={conversionMap}
+          initialItemId={conversionsTargetId}
+          onItemChange={(id) => setHighlightedItemId(id)}
         />
       )}
     </Layout>
