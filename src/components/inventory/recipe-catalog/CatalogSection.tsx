@@ -10,6 +10,7 @@ interface CatalogSectionProps {
   section: CatalogSectionType;
   defaultOpen?: boolean;
   locationId: string;
+  brandId: string;
   onEditRecipe?: (bomMenuItemId: string) => void;
   reassignMode?: boolean;
   selectedIds?: Set<string>;
