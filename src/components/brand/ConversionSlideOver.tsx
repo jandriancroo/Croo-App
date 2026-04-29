@@ -375,18 +375,20 @@ export default function ConversionSlideOver({
               <div className="text-sm text-muted-foreground text-center py-12">No item selected</div>
             ) : (
               <>
-                {/* Plain English summary */}
-                <div className="rounded-lg border border-border bg-muted/30 p-3">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> Current conversion
+                {/* Plain English summary — hide for needs_review/missing */}
+                {activeConversion && activeConversion.source !== 'needs_review' && (
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" /> Current conversion
+                    </div>
+                    <pre className="text-sm font-medium whitespace-pre-wrap font-sans">
+                      {formatPlainEnglish(activeConversion, form)}
+                    </pre>
+                    <div className="text-xs text-muted-foreground mt-1.5">
+                      Track in: <span className="font-semibold">{form.canonical_unit || '—'}</span>
+                    </div>
                   </div>
-                  <pre className="text-sm font-medium whitespace-pre-wrap font-sans">
-                    {formatPlainEnglish(activeConversion, form)}
-                  </pre>
-                  <div className="text-xs text-muted-foreground mt-1.5">
-                    Track in: <span className="font-semibold">{form.canonical_unit || '—'}</span>
-                  </div>
-                </div>
+                )}
 
                 {sourceLabel === 'needs_review' && (
                   <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm flex items-start gap-2">
