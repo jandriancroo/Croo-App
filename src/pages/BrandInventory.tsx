@@ -746,7 +746,7 @@ export default function BrandInventory() {
           }}
           brandId={brandId}
           items={(() => {
-            const live = templates.filter(t => (t.status || 'live') === 'live' && !t.is_recipe);
+            const live = templates.filter(t => (t.status || 'live') === 'live');
             const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
             return [...live].sort((a, b) => {
               const ai = orderMap[a.category || 'Uncategorized'] ?? 999;
