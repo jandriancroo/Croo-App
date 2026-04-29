@@ -444,10 +444,33 @@ export default function ConversionSlideOver({
             )}
           </TabsContent>
 
-          <TabsContent value="count" className="flex-1 overflow-y-auto px-5 py-12 mt-0">
-            <div className="text-center text-sm text-muted-foreground">
-              Coming soon: configure how staff counts this item
-            </div>
+          <TabsContent value="count" className="flex-1 overflow-y-auto px-5 py-4 mt-0 space-y-4">
+            {!currentItem ? (
+              <div className="text-sm text-muted-foreground text-center py-12">No item selected</div>
+            ) : countLoading || !panConfig ? (
+              <div className="text-sm text-muted-foreground text-center py-12">Loading…</div>
+            ) : (
+              <>
+                <div>
+                  <h3 className="text-sm font-semibold">How does your team count this item?</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Tracked in <span className="font-medium text-foreground">{canonicalUnit}</span>. Configure pans/cambros below.
+                  </p>
+                </div>
+
+                <PanSizesSection
+                  value={panConfig}
+                  onChange={(cfg) => setPanConfig(cfg ?? { enabled: false, baseline_key: 'third_pan', baseline_units: 0, enabled_keys: [] })}
+                  unitLabel={canonicalUnit}
+                />
+
+                {isCountDirty && (
+                  <Button onClick={saveCountConfig} disabled={countSaving} className="w-full">
+                    {countSaving ? 'Saving…' : 'Save Count Config'}
+                  </Button>
+                )}
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="depletion" className="flex-1 overflow-y-auto px-5 py-12 mt-0">
