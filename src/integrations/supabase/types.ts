@@ -3954,6 +3954,78 @@ export type Database = {
           },
         ]
       }
+      item_conversions: {
+        Row: {
+          brand_id: string | null
+          canonical_qty_per_inner: number
+          canonical_unit: string
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          has_inner: boolean
+          id: string
+          inner_qty: number | null
+          inner_unit: string | null
+          item_id: string
+          outer_qty: number
+          outer_unit: string
+          source: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          brand_id?: string | null
+          canonical_qty_per_inner: number
+          canonical_unit: string
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          has_inner?: boolean
+          id?: string
+          inner_qty?: number | null
+          inner_unit?: string | null
+          item_id: string
+          outer_qty: number
+          outer_unit: string
+          source?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          brand_id?: string | null
+          canonical_qty_per_inner?: number
+          canonical_unit?: string
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          has_inner?: boolean
+          id?: string
+          inner_qty?: number | null
+          inner_unit?: string | null
+          item_id?: string
+          outer_qty?: number
+          outer_unit?: string
+          source?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_conversions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_conversions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_application_references: {
         Row: {
           application_id: string
@@ -9400,6 +9472,33 @@ export type Database = {
         Returns: number
       }
       generate_unique_pin: { Args: never; Returns: string }
+      get_active_conversion: {
+        Args: { p_item_id: string }
+        Returns: {
+          brand_id: string | null
+          canonical_qty_per_inner: number
+          canonical_unit: string
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          has_inner: boolean
+          id: string
+          inner_qty: number | null
+          inner_unit: string | null
+          item_id: string
+          outer_qty: number
+          outer_unit: string
+          source: string
+          updated_at: string
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "item_conversions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_chat_unread_counts: {
         Args: { _location_id: string; _user_id: string }
         Returns: Json
