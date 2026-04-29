@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,60 +23,21 @@ interface ConversionSlideOverProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   brandId: string;
-  items: CatalogItem[]; // ordered list of all live brand templates
+  items: CatalogItem[];
   conversionMap: Map<string, ActiveConversion>;
   initialItemId: string | null;
   onItemChange?: (itemId: string | null) => void;
   onConversionsChanged?: () => void;
 }
 
-const UNIT_SUGGESTIONS = ['ea', 'jar', 'bag', 'can', 'log', 'lb', 'oz', 'gal', 'tray', 'case', 'pack', 'bottle'];
-const CANONICAL_UNITS = ['ea', 'lb', 'oz', 'g', 'gal', 'qt', 'fl oz', 'ml'];
+const CANONICAL_UNITS = ['ea', 'lb', 'oz', 'g', 'gal', 'qt'];
 
 interface FormState {
-  outer_qty: string;
-  outer_unit: string;
-  has_inner: boolean;
-  inner_qty: string;
-  inner_unit: string;
   canonical_unit: string;
-  canonical_qty_per_inner: string;
 }
 
 function conversionToForm(c: ActiveConversion | undefined): FormState {
-  if (!c) {
-    return {
-      outer_qty: '',
-      outer_unit: 'case',
-      has_inner: false,
-      inner_qty: '',
-      inner_unit: '',
-      canonical_unit: 'ea',
-      canonical_qty_per_inner: '1',
-    };
-  }
-  return {
-    outer_qty: String(c.outer_qty ?? ''),
-    outer_unit: c.outer_unit ?? '',
-    has_inner: !!c.has_inner,
-    inner_qty: c.inner_qty != null ? String(c.inner_qty) : '',
-    inner_unit: c.inner_unit ?? '',
-    canonical_unit: c.canonical_unit ?? 'ea',
-    canonical_qty_per_inner: c.canonical_qty_per_inner != null ? String(c.canonical_qty_per_inner) : '1',
-  };
-}
-
-function formatPlainEnglish(c: ActiveConversion | undefined, form: FormState): string {
-  const oq = form.outer_qty || '?';
-  const ou = form.outer_unit || 'units';
-  const cu = form.canonical_unit || 'ea';
-  if (form.has_inner) {
-    const iq = form.inner_qty || '?';
-    const iu = form.inner_unit || 'units';
-    const innerLabel = `${form.canonical_qty_per_inner || '?'} ${cu} per ${iu}`;
-    return `1 ${ou.replace(/s$/, '') === ou ? ou : ou} = ${oq} ${iu}${iq ? ` → 1 ${iu} = ${iq} ${cu}` : ''}\n(${innerLabel})`;
-  }
-  return `1 ${ou} = ${oq} ${cu}`;
+  return { canonical_unit: c?.canonical_unit || 'ea' };
 }
 
 function StatusBadge({ source }: { source: string }) {
@@ -119,7 +78,6 @@ export default function ConversionSlideOver({
   const [form, setForm] = useState<FormState>(conversionToForm(undefined));
   const [saving, setSaving] = useState(false);
 
-  // Resolve current item & active conversion
   const currentIndex = useMemo(
     () => (currentItemId ? items.findIndex((i) => i.id === currentItemId) : -1),
     [items, currentItemId]
@@ -127,7 +85,6 @@ export default function ConversionSlideOver({
   const currentItem = currentIndex >= 0 ? items[currentIndex] : null;
   const activeConversion = currentItemId ? conversionMap.get(currentItemId) : undefined;
 
-  // Counts for progress bar
   const totalCount = items.length;
   const confirmedCount = useMemo(
     () =>
@@ -141,7 +98,6 @@ export default function ConversionSlideOver({
   const remaining = totalCount - confirmedCount;
   const progressPct = totalCount > 0 ? (confirmedCount / totalCount) * 100 : 0;
 
-  // Find next needs_review item
   const findNextNeedsReview = useCallback(
     (fromIdx: number): string | null => {
       if (items.length === 0) return null;
@@ -156,24 +112,20 @@ export default function ConversionSlideOver({
   );
   const nextReviewId = currentIndex >= 0 ? findNextNeedsReview(currentIndex) : null;
 
-  // Sync currentItemId when initialItemId / open changes
   useEffect(() => {
     if (open) {
       let target = initialItemId;
       if (!target) {
-        // auto-jump to first needs_review, else first item
         target = findNextNeedsReview(-1) ?? items[0]?.id ?? null;
       }
       setCurrentItemId(target);
     }
   }, [open, initialItemId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Hydrate form when item changes
   useEffect(() => {
     setForm(conversionToForm(activeConversion));
   }, [currentItemId, activeConversion?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Notify parent of item highlight
   useEffect(() => {
     if (open) onItemChange?.(currentItemId);
   }, [currentItemId, open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -194,7 +146,6 @@ export default function ConversionSlideOver({
     if (nextReviewId) setCurrentItemId(nextReviewId);
   }, [nextReviewId]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -208,78 +159,53 @@ export default function ConversionSlideOver({
     return () => window.removeEventListener('keydown', handler);
   }, [open, goPrev, goNext, goNextReview]);
 
-  // Dirty detection
   const baseline = useMemo(() => conversionToForm(activeConversion), [activeConversion?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const isDirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(baseline), [form, baseline]);
-
-  const validate = (): string | null => {
-    const oq = parseFloat(form.outer_qty);
-    if (!isFinite(oq) || oq <= 0) return 'Units per case must be greater than 0';
-    if (!form.outer_unit.trim()) return 'Unit type is required';
-    if (!form.canonical_unit) return 'Tracking unit is required';
-    if (form.has_inner) {
-      const iq = parseFloat(form.inner_qty);
-      if (!isFinite(iq) || iq <= 0) return 'Units per outer must be greater than 0';
-      if (!form.inner_unit.trim()) return 'Inner unit type is required';
-    }
-    const cqi = parseFloat(form.canonical_qty_per_inner);
-    if (!isFinite(cqi) || cqi <= 0) return 'Tracking quantity must be greater than 0';
-    return null;
-  };
+  const isDirty = form.canonical_unit !== baseline.canonical_unit;
 
   const persistConversion = async (sourceLabel: 'manual_override', valuesFrom: 'form' | 'current') => {
     if (!currentItemId || !activeConversion) {
       toast.error('No active conversion to update');
       return;
     }
-    const err = valuesFrom === 'form' ? validate() : null;
-    if (err) { toast.error(err); return; }
+    if (valuesFrom === 'form' && !form.canonical_unit) {
+      toast.error('Tracking unit is required');
+      return;
+    }
 
     setSaving(true);
     try {
       const now = new Date().toISOString();
 
-      // Close current row
       const { error: closeErr } = await supabase
         .from('item_conversions')
         .update({ effective_to: now })
         .eq('id', activeConversion.id);
       if (closeErr) throw closeErr;
 
-      const newRow =
-        valuesFrom === 'form'
-          ? {
-              brand_template_id: currentItemId,
-              brand_id: brandId,
-              outer_qty: parseFloat(form.outer_qty),
-              outer_unit: form.outer_unit.trim(),
-              has_inner: form.has_inner,
-              inner_qty: form.has_inner ? parseFloat(form.inner_qty) : null,
-              inner_unit: form.has_inner ? form.inner_unit.trim() : null,
-              canonical_unit: form.canonical_unit,
-              canonical_qty_per_inner: parseFloat(form.canonical_qty_per_inner),
-              source: sourceLabel,
-              version: (activeConversion.version || 1) + 1,
-              effective_from: now,
-              effective_to: null,
-            }
-          : {
-              brand_template_id: currentItemId,
-              brand_id: brandId,
-              outer_qty: activeConversion.outer_qty,
-              outer_unit: activeConversion.outer_unit,
-              has_inner: activeConversion.has_inner,
-              inner_qty: activeConversion.inner_qty,
-              inner_unit: activeConversion.inner_unit,
-              canonical_unit: activeConversion.canonical_unit,
-              canonical_qty_per_inner: activeConversion.canonical_qty_per_inner,
-              source: sourceLabel,
-              version: (activeConversion.version || 1) + 1,
-              effective_from: now,
-              effective_to: null,
-            };
+      // Carry forward all non-canonical fields. Use sensible defaults if previous row was needs_review with no data.
+      const isPlaceholder = activeConversion.source === 'needs_review';
+      const carry = {
+        outer_qty: isPlaceholder ? 1 : (activeConversion.outer_qty ?? 1),
+        outer_unit: isPlaceholder ? 'ea' : (activeConversion.outer_unit ?? 'ea'),
+        has_inner: isPlaceholder ? false : !!activeConversion.has_inner,
+        inner_qty: isPlaceholder ? null : activeConversion.inner_qty,
+        inner_unit: isPlaceholder ? null : activeConversion.inner_unit,
+        canonical_qty_per_inner: isPlaceholder ? 1 : (activeConversion.canonical_qty_per_inner ?? 1),
+      };
 
-      const { error: insertErr } = await supabase.from('item_conversions').insert(newRow);
+      const canonical_unit =
+        valuesFrom === 'form' ? form.canonical_unit : activeConversion.canonical_unit;
+
+      const { error: insertErr } = await supabase.from('item_conversions').insert({
+        brand_template_id: currentItemId,
+        brand_id: brandId,
+        ...carry,
+        canonical_unit,
+        source: sourceLabel,
+        version: (activeConversion.version || 1) + 1,
+        effective_from: now,
+        effective_to: null,
+      });
       if (insertErr) throw insertErr;
 
       toast.success(valuesFrom === 'form' ? 'Conversion saved' : 'Confirmed');
@@ -296,17 +222,12 @@ export default function ConversionSlideOver({
   const handleSave = () => persistConversion('manual_override', 'form');
   const handleConfirm = () => persistConversion('manual_override', 'current');
 
-  const showCanonicalInput =
-    form.canonical_unit &&
-    form.canonical_unit !== (form.has_inner ? form.inner_unit : form.outer_unit);
-
   const sourceLabel = activeConversion?.source ?? 'needs_review';
   const itemPosition = currentIndex >= 0 ? currentIndex + 1 : 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
-        {/* Header */}
         <SheetHeader className="px-5 pt-5 pb-3 border-b border-border space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -322,7 +243,6 @@ export default function ConversionSlideOver({
             </div>
           </div>
 
-          {/* Progress */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium">{confirmedCount} of {totalCount} confirmed</span>
@@ -337,7 +257,6 @@ export default function ConversionSlideOver({
             <Progress value={progressPct} className="h-1.5" />
           </div>
 
-          {/* Nav */}
           <div className="flex items-center justify-between gap-2">
             <Button variant="ghost" size="sm" onClick={goPrev} className="gap-1 px-2">
               <ChevronLeft className="h-4 w-4" /> Prev
@@ -362,7 +281,6 @@ export default function ConversionSlideOver({
           </div>
         </SheetHeader>
 
-        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-5 mt-3 grid grid-cols-3">
             <TabsTrigger value="conversion">Conversion</TabsTrigger>
@@ -375,17 +293,13 @@ export default function ConversionSlideOver({
               <div className="text-sm text-muted-foreground text-center py-12">No item selected</div>
             ) : (
               <>
-                {/* Plain English summary — hide for needs_review/missing */}
                 {activeConversion && activeConversion.source !== 'needs_review' && (
                   <div className="rounded-lg border border-border bg-muted/30 p-3">
                     <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
-                      <Sparkles className="h-3 w-3" /> Current conversion
+                      <Sparkles className="h-3 w-3" /> Current
                     </div>
-                    <pre className="text-sm font-medium whitespace-pre-wrap font-sans">
-                      {formatPlainEnglish(activeConversion, form)}
-                    </pre>
-                    <div className="text-xs text-muted-foreground mt-1.5">
-                      Track in: <span className="font-semibold">{form.canonical_unit || '—'}</span>
+                    <div className="text-sm font-medium">
+                      Tracked in: <span className="font-semibold">{form.canonical_unit || '—'}</span>
                     </div>
                   </div>
                 )}
@@ -393,103 +307,25 @@ export default function ConversionSlideOver({
                 {sourceLabel === 'needs_review' && (
                   <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
-                    <span>This item needs conversion data. Please configure below.</span>
+                    <span>What unit does your team count this item in?</span>
                   </div>
                 )}
 
-                {/* Form */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Units per case</Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        step="any"
-                        value={form.outer_qty}
-                        onChange={(e) => setForm({ ...form, outer_qty: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Unit type</Label>
-                      <Input
-                        list="unit-suggestions"
-                        value={form.outer_unit}
-                        onChange={(e) => setForm({ ...form, outer_unit: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                    <div>
-                      <Label className="text-sm">Has inner packaging</Label>
-                      <p className="text-xs text-muted-foreground">e.g., trays inside a case</p>
-                    </div>
-                    <Switch
-                      checked={form.has_inner}
-                      onCheckedChange={(v) => setForm({ ...form, has_inner: v })}
-                    />
-                  </div>
-
-                  {form.has_inner && (
-                    <div className="grid grid-cols-2 gap-3 pl-3 border-l-2 border-primary/30">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Units per outer</Label>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          step="any"
-                          value={form.inner_qty}
-                          onChange={(e) => setForm({ ...form, inner_qty: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Inner unit type</Label>
-                        <Input
-                          list="unit-suggestions"
-                          value={form.inner_unit}
-                          onChange={(e) => setForm({ ...form, inner_unit: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Track inventory in</Label>
-                    <Select
-                      value={form.canonical_unit}
-                      onValueChange={(v) => setForm({ ...form, canonical_unit: v })}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {CANONICAL_UNITS.map((u) => (
-                          <SelectItem key={u} value={u}>{u}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {showCanonicalInput && (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">
-                        {form.canonical_unit} per {form.has_inner ? (form.inner_unit || 'inner') : (form.outer_unit || 'outer')}
-                      </Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        step="any"
-                        value={form.canonical_qty_per_inner}
-                        onChange={(e) => setForm({ ...form, canonical_qty_per_inner: e.target.value })}
-                      />
-                    </div>
-                  )}
-
-                  <datalist id="unit-suggestions">
-                    {UNIT_SUGGESTIONS.map((u) => <option key={u} value={u} />)}
-                  </datalist>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Track inventory in</Label>
+                  <Select
+                    value={form.canonical_unit}
+                    onValueChange={(v) => setForm({ canonical_unit: v })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CANONICAL_UNITS.map((u) => (
+                        <SelectItem key={u} value={u}>{u}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* Action area */}
                 <div className="space-y-2 pt-2">
                   {isDirty ? (
                     <Button onClick={handleSave} disabled={saving} className="w-full">
@@ -514,7 +350,6 @@ export default function ConversionSlideOver({
                   )}
                 </div>
 
-                {/* Footer meta */}
                 <div className="border-t border-border pt-3 text-[11px] text-muted-foreground space-y-0.5">
                   <div>
                     Version {activeConversion?.version ?? '—'} · Last updated{' '}
