@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tag, ChevronDown, ChevronRight } from "lucide-react";
+import { Tag, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import type { ActiveConversion } from "@/hooks/useBrandConversions";
 
 const isNewItem = (createdAt: string) => {
   const created = new Date(createdAt);
