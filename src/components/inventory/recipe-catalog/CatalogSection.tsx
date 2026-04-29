@@ -45,6 +45,7 @@ interface CollapsibleSegmentProps {
   items: MenuItem[];
   tagLabel: string;
   locationId: string;
+  brandId: string;
   onEditRecipe?: (id: string) => void;
   posMappings?: CatalogSectionProps["posMappings"];
   posItems?: PosItem[];
@@ -54,7 +55,7 @@ interface CollapsibleSegmentProps {
   isPosLinking?: boolean;
 }
 
-const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking, defaultOpen = false }: CollapsibleSegmentProps & { defaultOpen?: boolean }) => {
+const CollapsibleSegment = ({ label, items, tagLabel, locationId, brandId, onEditRecipe, posMappings, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking, defaultOpen = false }: CollapsibleSegmentProps & { defaultOpen?: boolean }) => {
   const [open, setOpen] = useState(defaultOpen);
 
   if (items.length === 0) return null;
@@ -80,6 +81,7 @@ const CollapsibleSegment = ({ label, items, tagLabel, locationId, onEditRecipe, 
           item={item}
           tagLabel={tagLabel}
           locationId={locationId}
+          brandId={brandId}
           onEditRecipe={onEditRecipe}
           posMapping={posMappings?.get(item.id)}
           posItems={posItems}
