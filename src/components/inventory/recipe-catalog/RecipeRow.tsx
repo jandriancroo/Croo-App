@@ -13,7 +13,6 @@ import PosLinkIndicator from "./PosLinkIndicator";
 import type { PosItem } from "./usePosMapping";
 
 import { TO_OZ, normalizeUnit } from "@/utils/unitConversion";
-import { useBrandConversions } from "@/hooks/useBrandConversions";
 
 interface RecipeRowProps {
   item: MenuItem;
@@ -30,7 +29,6 @@ interface RecipeRowProps {
 }
 
 const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMapping, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking }: RecipeRowProps) => {
-  const { conversionMap } = useBrandConversions(brandId);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const displayName = getCleanDisplayName(item.name || item.r365_name || "");
@@ -174,28 +172,20 @@ const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMappi
       const caseCost = v.blended_price ?? v.cost_per_unit ?? 0;
       if (caseCost === 0) return 0;
 
-      // Pipeline 1 lookup — prefer brand canonical conversion over location count_unit.
-      // ing.vendor_item_id is the brand template id, which is the conversionMap key.
-      const brandConversion = conversionMap.get(ing.vendor_item_id);
-
       const iu = normalizeUnit(ing.unit || "");
-      const nu = normalizeUnit(brandConversion?.canonical_unit || v.count_unit || "");
+      const nu = normalizeUnit(v.count_unit || "");
 
       if (iu === "cs" || iu === "case") return caseCost * ing.quantity;
 
-      // Pipeline 1 units per case: outer_qty * canonical_qty_per_inner.
-      // Fall back to existing location fields when no conversion exists.
-      const unitsPerCase = brandConversion
-        ? (brandConversion.outer_qty * (brandConversion.canonical_qty_per_inner ?? 1))
-        : (v.pack_quantity_override || v.count_units_per_case || v.pack_quantity || 1);
+      const unitsPerCase = v.pack_quantity_override || v.count_units_per_case || v.pack_quantity || 1;
       const costPerUnit = caseCost / unitsPerCase;
 
       if (iu === nu || (iu === "ea" && nu === "ea")) return costPerUnit * ing.quantity;
       if (iu && nu && iu !== nu && TO_OZ[iu] && TO_OZ[nu]) {
         return ((ing.quantity * TO_OZ[iu]) / TO_OZ[nu]) * costPerUnit;
       }
-      // Fallback: parse pack_size for total oz — only when Pipeline 1 has no conversion.
-      if (!nu && TO_OZ[iu] && !brandConversion) {
+      // Fallback: parse pack_size for total oz when count_unit is missing.
+      if (!nu && TO_OZ[iu]) {
         const totalOz = parsePackSizeToOz(v.pack_size || null);
         if (totalOz && totalOz > 0) {
           const cpu = caseCost / totalOz;
