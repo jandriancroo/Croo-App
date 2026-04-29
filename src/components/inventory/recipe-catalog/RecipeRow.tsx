@@ -173,25 +173,29 @@ const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMappi
       if (!v) return null;
       const caseCost = v.blended_price ?? v.cost_per_unit ?? 0;
       if (caseCost === 0) return 0;
-      const ingUnit = (ing.unit || "").trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
-      const nativeUnit = (v.count_unit || "").trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "-");
-      // Normalize common aliases
-      const normUnit = (u: string) => {
-        if (u.includes("oz")) return "oz";
-        if (u === "ea" || u === "each") return "ea";
-        return u;
-      };
-      const iu = normUnit(ingUnit);
-      const nu = normUnit(nativeUnit);
+
+      // Pipeline 1 lookup — prefer brand canonical conversion over location count_unit.
+      // ing.vendor_item_id is the brand template id, which is the conversionMap key.
+      const brandConversion = conversionMap.get(ing.vendor_item_id);
+
+      const iu = normalizeUnit(ing.unit || "");
+      const nu = normalizeUnit(brandConversion?.canonical_unit || v.count_unit || "");
+
       if (iu === "cs" || iu === "case") return caseCost * ing.quantity;
-      const unitsPerCase = v.pack_quantity_override || v.count_units_per_case || v.pack_quantity || 1;
+
+      // Pipeline 1 units per case: outer_qty * canonical_qty_per_inner.
+      // Fall back to existing location fields when no conversion exists.
+      const unitsPerCase = brandConversion
+        ? (brandConversion.outer_qty * (brandConversion.canonical_qty_per_inner ?? 1))
+        : (v.pack_quantity_override || v.count_units_per_case || v.pack_quantity || 1);
       const costPerUnit = caseCost / unitsPerCase;
+
       if (iu === nu || (iu === "ea" && nu === "ea")) return costPerUnit * ing.quantity;
       if (iu && nu && iu !== nu && TO_OZ[iu] && TO_OZ[nu]) {
         return ((ing.quantity * TO_OZ[iu]) / TO_OZ[nu]) * costPerUnit;
       }
-      // Fallback: try parsing pack_size for total oz
-      if (!nu && TO_OZ[iu]) {
+      // Fallback: parse pack_size for total oz — only when Pipeline 1 has no conversion.
+      if (!nu && TO_OZ[iu] && !brandConversion) {
         const totalOz = parsePackSizeToOz(v.pack_size || null);
         if (totalOz && totalOz > 0) {
           const cpu = caseCost / totalOz;
