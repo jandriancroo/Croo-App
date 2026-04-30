@@ -269,9 +269,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             par_level: item.par_level,
             cost_per_unit: item.cost_per_unit,
             pack_size: item.pack_size,
-            // Keep raw fields for SOT contract; do not pre-collapse override here.
-            pack_quantity: item.pack_quantity,
-            pack_quantity_override: (item as any).pack_quantity_override ?? null,
+            // Effective pack qty (override collapsed). Equivalent for SOT (override → pack_quantity priority).
+            pack_quantity: (item as any).pack_quantity_override ?? item.pack_quantity,
+            pack_quantity_override: null,
             brand_item_id: (item as any).brand_item_id ?? null,
             count_units_per_case: (item as any).count_units_per_case,
             item_number: item.item_number,
@@ -335,7 +335,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const existingCases = (item as any)._existingCases;
       const existingUnits = (item as any)._existingUnits;
       const totalUnits = (item as any)._existingQuantity || 0;
-      const packQty = (item as any).pack_quantity_override ?? item.pack_quantity ?? 1;
+      const packQty = item.pack_quantity || 1;
       
       // Prefer stored entered_cases/entered_units (exact user input)
       // Fall back to mathematical decomposition of quantity
