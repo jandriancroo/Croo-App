@@ -190,8 +190,8 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   });
 
   // Single source of truth — see src/utils/countItemValue.ts
-  // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
-  // Standard contract: pass full item shape + Pipeline 1 conversion lookup.
+  // forceLiveData=false → honor snapshots (cost_at_count, pack_quantity_at_count).
+  // Review reads historical/in-progress counts as-stored.
   const getItemValue = (item: CountItem) => {
     const itm: any = item.item || {};
     const conversion = itm.brand_item_id ? conversionMap.get(itm.brand_item_id) : null;
@@ -204,7 +204,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
         pack_quantity_override: itm.pack_quantity_override,
       },
       conversion || null,
-      true
+      false
     );
   };
 

@@ -378,8 +378,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       }
 
       // Single source of truth — see src/utils/countItemValue.ts
-      // PHASE 1: forceLiveData=true to recompute historical counts using current
-      // live cost/pack data, bypassing snapshot fields. Will revert in Phase 3.
+      // forceLiveData=false → honor snapshot fields (cost_at_count, pack_quantity_at_count)
+      // saved at submit time. Historical counts must read what was stored, not recompute
+      // with today's mutated live pack_quantity values.
       const getCountItemLineValue = (ci: any) => {
         const item = itemMap.get(ci.item_id);
         const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
@@ -392,7 +393,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             pack_quantity_override: item.pack_quantity_override,
           } : undefined,
           conversion || null,
-          true
+          false
         );
       };
 
