@@ -459,6 +459,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // key param allows split-count items to be identified by splitKey
   // Uses the shared SOT formula from src/utils/countItemValue.ts so the running
   // total in this Edit Count view matches Period view, Review view, and Export.
+  // DIAGNOSTIC: collect per-item cost details for one-shot top-10 summary
+  const diagnosticBufferRef = useRef<Array<any>>([]);
+
   const getItemCost = useCallback((item: CountItem & {
     _splitKey?: string;
     _existingQuantity?: number;
@@ -472,7 +475,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const batchCost = recipeCosts?.get(item.item_id);
     if (batchCost !== undefined && batchCost > 0) {
       const totalUnits = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
-      return totalUnits * batchCost;
+      const result = totalUnits * batchCost;
+      diagnosticBufferRef.current.push({
+        name: item.item_name,
+        splitKey: key,
+        path: 'recipe-batch',
+        casesVal: null,
+        unitsVal: null,
+        panUnits: null,
+        totalUnits,
+        packQty: item.pack_quantity,
+        costPerCase: item.cost_per_unit,
+        batchCost,
+        batchCostPath: true,
+        result,
+      });
+      return result;
     }
 
     // Live values (mid-typing) override saved values
@@ -490,7 +508,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // pass full item shape; pass Pipeline 1 conversion lookup.
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
 
-    return calculateCountItemValue(
+    const result = calculateCountItemValue(
       {
         quantity: null,
         entered_cases: casesVal,
@@ -509,12 +527,50 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       conversion || null,
       true
     );
+
+    diagnosticBufferRef.current.push({
+      name: item.item_name,
+      splitKey: key,
+      path: 'standard',
+      casesVal,
+      unitsVal,
+      panUnits,
+      enteredUnitsPassed: unitsVal + panUnits,
+      packQty: item.pack_quantity,
+      rawPackQuantity: (item as any)._rawPackQuantity ?? null,
+      rawPackQuantityOverride: (item as any)._rawPackQuantityOverride ?? null,
+      costPerCase: item.cost_per_unit,
+      brandItemId: item.brand_item_id,
+      hasConversion: !!conversion,
+      conversion: conversion ? { outer_qty: conversion.outer_qty, canonical_qty_per_inner: conversion.canonical_qty_per_inner } : null,
+      batchCostPath: false,
+      result,
+    });
+
+    return result;
   }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap]);
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
     if (!items) return 0;
-    return items.reduce((sum, item) => sum + getItemCost(item), 0);
+    diagnosticBufferRef.current = [];
+    const total = items.reduce((sum, item) => sum + getItemCost(item), 0);
+
+    // One-shot diagnostic dump: top 10 by absolute value
+    const buf = diagnosticBufferRef.current;
+    const top10 = [...buf].sort((a, b) => (b.result || 0) - (a.result || 0)).slice(0, 10);
+    // eslint-disable-next-line no-console
+    console.log('[getItemCost] TOTAL', {
+      total: Number(total.toFixed(2)),
+      itemsComputed: buf.length,
+      recipeBatchItems: buf.filter(b => b.batchCostPath).length,
+      recipeBatchSubtotal: Number(buf.filter(b => b.batchCostPath).reduce((s, b) => s + (b.result || 0), 0).toFixed(2)),
+      standardSubtotal: Number(buf.filter(b => !b.batchCostPath).reduce((s, b) => s + (b.result || 0), 0).toFixed(2)),
+    });
+    // eslint-disable-next-line no-console
+    console.log('[getItemCost] TOP 10', top10);
+
+    return total;
   }, [items, getItemCost]);
 
   // Count stats
