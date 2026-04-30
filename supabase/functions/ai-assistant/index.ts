@@ -1221,10 +1221,11 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             for (const c of convs || []) conversionMap.set(c.brand_template_id, c);
           }
 
+          // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
           const getCountItemLineValue = (ci: any) => {
             const item: any = itemMap.get(ci.item_id);
             const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-            return calculateCountItemValue(ci, item, conversion);
+            return calculateCountItemValue(ci, item, conversion, true);
           };
 
           let beginValue = 0;
@@ -1317,7 +1318,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
             let itemResults = (items || []).map((i: any) => {
               // Single source of truth — see src/utils/countItemValue.ts (mirrored at top of this file)
-              const totalCost = calculateCountItemValue(i, i.inventory_items, null);
+              // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
+              const totalCost = calculateCountItemValue(i, i.inventory_items, null, true);
 
               return {
                 name: i.inventory_items?.common_name || i.inventory_items?.product_name,
