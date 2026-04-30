@@ -36,10 +36,14 @@ const CANONICAL_UNITS = ['ea', 'lb', 'oz', 'g', 'gal', 'qt'];
 
 interface FormState {
   canonical_unit: string;
+  canonical_qty_per_inner: number;
 }
 
 function conversionToForm(c: ActiveConversion | undefined): FormState {
-  return { canonical_unit: c?.canonical_unit || 'ea' };
+  return {
+    canonical_unit: c?.canonical_unit || 'ea',
+    canonical_qty_per_inner: Number(c?.canonical_qty_per_inner ?? 1) || 1,
+  };
 }
 
 function StatusBadge({ source }: { source: string }) {
