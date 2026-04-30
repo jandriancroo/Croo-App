@@ -23,6 +23,7 @@ import { useAuth } from "@/lib/auth";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
+import { calculateCountItemValue } from "@/utils/countItemValue";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
@@ -419,23 +420,49 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Calculate cost for a single item (supports recipe cost trickle-down)
   // key param allows split-count items to be identified by splitKey
-  const getItemCost = useCallback((item: CountItem & { _splitKey?: string }) => {
+  // Uses the shared SOT formula from src/utils/countItemValue.ts so the running
+  // total in this Edit Count view matches Period view, Review view, and Export.
+  const getItemCost = useCallback((item: CountItem & { _splitKey?: string; _existingCases?: number | null; _existingUnits?: number | null; _packQuantityAtCount?: number | null }) => {
     const key = (item as any)._splitKey || item.item_id;
-    const totalUnits = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
-    
-    // Check if this is a recipe item with a calculated batch cost
+
+    // Recipe items: trickle-down batch cost still applies (no case/unit pack math)
     const batchCost = recipeCosts?.get(item.item_id);
     if (batchCost !== undefined && batchCost > 0) {
+      const totalUnits = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
       return totalUnits * batchCost;
     }
-    
-    // Standard items: cost_per_unit is per case, pack_quantity is units per case
-    // pack_quantity already incorporates pack_quantity_override (set at line 268)
-    const costPerCase = item.cost_per_unit || 0;
+
+    // Live values (mid-typing) override saved values
+    const rawCases = parseFloat(rawInputs[key]?.cases ?? '');
+    const rawUnits = parseFloat(rawInputs[key]?.units ?? '');
+    const committed = counts[key] || { cases: 0, units: 0 };
+    const casesVal = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
+    const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
+    const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
+
     const packQty = item.pack_quantity || 1;
-    const costPerUnit = costPerCase / Math.max(packQty, 1);
-    return totalUnits * costPerUnit;
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts]);
+    const totalQty = casesVal * packQty + unitsVal + panUnits;
+
+    // Build the SOT input. cost_at_count from saved row would be ideal, but live
+    // editing uses item.cost_per_unit (per case). pack_quantity_at_count is null
+    // mid-edit, but item.pack_quantity here ALREADY resolves override → vendor
+    // (set at line 266), giving the SOT formula a correct divisor.
+    return calculateCountItemValue(
+      {
+        quantity: totalQty,
+        entered_cases: casesVal,
+        entered_units: unitsVal + panUnits,
+        cost_at_count: null,
+        pack_quantity_at_count: null,
+      },
+      {
+        cost_per_unit: item.cost_per_unit,
+        pack_quantity: packQty,
+        pack_quantity_override: null,
+      },
+      null
+    );
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal]);
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
