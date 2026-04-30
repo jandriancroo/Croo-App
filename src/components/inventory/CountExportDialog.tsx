@@ -109,7 +109,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
       ];
 
       // Single source of truth — see src/utils/countItemValue.ts
-      // PHASE 1: forceLiveData=true. Standard contract: full item shape + Pipeline 1 conversion.
+      // forceLiveData=false → exports honor snapshots so historical CSVs match the saved count.
       const computeLineValue = (ci: any, item: any) => {
         const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
         return calculateCountItemValue(
@@ -121,7 +121,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             pack_quantity_override: item?.pack_quantity_override,
           },
           conversion || null,
-          true
+          false
         );
       };
 
@@ -201,7 +201,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         pack_quantity_override: item.pack_quantity_override,
       },
       conversion || null,
-      true
+      false
     );
   }, 0) || 0;
 
