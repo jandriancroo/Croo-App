@@ -33,12 +33,6 @@ const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMappi
   const [isExpanded, setIsExpanded] = useState(false);
   const { conversionMap } = useBrandConversions(brandId);
 
-  // TEMP DIAGNOSTIC: log conversionMap size when row expands
-  if (isExpanded) {
-    // eslint-disable-next-line no-console
-    console.log('[RecipeRow] brandId=', brandId, 'conversionMap.size=', conversionMap.size, 'sample keys=', Array.from(conversionMap.keys()).slice(0, 3));
-  }
-
   const displayName = getCleanDisplayName(item.name || item.r365_name || "");
 
   // Fetch ingredients from blueprint system
