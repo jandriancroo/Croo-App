@@ -27,14 +27,14 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
   const enteredUnitsNum = Number(ci?.entered_units || 0);
   const quantityNum = Number(ci?.quantity || 0);
 
-  const pipeline1PackQty = conversion
+  // Pipeline 1 (item_conversions) only applies as a pack-quantity fallback for
+  // EACH-based items. Weight/volume conversions are for cost-per-oz math, NOT
+  // for reconstructing units-per-case. Using them for olive oil (640 oz/case)
+  // breaks case-level counting where pack_quantity = 1 is genuinely correct.
+  const pipeline1PackQty = conversion && conversion.canonical_unit === 'ea'
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
-  // Pack quantity wins over Pipeline 1 always — Pipeline 1 conversions
-  // (item_conversions) are for cost-per-oz math, NOT for count quantity
-  // reconstruction. Using them here breaks case-level counting for items
-  // where pack_quantity = 1 is genuinely correct (e.g., olive oil sold by case).
   const packQtyRaw = forceLiveData
     ? (item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1)
     : (ci?.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1);
@@ -1212,7 +1212,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (brandIdForConv) {
             const { data: convs } = await supabase
               .from("item_conversions")
-              .select("brand_template_id, outer_qty, canonical_qty_per_inner")
+              .select("brand_template_id, outer_qty, canonical_qty_per_inner, canonical_unit")
               .eq("brand_id", brandIdForConv)
               .is("effective_to", null);
             for (const c of convs || []) conversionMap.set(c.brand_template_id, c);
