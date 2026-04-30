@@ -11,6 +11,7 @@ interface RecipeIngredient {
 
 interface ItemCostInfo {
   id: string;
+  brand_item_id: string | null;
   cost_per_unit: number | null;
   pack_quantity: number | null;
   pack_quantity_override: number | null;
@@ -21,6 +22,13 @@ interface ItemCostInfo {
   recipe_yield_qty: number | null;
   recipe_yield_unit: string | null;
   blended_price: number | null;
+}
+
+interface ActiveConversionRow {
+  brand_template_id: string;
+  canonical_unit: string;
+  outer_qty: number;
+  canonical_qty_per_inner: number | null;
 }
 
 /**
