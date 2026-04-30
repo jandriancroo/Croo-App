@@ -14,6 +14,8 @@ import {
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { calculateCountItemValue } from "@/utils/countItemValue";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
+import { resolveBrandId } from "@/utils/resolveBrandId";
 
 interface CountExportDialogProps {
   countId: string;
@@ -24,6 +26,15 @@ interface CountExportDialogProps {
 const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDialogProps) => {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Resolve brand for Pipeline 1 conversion fallback (standard SOT contract)
+  const { data: brandId } = useQuery({
+    queryKey: ["location-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    enabled: !!locationId && open,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { conversionMap } = useBrandConversions(brandId);
 
   // Fetch location name
   const { data: location } = useQuery({
@@ -58,6 +69,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             cost_per_unit,
             pack_quantity,
             pack_quantity_override,
+            brand_item_id,
             count_units_per_case,
             pack_size,
             item_number,
@@ -97,8 +109,21 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
       ];
 
       // Single source of truth — see src/utils/countItemValue.ts
-      // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
-      const computeLineValue = (ci: any, item: any) => calculateCountItemValue(ci, item, null, true);
+      // PHASE 1: forceLiveData=true. Standard contract: full item shape + Pipeline 1 conversion.
+      const computeLineValue = (ci: any, item: any) => {
+        const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+        return calculateCountItemValue(
+          ci,
+          {
+            brand_item_id: item?.brand_item_id,
+            cost_per_unit: item?.cost_per_unit,
+            pack_quantity: item?.pack_quantity,
+            pack_quantity_override: item?.pack_quantity_override,
+          },
+          conversion || null,
+          true
+        );
+      };
 
       const rows = exportItems.map((ci: any) => {
         const item = ci.item;
@@ -165,7 +190,19 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const totalItems = exportItems?.length || 0;
   const countedItems = exportItems?.filter((i: any) => i.quantity > 0).length || 0;
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
-    return sum + calculateCountItemValue(ci, ci.item, null, true);
+    const item = ci.item || {};
+    const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+    return sum + calculateCountItemValue(
+      ci,
+      {
+        brand_item_id: item.brand_item_id,
+        cost_per_unit: item.cost_per_unit,
+        pack_quantity: item.pack_quantity,
+        pack_quantity_override: item.pack_quantity_override,
+      },
+      conversion || null,
+      true
+    );
   }, 0) || 0;
 
   return (

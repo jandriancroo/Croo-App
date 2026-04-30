@@ -24,6 +24,8 @@ import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { calculateCountItemValue } from "@/utils/countItemValue";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
+import { resolveBrandId } from "@/utils/resolveBrandId";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
@@ -46,6 +48,8 @@ interface CountItem {
   cost_per_unit: number | null;
   pack_size: string | null;
   pack_quantity: number | null;
+  pack_quantity_override: number | null;
+  brand_item_id: string | null;
   item_number: string | null;
   brand: string | null;
   image_url: string | null;
@@ -131,6 +135,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           pack_size,
           pack_quantity,
           pack_quantity_override,
+          brand_item_id,
           count_units_per_case,
           item_number,
           brand,
@@ -264,7 +269,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             par_level: item.par_level,
             cost_per_unit: item.cost_per_unit,
             pack_size: item.pack_size,
-            pack_quantity: item.pack_quantity_override ?? item.pack_quantity,
+            // Effective pack qty (override collapsed). Equivalent for SOT (override → pack_quantity priority).
+            pack_quantity: (item as any).pack_quantity_override ?? item.pack_quantity,
+            pack_quantity_override: null,
+            brand_item_id: (item as any).brand_item_id ?? null,
             count_units_per_case: (item as any).count_units_per_case,
             item_number: item.item_number,
             brand: item.brand,
@@ -294,6 +302,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     queryFn: () => fetchRecipeCosts(locationId),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
+
+  // Resolve brand for Pipeline 1 conversion fallback (standard SOT contract)
+  const { data: brandId } = useQuery({
+    queryKey: ["location-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    enabled: !!locationId,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { conversionMap } = useBrandConversions(brandId);
 
   // Fetch existing duration for resumed counts
   const { data: countRecord } = useQuery({
@@ -451,26 +468,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // PHASE 1: forceLiveData=true — Edit Count must match Period/Review/Export by
     // recomputing every line via current live cost + live pack chain, ignoring
     // any cost_at_count / pack_quantity_at_count snapshot. This will revert in Phase 3.
-    const packQty = item.pack_quantity || 1;
-    const totalQty = casesVal * packQty + unitsVal + panUnits;
+    // Standard contract: pass entered_cases / entered_units (no synthesized quantity);
+    // pass full item shape; pass Pipeline 1 conversion lookup.
+    const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
 
     return calculateCountItemValue(
       {
-        quantity: totalQty,
+        quantity: null,
         entered_cases: casesVal,
         entered_units: unitsVal + panUnits,
         cost_at_count: null,
         pack_quantity_at_count: null,
       },
       {
+        brand_item_id: item.brand_item_id,
         cost_per_unit: item.cost_per_unit,
-        pack_quantity: packQty,
-        pack_quantity_override: null,
+        pack_quantity: item.pack_quantity,
+        pack_quantity_override: item.pack_quantity_override,
       },
-      null,
+      conversion || null,
       true
     );
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal]);
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap]);
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
