@@ -50,6 +50,15 @@ interface AuditEdit {
 }
 
 const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCountViewProps) => {
+  // Resolve brand for Pipeline 1 conversion fallback (standard SOT contract)
+  const { data: brandId } = useQuery({
+    queryKey: ["location-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    enabled: !!locationId,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { conversionMap } = useBrandConversions(brandId);
+
   // Fetch storage locations in order
   const { data: storageLocations } = useQuery({
     queryKey: ["inventory-storage-locations-view", locationId],
@@ -88,6 +97,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
             cost_per_unit,
             pack_quantity,
             pack_quantity_override,
+            brand_item_id,
             count_units_per_case,
             pack_size,
             item_number,
@@ -181,9 +191,21 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
 
   // Single source of truth — see src/utils/countItemValue.ts
   // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
-  // Note: this view does not load Pipeline 1 conversions; pass null.
+  // Standard contract: pass full item shape + Pipeline 1 conversion lookup.
   const getItemValue = (item: CountItem) => {
-    return calculateCountItemValue(item as any, item.item as any, null, true);
+    const itm: any = item.item || {};
+    const conversion = itm.brand_item_id ? conversionMap.get(itm.brand_item_id) : null;
+    return calculateCountItemValue(
+      item as any,
+      {
+        brand_item_id: itm.brand_item_id,
+        cost_per_unit: itm.cost_per_unit,
+        pack_quantity: itm.pack_quantity,
+        pack_quantity_override: itm.pack_quantity_override,
+      },
+      conversion || null,
+      true
+    );
   };
 
   // Build junction order map: "itemId|storLocId" -> display_order
