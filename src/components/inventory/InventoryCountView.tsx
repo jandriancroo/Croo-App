@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DollarSign, Package, History, User, Clock, ChevronDown, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import VarianceReport from "./VarianceReport";
+import { calculateCountItemValue } from "@/utils/countItemValue";
 
 
 
@@ -174,32 +175,10 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     }
   });
 
-  // Helper to get item value using stored cost_at_count (per CASE)
-  // PRIMARY path: use operator-entered cases + units (the actual inputs at count time)
-  // FALLBACK path: legacy quantity / packQty * cost (only when entered values are absent)
+  // Single source of truth — see src/utils/countItemValue.ts
+  // Note: this view does not load Pipeline 1 conversions; pass null.
   const getItemValue = (item: CountItem) => {
-    const ci: any = item;
-    const derivedPackQty = Number(ci.entered_cases) > 0
-      ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
-      : null;
-    const packQty = Number(
-      item.pack_quantity_at_count
-      ?? derivedPackQty
-      ?? (item.item as any)?.pack_quantity_override
-      ?? item.item?.pack_quantity
-      ?? 1
-    );
-    const costPerCase = item.cost_at_count != null
-      ? Number(item.cost_at_count) || 0
-      : Number(item.item?.cost_per_unit) || 0;
-
-    const hasEntered = ci.entered_cases != null || ci.entered_units != null;
-    if (hasEntered) {
-      const caseValue = Number(ci.entered_cases || 0) * costPerCase;
-      const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
-      return caseValue + unitValue;
-    }
-    return Number(item.quantity) * (costPerCase / Math.max(packQty, 1));
+    return calculateCountItemValue(item as any, item.item as any, null);
   };
 
   // Build junction order map: "itemId|storLocId" -> display_order
