@@ -6,10 +6,13 @@
  *
  * Pack qty resolution priority (authoritative sources only — no derivation from quantity):
  *   1. pack_quantity_at_count (snapshot from save time, post-Apr-28; skipped when forceLiveData)
- *   2. pack_quantity_override (location-level)
- *   3. pack_quantity (vendor sync)
+ *   2. pack_quantity_override (location-level) — only if > 1
+ *   3. pack_quantity (vendor sync) — only if > 1
  *   4. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner)
  *   5. 1 (final fallback)
+ *
+ * pack_quantity = 1 is treated as a sentinel for "vendor sync didn't give us a real pack"
+ * and falls through to Pipeline 1, which is authoritative for true pack sizes.
  *
  * NOTE: A previous version of this function included a `derivedPackQty` step that
  * back-computed pack from `(quantity - entered_units) / entered_cases`. That was
@@ -65,16 +68,22 @@ export function calculateCountItemValue(
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
+  // Treat pack_quantity = 1 as a sentinel for "vendor sync didn't give us a real pack"
+  // and fall through to Pipeline 1 (item_conversions), which is authoritative.
+  // A genuine pack of 1 will still resolve to 1 via the final fallback.
+  const liveLegacyPackQty = (() => {
+    if (item?.pack_quantity_override != null && Number(item.pack_quantity_override) > 1) {
+      return Number(item.pack_quantity_override);
+    }
+    if (item?.pack_quantity != null && Number(item.pack_quantity) > 1) {
+      return Number(item.pack_quantity);
+    }
+    return null;
+  })();
+
   const packQtyRaw = forceLiveData
-    ? (item?.pack_quantity_override
-        ?? item?.pack_quantity
-        ?? pipeline1PackQty
-        ?? 1)
-    : (ci.pack_quantity_at_count
-        ?? item?.pack_quantity_override
-        ?? item?.pack_quantity
-        ?? pipeline1PackQty
-        ?? 1);
+    ? (liveLegacyPackQty ?? pipeline1PackQty ?? 1)
+    : (ci.pack_quantity_at_count ?? liveLegacyPackQty ?? pipeline1PackQty ?? 1);
 
   const packQty = Number(packQtyRaw);
   const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;
