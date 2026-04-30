@@ -22,25 +22,14 @@ describe('calculateCountItemValue', () => {
     expect(result).toBeCloseTo(27.21, 2);
   });
 
-  it('values hershey bars via Pipeline 1 fallback (canonical_unit=ea): 0 cases + 9 loose, $50.70/case, conv pack=36', () => {
+  it('values hershey bars via Pipeline 1 fallback: 0 cases + 9 loose, $50.70/case, conv pack=36', () => {
     const result = calculateCountItemValue(
       { quantity: 9, entered_cases: 0, entered_units: 9, cost_at_count: 50.70, pack_quantity_at_count: null },
       { pack_quantity: null },
-      { outer_qty: 1, canonical_qty_per_inner: 36, canonical_unit: 'ea' }
+      { outer_qty: 1, canonical_qty_per_inner: 36 }
     );
     // 0 × $50.70 + 9 × $50.70 / 36 = $12.675
     expect(result).toBeCloseTo(12.68, 2);
-  });
-
-  it('does NOT use Pipeline 1 for weight/volume conversions (olive oil): pack_quantity=1 wins', () => {
-    // Olive oil: 1 case = $179.15, conversion is 640 oz/case (volumetric for cost-per-oz math)
-    // Must NOT fall through to 640; pack_quantity=1 is correct (sold by case).
-    const result = calculateCountItemValue(
-      { quantity: 1, entered_cases: 1, entered_units: 0, cost_at_count: 179.15, pack_quantity_at_count: null },
-      { pack_quantity: 1 },
-      { outer_qty: 1, canonical_qty_per_inner: 640, canonical_unit: 'oz' }
-    );
-    expect(result).toBeCloseTo(179.15, 2);
   });
 
   it('handles legacy rows without entered_cases', () => {

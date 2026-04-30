@@ -16,13 +16,12 @@
  *   1. pack_quantity_at_count (snapshot from save time, post-Apr-28; skipped when forceLiveData)
  *   2. pack_quantity_override (location-level)
  *   3. pack_quantity (vendor sync)
- *   4. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner) — ONLY when canonical_unit = 'ea'
+ *   4. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner) — last resort only
  *   5. 1 (final fallback)
  *
- * Note: Pipeline 1 conversions for weight/volume units (oz, g, ml) are for
- * cost-per-oz math, not for reconstructing how many units the operator counted
- * per case. They must never override an explicit pack_quantity, even when
- * pack_quantity = 1 (e.g., olive oil sold by the case).
+ * Note: Pipeline 1 conversions are for cost-per-oz math, not for reconstructing
+ * how many units the operator counted per case. They must never override an
+ * explicit pack_quantity, even when pack_quantity = 1.
  *
  * IMPORTANT: This file is mirrored in supabase/functions/ai-assistant/index.ts.
  * If you change the formula here, update the mirror as well.
@@ -69,14 +68,14 @@ export function calculateCountItemValue(
   const enteredUnitsNum = Number(ci.entered_units || 0);
   const quantityNum = Number(ci.quantity || 0);
 
-  // Pipeline 1 (item_conversions) only applies as a pack-quantity fallback for
-  // EACH-based items (e.g., Hershey's Bars: 36 ea/case). Weight/volume conversions
-  // are for cost-per-oz math, NOT for reconstructing how many units per case the
-  // operator counted. Using them for olive oil (640 oz/case) breaks case counting.
-  const pipeline1PackQty = conversion && conversion.canonical_unit === 'ea'
+  const pipeline1PackQty = conversion
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
+  // Pack quantity wins over Pipeline 1 always — Pipeline 1 conversions
+  // (item_conversions) are for cost-per-oz math, NOT for count quantity
+  // reconstruction. Using them here breaks case-level counting for items
+  // where pack_quantity = 1 is genuinely correct (e.g., olive oil sold by case).
   const packQtyRaw = forceLiveData
     ? (item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1)
     : (ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1);
