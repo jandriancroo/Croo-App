@@ -225,7 +225,17 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     const getCountItemLineValue = (ci: any) => {
       const item = itemMap.get(ci.item_id) as any;
       const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-      return calculateCountItemValue(ci, item, conversion, true);
+      return calculateCountItemValue(
+        ci,
+        item ? {
+          brand_item_id: item.brand_item_id,
+          cost_per_unit: item.cost_per_unit,
+          pack_quantity: item.pack_quantity,
+          pack_quantity_override: item.pack_quantity_override,
+        } : undefined,
+        conversion || null,
+        true
+      );
     };
 
     // Beginning inventory value
