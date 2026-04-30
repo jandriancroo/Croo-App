@@ -372,7 +372,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         (existingUnits !== null && existingUnits !== undefined);
       if (hasStoredInput) {
         initialCounts[key] = {
-          cases: existingCases,
+          cases: existingCases ?? 0,
           units: existingUnits ?? 0,
         };
       } else {
