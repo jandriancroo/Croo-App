@@ -427,6 +427,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     _existingQuantity?: number;
     _existingCases?: number | null;
     _existingUnits?: number | null;
+    _costAtCount?: number | null;
   }) => {
     const key = (item as any)._splitKey || item.item_id;
 
