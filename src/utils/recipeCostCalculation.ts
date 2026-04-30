@@ -41,7 +41,7 @@ interface ActiveConversionRow {
 export async function fetchRecipeCosts(locationId: string): Promise<Map<string, number>> {
   const { data: recipeItems, error: recipeError } = await supabase
     .from("inventory_items")
-    .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
+    .select("id, brand_item_id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
     .eq("location_id", locationId)
     .eq("is_active", true);
 
@@ -50,6 +50,25 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
   const recipeItemIds = recipeItems?.filter(i => i.is_recipe).map(i => i.id) || [];
   
   if (recipeItemIds.length === 0) return new Map();
+
+  // Pipeline 1 — fetch brand-level conversions for raw ingredient unit normalization
+  const conversionMap = new Map<string, ActiveConversionRow>();
+  if (recipeItems && recipeItems.length > 0) {
+    const { resolveBrandId } = await import("@/utils/resolveBrandId");
+    const brandId = await resolveBrandId(locationId);
+    if (brandId) {
+      const { data: conversions, error: convErr } = await supabase
+        .from("item_conversions")
+        .select("brand_template_id, canonical_unit, outer_qty, canonical_qty_per_inner")
+        .eq("brand_id", brandId)
+        .is("effective_to", null);
+      if (!convErr && conversions) {
+        for (const c of conversions) {
+          conversionMap.set(c.brand_template_id, c as ActiveConversionRow);
+        }
+      }
+    }
+  }
 
   const { data: allIngredients, error: allIngError } = await supabase
     .from("inventory_recipe_ingredients")
