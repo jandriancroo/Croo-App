@@ -176,9 +176,10 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   });
 
   // Single source of truth — see src/utils/countItemValue.ts
+  // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
   // Note: this view does not load Pipeline 1 conversions; pass null.
   const getItemValue = (item: CountItem) => {
-    return calculateCountItemValue(item as any, item.item as any, null);
+    return calculateCountItemValue(item as any, item.item as any, null, true);
   };
 
   // Build junction order map: "itemId|storLocId" -> display_order

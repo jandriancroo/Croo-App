@@ -97,7 +97,8 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
       ];
 
       // Single source of truth — see src/utils/countItemValue.ts
-      const computeLineValue = (ci: any, item: any) => calculateCountItemValue(ci, item, null);
+      // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
+      const computeLineValue = (ci: any, item: any) => calculateCountItemValue(ci, item, null, true);
 
       const rows = exportItems.map((ci: any) => {
         const item = ci.item;
@@ -164,7 +165,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const totalItems = exportItems?.length || 0;
   const countedItems = exportItems?.filter((i: any) => i.quantity > 0).length || 0;
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
-    return sum + calculateCountItemValue(ci, ci.item, null);
+    return sum + calculateCountItemValue(ci, ci.item, null, true);
   }, 0) || 0;
 
   return (

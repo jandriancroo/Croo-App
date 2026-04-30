@@ -40,11 +40,16 @@ export interface ConversionForValue {
 export function calculateCountItemValue(
   ci: CountItemForValue,
   item: ItemForValue | undefined,
-  conversion: ConversionForValue | null | undefined
+  conversion: ConversionForValue | null | undefined,
+  forceLiveData: boolean = false
 ): number {
-  const costPerCase = ci.cost_at_count != null
-    ? Number(ci.cost_at_count) || 0
-    : Number(item?.cost_per_unit) || 0;
+  // Phase 1 — forceLiveData ignores snapshots and uses live cost / live pack chain.
+  // Default behaviour (false) preserves the post-Apr-28 snapshot-first lock.
+  const costPerCase = forceLiveData
+    ? Number(item?.cost_per_unit) || 0
+    : (ci.cost_at_count != null
+        ? Number(ci.cost_at_count) || 0
+        : Number(item?.cost_per_unit) || 0);
 
   if (costPerCase === 0) return 0;
 
@@ -60,13 +65,18 @@ export function calculateCountItemValue(
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
-  const packQtyRaw =
-    ci.pack_quantity_at_count
-    ?? derivedPackQty
-    ?? item?.pack_quantity_override
-    ?? item?.pack_quantity
-    ?? pipeline1PackQty
-    ?? 1;
+  const packQtyRaw = forceLiveData
+    ? (derivedPackQty
+        ?? item?.pack_quantity_override
+        ?? item?.pack_quantity
+        ?? pipeline1PackQty
+        ?? 1)
+    : (ci.pack_quantity_at_count
+        ?? derivedPackQty
+        ?? item?.pack_quantity_override
+        ?? item?.pack_quantity
+        ?? pipeline1PackQty
+        ?? 1);
 
   const packQty = Number(packQtyRaw);
   const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;

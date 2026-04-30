@@ -378,10 +378,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       }
 
       // Single source of truth — see src/utils/countItemValue.ts
+      // PHASE 1: forceLiveData=true to recompute historical counts using current
+      // live cost/pack data, bypassing snapshot fields. Will revert in Phase 3.
       const getCountItemLineValue = (ci: any) => {
         const item = itemMap.get(ci.item_id);
         const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-        return calculateCountItemValue(ci, item, conversion);
+        return calculateCountItemValue(ci, item, conversion, true);
       };
 
       const getLivePerUnitCost = (itemId: string) => {

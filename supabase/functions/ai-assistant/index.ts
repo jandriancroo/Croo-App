@@ -15,10 +15,12 @@ const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // for the canonical test cases. Edits here without updating the TS twin will
 // silently desynchronize Period view, Review view, COGS report, and AI answers.
 // ─────────────────────────────────────────────────────────────────────────────
-function calculateCountItemValue(ci: any, item: any, conversion: any): number {
-  const costPerCase = ci?.cost_at_count != null
-    ? Number(ci.cost_at_count) || 0
-    : Number(item?.cost_per_unit) || 0;
+function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveData: boolean = false): number {
+  const costPerCase = forceLiveData
+    ? Number(item?.cost_per_unit) || 0
+    : (ci?.cost_at_count != null
+        ? Number(ci.cost_at_count) || 0
+        : Number(item?.cost_per_unit) || 0);
   if (costPerCase === 0) return 0;
 
   const enteredCasesNum = Number(ci?.entered_cases || 0);
@@ -33,13 +35,18 @@ function calculateCountItemValue(ci: any, item: any, conversion: any): number {
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
-  const packQtyRaw =
-    ci?.pack_quantity_at_count
-    ?? derivedPackQty
-    ?? item?.pack_quantity_override
-    ?? item?.pack_quantity
-    ?? pipeline1PackQty
-    ?? 1;
+  const packQtyRaw = forceLiveData
+    ? (derivedPackQty
+        ?? item?.pack_quantity_override
+        ?? item?.pack_quantity
+        ?? pipeline1PackQty
+        ?? 1)
+    : (ci?.pack_quantity_at_count
+        ?? derivedPackQty
+        ?? item?.pack_quantity_override
+        ?? item?.pack_quantity
+        ?? pipeline1PackQty
+        ?? 1);
 
   const packQty = Number(packQtyRaw);
   const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;
@@ -1214,10 +1221,11 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             for (const c of convs || []) conversionMap.set(c.brand_template_id, c);
           }
 
+          // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
           const getCountItemLineValue = (ci: any) => {
             const item: any = itemMap.get(ci.item_id);
             const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-            return calculateCountItemValue(ci, item, conversion);
+            return calculateCountItemValue(ci, item, conversion, true);
           };
 
           let beginValue = 0;
@@ -1310,7 +1318,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
             let itemResults = (items || []).map((i: any) => {
               // Single source of truth — see src/utils/countItemValue.ts (mirrored at top of this file)
-              const totalCost = calculateCountItemValue(i, i.inventory_items, null);
+              // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
+              const totalCost = calculateCountItemValue(i, i.inventory_items, null, true);
 
               return {
                 name: i.inventory_items?.common_name || i.inventory_items?.product_name,
