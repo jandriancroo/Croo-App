@@ -1212,7 +1212,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (brandIdForConv) {
             const { data: convs } = await supabase
               .from("item_conversions")
-              .select("brand_template_id, outer_qty, canonical_qty_per_inner, canonical_unit")
+              .select("brand_template_id, outer_qty, canonical_qty_per_inner")
               .eq("brand_id", brandIdForConv)
               .is("effective_to", null);
             for (const c of convs || []) conversionMap.set(c.brand_template_id, c);
