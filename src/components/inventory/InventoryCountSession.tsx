@@ -497,8 +497,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       {
         brand_item_id: item.brand_item_id,
         cost_per_unit: item.cost_per_unit,
-        pack_quantity: item.pack_quantity,
-        pack_quantity_override: item.pack_quantity_override,
+        // Option 2: pass RAW uncollapsed pack values (captured pre-collapse on line 284)
+        // so calculateCountItemValue receives the same shape as Period/Review/Export.
+        pack_quantity: (item as any)._rawPackQuantity ?? item.pack_quantity,
+        pack_quantity_override: (item as any)._rawPackQuantityOverride ?? null,
       },
       conversion || null,
       true
