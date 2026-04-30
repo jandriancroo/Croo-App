@@ -13,6 +13,7 @@ import PosLinkIndicator from "./PosLinkIndicator";
 import type { PosItem } from "./usePosMapping";
 
 import { TO_OZ, normalizeUnit } from "@/utils/unitConversion";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
 
 interface RecipeRowProps {
   item: MenuItem;
