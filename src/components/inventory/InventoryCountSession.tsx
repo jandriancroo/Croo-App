@@ -468,26 +468,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // PHASE 1: forceLiveData=true — Edit Count must match Period/Review/Export by
     // recomputing every line via current live cost + live pack chain, ignoring
     // any cost_at_count / pack_quantity_at_count snapshot. This will revert in Phase 3.
-    const packQty = item.pack_quantity || 1;
-    const totalQty = casesVal * packQty + unitsVal + panUnits;
+    // Standard contract: pass entered_cases / entered_units (no synthesized quantity);
+    // pass full item shape; pass Pipeline 1 conversion lookup.
+    const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
 
     return calculateCountItemValue(
       {
-        quantity: totalQty,
+        quantity: null,
         entered_cases: casesVal,
         entered_units: unitsVal + panUnits,
         cost_at_count: null,
         pack_quantity_at_count: null,
       },
       {
+        brand_item_id: item.brand_item_id,
         cost_per_unit: item.cost_per_unit,
-        pack_quantity: packQty,
-        pack_quantity_override: null,
+        pack_quantity: item.pack_quantity,
+        pack_quantity_override: item.pack_quantity_override,
       },
-      null,
+      conversion || null,
       true
     );
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal]);
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap]);
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
