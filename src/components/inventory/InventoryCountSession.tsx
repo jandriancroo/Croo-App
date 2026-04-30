@@ -275,6 +275,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             _existingQuantity: countData?.quantity ?? 0,
             _existingCases: countData?.entered_cases ?? null,
             _existingUnits: countData?.entered_units ?? null,
+            _costAtCount: (countData as any)?.cost_at_count ?? null,
+            _packQuantityAtCount: (countData as any)?.pack_quantity_at_count ?? null,
             _countItemId: countData?.countItemId || null,
             _splitKey: splitKey,
             _sortOrder: sortOrder,
