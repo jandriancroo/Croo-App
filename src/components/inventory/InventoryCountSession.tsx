@@ -24,6 +24,8 @@ import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { calculateCountItemValue } from "@/utils/countItemValue";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
+import { resolveBrandId } from "@/utils/resolveBrandId";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
@@ -46,6 +48,8 @@ interface CountItem {
   cost_per_unit: number | null;
   pack_size: string | null;
   pack_quantity: number | null;
+  pack_quantity_override: number | null;
+  brand_item_id: string | null;
   item_number: string | null;
   brand: string | null;
   image_url: string | null;
