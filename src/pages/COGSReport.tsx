@@ -16,6 +16,15 @@ import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 export const COGSReportContent = ({ locationId }: { locationId: string }) => {
   
+  // Resolve brand for Pipeline 1 conversion fallback
+  const { data: brandId } = useQuery({
+    queryKey: ["location-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    enabled: !!locationId,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { conversionMap } = useBrandConversions(brandId);
+
   // Week period: Mon-Sun
   const [weekStart, setWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
