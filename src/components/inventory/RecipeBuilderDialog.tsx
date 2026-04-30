@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
 import { TO_OZ, parsePackSizeRecipeBuilder } from "@/utils/legacy/conversionLegacy";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
 
 
 type BlueprintType = "MI" | "CORE" | "BASE" | "PREP" | "INGREDIENT";
@@ -241,6 +242,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
 
   const isCreating = !editBlueprintId && !editRecipeId;
   const isBlueprint = !!editBlueprintId || !editRecipeId;
+
+  // Pipeline 1 — brand-level item conversions (authoritative pack data)
+  const { conversionMap } = useBrandConversions(brandId);
 
   // ========== DATA FETCHING ==========
 
@@ -604,9 +608,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         continue;
       }
 
+      // Pipeline 1 lookup — item.brand_item_id is the brand template id = conversionMap key
+      const brandConversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : undefined;
       const eff = getEffectiveUnitsPerCase(item);
-      let upc = eff.upc;
-      let nativeUnit = eff.unit;
+      const nativeUnit = normalizeUnit(brandConversion?.canonical_unit || item.count_unit || "") || eff.unit;
+      const upc = brandConversion
+        ? (brandConversion.outer_qty * (brandConversion.canonical_qty_per_inner ?? 1))
+        : eff.upc;
 
       if (ingUnit === "cs") {
         total += ing.quantity * caseCost;
@@ -626,7 +634,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     }
 
     return { total, allHaveCost, missingItems };
-  }, [ingredients, vendorItems, blueprintCostsMap, otherBlueprints]);
+  }, [ingredients, vendorItems, blueprintCostsMap, otherBlueprints, conversionMap]);
 
   const recipeCost = recipeCostResult?.total ?? null;
 
@@ -1178,9 +1186,12 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                             ingCost = ((ing.quantity * (TO_OZ[ingUnit] ?? 1)) / (yqv * (TO_OZ[ryu] ?? 1))) * caseCost;
                           }
                         } else {
-                          const eff = getEffectiveUnitsPerCase(item!);
-                          let upc = eff.upc;
-                          const nu = eff.unit;
+                          const brandConv = item!.brand_item_id ? conversionMap.get(item!.brand_item_id) : undefined;
+                          const effLegacy = getEffectiveUnitsPerCase(item!);
+                          const upc = brandConv
+                            ? (brandConv.outer_qty * (brandConv.canonical_qty_per_inner ?? 1))
+                            : effLegacy.upc;
+                          const nu = normalizeUnit(brandConv?.canonical_unit || item!.count_unit || "") || effLegacy.unit;
                           if (ingUnit === "cs") ingCost = ing.quantity * caseCost;
                           else if (ingUnit === "cn") {
                             const cpc = parseCansPerCase(item!.pack_size);
