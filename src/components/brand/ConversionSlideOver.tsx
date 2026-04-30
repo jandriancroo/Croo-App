@@ -206,14 +206,14 @@ export default function ConversionSlideOver({
     } finally {
       setSaving(false);
     }
-  }, [currentItemId, activeConversion, form.canonical_unit, brandId, queryClient, onConversionsChanged]);
+  }, [currentItemId, activeConversion, form.canonical_unit, form.canonical_qty_per_inner, brandId, queryClient, onConversionsChanged]);
 
   const autoSaveIfNeedsReview = useCallback(async (): Promise<boolean> => {
-    if (activeConversion?.source === 'needs_review' && form.canonical_unit) {
+    if (activeConversion?.source === 'needs_review' && form.canonical_unit && form.canonical_qty_per_inner > 0) {
       return await persistConversion('manual_override', 'form');
     }
     return true;
-  }, [activeConversion?.source, form.canonical_unit, persistConversion]);
+  }, [activeConversion?.source, form.canonical_unit, form.canonical_qty_per_inner, persistConversion]);
 
   const goPrev = useCallback(() => {
     if (items.length === 0) return;
