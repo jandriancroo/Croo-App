@@ -68,14 +68,14 @@ export function calculateCountItemValue(
   const enteredUnitsNum = Number(ci.entered_units || 0);
   const quantityNum = Number(ci.quantity || 0);
 
-  const pipeline1PackQty = conversion
+  // Pipeline 1 (item_conversions) only applies as a pack-quantity fallback for
+  // EACH-based items (e.g., Hershey's Bars: 36 ea/case). Weight/volume conversions
+  // are for cost-per-oz math, NOT for reconstructing how many units per case the
+  // operator counted. Using them for olive oil (640 oz/case) breaks case counting.
+  const pipeline1PackQty = conversion && conversion.canonical_unit === 'ea'
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
-  // Pack quantity wins over Pipeline 1 always — Pipeline 1 conversions
-  // (item_conversions) are for cost-per-oz math, NOT for count quantity
-  // reconstruction. Using them here breaks case-level counting for items
-  // where pack_quantity = 1 is genuinely correct (e.g., olive oil sold by case).
   const packQtyRaw = forceLiveData
     ? (item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1)
     : (ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1);
