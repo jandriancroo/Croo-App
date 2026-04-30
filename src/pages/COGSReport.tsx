@@ -62,11 +62,11 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       const [beginItems, endItems] = await Promise.all([
         beginning ? supabase
           .from("inventory_count_items")
-          .select("item_id, quantity, cost_at_count, pack_quantity_at_count")
+          .select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units")
           .eq("count_id", beginning.id) : { data: [] },
         ending ? supabase
           .from("inventory_count_items")
-          .select("item_id, quantity, cost_at_count, pack_quantity_at_count")
+          .select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units")
           .eq("count_id", ending.id) : { data: [] },
       ]);
 
