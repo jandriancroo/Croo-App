@@ -368,7 +368,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       // an item after counting doesn't silently drop its value from COGS
       const { data: items } = await supabase
         .from("inventory_items")
-        .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, is_recipe")
+        .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, is_recipe, brand_item_id")
         .in("id", Array.from(referencedIds));
 
       const itemMap = new Map<string, any>();
@@ -381,9 +381,14 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         const derivedPackQty = Number(ci.entered_cases) > 0
           ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
           : null;
+        const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+        const pipeline1PackQty = conversion
+          ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
+          : null;
         const packQty = Number(
           ci.pack_quantity_at_count
             ?? derivedPackQty
+            ?? pipeline1PackQty
             ?? item?.pack_quantity_override
             ?? item?.pack_quantity
             ?? 1
