@@ -1216,31 +1216,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
           const getCountItemLineValue = (ci: any) => {
             const item: any = itemMap.get(ci.item_id);
-            const derivedPackQty = Number(ci.entered_cases) > 0
-              ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
-              : null;
             const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-            const pipeline1PackQty = conversion
-              ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
-              : null;
-            const packQty = Number(
-              ci.pack_quantity_at_count
-                ?? derivedPackQty
-                ?? item?.pack_quantity_override
-                ?? item?.pack_quantity
-                ?? pipeline1PackQty
-                ?? 1
-            );
-            const costPerCase = ci.cost_at_count != null
-              ? Number(ci.cost_at_count) || 0
-              : Number(item?.cost_per_unit) || 0;
-            const hasEntered = ci.entered_cases != null || ci.entered_units != null;
-            if (hasEntered) {
-              const caseValue = Number(ci.entered_cases || 0) * costPerCase;
-              const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
-              return caseValue + unitValue;
-            }
-            return Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
+            return calculateCountItemValue(ci, item, conversion);
           };
 
           let beginValue = 0;
