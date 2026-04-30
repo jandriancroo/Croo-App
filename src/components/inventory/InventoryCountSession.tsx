@@ -1602,9 +1602,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const conv = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
           const pipeline2Pack =
             conv && (conv.canonical_unit === 'ea' || conv.outer_unit === 'ea' || conv.inner_unit === 'ea')
-              ? (conv.has_inner
-                  ? (conv.outer_qty || 0) * (conv.canonical_qty_per_inner || 1)
-                  : (conv.outer_qty || 0))
+              ? (conv.outer_qty || 0) * (conv.canonical_qty_per_inner || 1)
               : 0;
           const packQty =
             (item.pack_quantity && item.pack_quantity > 1)
