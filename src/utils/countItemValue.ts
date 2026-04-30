@@ -4,13 +4,17 @@
  * Math:
  *   value = (entered_cases × cost_per_case) + (entered_units × cost_per_case / pack_qty)
  *
- * Pack qty resolution priority:
- *   1. pack_quantity_at_count (snapshot from save time, post-Apr-28)
- *   2. derived from entered_cases (when quantity stored as multiplied total)
- *   3. pack_quantity_override (location-level)
- *   4. pack_quantity (vendor sync)
- *   5. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner)
- *   6. 1 (final fallback)
+ * Pack qty resolution priority (authoritative sources only — no derivation from quantity):
+ *   1. pack_quantity_at_count (snapshot from save time, post-Apr-28; skipped when forceLiveData)
+ *   2. pack_quantity_override (location-level)
+ *   3. pack_quantity (vendor sync)
+ *   4. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner)
+ *   5. 1 (final fallback)
+ *
+ * NOTE: A previous version of this function included a `derivedPackQty` step that
+ * back-computed pack from `(quantity - entered_units) / entered_cases`. That was
+ * removed because when `quantity` was stored as cases+units (instead of cases×pack+units)
+ * it would resolve to 1 and silently inflate values by the true pack quantity.
  *
  * IMPORTANT: This file is mirrored in supabase/functions/ai-assistant/index.ts.
  * If you change the formula here, update the mirror as well. See countItemValue.test.ts
@@ -57,22 +61,16 @@ export function calculateCountItemValue(
   const enteredUnitsNum = Number(ci.entered_units || 0);
   const quantityNum = Number(ci.quantity || 0);
 
-  const derivedPackQty = enteredCasesNum > 0
-    ? (quantityNum - enteredUnitsNum) / enteredCasesNum
-    : null;
-
   const pipeline1PackQty = conversion
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
   const packQtyRaw = forceLiveData
-    ? (derivedPackQty
-        ?? item?.pack_quantity_override
+    ? (item?.pack_quantity_override
         ?? item?.pack_quantity
         ?? pipeline1PackQty
         ?? 1)
     : (ci.pack_quantity_at_count
-        ?? derivedPackQty
         ?? item?.pack_quantity_override
         ?? item?.pack_quantity
         ?? pipeline1PackQty
