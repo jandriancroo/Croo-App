@@ -59,7 +59,16 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
   const { getTodayInTimezone, timezone } = useLocationTimezone();
   const todayStr = getTodayInTimezone();
   const { transfers } = useInventoryTransfers(locationId);
-  
+
+  // Resolve brand for Pipeline 1 conversion fallback (used when pack_quantity_at_count is NULL)
+  const { data: brandId } = useQuery({
+    queryKey: ["location-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    enabled: !!locationId,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { conversionMap } = useBrandConversions(brandId);
+
 
   // Fetch previous count to check if it was flex (affects current period start)
   const { data: prevCountData } = useQuery({
