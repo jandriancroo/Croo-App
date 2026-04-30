@@ -1186,9 +1186,12 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                             ingCost = ((ing.quantity * (TO_OZ[ingUnit] ?? 1)) / (yqv * (TO_OZ[ryu] ?? 1))) * caseCost;
                           }
                         } else {
-                          const eff = getEffectiveUnitsPerCase(item!);
-                          let upc = eff.upc;
-                          const nu = eff.unit;
+                          const brandConv = item!.brand_item_id ? conversionMap.get(item!.brand_item_id) : undefined;
+                          const effLegacy = getEffectiveUnitsPerCase(item!);
+                          const upc = brandConv
+                            ? (brandConv.outer_qty * (brandConv.canonical_qty_per_inner ?? 1))
+                            : effLegacy.upc;
+                          const nu = normalizeUnit(brandConv?.canonical_unit || item!.count_unit || "") || effLegacy.unit;
                           if (ingUnit === "cs") ingCost = ing.quantity * caseCost;
                           else if (ingUnit === "cn") {
                             const cpc = parseCansPerCase(item!.pack_size);
