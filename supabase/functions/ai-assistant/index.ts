@@ -31,21 +31,13 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
-  // Treat pack_quantity = 1 as a sentinel for "vendor sync didn't give us a real pack"
-  // and fall through to Pipeline 1 (item_conversions), which is authoritative.
-  const liveLegacyPackQty = (() => {
-    if (item?.pack_quantity_override != null && Number(item.pack_quantity_override) > 1) {
-      return Number(item.pack_quantity_override);
-    }
-    if (item?.pack_quantity != null && Number(item.pack_quantity) > 1) {
-      return Number(item.pack_quantity);
-    }
-    return null;
-  })();
-
+  // Pack quantity wins over Pipeline 1 always — Pipeline 1 conversions
+  // (item_conversions) are for cost-per-oz math, NOT for count quantity
+  // reconstruction. Using them here breaks case-level counting for items
+  // where pack_quantity = 1 is genuinely correct (e.g., olive oil sold by case).
   const packQtyRaw = forceLiveData
-    ? (liveLegacyPackQty ?? pipeline1PackQty ?? 1)
-    : (ci?.pack_quantity_at_count ?? liveLegacyPackQty ?? pipeline1PackQty ?? 1);
+    ? (item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1)
+    : (ci?.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1);
 
   const packQty = Number(packQtyRaw);
   const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;

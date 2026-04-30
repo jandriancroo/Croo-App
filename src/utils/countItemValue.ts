@@ -14,12 +14,14 @@
  *
  * Pack qty resolution priority (authoritative sources only — no derivation from quantity):
  *   1. pack_quantity_at_count (snapshot from save time, post-Apr-28; skipped when forceLiveData)
- *   2. pack_quantity_override (location-level) — only if > 1
- *   3. pack_quantity (vendor sync) — only if > 1
- *   4. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner)
+ *   2. pack_quantity_override (location-level)
+ *   3. pack_quantity (vendor sync)
+ *   4. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner) — last resort only
  *   5. 1 (final fallback)
  *
- * pack_quantity = 1 is treated as a sentinel for "vendor sync didn't give us a real pack".
+ * Note: Pipeline 1 conversions are for cost-per-oz math, not for reconstructing
+ * how many units the operator counted per case. They must never override an
+ * explicit pack_quantity, even when pack_quantity = 1.
  *
  * IMPORTANT: This file is mirrored in supabase/functions/ai-assistant/index.ts.
  * If you change the formula here, update the mirror as well.
@@ -69,22 +71,13 @@ export function calculateCountItemValue(
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
-  // Treat pack_quantity = 1 as a sentinel for "vendor sync didn't give us a real pack"
-  // and fall through to Pipeline 1 (item_conversions), which is authoritative.
-  // A genuine pack of 1 will still resolve to 1 via the final fallback.
-  const liveLegacyPackQty = (() => {
-    if (item?.pack_quantity_override != null && Number(item.pack_quantity_override) > 1) {
-      return Number(item.pack_quantity_override);
-    }
-    if (item?.pack_quantity != null && Number(item.pack_quantity) > 1) {
-      return Number(item.pack_quantity);
-    }
-    return null;
-  })();
-
+  // Pack quantity wins over Pipeline 1 always — Pipeline 1 conversions
+  // (item_conversions) are for cost-per-oz math, NOT for count quantity
+  // reconstruction. Using them here breaks case-level counting for items
+  // where pack_quantity = 1 is genuinely correct (e.g., olive oil sold by case).
   const packQtyRaw = forceLiveData
-    ? (liveLegacyPackQty ?? pipeline1PackQty ?? 1)
-    : (ci.pack_quantity_at_count ?? liveLegacyPackQty ?? pipeline1PackQty ?? 1);
+    ? (item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1)
+    : (ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1);
 
   const packQty = Number(packQtyRaw);
   const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;
