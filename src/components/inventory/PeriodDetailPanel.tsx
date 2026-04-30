@@ -31,6 +31,8 @@ import OrderReconciliationPicker from "./OrderReconciliationPicker";
 import VarianceReport from "./VarianceReport";
 import InvoiceUploadDialog from "./InvoiceUploadDialog";
 import SalesDateEditor from "./SalesDateEditor";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
+import { resolveBrandId } from "@/utils/resolveBrandId";
 
 interface PeriodDetailPanelProps {
   count: any;
