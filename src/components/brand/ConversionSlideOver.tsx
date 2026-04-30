@@ -396,6 +396,14 @@ export default function ConversionSlideOver({
                     </div>
                     <div className="text-sm font-medium">
                       Tracked in: <span className="font-semibold">{form.canonical_unit || '—'}</span>
+                      {form.canonical_qty_per_inner > 0 && (
+                        <>
+                          {' · '}
+                          <span className="font-semibold">
+                            {form.canonical_qty_per_inner} {form.canonical_unit} per case
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -403,7 +411,7 @@ export default function ConversionSlideOver({
                 {sourceLabel === 'needs_review' && (
                   <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
-                    <span>What unit does your team count this item in?</span>
+                    <span>What unit and case quantity does your team use for this item?</span>
                   </div>
                 )}
 
@@ -411,7 +419,7 @@ export default function ConversionSlideOver({
                   <Label className="text-xs">Track inventory in</Label>
                   <Select
                     value={form.canonical_unit}
-                    onValueChange={(v) => setForm({ canonical_unit: v })}
+                    onValueChange={(v) => setForm((prev) => ({ ...prev, canonical_unit: v }))}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -420,6 +428,30 @@ export default function ConversionSlideOver({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    How many {form.canonical_unit || 'units'} per case?
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    inputMode="decimal"
+                    value={Number.isFinite(form.canonical_qty_per_inner) ? form.canonical_qty_per_inner : ''}
+                    onChange={(e) => {
+                      const n = parseFloat(e.target.value);
+                      setForm((prev) => ({
+                        ...prev,
+                        canonical_qty_per_inner: Number.isFinite(n) ? n : 0,
+                      }));
+                    }}
+                    placeholder="e.g. 16"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Total {form.canonical_unit || 'units'} in one full case from the vendor.
+                  </p>
                 </div>
 
                 <div className="space-y-2 pt-2">
