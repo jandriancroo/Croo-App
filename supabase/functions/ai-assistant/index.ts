@@ -31,16 +31,21 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
+  // Treat pack_quantity = 1 as a sentinel for "vendor sync didn't give us a real pack"
+  // and fall through to Pipeline 1 (item_conversions), which is authoritative.
+  const liveLegacyPackQty = (() => {
+    if (item?.pack_quantity_override != null && Number(item.pack_quantity_override) > 1) {
+      return Number(item.pack_quantity_override);
+    }
+    if (item?.pack_quantity != null && Number(item.pack_quantity) > 1) {
+      return Number(item.pack_quantity);
+    }
+    return null;
+  })();
+
   const packQtyRaw = forceLiveData
-    ? (item?.pack_quantity_override
-        ?? item?.pack_quantity
-        ?? pipeline1PackQty
-        ?? 1)
-    : (ci?.pack_quantity_at_count
-        ?? item?.pack_quantity_override
-        ?? item?.pack_quantity
-        ?? pipeline1PackQty
-        ?? 1);
+    ? (liveLegacyPackQty ?? pipeline1PackQty ?? 1)
+    : (ci?.pack_quantity_at_count ?? liveLegacyPackQty ?? pipeline1PackQty ?? 1);
 
   const packQty = Number(packQtyRaw);
   const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;
