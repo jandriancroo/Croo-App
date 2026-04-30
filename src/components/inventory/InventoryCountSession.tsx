@@ -303,6 +303,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
+  // Resolve brand for Pipeline 1 conversion fallback (standard SOT contract)
+  const { data: brandId } = useQuery({
+    queryKey: ["location-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    enabled: !!locationId,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { conversionMap } = useBrandConversions(brandId);
+
   // Fetch existing duration for resumed counts
   const { data: countRecord } = useQuery({
     queryKey: ["inventory-count-duration", countId],
