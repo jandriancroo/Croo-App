@@ -608,9 +608,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
         continue;
       }
 
+      // Pipeline 1 lookup — item.brand_item_id is the brand template id = conversionMap key
+      const brandConversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : undefined;
       const eff = getEffectiveUnitsPerCase(item);
-      let upc = eff.upc;
-      let nativeUnit = eff.unit;
+      const nativeUnit = normalizeUnit(brandConversion?.canonical_unit || item.count_unit || "") || eff.unit;
+      const upc = brandConversion
+        ? (brandConversion.outer_qty * (brandConversion.canonical_qty_per_inner ?? 1))
+        : eff.upc;
 
       if (ingUnit === "cs") {
         total += ing.quantity * caseCost;
@@ -630,7 +634,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
     }
 
     return { total, allHaveCost, missingItems };
-  }, [ingredients, vendorItems, blueprintCostsMap, otherBlueprints]);
+  }, [ingredients, vendorItems, blueprintCostsMap, otherBlueprints, conversionMap]);
 
   const recipeCost = recipeCostResult?.total ?? null;
 
