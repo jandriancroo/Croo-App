@@ -164,27 +164,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const totalItems = exportItems?.length || 0;
   const countedItems = exportItems?.filter((i: any) => i.quantity > 0).length || 0;
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
-    const item = ci.item;
-    const derivedPackQty = Number(ci.entered_cases) > 0
-      ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
-      : null;
-    const packQty = Number(
-      ci.pack_quantity_at_count
-        ?? derivedPackQty
-        ?? item?.pack_quantity_override
-        ?? item?.pack_quantity
-        ?? 1
-    );
-    const costPerCase = ci.cost_at_count != null
-      ? Number(ci.cost_at_count) || 0
-      : Number(item?.cost_per_unit) || 0;
-    const hasEntered = ci.entered_cases != null || ci.entered_units != null;
-    if (hasEntered) {
-      const caseValue = Number(ci.entered_cases || 0) * costPerCase;
-      const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
-      return sum + caseValue + unitValue;
-    }
-    return sum + Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
+    return sum + calculateCountItemValue(ci, ci.item, null);
   }, 0) || 0;
 
   return (
