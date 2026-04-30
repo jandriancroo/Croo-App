@@ -32,6 +32,13 @@ interface VendorItemInfo {
   pack_quantity_override: number | null;
 }
 
+interface ActiveConversionRow {
+  brand_template_id: string;
+  canonical_unit: string;
+  outer_qty: number;
+  canonical_qty_per_inner: number | null;
+}
+
 export interface BlueprintCostResult {
   batchCost: number;
   missingItems: string[];
@@ -52,6 +59,23 @@ export async function fetchBlueprintCosts(
   // brand-level blueprints are the base catalog, and local blueprints layer on top.
   const { resolveBrandId } = await import("@/utils/resolveBrandId");
   const brandId = await resolveBrandId(locationId);
+
+  // Pipeline 1 — fetch active brand conversions keyed by brand_template_id.
+  // ing.vendor_item_id in recipe_blueprint_ingredients is always a brand_inventory_templates.id,
+  // so we can look it up directly without resolving via the local vendor row.
+  const conversionMap = new Map<string, ActiveConversionRow>();
+  if (brandId) {
+    const { data: conversions, error: convErr } = await supabase
+      .from("item_conversions")
+      .select("brand_template_id, canonical_unit, outer_qty, canonical_qty_per_inner")
+      .eq("brand_id", brandId)
+      .is("effective_to", null);
+    if (!convErr && conversions) {
+      for (const c of conversions as ActiveConversionRow[]) {
+        conversionMap.set(c.brand_template_id, c);
+      }
+    }
+  }
 
   const [localBpRes, brandBpRes] = await Promise.all([
     supabase
