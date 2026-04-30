@@ -11,6 +11,7 @@ interface RecipeIngredient {
 
 interface ItemCostInfo {
   id: string;
+  brand_item_id: string | null;
   cost_per_unit: number | null;
   pack_quantity: number | null;
   pack_quantity_override: number | null;
@@ -23,6 +24,13 @@ interface ItemCostInfo {
   blended_price: number | null;
 }
 
+interface ActiveConversionRow {
+  brand_template_id: string;
+  canonical_unit: string;
+  outer_qty: number;
+  canonical_qty_per_inner: number | null;
+}
+
 /**
  * Fetches all recipe ingredients and item cost info for a location,
  * then calculates the effective cost per "count unit" for each recipe item.
@@ -33,7 +41,7 @@ interface ItemCostInfo {
 export async function fetchRecipeCosts(locationId: string): Promise<Map<string, number>> {
   const { data: recipeItems, error: recipeError } = await supabase
     .from("inventory_items")
-    .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
+    .select("id, brand_item_id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, count_unit, pack_size, is_recipe, recipe_yield_qty, recipe_yield_unit, blended_price")
     .eq("location_id", locationId)
     .eq("is_active", true);
 
@@ -42,6 +50,25 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
   const recipeItemIds = recipeItems?.filter(i => i.is_recipe).map(i => i.id) || [];
   
   if (recipeItemIds.length === 0) return new Map();
+
+  // Pipeline 1 — fetch brand-level conversions for raw ingredient unit normalization
+  const conversionMap = new Map<string, ActiveConversionRow>();
+  if (recipeItems && recipeItems.length > 0) {
+    const { resolveBrandId } = await import("@/utils/resolveBrandId");
+    const brandId = await resolveBrandId(locationId);
+    if (brandId) {
+      const { data: conversions, error: convErr } = await supabase
+        .from("item_conversions")
+        .select("brand_template_id, canonical_unit, outer_qty, canonical_qty_per_inner")
+        .eq("brand_id", brandId)
+        .is("effective_to", null);
+      if (!convErr && conversions) {
+        for (const c of conversions) {
+          conversionMap.set(c.brand_template_id, c as ActiveConversionRow);
+        }
+      }
+    }
+  }
 
   const { data: allIngredients, error: allIngError } = await supabase
     .from("inventory_recipe_ingredients")
@@ -108,37 +135,37 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         // Raw ingredient: determine proper divisor based on unit
         const caseCost = ingItem.blended_price ?? ingItem.cost_per_unit ?? 0;
         const ingUnit = normalizeUnit(ing.unit);
-        const nativeUnit = normalizeUnit(ingItem.count_unit);
-        
-        // If the recipe unit is "cs" or "case", use full case cost (no division)
+
+        // Pipeline 1 lookup — ingItem.brand_item_id is the brand template id
+        const brandConversion = ingItem.brand_item_id
+          ? conversionMap.get(ingItem.brand_item_id)
+          : undefined;
+
+        const nativeUnit = normalizeUnit(
+          brandConversion?.canonical_unit || ingItem.count_unit || ""
+        );
+        const unitsPerCase = brandConversion
+          ? (brandConversion.outer_qty * (brandConversion.canonical_qty_per_inner ?? 1))
+          : (ingItem.pack_quantity || 1);
+        const costPerSingleUnit = caseCost / unitsPerCase;
+
         if (ingUnit === 'cs' || ingUnit === 'case') {
           totalBatchCost += caseCost * ing.quantity;
-        } else {
-          const unitsPerCase = ingItem.pack_quantity_override || ingItem.count_units_per_case || ingItem.pack_quantity || 1;
-          const costPerSingleUnit = caseCost / unitsPerCase;
-          // TO_OZ imported from unitConversion.ts
-
-          // Determine effective native unit — fall back to pack_size parsing
-          let effNative = nativeUnit;
-          let effCostPerUnit = costPerSingleUnit;
-          if (!effNative && TO_OZ[ingUnit]) {
-            const totalOz = parsePackSizeToOz(ingItem.pack_size);
-            if (totalOz && totalOz > 0) {
-              effNative = 'oz';
-              effCostPerUnit = caseCost / totalOz;
-            }
+        } else if (ingUnit === nativeUnit || (ingUnit === 'ea' && nativeUnit === 'ea')) {
+          totalBatchCost += costPerSingleUnit * ing.quantity;
+        } else if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
+          const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
+          totalBatchCost += costPerSingleUnit * ingInNative;
+        } else if (!nativeUnit && TO_OZ[ingUnit] && !brandConversion) {
+          const totalOz = parsePackSizeToOz(ingItem.pack_size);
+          if (totalOz && totalOz > 0) {
+            const cpu = caseCost / totalOz;
+            totalBatchCost += ing.quantity * (TO_OZ[ingUnit] / TO_OZ["oz"]) * cpu;
           }
-
-          if (ingUnit === effNative || (ingUnit === 'ea' && effNative === 'ea')) {
-            totalBatchCost += effCostPerUnit * ing.quantity;
-          } else if (ingUnit && effNative && ingUnit !== effNative && TO_OZ[ingUnit] && TO_OZ[effNative]) {
-            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[effNative];
-            totalBatchCost += effCostPerUnit * ingInNative;
-          } else if (!effNative && ingUnit === 'ea') {
-            totalBatchCost += costPerSingleUnit * ing.quantity;
-          }
-          // else: can't determine unit — skip
+        } else if (!nativeUnit && ingUnit === 'ea') {
+          totalBatchCost += costPerSingleUnit * ing.quantity;
         }
+        // else: can't determine unit — skip
       }
     }
 
