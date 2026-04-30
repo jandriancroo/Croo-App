@@ -92,6 +92,9 @@ export async function calculateVarianceReport(
 
   const [vendorMappings, deployments, { excludedCategories, includedOverrides }] = await Promise.all([vendorMappingsP, deploymentsP, brandFiltersP]);
 
+  // Pipeline 1 conversions for the brand (standard SOT contract)
+  const conversionMap = await fetchBrandConversionsForLocation(locationId);
+
   const netSales = salesData.totalNetSales;
 
   // Build item lookup maps
@@ -131,10 +134,21 @@ export async function calculateVarianceReport(
   };
 
   // Single source of truth — see src/utils/countItemValue.ts
-  // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
+  // PHASE 1: forceLiveData=true. Standard contract: full item shape + Pipeline 1 conversion.
   const getCountItemLineValue = (ci: any) => {
-    const item = itemMap.get(ci.item_id);
-    return calculateCountItemValue(ci, item, null, true);
+    const item: any = itemMap.get(ci.item_id);
+    const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+    return calculateCountItemValue(
+      ci,
+      item ? {
+        brand_item_id: item.brand_item_id,
+        cost_per_unit: item.cost_per_unit,
+        pack_quantity: item.pack_quantity,
+        pack_quantity_override: item.pack_quantity_override,
+      } : undefined,
+      conversion || null,
+      true
+    );
   };
 
   const getItemCategory = (itemId: string) => {
@@ -655,10 +669,36 @@ async function fetchTransfersForPeriod(locationId: string, start: string, end: s
 async function fetchAllInventoryItems(locationId: string) {
   const { data, error } = await supabase
     .from("inventory_items")
-    .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active")
+    .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active, brand_item_id")
     .eq("location_id", locationId);
   if (error) throw error;
   return data || [];
+}
+
+async function fetchBrandConversionsForLocation(locationId: string) {
+  const { data: loc } = await supabase
+    .from("locations")
+    .select("organization_id")
+    .eq("id", locationId)
+    .maybeSingle();
+  const orgId = loc?.organization_id;
+  if (!orgId) return new Map<string, any>();
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("brand_id")
+    .eq("id", orgId)
+    .maybeSingle();
+  const brandId = org?.brand_id;
+  if (!brandId) return new Map<string, any>();
+  const { data, error } = await supabase
+    .from("item_conversions")
+    .select("brand_template_id, outer_qty, canonical_qty_per_inner")
+    .eq("brand_id", brandId)
+    .is("effective_to", null);
+  if (error) return new Map<string, any>();
+  const m = new Map<string, any>();
+  for (const c of data || []) m.set((c as any).brand_template_id, c);
+  return m;
 }
 
 async function fetchPosMappings(locationId: string) {
