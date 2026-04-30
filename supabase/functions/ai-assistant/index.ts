@@ -1128,8 +1128,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const beginningCount = recentCounts[1];
 
           const [beginItemsRes, endItemsRes] = await Promise.all([
-            supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count").eq("count_id", beginningCount.id),
-            supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count").eq("count_id", endingCount.id),
+            supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units").eq("count_id", beginningCount.id),
+            supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units").eq("count_id", endingCount.id),
           ]);
 
           // Collect all item_ids referenced in either count (matches UI logic in PeriodDetailPanel.tsx)
@@ -1140,13 +1140,45 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
           const { data: invItems } = await supabase
             .from("inventory_items")
-            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case")
+            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, brand_item_id")
             .in("id", Array.from(referencedIds));
 
           const itemMap = new Map((invItems || []).map((i: any) => [i.id, i]));
+
+          // Pipeline 1 conversion fallback: resolve brand and load active conversions
+          const { data: locRow } = await supabase
+            .from("locations").select("organization_id").eq("id", args.location_id).maybeSingle();
+          const { data: orgRow } = locRow?.organization_id
+            ? await supabase.from("organizations").select("brand_id").eq("id", locRow.organization_id).maybeSingle()
+            : { data: null };
+          const brandIdForConv = orgRow?.brand_id || null;
+          const conversionMap = new Map<string, any>();
+          if (brandIdForConv) {
+            const { data: convs } = await supabase
+              .from("item_conversions")
+              .select("brand_template_id, outer_qty, canonical_qty_per_inner")
+              .eq("brand_id", brandIdForConv)
+              .is("effective_to", null);
+            for (const c of convs || []) conversionMap.set(c.brand_template_id, c);
+          }
+
           const getCountItemPerUnitCost = (ci: any) => {
-            const item = itemMap.get(ci.item_id);
-            const packQty = Number(ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+            const item: any = itemMap.get(ci.item_id);
+            const derivedPackQty = Number(ci.entered_cases) > 0
+              ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
+              : null;
+            const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+            const pipeline1PackQty = conversion
+              ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
+              : null;
+            const packQty = Number(
+              ci.pack_quantity_at_count
+                ?? derivedPackQty
+                ?? pipeline1PackQty
+                ?? item?.pack_quantity_override
+                ?? item?.pack_quantity
+                ?? 1
+            );
 
             if (ci.cost_at_count != null) {
               return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
