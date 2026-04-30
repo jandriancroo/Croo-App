@@ -15,10 +15,12 @@ const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // for the canonical test cases. Edits here without updating the TS twin will
 // silently desynchronize Period view, Review view, COGS report, and AI answers.
 // ─────────────────────────────────────────────────────────────────────────────
-function calculateCountItemValue(ci: any, item: any, conversion: any): number {
-  const costPerCase = ci?.cost_at_count != null
-    ? Number(ci.cost_at_count) || 0
-    : Number(item?.cost_per_unit) || 0;
+function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveData: boolean = false): number {
+  const costPerCase = forceLiveData
+    ? Number(item?.cost_per_unit) || 0
+    : (ci?.cost_at_count != null
+        ? Number(ci.cost_at_count) || 0
+        : Number(item?.cost_per_unit) || 0);
   if (costPerCase === 0) return 0;
 
   const enteredCasesNum = Number(ci?.entered_cases || 0);
@@ -33,13 +35,18 @@ function calculateCountItemValue(ci: any, item: any, conversion: any): number {
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
-  const packQtyRaw =
-    ci?.pack_quantity_at_count
-    ?? derivedPackQty
-    ?? item?.pack_quantity_override
-    ?? item?.pack_quantity
-    ?? pipeline1PackQty
-    ?? 1;
+  const packQtyRaw = forceLiveData
+    ? (derivedPackQty
+        ?? item?.pack_quantity_override
+        ?? item?.pack_quantity
+        ?? pipeline1PackQty
+        ?? 1)
+    : (ci?.pack_quantity_at_count
+        ?? derivedPackQty
+        ?? item?.pack_quantity_override
+        ?? item?.pack_quantity
+        ?? pipeline1PackQty
+        ?? 1);
 
   const packQty = Number(packQtyRaw);
   const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;
