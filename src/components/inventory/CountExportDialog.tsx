@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
+import { calculateCountItemValue } from "@/utils/countItemValue";
 
 interface CountExportDialogProps {
   countId: string;
@@ -95,28 +96,8 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         "Unit Value",
       ];
 
-      const computeLineValue = (ci: any, item: any) => {
-        const derivedPackQty = Number(ci.entered_cases) > 0
-          ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
-          : null;
-        const packQty = Number(
-          ci.pack_quantity_at_count
-            ?? derivedPackQty
-            ?? item?.pack_quantity_override
-            ?? item?.pack_quantity
-            ?? 1
-        );
-        const costPerCase = ci.cost_at_count != null
-          ? Number(ci.cost_at_count) || 0
-          : Number(item?.cost_per_unit) || 0;
-        const hasEntered = ci.entered_cases != null || ci.entered_units != null;
-        if (hasEntered) {
-          const caseValue = Number(ci.entered_cases || 0) * costPerCase;
-          const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
-          return caseValue + unitValue;
-        }
-        return Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
-      };
+      // Single source of truth — see src/utils/countItemValue.ts
+      const computeLineValue = (ci: any, item: any) => calculateCountItemValue(ci, item, null);
 
       const rows = exportItems.map((ci: any) => {
         const item = ci.item;
