@@ -1,8 +1,16 @@
 /**
  * Single source of truth for valuing a count item in inventory reports.
  *
- * Math:
- *   value = (entered_cases × cost_per_case) + (entered_units × cost_per_case / pack_qty)
+ * Math (when entered_cases or entered_units is present):
+ *   caseValue   = entered_cases × cost_per_case
+ *   nonCaseUnits = max(quantity − entered_cases × pack_qty, entered_units)
+ *   unitValue   = nonCaseUnits × cost_per_case / pack_qty
+ *   value       = caseValue + unitValue
+ *
+ * `quantity` is authoritative for total units because it includes pan-counted
+ * inventory (Cambro pans) folded in at save time. entered_units alone misses
+ * pan units and silently under-counts pan items. The max() guard preserves the
+ * legacy entered_units behaviour for rows where quantity is 0/missing.
  *
  * Pack qty resolution priority (authoritative sources only — no derivation from quantity):
  *   1. pack_quantity_at_count (snapshot from save time, post-Apr-28; skipped when forceLiveData)
@@ -11,17 +19,10 @@
  *   4. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner)
  *   5. 1 (final fallback)
  *
- * pack_quantity = 1 is treated as a sentinel for "vendor sync didn't give us a real pack"
- * and falls through to Pipeline 1, which is authoritative for true pack sizes.
- *
- * NOTE: A previous version of this function included a `derivedPackQty` step that
- * back-computed pack from `(quantity - entered_units) / entered_cases`. That was
- * removed because when `quantity` was stored as cases+units (instead of cases×pack+units)
- * it would resolve to 1 and silently inflate values by the true pack quantity.
+ * pack_quantity = 1 is treated as a sentinel for "vendor sync didn't give us a real pack".
  *
  * IMPORTANT: This file is mirrored in supabase/functions/ai-assistant/index.ts.
- * If you change the formula here, update the mirror as well. See countItemValue.test.ts
- * for the canonical test cases that must continue to pass.
+ * If you change the formula here, update the mirror as well.
  */
 
 export interface CountItemForValue {
@@ -92,8 +93,16 @@ export function calculateCountItemValue(
 
   let value: number;
   if (hasEntered) {
+    // Pan-inclusive formula: `quantity` is the source of truth for total units
+    // (cases × pack + loose units + pan units). entered_units alone misses pans.
+    // When quantity is present, derive non-case units from it so pans are valued.
+    // Fall back to entered_units when quantity is missing/inconsistent.
     const caseValue = enteredCasesNum * costPerCase;
-    const unitValue = (enteredUnitsNum * costPerCase) / safePackQty;
+    const derivedNonCaseUnits = quantityNum - (enteredCasesNum * safePackQty);
+    const nonCaseUnits = quantityNum > 0 && derivedNonCaseUnits >= enteredUnitsNum
+      ? derivedNonCaseUnits
+      : enteredUnitsNum;
+    const unitValue = (nonCaseUnits * costPerCase) / safePackQty;
     value = caseValue + unitValue;
   } else {
     value = quantityNum * (costPerCase / safePackQty);

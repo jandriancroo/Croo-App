@@ -68,4 +68,17 @@ describe('calculateCountItemValue', () => {
     );
     expect(result).toBeCloseTo(12.68, 2);
   });
+
+  it('includes pan units folded into quantity (Cambro pans)', () => {
+    // 2 cases (pack=10) + 3 loose units + 4 pan units = quantity 27
+    // entered_units=3 alone would miss the 4 pan units. Formula derives non-case units
+    // from quantity (27 - 2×10 = 7) and values all 7 at unit rate.
+    const result = calculateCountItemValue(
+      { quantity: 27, entered_cases: 2, entered_units: 3, cost_at_count: 50, pack_quantity_at_count: null },
+      { pack_quantity: 10 },
+      null
+    );
+    // 2 × $50 + 7 × $50 / 10 = $100 + $35 = $135
+    expect(result).toBeCloseTo(135, 2);
+  });
 });
