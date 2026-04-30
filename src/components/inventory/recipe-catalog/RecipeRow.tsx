@@ -31,6 +31,7 @@ interface RecipeRowProps {
 
 const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMapping, posItems, onPosLink, onPosUnlink, onUpdateMappingMeta, isPosLinking }: RecipeRowProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { conversionMap } = useBrandConversions(brandId);
 
   const displayName = getCleanDisplayName(item.name || item.r365_name || "");
 
