@@ -45,6 +45,7 @@ export interface ItemForValue {
 export interface ConversionForValue {
   outer_qty: number;
   canonical_qty_per_inner: number | null;
+  canonical_unit?: string | null;
 }
 
 export function calculateCountItemValue(
