@@ -214,7 +214,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
   // Fetch COGS data — now uses bound orders instead of date-range
   const { data: cogsData, isLoading: cogsLoading } = useQuery({
-    queryKey: ["period-cogs", locationId, count.id, periodRange?.startStr, periodRange?.endStr],
+    queryKey: ["period-cogs", locationId, count.id, periodRange?.startStr, periodRange?.endStr, conversionMap.size],
     queryFn: async () => {
       if (!periodRange) return null;
 
