@@ -221,7 +221,21 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     };
     const getCountItemPerUnitCost = (ci: any) => {
       const item = itemMap.get(ci.item_id) as any;
-      const packQty = Number(ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+      const derivedPackQty = Number(ci.entered_cases) > 0
+        ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
+        : null;
+      const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+      const pipeline1PackQty = conversion
+        ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
+        : null;
+      const packQty = Number(
+        ci.pack_quantity_at_count
+          ?? derivedPackQty
+          ?? pipeline1PackQty
+          ?? item?.pack_quantity_override
+          ?? item?.pack_quantity
+          ?? 1
+      );
 
       if (ci.cost_at_count != null) {
         return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
