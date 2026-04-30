@@ -92,8 +92,16 @@ export function calculateCountItemValue(
 
   let value: number;
   if (hasEntered) {
+    // Pan-inclusive formula: `quantity` is the source of truth for total units
+    // (cases × pack + loose units + pan units). entered_units alone misses pans.
+    // When quantity is present, derive non-case units from it so pans are valued.
+    // Fall back to entered_units when quantity is missing/inconsistent.
     const caseValue = enteredCasesNum * costPerCase;
-    const unitValue = (enteredUnitsNum * costPerCase) / safePackQty;
+    const derivedNonCaseUnits = quantityNum - (enteredCasesNum * safePackQty);
+    const nonCaseUnits = quantityNum > 0 && derivedNonCaseUnits >= enteredUnitsNum
+      ? derivedNonCaseUnits
+      : enteredUnitsNum;
+    const unitValue = (nonCaseUnits * costPerCase) / safePackQty;
     value = caseValue + unitValue;
   } else {
     value = quantityNum * (costPerCase / safePackQty);

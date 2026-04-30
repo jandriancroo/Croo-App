@@ -53,8 +53,14 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
   const hasEntered = ci?.entered_cases != null || ci?.entered_units != null;
   let value: number;
   if (hasEntered) {
+    // Pan-inclusive: derive non-case units from quantity (which folds in pan units)
+    // so Period/Review match Edit Count's pan-aware total.
     const caseValue = enteredCasesNum * costPerCase;
-    const unitValue = (enteredUnitsNum * costPerCase) / safePackQty;
+    const derivedNonCaseUnits = quantityNum - (enteredCasesNum * safePackQty);
+    const nonCaseUnits = quantityNum > 0 && derivedNonCaseUnits >= enteredUnitsNum
+      ? derivedNonCaseUnits
+      : enteredUnitsNum;
+    const unitValue = (nonCaseUnits * costPerCase) / safePackQty;
     value = caseValue + unitValue;
   } else {
     value = quantityNum * (costPerCase / safePackQty);
