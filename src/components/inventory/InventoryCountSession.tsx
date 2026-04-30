@@ -448,27 +448,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
 
-    // When the user hasn't changed inputs from what's saved, prefer the snapshotted
-    // cost_at_count + pack_quantity_at_count from the saved row so this view matches
-    // Period / Review / Export exactly. When the user IS editing, fall back to live
-    // item.cost_per_unit and the resolved item.pack_quantity.
-    const existingCases = (item as any)._existingCases ?? null;
-    const existingUnits = (item as any)._existingUnits ?? null;
-    const existingQty = (item as any)._existingQuantity ?? null;
-    const savedCost = (item as any)._costAtCount ?? null;
-    const savedPackAtCount = (item as any)._packQuantityAtCount ?? null;
-
-    const inputsUnchanged =
-      existingCases != null && existingUnits != null &&
-      Number(casesVal) === Number(existingCases) &&
-      Number(unitsVal) === Number(existingUnits);
-
-    let snapshotPackQty: number | null = savedPackAtCount;
-    if (snapshotPackQty == null && inputsUnchanged && Number(existingCases) > 0 && existingQty != null) {
-      const derived = (Number(existingQty) - Number(existingUnits)) / Number(existingCases);
-      if (Number.isFinite(derived) && derived > 0) snapshotPackQty = derived;
-    }
-
+    // PHASE 1: forceLiveData=true — Edit Count must match Period/Review/Export by
+    // recomputing every line via current live cost + live pack chain, ignoring
+    // any cost_at_count / pack_quantity_at_count snapshot. This will revert in Phase 3.
     const packQty = item.pack_quantity || 1;
     const totalQty = casesVal * packQty + unitsVal + panUnits;
 
@@ -477,15 +459,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         quantity: totalQty,
         entered_cases: casesVal,
         entered_units: unitsVal + panUnits,
-        cost_at_count: inputsUnchanged ? savedCost : null,
-        pack_quantity_at_count: snapshotPackQty,
+        cost_at_count: null,
+        pack_quantity_at_count: null,
       },
       {
         cost_per_unit: item.cost_per_unit,
         pack_quantity: packQty,
         pack_quantity_override: null,
       },
-      null
+      null,
+      true
     );
   }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal]);
 
