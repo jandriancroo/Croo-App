@@ -219,7 +219,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       const packQty = Number(item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
       return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
     };
-    const getCountItemPerUnitCost = (ci: any) => {
+    const resolvePackQty = (ci: any) => {
       const item = itemMap.get(ci.item_id) as any;
       const derivedPackQty = Number(ci.entered_cases) > 0
         ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
@@ -228,34 +228,45 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       const pipeline1PackQty = conversion
         ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
         : null;
-      const packQty = Number(
+      return Number(
         ci.pack_quantity_at_count
           ?? derivedPackQty
-          ?? pipeline1PackQty
           ?? item?.pack_quantity_override
           ?? item?.pack_quantity
+          ?? pipeline1PackQty
           ?? 1
       );
-
-      if (ci.cost_at_count != null) {
-        return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
+    };
+    const resolveCostPerCase = (ci: any) => {
+      const item = itemMap.get(ci.item_id) as any;
+      if (ci.cost_at_count != null) return Number(ci.cost_at_count) || 0;
+      return Number(item?.cost_per_unit) || 0;
+    };
+    const getCountItemLineValue = (ci: any) => {
+      const costPerCase = resolveCostPerCase(ci);
+      const hasEntered = ci.entered_cases != null || ci.entered_units != null;
+      if (hasEntered) {
+        const packQty = resolvePackQty(ci);
+        const caseValue = Number(ci.entered_cases || 0) * costPerCase;
+        const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
+        return caseValue + unitValue;
       }
-
-      return getLivePerUnitCost(ci.item_id);
+      const packQty = resolvePackQty(ci);
+      return Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
     };
 
     // Beginning inventory value
     let beginValue = 0;
     const beginItems = counts?.beginning?.items || [];
     for (const ci of beginItems) {
-      beginValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
+      beginValue += getCountItemLineValue(ci);
     }
 
     // Ending inventory value
     let endValue = 0;
     const endItems = counts?.ending?.items || [];
     for (const ci of endItems) {
-      endValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
+      endValue += getCountItemLineValue(ci);
     }
 
     const purchasesCost = purchases?.totalCost || 0;
