@@ -376,7 +376,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         itemMap.set(i.id, i);
       }
 
-      const getCountItemPerUnitCost = (ci: any) => {
+      // Resolve packQty for an item (used only for valuing loose entered_units)
+      const resolvePackQty = (ci: any) => {
         const item = itemMap.get(ci.item_id);
         const derivedPackQty = Number(ci.entered_cases) > 0
           ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
@@ -385,20 +386,37 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         const pipeline1PackQty = conversion
           ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
           : null;
-        const packQty = Number(
+        return Number(
           ci.pack_quantity_at_count
             ?? derivedPackQty
-            ?? pipeline1PackQty
             ?? item?.pack_quantity_override
             ?? item?.pack_quantity
+            ?? pipeline1PackQty
             ?? 1
         );
+      };
 
-        if (ci.cost_at_count != null) {
-          return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
+      // Cost per CASE (cost_at_count is per case; cost_per_unit fallback is also per case in this codebase)
+      const resolveCostPerCase = (ci: any) => {
+        const item = itemMap.get(ci.item_id);
+        if (ci.cost_at_count != null) return Number(ci.cost_at_count) || 0;
+        return Number(item?.cost_per_unit) || 0;
+      };
+
+      // PRIMARY: value from operator-entered cases + units (the actual inputs at count time)
+      // FALLBACK: legacy quantity * perUnitCost path (only when entered values are unavailable)
+      const getCountItemLineValue = (ci: any) => {
+        const costPerCase = resolveCostPerCase(ci);
+        const hasEntered = ci.entered_cases != null || ci.entered_units != null;
+        if (hasEntered) {
+          const packQty = resolvePackQty(ci);
+          const caseValue = Number(ci.entered_cases || 0) * costPerCase;
+          const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
+          return caseValue + unitValue;
         }
-
-        return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+        // Legacy fallback: no entered_cases/units recorded
+        const packQty = resolvePackQty(ci);
+        return Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
       };
 
       const getLivePerUnitCost = (itemId: string) => {
@@ -409,12 +427,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       let beginValue = 0;
       for (const ci of (beginItems.data as any[]) || []) {
-        beginValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
+        beginValue += getCountItemLineValue(ci);
       }
 
       let endValue = 0;
       for (const ci of (endItems.data as any[]) || []) {
-        endValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
+        endValue += getCountItemLineValue(ci);
       }
 
       // Purchases: Manage Orders is the single source of truth.
