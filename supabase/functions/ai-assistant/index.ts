@@ -1280,10 +1280,23 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               .eq("count_id", count.id);
 
             let itemResults = (items || []).map((i: any) => {
-              const packQty = Number(i.pack_quantity_at_count ?? i.inventory_items?.pack_quantity_override ?? i.inventory_items?.pack_quantity ?? 1);
-              const perUnitCost = i.cost_at_count != null
-                ? (Number(i.cost_at_count) || 0) / Math.max(packQty, 1)
-                : (Number(i.inventory_items?.cost_per_unit) || 0) / Math.max(packQty, 1);
+              const derivedPackQty = Number(i.entered_cases) > 0
+                ? (Number(i.quantity) - Number(i.entered_units || 0)) / Number(i.entered_cases)
+                : null;
+              const packQty = Number(
+                i.pack_quantity_at_count
+                  ?? derivedPackQty
+                  ?? i.inventory_items?.pack_quantity_override
+                  ?? i.inventory_items?.pack_quantity
+                  ?? 1
+              );
+              const costPerCase = i.cost_at_count != null
+                ? Number(i.cost_at_count) || 0
+                : Number(i.inventory_items?.cost_per_unit) || 0;
+              const hasEntered = i.entered_cases != null || i.entered_units != null;
+              const totalCost = hasEntered
+                ? Number(i.entered_cases || 0) * costPerCase + Number(i.entered_units || 0) * costPerCase / Math.max(packQty, 1)
+                : Number(i.quantity || 0) * (costPerCase / Math.max(packQty, 1));
 
               return {
                 name: i.inventory_items?.common_name || i.inventory_items?.product_name,
@@ -1292,7 +1305,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
                 cases: i.entered_cases,
                 units: i.entered_units,
                 cost_per_case: i.inventory_items?.cost_per_case,
-                total_cost: i.quantity ? Number((Number(i.quantity) * perUnitCost).toFixed(2)) : null,
+                total_cost: i.quantity ? Number(totalCost.toFixed(2)) : null,
                 variance: i.variance,
                 variance_cost: i.variance_cost,
               };
