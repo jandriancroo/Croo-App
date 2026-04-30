@@ -109,8 +109,21 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
       ];
 
       // Single source of truth — see src/utils/countItemValue.ts
-      // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
-      const computeLineValue = (ci: any, item: any) => calculateCountItemValue(ci, item, null, true);
+      // PHASE 1: forceLiveData=true. Standard contract: full item shape + Pipeline 1 conversion.
+      const computeLineValue = (ci: any, item: any) => {
+        const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+        return calculateCountItemValue(
+          ci,
+          {
+            brand_item_id: item?.brand_item_id,
+            cost_per_unit: item?.cost_per_unit,
+            pack_quantity: item?.pack_quantity,
+            pack_quantity_override: item?.pack_quantity_override,
+          },
+          conversion || null,
+          true
+        );
+      };
 
       const rows = exportItems.map((ci: any) => {
         const item = ci.item;
@@ -177,7 +190,19 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const totalItems = exportItems?.length || 0;
   const countedItems = exportItems?.filter((i: any) => i.quantity > 0).length || 0;
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
-    return sum + calculateCountItemValue(ci, ci.item, null, true);
+    const item = ci.item || {};
+    const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+    return sum + calculateCountItemValue(
+      ci,
+      {
+        brand_item_id: item.brand_item_id,
+        cost_per_unit: item.cost_per_unit,
+        pack_quantity: item.pack_quantity,
+        pack_quantity_override: item.pack_quantity_override,
+      },
+      conversion || null,
+      true
+    );
   }, 0) || 0;
 
   return (
