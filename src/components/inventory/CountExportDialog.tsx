@@ -14,6 +14,8 @@ import {
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { calculateCountItemValue } from "@/utils/countItemValue";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
+import { resolveBrandId } from "@/utils/resolveBrandId";
 
 interface CountExportDialogProps {
   countId: string;
@@ -24,6 +26,15 @@ interface CountExportDialogProps {
 const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDialogProps) => {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Resolve brand for Pipeline 1 conversion fallback (standard SOT contract)
+  const { data: brandId } = useQuery({
+    queryKey: ["location-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    enabled: !!locationId && open,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { conversionMap } = useBrandConversions(brandId);
 
   // Fetch location name
   const { data: location } = useQuery({
@@ -58,6 +69,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             cost_per_unit,
             pack_quantity,
             pack_quantity_override,
+            brand_item_id,
             count_units_per_case,
             pack_size,
             item_number,
