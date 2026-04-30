@@ -61,22 +61,16 @@ export function calculateCountItemValue(
   const enteredUnitsNum = Number(ci.entered_units || 0);
   const quantityNum = Number(ci.quantity || 0);
 
-  const derivedPackQty = enteredCasesNum > 0
-    ? (quantityNum - enteredUnitsNum) / enteredCasesNum
-    : null;
-
   const pipeline1PackQty = conversion
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
   const packQtyRaw = forceLiveData
-    ? (derivedPackQty
-        ?? item?.pack_quantity_override
+    ? (item?.pack_quantity_override
         ?? item?.pack_quantity
         ?? pipeline1PackQty
         ?? 1)
     : (ci.pack_quantity_at_count
-        ?? derivedPackQty
         ?? item?.pack_quantity_override
         ?? item?.pack_quantity
         ?? pipeline1PackQty
