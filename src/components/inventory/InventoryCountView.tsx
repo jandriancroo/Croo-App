@@ -10,6 +10,8 @@ import { DollarSign, Package, History, User, Clock, ChevronDown, BarChart3 } fro
 import { format } from "date-fns";
 import VarianceReport from "./VarianceReport";
 import { calculateCountItemValue } from "@/utils/countItemValue";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
+import { resolveBrandId } from "@/utils/resolveBrandId";
 
 
 
@@ -30,6 +32,8 @@ interface CountItem {
     unit: string;
     cost_per_unit: number | null;
     pack_quantity: number | null;
+    pack_quantity_override?: number | null;
+    brand_item_id?: string | null;
     pack_size: string | null;
     item_number: string | null;
     storage_location: { name: string } | null;
