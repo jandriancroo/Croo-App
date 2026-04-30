@@ -150,6 +150,10 @@ export default function ConversionSlideOver({
       toast.error('Tracking unit is required');
       return false;
     }
+    if (valuesFrom === 'form' && (!form.canonical_qty_per_inner || form.canonical_qty_per_inner <= 0)) {
+      toast.error('Case quantity must be greater than 0');
+      return false;
+    }
 
     setSaving(true);
     try {
@@ -164,22 +168,26 @@ export default function ConversionSlideOver({
       // Carry forward all non-canonical fields. Use sensible defaults if previous row was needs_review with no data.
       const isPlaceholder = activeConversion.source === 'needs_review';
       const carry = {
-        outer_qty: isPlaceholder ? 1 : (activeConversion.outer_qty ?? 1),
+        outer_qty: 1,
         outer_unit: isPlaceholder ? 'ea' : (activeConversion.outer_unit ?? 'ea'),
         has_inner: isPlaceholder ? false : !!activeConversion.has_inner,
         inner_qty: isPlaceholder ? null : activeConversion.inner_qty,
         inner_unit: isPlaceholder ? null : activeConversion.inner_unit,
-        canonical_qty_per_inner: isPlaceholder ? 1 : (activeConversion.canonical_qty_per_inner ?? 1),
       };
 
       const canonical_unit =
         valuesFrom === 'form' ? form.canonical_unit : activeConversion.canonical_unit;
+      const canonical_qty_per_inner =
+        valuesFrom === 'form'
+          ? Number(form.canonical_qty_per_inner)
+          : Number(activeConversion.canonical_qty_per_inner ?? 1);
 
       const { error: insertErr } = await supabase.from('item_conversions').insert({
         brand_template_id: currentItemId,
         brand_id: brandId,
         ...carry,
         canonical_unit,
+        canonical_qty_per_inner,
         source: sourceLabel,
         version: (activeConversion.version || 1) + 1,
         effective_from: now,
