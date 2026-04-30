@@ -210,20 +210,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Count items now use storage_location_id to distinguish split entries
       const { data: countItems, error: countError } = await supabase
         .from("inventory_count_items")
-        .select("id, item_id, quantity, entered_cases, entered_units, storage_location_id")
+        .select("id, item_id, quantity, entered_cases, entered_units, storage_location_id, cost_at_count, pack_quantity_at_count")
         .eq("count_id", countId) as any;
       
       if (countError) throw countError;
 
-      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units }
+      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units, cost_at_count, pack_quantity_at_count }
       const countMap = new Map(
         (countItems as any[])?.map((ci: any) => [
           `${ci.item_id}|${ci.storage_location_id || ''}`, 
-          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units }
+          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count }
         ]) || []
       );
       // Also keep a simple item_id map for backwards compat (old counts without storage_location_id)
-      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units }]) || []);
+      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count }]) || []);
 
       const result: (CountItem & { _existingQuantity: number; _existingCases: number | null; _existingUnits: number | null; _countItemId: string | null; _splitKey: string })[] = [];
       
