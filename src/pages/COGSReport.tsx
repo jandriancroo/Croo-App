@@ -12,10 +12,19 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useInventoryTransfers, getTransferTotalsForPeriod } from "@/hooks/useInventoryTransfers";
-
-
+import { useBrandConversions } from "@/hooks/useBrandConversions";
+import { resolveBrandId } from "@/utils/resolveBrandId";
 export const COGSReportContent = ({ locationId }: { locationId: string }) => {
   
+  // Resolve brand for Pipeline 1 conversion fallback
+  const { data: brandId } = useQuery({
+    queryKey: ["location-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    enabled: !!locationId,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { conversionMap } = useBrandConversions(brandId);
+
   // Week period: Mon-Sun
   const [weekStart, setWeekStart] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -62,11 +71,11 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       const [beginItems, endItems] = await Promise.all([
         beginning ? supabase
           .from("inventory_count_items")
-          .select("item_id, quantity, cost_at_count, pack_quantity_at_count")
+          .select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units")
           .eq("count_id", beginning.id) : { data: [] },
         ending ? supabase
           .from("inventory_count_items")
-          .select("item_id, quantity, cost_at_count, pack_quantity_at_count")
+          .select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units")
           .eq("count_id", ending.id) : { data: [] },
       ]);
 
@@ -85,7 +94,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       if (!locationId) return [];
       const { data } = await supabase
         .from("inventory_items")
-        .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, unit, vendor_source, category, is_recipe")
+        .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, unit, vendor_source, category, is_recipe, brand_item_id")
         .eq("location_id", locationId)
         .eq("is_active", true);
       return data || [];
@@ -212,7 +221,21 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     };
     const getCountItemPerUnitCost = (ci: any) => {
       const item = itemMap.get(ci.item_id) as any;
-      const packQty = Number(ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+      const derivedPackQty = Number(ci.entered_cases) > 0
+        ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
+        : null;
+      const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+      const pipeline1PackQty = conversion
+        ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
+        : null;
+      const packQty = Number(
+        ci.pack_quantity_at_count
+          ?? derivedPackQty
+          ?? pipeline1PackQty
+          ?? item?.pack_quantity_override
+          ?? item?.pack_quantity
+          ?? 1
+      );
 
       if (ci.cost_at_count != null) {
         return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
@@ -300,7 +323,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       beginDate: counts?.beginning?.period_end_date || counts?.beginning?.count_date,
       endDate: counts?.ending?.period_end_date || counts?.ending?.count_date,
     };
-  }, [counts, inventoryItems, purchases, salesData, bomData, transferTotals]);
+  }, [counts, inventoryItems, purchases, salesData, bomData, transferTotals, conversionMap]);
 
   const isLoading = countsLoading || purchasesLoading || salesLoading;
   const canGoForward = !isAfter(addWeeks(weekStart, 1), new Date());
