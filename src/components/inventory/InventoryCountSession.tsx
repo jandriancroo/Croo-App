@@ -231,7 +231,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count }]) || []);
 
       const result: (CountItem & { _existingQuantity: number; _existingCases: number | null; _existingUnits: number | null; _countItemId: string | null; _splitKey: string })[] = [];
-      
+
+      // Phase 1 Option 2: side map of RAW (uncollapsed) pack values per item_id,
+      // captured BEFORE the line 273 collapse. getItemCost reads from this so
+      // calculateCountItemValue receives the same shape as Period/Review/Export.
+      const rawPackMap = new Map<string, { pack_quantity: number | null; pack_quantity_override: number | null }>();
+      for (const item of itemsData || []) {
+        rawPackMap.set(item.id, {
+          pack_quantity: (item as any).pack_quantity ?? null,
+          pack_quantity_override: (item as any).pack_quantity_override ?? null,
+        });
+      }
+
       for (const item of itemsData || []) {
         // Exclude non-countable recipe items
         if ((item as any).is_recipe && (item as any).countable === false) continue;
