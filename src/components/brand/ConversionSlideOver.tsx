@@ -137,7 +137,9 @@ export default function ConversionSlideOver({
   }, [currentItemId, open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const baseline = useMemo(() => conversionToForm(activeConversion), [activeConversion?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const isDirty = form.canonical_unit !== baseline.canonical_unit;
+  const isDirty =
+    form.canonical_unit !== baseline.canonical_unit ||
+    Number(form.canonical_qty_per_inner) !== Number(baseline.canonical_qty_per_inner);
 
   const persistConversion = useCallback(async (sourceLabel: 'manual_override', valuesFrom: 'form' | 'current'): Promise<boolean> => {
     if (!currentItemId || !activeConversion) {
