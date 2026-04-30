@@ -299,6 +299,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             _countItemId: countData?.countItemId || null,
             _splitKey: splitKey,
             _sortOrder: sortOrder,
+            // Raw uncollapsed pack values (before line 284 collapse) for SOT parity
+            _rawPackQuantity: rawPackMap.get(item.id)?.pack_quantity ?? null,
+            _rawPackQuantityOverride: rawPackMap.get(item.id)?.pack_quantity_override ?? null,
           } as any);
         }
       }
