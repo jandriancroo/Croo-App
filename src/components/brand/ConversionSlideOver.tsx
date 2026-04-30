@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Sparkles, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -35,10 +36,14 @@ const CANONICAL_UNITS = ['ea', 'lb', 'oz', 'g', 'gal', 'qt'];
 
 interface FormState {
   canonical_unit: string;
+  canonical_qty_per_inner: number;
 }
 
 function conversionToForm(c: ActiveConversion | undefined): FormState {
-  return { canonical_unit: c?.canonical_unit || 'ea' };
+  return {
+    canonical_unit: c?.canonical_unit || 'ea',
+    canonical_qty_per_inner: Number(c?.canonical_qty_per_inner ?? 1) || 1,
+  };
 }
 
 function StatusBadge({ source }: { source: string }) {
@@ -132,7 +137,9 @@ export default function ConversionSlideOver({
   }, [currentItemId, open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const baseline = useMemo(() => conversionToForm(activeConversion), [activeConversion?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const isDirty = form.canonical_unit !== baseline.canonical_unit;
+  const isDirty =
+    form.canonical_unit !== baseline.canonical_unit ||
+    Number(form.canonical_qty_per_inner) !== Number(baseline.canonical_qty_per_inner);
 
   const persistConversion = useCallback(async (sourceLabel: 'manual_override', valuesFrom: 'form' | 'current'): Promise<boolean> => {
     if (!currentItemId || !activeConversion) {
@@ -141,6 +148,10 @@ export default function ConversionSlideOver({
     }
     if (valuesFrom === 'form' && !form.canonical_unit) {
       toast.error('Tracking unit is required');
+      return false;
+    }
+    if (valuesFrom === 'form' && (!form.canonical_qty_per_inner || form.canonical_qty_per_inner <= 0)) {
+      toast.error('Case quantity must be greater than 0');
       return false;
     }
 
@@ -157,22 +168,26 @@ export default function ConversionSlideOver({
       // Carry forward all non-canonical fields. Use sensible defaults if previous row was needs_review with no data.
       const isPlaceholder = activeConversion.source === 'needs_review';
       const carry = {
-        outer_qty: isPlaceholder ? 1 : (activeConversion.outer_qty ?? 1),
+        outer_qty: 1,
         outer_unit: isPlaceholder ? 'ea' : (activeConversion.outer_unit ?? 'ea'),
         has_inner: isPlaceholder ? false : !!activeConversion.has_inner,
         inner_qty: isPlaceholder ? null : activeConversion.inner_qty,
         inner_unit: isPlaceholder ? null : activeConversion.inner_unit,
-        canonical_qty_per_inner: isPlaceholder ? 1 : (activeConversion.canonical_qty_per_inner ?? 1),
       };
 
       const canonical_unit =
         valuesFrom === 'form' ? form.canonical_unit : activeConversion.canonical_unit;
+      const canonical_qty_per_inner =
+        valuesFrom === 'form'
+          ? Number(form.canonical_qty_per_inner)
+          : Number(activeConversion.canonical_qty_per_inner ?? 1);
 
       const { error: insertErr } = await supabase.from('item_conversions').insert({
         brand_template_id: currentItemId,
         brand_id: brandId,
         ...carry,
         canonical_unit,
+        canonical_qty_per_inner,
         source: sourceLabel,
         version: (activeConversion.version || 1) + 1,
         effective_from: now,
@@ -191,14 +206,14 @@ export default function ConversionSlideOver({
     } finally {
       setSaving(false);
     }
-  }, [currentItemId, activeConversion, form.canonical_unit, brandId, queryClient, onConversionsChanged]);
+  }, [currentItemId, activeConversion, form.canonical_unit, form.canonical_qty_per_inner, brandId, queryClient, onConversionsChanged]);
 
   const autoSaveIfNeedsReview = useCallback(async (): Promise<boolean> => {
-    if (activeConversion?.source === 'needs_review' && form.canonical_unit) {
+    if (activeConversion?.source === 'needs_review' && form.canonical_unit && form.canonical_qty_per_inner > 0) {
       return await persistConversion('manual_override', 'form');
     }
     return true;
-  }, [activeConversion?.source, form.canonical_unit, persistConversion]);
+  }, [activeConversion?.source, form.canonical_unit, form.canonical_qty_per_inner, persistConversion]);
 
   const goPrev = useCallback(() => {
     if (items.length === 0) return;
@@ -381,6 +396,14 @@ export default function ConversionSlideOver({
                     </div>
                     <div className="text-sm font-medium">
                       Tracked in: <span className="font-semibold">{form.canonical_unit || '—'}</span>
+                      {form.canonical_qty_per_inner > 0 && (
+                        <>
+                          {' · '}
+                          <span className="font-semibold">
+                            {form.canonical_qty_per_inner} {form.canonical_unit} per case
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -388,7 +411,7 @@ export default function ConversionSlideOver({
                 {sourceLabel === 'needs_review' && (
                   <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
-                    <span>What unit does your team count this item in?</span>
+                    <span>What unit and case quantity does your team use for this item?</span>
                   </div>
                 )}
 
@@ -396,7 +419,7 @@ export default function ConversionSlideOver({
                   <Label className="text-xs">Track inventory in</Label>
                   <Select
                     value={form.canonical_unit}
-                    onValueChange={(v) => setForm({ canonical_unit: v })}
+                    onValueChange={(v) => setForm((prev) => ({ ...prev, canonical_unit: v }))}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -405,6 +428,30 @@ export default function ConversionSlideOver({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">
+                    How many {form.canonical_unit || 'units'} per case?
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    inputMode="decimal"
+                    value={Number.isFinite(form.canonical_qty_per_inner) ? form.canonical_qty_per_inner : ''}
+                    onChange={(e) => {
+                      const n = parseFloat(e.target.value);
+                      setForm((prev) => ({
+                        ...prev,
+                        canonical_qty_per_inner: Number.isFinite(n) ? n : 0,
+                      }));
+                    }}
+                    placeholder="e.g. 16"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Total {form.canonical_unit || 'units'} in one full case from the vendor.
+                  </p>
                 </div>
 
                 <div className="space-y-2 pt-2">
