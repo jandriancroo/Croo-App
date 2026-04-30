@@ -448,18 +448,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
 
-    // Derive historical pack qty from the saved row when the user hasn't changed inputs.
-    // This protects the running total from brand-level pack_quantity resets.
+    // When the user hasn't changed inputs from what's saved, prefer the snapshotted
+    // cost_at_count + pack_quantity_at_count from the saved row so this view matches
+    // Period / Review / Export exactly. When the user IS editing, fall back to live
+    // item.cost_per_unit and the resolved item.pack_quantity.
     const existingCases = (item as any)._existingCases ?? null;
     const existingUnits = (item as any)._existingUnits ?? null;
     const existingQty = (item as any)._existingQuantity ?? null;
-    let snapshotPackQty: number | null = null;
-    if (
-      existingCases != null && existingUnits != null && existingQty != null &&
-      Number(existingCases) > 0 &&
+    const savedCost = (item as any)._costAtCount ?? null;
+    const savedPackAtCount = (item as any)._packQuantityAtCount ?? null;
+
+    const inputsUnchanged =
+      existingCases != null && existingUnits != null &&
       Number(casesVal) === Number(existingCases) &&
-      Number(unitsVal) === Number(existingUnits)
-    ) {
+      Number(unitsVal) === Number(existingUnits);
+
+    let snapshotPackQty: number | null = savedPackAtCount;
+    if (snapshotPackQty == null && inputsUnchanged && Number(existingCases) > 0 && existingQty != null) {
       const derived = (Number(existingQty) - Number(existingUnits)) / Number(existingCases);
       if (Number.isFinite(derived) && derived > 0) snapshotPackQty = derived;
     }
@@ -472,7 +477,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         quantity: totalQty,
         entered_cases: casesVal,
         entered_units: unitsVal + panUnits,
-        cost_at_count: null,
+        cost_at_count: inputsUnchanged ? savedCost : null,
         pack_quantity_at_count: snapshotPackQty,
       },
       {
