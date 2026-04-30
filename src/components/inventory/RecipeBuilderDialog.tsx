@@ -243,6 +243,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
   const isCreating = !editBlueprintId && !editRecipeId;
   const isBlueprint = !!editBlueprintId || !editRecipeId;
 
+  // Pipeline 1 — brand-level item conversions (authoritative pack data)
+  const { conversionMap } = useBrandConversions(brandId);
+
   // ========== DATA FETCHING ==========
 
   // Fetch vendor items (non-recipe inventory_items)
