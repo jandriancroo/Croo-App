@@ -23,6 +23,7 @@ import { useAuth } from "@/lib/auth";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
+import { calculateCountItemValue } from "@/utils/countItemValue";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
@@ -209,20 +210,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Count items now use storage_location_id to distinguish split entries
       const { data: countItems, error: countError } = await supabase
         .from("inventory_count_items")
-        .select("id, item_id, quantity, entered_cases, entered_units, storage_location_id")
+        .select("id, item_id, quantity, entered_cases, entered_units, storage_location_id, cost_at_count, pack_quantity_at_count")
         .eq("count_id", countId) as any;
       
       if (countError) throw countError;
 
-      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units }
+      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units, cost_at_count, pack_quantity_at_count }
       const countMap = new Map(
         (countItems as any[])?.map((ci: any) => [
           `${ci.item_id}|${ci.storage_location_id || ''}`, 
-          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units }
+          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count }
         ]) || []
       );
       // Also keep a simple item_id map for backwards compat (old counts without storage_location_id)
-      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units }]) || []);
+      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count }]) || []);
 
       const result: (CountItem & { _existingQuantity: number; _existingCases: number | null; _existingUnits: number | null; _countItemId: string | null; _splitKey: string })[] = [];
       
@@ -274,6 +275,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             _existingQuantity: countData?.quantity ?? 0,
             _existingCases: countData?.entered_cases ?? null,
             _existingUnits: countData?.entered_units ?? null,
+            _costAtCount: (countData as any)?.cost_at_count ?? null,
+            _packQuantityAtCount: (countData as any)?.pack_quantity_at_count ?? null,
             _countItemId: countData?.countItemId || null,
             _splitKey: splitKey,
             _sortOrder: sortOrder,
@@ -419,23 +422,72 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Calculate cost for a single item (supports recipe cost trickle-down)
   // key param allows split-count items to be identified by splitKey
-  const getItemCost = useCallback((item: CountItem & { _splitKey?: string }) => {
+  // Uses the shared SOT formula from src/utils/countItemValue.ts so the running
+  // total in this Edit Count view matches Period view, Review view, and Export.
+  const getItemCost = useCallback((item: CountItem & {
+    _splitKey?: string;
+    _existingQuantity?: number;
+    _existingCases?: number | null;
+    _existingUnits?: number | null;
+    _costAtCount?: number | null;
+  }) => {
     const key = (item as any)._splitKey || item.item_id;
-    const totalUnits = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
-    
-    // Check if this is a recipe item with a calculated batch cost
+
+    // Recipe items: trickle-down batch cost still applies (no case/unit pack math)
     const batchCost = recipeCosts?.get(item.item_id);
     if (batchCost !== undefined && batchCost > 0) {
+      const totalUnits = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
       return totalUnits * batchCost;
     }
-    
-    // Standard items: cost_per_unit is per case, pack_quantity is units per case
-    // pack_quantity already incorporates pack_quantity_override (set at line 268)
-    const costPerCase = item.cost_per_unit || 0;
+
+    // Live values (mid-typing) override saved values
+    const rawCases = parseFloat(rawInputs[key]?.cases ?? '');
+    const rawUnits = parseFloat(rawInputs[key]?.units ?? '');
+    const committed = counts[key] || { cases: 0, units: 0 };
+    const casesVal = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
+    const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
+    const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
+
+    // When the user hasn't changed inputs from what's saved, prefer the snapshotted
+    // cost_at_count + pack_quantity_at_count from the saved row so this view matches
+    // Period / Review / Export exactly. When the user IS editing, fall back to live
+    // item.cost_per_unit and the resolved item.pack_quantity.
+    const existingCases = (item as any)._existingCases ?? null;
+    const existingUnits = (item as any)._existingUnits ?? null;
+    const existingQty = (item as any)._existingQuantity ?? null;
+    const savedCost = (item as any)._costAtCount ?? null;
+    const savedPackAtCount = (item as any)._packQuantityAtCount ?? null;
+
+    const inputsUnchanged =
+      existingCases != null && existingUnits != null &&
+      Number(casesVal) === Number(existingCases) &&
+      Number(unitsVal) === Number(existingUnits);
+
+    let snapshotPackQty: number | null = savedPackAtCount;
+    if (snapshotPackQty == null && inputsUnchanged && Number(existingCases) > 0 && existingQty != null) {
+      const derived = (Number(existingQty) - Number(existingUnits)) / Number(existingCases);
+      if (Number.isFinite(derived) && derived > 0) snapshotPackQty = derived;
+    }
+
     const packQty = item.pack_quantity || 1;
-    const costPerUnit = costPerCase / Math.max(packQty, 1);
-    return totalUnits * costPerUnit;
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts]);
+    const totalQty = casesVal * packQty + unitsVal + panUnits;
+
+    return calculateCountItemValue(
+      {
+        quantity: totalQty,
+        entered_cases: casesVal,
+        entered_units: unitsVal + panUnits,
+        cost_at_count: inputsUnchanged ? savedCost : null,
+        pack_quantity_at_count: snapshotPackQty,
+      },
+      {
+        cost_per_unit: item.cost_per_unit,
+        pack_quantity: packQty,
+        pack_quantity_override: null,
+      },
+      null
+    );
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal]);
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
