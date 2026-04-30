@@ -9,6 +9,58 @@ const corsHeaders = {
 
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MIRROR OF src/utils/countItemValue.ts — keep in sync.
+// Single source of truth for valuing a count item. See countItemValue.test.ts
+// for the canonical test cases. Edits here without updating the TS twin will
+// silently desynchronize Period view, Review view, COGS report, and AI answers.
+// ─────────────────────────────────────────────────────────────────────────────
+function calculateCountItemValue(ci: any, item: any, conversion: any): number {
+  const costPerCase = ci?.cost_at_count != null
+    ? Number(ci.cost_at_count) || 0
+    : Number(item?.cost_per_unit) || 0;
+  if (costPerCase === 0) return 0;
+
+  const enteredCasesNum = Number(ci?.entered_cases || 0);
+  const enteredUnitsNum = Number(ci?.entered_units || 0);
+  const quantityNum = Number(ci?.quantity || 0);
+
+  const derivedPackQty = enteredCasesNum > 0
+    ? (quantityNum - enteredUnitsNum) / enteredCasesNum
+    : null;
+
+  const pipeline1PackQty = conversion
+    ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
+    : null;
+
+  const packQtyRaw =
+    ci?.pack_quantity_at_count
+    ?? derivedPackQty
+    ?? item?.pack_quantity_override
+    ?? item?.pack_quantity
+    ?? pipeline1PackQty
+    ?? 1;
+
+  const packQty = Number(packQtyRaw);
+  const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;
+
+  const hasEntered = ci?.entered_cases != null || ci?.entered_units != null;
+  let value: number;
+  if (hasEntered) {
+    const caseValue = enteredCasesNum * costPerCase;
+    const unitValue = (enteredUnitsNum * costPerCase) / safePackQty;
+    value = caseValue + unitValue;
+  } else {
+    value = quantityNum * (costPerCase / safePackQty);
+  }
+
+  if (!Number.isFinite(value) || value < 0) {
+    console.warn("[calculateCountItemValue] Invalid result, returning 0", { ci, item, conversion, value });
+    return 0;
+  }
+  return value;
+}
+
 function getTzOffset(tz: string): string {
   const now = new Date();
   const formatter = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" });
@@ -1164,31 +1216,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
           const getCountItemLineValue = (ci: any) => {
             const item: any = itemMap.get(ci.item_id);
-            const derivedPackQty = Number(ci.entered_cases) > 0
-              ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
-              : null;
             const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-            const pipeline1PackQty = conversion
-              ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
-              : null;
-            const packQty = Number(
-              ci.pack_quantity_at_count
-                ?? derivedPackQty
-                ?? item?.pack_quantity_override
-                ?? item?.pack_quantity
-                ?? pipeline1PackQty
-                ?? 1
-            );
-            const costPerCase = ci.cost_at_count != null
-              ? Number(ci.cost_at_count) || 0
-              : Number(item?.cost_per_unit) || 0;
-            const hasEntered = ci.entered_cases != null || ci.entered_units != null;
-            if (hasEntered) {
-              const caseValue = Number(ci.entered_cases || 0) * costPerCase;
-              const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
-              return caseValue + unitValue;
-            }
-            return Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
+            return calculateCountItemValue(ci, item, conversion);
           };
 
           let beginValue = 0;
@@ -1280,23 +1309,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               .eq("count_id", count.id);
 
             let itemResults = (items || []).map((i: any) => {
-              const derivedPackQty = Number(i.entered_cases) > 0
-                ? (Number(i.quantity) - Number(i.entered_units || 0)) / Number(i.entered_cases)
-                : null;
-              const packQty = Number(
-                i.pack_quantity_at_count
-                  ?? derivedPackQty
-                  ?? i.inventory_items?.pack_quantity_override
-                  ?? i.inventory_items?.pack_quantity
-                  ?? 1
-              );
-              const costPerCase = i.cost_at_count != null
-                ? Number(i.cost_at_count) || 0
-                : Number(i.inventory_items?.cost_per_unit) || 0;
-              const hasEntered = i.entered_cases != null || i.entered_units != null;
-              const totalCost = hasEntered
-                ? Number(i.entered_cases || 0) * costPerCase + Number(i.entered_units || 0) * costPerCase / Math.max(packQty, 1)
-                : Number(i.quantity || 0) * (costPerCase / Math.max(packQty, 1));
+              // Single source of truth — see src/utils/countItemValue.ts (mirrored at top of this file)
+              const totalCost = calculateCountItemValue(i, i.inventory_items, null);
 
               return {
                 name: i.inventory_items?.common_name || i.inventory_items?.product_name,

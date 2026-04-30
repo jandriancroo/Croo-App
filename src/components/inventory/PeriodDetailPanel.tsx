@@ -28,6 +28,7 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
+import { calculateCountItemValue } from "@/utils/countItemValue";
 import VarianceReport from "./VarianceReport";
 import InvoiceUploadDialog from "./InvoiceUploadDialog";
 import SalesDateEditor from "./SalesDateEditor";
@@ -376,47 +377,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         itemMap.set(i.id, i);
       }
 
-      // Resolve packQty for an item (used only for valuing loose entered_units)
-      const resolvePackQty = (ci: any) => {
-        const item = itemMap.get(ci.item_id);
-        const derivedPackQty = Number(ci.entered_cases) > 0
-          ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
-          : null;
-        const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-        const pipeline1PackQty = conversion
-          ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
-          : null;
-        return Number(
-          ci.pack_quantity_at_count
-            ?? derivedPackQty
-            ?? item?.pack_quantity_override
-            ?? item?.pack_quantity
-            ?? pipeline1PackQty
-            ?? 1
-        );
-      };
-
-      // Cost per CASE (cost_at_count is per case; cost_per_unit fallback is also per case in this codebase)
-      const resolveCostPerCase = (ci: any) => {
-        const item = itemMap.get(ci.item_id);
-        if (ci.cost_at_count != null) return Number(ci.cost_at_count) || 0;
-        return Number(item?.cost_per_unit) || 0;
-      };
-
-      // PRIMARY: value from operator-entered cases + units (the actual inputs at count time)
-      // FALLBACK: legacy quantity * perUnitCost path (only when entered values are unavailable)
+      // Single source of truth — see src/utils/countItemValue.ts
       const getCountItemLineValue = (ci: any) => {
-        const costPerCase = resolveCostPerCase(ci);
-        const hasEntered = ci.entered_cases != null || ci.entered_units != null;
-        if (hasEntered) {
-          const packQty = resolvePackQty(ci);
-          const caseValue = Number(ci.entered_cases || 0) * costPerCase;
-          const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
-          return caseValue + unitValue;
-        }
-        // Legacy fallback: no entered_cases/units recorded
-        const packQty = resolvePackQty(ci);
-        return Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
+        const item = itemMap.get(ci.item_id);
+        const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+        return calculateCountItemValue(ci, item, conversion);
       };
 
       const getLivePerUnitCost = (itemId: string) => {
