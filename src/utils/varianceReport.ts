@@ -131,9 +131,10 @@ export async function calculateVarianceReport(
   };
 
   // Single source of truth — see src/utils/countItemValue.ts
+  // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
   const getCountItemLineValue = (ci: any) => {
     const item = itemMap.get(ci.item_id);
-    return calculateCountItemValue(ci, item, null);
+    return calculateCountItemValue(ci, item, null, true);
   };
 
   const getItemCategory = (itemId: string) => {

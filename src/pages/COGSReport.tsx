@@ -221,10 +221,11 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
     };
     // Single source of truth — see src/utils/countItemValue.ts
+    // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
     const getCountItemLineValue = (ci: any) => {
       const item = itemMap.get(ci.item_id) as any;
       const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-      return calculateCountItemValue(ci, item, conversion);
+      return calculateCountItemValue(ci, item, conversion, true);
     };
 
     // Beginning inventory value
