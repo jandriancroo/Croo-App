@@ -360,15 +360,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const totalUnits = (item as any)._existingQuantity || 0;
       const packQty = item.pack_quantity || 1;
       
-      // Prefer stored entered_cases/entered_units (exact user input)
-      // Fall back to mathematical decomposition of quantity
-      // CRITICAL: If entered_cases=0 and entered_units=0 but quantity>0,
-      // the entry was counted via pan sizes or old method — decompose instead
-      const hasStoredInput = existingCases !== null && existingCases !== undefined
-        && (existingCases > 0 || (existingUnits ?? 0) > 0 || totalUnits === 0);
+      // Prefer stored entered_cases/entered_units (exact user input).
+      // Fall back to mathematical decomposition of quantity ONLY when both fields
+      // are null — i.e. a truly legacy row that never stored the split.
+      // Why: quantity includes pan units (cases×pack + loose + pans). Decomposing
+      // it inflates `units` by pan value, then getItemCost adds panUnits on top
+      // again — double-counting pans. If the DB stored EITHER entered_cases or
+      // entered_units (even as 0), trust them directly.
+      const hasStoredInput =
+        (existingCases !== null && existingCases !== undefined) ||
+        (existingUnits !== null && existingUnits !== undefined);
       if (hasStoredInput) {
         initialCounts[key] = {
-          cases: existingCases,
+          cases: existingCases ?? 0,
           units: existingUnits ?? 0,
         };
       } else {
