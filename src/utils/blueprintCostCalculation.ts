@@ -262,29 +262,34 @@ export async function fetchBlueprintCosts(
             totalBatchCost += (caseCost / unitsPerCase) * ing.quantity;
           }
         } else {
-          const unitsPerCase = vendor.pack_quantity_override || vendor.count_units_per_case || vendor.pack_quantity || 1;
-          const costPerSingleUnit = caseCost / unitsPerCase;
+          // Pipeline 1 — ing.vendor_item_id is brand_template_id, direct key into conversionMap.
+          const brandConversion = conversionMap.get(ing.vendor_item_id);
 
-          // Determine effective native unit — fall back to pack_size parsing if missing
-          let effectiveNativeUnit = nativeUnit;
-          let effectiveCostPerUnit = costPerSingleUnit;
-          if (!effectiveNativeUnit && TO_OZ[ingUnit]) {
+          const effNativeUnit = normalizeIngUnit(
+            brandConversion?.canonical_unit || vendor.count_unit || ""
+          );
+          const unitsPerCase = brandConversion
+            ? (brandConversion.outer_qty * (brandConversion.canonical_qty_per_inner ?? 1))
+            : (vendor.pack_quantity || 1);
+          const costPerNativeUnit = caseCost / unitsPerCase;
+
+          if (ingUnit === "ea" && effNativeUnit === "ea") {
+            totalBatchCost += costPerNativeUnit * ing.quantity;
+          } else if (ingUnit && effNativeUnit && ingUnit === effNativeUnit) {
+            totalBatchCost += costPerNativeUnit * ing.quantity;
+          } else if (ingUnit && effNativeUnit && ingUnit !== effNativeUnit && TO_OZ[ingUnit] && TO_OZ[effNativeUnit]) {
+            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[effNativeUnit];
+            totalBatchCost += costPerNativeUnit * ingInNative;
+          } else if (!effNativeUnit && TO_OZ[ingUnit] && !brandConversion) {
+            // Legacy fallback: derive cost per oz from pack_size when no brand conversion exists.
             const totalOz = parsePackSizeToOz(vendor.pack_size);
             if (totalOz && totalOz > 0) {
-              effectiveNativeUnit = "oz";
-              effectiveCostPerUnit = caseCost / totalOz;
+              totalBatchCost += (caseCost / totalOz) * ing.quantity * TO_OZ[ingUnit];
+            } else {
+              missingItems.push(ing.vendor_item_id || "unknown");
             }
-          }
-
-          if (ingUnit === "ea" && effectiveNativeUnit === "ea") {
-            totalBatchCost += costPerSingleUnit * ing.quantity;
-          } else if (ingUnit && effectiveNativeUnit && ingUnit === effectiveNativeUnit) {
-            totalBatchCost += effectiveCostPerUnit * ing.quantity;
-          } else if (ingUnit && effectiveNativeUnit && ingUnit !== effectiveNativeUnit && TO_OZ[ingUnit] && TO_OZ[effectiveNativeUnit]) {
-            const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[effectiveNativeUnit];
-            totalBatchCost += effectiveCostPerUnit * ingInNative;
-          } else if (!effectiveNativeUnit && ingUnit === "ea") {
-            totalBatchCost += costPerSingleUnit * ing.quantity;
+          } else if (!effNativeUnit && ingUnit === "ea") {
+            totalBatchCost += costPerNativeUnit * ing.quantity;
           } else {
             missingItems.push(ing.vendor_item_id || "unknown");
           }
