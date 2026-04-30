@@ -85,7 +85,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       if (!locationId) return [];
       const { data } = await supabase
         .from("inventory_items")
-        .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, unit, vendor_source, category, is_recipe")
+        .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, unit, vendor_source, category, is_recipe, brand_item_id")
         .eq("location_id", locationId)
         .eq("is_active", true);
       return data || [];
