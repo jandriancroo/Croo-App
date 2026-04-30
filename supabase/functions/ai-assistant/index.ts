@@ -1162,7 +1162,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             for (const c of convs || []) conversionMap.set(c.brand_template_id, c);
           }
 
-          const getCountItemPerUnitCost = (ci: any) => {
+          const getCountItemLineValue = (ci: any) => {
             const item: any = itemMap.get(ci.item_id);
             const derivedPackQty = Number(ci.entered_cases) > 0
               ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
@@ -1174,26 +1174,30 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             const packQty = Number(
               ci.pack_quantity_at_count
                 ?? derivedPackQty
-                ?? pipeline1PackQty
                 ?? item?.pack_quantity_override
                 ?? item?.pack_quantity
+                ?? pipeline1PackQty
                 ?? 1
             );
-
-            if (ci.cost_at_count != null) {
-              return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
+            const costPerCase = ci.cost_at_count != null
+              ? Number(ci.cost_at_count) || 0
+              : Number(item?.cost_per_unit) || 0;
+            const hasEntered = ci.entered_cases != null || ci.entered_units != null;
+            if (hasEntered) {
+              const caseValue = Number(ci.entered_cases || 0) * costPerCase;
+              const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
+              return caseValue + unitValue;
             }
-
-            return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+            return Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
           };
 
           let beginValue = 0;
           for (const ci of (beginItemsRes.data || [])) {
-            beginValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
+            beginValue += getCountItemLineValue(ci);
           }
           let endValue = 0;
           for (const ci of (endItemsRes.data || [])) {
-            endValue += Number(ci.quantity) * getCountItemPerUnitCost(ci);
+            endValue += getCountItemLineValue(ci);
           }
 
           const weekStartDate = beginningCount.period_end_date;
@@ -1276,10 +1280,23 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               .eq("count_id", count.id);
 
             let itemResults = (items || []).map((i: any) => {
-              const packQty = Number(i.pack_quantity_at_count ?? i.inventory_items?.pack_quantity_override ?? i.inventory_items?.pack_quantity ?? 1);
-              const perUnitCost = i.cost_at_count != null
-                ? (Number(i.cost_at_count) || 0) / Math.max(packQty, 1)
-                : (Number(i.inventory_items?.cost_per_unit) || 0) / Math.max(packQty, 1);
+              const derivedPackQty = Number(i.entered_cases) > 0
+                ? (Number(i.quantity) - Number(i.entered_units || 0)) / Number(i.entered_cases)
+                : null;
+              const packQty = Number(
+                i.pack_quantity_at_count
+                  ?? derivedPackQty
+                  ?? i.inventory_items?.pack_quantity_override
+                  ?? i.inventory_items?.pack_quantity
+                  ?? 1
+              );
+              const costPerCase = i.cost_at_count != null
+                ? Number(i.cost_at_count) || 0
+                : Number(i.inventory_items?.cost_per_unit) || 0;
+              const hasEntered = i.entered_cases != null || i.entered_units != null;
+              const totalCost = hasEntered
+                ? Number(i.entered_cases || 0) * costPerCase + Number(i.entered_units || 0) * costPerCase / Math.max(packQty, 1)
+                : Number(i.quantity || 0) * (costPerCase / Math.max(packQty, 1));
 
               return {
                 name: i.inventory_items?.common_name || i.inventory_items?.product_name,
@@ -1288,7 +1305,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
                 cases: i.entered_cases,
                 units: i.entered_units,
                 cost_per_case: i.inventory_items?.cost_per_case,
-                total_cost: i.quantity ? Number((Number(i.quantity) * perUnitCost).toFixed(2)) : null,
+                total_cost: i.quantity ? Number(totalCost.toFixed(2)) : null,
                 variance: i.variance,
                 variance_cost: i.variance_cost,
               };

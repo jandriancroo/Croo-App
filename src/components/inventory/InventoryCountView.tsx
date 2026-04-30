@@ -174,20 +174,32 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     }
   });
 
-  // Helper to get item value using stored cost_per_unit
-  // cost_per_unit is per case, pack_quantity is units per case
+  // Helper to get item value using stored cost_at_count (per CASE)
+  // PRIMARY path: use operator-entered cases + units (the actual inputs at count time)
+  // FALLBACK path: legacy quantity / packQty * cost (only when entered values are absent)
   const getItemValue = (item: CountItem) => {
+    const ci: any = item;
+    const derivedPackQty = Number(ci.entered_cases) > 0
+      ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
+      : null;
     const packQty = Number(
       item.pack_quantity_at_count
+      ?? derivedPackQty
       ?? (item.item as any)?.pack_quantity_override
       ?? item.item?.pack_quantity
       ?? 1
     );
-    const perUnitCost = item.cost_at_count != null
-      ? (Number(item.cost_at_count) || 0) / Math.max(packQty, 1)
-      : (Number(item.item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+    const costPerCase = item.cost_at_count != null
+      ? Number(item.cost_at_count) || 0
+      : Number(item.item?.cost_per_unit) || 0;
 
-    return item.quantity * perUnitCost;
+    const hasEntered = ci.entered_cases != null || ci.entered_units != null;
+    if (hasEntered) {
+      const caseValue = Number(ci.entered_cases || 0) * costPerCase;
+      const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
+      return caseValue + unitValue;
+    }
+    return Number(item.quantity) * (costPerCase / Math.max(packQty, 1));
   };
 
   // Build junction order map: "itemId|storLocId" -> display_order

@@ -95,14 +95,33 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         "Unit Value",
       ];
 
+      const computeLineValue = (ci: any, item: any) => {
+        const derivedPackQty = Number(ci.entered_cases) > 0
+          ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
+          : null;
+        const packQty = Number(
+          ci.pack_quantity_at_count
+            ?? derivedPackQty
+            ?? item?.pack_quantity_override
+            ?? item?.pack_quantity
+            ?? 1
+        );
+        const costPerCase = ci.cost_at_count != null
+          ? Number(ci.cost_at_count) || 0
+          : Number(item?.cost_per_unit) || 0;
+        const hasEntered = ci.entered_cases != null || ci.entered_units != null;
+        if (hasEntered) {
+          const caseValue = Number(ci.entered_cases || 0) * costPerCase;
+          const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
+          return caseValue + unitValue;
+        }
+        return Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
+      };
+
       const rows = exportItems.map((ci: any) => {
         const item = ci.item;
-        const packQty = ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1;
-        const perUnitCost = ci.cost_at_count != null
-          ? (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1)
-          : (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
         const costPerUnit = ci.cost_at_count != null ? Number(ci.cost_at_count) || 0 : Number(item?.cost_per_unit) || 0;
-        const unitValue = ci.quantity * perUnitCost;
+        const unitValue = computeLineValue(ci, item);
 
         const cases = ci.entered_cases ?? "";
         const units = ci.entered_units ?? "";
@@ -165,11 +184,26 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const countedItems = exportItems?.filter((i: any) => i.quantity > 0).length || 0;
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
     const item = ci.item;
-    const packQty = ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1;
-    const perUnitCost = ci.cost_at_count != null
-      ? (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1)
-      : (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
-    return sum + ci.quantity * perUnitCost;
+    const derivedPackQty = Number(ci.entered_cases) > 0
+      ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
+      : null;
+    const packQty = Number(
+      ci.pack_quantity_at_count
+        ?? derivedPackQty
+        ?? item?.pack_quantity_override
+        ?? item?.pack_quantity
+        ?? 1
+    );
+    const costPerCase = ci.cost_at_count != null
+      ? Number(ci.cost_at_count) || 0
+      : Number(item?.cost_per_unit) || 0;
+    const hasEntered = ci.entered_cases != null || ci.entered_units != null;
+    if (hasEntered) {
+      const caseValue = Number(ci.entered_cases || 0) * costPerCase;
+      const unitValue = Number(ci.entered_units || 0) * costPerCase / Math.max(packQty, 1);
+      return sum + caseValue + unitValue;
+    }
+    return sum + Number(ci.quantity) * (costPerCase / Math.max(packQty, 1));
   }, 0) || 0;
 
   return (
