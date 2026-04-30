@@ -14,12 +14,14 @@
  *
  * Pack qty resolution priority (authoritative sources only — no derivation from quantity):
  *   1. pack_quantity_at_count (snapshot from save time, post-Apr-28; skipped when forceLiveData)
- *   2. pack_quantity_override (location-level) — only if > 1
- *   3. pack_quantity (vendor sync) — only if > 1
- *   4. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner)
+ *   2. pack_quantity_override (location-level)
+ *   3. pack_quantity (vendor sync)
+ *   4. Pipeline 1 (item_conversions.outer_qty × canonical_qty_per_inner) — last resort only
  *   5. 1 (final fallback)
  *
- * pack_quantity = 1 is treated as a sentinel for "vendor sync didn't give us a real pack".
+ * Note: Pipeline 1 conversions are for cost-per-oz math, not for reconstructing
+ * how many units the operator counted per case. They must never override an
+ * explicit pack_quantity, even when pack_quantity = 1.
  *
  * IMPORTANT: This file is mirrored in supabase/functions/ai-assistant/index.ts.
  * If you change the formula here, update the mirror as well.
