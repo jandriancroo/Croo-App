@@ -422,7 +422,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // key param allows split-count items to be identified by splitKey
   // Uses the shared SOT formula from src/utils/countItemValue.ts so the running
   // total in this Edit Count view matches Period view, Review view, and Export.
-  const getItemCost = useCallback((item: CountItem & { _splitKey?: string; _existingCases?: number | null; _existingUnits?: number | null; _packQuantityAtCount?: number | null }) => {
+  const getItemCost = useCallback((item: CountItem & {
+    _splitKey?: string;
+    _existingQuantity?: number;
+    _existingCases?: number | null;
+    _existingUnits?: number | null;
+  }) => {
     const key = (item as any)._splitKey || item.item_id;
 
     // Recipe items: trickle-down batch cost still applies (no case/unit pack math)
@@ -440,20 +445,32 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
 
+    // Derive historical pack qty from the saved row when the user hasn't changed inputs.
+    // This protects the running total from brand-level pack_quantity resets.
+    const existingCases = (item as any)._existingCases ?? null;
+    const existingUnits = (item as any)._existingUnits ?? null;
+    const existingQty = (item as any)._existingQuantity ?? null;
+    let snapshotPackQty: number | null = null;
+    if (
+      existingCases != null && existingUnits != null && existingQty != null &&
+      Number(existingCases) > 0 &&
+      Number(casesVal) === Number(existingCases) &&
+      Number(unitsVal) === Number(existingUnits)
+    ) {
+      const derived = (Number(existingQty) - Number(existingUnits)) / Number(existingCases);
+      if (Number.isFinite(derived) && derived > 0) snapshotPackQty = derived;
+    }
+
     const packQty = item.pack_quantity || 1;
     const totalQty = casesVal * packQty + unitsVal + panUnits;
 
-    // Build the SOT input. cost_at_count from saved row would be ideal, but live
-    // editing uses item.cost_per_unit (per case). pack_quantity_at_count is null
-    // mid-edit, but item.pack_quantity here ALREADY resolves override → vendor
-    // (set at line 266), giving the SOT formula a correct divisor.
     return calculateCountItemValue(
       {
         quantity: totalQty,
         entered_cases: casesVal,
         entered_units: unitsVal + panUnits,
         cost_at_count: null,
-        pack_quantity_at_count: null,
+        pack_quantity_at_count: snapshotPackQty,
       },
       {
         cost_per_unit: item.cost_per_unit,
