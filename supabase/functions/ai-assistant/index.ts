@@ -1309,23 +1309,8 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
               .eq("count_id", count.id);
 
             let itemResults = (items || []).map((i: any) => {
-              const derivedPackQty = Number(i.entered_cases) > 0
-                ? (Number(i.quantity) - Number(i.entered_units || 0)) / Number(i.entered_cases)
-                : null;
-              const packQty = Number(
-                i.pack_quantity_at_count
-                  ?? derivedPackQty
-                  ?? i.inventory_items?.pack_quantity_override
-                  ?? i.inventory_items?.pack_quantity
-                  ?? 1
-              );
-              const costPerCase = i.cost_at_count != null
-                ? Number(i.cost_at_count) || 0
-                : Number(i.inventory_items?.cost_per_unit) || 0;
-              const hasEntered = i.entered_cases != null || i.entered_units != null;
-              const totalCost = hasEntered
-                ? Number(i.entered_cases || 0) * costPerCase + Number(i.entered_units || 0) * costPerCase / Math.max(packQty, 1)
-                : Number(i.quantity || 0) * (costPerCase / Math.max(packQty, 1));
+              // Single source of truth — see src/utils/countItemValue.ts (mirrored at top of this file)
+              const totalCost = calculateCountItemValue(i, i.inventory_items, null);
 
               return {
                 name: i.inventory_items?.common_name || i.inventory_items?.product_name,
