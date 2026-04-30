@@ -335,7 +335,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const existingCases = (item as any)._existingCases;
       const existingUnits = (item as any)._existingUnits;
       const totalUnits = (item as any)._existingQuantity || 0;
-      const packQty = item.pack_quantity || 1;
+      const packQty = (item as any).pack_quantity_override ?? item.pack_quantity ?? 1;
       
       // Prefer stored entered_cases/entered_units (exact user input)
       // Fall back to mathematical decomposition of quantity
