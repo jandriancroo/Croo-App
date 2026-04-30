@@ -1599,7 +1599,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const splitKey = (item as any)._splitKey || item.item_id;
           const count = counts[splitKey] || { cases: 0, units: 0 };
           const itemCost = getItemCost(item);
-          const packQty = item.pack_quantity || 1;
+          const conv = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+          const pipeline2Pack =
+            conv && (conv.canonical_unit === 'ea' || conv.outer_unit === 'ea' || conv.inner_unit === 'ea')
+              ? (conv.has_inner
+                  ? (conv.outer_qty || 0) * (conv.canonical_qty_per_inner || 1)
+                  : (conv.outer_qty || 0))
+              : 0;
+          const packQty =
+            (item.pack_quantity && item.pack_quantity > 1)
+              ? item.pack_quantity
+              : (pipeline2Pack > 1 ? pipeline2Pack : 1);
           const isHighlighted = highlightedItemId === splitKey;
           const isErrorHighlighted = errorHighlightedItemId === splitKey;
           
