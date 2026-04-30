@@ -343,9 +343,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       const [beginItems, endItems] = await Promise.all([
         beginCount
-          ? supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count").eq("count_id", beginCount.id)
+          ? supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units").eq("count_id", beginCount.id)
           : { data: [] },
-        supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count").eq("count_id", count.id),
+        supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units").eq("count_id", count.id),
       ]);
 
       // Collect all item_ids referenced in both counts to include inactive items
@@ -367,7 +367,16 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       const getCountItemPerUnitCost = (ci: any) => {
         const item = itemMap.get(ci.item_id);
-        const packQty = Number(ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+        const derivedPackQty = Number(ci.entered_cases) > 0
+          ? (Number(ci.quantity) - Number(ci.entered_units || 0)) / Number(ci.entered_cases)
+          : null;
+        const packQty = Number(
+          ci.pack_quantity_at_count
+            ?? derivedPackQty
+            ?? item?.pack_quantity_override
+            ?? item?.pack_quantity
+            ?? 1
+        );
 
         if (ci.cost_at_count != null) {
           return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
