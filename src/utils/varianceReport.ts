@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { reconcileSaladGroup, getReconciliationGroups } from "./saladReconciliation";
 
 import { TO_OZ, normalizeUnit as norm } from "./unitConversion";
+import { calculateCountItemValue } from "./countItemValue";
 function parseCansPerCase(ps: string | null): number | null {
   if (!ps) return null;
   const m = ps.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]+)$/);
@@ -129,15 +130,10 @@ export async function calculateVarianceReport(
     return itemActual.get(itemId)!;
   };
 
-  const getCountItemUnitValue = (ci: any) => {
+  // Single source of truth — see src/utils/countItemValue.ts
+  const getCountItemLineValue = (ci: any) => {
     const item = itemMap.get(ci.item_id);
-    const packQty = Number(ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
-
-    if (ci.cost_at_count != null) {
-      return (Number(ci.cost_at_count) || 0) / Math.max(packQty, 1);
-    }
-
-    return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
+    return calculateCountItemValue(ci, item, null);
   };
 
   const getItemCategory = (itemId: string) => {
@@ -156,7 +152,7 @@ export async function calculateVarianceReport(
     if (isRecipeItem(ci.item_id)) continue;
     const entry = getOrCreateItem(ci.item_id);
     entry.beginningQty += ci.quantity;
-    entry.beginning += ci.quantity * getCountItemUnitValue(ci);
+    entry.beginning += getCountItemLineValue(ci);
   }
 
   // Ending count values
@@ -164,7 +160,7 @@ export async function calculateVarianceReport(
     if (isRecipeItem(ci.item_id)) continue;
     const entry = getOrCreateItem(ci.item_id);
     entry.endingQty += ci.quantity;
-    entry.ending += ci.quantity * getCountItemUnitValue(ci);
+    entry.ending += getCountItemLineValue(ci);
   }
 
   // Purchases - match PFG items via brand_vendor_mappings first, then fallback to local item_number
