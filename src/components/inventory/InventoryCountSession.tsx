@@ -33,7 +33,6 @@ import { setInventoryCountLock } from "@/utils/inventoryCountLock";
 import {
   cacheCountEdit,
   clearCountCache,
-  getPendingCount,
 } from "@/utils/inventoryCountCache";
 import { InventorySyncPill } from "@/components/inventory/InventorySyncPill";
 
