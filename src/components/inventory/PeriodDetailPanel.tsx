@@ -692,7 +692,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                       endStr={periodRange.endStr}
                       salesEndStr={periodRange.salesEndStr}
                       canEdit={canManageOrders}
-                      currentOverride={count.sales_end_override || null}
+                      currentEndOverride={count.sales_end_override || null}
+                      currentStartOverride={count.sales_start_override || null}
                     />
                   )}
                 </div>
