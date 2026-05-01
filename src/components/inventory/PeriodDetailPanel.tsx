@@ -82,7 +82,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       // when no prior monthly exists).
       const { data } = await supabase
         .from("inventory_counts")
-        .select("id, period_type, period_end_date, is_late_close, counted_at, sales_end_override")
+        .select("id, period_type, period_end_date, is_late_close, counted_at, sales_end_override, sales_start_override")
         .eq("location_id", locationId)
         .eq("status", "completed")
         .lt("period_end_date", count.period_end_date)
@@ -219,6 +219,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       }
     }
 
+    // Manual start override always wins (set by user via SalesDateEditor)
+    if (count.sales_start_override) {
+      adjustedStart = count.sales_start_override;
+      isFlexAdjusted = adjustedStart !== standardStart;
+    }
+
     // Calculate active days — use salesEndDate for flex counts (extended window)
     const startMs = new Date(adjustedStart + "T12:00:00").getTime();
     const effectiveEnd = salesEndDate > effectivePeriodEndDate ? salesEndDate : effectivePeriodEndDate;
@@ -234,7 +240,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       activeDays,
       isNonStandard,
     };
-  }, [count.period_end_date, count.period_type, count.status, count.is_late_close, count.counted_at, count.sales_end_override, prevCountData?.id, prevCountData?.period_type, prevCountData?.is_late_close, prevCountData?.counted_at, prevCountData?.sales_end_override, prevCountData?.period_end_date, timezone]);
+  }, [count.period_end_date, count.period_type, count.status, count.is_late_close, count.counted_at, count.sales_end_override, count.sales_start_override, prevCountData?.id, prevCountData?.period_type, prevCountData?.is_late_close, prevCountData?.counted_at, prevCountData?.sales_end_override, prevCountData?.period_end_date, timezone]);
 
   // Compute transfer totals for this period
   const transferTotals = useMemo(() => {
@@ -686,7 +692,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                       endStr={periodRange.endStr}
                       salesEndStr={periodRange.salesEndStr}
                       canEdit={canManageOrders}
-                      currentOverride={count.sales_end_override || null}
+                      currentEndOverride={count.sales_end_override || null}
+                      currentStartOverride={count.sales_start_override || null}
                     />
                   )}
                 </div>

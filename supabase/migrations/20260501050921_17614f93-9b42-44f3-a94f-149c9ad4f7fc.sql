@@ -1,0 +1,2 @@
+ALTER TABLE public.inventory_counts ADD COLUMN IF NOT EXISTS sales_start_override DATE;
+COMMENT ON COLUMN public.inventory_counts.sales_start_override IS 'Optional manual override for the first day included in this count''s sales window. When set, takes priority over auto-anchoring from prior count.';
