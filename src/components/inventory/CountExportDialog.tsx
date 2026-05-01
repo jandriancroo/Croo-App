@@ -70,7 +70,6 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             pack_quantity,
             pack_quantity_override,
             brand_item_id,
-            count_units_per_case,
             pack_size,
             item_number,
             category,
