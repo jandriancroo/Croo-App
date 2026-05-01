@@ -1875,17 +1875,28 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       // legacy item_number column on brand_inventory_templates, then call the
       // same RPC the manual invoice path uses.
       try {
-        // Collect unique SKUs from THIS sync (skip empty itemNumbers)
-        const skuMeta = new Map<string, { name: string; pack: string }>();
+        // Collect unique SKUs from THIS sync (skip empty itemNumbers).
+        // Track latest price per SKU so we can cascade case cost to inventory_items.
+        const skuMeta = new Map<string, { name: string; pack: string; price: number | null; deliveryDate: string }>();
         for (const row of upsertBatch) {
+          const dt = String(row.delivery_date || '');
           for (const li of (row.items || []) as any[]) {
             const sku = String(li?.itemNumber || '').trim();
             if (!sku) continue;
-            if (!skuMeta.has(sku)) {
+            const price = Number(li?.price);
+            const validPrice = Number.isFinite(price) && price > 0 ? price : null;
+            const existing = skuMeta.get(sku);
+            if (!existing) {
               skuMeta.set(sku, {
                 name: String(li?.name || ''),
                 pack: String(li?.packSize || ''),
+                price: validPrice,
+                deliveryDate: dt,
               });
+            } else if (validPrice !== null && (existing.price === null || dt > existing.deliveryDate)) {
+              existing.price = validPrice;
+              existing.deliveryDate = dt;
+              if (!existing.pack && li?.packSize) existing.pack = String(li.packSize);
             }
           }
         }
@@ -2020,29 +2031,50 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
                   if (parsed) skuToParsed.set(sku, { ...parsed, packSizeRaw: meta.pack.replace(/\s+/g, '') });
                 }
                 let cascadeWrites = 0;
+                let priceWrites = 0;
                 for (const t of (templates || [])) {
                   const sku = String(t.item_number || '').trim();
+                  if (!sku) continue;
                   const parsed = skuToParsed.get(sku);
-                  if (!sku || !parsed) continue;
-                  const { error: cascadeErr, count } = await supabase
-                    .from('inventory_items')
-                    .update({
-                      pack_size: parsed.packSizeRaw,
-                      unit: 'cs',
-                      pack_quantity: parsed.outer_qty,
-                      count_units_per_case: parsed.outer_qty * parsed.canonical_qty_per_inner,
-                      count_unit: parsed.canonical_unit,
-                      updated_at: new Date().toISOString(),
-                    }, { count: 'exact' })
-                    .eq('brand_item_id', t.id)
-                    .is('pack_quantity_override', null);
-                  if (!cascadeErr && count) cascadeWrites += count;
+                  const meta = skuMeta.get(sku);
+
+                  // Brand-wide pack cascade (only if we parsed a real pack)
+                  if (parsed) {
+                    const { error: cascadeErr, count } = await supabase
+                      .from('inventory_items')
+                      .update({
+                        pack_size: parsed.packSizeRaw,
+                        unit: 'cs',
+                        pack_quantity: parsed.outer_qty,
+                        count_units_per_case: parsed.outer_qty * parsed.canonical_qty_per_inner,
+                        count_unit: parsed.canonical_unit,
+                        updated_at: new Date().toISOString(),
+                      }, { count: 'exact' })
+                      .eq('brand_item_id', t.id)
+                      .is('pack_quantity_override', null);
+                    if (!cascadeErr && count) cascadeWrites += count;
+                  }
+
+                  // Location-scoped price write — case price comes straight from
+                  // PFG line item.price; we only write to THIS location since
+                  // pricing varies by territory/contract.
+                  if (meta?.price && meta.price > 0) {
+                    const { error: priceErr, count } = await supabase
+                      .from('inventory_items')
+                      .update({ cost_per_unit: meta.price, updated_at: new Date().toISOString() }, { count: 'exact' })
+                      .eq('brand_item_id', t.id)
+                      .eq('location_id', integration.location_id);
+                    if (!priceErr && count) priceWrites += count;
+                  }
                 }
                 if (cascadeWrites > 0) {
                   console.log(`[PFG Sync] ${locationName}: cascaded pack info to ${cascadeWrites} inventory_items rows brand-wide`);
                 }
+                if (priceWrites > 0) {
+                  console.log(`[PFG Sync] ${locationName}: updated case price on ${priceWrites} inventory_items rows`);
+                }
               } catch (cascadeErr) {
-                console.warn(`[PFG Sync] Pack cascade error (non-fatal):`, cascadeErr instanceof Error ? cascadeErr.message : cascadeErr);
+                console.warn(`[PFG Sync] Pack/price cascade error (non-fatal):`, cascadeErr instanceof Error ? cascadeErr.message : cascadeErr);
               }
             } catch (convErr) {
               console.warn(`[PFG Sync] Conversion seeding error (non-fatal):`, convErr instanceof Error ? convErr.message : convErr);
