@@ -98,7 +98,6 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
             pack_quantity,
             pack_quantity_override,
             brand_item_id,
-            count_units_per_case,
             pack_size,
             item_number,
             display_order,
@@ -363,7 +362,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                 cases = (item as any).entered_cases ?? 0;
                                 units = (item as any).entered_units ?? 0;
                               } else {
-                                const packQty = (item.item as any)?.pack_quantity_override ?? (item.item as any)?.count_units_per_case ?? (item.item?.pack_quantity || null);
+                                const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || null);
                                 const hasPackQty = packQty != null && packQty > 1;
                                 cases = hasPackQty ? Math.floor(item.quantity / packQty) : 0;
                                 units = hasPackQty ? Math.round((item.quantity % packQty) * 100) / 100 : item.quantity;
