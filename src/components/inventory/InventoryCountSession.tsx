@@ -634,9 +634,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const edits: PendingEdit[] = [];
     
     for (const item of items) {
-      const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string };
+      const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string; _packQuantityAtCount?: number | null };
       const key = extendedItem._splitKey || item.item_id;
-      const newQuantity = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
+      // Use historical pack_quantity_at_count for diff math on previously-saved rows
+      // so a later shortcut/junction pack-qty override doesn't fabricate phantom changes.
+      // For brand-new rows (no snapshot), fall back to the live effective pack qty.
+      const effectivePackQty = extendedItem._packQuantityAtCount ?? item.pack_quantity;
+      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes);
       const originalQuantity = originalCounts.current[key] ?? 0;
       
       if (newQuantity !== originalQuantity) {
