@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, addDays, differenceInDays } from "date-fns";
+import { format, addDays } from "date-fns";
 import { Pencil, X, Check, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ interface SalesDateEditorProps {
   endStr: string;
   salesEndStr: string;
   canEdit: boolean;
-  currentOverride: string | null;
+  currentEndOverride: string | null;
+  currentStartOverride: string | null;
 }
 
 export default function SalesDateEditor({
@@ -25,20 +26,21 @@ export default function SalesDateEditor({
   endStr,
   salesEndStr,
   canEdit,
-  currentOverride,
+  currentEndOverride,
+  currentStartOverride,
 }: SalesDateEditorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedStart, setSelectedStart] = useState(startStr);
   const [selectedEnd, setSelectedEnd] = useState(salesEndStr);
   const queryClient = useQueryClient();
 
-  // Calculate date range to show — from period start to max(salesEndStr, endStr) + 2 extra days
+  // Show 7 days before current start (so user can pull start backward) and 2 days past current end
   const dateRange = useMemo(() => {
-    const start = new Date(startStr + "T12:00:00");
+    const earliestVisible = format(addDays(new Date(startStr + "T12:00:00"), -7), "yyyy-MM-dd");
+    const start = new Date(earliestVisible + "T12:00:00");
     const maxEnd = salesEndStr > endStr ? salesEndStr : endStr;
-    const end = new Date(maxEnd + "T12:00:00");
-    // Show 2 extra days beyond current end so they can extend
-    const extendedEnd = addDays(end, 2);
+    const extendedEnd = addDays(new Date(maxEnd + "T12:00:00"), 2);
     const days: string[] = [];
     let current = start;
     while (current <= extendedEnd) {
@@ -71,6 +73,7 @@ export default function SalesDateEditor({
 
   const handleOpen = () => {
     if (!canEdit) return;
+    setSelectedStart(startStr);
     setSelectedEnd(salesEndStr);
     setIsOpen(true);
   };
@@ -78,53 +81,73 @@ export default function SalesDateEditor({
   const handleSave = async () => {
     setSaving(true);
     try {
-      // If selected end matches the period end (no override needed), clear any existing override
-      const overrideValue = selectedEnd === endStr ? null : selectedEnd;
-      
+      // If selected end matches the period end (no override needed), clear it
+      const endOverrideValue = selectedEnd === endStr ? null : selectedEnd;
+      // If selected start matches the auto start, clear the start override
+      const startOverrideValue = selectedStart === startStr ? null : selectedStart;
+
       const { error } = await supabase
         .from("inventory_counts")
-        .update({ sales_end_override: overrideValue } as any)
+        .update({
+          sales_end_override: endOverrideValue,
+          sales_start_override: startOverrideValue,
+        } as any)
         .eq("id", countId);
 
       if (error) throw error;
 
-      // Invalidate queries to refresh COGS
       queryClient.invalidateQueries({ queryKey: ["inventory-counts"] });
       queryClient.invalidateQueries({ queryKey: ["period-cogs"] });
+      queryClient.invalidateQueries({ queryKey: ["prev-count-flex"] });
       toast.success("Sales date range updated");
       setIsOpen(false);
     } catch (err) {
-      console.error("Failed to update sales end override:", err);
+      console.error("Failed to update sales overrides:", err);
       toast.error("Failed to update");
     } finally {
       setSaving(false);
     }
   };
 
-  const isDayIncluded = (day: string) => day >= startStr && day <= selectedEnd;
+  const isDayIncluded = (day: string) => day >= selectedStart && day <= selectedEnd;
 
   const toggleDay = (day: string) => {
-    if (day < startStr) return; // Can't exclude days before start
-    
     if (isDayIncluded(day)) {
-      // Exclude this day — set end to previous day (if not before start)
-      const prevDay = format(addDays(new Date(day + "T12:00:00"), -1), "yyyy-MM-dd");
-      if (prevDay >= startStr) {
-        setSelectedEnd(prevDay);
+      // Excluding — shrink whichever boundary is closer
+      const distFromStart = Math.abs(
+        (new Date(day + "T12:00:00").getTime() - new Date(selectedStart + "T12:00:00").getTime()) / 86400000
+      );
+      const distFromEnd = Math.abs(
+        (new Date(selectedEnd + "T12:00:00").getTime() - new Date(day + "T12:00:00").getTime()) / 86400000
+      );
+      if (distFromStart <= distFromEnd) {
+        // Shrink start forward to day+1
+        const nextDay = format(addDays(new Date(day + "T12:00:00"), 1), "yyyy-MM-dd");
+        if (nextDay <= selectedEnd) setSelectedStart(nextDay);
+      } else {
+        // Shrink end back to day-1
+        const prevDay = format(addDays(new Date(day + "T12:00:00"), -1), "yyyy-MM-dd");
+        if (prevDay >= selectedStart) setSelectedEnd(prevDay);
       }
     } else {
-      // Include up to this day
-      setSelectedEnd(day);
+      // Including — extend whichever boundary is closer
+      if (day < selectedStart) {
+        setSelectedStart(day);
+      } else if (day > selectedEnd) {
+        setSelectedEnd(day);
+      }
     }
   };
 
   const totalSelected = dailySales
-    ? dateRange.filter(d => isDayIncluded(d)).reduce((sum, d) => sum + (dailySales.get(d) || 0), 0)
+    ? dateRange.filter((d) => isDayIncluded(d)).reduce((sum, d) => sum + (dailySales.get(d) || 0), 0)
     : null;
+
+  const hasChanges = selectedEnd !== salesEndStr || selectedStart !== startStr;
+  const hasAnyOverride = currentEndOverride || currentStartOverride;
 
   return (
     <>
-      {/* Pencil trigger */}
       {canEdit && (
         <button
           onClick={handleOpen}
@@ -135,7 +158,6 @@ export default function SalesDateEditor({
         </button>
       )}
 
-      {/* Expandable editor */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -147,26 +169,32 @@ export default function SalesDateEditor({
           >
             <div className="mt-2 p-3 rounded-xl bg-muted/40 border border-border/50 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Sales Days Included</p>
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={() => setIsOpen(false)}
-                    disabled={saving}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Sales Days Included
+                </p>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6"
+                  onClick={() => setIsOpen(false)}
+                  disabled={saving}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
               </div>
 
-              <div className="space-y-0.5">
+              <p className="text-[10px] text-muted-foreground -mt-1">
+                Tap a day to extend the window earlier or later. Closest boundary moves.
+              </p>
+
+              <div className="space-y-0.5 max-h-[60vh] overflow-y-auto">
                 {dateRange.map((day) => {
                   const included = isDayIncluded(day);
                   const sales = dailySales?.get(day);
-                  const isEndDay = day === endStr;
+                  const isPeriodEnd = day === endStr;
+                  const isAutoStart = day === startStr;
                   const isPastEnd = day > endStr;
+                  const isBeforeAutoStart = day < startStr;
 
                   return (
                     <button
@@ -179,9 +207,18 @@ export default function SalesDateEditor({
                       }`}
                     >
                       <Checkbox checked={included} className="pointer-events-none" />
-                      <span className={`text-xs font-medium flex-1 ${isPastEnd ? "text-amber-600" : ""}`}>
+                      <span
+                        className={`text-xs font-medium flex-1 ${
+                          isPastEnd || isBeforeAutoStart ? "text-amber-600" : ""
+                        }`}
+                      >
                         {format(new Date(day + "T12:00:00"), "EEE, MMM d")}
-                        {isEndDay && <span className="text-[10px] text-muted-foreground ml-1">(period end)</span>}
+                        {isPeriodEnd && (
+                          <span className="text-[10px] text-muted-foreground ml-1">(period end)</span>
+                        )}
+                        {isAutoStart && (
+                          <span className="text-[10px] text-muted-foreground ml-1">(auto start)</span>
+                        )}
                       </span>
                       <span className="text-xs text-muted-foreground tabular-nums">
                         {sales !== undefined ? `$${Math.round(sales).toLocaleString()}` : "—"}
@@ -194,7 +231,9 @@ export default function SalesDateEditor({
               {totalSelected !== null && (
                 <div className="flex items-center justify-between pt-1 border-t border-border/30">
                   <span className="text-[11px] text-muted-foreground">Net Sales Total</span>
-                  <span className="text-xs font-bold">${Math.round(totalSelected).toLocaleString()}</span>
+                  <span className="text-xs font-bold">
+                    ${Math.round(totalSelected).toLocaleString()}
+                  </span>
                 </div>
               )}
 
@@ -203,17 +242,22 @@ export default function SalesDateEditor({
                   size="sm"
                   className="flex-1 h-8 text-xs"
                   onClick={handleSave}
-                  disabled={saving || selectedEnd === salesEndStr}
+                  disabled={saving || !hasChanges}
                 >
-                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                  {saving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5 mr-1" />
+                  )}
                   Save
                 </Button>
-                {currentOverride && (
+                {hasAnyOverride && (
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-8 text-xs"
                     onClick={() => {
+                      setSelectedStart(startStr);
                       setSelectedEnd(endStr);
                     }}
                   >
