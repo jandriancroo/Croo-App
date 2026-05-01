@@ -805,18 +805,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       console.log(`[Inventory] Save batch: ${toUpdate.length} updates, ${toInsert.length} inserts (${itemCounts.length} total items, ${existingMap.size} existing)`);
 
-      // Batch updates (individual PATCHes but NO extra SELECT per item)
-      for (const upd of toUpdate) {
+      // Parallel updates — fan out PATCHes concurrently for ~10× speedup over the
+      // sequential loop. Concurrency is bounded so we don't overwhelm the network
+      // on slow store wifi (Hemet was hitting save timeouts on big counts).
+      const CONCURRENCY = 6;
+      const findKeyForUpd = (id: string) =>
+        itemCounts.find((ic) => {
+          const existing = existingMap.get(`${ic.item_id}|${ic.storage_location_id || ''}`);
+          return existing?.id === id;
+        });
+
+      const runUpdate = async (upd: typeof toUpdate[number]) => {
         try {
           const { error } = await supabase
             .from("inventory_count_items")
             .update({ quantity: upd.quantity, entered_cases: upd.entered_cases, entered_units: upd.entered_units } as any)
             .eq("id", upd.id);
           if (error) throw error;
-          const key = itemCounts.find(ic => {
-            const existing = existingMap.get(`${ic.item_id}|${ic.storage_location_id || ''}`);
-            return existing?.id === upd.id;
-          });
+          const key = findKeyForUpd(upd.id);
           if (key) {
             const k = `${key.item_id}|${key.storage_location_id || ''}`;
             lastSavedQuantitiesRef.current.set(k, `${upd.quantity}|${upd.entered_cases}|${upd.entered_units}`);
@@ -824,10 +830,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           }
           saved++;
         } catch (e) {
-          const key = itemCounts.find(ic => {
-            const existing = existingMap.get(`${ic.item_id}|${ic.storage_location_id || ''}`);
-            return existing?.id === upd.id;
-          });
+          const key = findKeyForUpd(upd.id);
           if (key) {
             const k = `${key.item_id}|${key.storage_location_id || ''}`;
             failedItemsRef.current.set(k, key);
@@ -835,6 +838,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           failed++;
           console.warn(`[Inventory] Failed to update item:`, e);
         }
+      };
+
+      // Drain `toUpdate` in chunks of CONCURRENCY, awaiting each chunk before
+      // launching the next so the pool size stays bounded.
+      for (let i = 0; i < toUpdate.length; i += CONCURRENCY) {
+        const slice = toUpdate.slice(i, i + CONCURRENCY);
+        await Promise.all(slice.map(runUpdate));
       }
 
       // Batch inserts (one call for all new items)
