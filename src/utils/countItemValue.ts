@@ -23,6 +23,14 @@
  * how many units the operator counted per case. They must never override an
  * explicit pack_quantity, even when pack_quantity = 1.
  *
+ * pack_quantity = 1 from vendor sync is treated as unreliable — formula falls
+ * through to Pipeline 1 only for ea-based conversions (canonical_unit = 'ea').
+ * Weight/volume conversions (oz, lb) are never used for pack reconstruction.
+ *
+ * Phase 3 (Apr 30 2026): pack_quantity_at_count backfilled for all historical
+ * completed counts at Palm Springs and Hemet. Future counts snapshot at save time.
+ * Historical displays are now immutable to item data changes.
+ *
  * IMPORTANT: This file is mirrored in supabase/functions/ai-assistant/index.ts.
  * If you change the formula here, update the mirror as well.
  */
