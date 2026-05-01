@@ -26,6 +26,32 @@ if (isStandaloneMode) {
 // Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
 // __APP_VERSION__ is injected at build time in vite.config.ts.
 declare const __APP_VERSION__: string;
+
+// Helper: defer any reload while an inventory count session is in progress.
+// Without this, an auto-update mid-count silently wipes unsaved data.
+const isInventoryCountActive = (): boolean => {
+  try {
+    return (window as any).__INVENTORY_COUNT_LOCK__?.active === true;
+  } catch {
+    return false;
+  }
+};
+
+const performDeferrableReload = (doReload: () => void) => {
+  if (!isInventoryCountActive()) {
+    doReload();
+    return;
+  }
+  console.log("[Main] Reload deferred — inventory count in progress");
+  // Poll: as soon as the count session ends, perform the reload.
+  const poll = window.setInterval(() => {
+    if (!isInventoryCountActive()) {
+      window.clearInterval(poll);
+      doReload();
+    }
+  }, 1000);
+};
+
 try {
   const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : undefined;
   if (currentVersion) {
@@ -34,7 +60,7 @@ try {
       localStorage.setItem('app-version', currentVersion);
       const url = new URL(window.location.href);
       url.searchParams.set('v', currentVersion);
-      window.location.replace(url.toString());
+      performDeferrableReload(() => window.location.replace(url.toString()));
     } else if (!storedVersion) {
       localStorage.setItem('app-version', currentVersion);
     }
@@ -49,7 +75,7 @@ window.addEventListener('vite:preloadError', (event) => {
   const key = 'vite_preload_reload_attempted';
   if (!sessionStorage.getItem(key)) {
     sessionStorage.setItem(key, Date.now().toString());
-    window.location.reload();
+    performDeferrableReload(() => window.location.reload());
   }
 });
 
