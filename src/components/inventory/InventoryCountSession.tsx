@@ -1147,6 +1147,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
       // Invalidate the items-for-count cache so re-entry loads fresh DB values
       queryClient.invalidateQueries({ queryKey: ["inventory-items-for-count", locationId, countId] });
+      // Phone-notepad: clean local cache once the cloud has confirmed everything.
+      // If failed items remain, leave the cache intact so the next autosave /
+      // re-entry can replay them.
+      if (failedItemsRef.current.size === 0) {
+        await clearCountCache(countId);
+        setInventoryCountLock({ pending: 0 });
+      }
     } catch (error) {
       console.error("Save failed:", error);
       toast.error("Failed to save");
