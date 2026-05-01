@@ -197,10 +197,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         }
       }
 
-      // Fetch multi-location assignments from junction table (including count_by override and display_order)
+      // Fetch multi-location assignments from junction table (including count_by override, display_order, and per-shortcut pan/pack overrides)
       const { data: itemLocations } = await supabase
         .from("inventory_item_locations")
-        .select("item_id, storage_location_id, count_by, display_order");
+        .select("item_id, storage_location_id, count_by, display_order, pan_enabled_keys, pack_quantity_override");
       
       // Build map: item_id -> list of storage_location_ids
       const multiLocMap = new Map<string, string[]>();
@@ -208,6 +208,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const countByMap = new Map<string, string>();
       // Build map: "itemId|storLocId" -> display_order from junction table (for shortcuts)
       const junctionOrderMap = new Map<string, number>();
+      // Build map: "itemId|storLocId" -> shortcut pan_enabled_keys override
+      const junctionPanKeysMap = new Map<string, string[]>();
+      // Build map: "itemId|storLocId" -> shortcut pack_quantity_override
+      const junctionPackQtyMap = new Map<string, number>();
       for (const il of itemLocations || []) {
         const existing = multiLocMap.get(il.item_id) || [];
         existing.push(il.storage_location_id);
@@ -215,6 +219,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         countByMap.set(`${il.item_id}|${il.storage_location_id}`, il.count_by || 'inherit');
         if (typeof (il as any).display_order === 'number') {
           junctionOrderMap.set(`${il.item_id}|${il.storage_location_id}`, (il as any).display_order);
+        }
+        const panKeys = (il as any).pan_enabled_keys;
+        if (Array.isArray(panKeys) && panKeys.length > 0) {
+          junctionPanKeysMap.set(`${il.item_id}|${il.storage_location_id}`, panKeys);
+        }
+        const pkOverride = (il as any).pack_quantity_override;
+        if (pkOverride != null) {
+          junctionPackQtyMap.set(`${il.item_id}|${il.storage_location_id}`, pkOverride);
         }
       }
 
@@ -294,15 +306,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             par_level: item.par_level,
             cost_per_unit: item.cost_per_unit,
             pack_size: item.pack_size,
-            // Effective pack qty (override collapsed). Equivalent for SOT (override → pack_quantity priority).
-            pack_quantity: (item as any).pack_quantity_override ?? item.pack_quantity,
+            // Effective pack qty: shortcut override (junction) > item override > item default
+            pack_quantity: (locId ? junctionPackQtyMap.get(`${item.id}|${locId}`) : undefined)
+              ?? (item as any).pack_quantity_override
+              ?? item.pack_quantity,
             pack_quantity_override: null,
             brand_item_id: (item as any).brand_item_id ?? null,
             count_units_per_case: (item as any).count_units_per_case,
             item_number: item.item_number,
             brand: item.brand,
             image_url: item.image_url,
-            pan_sizes: (item as any).pan_sizes ?? null,
+            // Pan config: apply per-shortcut enabled_keys override if junction has one
+            pan_sizes: (() => {
+              const basePan = (item as any).pan_sizes ?? null;
+              const shortcutKeys = locId ? junctionPanKeysMap.get(`${item.id}|${locId}`) : null;
+              if (basePan && shortcutKeys && shortcutKeys.length > 0) {
+                return { ...basePan, enabled_keys: shortcutKeys };
+              }
+              return basePan;
+            })(),
             is_recipe: isRecipe,
             count_by: (locId ? countByMap.get(`${item.id}|${locId}`) : 'inherit') as CountItem['count_by'] || 'inherit',
             _existingQuantity: countData?.quantity ?? 0,
