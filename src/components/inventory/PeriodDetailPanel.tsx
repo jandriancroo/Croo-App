@@ -82,7 +82,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       // when no prior monthly exists).
       const { data } = await supabase
         .from("inventory_counts")
-        .select("id, period_type, period_end_date, is_late_close, counted_at, sales_end_override")
+        .select("id, period_type, period_end_date, is_late_close, counted_at, sales_end_override, sales_start_override")
         .eq("location_id", locationId)
         .eq("status", "completed")
         .lt("period_end_date", count.period_end_date)
