@@ -306,15 +306,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             par_level: item.par_level,
             cost_per_unit: item.cost_per_unit,
             pack_size: item.pack_size,
-            // Effective pack qty (override collapsed). Equivalent for SOT (override → pack_quantity priority).
-            pack_quantity: (item as any).pack_quantity_override ?? item.pack_quantity,
+            // Effective pack qty: shortcut override (junction) > item override > item default
+            pack_quantity: (locId ? junctionPackQtyMap.get(`${item.id}|${locId}`) : undefined)
+              ?? (item as any).pack_quantity_override
+              ?? item.pack_quantity,
             pack_quantity_override: null,
             brand_item_id: (item as any).brand_item_id ?? null,
             count_units_per_case: (item as any).count_units_per_case,
             item_number: item.item_number,
             brand: item.brand,
             image_url: item.image_url,
-            pan_sizes: (item as any).pan_sizes ?? null,
+            // Pan config: apply per-shortcut enabled_keys override if junction has one
+            pan_sizes: (() => {
+              const basePan = (item as any).pan_sizes ?? null;
+              const shortcutKeys = locId ? junctionPanKeysMap.get(`${item.id}|${locId}`) : null;
+              if (basePan && shortcutKeys && shortcutKeys.length > 0) {
+                return { ...basePan, enabled_keys: shortcutKeys };
+              }
+              return basePan;
+            })(),
             is_recipe: isRecipe,
             count_by: (locId ? countByMap.get(`${item.id}|${locId}`) : 'inherit') as CountItem['count_by'] || 'inherit',
             _existingQuantity: countData?.quantity ?? 0,
