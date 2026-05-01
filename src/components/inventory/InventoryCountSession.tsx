@@ -1477,7 +1477,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   return (
     <>
-    <div className={cn("space-y-3", isMobile && !isViewOnly ? "pb-32" : "pb-6")}>
+    <div
+      data-inventory-count-session={isViewOnly ? undefined : "true"}
+      className={cn("space-y-3", isMobile && !isViewOnly ? "pb-32" : "pb-6")}
+    >
       {/* Desktop: Stats bar at top */}
       {!isMobile && !isViewOnly && (
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border -mx-4 px-4 py-3 space-y-2">
