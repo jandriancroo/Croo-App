@@ -1947,6 +1947,69 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
             if (gapWrites > 0) {
               console.log(`[PFG Sync] ${locationName}: wrote/merged ${gapWrites} vendor gap alerts from delivery items`);
             }
+
+            // --- Seed/refresh item_conversions from PFG packSize for this brand ---
+            // Newly-created gap templates start with a placeholder "1 ea" conversion.
+            // Now that we have authoritative packSize from the delivery, derive
+            // proper outer/inner/canonical values so pack info shows correctly
+            // (e.g. Prosciutto 6 cs × 1 LB instead of "each").
+            try {
+              const skuToTemplate = new Map<string, string>();
+              for (const t of (templates || [])) {
+                const itemNum = String(t.item_number || '').trim();
+                if (itemNum) skuToTemplate.set(itemNum, t.id);
+              }
+              // Pull current active conversions for this brand to detect placeholders
+              const { data: activeConvs } = await supabase
+                .from('item_conversions')
+                .select('id, brand_template_id, outer_qty, source, version')
+                .eq('brand_id', brandId)
+                .is('effective_to', null);
+              const convByTemplate = new Map<string, any>();
+              for (const c of (activeConvs || [])) convByTemplate.set(c.brand_template_id, c);
+
+              let convWrites = 0;
+              for (const [sku, meta] of skuMeta) {
+                const templateId = skuToTemplate.get(sku);
+                if (!templateId) continue;
+                const parsed = parsePackString(meta.pack);
+                if (!parsed) continue;
+                const existing = convByTemplate.get(templateId);
+                // Only overwrite placeholder/needs_review rows; preserve manual_override
+                if (existing) {
+                  const isPlaceholder =
+                    Number(existing.outer_qty) <= 1 &&
+                    (existing.source === 'needs_review' || existing.source === 'manual_override' || existing.source === 'vendor_auto');
+                  if (!isPlaceholder) continue;
+                  // Skip if already matches what we'd write
+                  if (Number(existing.outer_qty) === parsed.outer_qty) continue;
+                  await supabase
+                    .from('item_conversions')
+                    .update({ effective_to: new Date().toISOString() })
+                    .eq('id', existing.id);
+                }
+                const { error: insErr } = await supabase.from('item_conversions').insert({
+                  brand_template_id: templateId,
+                  brand_id: brandId,
+                  outer_qty: parsed.outer_qty,
+                  outer_unit: 'cs',
+                  has_inner: true,
+                  inner_qty: parsed.inner_qty,
+                  inner_unit: parsed.inner_unit,
+                  canonical_unit: parsed.canonical_unit,
+                  canonical_qty_per_inner: parsed.canonical_qty_per_inner,
+                  source: 'vendor_auto',
+                  version: (existing?.version || 0) + 1,
+                });
+                if (!insErr) convWrites++;
+                else console.warn(`[PFG Sync] Conversion seed failed for SKU ${sku}:`, insErr.message);
+              }
+              if (convWrites > 0) {
+                console.log(`[PFG Sync] ${locationName}: seeded/refreshed ${convWrites} item conversions from PFG packSize`);
+              }
+            } catch (convErr) {
+              console.warn(`[PFG Sync] Conversion seeding error (non-fatal):`, convErr instanceof Error ? convErr.message : convErr);
+            }
           }
         }
       } catch (gapErr) {
