@@ -28,6 +28,14 @@ import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
+import { useInventoryCountLock } from "@/hooks/useInventoryCountLock";
+import { setInventoryCountLock } from "@/utils/inventoryCountLock";
+import {
+  cacheCountEdit,
+  clearCountCache,
+  getPendingCount,
+} from "@/utils/inventoryCountCache";
+import { InventorySyncPill } from "@/components/inventory/InventorySyncPill";
 
 interface InventoryCountSessionProps {
   countId: string;
