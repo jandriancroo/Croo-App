@@ -88,6 +88,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const isMobile = useIsMobile();
   const { setDockContent } = useDockToast();
   const { playSuccess, playError } = useInventoryVoiceFeedback();
+
+  // Lock the session: blocks browser back / swipe / sidebar / location switcher
+  // / PWA auto-reload while active. Released on unmount via the hook's cleanup.
+  useInventoryCountLock({
+    active: !isViewOnly,
+    reason: isEditing ? "edit_mode" : "active_count",
+  });
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
   const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
