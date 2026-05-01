@@ -2007,6 +2007,43 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
               if (convWrites > 0) {
                 console.log(`[PFG Sync] ${locationName}: seeded/refreshed ${convWrites} item conversions from PFG packSize`);
               }
+
+              // --- Cascade pack info to deployed local inventory_items at every location ---
+              // The brand-level conversion is the source of truth, but the UI
+              // reads pack_size / pack_quantity / count_units_per_case from
+              // each location's inventory_items row. Push the values down
+              // (skipping anywhere a manager set pack_quantity_override).
+              try {
+                const skuToParsed = new Map<string, ParsedPack & { packSizeRaw: string }>();
+                for (const [sku, meta] of skuMeta) {
+                  const parsed = parsePackString(meta.pack);
+                  if (parsed) skuToParsed.set(sku, { ...parsed, packSizeRaw: meta.pack.replace(/\s+/g, '') });
+                }
+                let cascadeWrites = 0;
+                for (const t of (templates || [])) {
+                  const sku = String(t.item_number || '').trim();
+                  const parsed = skuToParsed.get(sku);
+                  if (!sku || !parsed) continue;
+                  const { error: cascadeErr, count } = await supabase
+                    .from('inventory_items')
+                    .update({
+                      pack_size: parsed.packSizeRaw,
+                      unit: 'cs',
+                      pack_quantity: parsed.outer_qty,
+                      count_units_per_case: parsed.outer_qty * parsed.canonical_qty_per_inner,
+                      count_unit: parsed.canonical_unit,
+                      updated_at: new Date().toISOString(),
+                    }, { count: 'exact' })
+                    .eq('brand_item_id', t.id)
+                    .is('pack_quantity_override', null);
+                  if (!cascadeErr && count) cascadeWrites += count;
+                }
+                if (cascadeWrites > 0) {
+                  console.log(`[PFG Sync] ${locationName}: cascaded pack info to ${cascadeWrites} inventory_items rows brand-wide`);
+                }
+              } catch (cascadeErr) {
+                console.warn(`[PFG Sync] Pack cascade error (non-fatal):`, cascadeErr instanceof Error ? cascadeErr.message : cascadeErr);
+              }
             } catch (convErr) {
               console.warn(`[PFG Sync] Conversion seeding error (non-fatal):`, convErr instanceof Error ? convErr.message : convErr);
             }
