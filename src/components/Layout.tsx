@@ -996,7 +996,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+                  <DropdownMenuItem onClick={signOut} data-allow-during-count="logout" className="gap-2 cursor-pointer text-destructive focus:text-destructive">
                     <DoorOpen className="h-4 w-4" />
                     Sign Out
                   </DropdownMenuItem>
