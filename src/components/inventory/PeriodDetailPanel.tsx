@@ -164,7 +164,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     // as a count's own sales window: sales_end_override > is_late_close+counted_at > period_end_date.
     let adjustedStart = standardStart;
     let isFlexAdjusted = false;
-    if (prevCountData) {
+    if (prevCountData && prevCountData.period_type === count.period_type) {
       let prevEffectiveEnd: string | null = null;
       if (prevCountData.sales_end_override) {
         prevEffectiveEnd = prevCountData.sales_end_override;
