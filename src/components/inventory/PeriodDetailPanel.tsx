@@ -73,9 +73,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
   // Fetch previous count to check if it was flex (affects current period start)
   const { data: prevCountData } = useQuery({
-    queryKey: ["prev-count-flex", locationId, count.period_end_date],
+    queryKey: ["prev-count-flex", locationId, count.period_end_date, count.period_type],
     queryFn: async () => {
       if (!count.period_end_date) return null;
+      // Pull the latest few completed counts before this one so we can prefer a
+      // same-period-type anchor when available, but fall back to the most recent
+      // count of any type (e.g. a late-March weekly anchoring an April monthly
+      // when no prior monthly exists).
       const { data } = await supabase
         .from("inventory_counts")
         .select("id, period_type, period_end_date, is_late_close, counted_at, sales_end_override")
@@ -83,8 +87,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         .eq("status", "completed")
         .lt("period_end_date", count.period_end_date)
         .order("period_end_date", { ascending: false })
-        .limit(1);
-      return data?.[0] || null;
+        .limit(5);
+      if (!data || data.length === 0) return null;
+      const sameType = data.find((c) => c.period_type === count.period_type);
+      // Same-type takes priority; otherwise fall back to most-recent of any type.
+      return sameType || data[0];
     },
     enabled: !!count.period_end_date && !!locationId,
     staleTime: 10 * 60 * 1000,
@@ -158,13 +165,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       return null;
     }
 
-    // If previous count was flex (late close OR sales_end_override extended past its period_end),
-    // adjust the current period's start to the day after the previous period's effective end.
-    // Determine the effective sales-end date of the previous count using the same priority
-    // as a count's own sales window: sales_end_override > is_late_close+counted_at > period_end_date.
+    // Chain this period's start off the previous count so no sales day is double-counted
+    // or dropped. Two adjustments are possible:
+    //   • Trim forward — when prev was flexed past its own period end (same period type),
+    //     start the day after prev's extended end (existing weekly→weekly behavior).
+    //   • Extend backward — when prev is a different period type and ended just before
+    //     this period's standard start, pull start back to day-after-prev so the gap days
+    //     are captured (e.g. a Mar 29 weekly anchoring an April monthly → start Mar 30).
     let adjustedStart = standardStart;
     let isFlexAdjusted = false;
-    if (prevCountData && prevCountData.period_type === count.period_type) {
+    if (prevCountData) {
+      // Resolve prev's effective sales-end with the same priority used for the current
+      // count: sales_end_override > is_late_close+counted_at > period_end_date.
       let prevEffectiveEnd: string | null = null;
       if (prevCountData.sales_end_override) {
         prevEffectiveEnd = prevCountData.sales_end_override;
@@ -176,16 +188,33 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         prevEffectiveEnd = prevLocalHour < 10
           ? format(subDays(new Date(prevLocalDateStr + 'T12:00:00'), 1), 'yyyy-MM-dd')
           : prevLocalDateStr;
+      } else if (prevCountData.period_end_date) {
+        prevEffectiveEnd = prevCountData.period_end_date;
       }
 
-      if (prevEffectiveEnd && prevEffectiveEnd >= (prevCountData.period_end_date || '')) {
+      if (prevEffectiveEnd) {
         const dayAfterPrev = format(
           new Date(new Date(prevEffectiveEnd + "T12:00:00").getTime() + 86400000),
           "yyyy-MM-dd"
         );
-        if (dayAfterPrev > standardStart) {
-          adjustedStart = dayAfterPrev;
-          isFlexAdjusted = true;
+        const sameType = prevCountData.period_type === count.period_type;
+
+        if (sameType) {
+          // Trim forward: only matters when prev was flexed past its period end
+          if (
+            prevEffectiveEnd >= (prevCountData.period_end_date || '') &&
+            dayAfterPrev > standardStart
+          ) {
+            adjustedStart = dayAfterPrev;
+            isFlexAdjusted = true;
+          }
+        } else {
+          // Cross-type fallback: extend backward to capture gap days between the prior
+          // count and this period's standard start. Never push start forward via cross-type.
+          if (dayAfterPrev < standardStart) {
+            adjustedStart = dayAfterPrev;
+            isFlexAdjusted = true;
+          }
         }
       }
     }
@@ -205,7 +234,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       activeDays,
       isNonStandard,
     };
-  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, count.sales_end_override, prevCountData?.id, prevCountData?.is_late_close, prevCountData?.counted_at, prevCountData?.sales_end_override, prevCountData?.period_end_date, timezone]);
+  }, [count.period_end_date, count.period_type, count.status, count.is_late_close, count.counted_at, count.sales_end_override, prevCountData?.id, prevCountData?.period_type, prevCountData?.is_late_close, prevCountData?.counted_at, prevCountData?.sales_end_override, prevCountData?.period_end_date, timezone]);
 
   // Compute transfer totals for this period
   const transferTotals = useMemo(() => {
