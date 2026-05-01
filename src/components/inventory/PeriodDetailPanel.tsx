@@ -165,13 +165,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       return null;
     }
 
-    // If previous count was flex (late close OR sales_end_override extended past its period_end),
-    // adjust the current period's start to the day after the previous period's effective end.
-    // Determine the effective sales-end date of the previous count using the same priority
-    // as a count's own sales window: sales_end_override > is_late_close+counted_at > period_end_date.
+    // Chain this period's start off the previous count so no sales day is double-counted
+    // or dropped. Two adjustments are possible:
+    //   • Trim forward — when prev was flexed past its own period end (same period type),
+    //     start the day after prev's extended end (existing weekly→weekly behavior).
+    //   • Extend backward — when prev is a different period type and ended just before
+    //     this period's standard start, pull start back to day-after-prev so the gap days
+    //     are captured (e.g. a Mar 29 weekly anchoring an April monthly → start Mar 30).
     let adjustedStart = standardStart;
     let isFlexAdjusted = false;
-    if (prevCountData && prevCountData.period_type === count.period_type) {
+    if (prevCountData) {
+      // Resolve prev's effective sales-end with the same priority used for the current
+      // count: sales_end_override > is_late_close+counted_at > period_end_date.
       let prevEffectiveEnd: string | null = null;
       if (prevCountData.sales_end_override) {
         prevEffectiveEnd = prevCountData.sales_end_override;
@@ -183,16 +188,33 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         prevEffectiveEnd = prevLocalHour < 10
           ? format(subDays(new Date(prevLocalDateStr + 'T12:00:00'), 1), 'yyyy-MM-dd')
           : prevLocalDateStr;
+      } else if (prevCountData.period_end_date) {
+        prevEffectiveEnd = prevCountData.period_end_date;
       }
 
-      if (prevEffectiveEnd && prevEffectiveEnd >= (prevCountData.period_end_date || '')) {
+      if (prevEffectiveEnd) {
         const dayAfterPrev = format(
           new Date(new Date(prevEffectiveEnd + "T12:00:00").getTime() + 86400000),
           "yyyy-MM-dd"
         );
-        if (dayAfterPrev > standardStart) {
-          adjustedStart = dayAfterPrev;
-          isFlexAdjusted = true;
+        const sameType = prevCountData.period_type === count.period_type;
+
+        if (sameType) {
+          // Trim forward: only matters when prev was flexed past its period end
+          if (
+            prevEffectiveEnd >= (prevCountData.period_end_date || '') &&
+            dayAfterPrev > standardStart
+          ) {
+            adjustedStart = dayAfterPrev;
+            isFlexAdjusted = true;
+          }
+        } else {
+          // Cross-type fallback: extend backward to capture gap days between the prior
+          // count and this period's standard start. Never push start forward via cross-type.
+          if (dayAfterPrev < standardStart) {
+            adjustedStart = dayAfterPrev;
+            isFlexAdjusted = true;
+          }
         }
       }
     }
