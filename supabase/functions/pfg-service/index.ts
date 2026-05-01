@@ -337,6 +337,45 @@ const parsePackQuantity = (packSize: string | undefined): number | null => {
   return match ? parseInt(match[1], 10) : null;
 };
 
+// Parse a full PFG packSize string ("6 / 1 LB", "16 / 3.5 OZ", "1 / 1000CT")
+// into a normalized conversion record. Returns null for malformed strings
+// (e.g. "6 / #10 CN") so callers can skip them safely.
+type ParsedPack = {
+  outer_qty: number;
+  inner_qty: number;
+  inner_unit: string;       // 'lb' | 'oz' | 'kg' | 'gal' | 'ea'
+  canonical_unit: string;   // 'oz' | 'ea'
+  canonical_qty_per_inner: number;
+};
+const parsePackString = (packSize: string | undefined | null): ParsedPack | null => {
+  if (!packSize) return null;
+  const m = packSize.match(/^\s*(\d+)\s*\/\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$/);
+  if (!m) return null;
+  const outer_qty = parseInt(m[1], 10);
+  const inner_qty = parseFloat(m[2]);
+  const rawUnit = m[3].toLowerCase();
+  if (!Number.isFinite(outer_qty) || !Number.isFinite(inner_qty) || outer_qty <= 0 || inner_qty <= 0) return null;
+  let inner_unit = 'ea';
+  let canonical_unit = 'ea';
+  let canonical_qty_per_inner = inner_qty;
+  switch (rawUnit) {
+    case 'lb': case 'lbs':
+      inner_unit = 'lb'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty * 16; break;
+    case 'oz':
+      inner_unit = 'oz'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty; break;
+    case 'kg':
+      inner_unit = 'kg'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty * 35.274; break;
+    case 'g':
+      inner_unit = 'g'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty * 0.03527; break;
+    case 'ga': case 'gal':
+      inner_unit = 'gal'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty * 128; break;
+    case 'ct': case 'ea': case 'each': case 'cn':
+    default:
+      inner_unit = 'ea'; canonical_unit = 'ea'; canonical_qty_per_inner = inner_qty; break;
+  }
+  return { outer_qty, inner_qty, inner_unit, canonical_unit, canonical_qty_per_inner };
+};
+
 // Fetch product list items from a specific list (using ProductListHeaderId)
 async function fetchProductListItems(accessToken: string, productListHeaderId: string, customerId: string): Promise<any> {
   console.log('[PFG API] Fetching product list items for list:', productListHeaderId, 'customer:', customerId);
