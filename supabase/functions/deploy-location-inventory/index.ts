@@ -314,6 +314,9 @@ Deno.serve(async (req) => {
 
       const sourceOrder = brandItemToOrder.get(tmpl.id);
       // Calculate pack_quantity_override from brand template overrides
+      // TODO (backlog): also auto-populate pack_quantity_override from
+      // brand_inventory_templates.count_units_per_case when packOverride is null.
+      // Currently a manual Path A SQL step after deploying a new location.
       const packOverride = tmpl.pack_override_outer_qty
         ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
         : null;
