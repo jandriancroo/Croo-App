@@ -565,7 +565,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Calculate total running cost
   const totalCost = useMemo(() => {
     if (!items) return 0;
-    return items.reduce((sum, item) => sum + getItemCost(item), 0);
+    const total = items.reduce((sum, item) => sum + getItemCost(item), 0);
+    // TEMP DIAGNOSTIC — remove after $270 inflation investigation
+    console.log('[totalCost]', {
+      total: Number(total.toFixed(2)),
+      itemCount: items.length,
+      nonZeroItems: items.filter(i => getItemCost(i) > 0).length,
+      top5: [...items]
+        .map(i => ({ name: (i as any).item_name, splitKey: (i as any)._splitKey, cost: getItemCost(i) }))
+        .sort((a, b) => b.cost - a.cost)
+        .slice(0, 5),
+    });
+    return total;
   }, [items, getItemCost]);
 
   // Count stats
