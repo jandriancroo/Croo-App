@@ -1875,17 +1875,28 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       // legacy item_number column on brand_inventory_templates, then call the
       // same RPC the manual invoice path uses.
       try {
-        // Collect unique SKUs from THIS sync (skip empty itemNumbers)
-        const skuMeta = new Map<string, { name: string; pack: string }>();
+        // Collect unique SKUs from THIS sync (skip empty itemNumbers).
+        // Track latest price per SKU so we can cascade case cost to inventory_items.
+        const skuMeta = new Map<string, { name: string; pack: string; price: number | null; deliveryDate: string }>();
         for (const row of upsertBatch) {
+          const dt = String(row.delivery_date || '');
           for (const li of (row.items || []) as any[]) {
             const sku = String(li?.itemNumber || '').trim();
             if (!sku) continue;
-            if (!skuMeta.has(sku)) {
+            const price = Number(li?.price);
+            const validPrice = Number.isFinite(price) && price > 0 ? price : null;
+            const existing = skuMeta.get(sku);
+            if (!existing) {
               skuMeta.set(sku, {
                 name: String(li?.name || ''),
                 pack: String(li?.packSize || ''),
+                price: validPrice,
+                deliveryDate: dt,
               });
+            } else if (validPrice !== null && (existing.price === null || dt > existing.deliveryDate)) {
+              existing.price = validPrice;
+              existing.deliveryDate = dt;
+              if (!existing.pack && li?.packSize) existing.pack = String(li.packSize);
             }
           }
         }
