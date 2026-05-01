@@ -543,43 +543,55 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Save edit with tracking mutation
   const saveEditMutation = useMutation({
     mutationFn: async ({ edits, reason }: { edits: PendingEdit[]; reason: string }) => {
-      for (const edit of edits) {
-        let countItemId = edit.countItemId;
-
-        if (!countItemId) {
-          // Item had no previous count entry — insert a new row
-          const storLocId = edit.storageLocationId;
-          const { data: inserted, error: insertErr } = await supabase
-            .from("inventory_count_items")
-            .insert({
-              count_id: countId,
-              item_id: edit.itemId!,
-              quantity: edit.newQuantity,
-              storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
-            } as any)
-            .select("id")
-            .single();
-          
-          if (insertErr) throw insertErr;
-          countItemId = (inserted as any).id;
-        } else {
-          // Update existing count item
-          await supabase
-            .from("inventory_count_items")
-            .update({ quantity: edit.newQuantity })
-            .eq("id", countItemId);
-        }
-
-        // Log the edit for audit trail
-        await supabase
-          .from("inventory_count_edits")
-          .insert({
+      // Acquire the same mutex that autosave uses so an in-flight autosave
+      // can't race the edit writes (and vice versa). Edit Mode already gates
+      // autosave with `isEditing`, but holding the lock makes the contract
+      // explicit and survives any future code path that triggers a save.
+      let waited = 0;
+      while (saveInProgressRef.current && waited < 20) {
+        await new Promise((r) => setTimeout(r, 250));
+        waited++;
+      }
+      saveInProgressRef.current = true;
+      try {
+        const CONCURRENCY = 6;
+        const runEdit = async (edit: PendingEdit) => {
+          let countItemId = edit.countItemId;
+          if (!countItemId) {
+            const storLocId = edit.storageLocationId;
+            const { data: inserted, error: insertErr } = await supabase
+              .from("inventory_count_items")
+              .insert({
+                count_id: countId,
+                item_id: edit.itemId!,
+                quantity: edit.newQuantity,
+                storage_location_id:
+                  storLocId === "uncategorized" || storLocId === "recipes" ? null : storLocId,
+              } as any)
+              .select("id")
+              .single();
+            if (insertErr) throw insertErr;
+            countItemId = (inserted as any).id;
+          } else {
+            await supabase
+              .from("inventory_count_items")
+              .update({ quantity: edit.newQuantity })
+              .eq("id", countItemId);
+          }
+          await supabase.from("inventory_count_edits").insert({
             count_item_id: countItemId,
             edited_by: user?.id,
             previous_quantity: edit.previousQuantity,
             new_quantity: edit.newQuantity,
-            reason: reason || null
+            reason: reason || null,
           });
+        };
+        for (let i = 0; i < edits.length; i += CONCURRENCY) {
+          const slice = edits.slice(i, i + CONCURRENCY);
+          await Promise.all(slice.map(runEdit));
+        }
+      } finally {
+        saveInProgressRef.current = false;
       }
     },
     onSuccess: () => {
