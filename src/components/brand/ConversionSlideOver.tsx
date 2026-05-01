@@ -142,8 +142,13 @@ export default function ConversionSlideOver({
     Number(form.canonical_qty_per_inner) !== Number(baseline.canonical_qty_per_inner);
 
   const persistConversion = useCallback(async (sourceLabel: 'manual_override', valuesFrom: 'form' | 'current'): Promise<boolean> => {
-    if (!currentItemId || !activeConversion) {
-      toast.error('No active conversion to update');
+    if (!currentItemId) {
+      toast.error('No item selected');
+      return false;
+    }
+    // valuesFrom === 'current' requires an existing row to copy from.
+    if (valuesFrom === 'current' && !activeConversion) {
+      toast.error('No active conversion to confirm');
       return false;
     }
     if (valuesFrom === 'form' && !form.canonical_unit) {
@@ -159,28 +164,32 @@ export default function ConversionSlideOver({
     try {
       const now = new Date().toISOString();
 
-      const { error: closeErr } = await supabase
-        .from('item_conversions')
-        .update({ effective_to: now })
-        .eq('id', activeConversion.id);
-      if (closeErr) throw closeErr;
+      // Close the existing active row only if one exists.
+      if (activeConversion) {
+        const { error: closeErr } = await supabase
+          .from('item_conversions')
+          .update({ effective_to: now })
+          .eq('id', activeConversion.id);
+        if (closeErr) throw closeErr;
+      }
 
-      // Carry forward all non-canonical fields. Use sensible defaults if previous row was needs_review with no data.
-      const isPlaceholder = activeConversion.source === 'needs_review';
+      // Carry forward non-canonical fields from prior row when available;
+      // otherwise insert sensible defaults for first-time conversions.
+      const isPlaceholder = !activeConversion || activeConversion.source === 'needs_review';
       const carry = {
-        outer_qty: 1,
-        outer_unit: isPlaceholder ? 'ea' : (activeConversion.outer_unit ?? 'ea'),
-        has_inner: isPlaceholder ? false : !!activeConversion.has_inner,
-        inner_qty: isPlaceholder ? null : activeConversion.inner_qty,
-        inner_unit: isPlaceholder ? null : activeConversion.inner_unit,
+        outer_qty: activeConversion?.outer_qty ?? 1,
+        outer_unit: isPlaceholder ? 'ea' : (activeConversion?.outer_unit ?? 'ea'),
+        has_inner: isPlaceholder ? false : !!activeConversion?.has_inner,
+        inner_qty: isPlaceholder ? null : (activeConversion?.inner_qty ?? null),
+        inner_unit: isPlaceholder ? null : (activeConversion?.inner_unit ?? null),
       };
 
       const canonical_unit =
-        valuesFrom === 'form' ? form.canonical_unit : activeConversion.canonical_unit;
+        valuesFrom === 'form' ? form.canonical_unit : activeConversion!.canonical_unit;
       const canonical_qty_per_inner =
         valuesFrom === 'form'
           ? Number(form.canonical_qty_per_inner)
-          : Number(activeConversion.canonical_qty_per_inner ?? 1);
+          : Number(activeConversion!.canonical_qty_per_inner ?? 1);
 
       const { error: insertErr } = await supabase.from('item_conversions').insert({
         brand_template_id: currentItemId,
@@ -189,7 +198,7 @@ export default function ConversionSlideOver({
         canonical_unit,
         canonical_qty_per_inner,
         source: sourceLabel,
-        version: (activeConversion.version || 1) + 1,
+        version: (activeConversion?.version || 0) + 1,
         effective_from: now,
         effective_to: null,
       });
