@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,7 @@ interface PendingEdit {
 
 const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false, isViewOnly = false, saveRef }: InventoryCountSessionProps) => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { setDockContent } = useDockToast();
@@ -115,6 +117,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [editReason, setEditReason] = useState("");
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const originalCounts = useRef<Record<string, number>>({});
+
+  const exitEditMode = useCallback(() => {
+    setShowEditConfirm(false);
+    navigate(`/inventory/${locationId}/count/${countId}`);
+  }, [navigate, locationId, countId]);
 
   // Fetch storage locations
   const { data: storageLocations } = useQuery({
@@ -410,9 +417,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         (existingCases !== null && existingCases !== undefined) ||
         (existingUnits !== null && existingUnits !== undefined);
       if (hasStoredInput) {
+        const storedCases = existingCases ?? 0;
+        const storedUnits = existingUnits ?? 0;
+        const reconstructedTotal = storedCases * packQty + storedUnits;
+        const remainder = Math.round((totalUnits - reconstructedTotal) * 100) / 100;
+
         initialCounts[key] = {
-          cases: existingCases ?? 0,
-          units: existingUnits ?? 0,
+          cases: storedCases,
+          units: Math.abs(remainder) > 0.001 ? storedUnits + remainder : storedUnits,
         };
       } else {
         initialCounts[key] = {
@@ -667,7 +679,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const edits = calculatePendingEdits();
     if (edits.length === 0) {
       toast.info("No changes to save");
-      onClose();
+      exitEditMode();
       return;
     }
     setPendingEdits(edits);
@@ -1476,7 +1488,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         isEditing,
         elapsedSeconds,
         lastSavedAt,
-        onSave: () => onClose(), // Triggers Save & Exit dialog in parent
+        onSave: () => (isEditing ? handleSaveEditsRef.current() : onClose()),
         onToggleVoice: () => toggleListeningRef.current(),
       });
     } else {
