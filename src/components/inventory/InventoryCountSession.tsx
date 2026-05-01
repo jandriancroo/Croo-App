@@ -532,6 +532,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
 
+    // [hydration-drift diagnostic] compare hydrated counts vs DB existing values
+    const dbCases = Number((item as any)._existingCases ?? 0);
+    const dbUnits = Number((item as any)._existingUnits ?? 0);
+    if (Math.abs(casesVal - dbCases) > 0.01 || Math.abs(unitsVal - dbUnits) > 0.01) {
+      // eslint-disable-next-line no-console
+      console.log('[hydration-drift]', {
+        name: (item as any).item_name,
+        splitKey: key,
+        casesVal, dbCases,
+        unitsVal, dbUnits,
+        panUnits,
+      });
+    }
+
     // PHASE 1: forceLiveData=true — Edit Count must match Period/Review/Export by
     // recomputing every line via current live cost + live pack chain, ignoring
     // any cost_at_count / pack_quantity_at_count snapshot. This will revert in Phase 3.
