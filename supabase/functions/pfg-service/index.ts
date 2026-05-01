@@ -337,6 +337,45 @@ const parsePackQuantity = (packSize: string | undefined): number | null => {
   return match ? parseInt(match[1], 10) : null;
 };
 
+// Parse a full PFG packSize string ("6 / 1 LB", "16 / 3.5 OZ", "1 / 1000CT")
+// into a normalized conversion record. Returns null for malformed strings
+// (e.g. "6 / #10 CN") so callers can skip them safely.
+type ParsedPack = {
+  outer_qty: number;
+  inner_qty: number;
+  inner_unit: string;       // 'lb' | 'oz' | 'kg' | 'gal' | 'ea'
+  canonical_unit: string;   // 'oz' | 'ea'
+  canonical_qty_per_inner: number;
+};
+const parsePackString = (packSize: string | undefined | null): ParsedPack | null => {
+  if (!packSize) return null;
+  const m = packSize.match(/^\s*(\d+)\s*\/\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$/);
+  if (!m) return null;
+  const outer_qty = parseInt(m[1], 10);
+  const inner_qty = parseFloat(m[2]);
+  const rawUnit = m[3].toLowerCase();
+  if (!Number.isFinite(outer_qty) || !Number.isFinite(inner_qty) || outer_qty <= 0 || inner_qty <= 0) return null;
+  let inner_unit = 'ea';
+  let canonical_unit = 'ea';
+  let canonical_qty_per_inner = inner_qty;
+  switch (rawUnit) {
+    case 'lb': case 'lbs':
+      inner_unit = 'lb'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty * 16; break;
+    case 'oz':
+      inner_unit = 'oz'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty; break;
+    case 'kg':
+      inner_unit = 'kg'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty * 35.274; break;
+    case 'g':
+      inner_unit = 'g'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty * 0.03527; break;
+    case 'ga': case 'gal':
+      inner_unit = 'gal'; canonical_unit = 'oz'; canonical_qty_per_inner = inner_qty * 128; break;
+    case 'ct': case 'ea': case 'each': case 'cn':
+    default:
+      inner_unit = 'ea'; canonical_unit = 'ea'; canonical_qty_per_inner = inner_qty; break;
+  }
+  return { outer_qty, inner_qty, inner_unit, canonical_unit, canonical_qty_per_inner };
+};
+
 // Fetch product list items from a specific list (using ProductListHeaderId)
 async function fetchProductListItems(accessToken: string, productListHeaderId: string, customerId: string): Promise<any> {
   console.log('[PFG API] Fetching product list items for list:', productListHeaderId, 'customer:', customerId);
@@ -1907,6 +1946,69 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
             }
             if (gapWrites > 0) {
               console.log(`[PFG Sync] ${locationName}: wrote/merged ${gapWrites} vendor gap alerts from delivery items`);
+            }
+
+            // --- Seed/refresh item_conversions from PFG packSize for this brand ---
+            // Newly-created gap templates start with a placeholder "1 ea" conversion.
+            // Now that we have authoritative packSize from the delivery, derive
+            // proper outer/inner/canonical values so pack info shows correctly
+            // (e.g. Prosciutto 6 cs × 1 LB instead of "each").
+            try {
+              const skuToTemplate = new Map<string, string>();
+              for (const t of (templates || [])) {
+                const itemNum = String(t.item_number || '').trim();
+                if (itemNum) skuToTemplate.set(itemNum, t.id);
+              }
+              // Pull current active conversions for this brand to detect placeholders
+              const { data: activeConvs } = await supabase
+                .from('item_conversions')
+                .select('id, brand_template_id, outer_qty, source, version')
+                .eq('brand_id', brandId)
+                .is('effective_to', null);
+              const convByTemplate = new Map<string, any>();
+              for (const c of (activeConvs || [])) convByTemplate.set(c.brand_template_id, c);
+
+              let convWrites = 0;
+              for (const [sku, meta] of skuMeta) {
+                const templateId = skuToTemplate.get(sku);
+                if (!templateId) continue;
+                const parsed = parsePackString(meta.pack);
+                if (!parsed) continue;
+                const existing = convByTemplate.get(templateId);
+                // Only overwrite placeholder/needs_review rows; preserve manual_override
+                if (existing) {
+                  const isPlaceholder =
+                    Number(existing.outer_qty) <= 1 &&
+                    (existing.source === 'needs_review' || existing.source === 'manual_override' || existing.source === 'vendor_auto');
+                  if (!isPlaceholder) continue;
+                  // Skip if already matches what we'd write
+                  if (Number(existing.outer_qty) === parsed.outer_qty) continue;
+                  await supabase
+                    .from('item_conversions')
+                    .update({ effective_to: new Date().toISOString() })
+                    .eq('id', existing.id);
+                }
+                const { error: insErr } = await supabase.from('item_conversions').insert({
+                  brand_template_id: templateId,
+                  brand_id: brandId,
+                  outer_qty: parsed.outer_qty,
+                  outer_unit: 'cs',
+                  has_inner: true,
+                  inner_qty: parsed.inner_qty,
+                  inner_unit: parsed.inner_unit,
+                  canonical_unit: parsed.canonical_unit,
+                  canonical_qty_per_inner: parsed.canonical_qty_per_inner,
+                  source: 'vendor_auto',
+                  version: (existing?.version || 0) + 1,
+                });
+                if (!insErr) convWrites++;
+                else console.warn(`[PFG Sync] Conversion seed failed for SKU ${sku}:`, insErr.message);
+              }
+              if (convWrites > 0) {
+                console.log(`[PFG Sync] ${locationName}: seeded/refreshed ${convWrites} item conversions from PFG packSize`);
+              }
+            } catch (convErr) {
+              console.warn(`[PFG Sync] Conversion seeding error (non-fatal):`, convErr instanceof Error ? convErr.message : convErr);
             }
           }
         }
