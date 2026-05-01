@@ -197,10 +197,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         }
       }
 
-      // Fetch multi-location assignments from junction table (including count_by override and display_order)
+      // Fetch multi-location assignments from junction table (including count_by override, display_order, and per-shortcut pan/pack overrides)
       const { data: itemLocations } = await supabase
         .from("inventory_item_locations")
-        .select("item_id, storage_location_id, count_by, display_order");
+        .select("item_id, storage_location_id, count_by, display_order, pan_enabled_keys, pack_quantity_override");
       
       // Build map: item_id -> list of storage_location_ids
       const multiLocMap = new Map<string, string[]>();
@@ -208,6 +208,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const countByMap = new Map<string, string>();
       // Build map: "itemId|storLocId" -> display_order from junction table (for shortcuts)
       const junctionOrderMap = new Map<string, number>();
+      // Build map: "itemId|storLocId" -> shortcut pan_enabled_keys override
+      const junctionPanKeysMap = new Map<string, string[]>();
+      // Build map: "itemId|storLocId" -> shortcut pack_quantity_override
+      const junctionPackQtyMap = new Map<string, number>();
       for (const il of itemLocations || []) {
         const existing = multiLocMap.get(il.item_id) || [];
         existing.push(il.storage_location_id);
@@ -215,6 +219,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         countByMap.set(`${il.item_id}|${il.storage_location_id}`, il.count_by || 'inherit');
         if (typeof (il as any).display_order === 'number') {
           junctionOrderMap.set(`${il.item_id}|${il.storage_location_id}`, (il as any).display_order);
+        }
+        const panKeys = (il as any).pan_enabled_keys;
+        if (Array.isArray(panKeys) && panKeys.length > 0) {
+          junctionPanKeysMap.set(`${il.item_id}|${il.storage_location_id}`, panKeys);
+        }
+        const pkOverride = (il as any).pack_quantity_override;
+        if (pkOverride != null) {
+          junctionPackQtyMap.set(`${il.item_id}|${il.storage_location_id}`, pkOverride);
         }
       }
 
