@@ -415,14 +415,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         (existingCases !== null && existingCases !== undefined) ||
         (existingUnits !== null && existingUnits !== undefined);
       if (hasStoredInput) {
-        const storedCases = existingCases ?? 0;
-        const storedUnits = existingUnits ?? 0;
-        const reconstructedTotal = storedCases * packQty + storedUnits;
-        const remainder = Math.round((totalUnits - reconstructedTotal) * 100) / 100;
-
+        // Trust stored entered_cases/entered_units exactly as the user input them.
+        // Do NOT fold the (quantity - cases*pack - units) remainder into units —
+        // that remainder is the pan portion, and getItemCost adds pan units again
+        // via getPanUnitsTotal, which would double-count pans on Edit Count load.
+        // Pan inputs aren't persisted yet, so pan rows will hydrate at $0 here;
+        // re-enter pans in the pan UI when editing a pan item.
         initialCounts[key] = {
-          cases: storedCases,
-          units: Math.abs(remainder) > 0.001 ? storedUnits + remainder : storedUnits,
+          cases: existingCases ?? 0,
+          units: existingUnits ?? 0,
         };
       } else {
         initialCounts[key] = {
