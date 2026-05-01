@@ -234,7 +234,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       activeDays,
       isNonStandard,
     };
-  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, count.sales_end_override, prevCountData?.id, prevCountData?.is_late_close, prevCountData?.counted_at, prevCountData?.sales_end_override, prevCountData?.period_end_date, timezone]);
+  }, [count.period_end_date, count.period_type, count.status, count.is_late_close, count.counted_at, count.sales_end_override, prevCountData?.id, prevCountData?.period_type, prevCountData?.is_late_close, prevCountData?.counted_at, prevCountData?.sales_end_override, prevCountData?.period_end_date, timezone]);
 
   // Compute transfer totals for this period
   const transferTotals = useMemo(() => {
