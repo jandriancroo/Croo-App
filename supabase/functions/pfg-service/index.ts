@@ -1828,6 +1828,93 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         }
       }
 
+      // --- Vendor gap detection: surface line items NOT in the brand catalog ---
+      // The Bid Guide scan (vendor-gap-scan) only sees items the BID exposes.
+      // Off-BID items that ship on actual TRACS deliveries (e.g. prosciutto,
+      // tiramisu, salad bowls) would never become gap alerts otherwise. We
+      // diff this sync's line items against brand_vendor_mappings + the
+      // legacy item_number column on brand_inventory_templates, then call the
+      // same RPC the manual invoice path uses.
+      try {
+        // Collect unique SKUs from THIS sync (skip empty itemNumbers)
+        const skuMeta = new Map<string, { name: string; pack: string }>();
+        for (const row of upsertBatch) {
+          for (const li of (row.items || []) as any[]) {
+            const sku = String(li?.itemNumber || '').trim();
+            if (!sku) continue;
+            if (!skuMeta.has(sku)) {
+              skuMeta.set(sku, {
+                name: String(li?.name || ''),
+                pack: String(li?.packSize || ''),
+              });
+            }
+          }
+        }
+
+        if (skuMeta.size > 0) {
+          // Resolve brand + location name for the RPC
+          const { data: locRow } = await supabase
+            .from('locations')
+            .select('name, organization_id, organizations:organization_id(brand_id)')
+            .eq('id', integration.location_id)
+            .maybeSingle();
+          const brandId = (locRow as any)?.organizations?.brand_id || null;
+          const locationName = (locRow as any)?.name || 'Unknown';
+
+          if (brandId) {
+            // Pull all mapped PFG SKUs for this brand (junction + legacy column)
+            const { data: templates } = await supabase
+              .from('brand_inventory_templates')
+              .select('id, item_number, status')
+              .eq('brand_id', brandId);
+            const templateIds = (templates || []).map((t: any) => t.id);
+            const mappedSkus = new Set<string>();
+            for (const t of (templates || [])) {
+              const itemNum = String(t.item_number || '').trim();
+              if (itemNum && t.status !== 'archived') mappedSkus.add(itemNum);
+            }
+            // Junction: chunk to avoid PostgREST URL length limits
+            const CHUNK = 50;
+            for (let i = 0; i < templateIds.length; i += CHUNK) {
+              const chunk = templateIds.slice(i, i + CHUNK);
+              const { data: mappings } = await supabase
+                .from('brand_vendor_mappings')
+                .select('vendor_item_id')
+                .eq('vendor', 'pfg')
+                .in('brand_template_id', chunk);
+              for (const m of (mappings || [])) {
+                const vid = String(m.vendor_item_id || '').trim();
+                if (vid) mappedSkus.add(vid);
+              }
+            }
+
+            let gapWrites = 0;
+            for (const [sku, meta] of skuMeta) {
+              if (mappedSkus.has(sku)) continue;
+              const { error: rpcErr } = await supabase.rpc('upsert_vendor_gap_with_location', {
+                _brand_id: brandId,
+                _vendor_source: 'pfg',
+                _item_number: sku,
+                _vendor_name: meta.name,
+                _vendor_description: meta.name,
+                _pack_size: meta.pack,
+                _category_name: '',
+                _location_id: integration.location_id,
+                _location_name: locationName,
+              });
+              if (!rpcErr) gapWrites++;
+              else console.warn(`[PFG Sync] Gap RPC failed for SKU ${sku}:`, rpcErr.message);
+            }
+            if (gapWrites > 0) {
+              console.log(`[PFG Sync] ${locationName}: wrote/merged ${gapWrites} vendor gap alerts from delivery items`);
+            }
+          }
+        }
+      } catch (gapErr) {
+        // Never let gap detection break the sync itself
+        console.warn(`[PFG Sync] Gap detection error (non-fatal):`, gapErr instanceof Error ? gapErr.message : gapErr);
+      }
+
       // --- Post-sync cleanup: remove portal duplicates when TRACS data exists ---
       // Portal orders have short numeric IDs, TRACS orders have composite IDs like "428_55067468_..."
       const { data: allOrders } = await supabase
