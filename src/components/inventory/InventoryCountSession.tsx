@@ -1507,13 +1507,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="font-semibold font-mono">{Math.floor(elapsedSeconds / 60)} min</span>
               </div>
-              {lastSavedAt && (
+              {!isViewOnly && (
                 <>
                   <div className="h-6 w-px bg-border" />
-                  <div className="flex items-center gap-1">
-                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs text-muted-foreground">Saved</span>
-                  </div>
+                  <InventorySyncPill />
                 </>
               )}
               {isSupported && !isEditing && (
