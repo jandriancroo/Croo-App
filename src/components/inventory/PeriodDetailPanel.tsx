@@ -73,9 +73,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
   // Fetch previous count to check if it was flex (affects current period start)
   const { data: prevCountData } = useQuery({
-    queryKey: ["prev-count-flex", locationId, count.period_end_date],
+    queryKey: ["prev-count-flex", locationId, count.period_end_date, count.period_type],
     queryFn: async () => {
       if (!count.period_end_date) return null;
+      // Pull the latest few completed counts before this one so we can prefer a
+      // same-period-type anchor when available, but fall back to the most recent
+      // count of any type (e.g. a late-March weekly anchoring an April monthly
+      // when no prior monthly exists).
       const { data } = await supabase
         .from("inventory_counts")
         .select("id, period_type, period_end_date, is_late_close, counted_at, sales_end_override")
@@ -83,8 +87,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         .eq("status", "completed")
         .lt("period_end_date", count.period_end_date)
         .order("period_end_date", { ascending: false })
-        .limit(1);
-      return data?.[0] || null;
+        .limit(5);
+      if (!data || data.length === 0) return null;
+      const sameType = data.find((c) => c.period_type === count.period_type);
+      // Same-type takes priority; otherwise fall back to most-recent of any type.
+      return sameType || data[0];
     },
     enabled: !!count.period_end_date && !!locationId,
     staleTime: 10 * 60 * 1000,
