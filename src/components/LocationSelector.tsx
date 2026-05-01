@@ -19,6 +19,7 @@ export const LocationSelector = () => {
       <Button 
         variant="outline" 
         className="gap-2 h-10"
+        data-location-switcher
         onClick={() => setDialogOpen(true)}
       >
         <MapPin className="h-4 w-4" />

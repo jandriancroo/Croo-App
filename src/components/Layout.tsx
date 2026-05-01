@@ -278,6 +278,50 @@ export const Layout = ({
     registerMenuControl(setMenuOpen);
     return () => unregisterMenuControl();
   }, []);
+
+  // Inventory count nav guard: while a count session is active, intercept
+  // clicks that would navigate away from the count page (sidebar / mobile
+  // nav / header tabs / location switcher / user menu) and show a toast
+  // pointing the user at "Save & Exit". Allow Logout (security) and any
+  // click inside the count page itself.
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (typeof window === "undefined") return;
+      const lock = window.__INVENTORY_COUNT_LOCK__;
+      if (!lock?.active) return;
+
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      // Allow clicks inside the count session itself
+      if (target.closest("[data-inventory-count-session]")) return;
+      // Allow clicks inside any toast / dialog / sheet popover (so dialogs and toasts work)
+      if (target.closest("[data-sonner-toast], [role='dialog'], [role='alertdialog']")) return;
+      // Allow logout (data-allow-during-count="logout")
+      if (target.closest("[data-allow-during-count='logout']")) return;
+
+      // Catch the common nav surfaces: header, mobile bottom nav, sidebar,
+      // dropdown items, and the location switcher button + dialog trigger.
+      const navTarget = target.closest(
+        "header, nav, [data-mobile-nav], [data-sidebar], [data-location-switcher], [role='menuitem']"
+      );
+      if (!navTarget) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      // Lazy import sonner to avoid pulling it into the layout bundle path
+      import("sonner").then(({ toast }) => {
+        toast.warning("Use Save & Exit to leave the count.", {
+          id: "inv-count-lock-nav",
+          duration: 2500,
+        });
+      });
+    };
+
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, []);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
@@ -952,7 +996,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={signOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+                  <DropdownMenuItem onClick={signOut} data-allow-during-count="logout" className="gap-2 cursor-pointer text-destructive focus:text-destructive">
                     <DoorOpen className="h-4 w-4" />
                     Sign Out
                   </DropdownMenuItem>
@@ -1272,7 +1316,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   <Button variant="outline" onClick={() => {
                     signOut();
                     setMenuOpen(false);
-                  }} className="justify-start gap-2 h-9 px-3 text-destructive hover:text-destructive">
+                  }} data-allow-during-count="logout" className="justify-start gap-2 h-9 px-3 text-destructive hover:text-destructive">
                     <DoorOpen className="h-4 w-4" />
                     <span className="text-sm">Sign Out</span>
                   </Button>
