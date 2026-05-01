@@ -78,7 +78,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       if (!count.period_end_date) return null;
       const { data } = await supabase
         .from("inventory_counts")
-        .select("id, period_end_date, is_late_close, counted_at, sales_end_override")
+        .select("id, period_type, period_end_date, is_late_close, counted_at, sales_end_override")
         .eq("location_id", locationId)
         .eq("status", "completed")
         .lt("period_end_date", count.period_end_date)
@@ -164,7 +164,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     // as a count's own sales window: sales_end_override > is_late_close+counted_at > period_end_date.
     let adjustedStart = standardStart;
     let isFlexAdjusted = false;
-    if (prevCountData) {
+    if (prevCountData && prevCountData.period_type === count.period_type) {
       let prevEffectiveEnd: string | null = null;
       if (prevCountData.sales_end_override) {
         prevEffectiveEnd = prevCountData.sales_end_override;
