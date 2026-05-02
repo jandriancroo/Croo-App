@@ -647,6 +647,17 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                     Flex
                   </Badge>
                 )}
+                {canManageOrders && !isUpcoming && count.id && onDeleteCount && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => onDeleteCount(count)}
+                    title="Delete count"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                 <div className="text-right">
