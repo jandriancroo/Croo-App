@@ -18,7 +18,7 @@ import {
   Eye, ClipboardCheck,
   Crosshair, Loader2,
   Settings2, UtensilsCrossed, Carrot, ChevronDown,
-  Play, Plus, CheckCircle2, Upload,
+  Play, Plus, CheckCircle2, Upload, Trash2,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
@@ -881,6 +881,17 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 <Badge variant={count.status === "completed" ? "default" : "secondary"}>
                   {count.status === "completed" ? "Submitted" : hasCountedItems ? "In Progress" : "Not Started"}
                 </Badge>
+                {canManageOrders && !isUpcoming && count.id && onDeleteCount && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => onDeleteCount(count)}
+                    title="Delete count"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
