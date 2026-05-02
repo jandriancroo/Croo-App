@@ -897,7 +897,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         try {
           const { error } = await supabase
             .from("inventory_count_items")
-            .update({ quantity: upd.quantity, entered_cases: upd.entered_cases, entered_units: upd.entered_units } as any)
+            .update({ quantity: upd.quantity, entered_cases: upd.entered_cases, entered_units: upd.entered_units, pan_inputs: (upd as any).pan_inputs ?? null } as any)
             .eq("id", upd.id);
           if (error) throw error;
           const key = findKeyForUpd(upd.id);
