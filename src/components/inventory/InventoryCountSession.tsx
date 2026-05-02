@@ -860,7 +860,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             quantity: ic.quantity,
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
-          });
+            pan_inputs: ic._pan_inputs ?? null,
+          } as any);
         } else {
           if (fingerprint === lastSaved) continue; // Already inserted on a previous cycle
           toInsert.push({
@@ -875,6 +876,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             unit_at_count: ic.unit_at_count,
             pack_quantity_at_count: ic.pack_quantity_at_count,
             pan_sizes_at_count: ic.pan_sizes_at_count,
+            pan_inputs: ic._pan_inputs ?? null,
           });
         }
       }
