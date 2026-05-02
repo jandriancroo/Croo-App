@@ -185,7 +185,7 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
   recipeItems?.forEach(item => itemMap.set(item.id, item as ItemCostInfo));
 
   const ingredientsByRecipe = new Map<string, RecipeIngredient[]>();
-  allIngredients?.forEach(ing => {
+  allIngredients.forEach(ing => {
     const list = ingredientsByRecipe.get(ing.recipe_item_id) || [];
     list.push(ing as RecipeIngredient);
     ingredientsByRecipe.set(ing.recipe_item_id, list);
