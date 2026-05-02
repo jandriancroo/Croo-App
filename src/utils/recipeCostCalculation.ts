@@ -70,19 +70,122 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
     }
   }
 
-  const { data: allIngredients, error: allIngError } = await supabase
-    .from("inventory_recipe_ingredients")
-    .select("recipe_item_id, ingredient_item_id, quantity, unit")
-    .in("recipe_item_id", recipeItemIds);
+  // Read ingredients from recipe_blueprint_ingredients (the source of truth).
+  // Resolve blueprints whose produces_item_id matches one of our local recipe items.
+  // Per-store blueprints live at this location; we also accept brand-level blueprints
+  // whose produces_item_id was wired to a local item.
+  const { data: blueprints, error: bpErr } = await supabase
+    .from("recipe_blueprints")
+    .select("id, name, brand_id, location_id, produces_item_id")
+    .in("produces_item_id", recipeItemIds);
 
-  if (allIngError) throw allIngError;
+  if (bpErr) throw bpErr;
+
+  // Map blueprint_id → local recipe item_id
+  const blueprintToLocalItem = new Map<string, string>();
+  blueprints?.forEach(bp => {
+    if (bp.produces_item_id) blueprintToLocalItem.set(bp.id, bp.produces_item_id);
+  });
+
+  const blueprintIds = blueprints?.map(b => b.id) || [];
+
+  let blueprintIngredients: Array<{
+    blueprint_id: string;
+    ingredient_type: string;
+    vendor_item_id: string | null;
+    sub_blueprint_id: string | null;
+    quantity: number;
+    unit: string | null;
+  }> = [];
+
+  if (blueprintIds.length > 0) {
+    const { data: bpIngs, error: bpIngErr } = await supabase
+      .from("recipe_blueprint_ingredients")
+      .select("blueprint_id, ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit")
+      .in("blueprint_id", blueprintIds);
+    if (bpIngErr) throw bpIngErr;
+    blueprintIngredients = bpIngs || [];
+  }
+
+  // Build vendor_item_id (brand_template_id) → local inventory_items.id map (per-location)
+  const brandToLocalItem = new Map<string, string>();
+  recipeItems?.forEach(it => {
+    if (it.brand_item_id) brandToLocalItem.set(it.brand_item_id, it.id);
+  });
+
+  // Resolve sub_blueprint_id → local recipe item_id.
+  // Sub-blueprint references are typically brand-level; resolve to this location's
+  // matching blueprint by (brand_id, name).
+  const subBlueprintIds = Array.from(
+    new Set(blueprintIngredients.map(i => i.sub_blueprint_id).filter((x): x is string => !!x))
+  );
+  const subBlueprintToLocalItem = new Map<string, string>();
+  if (subBlueprintIds.length > 0) {
+    const { data: subRefs } = await supabase
+      .from("recipe_blueprints")
+      .select("id, name, brand_id")
+      .in("id", subBlueprintIds);
+
+    if (subRefs && subRefs.length > 0) {
+      // Pull this location's blueprints with matching names to map back to local items
+      const names = subRefs.map(s => s.name);
+      const { data: localMatches } = await supabase
+        .from("recipe_blueprints")
+        .select("name, brand_id, produces_item_id")
+        .eq("location_id", locationId)
+        .in("name", names);
+
+      const localByKey = new Map<string, string>();
+      localMatches?.forEach(lm => {
+        if (lm.produces_item_id) localByKey.set(`${lm.brand_id}::${lm.name}`, lm.produces_item_id);
+      });
+
+      subRefs.forEach(sr => {
+        // First, if the sub-blueprint itself directly produces a local item, use it
+        if (blueprintToLocalItem.has(sr.id)) {
+          subBlueprintToLocalItem.set(sr.id, blueprintToLocalItem.get(sr.id)!);
+          return;
+        }
+        const localItemId = localByKey.get(`${sr.brand_id}::${sr.name}`);
+        if (localItemId) subBlueprintToLocalItem.set(sr.id, localItemId);
+      });
+    }
+  }
+
+  // Translate blueprint ingredients into the legacy { recipe_item_id, ingredient_item_id, quantity, unit } shape
+  const allIngredients: Array<{
+    recipe_item_id: string;
+    ingredient_item_id: string;
+    quantity: number;
+    unit: string;
+  }> = [];
+
+  for (const bi of blueprintIngredients) {
+    const localRecipeItemId = blueprintToLocalItem.get(bi.blueprint_id);
+    if (!localRecipeItemId) continue;
+
+    let localIngredientId: string | undefined;
+    if (bi.ingredient_type === "blueprint" && bi.sub_blueprint_id) {
+      localIngredientId = subBlueprintToLocalItem.get(bi.sub_blueprint_id);
+    } else if (bi.vendor_item_id) {
+      localIngredientId = brandToLocalItem.get(bi.vendor_item_id);
+    }
+    if (!localIngredientId) continue;
+
+    allIngredients.push({
+      recipe_item_id: localRecipeItemId,
+      ingredient_item_id: localIngredientId,
+      quantity: Number(bi.quantity) || 0,
+      unit: bi.unit || "",
+    });
+  }
 
   // Build lookup maps
   const itemMap = new Map<string, ItemCostInfo>();
   recipeItems?.forEach(item => itemMap.set(item.id, item as ItemCostInfo));
 
   const ingredientsByRecipe = new Map<string, RecipeIngredient[]>();
-  allIngredients?.forEach(ing => {
+  allIngredients.forEach(ing => {
     const list = ingredientsByRecipe.get(ing.recipe_item_id) || [];
     list.push(ing as RecipeIngredient);
     ingredientsByRecipe.set(ing.recipe_item_id, list);
