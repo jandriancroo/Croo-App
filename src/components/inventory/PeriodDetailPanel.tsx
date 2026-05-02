@@ -18,7 +18,7 @@ import {
   Eye, ClipboardCheck,
   Crosshair, Loader2,
   Settings2, UtensilsCrossed, Carrot, ChevronDown,
-  Play, Plus, CheckCircle2, Upload,
+  Play, Plus, CheckCircle2, Upload, Trash2,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
