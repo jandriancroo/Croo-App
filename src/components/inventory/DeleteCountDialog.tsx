@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,7 +9,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Trash2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 interface DeleteCountDialogProps {
   open: boolean;
@@ -19,8 +22,6 @@ interface DeleteCountDialogProps {
   countPeriod: string;
 }
 
-const COOLDOWN_SECONDS = 5;
-
 const DeleteCountDialog = ({
   open,
   onOpenChange,
@@ -28,38 +29,23 @@ const DeleteCountDialog = ({
   isDeleting,
   countPeriod,
 }: DeleteCountDialogProps) => {
-  const [countdown, setCountdown] = useState(COOLDOWN_SECONDS);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { user } = useAuth();
+  const expectedName =
+    (user as any)?.user_metadata?.full_name?.trim() ||
+    (user as any)?.user_metadata?.name?.trim() ||
+    (user as any)?.email?.trim() ||
+    "";
+
+  const [typed, setTyped] = useState("");
 
   useEffect(() => {
-    if (open) {
-      setCountdown(COOLDOWN_SECONDS);
-      intervalRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      setCountdown(COOLDOWN_SECONDS);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
+    if (!open) setTyped("");
   }, [open]);
 
-  const canDelete = countdown === 0 && !isDeleting;
+  const matches =
+    expectedName.length > 0 &&
+    typed.trim().toLowerCase() === expectedName.toLowerCase();
+  const canDelete = matches && !isDeleting;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -69,37 +55,43 @@ const DeleteCountDialog = ({
             <Trash2 className="h-5 w-5" />
             Delete Inventory Count
           </AlertDialogTitle>
-          <AlertDialogDescription className="space-y-3">
-            <p>
-              Are you sure you want to permanently delete this inventory count?
-            </p>
-            <p className="font-medium text-foreground">
-              {countPeriod}
-            </p>
-            <p className="text-destructive">
-              This action cannot be undone. All count data and edit history will be lost.
-            </p>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              <p>Are you sure you want to permanently delete this inventory count?</p>
+              <p className="font-medium text-foreground">{countPeriod}</p>
+              <p className="text-destructive">
+                This action cannot be undone. All count data and edit history will be lost.
+              </p>
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
+
+        <div className="space-y-2 pt-1">
+          <Label htmlFor="confirm-name" className="text-xs text-muted-foreground">
+            Type your name <span className="font-semibold text-foreground">{expectedName}</span> to confirm
+          </Label>
+          <Input
+            id="confirm-name"
+            autoComplete="off"
+            autoFocus
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={expectedName}
+            disabled={isDeleting}
+          />
+        </div>
+
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
-              if (canDelete) {
-                onConfirm();
-              }
+              if (canDelete) onConfirm();
             }}
             disabled={!canDelete}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {isDeleting ? (
-              "Deleting..."
-            ) : countdown > 0 ? (
-              `Delete (${countdown}s)`
-            ) : (
-              "Delete Count"
-            )}
+            {isDeleting ? "Deleting..." : "Delete Count"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
