@@ -3501,6 +3501,111 @@ export type Database = {
           },
         ]
       }
+      inventory_order_assignments: {
+        Row: {
+          assignment_mode: string
+          count_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          location_id: string
+          period_type: string
+          source_row_id: string
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_mode?: string
+          count_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id: string
+          period_type: string
+          source_row_id: string
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_mode?: string
+          count_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id?: string
+          period_type?: string
+          source_row_id?: string
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_order_assignments_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_order_assignments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_order_exclusions: {
+        Row: {
+          count_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          location_id: string
+          period_type: string
+          source_row_id: string
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          count_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id: string
+          period_type: string
+          source_row_id: string
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          count_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id?: string
+          period_type?: string
+          source_row_id?: string
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_order_exclusions_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_order_exclusions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_product_groups: {
         Row: {
           blueprint_id: string | null
