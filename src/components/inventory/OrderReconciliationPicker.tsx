@@ -210,25 +210,17 @@ export default function OrderReconciliationPicker({
     enabled: !!locationId && !!countId,
   });
 
-  // Initialize selected IDs:
-  //  1. Always include orders explicitly bound to THIS count
-  //  2. Always include orders inherited from a child weekly (when viewing monthly)
-  //  3. Auto-pre-select UNBOUND orders that fall inside this period's date window
-  //     — this preserves the convenient "new count auto-fills" UX without stealing
-  //     orders that another period already claims (those keep boundToCountId set).
-  //  The user can always uncheck and save to override; manual binding wins.
+  // Initialize selected IDs — ONLY reflect what is actually bound in the DB.
+  //  1. Orders explicitly bound to THIS count
+  //  2. Orders inherited from a child weekly (when viewing monthly)
+  // Do NOT auto-pre-check unbound orders just because they fall in the date
+  // window. Auto-slotting is a *display suggestion* elsewhere; inside Manage
+  // Orders the user's manual selection is the source of truth. Pre-checking
+  // loose orders caused silent re-binding on Apply and cross-period drift.
   if (orders && !initialized) {
-    const inWindow = (dateStr: string) => {
-      if (!periodStartDate || !periodEndDate || !dateStr) return false;
-      return dateStr >= periodStartDate && dateStr <= periodEndDate;
-    };
     const bound = new Set(
       orders
-        .filter((o) =>
-          o.boundToCountId === countId ||
-          o.isInheritedFromChild ||
-          (!o.boundToCountId && (inWindow(o.deliveryDate) || inWindow(o.orderDate)))
-        )
+        .filter((o) => o.boundToCountId === countId || o.isInheritedFromChild)
         .map((o) => o.id)
     );
     setSelectedIds(bound);
