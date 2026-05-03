@@ -346,6 +346,24 @@ export default function OrderReconciliationPicker({
         }
       }
 
+      if (isPalmSpringsDiagnostics) {
+        await logPalmSpringsOrderAudit("BEFORE_APPLY", {
+          current_period_type: currentPeriodType ?? null,
+          selected_ids: Array.from(selectedIds),
+          bind_plan: {
+            pfg: pfgBind,
+            pa: paBind,
+            invoice: invBind,
+          },
+          unbind_plan: {
+            pfg: pfgUnbind,
+            pa: paUnbind,
+            invoice: invUnbind,
+          },
+          orders: serializeOrdersForAudit(orders),
+        });
+      }
+
       const promises: any[] = [];
 
       if (pfgBind.length > 0) {
@@ -379,7 +397,25 @@ export default function OrderReconciliationPicker({
         );
       }
 
-      await Promise.all(promises);
+      const results = await Promise.all(promises);
+
+      if (isPalmSpringsDiagnostics) {
+        await logPalmSpringsOrderAudit("AFTER_APPLY", {
+          current_period_type: currentPeriodType ?? null,
+          selected_ids: Array.from(selectedIds),
+          write_results: results.map((result: any) => ({
+            error: result?.error?.message ?? null,
+            row_count: Array.isArray(result?.data) ? result.data.length : 0,
+            rows: Array.isArray(result?.data)
+              ? result.data.map((row: any) => ({
+                  id: row.id,
+                  bound_to_count_id: row.bound_to_count_id ?? null,
+                  inventory_count_id: row.inventory_count_id ?? null,
+                }))
+              : [],
+          })),
+        });
+      }
     },
     onSuccess: () => {
       toast.success("Orders applied to period");
