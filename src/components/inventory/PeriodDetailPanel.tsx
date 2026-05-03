@@ -250,9 +250,10 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
   // Fetch COGS data — now uses bound orders instead of date-range
   const { data: cogsData, isLoading: cogsLoading } = useQuery({
-    queryKey: ["period-cogs", locationId, count.id, periodRange?.startStr, periodRange?.endStr, conversionMap.size],
+    queryKey: ["period-cogs", locationId, count.id, realCountId, periodRange?.startStr, periodRange?.endStr, conversionMap.size],
     queryFn: async () => {
       if (!periodRange) return null;
+      const effectiveCountId = realCountId || count.id;
 
       // Resolve assigned + inherited orders for THIS count via the new
       // inventory_order_assignments / inventory_order_exclusions tables. This is
@@ -280,7 +281,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           .select("source_type, source_row_id")
           .eq("location_id", locationId)
           .eq("period_type", periodType)
-          .eq("count_id", realCountId),
+          .eq("count_id", effectiveCountId),
         isAggregating && childWeeklyCountIds.length > 0
           ? supabase
               .from("inventory_order_assignments" as any)
@@ -294,7 +295,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           .select("source_type, source_row_id")
           .eq("location_id", locationId)
           .eq("period_type", periodType)
-          .eq("count_id", realCountId),
+          .eq("count_id", effectiveCountId),
       ]);
 
       const exclusionSet = new Set<string>(
