@@ -254,94 +254,83 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
     queryFn: async () => {
       if (!periodRange) return null;
 
+      // Resolve assigned + inherited orders for THIS count via the new
+      // inventory_order_assignments / inventory_order_exclusions tables. This is
+      // the single source of truth — weekly and monthly assignments are decoupled
+      // by period_type, so editing one no longer drifts the other.
+      const periodType = count.period_type as "weekly" | "monthly" | "yearly";
+      const isAggregating = periodType === "monthly" || periodType === "yearly";
+
+      // Child weekly counts (for monthly/yearly inheritance)
+      let childWeeklyCountIds: string[] = [];
+      if (isAggregating) {
+        const { data: childCounts } = await supabase
+          .from("inventory_counts")
+          .select("id")
+          .eq("location_id", locationId)
+          .eq("period_type", "weekly")
+          .gte("period_end_date", periodRange.startStr)
+          .lte("period_end_date", periodRange.endStr);
+        childWeeklyCountIds = (childCounts || []).map((c) => c.id);
+      }
+
+      const [thisCountAssignments, childWeeklyAssignmentsRaw, exclusionsResult] = await Promise.all([
+        supabase
+          .from("inventory_order_assignments" as any)
+          .select("source_type, source_row_id")
+          .eq("location_id", locationId)
+          .eq("period_type", periodType)
+          .eq("count_id", realCountId),
+        isAggregating && childWeeklyCountIds.length > 0
+          ? supabase
+              .from("inventory_order_assignments" as any)
+              .select("source_type, source_row_id")
+              .eq("location_id", locationId)
+              .eq("period_type", "weekly")
+              .in("count_id", childWeeklyCountIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        supabase
+          .from("inventory_order_exclusions" as any)
+          .select("source_type, source_row_id")
+          .eq("location_id", locationId)
+          .eq("period_type", periodType)
+          .eq("count_id", realCountId),
+      ]);
+
+      const exclusionSet = new Set<string>(
+        ((exclusionsResult.data as any[]) || []).map((e) => `${e.source_type}_${e.source_row_id}`)
+      );
+      const targetIds: Record<"pfg" | "pa" | "invoice", Set<string>> = {
+        pfg: new Set(),
+        pa: new Set(),
+        invoice: new Set(),
+      };
+      for (const a of (thisCountAssignments.data as any[]) || []) {
+        const k = `${a.source_type}_${a.source_row_id}`;
+        if (!exclusionSet.has(k)) targetIds[a.source_type as "pfg" | "pa" | "invoice"]?.add(a.source_row_id);
+      }
+      for (const a of (childWeeklyAssignmentsRaw.data as any[]) || []) {
+        const k = `${a.source_type}_${a.source_row_id}`;
+        if (!exclusionSet.has(k)) targetIds[a.source_type as "pfg" | "pa" | "invoice"]?.add(a.source_row_id);
+      }
+
+      const fetchByIds = async (table: "pfg_orders" | "pa_orders" | "vendor_invoices", ids: string[], cols: string) => {
+        if (ids.length === 0) return [] as any[];
+        const { data } = await (supabase.from(table) as any)
+          .select(cols)
+          .in("id", ids)
+          .order("delivery_date", { ascending: true });
+        return data || [];
+      };
+
       // For upcoming periods, only fetch purchases (no count items exist yet)
       if (isUpcoming) {
-        // For monthly/yearly upcoming periods, also grab orders bound to child weekly counts
-        const isAggregatingUpcoming = count.period_type === "monthly" || count.period_type === "yearly";
-        let childCountIds: string[] = [];
-        if (isAggregatingUpcoming) {
-          const { data: childCounts } = await supabase
-            .from("inventory_counts")
-            .select("id")
-            .eq("location_id", locationId)
-            .eq("period_type", "weekly")
-            .gte("period_end_date", periodRange.startStr)
-            .lte("period_end_date", periodRange.endStr);
-          childCountIds = (childCounts || []).map(c => c.id);
-        }
-        const allUpcomingCountIds = [realCountId, ...childCountIds].filter(Boolean) as string[];
-
-        const [pfgDateRange, paDateRange, vendorInvoicesRange] = await Promise.all([
-          supabase
-            .from("pfg_orders")
-            .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-            .eq("location_id", locationId)
-            .is("bound_to_count_id", null)
-            .gte("delivery_date", periodRange.startStr)
-            .lte("delivery_date", periodRange.endStr)
-            .order("delivery_date", { ascending: true }),
-          supabase
-            .from("pa_orders")
-            .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-            .eq("location_id", locationId)
-            .is("bound_to_count_id", null)
-            .gte("delivery_date", periodRange.startStr)
-            .lte("delivery_date", periodRange.endStr)
-            .order("delivery_date", { ascending: true }),
-          supabase
-            .from("vendor_invoices")
-            .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
-            .eq("location_id", locationId)
-            .eq("status", "parsed")
-            .is("inventory_count_id", null)
-            .or(`delivery_date.gte.${periodRange.startStr},invoice_date.gte.${periodRange.startStr}`)
-            .or(`delivery_date.lte.${periodRange.endStr},invoice_date.lte.${periodRange.endStr}`)
-            .order("delivery_date", { ascending: true }),
+        const [pfg, pa, vendorInv] = await Promise.all([
+          fetchByIds("pfg_orders", [...targetIds.pfg], "id, pfg_order_id, order_number, order_date, delivery_date, total_amount"),
+          fetchByIds("pa_orders", [...targetIds.pa], "id, pa_order_id, order_number, order_date, delivery_date, total_amount"),
+          fetchByIds("vendor_invoices", [...targetIds.invoice], "id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status"),
         ]);
-
-        // Also check for orders bound to this count or child weekly counts
-        let pfgBound: any[] = [];
-        let paBound: any[] = [];
-        let vendorBound: any[] = [];
-        if (allUpcomingCountIds.length > 0) {
-          const [pfgB, paB, vendorB] = await Promise.all([
-            supabase
-              .from("pfg_orders")
-              .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-              .eq("location_id", locationId)
-              .in("bound_to_count_id", allUpcomingCountIds)
-              .order("delivery_date", { ascending: true }),
-            supabase
-              .from("pa_orders")
-              .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-              .eq("location_id", locationId)
-              .in("bound_to_count_id", allUpcomingCountIds)
-              .order("delivery_date", { ascending: true }),
-            supabase
-              .from("vendor_invoices")
-              .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
-              .eq("location_id", locationId)
-              .eq("status", "parsed")
-              .in("inventory_count_id", allUpcomingCountIds)
-              .order("delivery_date", { ascending: true }),
-          ]);
-          pfgBound = pfgB.data || [];
-          paBound = paB.data || [];
-          vendorBound = vendorB.data || [];
-        }
-
-        // Deduplicate and merge
-        const dedup = (arr: any[]) => {
-          const seen = new Set<string>();
-          return arr.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
-        };
-        const hasBoundOrders = pfgBound.length + paBound.length + vendorBound.length > 0;
-        const pfg = hasBoundOrders ? dedup(pfgBound) : (pfgDateRange.data || []);
-        const pa = hasBoundOrders ? dedup(paBound) : (paDateRange.data || []);
-        const vendorInv = hasBoundOrders ? dedup(vendorBound) : (vendorInvoicesRange.data || []).filter((vi: any) => {
-          const d = vi.delivery_date || vi.invoice_date;
-          return d && d >= periodRange.startStr && d <= periodRange.endStr;
-        });
+        const hasBoundOrders = pfg.length + pa.length + vendorInv.length > 0;
         const purchasesTotal = [...pfg, ...pa, ...vendorInv].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
 
         return {
@@ -448,48 +437,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         endValue += getCountItemLineValue(ci);
       }
 
-      // Purchases: Manage Orders is the single source of truth.
-      // Weekly: only orders with bound_to_count_id = this count's ID
-      // Monthly: this count's ID + orders bound to child weekly counts in the period
-      const isAggregatingPeriod = count.period_type === "monthly" || count.period_type === "yearly";
-      const allCountIds = [count.id];
-      if (isAggregatingPeriod) {
-        const { data: childCounts } = await supabase
-          .from("inventory_counts")
-          .select("id")
-          .eq("location_id", locationId)
-          .eq("period_type", "weekly")
-          .gte("period_end_date", periodRange.startStr)
-          .lte("period_end_date", periodRange.endStr);
-        for (const c of childCounts || []) allCountIds.push(c.id);
-      }
-
-      // Fetch ONLY orders bound to these count IDs — no date-range fallback
-      const [pfgResult, paResult, vendorResult] = await Promise.all([
-        supabase
-          .from("pfg_orders")
-          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-          .eq("location_id", locationId)
-          .in("bound_to_count_id", allCountIds)
-          .order("delivery_date", { ascending: true }),
-        supabase
-          .from("pa_orders")
-          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-          .eq("location_id", locationId)
-          .in("bound_to_count_id", allCountIds)
-          .order("delivery_date", { ascending: true }),
-        supabase
-          .from("vendor_invoices")
-          .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
-          .eq("location_id", locationId)
-          .eq("status", "parsed")
-          .in("inventory_count_id", allCountIds)
-          .order("delivery_date", { ascending: true }),
+      // Purchases: pull strictly from the new assignments table (decoupled by period_type)
+      // — reuse `targetIds` and `fetchByIds` computed at the top of this queryFn.
+      const [pfg, pa, vendorInv] = await Promise.all([
+        fetchByIds("pfg_orders", [...targetIds.pfg], "id, pfg_order_id, order_number, order_date, delivery_date, total_amount"),
+        fetchByIds("pa_orders", [...targetIds.pa], "id, pa_order_id, order_number, order_date, delivery_date, total_amount"),
+        fetchByIds("vendor_invoices", [...targetIds.invoice], "id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status"),
       ]);
-
-      const pfg = pfgResult.data || [];
-      const pa = paResult.data || [];
-      const vendorInv = vendorResult.data || [];
 
       
       const purchasesTotal = [...pfg, ...pa, ...vendorInv].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);

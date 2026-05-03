@@ -9,8 +9,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getEffectivePeriodEndDate } from "@/utils/periodLabelUtils";
 
-
-
 interface OrderReconciliationPickerProps {
   locationId: string;
   countId: string;
@@ -21,18 +19,25 @@ interface OrderReconciliationPickerProps {
   compact?: boolean;
 }
 
+type SourceType = "pfg" | "pa" | "invoice";
+
 interface VendorOrder {
-  id: string;
+  id: string; // composite: `${sourceType}_${realId}`
+  sourceType: SourceType;
+  realId: string;
   vendor: "PFG" | "PA" | "INV";
   vendorName?: string;
   orderId: string;
   orderDate: string;
   deliveryDate: string;
   totalAmount: number;
-  boundToCountId: string | null;
-  boundPeriodLabel?: string;
-  boundPeriodType?: string;
+  // Assignment within the SAME period_type as the current count
+  assignedCountId: string | null;
+  assignedPeriodLabel?: string;
+  // True when this order is assigned to a child weekly count and we're viewing a monthly/yearly
   isInheritedFromChild?: boolean;
+  // True when an exclusion record at this count overrides inherited assignment
+  isExcludedHere?: boolean;
 }
 
 export default function OrderReconciliationPicker({
@@ -59,10 +64,10 @@ export default function OrderReconciliationPicker({
       orderDate: order.orderDate,
       deliveryDate: order.deliveryDate,
       totalAmount: order.totalAmount,
-      boundToCountId: order.boundToCountId,
-      boundPeriodLabel: order.boundPeriodLabel ?? null,
-      boundPeriodType: order.boundPeriodType ?? null,
+      assignedCountId: order.assignedCountId,
+      assignedPeriodLabel: order.assignedPeriodLabel ?? null,
       isInheritedFromChild: !!order.isInheritedFromChild,
+      isExcludedHere: !!order.isExcludedHere,
     }));
 
   const logPalmSpringsOrderAudit = async (
@@ -98,10 +103,11 @@ export default function OrderReconciliationPicker({
     },
     enabled: !!countId,
   });
-  const currentPeriodType = countMeta?.period_type;
+  const currentPeriodType = countMeta?.period_type as "weekly" | "monthly" | "yearly" | undefined;
 
   const { data: orders, isLoading } = useQuery({
-    queryKey: ["order-reconciliation-v1", locationId, countId, periodStartDate, periodEndDate],
+    queryKey: ["order-reconciliation-v2", locationId, countId, currentPeriodType, periodStartDate, periodEndDate],
+    enabled: !!locationId && !!countId && !!currentPeriodType,
     queryFn: async () => {
       const windowStart = periodStartDate
         ? format(subDays(new Date(periodStartDate + "T12:00:00"), 7), "yyyy-MM-dd")
@@ -110,43 +116,11 @@ export default function OrderReconciliationPicker({
         ? format(addDays(new Date(periodEndDate + "T12:00:00"), 7), "yyyy-MM-dd")
         : format(new Date(), "yyyy-MM-dd");
 
-      const [countResult, pfgResult, paResult, invResult] = await Promise.all([
-        supabase
-          .from("inventory_counts")
-          .select("period_type")
-          .eq("id", countId)
-          .maybeSingle(),
-        supabase
-          .from("pfg_orders")
-          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-          .eq("location_id", locationId)
-          .gte("delivery_date", windowStart)
-          .lte("delivery_date", windowEnd)
-          .order("order_date", { ascending: true }),
-        supabase
-          .from("pa_orders")
-          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-          .eq("location_id", locationId)
-          .gte("delivery_date", windowStart)
-          .lte("delivery_date", windowEnd)
-          .order("order_date", { ascending: true }),
-        // Fetch vendor invoices in date range OR already bound to this count
-        supabase
-          .from("vendor_invoices")
-          .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
-          .eq("location_id", locationId)
-          .eq("status", "parsed")
-          .or(`and(delivery_date.gte.${windowStart},delivery_date.lte.${windowEnd}),and(invoice_date.gte.${windowStart},invoice_date.lte.${windowEnd}),inventory_count_id.eq.${countId}`)
-          .order("delivery_date", { ascending: true }),
-      ]);
-
-      const currentPeriodType = countResult.data?.period_type;
       const isAggregatingPeriod =
         currentPeriodType === "monthly" || currentPeriodType === "yearly";
 
-      // Monthly/yearly: child weekly orders are inherited (shown as read-only)
-      // Weekly: NO inheritance from parent monthly — they are separate accounting periods
-      let inheritedChildCountIds = new Set<string>();
+      // Identify child weekly counts inside this period (for monthly/yearly inheritance display)
+      let childWeeklyCountIds: string[] = [];
       if (isAggregatingPeriod && periodStartDate && periodEndDate) {
         const { data: childCounts } = await supabase
           .from("inventory_counts")
@@ -155,24 +129,77 @@ export default function OrderReconciliationPicker({
           .eq("period_type", "weekly")
           .gte("period_end_date", periodStartDate)
           .lte("period_end_date", periodEndDate);
-
-        inheritedChildCountIds = new Set((childCounts || []).map((c) => c.id));
+        childWeeklyCountIds = (childCounts || []).map((c) => c.id);
       }
 
+      const [pfgResult, paResult, invResult, sameTypeAssignments, childWeeklyAssignments, exclusionsResult] = await Promise.all([
+        supabase
+          .from("pfg_orders")
+          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount")
+          .eq("location_id", locationId)
+          .gte("delivery_date", windowStart)
+          .lte("delivery_date", windowEnd)
+          .order("order_date", { ascending: true }),
+        supabase
+          .from("pa_orders")
+          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount")
+          .eq("location_id", locationId)
+          .gte("delivery_date", windowStart)
+          .lte("delivery_date", windowEnd)
+          .order("order_date", { ascending: true }),
+        supabase
+          .from("vendor_invoices")
+          .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status")
+          .eq("location_id", locationId)
+          .eq("status", "parsed")
+          .or(
+            `and(delivery_date.gte.${windowStart},delivery_date.lte.${windowEnd}),and(invoice_date.gte.${windowStart},invoice_date.lte.${windowEnd})`
+          )
+          .order("delivery_date", { ascending: true }),
+        // All assignments at the SAME period_type (so we know which orders are locked to other counts of the same type)
+        supabase
+          .from("inventory_order_assignments" as any)
+          .select("id, source_type, source_row_id, count_id, period_type")
+          .eq("location_id", locationId)
+          .eq("period_type", currentPeriodType as string),
+        // Child weekly assignments — only when viewing monthly/yearly
+        isAggregatingPeriod && childWeeklyCountIds.length > 0
+          ? supabase
+              .from("inventory_order_assignments" as any)
+              .select("id, source_type, source_row_id, count_id, period_type")
+              .eq("location_id", locationId)
+              .eq("period_type", "weekly")
+              .in("count_id", childWeeklyCountIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        // Exclusions for THIS count (negative overrides for inherited children)
+        supabase
+          .from("inventory_order_exclusions" as any)
+          .select("id, source_type, source_row_id, count_id, period_type")
+          .eq("location_id", locationId)
+          .eq("count_id", countId)
+          .eq("period_type", currentPeriodType as string),
+      ]);
+
+      // Build maps from assignments
+      const sameTypeMap = new Map<string, { count_id: string }>(); // key: `${source}_${rowId}`
+      for (const a of (sameTypeAssignments.data as any[]) || []) {
+        sameTypeMap.set(`${a.source_type}_${a.source_row_id}`, { count_id: a.count_id });
+      }
+      const childWeeklyMap = new Map<string, { count_id: string }>();
+      for (const a of (childWeeklyAssignments.data as any[]) || []) {
+        childWeeklyMap.set(`${a.source_type}_${a.source_row_id}`, { count_id: a.count_id });
+      }
+      const exclusionSet = new Set<string>();
+      for (const e of (exclusionsResult.data as any[]) || []) {
+        exclusionSet.add(`${e.source_type}_${e.source_row_id}`);
+      }
+
+      // Resolve labels for "other counts of the same period_type" so we can show locked badges
       const otherCountIds = new Set<string>();
-      for (const o of [...(pfgResult.data || []), ...(paResult.data || [])]) {
-        if ((o as any).bound_to_count_id && (o as any).bound_to_count_id !== countId) {
-          otherCountIds.add((o as any).bound_to_count_id);
-        }
+      for (const [, v] of sameTypeMap) {
+        if (v.count_id && v.count_id !== countId) otherCountIds.add(v.count_id);
       }
-      for (const o of (invResult.data || [])) {
-        if ((o as any).inventory_count_id && (o as any).inventory_count_id !== countId) {
-          otherCountIds.add((o as any).inventory_count_id);
-        }
-      }
-
-      let periodLabelMap = new Map<string, string>();
-      let periodTypeMap = new Map<string, string>();
+      const periodLabelMap = new Map<string, string>();
       if (otherCountIds.size > 0) {
         const { data: counts } = await supabase
           .from("inventory_counts")
@@ -180,81 +207,104 @@ export default function OrderReconciliationPicker({
           .in("id", [...otherCountIds]);
         for (const c of counts || []) {
           const effectiveEnd = getEffectivePeriodEndDate(c) || c.period_end_date;
-          const endDate = effectiveEnd
-            ? new Date(effectiveEnd + "T12:00:00")
-            : null;
+          const endDate = effectiveEnd ? new Date(effectiveEnd + "T12:00:00") : null;
           const label = endDate
             ? c.period_type === "monthly"
               ? `ME ${format(endDate, "MMM ''yy")}`
+              : c.period_type === "yearly"
+              ? `YE ${format(endDate, "yyyy")}`
               : `WE ${format(endDate, "MMM d")}`
             : "Other count";
           periodLabelMap.set(c.id, label);
-          periodTypeMap.set(c.id, c.period_type);
         }
       }
 
+      const buildOrder = (
+        sourceType: SourceType,
+        rawRow: any,
+        vendorLabel: "PFG" | "PA" | "INV",
+        orderIdStr: string,
+        orderDate: string,
+        deliveryDate: string,
+        vendorName?: string
+      ): VendorOrder => {
+        const key = `${sourceType}_${rawRow.id}`;
+        const sameTypeAssignment = sameTypeMap.get(key);
+        const childAssignment = childWeeklyMap.get(key);
+        const isInherited = !sameTypeAssignment && !!childAssignment && isAggregatingPeriod;
+        const assignedCountId = sameTypeAssignment?.count_id ?? (isInherited ? childAssignment!.count_id : null);
+        const assignedPeriodLabel =
+          assignedCountId && assignedCountId !== countId
+            ? periodLabelMap.get(assignedCountId) ??
+              (isInherited && childAssignment
+                ? `WE (child)`
+                : undefined)
+            : undefined;
+
+        return {
+          id: key,
+          sourceType,
+          realId: rawRow.id,
+          vendor: vendorLabel,
+          vendorName,
+          orderId: orderIdStr,
+          orderDate,
+          deliveryDate,
+          totalAmount: Number(rawRow.total_amount) || 0,
+          assignedCountId,
+          assignedPeriodLabel,
+          isInheritedFromChild: isInherited,
+          isExcludedHere: exclusionSet.has(key),
+        };
+      };
+
       const all: VendorOrder[] = [
-        ...(pfgResult.data || []).map((o: any) => ({
-          id: `pfg_${o.id}`,
-          vendor: "PFG" as const,
-          orderId: o.order_number || (o.pfg_order_id?.includes('_') ? o.pfg_order_id.split('_').pop() : o.pfg_order_id) || o.id.slice(0, 8),
-          orderDate: o.order_date,
-          deliveryDate: o.delivery_date,
-          totalAmount: Number(o.total_amount) || 0,
-          boundToCountId: o.bound_to_count_id,
-          isInheritedFromChild: !!o.bound_to_count_id && inheritedChildCountIds.has(o.bound_to_count_id),
-          boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
-            ? periodLabelMap.get(o.bound_to_count_id)
-            : undefined,
-          boundPeriodType: o.bound_to_count_id && o.bound_to_count_id !== countId
-            ? periodTypeMap.get(o.bound_to_count_id)
-            : undefined,
-        })),
-        ...(paResult.data || []).map((o: any) => ({
-          id: `pa_${o.id}`,
-          vendor: "PA" as const,
-          orderId: o.order_number || o.pa_order_id || o.id.slice(0, 8),
-          orderDate: o.order_date,
-          deliveryDate: o.delivery_date,
-          totalAmount: Number(o.total_amount) || 0,
-          boundToCountId: o.bound_to_count_id,
-          isInheritedFromChild: !!o.bound_to_count_id && inheritedChildCountIds.has(o.bound_to_count_id),
-          boundPeriodLabel: o.bound_to_count_id && o.bound_to_count_id !== countId
-            ? periodLabelMap.get(o.bound_to_count_id)
-            : undefined,
-          boundPeriodType: o.bound_to_count_id && o.bound_to_count_id !== countId
-            ? periodTypeMap.get(o.bound_to_count_id)
-            : undefined,
-        })),
-        ...(invResult.data || []).map((o: any) => ({
-          id: `inv_${o.id}`,
-          vendor: "INV" as const,
-          vendorName: o.vendor_name || "Invoice",
-          orderId: o.invoice_number || o.id.slice(0, 8),
-          orderDate: o.invoice_date || o.delivery_date,
-          deliveryDate: o.delivery_date || o.invoice_date,
-          totalAmount: Number(o.total_amount) || 0,
-          boundToCountId: o.inventory_count_id,
-          isInheritedFromChild: !!o.inventory_count_id && inheritedChildCountIds.has(o.inventory_count_id),
-          boundPeriodLabel: o.inventory_count_id && o.inventory_count_id !== countId
-            ? periodLabelMap.get(o.inventory_count_id)
-            : undefined,
-          boundPeriodType: o.inventory_count_id && o.inventory_count_id !== countId
-            ? periodTypeMap.get(o.inventory_count_id)
-            : undefined,
-        })),
+        ...((pfgResult.data as any[]) || []).map((o) =>
+          buildOrder(
+            "pfg",
+            o,
+            "PFG",
+            o.order_number ||
+              (o.pfg_order_id?.includes("_") ? o.pfg_order_id.split("_").pop() : o.pfg_order_id) ||
+              o.id.slice(0, 8),
+            o.order_date,
+            o.delivery_date
+          )
+        ),
+        ...((paResult.data as any[]) || []).map((o) =>
+          buildOrder(
+            "pa",
+            o,
+            "PA",
+            o.order_number || o.pa_order_id || o.id.slice(0, 8),
+            o.order_date,
+            o.delivery_date
+          )
+        ),
+        ...((invResult.data as any[]) || []).map((o) =>
+          buildOrder(
+            "invoice",
+            o,
+            "INV",
+            o.invoice_number || o.id.slice(0, 8),
+            o.invoice_date || o.delivery_date,
+            o.delivery_date || o.invoice_date,
+            o.vendor_name || "Invoice"
+          )
+        ),
       ];
 
-      // Sort by most recent first (delivery date desc, then order date desc)
-      all.sort((a, b) => b.deliveryDate.localeCompare(a.deliveryDate) || b.orderDate.localeCompare(a.orderDate));
+      all.sort(
+        (a, b) =>
+          (b.deliveryDate || "").localeCompare(a.deliveryDate || "") ||
+          (b.orderDate || "").localeCompare(a.orderDate || "")
+      );
       return all;
     },
-    enabled: !!locationId && !!countId,
   });
 
   useEffect(() => {
     if (!isPalmSpringsDiagnostics) return;
-
     void logPalmSpringsOrderAudit("PICKER_CONTEXT", {
       current_period_type: currentPeriodType ?? null,
       initialized,
@@ -264,7 +314,6 @@ export default function OrderReconciliationPicker({
 
   useEffect(() => {
     if (!orders || isLoading || !isPalmSpringsDiagnostics) return;
-
     void logPalmSpringsOrderAudit("QUERY_LOAD", {
       current_period_type: currentPeriodType ?? null,
       initialized,
@@ -274,29 +323,27 @@ export default function OrderReconciliationPicker({
     });
   }, [orders, isLoading, currentPeriodType]);
 
-  // Initialize selected IDs — ONLY reflect what is actually bound in the DB.
-  //  1. Orders explicitly bound to THIS count
-  //  2. Orders inherited from a child weekly (when viewing monthly)
-  // Do NOT auto-pre-check unbound orders just because they fall in the date
-  // window. Auto-slotting is a *display suggestion* elsewhere; inside Manage
-  // Orders the user's manual selection is the source of truth. Pre-checking
-  // loose orders caused silent re-binding on Apply and cross-period drift.
+  // Initialize selected IDs strictly from DB state:
+  //  - assignment at this count for current period_type → selected
+  //  - inherited from child weekly (monthly/yearly view) → selected unless an exclusion exists
   if (orders && !initialized) {
-    const bound = new Set(
-      orders
-        .filter((o) => o.boundToCountId === countId || o.isInheritedFromChild)
-        .map((o) => o.id)
-    );
-    setSelectedIds(bound);
+    const initial = new Set<string>();
+    for (const o of orders) {
+      if (o.assignedCountId === countId) initial.add(o.id);
+      else if (o.isInheritedFromChild && !o.isExcludedHere) initial.add(o.id);
+    }
+    setSelectedIds(initial);
     setInitialized(true);
   }
+
+  const isLockedToOther = (o: VendorOrder) =>
+    !!o.assignedCountId && o.assignedCountId !== countId && !o.isInheritedFromChild;
 
   const toggle = (id: string) => {
     if (!editable) return;
     const order = orders?.find((o) => o.id === id);
-    // Only lock if bound to another count of the SAME period type
-    if (order?.boundToCountId && order.boundToCountId !== countId && !order.isInheritedFromChild
-      && order.boundPeriodType === currentPeriodType) return;
+    if (!order) return;
+    if (isLockedToOther(order)) return;
 
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -308,41 +355,73 @@ export default function OrderReconciliationPicker({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!orders) return;
+      if (!orders || !currentPeriodType) return;
 
-      const pfgBind: string[] = [];
-      const pfgUnbind: string[] = [];
-      const paBind: string[] = [];
-      const paUnbind: string[] = [];
-      const invBind: string[] = [];
-      const invUnbind: string[] = [];
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id ?? null;
+
+      // Build the operation plan against the new tables
+      const assignmentsToUpsert: Array<{
+        source_type: SourceType;
+        source_row_id: string;
+        count_id: string;
+        location_id: string;
+        period_type: string;
+        assignment_mode: string;
+        created_by: string | null;
+      }> = [];
+      const assignmentDeleteKeys: Array<{ source_type: SourceType; source_row_id: string }> = [];
+      const exclusionsToInsert: Array<{
+        source_type: SourceType;
+        source_row_id: string;
+        count_id: string;
+        location_id: string;
+        period_type: string;
+        created_by: string | null;
+      }> = [];
+      const exclusionDeleteKeys: Array<{ source_type: SourceType; source_row_id: string }> = [];
 
       for (const o of orders) {
-        // Skip orders locked to a different count of the SAME period type
-        if (o.boundToCountId && o.boundToCountId !== countId && !o.isInheritedFromChild
-          && o.boundPeriodType === currentPeriodType) continue;
+        if (isLockedToOther(o)) continue;
 
-        const realId = o.id.replace(/^(pfg_|pa_|inv_)/, "");
         const isSelected = selectedIds.has(o.id);
-        const wasBound = o.boundToCountId === countId;
-        const wasInherited = o.isInheritedFromChild && !!o.boundToCountId;
+        const wasAssignedHere = o.assignedCountId === countId && !o.isInheritedFromChild;
+        const wasInherited = !!o.isInheritedFromChild;
 
-        // Allow unbinding orders bound directly to this count, OR orders inherited
-        // from a child weekly when the user explicitly deselects them in the monthly
-        // picker (so they can exclude e.g. Feb-delivered orders from March COGS).
-        // Unbinding an inherited order clears it from BOTH the child weekly and the
-        // monthly aggregation — that's the user-intended behavior here.
-        const canUnbind = (wasBound && !wasInherited) || wasInherited;
-
-        if (o.vendor === "PFG") {
-          if (isSelected && !wasBound && !wasInherited) pfgBind.push(realId);
-          if (!isSelected && canUnbind) pfgUnbind.push(realId);
-        } else if (o.vendor === "PA") {
-          if (isSelected && !wasBound && !wasInherited) paBind.push(realId);
-          if (!isSelected && canUnbind) paUnbind.push(realId);
-        } else if (o.vendor === "INV") {
-          if (isSelected && !wasBound && !wasInherited) invBind.push(realId);
-          if (!isSelected && canUnbind) invUnbind.push(realId);
+        if (isSelected) {
+          // Ensure assignment to THIS count at current period_type
+          if (!wasAssignedHere && !wasInherited) {
+            assignmentsToUpsert.push({
+              source_type: o.sourceType,
+              source_row_id: o.realId,
+              count_id: countId,
+              location_id: locationId,
+              period_type: currentPeriodType,
+              assignment_mode: "manual",
+              created_by: userId,
+            });
+          }
+          // If a prior exclusion was removing this from THIS count, clear it
+          if (o.isExcludedHere) {
+            exclusionDeleteKeys.push({ source_type: o.sourceType, source_row_id: o.realId });
+          }
+        } else {
+          // Deselected
+          if (wasAssignedHere) {
+            // Remove assignment for this period_type (frees the order to be assigned elsewhere of same type)
+            assignmentDeleteKeys.push({ source_type: o.sourceType, source_row_id: o.realId });
+          }
+          if (wasInherited && !o.isExcludedHere) {
+            // Add an exclusion so the inherited child assignment doesn't keep pulling it into this aggregate count
+            exclusionsToInsert.push({
+              source_type: o.sourceType,
+              source_row_id: o.realId,
+              count_id: countId,
+              location_id: locationId,
+              period_type: currentPeriodType,
+              created_by: userId,
+            });
+          }
         }
       }
 
@@ -350,15 +429,11 @@ export default function OrderReconciliationPicker({
         await logPalmSpringsOrderAudit("BEFORE_APPLY", {
           current_period_type: currentPeriodType ?? null,
           selected_ids: Array.from(selectedIds),
-          bind_plan: {
-            pfg: pfgBind,
-            pa: paBind,
-            invoice: invBind,
-          },
-          unbind_plan: {
-            pfg: pfgUnbind,
-            pa: paUnbind,
-            invoice: invUnbind,
+          plan: {
+            assignments_upsert: assignmentsToUpsert,
+            assignments_delete: assignmentDeleteKeys,
+            exclusions_insert: exclusionsToInsert,
+            exclusions_delete: exclusionDeleteKeys,
           },
           orders: serializeOrdersForAudit(orders),
         });
@@ -366,34 +441,64 @@ export default function OrderReconciliationPicker({
 
       const promises: any[] = [];
 
-      if (pfgBind.length > 0) {
+      if (assignmentsToUpsert.length > 0) {
         promises.push(
-          supabase.from("pfg_orders").update({ bound_to_count_id: countId } as any).in("id", pfgBind).select()
+          supabase
+            .from("inventory_order_assignments" as any)
+            .upsert(assignmentsToUpsert as any, { onConflict: "source_type,source_row_id,period_type" })
+            .select()
         );
       }
-      if (pfgUnbind.length > 0) {
+
+      // Delete assignments by composite key, grouped per source_type
+      const groupedAssignmentDeletes = new Map<SourceType, string[]>();
+      for (const k of assignmentDeleteKeys) {
+        const arr = groupedAssignmentDeletes.get(k.source_type) || [];
+        arr.push(k.source_row_id);
+        groupedAssignmentDeletes.set(k.source_type, arr);
+      }
+      for (const [sourceType, rowIds] of groupedAssignmentDeletes) {
         promises.push(
-          supabase.from("pfg_orders").update({ bound_to_count_id: null } as any).in("id", pfgUnbind).select()
+          supabase
+            .from("inventory_order_assignments" as any)
+            .delete()
+            .eq("location_id", locationId)
+            .eq("period_type", currentPeriodType)
+            .eq("source_type", sourceType)
+            .eq("count_id", countId)
+            .in("source_row_id", rowIds)
+            .select()
         );
       }
-      if (paBind.length > 0) {
+
+      if (exclusionsToInsert.length > 0) {
         promises.push(
-          supabase.from("pa_orders").update({ bound_to_count_id: countId } as any).in("id", paBind).select()
+          supabase
+            .from("inventory_order_exclusions" as any)
+            .upsert(exclusionsToInsert as any, {
+              onConflict: "source_type,source_row_id,count_id,period_type",
+            })
+            .select()
         );
       }
-      if (paUnbind.length > 0) {
-        promises.push(
-          supabase.from("pa_orders").update({ bound_to_count_id: null } as any).in("id", paUnbind).select()
-        );
+
+      const groupedExclusionDeletes = new Map<SourceType, string[]>();
+      for (const k of exclusionDeleteKeys) {
+        const arr = groupedExclusionDeletes.get(k.source_type) || [];
+        arr.push(k.source_row_id);
+        groupedExclusionDeletes.set(k.source_type, arr);
       }
-      if (invBind.length > 0) {
+      for (const [sourceType, rowIds] of groupedExclusionDeletes) {
         promises.push(
-          supabase.from("vendor_invoices").update({ inventory_count_id: countId } as any).in("id", invBind).select()
-        );
-      }
-      if (invUnbind.length > 0) {
-        promises.push(
-          supabase.from("vendor_invoices").update({ inventory_count_id: null } as any).in("id", invUnbind).select()
+          supabase
+            .from("inventory_order_exclusions" as any)
+            .delete()
+            .eq("location_id", locationId)
+            .eq("period_type", currentPeriodType)
+            .eq("count_id", countId)
+            .eq("source_type", sourceType)
+            .in("source_row_id", rowIds)
+            .select()
         );
       }
 
@@ -406,21 +511,16 @@ export default function OrderReconciliationPicker({
           write_results: results.map((result: any) => ({
             error: result?.error?.message ?? null,
             row_count: Array.isArray(result?.data) ? result.data.length : 0,
-            rows: Array.isArray(result?.data)
-              ? result.data.map((row: any) => ({
-                  id: row.id,
-                  bound_to_count_id: row.bound_to_count_id ?? null,
-                  inventory_count_id: row.inventory_count_id ?? null,
-                }))
-              : [],
           })),
         });
       }
     },
     onSuccess: () => {
       toast.success("Orders applied to period");
-      queryClient.invalidateQueries({ queryKey: ["order-reconciliation-v1", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["order-reconciliation-v2", locationId] });
       queryClient.invalidateQueries({ queryKey: ["period-cogs"] });
+      // Reset so the next open re-reads from DB
+      setInitialized(false);
       onSaved?.();
     },
     onError: (e) => {
@@ -435,7 +535,7 @@ export default function OrderReconciliationPicker({
   );
 
   const selectableOrderCount = useMemo(
-    () => (orders || []).filter((o) => !o.boundPeriodLabel || o.isInheritedFromChild).length,
+    () => (orders || []).filter((o) => !isLockedToOther(o)).length,
     [orders]
   );
 
@@ -444,7 +544,7 @@ export default function OrderReconciliationPicker({
     if (!orders) return [];
     const groups = new Map<string, VendorOrder[]>();
     for (const o of orders) {
-      const dateKey = o.deliveryDate ? o.deliveryDate.slice(0, 10) : o.orderDate.slice(0, 10);
+      const dateKey = o.deliveryDate ? o.deliveryDate.slice(0, 10) : (o.orderDate || "").slice(0, 10);
       if (!groups.has(dateKey)) groups.set(dateKey, []);
       groups.get(dateKey)!.push(o);
     }
@@ -452,7 +552,9 @@ export default function OrderReconciliationPicker({
       let label = dateStr;
       try {
         label = format(new Date(dateStr + "T12:00:00"), "EEEE, MMM d");
-      } catch { /* fallback to raw string */ }
+      } catch {
+        /* fallback */
+      }
       return { dateStr, label, items };
     });
   }, [orders]);
@@ -493,7 +595,6 @@ export default function OrderReconciliationPicker({
       <div className={cn("space-y-0", compact ? "max-h-60 overflow-y-auto" : "max-h-96 overflow-y-auto")}>
         {groupedOrders.map((group) => (
           <div key={group.dateStr}>
-            {/* Date group header */}
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 px-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Delivered {group.label}
@@ -502,43 +603,41 @@ export default function OrderReconciliationPicker({
 
             <div className="divide-y divide-border/40">
               {group.items.map((order) => {
-                const isBoundElsewhere = !!order.boundPeriodLabel;
-                // Only lock if bound to another count of the SAME period type
-                // Cross-type bindings (e.g., monthly→weekly) are labeled but reassignable
-                const isLockedElsewhere = isBoundElsewhere && !order.isInheritedFromChild
-                  && order.boundPeriodType === currentPeriodType;
+                const lockedElsewhere = isLockedToOther(order);
                 const isSelected = selectedIds.has(order.id);
-                const inPeriod = periodStartDate && periodEndDate
-                  ? order.deliveryDate >= periodStartDate && order.deliveryDate <= periodEndDate
-                  : true;
+                const inPeriod =
+                  periodStartDate && periodEndDate
+                    ? order.deliveryDate >= periodStartDate && order.deliveryDate <= periodEndDate
+                    : true;
+                const showOtherBadge = !!order.assignedPeriodLabel && order.assignedCountId !== countId;
 
                 return (
                   <button
                     key={order.id}
                     onClick={() => toggle(order.id)}
-                    disabled={isLockedElsewhere || !editable}
+                    disabled={lockedElsewhere || !editable}
                     className={cn(
                       "w-full flex items-center justify-between py-3 px-2 rounded-lg transition-all",
-                      isLockedElsewhere
+                      lockedElsewhere
                         ? "opacity-40 cursor-not-allowed"
                         : isSelected
                         ? "bg-primary/5"
                         : "hover:bg-muted/40",
-                      !inPeriod && !isSelected && !isBoundElsewhere && "opacity-60"
+                      !inPeriod && !isSelected && !showOtherBadge && "opacity-60"
                     )}
                   >
                     <div className="flex items-center gap-3">
                       <div
                         className={cn(
                           "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all",
-                          isLockedElsewhere
+                          lockedElsewhere
                             ? "border-muted-foreground/30 bg-muted/40"
                             : isSelected
                             ? "border-primary bg-primary"
                             : "border-border"
                         )}
                       >
-                        {isLockedElsewhere ? (
+                        {lockedElsewhere ? (
                           <Lock className="h-3 w-3 text-muted-foreground" />
                         ) : isSelected ? (
                           <Check className="h-3.5 w-3.5 text-primary-foreground" />
@@ -572,9 +671,9 @@ export default function OrderReconciliationPicker({
                     </div>
 
                     <div className="text-right flex items-center gap-2">
-                      {isBoundElsewhere && (
+                      {showOtherBadge && (
                         <Badge variant="outline" className="text-[10px] px-1.5">
-                          {order.boundPeriodLabel}
+                          {order.assignedPeriodLabel}
                         </Badge>
                       )}
                       <p className="text-sm font-semibold">
