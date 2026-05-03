@@ -280,7 +280,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           .from("inventory_order_assignments" as any)
           .select("source_type, source_row_id, count_id")
           .eq("location_id", locationId)
-          .eq("period_type", periodType)
+          .eq("period_type", periodType),
         isAggregating && childWeeklyCountIds.length > 0
           ? supabase
               .from("inventory_order_assignments" as any)
