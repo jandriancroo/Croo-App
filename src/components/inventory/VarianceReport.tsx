@@ -33,11 +33,31 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showUnmatchedDetail, setShowUnmatchedDetail] = useState(false);
 
-  // Find previous completed count
-  const { data: previousCount } = useQuery({
-    queryKey: ["previous-completed-count", locationId, countId],
+  // Get the current count's period_type so we can match previous counts of the same type.
+  // Without this, a Monthly count would pick up the most recent Weekly count as its
+  // "previous" — collapsing the sales window to just the last few days of the month.
+  const { data: currentCount } = useQuery({
+    queryKey: ["current-count-period-type", countId],
     queryFn: async () => {
       const { data, error } = await supabase
+        .from("inventory_counts")
+        .select("period_type")
+        .eq("id", countId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Find previous completed count of the SAME period_type.
+  // Monthly → previous Monthly (full month sales window)
+  // Weekly  → previous Weekly  (full week sales window)
+  // Falls back to any completed count when period_type is unknown.
+  const { data: previousCount } = useQuery({
+    queryKey: ["previous-completed-count", locationId, countId, currentCount?.period_type],
+    enabled: !!currentCount,
+    queryFn: async () => {
+      let query = supabase
         .from("inventory_counts")
         .select("id, period_end_date")
         .eq("location_id", locationId)
@@ -45,8 +65,13 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
         .neq("id", countId)
         .lt("period_end_date", periodEndDate)
         .order("period_end_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+
+      if (currentCount?.period_type) {
+        query = query.eq("period_type", currentCount.period_type);
+      }
+
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data;
     },
