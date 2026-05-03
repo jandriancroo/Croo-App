@@ -210,20 +210,17 @@ export default function OrderReconciliationPicker({
     enabled: !!locationId && !!countId,
   });
 
-  // Initialize selected IDs from orders bound to this count
+  // Initialize selected IDs strictly from orders explicitly bound to this count
+  // (or inherited from a child weekly when viewing monthly). We do NOT auto-pre-select
+  // unbound orders by date window — that caused cross-period drift where opening a
+  // sibling period's picker would silently re-claim orders from another period.
+  // The user's manual binding is the source of truth.
   if (orders && !initialized) {
     const bound = new Set(
       orders
         .filter((o) => o.boundToCountId === countId || o.isInheritedFromChild)
         .map((o) => o.id)
     );
-    if (bound.size === 0 && periodStartDate && periodEndDate) {
-      for (const o of orders) {
-        if (!o.boundToCountId && o.deliveryDate >= periodStartDate && o.deliveryDate <= periodEndDate) {
-          bound.add(o.id);
-        }
-      }
-    }
     setSelectedIds(bound);
     setInitialized(true);
   }
@@ -264,15 +261,22 @@ export default function OrderReconciliationPicker({
         const wasBound = o.boundToCountId === countId;
         const wasInherited = o.isInheritedFromChild && !!o.boundToCountId;
 
+        // CRITICAL: Never unbind an order that belongs to a CHILD count (e.g. weekly
+        // owned-by within a monthly view). Deselecting an inherited child order in
+        // the monthly picker must NOT silently wipe the weekly's binding — that
+        // caused orders to drift between periods. Only allow unbind when the order
+        // is bound directly to THIS count.
+        const canUnbind = wasBound && !wasInherited;
+
         if (o.vendor === "PFG") {
           if (isSelected && !wasBound && !wasInherited) pfgBind.push(realId);
-          if (!isSelected && (wasBound || wasInherited)) pfgUnbind.push(realId);
+          if (!isSelected && canUnbind) pfgUnbind.push(realId);
         } else if (o.vendor === "PA") {
           if (isSelected && !wasBound && !wasInherited) paBind.push(realId);
-          if (!isSelected && (wasBound || wasInherited)) paUnbind.push(realId);
+          if (!isSelected && canUnbind) paUnbind.push(realId);
         } else if (o.vendor === "INV") {
           if (isSelected && !wasBound && !wasInherited) invBind.push(realId);
-          if (!isSelected && (wasBound || wasInherited)) invUnbind.push(realId);
+          if (!isSelected && canUnbind) invUnbind.push(realId);
         }
       }
 
