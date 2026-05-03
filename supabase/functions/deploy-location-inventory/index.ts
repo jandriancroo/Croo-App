@@ -255,8 +255,9 @@ Deno.serve(async (req) => {
         if (existing) {
           templateToItemId.set(tmpl.id, existing.id);
           // Re-activate and sync name/category/pack to brand standard.
-          // NOTE: vendor SKUs (item_number, pa_item_id) are NOT touched here —
-          // local syncs own those fields.
+          // SKU INHERITANCE: only fill NULLs from the brand vendor mapping —
+          // never overwrite a non-null local SKU. This closes the leak where a
+          // location row had item_number/pa_item_id NULL and got skipped by syncs.
           const reactivatePackOverride = tmpl.pack_override_outer_qty
             ? tmpl.pack_override_outer_qty * (tmpl.pack_override_inner_qty || 1)
             : null;
@@ -266,6 +267,12 @@ Deno.serve(async (req) => {
             ? { storage_location_id: brandItemToShelf.get(tmpl.id) }
             : {};
 
+          const inheritedPfg = pfgByTemplate.get(tmpl.id);
+          const inheritedPa = paByTemplate.get(tmpl.id);
+          const skuFill: Record<string, any> = {};
+          if (!existing.item_number && inheritedPfg) skuFill.item_number = inheritedPfg;
+          if (!existing.pa_item_id && inheritedPa) skuFill.pa_item_id = inheritedPa;
+
           await supabase
             .from("inventory_items")
             .update({
@@ -273,6 +280,7 @@ Deno.serve(async (req) => {
               name: tmpl.product_name,
               category: tmpl.category,
               ...shelfRestore,
+              ...skuFill,
               ...(reactivatePackOverride != null ? { pack_quantity_override: reactivatePackOverride } : {}),
               ...(tmpl.count_unit ? { count_unit: tmpl.count_unit } : {}),
               ...(tmpl.count_units_per_case != null ? { count_units_per_case: tmpl.count_units_per_case } : {}),
