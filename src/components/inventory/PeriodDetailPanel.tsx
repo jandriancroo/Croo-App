@@ -275,13 +275,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         childWeeklyCountIds = (childCounts || []).map((c) => c.id);
       }
 
-      const [thisCountAssignments, childWeeklyAssignmentsRaw, exclusionsResult] = await Promise.all([
+      const [sameTypeAssignmentsRaw, childWeeklyAssignmentsRaw, exclusionsResult] = await Promise.all([
         supabase
           .from("inventory_order_assignments" as any)
-          .select("source_type, source_row_id")
+          .select("source_type, source_row_id, count_id")
           .eq("location_id", locationId)
-          .eq("period_type", periodType)
-          .eq("count_id", effectiveCountId),
+          .eq("period_type", periodType),
         isAggregating && childWeeklyCountIds.length > 0
           ? supabase
               .from("inventory_order_assignments" as any)
@@ -301,18 +300,32 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       const exclusionSet = new Set<string>(
         ((exclusionsResult.data as any[]) || []).map((e) => `${e.source_type}_${e.source_row_id}`)
       );
+      const sameTypeAssignmentMap = new Map<string, string>();
+      for (const assignment of (sameTypeAssignmentsRaw.data as any[]) || []) {
+        sameTypeAssignmentMap.set(
+          `${assignment.source_type}_${assignment.source_row_id}`,
+          assignment.count_id,
+        );
+      }
+
       const targetIds: Record<"pfg" | "pa" | "invoice", Set<string>> = {
         pfg: new Set(),
         pa: new Set(),
         invoice: new Set(),
       };
-      for (const a of (thisCountAssignments.data as any[]) || []) {
-        const k = `${a.source_type}_${a.source_row_id}`;
-        if (!exclusionSet.has(k)) targetIds[a.source_type as "pfg" | "pa" | "invoice"]?.add(a.source_row_id);
+      for (const a of (sameTypeAssignmentsRaw.data as any[]) || []) {
+        if (a.count_id !== effectiveCountId) continue;
+        targetIds[a.source_type as "pfg" | "pa" | "invoice"]?.add(a.source_row_id);
       }
+
       for (const a of (childWeeklyAssignmentsRaw.data as any[]) || []) {
         const k = `${a.source_type}_${a.source_row_id}`;
-        if (!exclusionSet.has(k)) targetIds[a.source_type as "pfg" | "pa" | "invoice"]?.add(a.source_row_id);
+        const sameTypeAssignedCountId = sameTypeAssignmentMap.get(k);
+        const isLockedToOtherSameType = !!sameTypeAssignedCountId && sameTypeAssignedCountId !== effectiveCountId;
+
+        if (!exclusionSet.has(k) && !isLockedToOtherSameType) {
+          targetIds[a.source_type as "pfg" | "pa" | "invoice"]?.add(a.source_row_id);
+        }
       }
 
       const fetchByIds = async (table: "pfg_orders" | "pa_orders" | "vendor_invoices", ids: string[], cols: string) => {
