@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -44,9 +44,51 @@ export default function OrderReconciliationPicker({
   onSaved,
   compact = false,
 }: OrderReconciliationPickerProps) {
+  const PALM_SPRINGS_LOCATION_ID = "d667741f-6d4c-433e-bb22-307e817ea7f1";
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [initialized, setInitialized] = useState(false);
+  const isPalmSpringsDiagnostics = locationId === PALM_SPRINGS_LOCATION_ID;
+
+  const serializeOrdersForAudit = (sourceOrders: VendorOrder[]) =>
+    sourceOrders.map((order) => ({
+      id: order.id,
+      vendor: order.vendor,
+      vendorName: order.vendorName ?? null,
+      orderId: order.orderId,
+      orderDate: order.orderDate,
+      deliveryDate: order.deliveryDate,
+      totalAmount: order.totalAmount,
+      boundToCountId: order.boundToCountId,
+      boundPeriodLabel: order.boundPeriodLabel ?? null,
+      boundPeriodType: order.boundPeriodType ?? null,
+      isInheritedFromChild: !!order.isInheritedFromChild,
+    }));
+
+  const logPalmSpringsOrderAudit = async (
+    operation: string,
+    details: Record<string, unknown>
+  ) => {
+    if (!isPalmSpringsDiagnostics) return;
+
+    const { error } = await supabase.from("inventory_count_audit_log" as any).insert({
+      operation,
+      table_name: "inventory_order_reconciliation",
+      record_id: countId,
+      count_id: countId,
+      details: {
+        location_id: locationId,
+        count_id: countId,
+        period_start_date: periodStartDate ?? null,
+        period_end_date: periodEndDate ?? null,
+        ...details,
+      },
+    } as any);
+
+    if (error) {
+      console.warn("[OrderAudit] Failed to log Palm Springs diagnostics:", error.message);
+    }
+  };
 
   const { data: countMeta } = useQuery({
     queryKey: ["count-period-type", countId],
@@ -210,6 +252,28 @@ export default function OrderReconciliationPicker({
     enabled: !!locationId && !!countId,
   });
 
+  useEffect(() => {
+    if (!isPalmSpringsDiagnostics) return;
+
+    void logPalmSpringsOrderAudit("PICKER_CONTEXT", {
+      current_period_type: currentPeriodType ?? null,
+      initialized,
+      selected_ids: Array.from(selectedIds),
+    });
+  }, [countId, periodStartDate, periodEndDate]);
+
+  useEffect(() => {
+    if (!orders || isLoading || !isPalmSpringsDiagnostics) return;
+
+    void logPalmSpringsOrderAudit("QUERY_LOAD", {
+      current_period_type: currentPeriodType ?? null,
+      initialized,
+      selected_ids: Array.from(selectedIds),
+      order_count: orders.length,
+      orders: serializeOrdersForAudit(orders),
+    });
+  }, [orders, isLoading, currentPeriodType]);
+
   // Initialize selected IDs — ONLY reflect what is actually bound in the DB.
   //  1. Orders explicitly bound to THIS count
   //  2. Orders inherited from a child weekly (when viewing monthly)
@@ -282,6 +346,24 @@ export default function OrderReconciliationPicker({
         }
       }
 
+      if (isPalmSpringsDiagnostics) {
+        await logPalmSpringsOrderAudit("BEFORE_APPLY", {
+          current_period_type: currentPeriodType ?? null,
+          selected_ids: Array.from(selectedIds),
+          bind_plan: {
+            pfg: pfgBind,
+            pa: paBind,
+            invoice: invBind,
+          },
+          unbind_plan: {
+            pfg: pfgUnbind,
+            pa: paUnbind,
+            invoice: invUnbind,
+          },
+          orders: serializeOrdersForAudit(orders),
+        });
+      }
+
       const promises: any[] = [];
 
       if (pfgBind.length > 0) {
@@ -315,7 +397,25 @@ export default function OrderReconciliationPicker({
         );
       }
 
-      await Promise.all(promises);
+      const results = await Promise.all(promises);
+
+      if (isPalmSpringsDiagnostics) {
+        await logPalmSpringsOrderAudit("AFTER_APPLY", {
+          current_period_type: currentPeriodType ?? null,
+          selected_ids: Array.from(selectedIds),
+          write_results: results.map((result: any) => ({
+            error: result?.error?.message ?? null,
+            row_count: Array.isArray(result?.data) ? result.data.length : 0,
+            rows: Array.isArray(result?.data)
+              ? result.data.map((row: any) => ({
+                  id: row.id,
+                  bound_to_count_id: row.bound_to_count_id ?? null,
+                  inventory_count_id: row.inventory_count_id ?? null,
+                }))
+              : [],
+          })),
+        });
+      }
     },
     onSuccess: () => {
       toast.success("Orders applied to period");
