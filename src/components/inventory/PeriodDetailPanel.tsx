@@ -437,48 +437,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         endValue += getCountItemLineValue(ci);
       }
 
-      // Purchases: Manage Orders is the single source of truth.
-      // Weekly: only orders with bound_to_count_id = this count's ID
-      // Monthly: this count's ID + orders bound to child weekly counts in the period
-      const isAggregatingPeriod = count.period_type === "monthly" || count.period_type === "yearly";
-      const allCountIds = [count.id];
-      if (isAggregatingPeriod) {
-        const { data: childCounts } = await supabase
-          .from("inventory_counts")
-          .select("id")
-          .eq("location_id", locationId)
-          .eq("period_type", "weekly")
-          .gte("period_end_date", periodRange.startStr)
-          .lte("period_end_date", periodRange.endStr);
-        for (const c of childCounts || []) allCountIds.push(c.id);
-      }
-
-      // Fetch ONLY orders bound to these count IDs — no date-range fallback
-      const [pfgResult, paResult, vendorResult] = await Promise.all([
-        supabase
-          .from("pfg_orders")
-          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-          .eq("location_id", locationId)
-          .in("bound_to_count_id", allCountIds)
-          .order("delivery_date", { ascending: true }),
-        supabase
-          .from("pa_orders")
-          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
-          .eq("location_id", locationId)
-          .in("bound_to_count_id", allCountIds)
-          .order("delivery_date", { ascending: true }),
-        supabase
-          .from("vendor_invoices")
-          .select("id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status, inventory_count_id")
-          .eq("location_id", locationId)
-          .eq("status", "parsed")
-          .in("inventory_count_id", allCountIds)
-          .order("delivery_date", { ascending: true }),
+      // Purchases: pull strictly from the new assignments table (decoupled by period_type)
+      // — reuse `targetIds` and `fetchByIds` computed at the top of this queryFn.
+      const [pfg, pa, vendorInv] = await Promise.all([
+        fetchByIds("pfg_orders", [...targetIds.pfg], "id, pfg_order_id, order_number, order_date, delivery_date, total_amount"),
+        fetchByIds("pa_orders", [...targetIds.pa], "id, pa_order_id, order_number, order_date, delivery_date, total_amount"),
+        fetchByIds("vendor_invoices", [...targetIds.invoice], "id, vendor_name, invoice_number, invoice_date, delivery_date, total_amount, status"),
       ]);
-
-      const pfg = pfgResult.data || [];
-      const pa = paResult.data || [];
-      const vendorInv = vendorResult.data || [];
 
       
       const purchasesTotal = [...pfg, ...pa, ...vendorInv].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
