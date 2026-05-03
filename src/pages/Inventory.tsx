@@ -115,7 +115,7 @@ const Inventory = () => {
         `)
         .eq("location_id", locationId)
         .order("count_date", { ascending: false })
-        .limit(10);
+        .limit(500);
       
       if (error) throw error;
       if (!data || data.length === 0) return [];
