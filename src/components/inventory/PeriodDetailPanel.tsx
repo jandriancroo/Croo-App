@@ -281,7 +281,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           .select("source_type, source_row_id")
           .eq("location_id", locationId)
           .eq("period_type", periodType)
-          .eq("count_id", realCountId),
+          .eq("count_id", effectiveCountId),
         isAggregating && childWeeklyCountIds.length > 0
           ? supabase
               .from("inventory_order_assignments" as any)
@@ -295,7 +295,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           .select("source_type, source_row_id")
           .eq("location_id", locationId)
           .eq("period_type", periodType)
-          .eq("count_id", realCountId),
+          .eq("count_id", effectiveCountId),
       ]);
 
       const exclusionSet = new Set<string>(
