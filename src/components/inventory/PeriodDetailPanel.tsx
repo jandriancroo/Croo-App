@@ -250,9 +250,10 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
   // Fetch COGS data — now uses bound orders instead of date-range
   const { data: cogsData, isLoading: cogsLoading } = useQuery({
-    queryKey: ["period-cogs", locationId, count.id, periodRange?.startStr, periodRange?.endStr, conversionMap.size],
+    queryKey: ["period-cogs", locationId, count.id, realCountId, periodRange?.startStr, periodRange?.endStr, conversionMap.size],
     queryFn: async () => {
       if (!periodRange) return null;
+      const effectiveCountId = realCountId || count.id;
 
       // Resolve assigned + inherited orders for THIS count via the new
       // inventory_order_assignments / inventory_order_exclusions tables. This is
