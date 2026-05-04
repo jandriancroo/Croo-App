@@ -302,7 +302,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           result.push({
             item_id: item.id,
             item_name: item.name,
-            unit: isRecipe ? ((item as any).recipe_yield_unit || item.unit) : item.unit,
+            // Recipes: count by produced unit (each ball/qt/etc), NOT by yield_unit (oz of dough).
+            // cost_per_unit on a recipe is per-produced-unit, so counting must match that grain.
+            unit: item.unit || 'ea',
             storage_location: isRecipe 
               ? (locId ? (locNameMap.get(locId) || "Recipes") : "Recipes")
               : (locId ? (locNameMap.get(locId) || "Uncategorized") : "Uncategorized"),
@@ -518,10 +520,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }) => {
     const key = (item as any)._splitKey || item.item_id;
 
-    // Recipe items: trickle-down batch cost still applies (no case/unit pack math)
+    // Recipe items: cost_per_unit is the per-produced-unit cost (e.g. $0.16/dough ball).
+    // Count is in "each", so total cost = count × per-unit cost — NO pack_quantity multiplier.
     const batchCost = recipeCosts?.get(item.item_id);
     if (batchCost !== undefined && batchCost > 0) {
-      const totalUnits = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
+      const totalUnits = getTotalQuantity(key, 1, item.pan_sizes);
       return totalUnits * batchCost;
     }
 
@@ -1730,7 +1733,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
                 <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
                 <p className="text-[9px] text-accent-foreground/70 text-center">
-                  {getTotalQuantity(splitKey, item.pack_quantity, item.pan_sizes)} units
+                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : item.pack_quantity, item.pan_sizes)} {item.is_recipe ? (item.unit || 'ea') : 'units'}
                 </p>
               </div>
 
@@ -1758,9 +1761,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                         {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (
                           <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            {item.cost_per_unit 
-                              ? `${formatCurrency(item.cost_per_unit)}/cs`
-                              : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
+                            {item.is_recipe
+                              ? `${formatCurrency(recipeCosts?.get(item.item_id) || item.cost_per_unit || 0)}/ea`
+                              : item.cost_per_unit
+                                ? `${formatCurrency(item.cost_per_unit)}/cs`
+                                : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
                             }
                           </span>
                         )}
