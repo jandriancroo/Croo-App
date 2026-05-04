@@ -100,54 +100,50 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
 
         {/* Smart dock content (e.g., inventory counting) */}
         {dockContent && (
-          <div className="w-full px-2 pb-1">
-            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-stretch gap-2.5">
-              <div className="min-w-0 rounded-2xl border border-white/15 bg-black/10 px-3 py-2.5 backdrop-blur-sm">
-                <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3">
-                  <div className="min-w-[54px] text-left">
-                    <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Items</p>
-                    <p className="mt-1 text-[26px] font-semibold leading-none tracking-tight text-white tabular-nums">
-                      {dockContent.countedItems}
-                      <span className="ml-1 text-sm font-medium text-white/55">/{dockContent.totalItems}</span>
-                    </p>
-                  </div>
-
-                  <div className="h-10 w-px bg-white/15" />
-
-                  <div className="grid min-w-0 grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
-                    <div>
-                      <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Time</p>
-                      <p className="mt-1 text-lg font-semibold leading-none text-white font-mono tabular-nums">
-                        {Math.floor(dockContent.elapsedSeconds / 60)} min
-                      </p>
-                    </div>
-
-                    <div className="min-w-0 text-right">
-                      <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Value</p>
-                      <div className="mt-1 flex items-center justify-end gap-2">
-                        {dockContent.lastSavedAt && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/70">
-                            <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-                            Saved
-                          </span>
-                        )}
-                        <p className="truncate text-[26px] font-semibold leading-none tracking-tight text-white tabular-nums">
-                          {formatCurrency(dockContent.totalValue)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+          <div className="w-full px-2 pb-1 space-y-2">
+            {/* Stats row */}
+            <div className="rounded-2xl border border-white/15 bg-black/10 px-4 py-2.5 backdrop-blur-sm">
+              <div className="grid grid-cols-3 items-center gap-2 divide-x divide-white/15">
+                <div className="text-center">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Items</p>
+                  <p className="mt-1 text-xl font-semibold leading-none tracking-tight text-white tabular-nums">
+                    {dockContent.countedItems}
+                    <span className="ml-1 text-xs font-medium text-white/55">/{dockContent.totalItems}</span>
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Time</p>
+                  <p className="mt-1 text-xl font-semibold leading-none text-white font-mono tabular-nums">
+                    {Math.floor(dockContent.elapsedSeconds / 60)}<span className="ml-1 text-xs font-medium text-white/55">min</span>
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Value</p>
+                  <p className="mt-1 truncate text-xl font-semibold leading-none tracking-tight text-white tabular-nums">
+                    {formatCurrency(dockContent.totalValue)}
+                  </p>
                 </div>
               </div>
+              {dockContent.lastSavedAt && (
+                <div className="mt-2 flex justify-center">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/70">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                    Saved
+                  </span>
+                </div>
+              )}
+            </div>
 
+            {/* Action row */}
+            <div className="flex items-stretch gap-2">
               {dockContent.onSave && (
                 <button
                   onClick={dockContent.onSave}
-                  className="min-h-14 min-w-[104px] flex-shrink-0 rounded-2xl border border-white/25 bg-white/20 px-4 text-white transition-colors hover:bg-white/30"
+                  className="flex-1 min-h-12 rounded-2xl border border-white/25 bg-white/20 px-4 text-white transition-colors hover:bg-white/30"
                 >
                   <span className="flex items-center justify-center gap-2">
                     <ArrowLeft className="h-4 w-4 shrink-0" />
-                    <span className="text-sm font-semibold leading-none">Save & Exit</span>
+                    <span className="text-sm font-semibold leading-none tracking-wide">SAVE</span>
                   </span>
                 </button>
               )}
@@ -155,7 +151,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
               {dockContent.isVoiceSupported && !dockContent.isEditing && dockContent.onToggleVoice && (
                 <button
                   onClick={dockContent.onToggleVoice}
-                  className={`relative min-h-14 w-14 flex-shrink-0 rounded-2xl border transition-colors ${
+                  className={`relative min-h-12 w-12 flex-shrink-0 rounded-2xl border transition-colors ${
                     dockContent.isListening
                       ? 'border-destructive bg-destructive text-destructive-foreground'
                       : 'border-white/25 bg-white/20 text-white hover:bg-white/30'
@@ -164,9 +160,9 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                 >
                   <span className="flex items-center justify-center">
                     {dockContent.isListening ? (
-                      <MicOff className="h-6 w-6" />
+                      <MicOff className="h-5 w-5" />
                     ) : (
-                      <Mic className="h-6 w-6" />
+                      <Mic className="h-5 w-5" />
                     )}
                   </span>
                   {dockContent.isListening && (
