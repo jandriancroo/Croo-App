@@ -1761,9 +1761,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                         {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (
                           <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            {item.cost_per_unit 
-                              ? `${formatCurrency(item.cost_per_unit)}/cs`
-                              : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
+                            {item.is_recipe
+                              ? `${formatCurrency(recipeCosts?.get(item.item_id) || item.cost_per_unit || 0)}/ea`
+                              : item.cost_per_unit
+                                ? `${formatCurrency(item.cost_per_unit)}/cs`
+                                : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
                             }
                           </span>
                         )}
