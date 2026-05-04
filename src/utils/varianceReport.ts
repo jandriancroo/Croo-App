@@ -379,11 +379,11 @@ export async function calculateVarianceReport(
           if (cpc && cpc > 0) {
             cost = (ing.quantity / cpc) * caseCost;
           } else {
-            const upc = vendor.count_units_per_case || vendor.pack_quantity || 1;
+            const upc = vendor.count_units_per_case || vendor.pack_quantity_override || vendor.pack_quantity || 1;
             cost = (caseCost / upc) * ing.quantity;
           }
         } else {
-          const upc = vendor.count_units_per_case || vendor.pack_quantity || 1;
+          const upc = vendor.count_units_per_case || vendor.pack_quantity_override || vendor.pack_quantity || 1;
           const cpnu = caseCost / upc;
           if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
             const inNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
