@@ -100,74 +100,80 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
 
         {/* Smart dock content (e.g., inventory counting) */}
         {dockContent && (
-          <div className="flex flex-col w-full gap-1.5 px-2">
-            <div className="flex items-center justify-between w-full gap-2">
-              {/* Stats */}
-              <div className="flex-1 flex items-center gap-3">
-                {/* Items counted */}
-                <div className="text-center">
-                  <p className="text-[10px] text-white/60 uppercase tracking-wide">Items</p>
-                  <p className="text-base font-bold leading-tight text-white">
-                    {dockContent.countedItems}<span className="text-white/60 font-normal">/{dockContent.totalItems}</span>
-                  </p>
-                </div>
-                
-                <div className="h-8 w-px bg-white/20" />
-                
-                {/* Timer */}
-                <div className="text-center">
-                  <p className="text-[10px] text-white/60 uppercase tracking-wide">Time</p>
-                  <p className="text-base font-bold text-white leading-tight font-mono">
-                    {Math.floor(dockContent.elapsedSeconds / 60)} min
-                  </p>
-                </div>
-                
-                <div className="h-8 w-px bg-white/20" />
-                
-                {/* Total value - prominent, no label */}
-                <div className="text-center flex-1">
-                  <p className="text-xl font-bold text-white leading-tight flex items-center justify-center gap-0.5">
-                    <DollarSign className="h-5 w-5" />
-                    {formatCurrency(dockContent.totalValue).replace('$', '')}
-                    {dockContent.lastSavedAt && (
-                      <span className="ml-1.5 h-2.5 w-2.5 rounded-full bg-green-400 animate-pulse inline-block flex-shrink-0" />
-                    )}
-                  </p>
+          <div className="w-full px-2 pb-1">
+            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-stretch gap-2.5">
+              <div className="min-w-0 rounded-2xl border border-white/15 bg-black/10 px-3 py-2.5 backdrop-blur-sm">
+                <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3">
+                  <div className="min-w-[54px] text-left">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Items</p>
+                    <p className="mt-1 text-[26px] font-semibold leading-none tracking-tight text-white tabular-nums">
+                      {dockContent.countedItems}
+                      <span className="ml-1 text-sm font-medium text-white/55">/{dockContent.totalItems}</span>
+                    </p>
+                  </div>
+
+                  <div className="h-10 w-px bg-white/15" />
+
+                  <div className="grid min-w-0 grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Time</p>
+                      <p className="mt-1 text-lg font-semibold leading-none text-white font-mono tabular-nums">
+                        {Math.floor(dockContent.elapsedSeconds / 60)} min
+                      </p>
+                    </div>
+
+                    <div className="min-w-0 text-right">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Value</p>
+                      <div className="mt-1 flex items-center justify-end gap-2">
+                        {dockContent.lastSavedAt && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/70">
+                            <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                            Saved
+                          </span>
+                        )}
+                        <p className="truncate text-[26px] font-semibold leading-none tracking-tight text-white tabular-nums">
+                          {formatCurrency(dockContent.totalValue)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Save & Exit button */}
               {dockContent.onSave && (
                 <button
                   onClick={dockContent.onSave}
-                  className="h-12 px-4 flex-shrink-0 flex items-center justify-center rounded-xl transition-colors border bg-white/20 text-white border-white/30 hover:bg-white/30 gap-1.5"
+                  className="min-h-14 min-w-[104px] flex-shrink-0 rounded-2xl border border-white/25 bg-white/20 px-4 text-white transition-colors hover:bg-white/30"
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="text-xs font-semibold">Save</span>
+                  <span className="flex items-center justify-center gap-2">
+                    <ArrowLeft className="h-4 w-4 shrink-0" />
+                    <span className="text-sm font-semibold leading-none">Save & Exit</span>
+                  </span>
                 </button>
               )}
 
-              {/* Voice button (only for non-edit mode) */}
               {dockContent.isVoiceSupported && !dockContent.isEditing && dockContent.onToggleVoice && (
                 <button
                   onClick={dockContent.onToggleVoice}
-                  className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl transition-colors relative border ${
-                    dockContent.isListening 
-                      ? 'bg-destructive text-destructive-foreground border-destructive' 
-                      : 'bg-white/20 text-white border-white/30 hover:bg-white/30'
+                  className={`relative min-h-14 w-14 flex-shrink-0 rounded-2xl border transition-colors ${
+                    dockContent.isListening
+                      ? 'border-destructive bg-destructive text-destructive-foreground'
+                      : 'border-white/25 bg-white/20 text-white hover:bg-white/30'
                   }`}
+                  aria-label={dockContent.isListening ? 'Stop voice counting' : 'Start voice counting'}
                 >
-                  {dockContent.isListening ? (
-                    <MicOff className="h-6 w-6" />
-                  ) : (
-                    <Mic className="h-6 w-6" />
-                  )}
+                  <span className="flex items-center justify-center">
+                    {dockContent.isListening ? (
+                      <MicOff className="h-6 w-6" />
+                    ) : (
+                      <Mic className="h-6 w-6" />
+                    )}
+                  </span>
                   {dockContent.isListening && (
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
+                    <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-destructive animate-ping" />
                   )}
                 </button>
               )}
-
             </div>
           </div>
         )}
