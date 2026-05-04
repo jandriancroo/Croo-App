@@ -302,7 +302,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           result.push({
             item_id: item.id,
             item_name: item.name,
-            unit: isRecipe ? ((item as any).recipe_yield_unit || item.unit) : item.unit,
+            // Recipes: count by produced unit (each ball/qt/etc), NOT by yield_unit (oz of dough).
+            // cost_per_unit on a recipe is per-produced-unit, so counting must match that grain.
+            unit: item.unit || 'ea',
             storage_location: isRecipe 
               ? (locId ? (locNameMap.get(locId) || "Recipes") : "Recipes")
               : (locId ? (locNameMap.get(locId) || "Uncategorized") : "Uncategorized"),
