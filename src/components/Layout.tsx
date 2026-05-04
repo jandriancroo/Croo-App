@@ -100,7 +100,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
 
         {/* Smart dock content (e.g., inventory counting) */}
         {dockContent && (
-          <div className="w-full px-2 pb-1 space-y-2">
+          <div data-inventory-smart-dock="true" className="w-full px-2 pb-1 space-y-2">
             {/* Stats row */}
             <div className="rounded-2xl border border-white/15 bg-black/10 px-4 py-2.5 backdrop-blur-sm">
               <div className="grid grid-cols-3 items-center gap-2 divide-x divide-white/15">
@@ -297,6 +297,8 @@ export const Layout = ({
 
       // Allow clicks inside the count session itself
       if (target.closest("[data-inventory-count-session]")) return;
+      // Allow the smart inventory dock controls (mobile SAVE / mic)
+      if (target.closest("[data-inventory-smart-dock='true']")) return;
       // Allow clicks inside any toast / dialog / sheet popover (so dialogs and toasts work)
       if (target.closest("[data-sonner-toast], [role='dialog'], [role='alertdialog']")) return;
       // Allow logout (data-allow-during-count="logout")
