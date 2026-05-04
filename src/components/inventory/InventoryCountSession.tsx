@@ -520,10 +520,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }) => {
     const key = (item as any)._splitKey || item.item_id;
 
-    // Recipe items: trickle-down batch cost still applies (no case/unit pack math)
+    // Recipe items: cost_per_unit is the per-produced-unit cost (e.g. $0.16/dough ball).
+    // Count is in "each", so total cost = count × per-unit cost — NO pack_quantity multiplier.
     const batchCost = recipeCosts?.get(item.item_id);
     if (batchCost !== undefined && batchCost > 0) {
-      const totalUnits = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
+      const totalUnits = getTotalQuantity(key, 1, item.pan_sizes);
       return totalUnits * batchCost;
     }
 
