@@ -96,3 +96,6 @@ verify_jwt = false
 
 [functions.opus-service]
 verify_jwt = false
+
+[functions.kds-stream]
+verify_jwt = false
