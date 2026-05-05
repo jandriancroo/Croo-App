@@ -298,10 +298,7 @@ serve(async (req) => {
 
       for (const loc of locations) {
         try {
-          const [avgTimesData, countsData] = await Promise.all([
-            fetchMetric(token, brandId, 'average-times/', loc.fresh_kds_location_id, fromDate, today),
-            fetchMetric(token, brandId, 'counts/', loc.fresh_kds_location_id, fromDate, today),
-          ]);
+          const avgTimesData = await fetchMetric(token, brandId, 'average-times/', loc.fresh_kds_location_id, fromDate, today);
 
           const avgTimeResults = avgTimesData.results || [];
           const dailyAvgTimes: Record<string, { sum: number; count: number }> = {};
@@ -314,7 +311,7 @@ serve(async (req) => {
             }
           }
 
-          const dailyCounts = aggregateCountsByDate(countsData.results || { fast: [], medium: [], slow: [] });
+          const dailyCounts = await fetchDailyCounts(token, brandId, loc.fresh_kds_location_id, dateKeysBetween(fromDate, today));
           const allDates = new Set([...Object.keys(dailyAvgTimes), ...Object.keys(dailyCounts)]);
 
           const rows = Array.from(allDates).map(dateKey => {
