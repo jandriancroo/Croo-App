@@ -206,6 +206,7 @@ export function EditDashboardDialog({
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishInitialized, setPublishInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
 
   const { data: publishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
