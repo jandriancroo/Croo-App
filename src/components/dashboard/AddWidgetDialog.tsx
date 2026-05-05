@@ -85,6 +85,79 @@ export function AddWidgetDialog({
     trackerRankMetrics: ['units', 'sales', 'pmix'],
   });
 
+  const { user } = useAuth();
+  const { isAdmin } = useUserRole();
+  const canPublish = isAdmin; // admin, org_admin, brand_admin, super_admin
+  const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
+  const [publishLocationsInitialized, setPublishLocationsInitialized] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const { data: publishableLocations = [] } = useQuery({
+    queryKey: ['publishable-locations', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [] as Array<{ id: string; name: string; organization_id: string | null }>;
+      const { data, error } = await supabase.rpc('get_publishable_locations', { _user_id: user.id });
+      if (error) {
+        console.error('[AddWidgetDialog] get_publishable_locations error', error);
+        return [];
+      }
+      return (data || []) as Array<{ id: string; name: string; organization_id: string | null }>;
+    },
+    enabled: !!user?.id && canPublish && open,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!publishLocationsInitialized && publishableLocations.length > 0) {
+      setPublishLocationIds(publishableLocations.map((l) => l.id));
+      setPublishLocationsInitialized(true);
+    }
+  }, [publishableLocations, publishLocationsInitialized]);
+
+  const togglePublishLocation = (id: string) => {
+    setPublishLocationIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handlePublishToLocations = async () => {
+    if (!config.title?.trim()) {
+      toast.error('Add a promo name first');
+      return;
+    }
+    if (publishLocationIds.length === 0) {
+      toast.error('Select at least one location');
+      return;
+    }
+    setIsPublishing(true);
+    try {
+      const { data, error } = await supabase.rpc('publish_tracker_to_locations', {
+        _config: {
+          title: config.title,
+          widget_size: 'large',
+          metrics: [],
+          accent_color: config.accentColor,
+          tracker_scope: config.trackerScope,
+          tracker_display_mode: config.trackerDisplayMode,
+          tracker_item_refs: config.trackerItemRefs || [],
+          tracker_promo_start: config.trackerPromoStart,
+          tracker_promo_end: config.trackerPromoEnd,
+          tracker_promo_image_url: config.trackerPromoImageUrl,
+          tracker_location_refs: config.trackerLocationRefs || [],
+          tracker_rank_metrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        },
+        _location_ids: publishLocationIds,
+      });
+      if (error) throw error;
+      const totalUsers = (data || []).reduce((sum: number, r: any) => sum + (r.users_published || 0), 0);
+      const totalSkipped = (data || []).reduce((sum: number, r: any) => sum + (r.users_skipped || 0), 0);
+      toast.success(`Published to ${totalUsers} user${totalUsers === 1 ? '' : 's'}${totalSkipped ? ` (${totalSkipped} skipped — already had it)` : ''}`);
+      handleClose(false);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to publish tracker');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const resetDialog = () => {
     setStep('type');
     setSelectedType('data');
