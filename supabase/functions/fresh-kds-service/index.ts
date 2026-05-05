@@ -90,6 +90,47 @@ function aggregateCountsByDate(countsData: { fast: any[], medium: any[], slow: a
   return daily;
 }
 
+// Fresh KDS counts endpoint only returns real bucket values when groupBy is 1h.
+// Multi-day windows force 1d aggregation which returns zeros (vendor quirk).
+// Fetch each day individually to keep hourly granularity.
+async function fetchDailyCounts(
+  token: string,
+  brandId: string,
+  kdsLocationId: string,
+  dateKeys: string[],
+): Promise<Record<string, { fast: number, medium: number, slow: number }>> {
+  const out: Record<string, { fast: number, medium: number, slow: number }> = {};
+  await Promise.all(dateKeys.map(async (d) => {
+    const next = new Date(`${d}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const nextKey = next.toISOString().split('T')[0];
+    try {
+      const j = await fetchMetric(token, brandId, 'counts/', kdsLocationId, d, nextKey);
+      const sums = { fast: 0, medium: 0, slow: 0 };
+      for (const k of ['fast', 'medium', 'slow'] as const) {
+        for (const e of (j.results?.[k] || [])) sums[k] += e.value || 0;
+      }
+      out[d] = sums;
+    } catch (e) {
+      console.error(`fetchDailyCounts ${d} failed:`, e);
+      out[d] = { fast: 0, medium: 0, slow: 0 };
+    }
+  }));
+  return out;
+}
+
+// Build inclusive list of YYYY-MM-DD keys between two dates (exclusive of the upper bound).
+function dateKeysBetween(fromKey: string, toKeyExclusive: string): string[] {
+  const keys: string[] = [];
+  const d = new Date(`${fromKey}T00:00:00Z`);
+  const end = new Date(`${toKeyExclusive}T00:00:00Z`);
+  while (d < end) {
+    keys.push(d.toISOString().split('T')[0]);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return keys;
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -158,7 +199,9 @@ serve(async (req) => {
 
       const timezone = 'America/Los_Angeles';
       const now = new Date();
-      const today = getDateStringForTimezone(now, timezone);
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const today = getDateStringForTimezone(tomorrow, timezone); // dateTo upper bound (exclusive of next-day 8am UTC)
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const fromDate = getDateStringForTimezone(sevenDaysAgo, timezone);
@@ -166,11 +209,8 @@ serve(async (req) => {
       const token = await getFreshToken();
       const kdsLocId = location.fresh_kds_location_id;
 
-      // Fetch both endpoints in parallel
-      const [avgTimesData, countsData] = await Promise.all([
-        fetchMetric(token, brandId, 'average-times/', kdsLocId, fromDate, today),
-        fetchMetric(token, brandId, 'counts/', kdsLocId, fromDate, today),
-      ]);
+      // Fetch avg-times across the full window (it returns hourly fine), then per-day counts (vendor quirk)
+      const avgTimesData = await fetchMetric(token, brandId, 'average-times/', kdsLocId, fromDate, today);
 
       // Process average times (hourly → daily avg)
       const avgTimeResults: { time: string; value: number }[] = avgTimesData.results || [];
@@ -184,8 +224,8 @@ serve(async (req) => {
         }
       }
 
-      // Process counts (hourly → daily totals)
-      const dailyCounts = aggregateCountsByDate(countsData.results || { fast: [], medium: [], slow: [] });
+      // Per-day counts to preserve hourly bucket granularity
+      const dailyCounts = await fetchDailyCounts(token, brandId, kdsLocId, dateKeysBetween(fromDate, today));
 
       // Merge into upsert rows
       const allDates = new Set([...Object.keys(dailyAvgTimes), ...Object.keys(dailyCounts)]);
@@ -246,7 +286,9 @@ serve(async (req) => {
 
       const timezone = 'America/Los_Angeles';
       const now = new Date();
-      const today = getDateStringForTimezone(now, timezone);
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const today = getDateStringForTimezone(tomorrow, timezone); // dateTo upper bound (exclusive of next-day 8am UTC)
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const fromDate = getDateStringForTimezone(sevenDaysAgo, timezone);
@@ -256,10 +298,7 @@ serve(async (req) => {
 
       for (const loc of locations) {
         try {
-          const [avgTimesData, countsData] = await Promise.all([
-            fetchMetric(token, brandId, 'average-times/', loc.fresh_kds_location_id, fromDate, today),
-            fetchMetric(token, brandId, 'counts/', loc.fresh_kds_location_id, fromDate, today),
-          ]);
+          const avgTimesData = await fetchMetric(token, brandId, 'average-times/', loc.fresh_kds_location_id, fromDate, today);
 
           const avgTimeResults = avgTimesData.results || [];
           const dailyAvgTimes: Record<string, { sum: number; count: number }> = {};
@@ -272,7 +311,7 @@ serve(async (req) => {
             }
           }
 
-          const dailyCounts = aggregateCountsByDate(countsData.results || { fast: [], medium: [], slow: [] });
+          const dailyCounts = await fetchDailyCounts(token, brandId, loc.fresh_kds_location_id, dateKeysBetween(fromDate, today));
           const allDates = new Set([...Object.keys(dailyAvgTimes), ...Object.keys(dailyCounts)]);
 
           const rows = Array.from(allDates).map(dateKey => {
