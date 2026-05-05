@@ -334,65 +334,39 @@ export const WidgetsSection = memo(function WidgetsSection({
     setLocalCubes(effectiveCubes);
   }, [effectiveCubes]);
 
-  // Auto-create Sales Chart widget for users who don't have one yet
-  // This ensures all team members see Sales Overview by default
-  // Skip for role-based cubes (those are configured by Org Admin)
+  // Auto-create Sales Chart widget for users who don't have one yet via the unified RPC.
+  // Skip for role-based cubes (those are configured by Org Admin via location/org scope).
   useEffect(() => {
     const autoCreateSalesChart = async () => {
       if (!user?.id || !currentLocation?.id || isLoading || useRoleCubes) return;
-      
-      // Only auto-create if user has no cubes at all (first visit) or explicitly no sales chart
-      // and the location has QuBeyond integration (hasQuBeyondIntegration prop)
+
       const userHasSalesChart = cubes.some(c => c.cubeType === 'sales-chart');
       if (userHasSalesChart) return;
-      
-      // Check localStorage to see if we've already tried to auto-create for this user+location
+
       const autoCreateKey = `dashboard-auto-sales-chart-${user.id}-${currentLocation.id}`;
       if (localStorage.getItem(autoCreateKey)) return;
-      
-      // Mark that we've attempted auto-creation (prevent repeated attempts)
       localStorage.setItem(autoCreateKey, 'true');
-      
+
       try {
-        // Get max display_order
-        const { data: maxOrderRow } = await supabase
-          .from('user_dashboard_cubes')
-          .select('display_order')
-          .eq('user_id', user.id)
-          .eq('location_id', currentLocation.id)
-          .order('display_order', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        const nextOrder = (maxOrderRow?.display_order ?? -1) + 1;
-
-        const { error } = await supabase
-          .from('user_dashboard_cubes')
-          .insert({
-            user_id: user.id,
-            location_id: currentLocation.id,
-            title: 'Sales Overview',
-            cube_type: 'sales-chart',
-            widget_size: 'large',
-            metrics: [],
-            accent_color: '#0D9488',
-            display_order: nextOrder,
-          });
-
-        if (error) {
-          console.error('Error auto-creating sales chart:', error);
-          return;
-        }
-
-        console.log('[WidgetsSection] Auto-created Sales Overview for user');
-        queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+        const nextOrder = cubes.reduce((m, c) => Math.max(m, c.displayOrder), -1) + 1;
+        await createDashboardWidget({
+          widget_type: 'sales-chart',
+          config: { metrics: [] },
+          authority_scope: 'self',
+          location_id: currentLocation.id,
+          title: 'Sales Overview',
+          accent_color: '#0D9488',
+          widget_size: 'large',
+          display_order: nextOrder,
+        });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
       } catch (error) {
         console.error('Error auto-creating sales chart:', error);
       }
     };
 
     autoCreateSalesChart();
-  }, [user?.id, currentLocation?.id, cubes, isLoading, queryClient]);
+  }, [user?.id, currentLocation?.id, cubes, isLoading, queryClient, useRoleCubes]);
   
   // Debug logging removed for performance - was causing excess re-render tracking
 
