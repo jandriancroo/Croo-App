@@ -13,7 +13,7 @@ import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
-import { useShouldUseRoleCubes } from '@/hooks/useRoleDashboardCubes';
+// useShouldUseRoleCubes removed — unified dashboard_widgets handles role visibility via RLS
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
