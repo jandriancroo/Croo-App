@@ -531,7 +531,7 @@ export function AddWidgetDialog({
                       </button>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Adds this tracker to every team member's dashboard at the selected locations. Users who already have it are skipped.
+                      Publishes one tracker per selected location. Use "Visible to" above to limit which roles see it.
                     </p>
                     <div className="max-h-40 space-y-1 overflow-y-auto">
                       {publishableLocations.map((loc) => {
