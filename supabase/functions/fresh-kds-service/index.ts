@@ -209,11 +209,8 @@ serve(async (req) => {
       const token = await getFreshToken();
       const kdsLocId = location.fresh_kds_location_id;
 
-      // Fetch both endpoints in parallel
-      const [avgTimesData, countsData] = await Promise.all([
-        fetchMetric(token, brandId, 'average-times/', kdsLocId, fromDate, today),
-        fetchMetric(token, brandId, 'counts/', kdsLocId, fromDate, today),
-      ]);
+      // Fetch avg-times across the full window (it returns hourly fine), then per-day counts (vendor quirk)
+      const avgTimesData = await fetchMetric(token, brandId, 'average-times/', kdsLocId, fromDate, today);
 
       // Process average times (hourly → daily avg)
       const avgTimeResults: { time: string; value: number }[] = avgTimesData.results || [];
@@ -227,8 +224,8 @@ serve(async (req) => {
         }
       }
 
-      // Process counts (hourly → daily totals)
-      const dailyCounts = aggregateCountsByDate(countsData.results || { fast: [], medium: [], slow: [] });
+      // Per-day counts to preserve hourly bucket granularity
+      const dailyCounts = await fetchDailyCounts(token, brandId, kdsLocId, dateKeysBetween(fromDate, today));
 
       // Merge into upsert rows
       const allDates = new Set([...Object.keys(dailyAvgTimes), ...Object.keys(dailyCounts)]);
