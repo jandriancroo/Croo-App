@@ -448,6 +448,10 @@ export function EditDashboardDialog({
       const filteredMetrics = cube.metrics.filter(m => validMetrics.includes(m));
       setEditForm({ title: cube.title, metrics: filteredMetrics, accentColor: themeColor });
     }
+    // Seed visibility from current widget
+    setVisibilityScope((cube.authorityScope as Scope) || 'self');
+    setVisibilityAudience((cube.audienceRoles ?? null) as AudienceRole[] | null);
+    setVisibilityChanged(false);
     setView('edit');
   };
 
@@ -493,24 +497,65 @@ export function EditDashboardDialog({
     return faceMetrics.some((face, idx) => idx !== activeFace && idx < numFaces && face.includes(metric));
   };
 
-  const handleSave = async () => {
+  const buildVisibilityUpdates = async (): Promise<Partial<CubeConfig>> => {
+    if (!editingCube || !visibilityChanged) return {};
+    const updates: Partial<CubeConfig> = {};
+    const oldScope = (editingCube.authorityScope as Scope) || 'self';
+    if (visibilityScope !== oldScope) {
+      updates.authorityScope = visibilityScope;
+      // Resolve scope FK based on current location
+      if (visibilityScope === 'self' || visibilityScope === 'app') {
+        updates.locationId = null;
+        updates.organizationId = null;
+        updates.brandId = null;
+      } else if (visibilityScope === 'location') {
+        updates.locationId = currentLocation?.id ?? null;
+      } else if (visibilityScope === 'org') {
+        updates.organizationId = (currentLocation as any)?.organization_id ?? null;
+      } else if (visibilityScope === 'brand') {
+        updates.brandId = currentLocation?.id ? await resolveBrandId(currentLocation.id) : null;
+      }
+    }
+    // Audience can change independently of scope
+    updates.audienceRoles = visibilityAudience;
+    return updates;
+  };
+
+  const performSave = async () => {
     if (!editingCube) return;
     setIsSaving(true);
     try {
+      const visUpdates = await buildVisibilityUpdates();
       if (editingCube.cubeType === 'data-3d') {
         await onUpdateCube(editingCube.id, {
           ...editForm,
           faceMetrics: faceMetrics.slice(0, numFaces),
           faceTitles: faceTitles.slice(0, numFaces),
           numFaces,
+          ...visUpdates,
         });
       } else {
-        await onUpdateCube(editingCube.id, editForm);
+        await onUpdateCube(editingCube.id, { ...editForm, ...visUpdates });
       }
       handleBack();
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!editingCube) return;
+    // Confirm if user is downgrading scope (narrower visibility).
+    const oldScope = (editingCube.authorityScope as Scope) || 'self';
+    const isDowngrade =
+      visibilityChanged &&
+      visibilityScope !== oldScope &&
+      SCOPE_RANK[visibilityScope] < SCOPE_RANK[oldScope];
+    if (isDowngrade) {
+      setPendingDowngradeOpen(true);
+      return;
+    }
+    await performSave();
   };
 
   const handleDelete = async () => {
