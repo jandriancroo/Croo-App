@@ -16,6 +16,11 @@ import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeCo
 import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Send } from "lucide-react";
 
 export type TrackerScopeType = 'user' | 'role' | 'location';
 export type TrackerDisplayMode = 'summary' | 'expandable';
