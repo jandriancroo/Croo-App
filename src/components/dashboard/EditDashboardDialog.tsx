@@ -1159,6 +1159,29 @@ export function EditDashboardDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Visibility downgrade confirmation */}
+      <AlertDialog open={pendingDowngradeOpen} onOpenChange={setPendingDowngradeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Narrow this widget's visibility?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hide the widget from users at other locations. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setPendingDowngradeOpen(false);
+                await performSave();
+              }}
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
