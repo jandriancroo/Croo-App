@@ -279,6 +279,68 @@ serve(async (req) => {
           context.push(`Today's Catering: NONE SCHEDULED`);
         }
 
+        // Business Hours Yesterday
+        const fmtTime = (t: string | null | undefined) => {
+          if (!t) return null;
+          const [hStr, mStr] = String(t).split(":");
+          const h = parseInt(hStr, 10);
+          const m = parseInt(mStr, 10);
+          const period = h >= 12 ? "PM" : "AM";
+          const h12 = ((h + 11) % 12) + 1;
+          return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+        };
+        if (businessHours.data?.open_time && businessHours.data?.close_time) {
+          context.push(`Business Hours Yesterday: ${fmtTime(businessHours.data.open_time)} to ${fmtTime(businessHours.data.close_time)}`);
+        } else {
+          context.push(`Business Hours Yesterday: DATA UNAVAILABLE`);
+        }
+
+        // Temperature Alerts — flag temperature_valid=false or out-of-bounds (<33 or >41 cold; >180 if hot probe but conservative)
+        const tempIssues: string[] = [];
+        for (const r of (tempAlerts.data || []) as any[]) {
+          const temp = r.extracted_temperature;
+          const valid = r.temperature_valid;
+          const question = r.item?.question || "Unknown check";
+          if (valid === false) {
+            tempIssues.push(`${question}: ${temp}°F (FAILED)`);
+          } else if (temp != null && (Number(temp) < 33 || (Number(temp) > 41 && Number(temp) < 135))) {
+            tempIssues.push(`${question}: ${temp}°F (out of safe range)`);
+          }
+        }
+        context.push(`Temperature Alerts: ${tempIssues.length ? tempIssues.slice(0, 8).join(" | ") : "NONE"}`);
+
+        // Top Line Check Submitter
+        if (topSubmitterId && topSubmitterCount > 0) {
+          const name = profileMap[topSubmitterId] || "Unknown";
+          context.push(`Top Line Check Submitter (Last 7 Days): ${name} with ${topSubmitterCount} submissions`);
+        } else {
+          context.push(`Top Line Check Submitter (Last 7 Days): NONE`);
+        }
+
+        // Shift Variances — late stayers / early leavers (>45 min)
+        const variances: string[] = [];
+        for (const shift of (yesterdayShifts.data || []) as any[]) {
+          const userPunches = yPunches.filter((p) => p.user_id === shift.user_id && (!p.shift_id || p.shift_id === shift.id));
+          if (!userPunches.length) continue;
+          // Latest clock_out
+          const latest = userPunches.sort((a, b) => new Date(b.punch_time).getTime() - new Date(a.punch_time).getTime())[0];
+          const clockOut = new Date(latest.punch_time);
+          // Build scheduled end as PST timestamp
+          const [eh, em] = String(shift.end_time || "00:00").split(":").map(Number);
+          // Assume shift_date in PST; build the wall-clock date in PST then convert
+          // Simpler: compare using PST hours via Intl
+          const clockOutPST = new Date(clockOut.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+          const scheduledEnd = new Date(`${shift.shift_date}T${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}:00`);
+          const diffMin = (clockOutPST.getTime() - scheduledEnd.getTime()) / 60000;
+          const name = (profileMap[shift.user_id] || "Unknown").split(" ")[0];
+          if (diffMin > 45) {
+            variances.push(`${name} stayed ${Math.round(diffMin)} min past close`);
+          } else if (diffMin < -45) {
+            variances.push(`${name} left ${Math.round(-diffMin)} min early`);
+          }
+        }
+        context.push(`Shift Variances: ${variances.length ? variances.slice(0, 10).join(" | ") : "No significant variances"}`);
+
         // Generate the briefing via AI
         const aiResponse = await fetch(AI_URL, {
           method: "POST",
@@ -291,18 +353,22 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are Theo, the morning operations assistant for a restaurant location. Generate a concise, actionable morning briefing that a manager reads with their coffee. Use markdown formatting.
+                content: `You are Theo, the sharp, data-driven, yet empathetic morning operations director for a restaurant location. Generate a concise, highly readable morning briefing that a manager reads with their coffee.
 
-CRITICAL ANTI-HALLUCINATION RULE: Only reference data explicitly provided in the context below. If any item says "DATA UNAVAILABLE", say so naturally (e.g., "Yesterday's sales data isn't available yet" or "Labor grade not posted yet") — NEVER invent numbers, employee names, catering customers, or events. If catering says "NONE SCHEDULED", do not mention catering. Do not fabricate any specifics that are not in the provided context. It is far better to omit a section or say data is missing than to invent a single fact.
+Blend the operational realities of the restaurant with the data provided. Use markdown formatting extensively (bolding, lists, and clean Markdown Tables for structured data).
+
+CRITICAL CONTEXT RULE: You now know the location's Business Hours. When reviewing Labor Grades, be fair and contextual. If labor was high, but the team was working *after* the closing time, recognize that as essential closing duties, not "wasted slow-period labor." Do not penalize the team aggressively for staying to close the restaurant properly.
 
 Structure:
-1. **Good Morning** — One-line energy-setting summary of the day ahead
-2. **Yesterday's Recap** — Sales, labor grade, key wins/misses (2-3 bullet points max)
-3. **Today's Coverage** — Who's on, any gaps, shift timing highlights
-4. **Action Items** — 2-3 specific, actionable things to watch today based on labor intelligence suggestions and schedule
-5. **Heads Up** — Catering orders, pending requests, or anything else notable (skip section entirely if nothing)
 
-Keep it under 250 words. Be conversational but data-driven. Use specific numbers. If labor grade was C or below, lead with that urgency. If there are savings opportunities, call them out specifically. Don't use emoji in headers.`
+1. **The Headline**: A snappy 1-line summary of yesterday's performance and vibe.
+2. **Yesterday's Scorecard**: Create a nice Markdown table showing Sales, Guests, Labor %, and Labor Grade. Below the table, provide a brief, fair analysis of the labor grade (remember the business hours context!).
+3. **Operational Snapshot**: Create a Markdown table or bulleted list for:
+   - Temperature Alerts (Flag anything weird. If NONE, praise the clean food safety record).
+   - Team Shoutouts: Praise the Top Line Check Submitter by name. Note anyone who stayed late to help close, or left early.
+4. **Today's Playbook**: Keep the best of your old habits here. List 2-3 specific, actionable focuses for today based on the AI Suggestions, Today's Schedule (gaps/coverage), Catering Orders, and Pending Time-Off Requests.
+
+If any data says "DATA UNAVAILABLE", say so naturally. NEVER invent numbers, names, or catering orders. Keep it conversational, empathetic, and under 300 words.`
               },
               {
                 role: "user",
