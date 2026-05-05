@@ -374,52 +374,34 @@ export const WidgetsSection = memo(function WidgetsSection({
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    // Only reorder data cubes (not sales chart)
     const cubesOnly = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
     const oldIndex = cubesOnly.findIndex(item => item.id === active.id);
     const newIndex = cubesOnly.findIndex(item => item.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reorderedCubes = arrayMove(cubesOnly, oldIndex, newIndex);
-    // Rebuild localCubes preserving non-data-cube items in their positions
     const nonDataCubes = localCubes.filter(c => c.cubeType !== 'data' && c.cubeType !== 'data-3d');
     setLocalCubes([...reorderedCubes, ...nonDataCubes]);
 
     if (useRoleCubes) return;
-    
+
     try {
-      // Persist all cube orders
       const allCubes = [...reorderedCubes, ...nonDataCubes];
-      const updates = allCubes.map((cube, index) => ({ id: cube.id, display_order: index }));
+      // Two-phase via RPC to avoid any unique constraint conflicts
+      await Promise.all(allCubes.map((cube, i) =>
+        supabase.rpc('update_dashboard_widget', {
+          _widget_id: cube.id,
+          _display_order: -(1000000 + i),
+        })
+      ));
+      await Promise.all(allCubes.map((cube, i) =>
+        supabase.rpc('update_dashboard_widget', {
+          _widget_id: cube.id,
+          _display_order: i,
+        })
+      ));
 
-      const updateWithRetry = async (id: string, display_order: number) => {
-        let lastError: any = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const { error } = await supabase
-            .from('user_dashboard_cubes')
-            .update({ display_order })
-            .eq('id', id);
-          if (!error) return;
-          lastError = error;
-          if (error.code === '40P01' || error.code === '23505') {
-            await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
-            continue;
-          }
-          throw error;
-        }
-        throw lastError;
-      };
-
-      for (let i = 0; i < updates.length; i++) {
-        await updateWithRetry(updates[i].id, -(1000000 + i));
-      }
-      for (const u of updates) {
-        await updateWithRetry(u.id, u.display_order);
-      }
-
-      queryClient.invalidateQueries({
-        queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
-      });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
     } catch (error: any) {
       console.error('Error saving cube order:', error);
       toast.error(error?.message ? `Failed to save cube order: ${error.message}` : 'Failed to save cube order');
