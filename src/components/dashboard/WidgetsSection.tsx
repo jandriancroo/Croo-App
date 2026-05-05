@@ -413,43 +413,33 @@ export const WidgetsSection = memo(function WidgetsSection({
     if (!user?.id || !currentLocation?.id) return;
 
     try {
-      // Get the max display_order to avoid unique constraint violation
-      const { data: maxOrderRow } = await supabase
-        .from('user_dashboard_cubes')
-        .select('display_order')
-        .eq('user_id', user.id)
-        .eq('location_id', currentLocation.id)
-        .order('display_order', { ascending: false })
-        .limit(1)
-        .single();
-
-      const nextOrder = (maxOrderRow?.display_order ?? -1) + 1;
-
-      const { error } = await supabase
-        .from('user_dashboard_cubes')
-        .insert({
-          user_id: user.id,
-          location_id: currentLocation.id,
-          title: config.title || null,
-          cube_type: config.cubeType,
-          widget_size: config.size,
+      const nextOrder = localCubes.reduce((m, c) => Math.max(m, c.displayOrder), -1) + 1;
+      // Trackers added from a personal dashboard are still 'self'-scoped — admin
+      // publishing flows (location/org/brand/app + audience_roles) are handled
+      // inside the AddWidgetDialog itself.
+      await createDashboardWidget({
+        widget_type: config.cubeType,
+        config: buildWidgetConfigJson({
           metrics: config.metrics,
-          accent_color: config.accentColor,
-          display_order: nextOrder,
-          tracker_scope: config.trackerScope,
-          tracker_display_mode: config.trackerDisplayMode,
-          tracker_item_refs: config.trackerItemRefs || [],
-          tracker_promo_start: config.trackerPromoStart,
-          tracker_promo_end: config.trackerPromoEnd,
-          tracker_promo_image_url: config.trackerPromoImageUrl,
-          tracker_location_refs: config.trackerLocationRefs || [],
-          tracker_rank_metrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
-        });
-
-      if (error) throw error;
+          trackerScope: config.trackerScope,
+          trackerDisplayMode: config.trackerDisplayMode,
+          trackerItemRefs: config.trackerItemRefs || [],
+          trackerPromoStart: config.trackerPromoStart,
+          trackerPromoEnd: config.trackerPromoEnd,
+          trackerPromoImageUrl: config.trackerPromoImageUrl,
+          trackerLocationRefs: config.trackerLocationRefs || [],
+          trackerRankMetrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        }),
+        authority_scope: 'self',
+        location_id: currentLocation.id,
+        title: config.title || null,
+        accent_color: config.accentColor,
+        widget_size: config.size,
+        display_order: nextOrder,
+      });
 
       toast.success(config.cubeType === 'sales-chart' ? 'Sales Overview added' : config.cubeType === 'tracker' ? 'Tracker added' : 'Data cube added');
-      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
     } catch (error: any) {
       console.error('Error adding data cube:', error);
       toast.error(error?.message || 'Failed to add widget');
@@ -460,38 +450,25 @@ export const WidgetsSection = memo(function WidgetsSection({
     if (!user?.id || !currentLocation?.id) return;
 
     try {
-      // Get the max display_order to avoid unique constraint violation
-      const { data: maxOrderRow } = await supabase
-        .from('user_dashboard_cubes')
-        .select('display_order')
-        .eq('user_id', user.id)
-        .eq('location_id', currentLocation.id)
-        .order('display_order', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const nextOrder = (maxOrderRow?.display_order ?? -1) + 1;
-
-      const { error } = await supabase
-        .from('user_dashboard_cubes')
-        .insert({
-          user_id: user.id,
-          location_id: currentLocation.id,
-          title: null,
-          cube_type: 'data-3d',
-          widget_size: 'small',
+      const nextOrder = localCubes.reduce((m, c) => Math.max(m, c.displayOrder), -1) + 1;
+      await createDashboardWidget({
+        widget_type: 'data-3d',
+        config: buildWidgetConfigJson({
           metrics: [],
-          face_metrics: config.faceMetrics,
-          face_titles: config.faceTitles,
-          num_faces: config.numFaces,
-          accent_color: config.accentColor,
-          display_order: nextOrder,
-        });
-
-      if (error) throw error;
+          faceMetrics: config.faceMetrics,
+          faceTitles: config.faceTitles,
+          numFaces: config.numFaces,
+        }),
+        authority_scope: 'self',
+        location_id: currentLocation.id,
+        title: null,
+        accent_color: config.accentColor,
+        widget_size: 'small',
+        display_order: nextOrder,
+      });
 
       toast.success('3D Cube added');
-      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
     } catch (error: any) {
       console.error('Error adding 3D cube:', error);
       toast.error(error?.message || 'Failed to add 3D cube');
