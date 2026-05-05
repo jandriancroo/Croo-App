@@ -960,7 +960,7 @@ export function EditDashboardDialog({
                         </button>
                       </div>
                       <p className="text-[11px] text-muted-foreground">
-                        Updates this tracker for everyone who already has it at the selected locations. Users who don't have it yet will get a copy.
+                        Updates the location tracker (or creates one if missing). Use "Visible to" to limit which roles see it.
                       </p>
                       <div className="max-h-40 space-y-1 overflow-y-auto">
                         {publishableLocations.map((loc) => {
