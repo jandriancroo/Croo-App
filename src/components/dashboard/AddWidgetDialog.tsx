@@ -241,8 +241,15 @@ export function AddWidgetDialog({
     }
   };
 
-  const handleAddDataCube = () => {
+  const handleAddDataCube = async () => {
     if (config.cubeType !== 'tracker' && config.metrics.length === 0) return;
+
+    // For trackers: if admin has locations selected, publish to all of them (skip own-dashboard add — publish covers it)
+    if (config.cubeType === 'tracker' && canPublish && publishLocationIds.length > 0) {
+      await handlePublishToLocations();
+      return;
+    }
+
     onAdd(config);
     handleClose(false);
   };
