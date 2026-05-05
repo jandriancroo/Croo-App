@@ -1854,6 +1854,88 @@ export type Database = {
           },
         ]
       }
+      dashboard_widgets: {
+        Row: {
+          accent_color: string | null
+          audience_roles: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope: string
+          brand_id: string | null
+          config: Json
+          created_at: string
+          created_by: string
+          display_order: number
+          id: string
+          is_active: boolean
+          location_id: string | null
+          organization_id: string | null
+          reference_id: string | null
+          title: string | null
+          updated_at: string
+          widget_size: string
+          widget_type: string
+        }
+        Insert: {
+          accent_color?: string | null
+          audience_roles?: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope: string
+          brand_id?: string | null
+          config?: Json
+          created_at?: string
+          created_by: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          organization_id?: string | null
+          reference_id?: string | null
+          title?: string | null
+          updated_at?: string
+          widget_size?: string
+          widget_type: string
+        }
+        Update: {
+          accent_color?: string | null
+          audience_roles?: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope?: string
+          brand_id?: string | null
+          config?: Json
+          created_at?: string
+          created_by?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          location_id?: string | null
+          organization_id?: string | null
+          reference_id?: string | null
+          title?: string | null
+          updated_at?: string
+          widget_size?: string
+          widget_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_widgets_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dashboard_widgets_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dashboard_widgets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_queue: {
         Row: {
           created_at: string
@@ -9538,6 +9620,17 @@ export type Database = {
       }
     }
     Functions: {
+      _validate_widget_authority: {
+        Args: {
+          _brand_id: string
+          _created_by: string
+          _loc_id: string
+          _org_id: string
+          _scope: string
+          _uid: string
+        }
+        Returns: undefined
+      }
       assign_user_to_location: {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
@@ -9566,6 +9659,27 @@ export type Database = {
       convert_recipe_unit_to_count: {
         Args: { p_count_unit: string; p_recipe_unit: string }
         Returns: number
+      }
+      create_dashboard_widget: {
+        Args: {
+          _accent_color?: string
+          _audience_roles?: Database["public"]["Enums"]["app_role"][]
+          _authority_scope: string
+          _brand_id?: string
+          _config: Json
+          _display_order?: number
+          _location_id?: string
+          _organization_id?: string
+          _reference_id?: string
+          _title?: string
+          _widget_size?: string
+          _widget_type: string
+        }
+        Returns: string
+      }
+      delete_dashboard_widget: {
+        Args: { _widget_id: string }
+        Returns: undefined
       }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -9761,6 +9875,25 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       trigger_alarm_tasks_sql: { Args: never; Returns: undefined }
+      update_dashboard_widget: {
+        Args: {
+          _accent_color?: string
+          _audience_roles?: Database["public"]["Enums"]["app_role"][]
+          _authority_scope?: string
+          _brand_id?: string
+          _config?: Json
+          _display_order?: number
+          _is_active?: boolean
+          _location_id?: string
+          _organization_id?: string
+          _reference_id?: string
+          _title?: string
+          _widget_id: string
+          _widget_size?: string
+          _widget_type?: string
+        }
+        Returns: undefined
+      }
       update_tracker_across_locations: {
         Args: {
           _config: Json
