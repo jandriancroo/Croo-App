@@ -198,6 +198,75 @@ export function EditDashboardDialog({
   const [promoCropDialogOpen, setPromoCropDialogOpen] = useState(false);
   const [isPromoImageUploading, setIsPromoImageUploading] = useState(false);
   const { currentLocation } = useAppLocation();
+  const { user } = useAuth();
+  const { isAdmin } = useUserRole();
+  const canPublish = isAdmin;
+  const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
+  const [publishInitialized, setPublishInitialized] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const { data: publishableLocations = [] } = useQuery({
+    queryKey: ['publishable-locations', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [] as Array<{ id: string; name: string; organization_id: string | null }>;
+      const { data, error } = await supabase.rpc('get_publishable_locations', { _user_id: user.id });
+      if (error) { console.error('[EditDashboardDialog] get_publishable_locations error', error); return []; }
+      return (data || []) as Array<{ id: string; name: string; organization_id: string | null }>;
+    },
+    enabled: !!user?.id && canPublish && open,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Preselect all publishable locations when entering tracker edit
+  useEffect(() => {
+    if (view === 'edit' && editingCube?.cubeType === 'tracker' && !publishInitialized && publishableLocations.length > 0) {
+      setPublishLocationIds(publishableLocations.map(l => l.id));
+      setPublishInitialized(true);
+    }
+    if (view !== 'edit') {
+      setPublishInitialized(false);
+    }
+  }, [view, editingCube, publishableLocations, publishInitialized]);
+
+  const togglePublishLocation = (id: string) => {
+    setPublishLocationIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handlePublishUpdate = async () => {
+    if (!editingCube || editingCube.cubeType !== 'tracker') return;
+    if (!editForm.title?.trim()) { toast.error('Add a promo name first'); return; }
+    if (publishLocationIds.length === 0) { toast.error('Select at least one location'); return; }
+    setIsPublishing(true);
+    try {
+      const { data, error } = await supabase.rpc('update_tracker_across_locations', {
+        _original_title: editingCube.title || '',
+        _config: {
+          title: editForm.title,
+          widget_size: 'large',
+          metrics: [],
+          accent_color: editForm.accentColor,
+          tracker_scope: editForm.trackerScope,
+          tracker_display_mode: editForm.trackerDisplayMode,
+          tracker_item_refs: editForm.trackerItemRefs || [],
+          tracker_promo_start: editForm.trackerPromoStart,
+          tracker_promo_end: editForm.trackerPromoEnd,
+          tracker_promo_image_url: editForm.trackerPromoImageUrl,
+          tracker_location_refs: editForm.trackerLocationRefs || [],
+          tracker_rank_metrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        },
+        _location_ids: publishLocationIds,
+      });
+      if (error) throw error;
+      const updated = (data || []).reduce((s: number, r: any) => s + (r.users_updated || 0), 0);
+      const created = (data || []).reduce((s: number, r: any) => s + (r.users_created || 0), 0);
+      toast.success(`Updated ${updated} · added to ${created} new user${created === 1 ? '' : 's'}`);
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to publish update');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
   
   // Section order state
   const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(DEFAULT_SECTION_ORDER);
