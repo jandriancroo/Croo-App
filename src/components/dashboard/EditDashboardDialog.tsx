@@ -910,6 +910,50 @@ export function EditDashboardDialog({
                       <Button type="button" variant={editForm.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
                     </div>
                   </div>
+
+                  {canPublish && publishableLocations.length > 0 && (
+                    <div className="space-y-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-1.5">
+                          <Send className="h-3.5 w-3.5" />
+                          Publish update to locations
+                        </Label>
+                        <button
+                          type="button"
+                          className="text-[11px] text-muted-foreground hover:text-foreground"
+                          onClick={() => setPublishLocationIds(
+                            publishLocationIds.length === publishableLocations.length ? [] : publishableLocations.map(l => l.id)
+                          )}
+                        >
+                          {publishLocationIds.length === publishableLocations.length ? 'Clear all' : 'Select all'}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Updates this tracker for everyone who already has it at the selected locations. Users who don't have it yet will get a copy.
+                      </p>
+                      <div className="max-h-40 space-y-1 overflow-y-auto">
+                        {publishableLocations.map((loc) => {
+                          const checked = publishLocationIds.includes(loc.id);
+                          return (
+                            <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
+                              <Checkbox checked={checked} onCheckedChange={() => togglePublishLocation(loc.id)} />
+                              <span className="text-sm">{loc.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="w-full"
+                        onClick={handlePublishUpdate}
+                        disabled={isPublishing || publishLocationIds.length === 0 || !editForm.title?.trim()}
+                      >
+                        {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                        Push update to {publishLocationIds.length} location{publishLocationIds.length === 1 ? '' : 's'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 
