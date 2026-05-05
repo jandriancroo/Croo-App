@@ -292,67 +292,38 @@ export const WidgetsSection = memo(function WidgetsSection({
     })
   );
 
-  // Fetch user's data cubes (data, data-3d, and sales-chart types)
-  // Skip fetching if using role-based cubes (locked by Org Admin)
-  const { data: cubes = [], isLoading } = useQuery({
-    queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
-    queryFn: async () => {
-      if (!user?.id || !currentLocation?.id) return [];
+  // PHASE 1 (Unified Widgets): read from dashboard_widgets via RLS.
+  // Writes (add/reorder/auto-create) still go to legacy user_dashboard_cubes
+  // until phase 2 swaps them too. New widgets created during this phase
+  // will not appear here until they are migrated through the unified RPCs.
+  const { data: unifiedWidgets = [], isLoading } = useDashboardWidgets(currentLocation?.id);
 
-      const { data, error } = await supabase
-        .from('user_dashboard_cubes')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('location_id', currentLocation.id)
-        .in('cube_type', ['data', 'data-3d', 'sales-chart', 'tracker'])
-        .order('display_order');
+  const cubes: DataCubeConfig[] = useMemo(
+    () => unifiedWidgets.map(w => ({
+      id: w.id,
+      title: w.title,
+      size: w.size,
+      metrics: w.metrics,
+      accentColor: w.accentColor,
+      displayOrder: w.displayOrder,
+      cubeType: w.cubeType,
+      faceMetrics: w.faceMetrics,
+      faceTitles: w.faceTitles,
+      numFaces: w.numFaces,
+      trackerScope: w.trackerScope,
+      trackerDisplayMode: w.trackerDisplayMode,
+      trackerItemRefs: w.trackerItemRefs,
+      trackerPromoStart: w.trackerPromoStart,
+      trackerPromoEnd: w.trackerPromoEnd,
+      trackerPromoImageUrl: w.trackerPromoImageUrl,
+      trackerLocationRefs: w.trackerLocationRefs,
+      trackerRankMetrics: w.trackerRankMetrics,
+    })),
+    [unifiedWidgets]
+  );
 
-      if (error) {
-        console.error('Error fetching data cubes:', error);
-        return [];
-      }
-
-      return (data || []).map(cube => ({
-        id: cube.id,
-        title: cube.title || '',
-        size: (cube.widget_size as WidgetSize) || 'small',
-        metrics: (cube.metrics as MetricType[]) || [],
-        accentColor: cube.accent_color || '#8B5CF6',
-        displayOrder: cube.display_order,
-        cubeType: cube.cube_type as CubeType | 'data-3d',
-        faceMetrics: (cube.face_metrics as MetricType[][]) || [],
-        faceTitles: (cube.face_titles as string[]) || [],
-        numFaces: cube.num_faces || 1,
-        trackerScope: (cube.tracker_scope as { type: TrackerScopeType; role?: string }) || { type: 'location' },
-        trackerDisplayMode: (cube.tracker_display_mode as TrackerDisplayMode) || 'summary',
-        trackerItemRefs: (cube.tracker_item_refs as string[]) || [],
-        trackerPromoStart: cube.tracker_promo_start || null,
-        trackerPromoEnd: cube.tracker_promo_end || null,
-        trackerPromoImageUrl: cube.tracker_promo_image_url || null,
-        trackerLocationRefs: (cube.tracker_location_refs as string[]) || [],
-        trackerRankMetrics: (cube.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
-      })) as DataCubeConfig[];
-    },
-    enabled: !!user?.id && !!currentLocation?.id && !useRoleCubes,
-    staleTime: 30 * 1000, // 30s cache - prevent duplicate fetches on mount
-    placeholderData: (previousData) => previousData, // Show previous data instantly while refetching
-  });
-
-  // Determine which cubes to use: role-based (locked) or personal
-  const effectiveCubes: DataCubeConfig[] = useRoleCubes && roleCubes 
-    ? roleCubes.map(rc => ({
-        id: rc.id,
-        title: rc.title,
-        size: rc.size,
-        metrics: rc.metrics,
-        accentColor: rc.accentColor,
-        displayOrder: rc.displayOrder,
-        cubeType: rc.cubeType,
-        faceMetrics: rc.faceMetrics || [],
-        faceTitles: rc.faceTitles || [],
-        numFaces: rc.numFaces || 1,
-      }))
-    : cubes;
+  // useRoleCubes / roleCubes props are deprecated — unified table handles role visibility via RLS.
+  const effectiveCubes: DataCubeConfig[] = cubes;
 
   // Check if sales chart already exists
   const hasSalesChart = localCubes.some(c => c.cubeType === 'sales-chart');
