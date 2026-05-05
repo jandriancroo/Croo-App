@@ -34,6 +34,11 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { TrackerPosItemPicker } from "./TrackerPosItemPicker";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Send } from "lucide-react";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
 
