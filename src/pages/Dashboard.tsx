@@ -9,6 +9,8 @@ import { ClipboardCheck, Settings2 } from 'lucide-react';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from '@/components/dashboard/AddWidgetDialog';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
+import { useDashboardWidgets } from '@/hooks/useDashboardWidgets';
+import { updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson } from '@/lib/dashboardWidgetsClient';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
