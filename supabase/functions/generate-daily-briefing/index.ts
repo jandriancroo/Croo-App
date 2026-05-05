@@ -45,6 +45,14 @@ serve(async (req) => {
     const yesterdayStr = yest.toISOString().slice(0, 10);
     // Re-derive a "now in PST" Date for weekday formatting only.
     const nowPST = new Date();
+    // Yesterday's day-of-week in PST (0=Sun..6=Sat)
+    const yesterdayWeekday = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/Los_Angeles" }).format(yest);
+    const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const yesterdayDow = weekdayMap[yesterdayWeekday] ?? 0;
+    // 7 days back for streaks
+    const sevenDaysAgo = new Date(`${today}T12:00:00Z`);
+    sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
 
     // Get all active locations
     const { data: locations, error: locErr } = await supabase
