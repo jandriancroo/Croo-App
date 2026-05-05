@@ -24,6 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { DashboardWidget, MetricType, WidgetSize, SalesDataForWidgets } from './DashboardWidget';
 import type { NewDataCubeConfig, CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
 import { useDashboardWidgets } from '@/hooks/useDashboardWidgets';
+import { createDashboardWidget, buildWidgetConfigJson } from '@/lib/dashboardWidgetsClient';
 const addWidgetDialogImport = () => import('./AddWidgetDialog').then(m => ({ default: m.AddWidgetDialog }));
 const AddWidgetDialog = lazyWithRetry(addWidgetDialogImport);
 // Prefetch the chunk on idle so the first open is instant (no Suspense flicker)
