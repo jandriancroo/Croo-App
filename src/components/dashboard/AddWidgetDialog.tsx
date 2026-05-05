@@ -494,6 +494,50 @@ export function AddWidgetDialog({
                     <Button type="button" variant={config.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
                   </div>
                 </div>
+
+                {canPublish && publishableLocations.length > 0 && (
+                  <div className="space-y-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-1.5">
+                        <Send className="h-3.5 w-3.5" />
+                        Publish to locations
+                      </Label>
+                      <button
+                        type="button"
+                        className="text-[11px] text-muted-foreground hover:text-foreground"
+                        onClick={() => setPublishLocationIds(
+                          publishLocationIds.length === publishableLocations.length ? [] : publishableLocations.map(l => l.id)
+                        )}
+                      >
+                        {publishLocationIds.length === publishableLocations.length ? 'Clear all' : 'Select all'}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Adds this tracker to every team member's dashboard at the selected locations. Users who already have it are skipped.
+                    </p>
+                    <div className="max-h-40 space-y-1 overflow-y-auto">
+                      {publishableLocations.map((loc) => {
+                        const checked = publishLocationIds.includes(loc.id);
+                        return (
+                          <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
+                            <Checkbox checked={checked} onCheckedChange={() => togglePublishLocation(loc.id)} />
+                            <span className="text-sm">{loc.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full"
+                      onClick={handlePublishToLocations}
+                      disabled={isPublishing || publishLocationIds.length === 0 || !config.title?.trim()}
+                    >
+                      {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                      Publish to {publishLocationIds.length} location{publishLocationIds.length === 1 ? '' : 's'}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
