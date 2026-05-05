@@ -85,6 +85,12 @@ export interface CubeConfig {
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
   numFaces?: number;
+  // Visibility / authority (unified widgets)
+  authorityScope?: 'self' | 'location' | 'org' | 'brand' | 'app';
+  audienceRoles?: AudienceRole[] | null;
+  brandId?: string | null;
+  organizationId?: string | null;
+  locationId?: string | null;
 }
 
 interface EditDashboardDialogProps {
