@@ -158,7 +158,9 @@ serve(async (req) => {
 
       const timezone = 'America/Los_Angeles';
       const now = new Date();
-      const today = getDateStringForTimezone(now, timezone);
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const today = getDateStringForTimezone(tomorrow, timezone); // dateTo upper bound (exclusive of next-day 8am UTC)
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const fromDate = getDateStringForTimezone(sevenDaysAgo, timezone);
@@ -246,7 +248,9 @@ serve(async (req) => {
 
       const timezone = 'America/Los_Angeles';
       const now = new Date();
-      const today = getDateStringForTimezone(now, timezone);
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const today = getDateStringForTimezone(tomorrow, timezone); // dateTo upper bound (exclusive of next-day 8am UTC)
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const fromDate = getDateStringForTimezone(sevenDaysAgo, timezone);
