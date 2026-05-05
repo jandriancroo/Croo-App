@@ -7467,51 +7467,6 @@ export type Database = {
           },
         ]
       }
-      role_dashboard_cubes: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          cubes: Json
-          id: string
-          organization_id: string
-          role: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          cubes?: Json
-          id?: string
-          organization_id: string
-          role: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          cubes?: Json
-          id?: string
-          organization_id?: string
-          role?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "role_dashboard_cubes_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "role_dashboard_cubes_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       role_notification_settings: {
         Row: {
           created_at: string
@@ -8833,92 +8788,6 @@ export type Database = {
           },
         ]
       }
-      user_dashboard_cubes: {
-        Row: {
-          accent_color: string | null
-          created_at: string
-          cube_type: string
-          display_order: number
-          face_metrics: Json | null
-          face_titles: Json | null
-          id: string
-          location_id: string
-          metrics: Json
-          num_faces: number | null
-          reference_id: string | null
-          title: string | null
-          tracker_display_mode: string
-          tracker_item_refs: Json
-          tracker_location_refs: Json
-          tracker_promo_end: string | null
-          tracker_promo_image_url: string | null
-          tracker_promo_start: string | null
-          tracker_rank_metrics: Json
-          tracker_scope: Json
-          updated_at: string
-          user_id: string
-          widget_size: string
-        }
-        Insert: {
-          accent_color?: string | null
-          created_at?: string
-          cube_type?: string
-          display_order?: number
-          face_metrics?: Json | null
-          face_titles?: Json | null
-          id?: string
-          location_id: string
-          metrics?: Json
-          num_faces?: number | null
-          reference_id?: string | null
-          title?: string | null
-          tracker_display_mode?: string
-          tracker_item_refs?: Json
-          tracker_location_refs?: Json
-          tracker_promo_end?: string | null
-          tracker_promo_image_url?: string | null
-          tracker_promo_start?: string | null
-          tracker_rank_metrics?: Json
-          tracker_scope?: Json
-          updated_at?: string
-          user_id: string
-          widget_size?: string
-        }
-        Update: {
-          accent_color?: string | null
-          created_at?: string
-          cube_type?: string
-          display_order?: number
-          face_metrics?: Json | null
-          face_titles?: Json | null
-          id?: string
-          location_id?: string
-          metrics?: Json
-          num_faces?: number | null
-          reference_id?: string | null
-          title?: string | null
-          tracker_display_mode?: string
-          tracker_item_refs?: Json
-          tracker_location_refs?: Json
-          tracker_promo_end?: string | null
-          tracker_promo_image_url?: string | null
-          tracker_promo_start?: string | null
-          tracker_rank_metrics?: Json
-          tracker_scope?: Json
-          updated_at?: string
-          user_id?: string
-          widget_size?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_dashboard_cubes_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "locations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_dashboard_sections: {
         Row: {
           created_at: string
@@ -9839,14 +9708,6 @@ export type Database = {
         Args: { days_to_keep?: number }
         Returns: number
       }
-      publish_tracker_to_locations: {
-        Args: { _config: Json; _location_ids: string[] }
-        Returns: {
-          out_location_id: string
-          users_published: number
-          users_skipped: number
-        }[]
-      }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
       read_email_batch: {
@@ -9893,18 +9754,6 @@ export type Database = {
           _widget_type?: string
         }
         Returns: undefined
-      }
-      update_tracker_across_locations: {
-        Args: {
-          _config: Json
-          _location_ids: string[]
-          _original_title: string
-        }
-        Returns: {
-          out_location_id: string
-          users_created: number
-          users_updated: number
-        }[]
       }
       upsert_vendor_gap_with_location: {
         Args: {

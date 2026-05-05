@@ -293,9 +293,7 @@ export const WidgetsSection = memo(function WidgetsSection({
     })
   );
 
-  // PHASE 2 (Unified Widgets): both reads and writes use dashboard_widgets via RPCs.
-  // Legacy user_dashboard_cubes / role_dashboard_cubes tables remain backfilled
-  // but are no longer touched by the app — they will be dropped in a later cleanup.
+  // Unified Widgets: reads + writes go through dashboard_widgets via RPCs.
   const { data: unifiedWidgets = [], isLoading } = useDashboardWidgets(currentLocation?.id);
 
   const cubes: DataCubeConfig[] = useMemo(
