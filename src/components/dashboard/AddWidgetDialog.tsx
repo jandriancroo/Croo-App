@@ -132,27 +132,34 @@ export function AddWidgetDialog({
     }
     setIsPublishing(true);
     try {
-      const { data, error } = await supabase.rpc('publish_tracker_to_locations', {
-        _config: {
-          title: config.title,
-          widget_size: 'large',
-          metrics: [],
-          accent_color: config.accentColor,
-          tracker_scope: config.trackerScope,
-          tracker_display_mode: config.trackerDisplayMode,
-          tracker_item_refs: config.trackerItemRefs || [],
-          tracker_promo_start: config.trackerPromoStart,
-          tracker_promo_end: config.trackerPromoEnd,
-          tracker_promo_image_url: config.trackerPromoImageUrl,
-          tracker_location_refs: config.trackerLocationRefs || [],
-          tracker_rank_metrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
-        },
-        _location_ids: publishLocationIds,
+      // Unified model: ONE location-scoped widget per location (audience_roles
+      // gates who sees it). No per-user fan-out anymore.
+      const cfgJson = buildWidgetConfigJson({
+        metrics: [],
+        trackerScope: config.trackerScope,
+        trackerDisplayMode: config.trackerDisplayMode,
+        trackerItemRefs: config.trackerItemRefs || [],
+        trackerPromoStart: config.trackerPromoStart,
+        trackerPromoEnd: config.trackerPromoEnd,
+        trackerPromoImageUrl: config.trackerPromoImageUrl,
+        trackerLocationRefs: config.trackerLocationRefs || [],
+        trackerRankMetrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
       });
-      if (error) throw error;
-      const totalUsers = (data || []).reduce((sum: number, r: any) => sum + (r.users_published || 0), 0);
-      const totalSkipped = (data || []).reduce((sum: number, r: any) => sum + (r.users_skipped || 0), 0);
-      toast.success(`Published to ${totalUsers} user${totalUsers === 1 ? '' : 's'}${totalSkipped ? ` (${totalSkipped} skipped — already had it)` : ''}`);
+      const results = await Promise.allSettled(publishLocationIds.map(loc_id =>
+        createDashboardWidget({
+          widget_type: 'tracker',
+          config: cfgJson,
+          authority_scope: 'location',
+          location_id: loc_id,
+          audience_roles: audienceRoles,
+          title: config.title,
+          accent_color: config.accentColor,
+          widget_size: 'large',
+        })
+      ));
+      const created = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.length - created;
+      toast.success(`Published to ${created} location${created === 1 ? '' : 's'}${failed ? ` (${failed} failed)` : ''}`);
       handleClose(false);
     } catch (e: any) {
       toast.error(e.message || 'Failed to publish tracker');
