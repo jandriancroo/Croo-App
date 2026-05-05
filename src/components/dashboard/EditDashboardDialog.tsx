@@ -39,6 +39,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useQuery } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
+import { createDashboardWidget, updateDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
+import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
 
@@ -204,6 +206,7 @@ export function EditDashboardDialog({
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishInitialized, setPublishInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
 
   const { data: publishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
@@ -238,28 +241,55 @@ export function EditDashboardDialog({
     if (publishLocationIds.length === 0) { toast.error('Select at least one location'); return; }
     setIsPublishing(true);
     try {
-      const { data, error } = await supabase.rpc('update_tracker_across_locations', {
-        _original_title: editingCube.title || '',
-        _config: {
-          title: editForm.title,
-          widget_size: 'large',
-          metrics: [],
-          accent_color: editForm.accentColor,
-          tracker_scope: editForm.trackerScope,
-          tracker_display_mode: editForm.trackerDisplayMode,
-          tracker_item_refs: editForm.trackerItemRefs || [],
-          tracker_promo_start: editForm.trackerPromoStart,
-          tracker_promo_end: editForm.trackerPromoEnd,
-          tracker_promo_image_url: editForm.trackerPromoImageUrl,
-          tracker_location_refs: editForm.trackerLocationRefs || [],
-          tracker_rank_metrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
-        },
-        _location_ids: publishLocationIds,
+      const cfgJson = buildWidgetConfigJson({
+        metrics: [],
+        trackerScope: editForm.trackerScope,
+        trackerDisplayMode: editForm.trackerDisplayMode,
+        trackerItemRefs: editForm.trackerItemRefs || [],
+        trackerPromoStart: editForm.trackerPromoStart,
+        trackerPromoEnd: editForm.trackerPromoEnd,
+        trackerPromoImageUrl: editForm.trackerPromoImageUrl,
+        trackerLocationRefs: editForm.trackerLocationRefs || [],
+        trackerRankMetrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
       });
-      if (error) throw error;
-      const updated = (data || []).reduce((s: number, r: any) => s + (r.users_updated || 0), 0);
-      const created = (data || []).reduce((s: number, r: any) => s + (r.users_created || 0), 0);
-      toast.success(`Updated ${updated} · added to ${created} new user${created === 1 ? '' : 's'}`);
+
+      // For each selected location, find an existing location-scoped tracker
+      // with the same title; update it if found, else create a new one.
+      const { data: existing } = await supabase
+        .from('dashboard_widgets')
+        .select('id, location_id')
+        .eq('authority_scope', 'location')
+        .eq('widget_type', 'tracker')
+        .eq('title', editingCube.title || '')
+        .in('location_id', publishLocationIds);
+      const byLoc = new Map<string, string>();
+      (existing || []).forEach((r: any) => { if (r.location_id) byLoc.set(r.location_id, r.id); });
+
+      const results = await Promise.allSettled(publishLocationIds.map(loc_id => {
+        const existingId = byLoc.get(loc_id);
+        if (existingId) {
+          return updateDashboardWidget({
+            widget_id: existingId,
+            title: editForm.title,
+            accent_color: editForm.accentColor,
+            audience_roles: audienceRoles,
+            config: cfgJson,
+          });
+        }
+        return createDashboardWidget({
+          widget_type: 'tracker',
+          config: cfgJson,
+          authority_scope: 'location',
+          location_id: loc_id,
+          audience_roles: audienceRoles,
+          title: editForm.title!,
+          accent_color: editForm.accentColor,
+          widget_size: 'large',
+        });
+      }));
+      const ok = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.length - ok;
+      toast.success(`Updated ${ok} location${ok === 1 ? '' : 's'}${failed ? ` (${failed} failed)` : ''}`);
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message || 'Failed to publish update');
@@ -912,7 +942,8 @@ export function EditDashboardDialog({
                   </div>
 
                   {canPublish && publishableLocations.length > 0 && (
-                    <div className="space-y-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                    <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                      <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
                       <div className="flex items-center justify-between">
                         <Label className="flex items-center gap-1.5">
                           <Send className="h-3.5 w-3.5" />
@@ -929,7 +960,7 @@ export function EditDashboardDialog({
                         </button>
                       </div>
                       <p className="text-[11px] text-muted-foreground">
-                        Updates this tracker for everyone who already has it at the selected locations. Users who don't have it yet will get a copy.
+                        Updates the location tracker (or creates one if missing). Use "Visible to" to limit which roles see it.
                       </p>
                       <div className="max-h-40 space-y-1 overflow-y-auto">
                         {publishableLocations.map((loc) => {

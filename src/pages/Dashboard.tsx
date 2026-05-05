@@ -9,6 +9,8 @@ import { ClipboardCheck, Settings2 } from 'lucide-react';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from '@/components/dashboard/AddWidgetDialog';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
+import { useDashboardWidgets } from '@/hooks/useDashboardWidgets';
+import { updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson } from '@/lib/dashboardWidgetsClient';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -110,7 +112,7 @@ export default function Dashboard() {
   const ALWAYS_REFRESH_KEYS = [
     ['user-checklists'],
     ['checklist-stats'],
-    ['user-data-cubes'],
+    ['dashboard-widgets'],
     ['catering-orders'],
     ['temporary-tasks'],
     ['location-hours-today'],
@@ -181,125 +183,88 @@ export default function Dashboard() {
     return null;
   }, [salesOverviewData, personalPayData, kdsData]);
 
-  // Use shared query for cubes (WidgetsSection fetches, we just read from cache)
-  // This prevents duplicate network requests - same queryKey means shared cache
-  const { data: dashboardCubes = [] } = useQuery({
-    queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
-    queryFn: async () => {
-      if (!user?.id || !currentLocation?.id) return [];
-
-      const { data, error } = await supabase
-        .from('user_dashboard_cubes')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('location_id', currentLocation.id)
-        .in('cube_type', ['data', 'data-3d', 'sales-chart', 'tracker'])
-        .order('display_order');
-
-      if (error) {
-        console.error('Error fetching data cubes:', error);
-        return [];
-      }
-
-      return (data || []).map(cube => ({
-        id: cube.id,
-        title: cube.title || '',
-        size: (cube.widget_size as WidgetSize) || 'small',
-        metrics: (cube.metrics as MetricType[]) || [],
-        accentColor: cube.accent_color || '#8B5CF6',
-        cubeType: (cube.cube_type as CubeType | 'data-3d') || 'data',
-        faceMetrics: (cube.face_metrics as MetricType[][]) || [],
-        faceTitles: (cube.face_titles as string[]) || [],
-        numFaces: cube.num_faces || 1,
-        trackerScope: (cube.tracker_scope as { type: TrackerScopeType; role?: string }) || { type: 'location' },
-        trackerDisplayMode: (cube.tracker_display_mode as TrackerDisplayMode) || 'summary',
-        trackerItemRefs: (cube.tracker_item_refs as string[]) || [],
-        trackerPromoStart: cube.tracker_promo_start || null,
-        trackerPromoEnd: cube.tracker_promo_end || null,
-        trackerPromoImageUrl: cube.tracker_promo_image_url || null,
-        trackerLocationRefs: (cube.tracker_location_refs as string[]) || [],
-        trackerRankMetrics: (cube.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
-      })) as CubeConfig[];
-    },
-    enabled: !!user?.id && !!currentLocation?.id,
-    staleTime: 30 * 1000, // 30s cache - prevent duplicate fetches on mount
-    placeholderData: (previousData) => previousData, // Show previous data instantly while refetching
-  });
+  // Read from the unified dashboard_widgets table via the shared hook
+  // (same query key as WidgetsSection, so no duplicate fetch).
+  const { data: unifiedWidgets = [] } = useDashboardWidgets(currentLocation?.id);
+  const dashboardCubes: CubeConfig[] = useMemo(() => unifiedWidgets.map(w => ({
+    id: w.id,
+    title: w.title,
+    size: w.size,
+    metrics: w.metrics,
+    accentColor: w.accentColor,
+    cubeType: w.cubeType,
+    faceMetrics: w.faceMetrics,
+    faceTitles: w.faceTitles,
+    numFaces: w.numFaces,
+    trackerScope: w.trackerScope,
+    trackerDisplayMode: w.trackerDisplayMode,
+    trackerItemRefs: w.trackerItemRefs,
+    trackerPromoStart: w.trackerPromoStart,
+    trackerPromoEnd: w.trackerPromoEnd,
+    trackerPromoImageUrl: w.trackerPromoImageUrl,
+    trackerLocationRefs: w.trackerLocationRefs,
+    trackerRankMetrics: w.trackerRankMetrics,
+  })), [unifiedWidgets]);
 
   const handleUpdateCube = async (id: string, updates: Partial<CubeConfig>) => {
     try {
-      const updateData: Record<string, any> = {
-        title: updates.title,
-        metrics: updates.metrics,
-        accent_color: updates.accentColor,
-      };
-      
-      // Include 3D cube specific fields if present
-      if (updates.faceMetrics !== undefined) {
-        updateData.face_metrics = updates.faceMetrics;
-      }
-      if (updates.faceTitles !== undefined) {
-        updateData.face_titles = updates.faceTitles;
-      }
-      if (updates.numFaces !== undefined) {
-        updateData.num_faces = updates.numFaces;
-      }
-      if (updates.trackerScope !== undefined) updateData.tracker_scope = updates.trackerScope;
-      if (updates.trackerDisplayMode !== undefined) updateData.tracker_display_mode = updates.trackerDisplayMode;
-      if (updates.trackerItemRefs !== undefined) updateData.tracker_item_refs = updates.trackerItemRefs;
-      if (updates.trackerPromoStart !== undefined) updateData.tracker_promo_start = updates.trackerPromoStart;
-      if (updates.trackerPromoEnd !== undefined) updateData.tracker_promo_end = updates.trackerPromoEnd;
-      if (updates.trackerPromoImageUrl !== undefined) updateData.tracker_promo_image_url = updates.trackerPromoImageUrl;
-      if (updates.trackerLocationRefs !== undefined) updateData.tracker_location_refs = updates.trackerLocationRefs;
-      if (updates.trackerRankMetrics !== undefined) updateData.tracker_rank_metrics = updates.trackerRankMetrics;
-      
-      const { error } = await supabase
-        .from('user_dashboard_cubes')
-        .update(updateData)
-        .eq('id', id);
+      // Build the JSONB config patch. We MUST resolve against the existing widget
+      // because update_dashboard_widget replaces the whole `config` blob.
+      const existing = unifiedWidgets.find(w => w.id === id);
+      const mergedConfig = buildWidgetConfigJson({
+        metrics: updates.metrics ?? existing?.metrics,
+        faceMetrics: updates.faceMetrics ?? existing?.faceMetrics,
+        faceTitles: updates.faceTitles ?? existing?.faceTitles,
+        numFaces: updates.numFaces ?? existing?.numFaces,
+        trackerScope: updates.trackerScope ?? existing?.trackerScope,
+        trackerDisplayMode: updates.trackerDisplayMode ?? existing?.trackerDisplayMode,
+        trackerItemRefs: updates.trackerItemRefs ?? existing?.trackerItemRefs,
+        trackerPromoStart: updates.trackerPromoStart ?? existing?.trackerPromoStart,
+        trackerPromoEnd: updates.trackerPromoEnd ?? existing?.trackerPromoEnd,
+        trackerPromoImageUrl: updates.trackerPromoImageUrl ?? existing?.trackerPromoImageUrl,
+        trackerLocationRefs: updates.trackerLocationRefs ?? existing?.trackerLocationRefs,
+        trackerRankMetrics: updates.trackerRankMetrics ?? existing?.trackerRankMetrics,
+      });
 
-      if (error) throw error;
-      
+      await updateDashboardWidget({
+        widget_id: id,
+        title: updates.title ?? null,
+        accent_color: updates.accentColor ?? null,
+        config: mergedConfig,
+      });
+
       toast.success('Widget updated');
-      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
+    } catch (error: any) {
       console.error('Error updating cube:', error);
-      toast.error('Failed to update widget');
+      toast.error(error?.message || 'Failed to update widget');
     }
   };
 
   const handleDeleteCube = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('user_dashboard_cubes')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      await deleteDashboardWidget(id);
       toast.success('Widget removed');
-      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
+    } catch (error: any) {
       console.error('Error deleting cube:', error);
-      toast.error('Failed to remove widget');
+      toast.error(error?.message || 'Failed to remove widget');
     }
   };
 
   const handleReorderCubes = async (orderedIds: string[]) => {
     try {
-      // Two-phase update to avoid unique constraint conflicts on display_order
-      // Phase 1: Set all to temporary negative values (parallel)
+      // Two-phase via RPC to avoid unique-order conflicts
       await Promise.all(orderedIds.map((id, i) =>
-        supabase.from('user_dashboard_cubes').update({ display_order: -(1000000 + i) }).eq('id', id)
+        supabase.rpc('update_dashboard_widget', { _widget_id: id, _display_order: -(1000000 + i) })
       ));
-      // Phase 2: Set final values (parallel)
       await Promise.all(orderedIds.map((id, i) =>
-        supabase.from('user_dashboard_cubes').update({ display_order: i }).eq('id', id)
+        supabase.rpc('update_dashboard_widget', { _widget_id: id, _display_order: i })
       ));
-      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
+    } catch (error: any) {
       console.error('Error reordering cubes:', error);
-      toast.error('Failed to save order');
+      toast.error(error?.message || 'Failed to save order');
     }
   };
 

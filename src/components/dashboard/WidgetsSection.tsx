@@ -24,6 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { DashboardWidget, MetricType, WidgetSize, SalesDataForWidgets } from './DashboardWidget';
 import type { NewDataCubeConfig, CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
 import { useDashboardWidgets } from '@/hooks/useDashboardWidgets';
+import { createDashboardWidget, buildWidgetConfigJson } from '@/lib/dashboardWidgetsClient';
 const addWidgetDialogImport = () => import('./AddWidgetDialog').then(m => ({ default: m.AddWidgetDialog }));
 const AddWidgetDialog = lazyWithRetry(addWidgetDialogImport);
 // Prefetch the chunk on idle so the first open is instant (no Suspense flicker)
@@ -292,10 +293,9 @@ export const WidgetsSection = memo(function WidgetsSection({
     })
   );
 
-  // PHASE 1 (Unified Widgets): read from dashboard_widgets via RLS.
-  // Writes (add/reorder/auto-create) still go to legacy user_dashboard_cubes
-  // until phase 2 swaps them too. New widgets created during this phase
-  // will not appear here until they are migrated through the unified RPCs.
+  // PHASE 2 (Unified Widgets): both reads and writes use dashboard_widgets via RPCs.
+  // Legacy user_dashboard_cubes / role_dashboard_cubes tables remain backfilled
+  // but are no longer touched by the app — they will be dropped in a later cleanup.
   const { data: unifiedWidgets = [], isLoading } = useDashboardWidgets(currentLocation?.id);
 
   const cubes: DataCubeConfig[] = useMemo(
@@ -333,65 +333,39 @@ export const WidgetsSection = memo(function WidgetsSection({
     setLocalCubes(effectiveCubes);
   }, [effectiveCubes]);
 
-  // Auto-create Sales Chart widget for users who don't have one yet
-  // This ensures all team members see Sales Overview by default
-  // Skip for role-based cubes (those are configured by Org Admin)
+  // Auto-create Sales Chart widget for users who don't have one yet via the unified RPC.
+  // Skip for role-based cubes (those are configured by Org Admin via location/org scope).
   useEffect(() => {
     const autoCreateSalesChart = async () => {
       if (!user?.id || !currentLocation?.id || isLoading || useRoleCubes) return;
-      
-      // Only auto-create if user has no cubes at all (first visit) or explicitly no sales chart
-      // and the location has QuBeyond integration (hasQuBeyondIntegration prop)
+
       const userHasSalesChart = cubes.some(c => c.cubeType === 'sales-chart');
       if (userHasSalesChart) return;
-      
-      // Check localStorage to see if we've already tried to auto-create for this user+location
+
       const autoCreateKey = `dashboard-auto-sales-chart-${user.id}-${currentLocation.id}`;
       if (localStorage.getItem(autoCreateKey)) return;
-      
-      // Mark that we've attempted auto-creation (prevent repeated attempts)
       localStorage.setItem(autoCreateKey, 'true');
-      
+
       try {
-        // Get max display_order
-        const { data: maxOrderRow } = await supabase
-          .from('user_dashboard_cubes')
-          .select('display_order')
-          .eq('user_id', user.id)
-          .eq('location_id', currentLocation.id)
-          .order('display_order', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        const nextOrder = (maxOrderRow?.display_order ?? -1) + 1;
-
-        const { error } = await supabase
-          .from('user_dashboard_cubes')
-          .insert({
-            user_id: user.id,
-            location_id: currentLocation.id,
-            title: 'Sales Overview',
-            cube_type: 'sales-chart',
-            widget_size: 'large',
-            metrics: [],
-            accent_color: '#0D9488',
-            display_order: nextOrder,
-          });
-
-        if (error) {
-          console.error('Error auto-creating sales chart:', error);
-          return;
-        }
-
-        console.log('[WidgetsSection] Auto-created Sales Overview for user');
-        queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+        const nextOrder = cubes.reduce((m, c) => Math.max(m, c.displayOrder), -1) + 1;
+        await createDashboardWidget({
+          widget_type: 'sales-chart',
+          config: { metrics: [] },
+          authority_scope: 'self',
+          location_id: currentLocation.id,
+          title: 'Sales Overview',
+          accent_color: '#0D9488',
+          widget_size: 'large',
+          display_order: nextOrder,
+        });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
       } catch (error) {
         console.error('Error auto-creating sales chart:', error);
       }
     };
 
     autoCreateSalesChart();
-  }, [user?.id, currentLocation?.id, cubes, isLoading, queryClient]);
+  }, [user?.id, currentLocation?.id, cubes, isLoading, queryClient, useRoleCubes]);
   
   // Debug logging removed for performance - was causing excess re-render tracking
 
@@ -399,52 +373,34 @@ export const WidgetsSection = memo(function WidgetsSection({
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    // Only reorder data cubes (not sales chart)
     const cubesOnly = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
     const oldIndex = cubesOnly.findIndex(item => item.id === active.id);
     const newIndex = cubesOnly.findIndex(item => item.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reorderedCubes = arrayMove(cubesOnly, oldIndex, newIndex);
-    // Rebuild localCubes preserving non-data-cube items in their positions
     const nonDataCubes = localCubes.filter(c => c.cubeType !== 'data' && c.cubeType !== 'data-3d');
     setLocalCubes([...reorderedCubes, ...nonDataCubes]);
 
     if (useRoleCubes) return;
-    
+
     try {
-      // Persist all cube orders
       const allCubes = [...reorderedCubes, ...nonDataCubes];
-      const updates = allCubes.map((cube, index) => ({ id: cube.id, display_order: index }));
+      // Two-phase via RPC to avoid any unique constraint conflicts
+      await Promise.all(allCubes.map((cube, i) =>
+        supabase.rpc('update_dashboard_widget', {
+          _widget_id: cube.id,
+          _display_order: -(1000000 + i),
+        })
+      ));
+      await Promise.all(allCubes.map((cube, i) =>
+        supabase.rpc('update_dashboard_widget', {
+          _widget_id: cube.id,
+          _display_order: i,
+        })
+      ));
 
-      const updateWithRetry = async (id: string, display_order: number) => {
-        let lastError: any = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const { error } = await supabase
-            .from('user_dashboard_cubes')
-            .update({ display_order })
-            .eq('id', id);
-          if (!error) return;
-          lastError = error;
-          if (error.code === '40P01' || error.code === '23505') {
-            await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
-            continue;
-          }
-          throw error;
-        }
-        throw lastError;
-      };
-
-      for (let i = 0; i < updates.length; i++) {
-        await updateWithRetry(updates[i].id, -(1000000 + i));
-      }
-      for (const u of updates) {
-        await updateWithRetry(u.id, u.display_order);
-      }
-
-      queryClient.invalidateQueries({
-        queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
-      });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
     } catch (error: any) {
       console.error('Error saving cube order:', error);
       toast.error(error?.message ? `Failed to save cube order: ${error.message}` : 'Failed to save cube order');
@@ -456,43 +412,33 @@ export const WidgetsSection = memo(function WidgetsSection({
     if (!user?.id || !currentLocation?.id) return;
 
     try {
-      // Get the max display_order to avoid unique constraint violation
-      const { data: maxOrderRow } = await supabase
-        .from('user_dashboard_cubes')
-        .select('display_order')
-        .eq('user_id', user.id)
-        .eq('location_id', currentLocation.id)
-        .order('display_order', { ascending: false })
-        .limit(1)
-        .single();
-
-      const nextOrder = (maxOrderRow?.display_order ?? -1) + 1;
-
-      const { error } = await supabase
-        .from('user_dashboard_cubes')
-        .insert({
-          user_id: user.id,
-          location_id: currentLocation.id,
-          title: config.title || null,
-          cube_type: config.cubeType,
-          widget_size: config.size,
+      const nextOrder = localCubes.reduce((m, c) => Math.max(m, c.displayOrder), -1) + 1;
+      // Trackers added from a personal dashboard are still 'self'-scoped — admin
+      // publishing flows (location/org/brand/app + audience_roles) are handled
+      // inside the AddWidgetDialog itself.
+      await createDashboardWidget({
+        widget_type: config.cubeType,
+        config: buildWidgetConfigJson({
           metrics: config.metrics,
-          accent_color: config.accentColor,
-          display_order: nextOrder,
-          tracker_scope: config.trackerScope,
-          tracker_display_mode: config.trackerDisplayMode,
-          tracker_item_refs: config.trackerItemRefs || [],
-          tracker_promo_start: config.trackerPromoStart,
-          tracker_promo_end: config.trackerPromoEnd,
-          tracker_promo_image_url: config.trackerPromoImageUrl,
-          tracker_location_refs: config.trackerLocationRefs || [],
-          tracker_rank_metrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
-        });
-
-      if (error) throw error;
+          trackerScope: config.trackerScope,
+          trackerDisplayMode: config.trackerDisplayMode,
+          trackerItemRefs: config.trackerItemRefs || [],
+          trackerPromoStart: config.trackerPromoStart,
+          trackerPromoEnd: config.trackerPromoEnd,
+          trackerPromoImageUrl: config.trackerPromoImageUrl,
+          trackerLocationRefs: config.trackerLocationRefs || [],
+          trackerRankMetrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        }),
+        authority_scope: 'self',
+        location_id: currentLocation.id,
+        title: config.title || null,
+        accent_color: config.accentColor,
+        widget_size: config.size,
+        display_order: nextOrder,
+      });
 
       toast.success(config.cubeType === 'sales-chart' ? 'Sales Overview added' : config.cubeType === 'tracker' ? 'Tracker added' : 'Data cube added');
-      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
     } catch (error: any) {
       console.error('Error adding data cube:', error);
       toast.error(error?.message || 'Failed to add widget');
@@ -503,38 +449,25 @@ export const WidgetsSection = memo(function WidgetsSection({
     if (!user?.id || !currentLocation?.id) return;
 
     try {
-      // Get the max display_order to avoid unique constraint violation
-      const { data: maxOrderRow } = await supabase
-        .from('user_dashboard_cubes')
-        .select('display_order')
-        .eq('user_id', user.id)
-        .eq('location_id', currentLocation.id)
-        .order('display_order', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const nextOrder = (maxOrderRow?.display_order ?? -1) + 1;
-
-      const { error } = await supabase
-        .from('user_dashboard_cubes')
-        .insert({
-          user_id: user.id,
-          location_id: currentLocation.id,
-          title: null,
-          cube_type: 'data-3d',
-          widget_size: 'small',
+      const nextOrder = localCubes.reduce((m, c) => Math.max(m, c.displayOrder), -1) + 1;
+      await createDashboardWidget({
+        widget_type: 'data-3d',
+        config: buildWidgetConfigJson({
           metrics: [],
-          face_metrics: config.faceMetrics,
-          face_titles: config.faceTitles,
-          num_faces: config.numFaces,
-          accent_color: config.accentColor,
-          display_order: nextOrder,
-        });
-
-      if (error) throw error;
+          faceMetrics: config.faceMetrics,
+          faceTitles: config.faceTitles,
+          numFaces: config.numFaces,
+        }),
+        authority_scope: 'self',
+        location_id: currentLocation.id,
+        title: null,
+        accent_color: config.accentColor,
+        widget_size: 'small',
+        display_order: nextOrder,
+      });
 
       toast.success('3D Cube added');
-      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
     } catch (error: any) {
       console.error('Error adding 3D cube:', error);
       toast.error(error?.message || 'Failed to add 3D cube');
