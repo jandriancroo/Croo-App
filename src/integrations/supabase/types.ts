@@ -9618,6 +9618,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_publishable_locations: {
+        Args: { _user_id: string }
+        Returns: {
+          id: string
+          name: string
+          organization_id: string
+        }[]
+      }
       get_unread_chat_count: { Args: { _user_id: string }; Returns: number }
       get_user_location_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_role: {
@@ -9716,6 +9724,14 @@ export type Database = {
       prune_punch_clock_attempts: {
         Args: { days_to_keep?: number }
         Returns: number
+      }
+      publish_tracker_to_locations: {
+        Args: { _config: Json; _location_ids: string[] }
+        Returns: {
+          location_id: string
+          users_published: number
+          users_skipped: number
+        }[]
       }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
