@@ -21,6 +21,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
+import { createDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
+import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 
 export type TrackerScopeType = 'user' | 'role' | 'location';
 export type TrackerDisplayMode = 'summary' | 'expandable';
