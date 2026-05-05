@@ -87,7 +87,6 @@ const QRQuickTaskReport = lazyWithRetry(() => import("./pages/QRQuickTaskReport"
 const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
 const TheoPlacementPreview = lazyWithRetry(() => import("./pages/TheoPlacementPreview"));
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
-const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboardCustomizer"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
 const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 const KDSBoard = lazyWithRetry(() => import("./pages/KDSBoard"));
@@ -190,7 +189,6 @@ const AppContent = () => {
         <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
         <Route path="/location/:locationId/punch-clock" element={<ProtectedRoute><PunchClockCustomization /></ProtectedRoute>} />
         <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
-        <Route path="/organization/:organizationId/role-dashboard" element={<ProtectedRoute><RoleDashboardCustomizer /></ProtectedRoute>} />
         <Route path="/brands" element={<ProtectedRoute><BrandManagement /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory" element={<ProtectedRoute><BrandInventory /></ProtectedRoute>} />
         <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
