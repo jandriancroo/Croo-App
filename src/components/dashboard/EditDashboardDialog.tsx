@@ -209,12 +209,36 @@ export function EditDashboardDialog({
   const [isPromoImageUploading, setIsPromoImageUploading] = useState(false);
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin;
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishInitialized, setPublishInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
+
+  // ── Visibility (post-create scope editing) ─────────────────────────────
+  type Scope = 'self' | 'location' | 'org' | 'brand' | 'app';
+  const [visibilityScope, setVisibilityScope] = useState<Scope>('self');
+  const [visibilityAudience, setVisibilityAudience] = useState<AudienceRole[] | null>(null);
+  const [visibilityChanged, setVisibilityChanged] = useState(false);
+  const [pendingDowngradeOpen, setPendingDowngradeOpen] = useState(false);
+
+  const SCOPE_RANK: Record<Scope, number> = { self: 0, location: 1, org: 2, brand: 3, app: 4 };
+  const allowedScopes = ((): Scope[] => {
+    const scopes: Scope[] = ['self'];
+    if (isAdmin) scopes.push('location');
+    if (isOrgAdmin) scopes.push('org');
+    if (isBrandAdmin) scopes.push('brand');
+    if (isSuperAdmin) scopes.push('app');
+    return scopes;
+  })();
+  const SCOPE_LABEL: Record<Scope, string> = {
+    self: 'Just Me',
+    location: 'This Location',
+    org: 'All Locations in Org',
+    brand: 'All Locations in Brand',
+    app: 'App-Wide',
+  };
 
   const { data: publishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
