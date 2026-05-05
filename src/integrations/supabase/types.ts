@@ -9761,6 +9761,18 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       trigger_alarm_tasks_sql: { Args: never; Returns: undefined }
+      update_tracker_across_locations: {
+        Args: {
+          _config: Json
+          _location_ids: string[]
+          _original_title: string
+        }
+        Returns: {
+          location_id: string
+          users_created: number
+          users_updated: number
+        }[]
+      }
       upsert_vendor_gap_with_location: {
         Args: {
           _brand_id: string
