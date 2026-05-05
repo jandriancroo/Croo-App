@@ -21,19 +21,8 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
     const day = parts.find(p => p.type === 'day')?.value || '01';
     const todayStr = `${year}-${month}-${day}`;
 
-    // Prefetch unified dashboard widgets — same query key as useDashboardWidgets hook
-    queryClient.prefetchQuery({
-      queryKey: ['dashboard-widgets', userId, locationId],
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('dashboard_widgets')
-          .select('*')
-          .eq('is_active', true)
-          .order('display_order', { ascending: true });
-        return data || [];
-      },
-      staleTime: 30 * 1000,
-    });
+    // Dashboard widgets are fetched by useDashboardWidgets on mount.
+    // We skip prefetching here to keep the cache shape consistent with the hook's queryFn.
 
     // Prefetch checklists for tasks page
     queryClient.prefetchQuery({
