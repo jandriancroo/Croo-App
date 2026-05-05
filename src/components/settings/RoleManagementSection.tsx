@@ -126,8 +126,6 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
   };
 
   // Roles that can have their dashboard configured by org admin
-  const configurableRoles = ['team_member', 'shift_manager', 'manager'] as const;
-  const canConfigureDashboard = configurableRoles.includes(selectedRole as any);
 
   const rolePermissions = permissions.filter((p) => p.role === selectedRole);
   const roleNotifications = notifications.filter((n) => n.role === selectedRole);
