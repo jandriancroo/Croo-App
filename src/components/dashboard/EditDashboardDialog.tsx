@@ -241,28 +241,55 @@ export function EditDashboardDialog({
     if (publishLocationIds.length === 0) { toast.error('Select at least one location'); return; }
     setIsPublishing(true);
     try {
-      const { data, error } = await supabase.rpc('update_tracker_across_locations', {
-        _original_title: editingCube.title || '',
-        _config: {
-          title: editForm.title,
-          widget_size: 'large',
-          metrics: [],
-          accent_color: editForm.accentColor,
-          tracker_scope: editForm.trackerScope,
-          tracker_display_mode: editForm.trackerDisplayMode,
-          tracker_item_refs: editForm.trackerItemRefs || [],
-          tracker_promo_start: editForm.trackerPromoStart,
-          tracker_promo_end: editForm.trackerPromoEnd,
-          tracker_promo_image_url: editForm.trackerPromoImageUrl,
-          tracker_location_refs: editForm.trackerLocationRefs || [],
-          tracker_rank_metrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
-        },
-        _location_ids: publishLocationIds,
+      const cfgJson = buildWidgetConfigJson({
+        metrics: [],
+        trackerScope: editForm.trackerScope,
+        trackerDisplayMode: editForm.trackerDisplayMode,
+        trackerItemRefs: editForm.trackerItemRefs || [],
+        trackerPromoStart: editForm.trackerPromoStart,
+        trackerPromoEnd: editForm.trackerPromoEnd,
+        trackerPromoImageUrl: editForm.trackerPromoImageUrl,
+        trackerLocationRefs: editForm.trackerLocationRefs || [],
+        trackerRankMetrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
       });
-      if (error) throw error;
-      const updated = (data || []).reduce((s: number, r: any) => s + (r.users_updated || 0), 0);
-      const created = (data || []).reduce((s: number, r: any) => s + (r.users_created || 0), 0);
-      toast.success(`Updated ${updated} · added to ${created} new user${created === 1 ? '' : 's'}`);
+
+      // For each selected location, find an existing location-scoped tracker
+      // with the same title; update it if found, else create a new one.
+      const { data: existing } = await supabase
+        .from('dashboard_widgets')
+        .select('id, location_id')
+        .eq('authority_scope', 'location')
+        .eq('widget_type', 'tracker')
+        .eq('title', editingCube.title || '')
+        .in('location_id', publishLocationIds);
+      const byLoc = new Map<string, string>();
+      (existing || []).forEach((r: any) => { if (r.location_id) byLoc.set(r.location_id, r.id); });
+
+      const results = await Promise.allSettled(publishLocationIds.map(loc_id => {
+        const existingId = byLoc.get(loc_id);
+        if (existingId) {
+          return updateDashboardWidget({
+            widget_id: existingId,
+            title: editForm.title,
+            accent_color: editForm.accentColor,
+            audience_roles: audienceRoles,
+            config: cfgJson,
+          });
+        }
+        return createDashboardWidget({
+          widget_type: 'tracker',
+          config: cfgJson,
+          authority_scope: 'location',
+          location_id: loc_id,
+          audience_roles: audienceRoles,
+          title: editForm.title!,
+          accent_color: editForm.accentColor,
+          widget_size: 'large',
+        });
+      }));
+      const ok = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.length - ok;
+      toast.success(`Updated ${ok} location${ok === 1 ? '' : 's'}${failed ? ` (${failed} failed)` : ''}`);
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message || 'Failed to publish update');
