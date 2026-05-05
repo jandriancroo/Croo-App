@@ -36,6 +36,8 @@ import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useQuery } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
@@ -85,6 +87,12 @@ export interface CubeConfig {
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
   numFaces?: number;
+  // Visibility / authority (unified widgets)
+  authorityScope?: 'self' | 'location' | 'org' | 'brand' | 'app';
+  audienceRoles?: AudienceRole[] | null;
+  brandId?: string | null;
+  organizationId?: string | null;
+  locationId?: string | null;
 }
 
 interface EditDashboardDialogProps {
@@ -201,12 +209,36 @@ export function EditDashboardDialog({
   const [isPromoImageUploading, setIsPromoImageUploading] = useState(false);
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin;
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishInitialized, setPublishInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
+
+  // ── Visibility (post-create scope editing) ─────────────────────────────
+  type Scope = 'self' | 'location' | 'org' | 'brand' | 'app';
+  const [visibilityScope, setVisibilityScope] = useState<Scope>('self');
+  const [visibilityAudience, setVisibilityAudience] = useState<AudienceRole[] | null>(null);
+  const [visibilityChanged, setVisibilityChanged] = useState(false);
+  const [pendingDowngradeOpen, setPendingDowngradeOpen] = useState(false);
+
+  const SCOPE_RANK: Record<Scope, number> = { self: 0, location: 1, org: 2, brand: 3, app: 4 };
+  const allowedScopes = ((): Scope[] => {
+    const scopes: Scope[] = ['self'];
+    if (isAdmin) scopes.push('location');
+    if (isOrgAdmin) scopes.push('org');
+    if (isBrandAdmin) scopes.push('brand');
+    if (isSuperAdmin) scopes.push('app');
+    return scopes;
+  })();
+  const SCOPE_LABEL: Record<Scope, string> = {
+    self: 'Just Me',
+    location: 'This Location',
+    org: 'All Locations in Org',
+    brand: 'All Locations in Brand',
+    app: 'App-Wide',
+  };
 
   const { data: publishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
@@ -416,6 +448,10 @@ export function EditDashboardDialog({
       const filteredMetrics = cube.metrics.filter(m => validMetrics.includes(m));
       setEditForm({ title: cube.title, metrics: filteredMetrics, accentColor: themeColor });
     }
+    // Seed visibility from current widget
+    setVisibilityScope((cube.authorityScope as Scope) || 'self');
+    setVisibilityAudience((cube.audienceRoles ?? null) as AudienceRole[] | null);
+    setVisibilityChanged(false);
     setView('edit');
   };
 
@@ -461,24 +497,65 @@ export function EditDashboardDialog({
     return faceMetrics.some((face, idx) => idx !== activeFace && idx < numFaces && face.includes(metric));
   };
 
-  const handleSave = async () => {
+  const buildVisibilityUpdates = async (): Promise<Partial<CubeConfig>> => {
+    if (!editingCube || !visibilityChanged) return {};
+    const updates: Partial<CubeConfig> = {};
+    const oldScope = (editingCube.authorityScope as Scope) || 'self';
+    if (visibilityScope !== oldScope) {
+      updates.authorityScope = visibilityScope;
+      // Resolve scope FK based on current location
+      if (visibilityScope === 'self' || visibilityScope === 'app') {
+        updates.locationId = null;
+        updates.organizationId = null;
+        updates.brandId = null;
+      } else if (visibilityScope === 'location') {
+        updates.locationId = currentLocation?.id ?? null;
+      } else if (visibilityScope === 'org') {
+        updates.organizationId = (currentLocation as any)?.organization_id ?? null;
+      } else if (visibilityScope === 'brand') {
+        updates.brandId = currentLocation?.id ? await resolveBrandId(currentLocation.id) : null;
+      }
+    }
+    // Audience can change independently of scope
+    updates.audienceRoles = visibilityAudience;
+    return updates;
+  };
+
+  const performSave = async () => {
     if (!editingCube) return;
     setIsSaving(true);
     try {
+      const visUpdates = await buildVisibilityUpdates();
       if (editingCube.cubeType === 'data-3d') {
         await onUpdateCube(editingCube.id, {
           ...editForm,
           faceMetrics: faceMetrics.slice(0, numFaces),
           faceTitles: faceTitles.slice(0, numFaces),
           numFaces,
+          ...visUpdates,
         });
       } else {
-        await onUpdateCube(editingCube.id, editForm);
+        await onUpdateCube(editingCube.id, { ...editForm, ...visUpdates });
       }
       handleBack();
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!editingCube) return;
+    // Confirm if user is downgrading scope (narrower visibility).
+    const oldScope = (editingCube.authorityScope as Scope) || 'self';
+    const isDowngrade =
+      visibilityChanged &&
+      visibilityScope !== oldScope &&
+      SCOPE_RANK[visibilityScope] < SCOPE_RANK[oldScope];
+    if (isDowngrade) {
+      setPendingDowngradeOpen(true);
+      return;
+    }
+    await performSave();
   };
 
   const handleDelete = async () => {
@@ -705,6 +782,39 @@ export function EditDashboardDialog({
                   <p className="text-[11px] text-muted-foreground">
                     A name to identify this widget in the edit list
                   </p>
+                )}
+              </div>
+
+              {/* Visibility panel — change scope + audience post-create */}
+              <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                <Label className="text-xs font-semibold">Visibility</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Who can see this widget</Label>
+                  <Select
+                    value={visibilityScope}
+                    onValueChange={(v) => {
+                      setVisibilityScope(v as Scope);
+                      setVisibilityChanged(true);
+                    }}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allowedScopes.map(s => (
+                        <SelectItem key={s} value={s}>{SCOPE_LABEL[s]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {visibilityScope !== 'self' && (
+                  <AudienceSelector
+                    value={visibilityAudience}
+                    onChange={(v) => {
+                      setVisibilityAudience(v);
+                      setVisibilityChanged(true);
+                    }}
+                  />
                 )}
               </div>
 
@@ -1046,6 +1156,29 @@ export function EditDashboardDialog({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Visibility downgrade confirmation */}
+      <AlertDialog open={pendingDowngradeOpen} onOpenChange={setPendingDowngradeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Narrow this widget's visibility?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hide the widget from users at other locations. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setPendingDowngradeOpen(false);
+                await performSave();
+              }}
+            >
+              Continue
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -204,6 +204,11 @@ export default function Dashboard() {
     trackerPromoImageUrl: w.trackerPromoImageUrl,
     trackerLocationRefs: w.trackerLocationRefs,
     trackerRankMetrics: w.trackerRankMetrics,
+    authorityScope: w.authorityScope,
+    audienceRoles: (w.audienceRoles ?? null) as any,
+    brandId: w.brandId,
+    organizationId: w.organizationId,
+    locationId: w.locationId,
   })), [unifiedWidgets]);
 
   const handleUpdateCube = async (id: string, updates: Partial<CubeConfig>) => {
@@ -226,11 +231,27 @@ export default function Dashboard() {
         trackerRankMetrics: updates.trackerRankMetrics ?? existing?.trackerRankMetrics,
       });
 
+      const scopeChanged = updates.authorityScope !== undefined && updates.authorityScope !== existing?.authorityScope;
+
       await updateDashboardWidget({
         widget_id: id,
         title: updates.title ?? null,
         accent_color: updates.accentColor ?? null,
         config: mergedConfig,
+        // Visibility — only forwarded when explicitly provided in `updates`.
+        authority_scope: updates.authorityScope ?? null,
+        audience_roles: updates.audienceRoles === undefined ? null : (updates.audienceRoles as any),
+        // When scope changes, send the matching FK and null out the others
+        // so the RPC re-anchors the widget. Otherwise leave all null (no-op).
+        location_id: scopeChanged
+          ? (updates.authorityScope === 'location' ? (updates.locationId ?? null) : null)
+          : null,
+        organization_id: scopeChanged
+          ? (updates.authorityScope === 'org' ? (updates.organizationId ?? null) : null)
+          : null,
+        brand_id: scopeChanged
+          ? (updates.authorityScope === 'brand' ? (updates.brandId ?? null) : null)
+          : null,
       });
 
       toast.success('Widget updated');
