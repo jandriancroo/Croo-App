@@ -90,6 +90,47 @@ function aggregateCountsByDate(countsData: { fast: any[], medium: any[], slow: a
   return daily;
 }
 
+// Fresh KDS counts endpoint only returns real bucket values when groupBy is 1h.
+// Multi-day windows force 1d aggregation which returns zeros (vendor quirk).
+// Fetch each day individually to keep hourly granularity.
+async function fetchDailyCounts(
+  token: string,
+  brandId: string,
+  kdsLocationId: string,
+  dateKeys: string[],
+): Promise<Record<string, { fast: number, medium: number, slow: number }>> {
+  const out: Record<string, { fast: number, medium: number, slow: number }> = {};
+  await Promise.all(dateKeys.map(async (d) => {
+    const next = new Date(`${d}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const nextKey = next.toISOString().split('T')[0];
+    try {
+      const j = await fetchMetric(token, brandId, 'counts/', kdsLocationId, d, nextKey);
+      const sums = { fast: 0, medium: 0, slow: 0 };
+      for (const k of ['fast', 'medium', 'slow'] as const) {
+        for (const e of (j.results?.[k] || [])) sums[k] += e.value || 0;
+      }
+      out[d] = sums;
+    } catch (e) {
+      console.error(`fetchDailyCounts ${d} failed:`, e);
+      out[d] = { fast: 0, medium: 0, slow: 0 };
+    }
+  }));
+  return out;
+}
+
+// Build inclusive list of YYYY-MM-DD keys between two dates (exclusive of the upper bound).
+function dateKeysBetween(fromKey: string, toKeyExclusive: string): string[] {
+  const keys: string[] = [];
+  const d = new Date(`${fromKey}T00:00:00Z`);
+  const end = new Date(`${toKeyExclusive}T00:00:00Z`);
+  while (d < end) {
+    keys.push(d.toISOString().split('T')[0]);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return keys;
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
