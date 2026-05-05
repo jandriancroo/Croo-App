@@ -39,6 +39,10 @@ export interface UnifiedWidgetConfig {
   cubeType: CubeType | 'data-3d';
   authorityScope: DashboardWidgetRow['authority_scope'];
   createdBy: string;
+  audienceRoles: string[] | null;
+  brandId: string | null;
+  organizationId: string | null;
+  locationId: string | null;
   // 3D
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
@@ -66,6 +70,10 @@ function mapRow(row: DashboardWidgetRow): UnifiedWidgetConfig {
     cubeType: (row.widget_type as CubeType | 'data-3d') || 'data',
     authorityScope: row.authority_scope,
     createdBy: row.created_by,
+    audienceRoles: row.audience_roles ?? null,
+    brandId: row.brand_id ?? null,
+    organizationId: row.organization_id ?? null,
+    locationId: row.location_id ?? null,
     faceMetrics: (cfg.face_metrics as MetricType[][]) || [],
     faceTitles: (cfg.face_titles as string[]) || [],
     numFaces: cfg.num_faces || 1,
