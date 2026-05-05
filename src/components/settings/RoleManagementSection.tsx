@@ -30,7 +30,7 @@ interface RoleManagementSectionProps {
 }
 
 export function RoleManagementSection({ organizationId }: RoleManagementSectionProps) {
-  const navigate = useNavigate();
+  
   const [permissions, setPermissions] = useState<RolePermission[]>([]);
   const [notifications, setNotifications] = useState<NotificationSetting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,19 +178,6 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
           Team Member
         </Button>
       </div>
-
-      {/* Dashboard Configuration Button */}
-      {canConfigureDashboard && organizationId && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={() => navigate(`/organization/${organizationId}/role-dashboard?role=${selectedRole}`)}
-        >
-          <LayoutGrid className="h-4 w-4 mr-2" />
-          Configure {getRoleLabel(selectedRole)} Dashboard
-        </Button>
-      )}
 
       {/* Two column layout for Permissions and Notifications */}
       <div className="grid grid-cols-1 gap-4">
