@@ -93,8 +93,17 @@ serve(async (req) => {
           .gte("week_end_date", today);
         const scheduleIds = (locSchedules || []).map((s: any) => s.id);
 
+        // Resolve schedule(s) covering yesterday for variance lookups
+        const { data: yestSchedules } = await supabase
+          .from("schedules")
+          .select("id")
+          .eq("location_id", loc.id)
+          .lte("week_start_date", yesterdayStr)
+          .gte("week_end_date", yesterdayStr);
+        const yestScheduleIds = (yestSchedules || []).map((s: any) => s.id);
+
         // Gather data for the briefing
-        const [laborInsight, salesData, todaySchedule, pendingRequests, cateringOrders] = await Promise.all([
+        const [laborInsight, salesData, todaySchedule, pendingRequests, cateringOrders, businessHours, tempAlerts, weeklySubmissions, yesterdayShifts] = await Promise.all([
           supabase
             .from("labor_insights")
             .select("analysis")
@@ -129,6 +138,33 @@ serve(async (req) => {
             .gte("pickup_date", today)
             .lte("pickup_date", today)
             .eq("status", "pending"),
+          supabase
+            .from("location_hours")
+            .select("open_time, close_time")
+            .eq("location_id", loc.id)
+            .eq("day_of_week", yesterdayDow)
+            .maybeSingle(),
+          supabase
+            .from("checklist_responses")
+            .select("extracted_temperature, temperature_valid, item:checklist_items(question), submission:checklist_submissions!inner(location_id, submitted_at)")
+            .eq("submission.location_id", loc.id)
+            .gte("submission.submitted_at", `${yesterdayStr}T00:00:00`)
+            .lt("submission.submitted_at", `${today}T00:00:00`)
+            .not("extracted_temperature", "is", null),
+          supabase
+            .from("checklist_submissions")
+            .select("submitted_by")
+            .eq("location_id", loc.id)
+            .gte("submitted_at", `${sevenDaysAgoStr}T00:00:00`)
+            .lt("submitted_at", `${today}T00:00:00`),
+          yestScheduleIds.length
+            ? supabase
+                .from("scheduled_shifts")
+                .select("id, start_time, end_time, user_id, shift_date")
+                .in("schedule_id", yestScheduleIds)
+                .eq("shift_date", yesterdayStr)
+                .eq("is_time_off", false)
+            : Promise.resolve({ data: [] as any[] }),
         ]);
 
         // Get profile names for scheduled shifts
