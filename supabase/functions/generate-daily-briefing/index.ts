@@ -167,14 +167,44 @@ serve(async (req) => {
             : Promise.resolve({ data: [] as any[] }),
         ]);
 
-        // Get profile names for scheduled shifts
-        const userIds = [...new Set((todaySchedule.data || []).map((s: any) => s.user_id).filter(Boolean))];
+        // Compute top line check submitter (last 7 days)
+        const submitCounts: Record<string, number> = {};
+        for (const sub of (weeklySubmissions.data || [])) {
+          if (sub.submitted_by) submitCounts[sub.submitted_by] = (submitCounts[sub.submitted_by] || 0) + 1;
+        }
+        let topSubmitterId: string | null = null;
+        let topSubmitterCount = 0;
+        for (const [uid, count] of Object.entries(submitCounts)) {
+          if (count > topSubmitterCount) { topSubmitterId = uid; topSubmitterCount = count; }
+        }
+
+        // Fetch yesterday's clock_out punches for variance analysis
+        const yShiftUserIds = (yesterdayShifts.data || []).map((s: any) => s.user_id).filter(Boolean);
+        let yPunches: any[] = [];
+        if (yShiftUserIds.length) {
+          const { data: pData } = await supabase
+            .from("time_punches")
+            .select("user_id, shift_id, punch_type, punch_time")
+            .eq("location_id", loc.id)
+            .in("user_id", yShiftUserIds)
+            .eq("punch_type", "clock_out")
+            .gte("punch_time", `${yesterdayStr}T00:00:00`)
+            .lt("punch_time", `${today}T12:00:00`);
+          yPunches = pData || [];
+        }
+
+        // Get profile names — combine today's schedule, yesterday's shift users, and top submitter
+        const allUserIds = [...new Set([
+          ...(todaySchedule.data || []).map((s: any) => s.user_id),
+          ...yShiftUserIds,
+          ...(topSubmitterId ? [topSubmitterId] : []),
+        ].filter(Boolean))];
         let profileMap: Record<string, string> = {};
-        if (userIds.length > 0) {
+        if (allUserIds.length > 0) {
           const { data: profiles } = await supabase
             .from("profiles")
             .select("id, full_name")
-            .in("id", userIds);
+            .in("id", allUserIds);
           if (profiles) {
             for (const p of profiles) {
               profileMap[p.id] = p.full_name || "Unknown";
