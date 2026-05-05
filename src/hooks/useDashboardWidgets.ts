@@ -1,0 +1,125 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
+import type { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
+import type { CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from '@/components/dashboard/AddWidgetDialog';
+
+export interface DashboardWidgetRow {
+  id: string;
+  widget_type: string;
+  config: any;
+  display_order: number;
+  created_by: string;
+  authority_scope: 'self' | 'location' | 'org' | 'brand' | 'app';
+  brand_id: string | null;
+  organization_id: string | null;
+  location_id: string | null;
+  audience_roles: string[] | null;
+  is_active: boolean;
+  title: string | null;
+  accent_color: string | null;
+  widget_size: 'small' | 'medium' | 'large';
+  reference_id: string | null;
+}
+
+/**
+ * UI-shaped widget config compatible with the legacy DataCubeConfig shape
+ * used by WidgetsSection / DashboardWidget / TrackerWidget.
+ *
+ * Reads the unified dashboard_widgets table. RLS handles all visibility:
+ * self / location / org / brand / app, optionally filtered by audience_roles.
+ */
+export interface UnifiedWidgetConfig {
+  id: string;
+  title: string;
+  size: WidgetSize;
+  metrics: MetricType[];
+  accentColor: string;
+  displayOrder: number;
+  cubeType: CubeType | 'data-3d';
+  authorityScope: DashboardWidgetRow['authority_scope'];
+  createdBy: string;
+  // 3D
+  faceMetrics?: MetricType[][];
+  faceTitles?: string[];
+  numFaces?: number;
+  // Tracker
+  trackerScope?: { type: TrackerScopeType; role?: string };
+  trackerDisplayMode?: TrackerDisplayMode;
+  trackerItemRefs?: string[];
+  trackerPromoStart?: string | null;
+  trackerPromoEnd?: string | null;
+  trackerPromoImageUrl?: string | null;
+  trackerLocationRefs?: string[];
+  trackerRankMetrics?: TrackerRankMetric[];
+}
+
+function mapRow(row: DashboardWidgetRow): UnifiedWidgetConfig {
+  const cfg = row.config || {};
+  return {
+    id: row.id,
+    title: row.title || '',
+    size: (row.widget_size as WidgetSize) || 'small',
+    metrics: (cfg.metrics as MetricType[]) || [],
+    accentColor: row.accent_color || '#8B5CF6',
+    displayOrder: row.display_order,
+    cubeType: (row.widget_type as CubeType | 'data-3d') || 'data',
+    authorityScope: row.authority_scope,
+    createdBy: row.created_by,
+    faceMetrics: (cfg.face_metrics as MetricType[][]) || [],
+    faceTitles: (cfg.face_titles as string[]) || [],
+    numFaces: cfg.num_faces || 1,
+    trackerScope: (cfg.tracker_scope as { type: TrackerScopeType; role?: string }) || { type: 'location' },
+    trackerDisplayMode: (cfg.tracker_display_mode as TrackerDisplayMode) || 'summary',
+    trackerItemRefs: (cfg.tracker_item_refs as string[]) || [],
+    trackerPromoStart: cfg.tracker_promo_start ?? null,
+    trackerPromoEnd: cfg.tracker_promo_end ?? null,
+    trackerPromoImageUrl: cfg.tracker_promo_image_url ?? null,
+    trackerLocationRefs: (cfg.tracker_location_refs as string[]) || [],
+    trackerRankMetrics: (cfg.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
+  };
+}
+
+/**
+ * Fetch all widgets visible to the current user for the given location.
+ * RLS filters by visibility/role; we filter client-side to widgets that
+ * apply to this location (self/location bound to id, or org/brand/app cascading down).
+ */
+export function useDashboardWidgets(locationId: string | null | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['dashboard-widgets', user?.id, locationId],
+    queryFn: async (): Promise<UnifiedWidgetConfig[]> => {
+      if (!user?.id || !locationId) return [];
+
+      const { data, error } = await supabase
+        .from('dashboard_widgets')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) {
+        console.error('[useDashboardWidgets] error:', error);
+        return [];
+      }
+
+      const rows = (data || []) as DashboardWidgetRow[];
+
+      // Keep widgets relevant to this location.
+      // org/brand/app cascade are visible everywhere within their scope (already RLS-filtered).
+      // self/location must match the current location.
+      const filtered = rows.filter(r => {
+        if (r.authority_scope === 'org' || r.authority_scope === 'brand' || r.authority_scope === 'app') {
+          return true;
+        }
+        return r.location_id === locationId;
+      });
+
+      return filtered.map(mapRow);
+    },
+    enabled: !!user?.id && !!locationId,
+    staleTime: 30 * 1000,
+    placeholderData: (prev) => prev,
+  });
+}

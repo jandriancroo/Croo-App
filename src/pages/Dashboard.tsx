@@ -13,7 +13,7 @@ import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
-import { useShouldUseRoleCubes } from '@/hooks/useRoleDashboardCubes';
+// useShouldUseRoleCubes removed — unified dashboard_widgets handles role visibility via RLS
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
@@ -126,8 +126,9 @@ export default function Dashboard() {
   // Handle pull-to-refresh (no-op callback, PullToRefresh handles invalidation)
   const handleRefresh = useCallback(() => {}, []);
   
-  // Role-based cubes for TM/SM/Manager (locked by Org Admin)
-  const { shouldUseRoleCubes, roleCubes } = useShouldUseRoleCubes(organizationId);
+  // Role-based cubes deprecated — unified dashboard_widgets handles role visibility via RLS
+  const shouldUseRoleCubes = false;
+  const roleCubes: any[] = [];
   
   // Fetch personal pay data for personal metrics
   const { data: personalPayData } = usePersonalPayData();
