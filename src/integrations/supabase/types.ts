@@ -9728,7 +9728,7 @@ export type Database = {
       publish_tracker_to_locations: {
         Args: { _config: Json; _location_ids: string[] }
         Returns: {
-          location_id: string
+          out_location_id: string
           users_published: number
           users_skipped: number
         }[]
@@ -9768,7 +9768,7 @@ export type Database = {
           _original_title: string
         }
         Returns: {
-          location_id: string
+          out_location_id: string
           users_created: number
           users_updated: number
         }[]
