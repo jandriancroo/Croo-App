@@ -126,8 +126,9 @@ export default function Dashboard() {
   // Handle pull-to-refresh (no-op callback, PullToRefresh handles invalidation)
   const handleRefresh = useCallback(() => {}, []);
   
-  // Role-based cubes for TM/SM/Manager (locked by Org Admin)
-  const { shouldUseRoleCubes, roleCubes } = useShouldUseRoleCubes(organizationId);
+  // Role-based cubes deprecated — unified dashboard_widgets handles role visibility via RLS
+  const shouldUseRoleCubes = false;
+  const roleCubes: any[] = [];
   
   // Fetch personal pay data for personal metrics
   const { data: personalPayData } = usePersonalPayData();
