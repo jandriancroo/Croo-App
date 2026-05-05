@@ -93,6 +93,7 @@ export function AddWidgetDialog({
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishLocationsInitialized, setPublishLocationsInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
 
   const { data: publishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
