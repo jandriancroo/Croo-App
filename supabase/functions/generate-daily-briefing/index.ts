@@ -54,11 +54,16 @@ serve(async (req) => {
     sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
     const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
 
+    // Optional body: { force?: boolean, locationId?: string }
+    let body: any = {};
+    try { body = await req.json(); } catch (_) {}
+    const force = body?.force === true;
+    const locationId = body?.locationId as string | undefined;
+
     // Get all active locations
-    const { data: locations, error: locErr } = await supabase
-      .from("locations")
-      .select("id, name")
-      .eq("is_active", true);
+    let locQuery = supabase.from("locations").select("id, name").eq("is_active", true);
+    if (locationId) locQuery = locQuery.eq("id", locationId);
+    const { data: locations, error: locErr } = await locQuery;
 
     if (locErr || !locations?.length) {
       return new Response(JSON.stringify({ error: "No locations", detail: locErr?.message }), {
@@ -71,18 +76,27 @@ serve(async (req) => {
 
     for (const loc of locations) {
       try {
-        // Skip if briefing already exists for today
-        const { data: existing } = await supabase
-          .from("croo_ai_briefings")
-          .select("id")
-          .eq("location_id", loc.id)
-          .eq("briefing_date", today)
-          .maybeSingle();
+        // Skip if briefing already exists for today (unless force)
+        if (!force) {
+          const { data: existing } = await supabase
+            .from("croo_ai_briefings")
+            .select("id")
+            .eq("location_id", loc.id)
+            .eq("briefing_date", today)
+            .maybeSingle();
 
-        if (existing) {
-          results.push({ location: loc.name, status: "exists" });
-          continue;
+          if (existing) {
+            results.push({ location: loc.name, status: "exists" });
+            continue;
+          }
+        } else {
+          await supabase
+            .from("croo_ai_briefings")
+            .delete()
+            .eq("location_id", loc.id)
+            .eq("briefing_date", today);
         }
+
 
         // Resolve schedule(s) covering today for this location so we can pull shifts.
         const { data: locSchedules } = await supabase
