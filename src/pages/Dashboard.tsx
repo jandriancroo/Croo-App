@@ -112,7 +112,7 @@ export default function Dashboard() {
   const ALWAYS_REFRESH_KEYS = [
     ['user-checklists'],
     ['checklist-stats'],
-    ['user-data-cubes'],
+    ['dashboard-widgets'],
     ['catering-orders'],
     ['temporary-tasks'],
     ['location-hours-today'],
