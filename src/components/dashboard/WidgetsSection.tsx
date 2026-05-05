@@ -293,10 +293,9 @@ export const WidgetsSection = memo(function WidgetsSection({
     })
   );
 
-  // PHASE 1 (Unified Widgets): read from dashboard_widgets via RLS.
-  // Writes (add/reorder/auto-create) still go to legacy user_dashboard_cubes
-  // until phase 2 swaps them too. New widgets created during this phase
-  // will not appear here until they are migrated through the unified RPCs.
+  // PHASE 2 (Unified Widgets): both reads and writes use dashboard_widgets via RPCs.
+  // Legacy user_dashboard_cubes / role_dashboard_cubes tables remain backfilled
+  // but are no longer touched by the app — they will be dropped in a later cleanup.
   const { data: unifiedWidgets = [], isLoading } = useDashboardWidgets(currentLocation?.id);
 
   const cubes: DataCubeConfig[] = useMemo(
