@@ -54,15 +54,25 @@ async function fetchLocationData(
     .gte('labor_date', fromISO)
     .lte('labor_date', toISO);
 
-  // Vendor invoices in window
+  // Vendor invoices — match on delivery_date if present, else invoice_date
   const invoicesP = supabase
     .from('vendor_invoices')
     .select('vendor_name, total_amount, invoice_date, delivery_date')
     .eq('location_id', locationId)
-    .or(`invoice_date.gte.${fromISO},delivery_date.gte.${fromISO}`)
-    .or(`invoice_date.lte.${toISO},delivery_date.lte.${toISO}`);
+    .gte('invoice_date', fromISO)
+    .lte('invoice_date', toISO);
 
-  // Inventory counts in window (for start/end)
+  // Inventory counts — fetch last count BEFORE window (starting) + all completed in window
+  const startingCountP = supabase
+    .from('inventory_counts')
+    .select('id, count_date')
+    .eq('location_id', locationId)
+    .eq('status', 'completed')
+    .lt('count_date', fromISO)
+    .order('count_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const countsP = supabase
     .from('inventory_counts')
     .select('id, count_date, status')
@@ -72,21 +82,26 @@ async function fetchLocationData(
     .lte('count_date', toISO)
     .order('count_date', { ascending: true });
 
-  const [salesR, laborR, invoicesR, countsR] = await Promise.all([salesP, laborP, invoicesP, countsP]);
+  const [salesR, laborR, invoicesR, countsR, startingCountR] = await Promise.all([salesP, laborP, invoicesP, countsP, startingCountP]);
 
   // === Sales ===
   const salesRows = salesR.data || [];
   const salesNet = salesRows.reduce((s, r) => s + Number(r.net_sales || 0), 0);
   const guests = salesRows.reduce((s, r) => s + Number(r.guest_count || 0), 0);
 
-  // === Labor === — pick best source per day (punch_clock preferred)
+  // === Labor === — pick best source per day: prefer the row that actually has cost/hours
   const laborRows = laborR.data || [];
   const byDay = new Map<string, any>();
   for (const r of laborRows) {
     const key = r.labor_date;
     const existing = byDay.get(key);
-    if (!existing) byDay.set(key, r);
-    else if (r.source === 'punch_clock' && existing.source !== 'punch_clock') byDay.set(key, r);
+    if (!existing) { byDay.set(key, r); continue; }
+    const rHasData = Number(r.labor_cost || 0) > 0 || Number(r.labor_hours || 0) > 0;
+    const eHasData = Number(existing.labor_cost || 0) > 0 || Number(existing.labor_hours || 0) > 0;
+    if (rHasData && !eHasData) { byDay.set(key, r); continue; }
+    if (rHasData && eHasData && r.source === 'punch_clock' && existing.source !== 'punch_clock') {
+      byDay.set(key, r);
+    }
   }
   const laborAgg = Array.from(byDay.values()).reduce(
     (acc, r) => ({
@@ -110,35 +125,28 @@ async function fetchLocationData(
     .sort((a, b) => b.amount - a.amount);
   const totalPurchases = vendors.reduce((s, v) => s + v.amount, 0);
 
-  // === Inventory counts === fetch totals for first/last counts
+  // === Inventory counts ===
+  // Starting = last completed count BEFORE the window (fallback: first count inside window)
+  // Ending   = last completed count INSIDE the window (fallback: starting)
   const countList = countsR.data || [];
-  const startCountId = countList[0]?.id;
-  const endCountId = countList[countList.length - 1]?.id;
+  const startingCountRow = startingCountR.data;
+  const startCountId = startingCountRow?.id ?? countList[0]?.id;
+  const endCountId = countList[countList.length - 1]?.id ?? startCountId;
 
-  let startingCount = 0;
-  let endingCount = 0;
-  if (startCountId) {
+  const sumCount = async (id?: string) => {
+    if (!id) return 0;
     const { data } = await supabase
       .from('inventory_count_items')
       .select('quantity, cost_at_count')
-      .eq('count_id', startCountId);
-    startingCount = (data || []).reduce(
+      .eq('count_id', id);
+    return (data || []).reduce(
       (s, r: any) => s + Number(r.quantity || 0) * Number(r.cost_at_count || 0),
       0
     );
-  }
-  if (endCountId && endCountId !== startCountId) {
-    const { data } = await supabase
-      .from('inventory_count_items')
-      .select('quantity, cost_at_count')
-      .eq('count_id', endCountId);
-    endingCount = (data || []).reduce(
-      (s, r: any) => s + Number(r.quantity || 0) * Number(r.cost_at_count || 0),
-      0
-    );
-  } else if (startCountId && !endCountId) {
-    endingCount = startingCount;
-  }
+  };
+
+  let startingCount = await sumCount(startCountId);
+  let endingCount = endCountId === startCountId ? startingCount : await sumCount(endCountId);
 
   const cogs = startingCount + totalPurchases - endingCount;
   const cogsPct = salesNet > 0 ? (cogs / salesNet) * 100 : 0;

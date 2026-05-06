@@ -115,22 +115,29 @@ function InventoryBlock({ data, options }: { data: any; options?: any }) {
   const showVendors = options?.showVendors !== false;
   const showCogs = options?.showCogs !== false;
   const usage = (data.startingCount ?? 0) + (data.totalPurchases ?? 0) - (data.endingCount ?? 0);
+  const hasAny = data.startingCount > 0 || data.endingCount > 0 || data.totalPurchases > 0;
+  if (!hasAny) {
+    return <p className="text-sm text-muted-foreground italic">No inventory counts or vendor invoices in this period.</p>;
+  }
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-3 gap-3 text-sm">
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">Starting Count</div>
-          <div className="font-semibold">${data.startingCount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          <div className="font-semibold">${Number(data.startingCount).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">Ending Count</div>
-          <div className="font-semibold">${data.endingCount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          <div className="font-semibold">${Number(data.endingCount).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">COGS %</div>
           <div className="font-semibold">{data.cogsPct}%</div>
         </div>
       </div>
+      {showVendors && data.vendors.length === 0 && (
+        <p className="text-xs text-muted-foreground italic mt-2">No vendor invoices in this period.</p>
+      )}
       {showVendors && data.vendors.length > 0 && (
         <>
           <div className="text-xs font-semibold mt-3 mb-1">Purchases by Vendor</div>
@@ -167,6 +174,10 @@ function InventoryBlock({ data, options }: { data: any; options?: any }) {
 }
 
 function LaborBlock({ data, options }: { data: any; options?: any }) {
+  const hasAny = data.totalHours > 0 || data.grossWages > 0;
+  if (!hasAny) {
+    return <p className="text-sm text-muted-foreground italic">No labor data synced for this period.</p>;
+  }
   const all = [
     { key: 'totalHours', label: 'Total Hours', val: data.totalHours.toFixed(1) },
     { key: 'regularHours', label: 'Regular Hours', val: data.regularHours.toFixed(1) },
