@@ -24,7 +24,7 @@ export interface LocationReportData {
     days: { date: string; totalHours: number; otHours: number; dotHours: number; grossWages: number }[];
   };
   cash: {
-    days: { date: string; total: number; variance: number }[];
+    days: { date: string; total: number; variance: number; countedBy?: string }[];
     total: number;
     totalVariance: number;
   };
@@ -76,7 +76,7 @@ async function fetchLocationData(
   // Drawer counts (LogBook → "Drawer Count" category)
   const drawerP = supabase
     .from('logbook_entries')
-    .select('id, entry_date, logbook_categories!inner(name), logbook_entry_values(value_text)')
+    .select('id, entry_date, created_by, logbook_categories!inner(name), logbook_entry_values(value_text), profiles:created_by(first_name, last_name)')
     .eq('location_id', locationId)
     .ilike('logbook_categories.name', 'Drawer Count')
     .gte('entry_date', fromISO)
@@ -197,9 +197,11 @@ async function fetchLocationData(
 
   // === Cash drawer === parse value_text JSON from logbook entries
   const drawerRows = drawerR.data || [];
-  const dayMap = new Map<string, { total: number; variance: number }>();
+  const dayMap = new Map<string, { total: number; variance: number; countedBy: Set<string> }>();
   for (const e of drawerRows as any[]) {
     const vals = e.logbook_entry_values || [];
+    const prof = e.profiles;
+    const name = prof ? [prof.first_name, prof.last_name].filter(Boolean).join(' ').trim() : '';
     for (const v of vals) {
       if (!v.value_text) continue;
       try {
@@ -210,14 +212,17 @@ async function fetchLocationData(
         if (existing) {
           existing.total += total;
           existing.variance = variance;
+          if (name) existing.countedBy.add(name);
         } else {
-          dayMap.set(e.entry_date, { total, variance });
+          const set = new Set<string>();
+          if (name) set.add(name);
+          dayMap.set(e.entry_date, { total, variance, countedBy: set });
         }
       } catch {}
     }
   }
   const cashDays = Array.from(dayMap.entries())
-    .map(([date, v]) => ({ date, total: v.total, variance: v.variance }))
+    .map(([date, v]) => ({ date, total: v.total, variance: v.variance, countedBy: Array.from(v.countedBy).join(', ') }))
     .sort((a, b) => a.date.localeCompare(b.date));
   const cashTotal = cashDays.reduce((s, d) => s + d.total, 0);
   const cashTotalVariance = cashDays.reduce((s, d) => s + d.variance, 0);
@@ -289,7 +294,11 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         // Cash: aggregate by date
         r.cash.days.forEach(d => {
           const existing = combined.cash.days.find(x => x.date === d.date);
-          if (existing) { existing.total += d.total; existing.variance += d.variance; }
+          if (existing) {
+            existing.total += d.total; existing.variance += d.variance;
+            const merged = new Set([...(existing.countedBy ? existing.countedBy.split(', ').filter(Boolean) : []), ...((d as any).countedBy ? (d as any).countedBy.split(', ').filter(Boolean) : [])]);
+            (existing as any).countedBy = Array.from(merged).join(', ');
+          }
           else combined.cash.days.push({ ...d });
         });
         combined.cash.total += r.cash.total;
