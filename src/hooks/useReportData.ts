@@ -197,9 +197,11 @@ async function fetchLocationData(
 
   // === Cash drawer === parse value_text JSON from logbook entries
   const drawerRows = drawerR.data || [];
-  const dayMap = new Map<string, { total: number; variance: number }>();
+  const dayMap = new Map<string, { total: number; variance: number; countedBy: Set<string> }>();
   for (const e of drawerRows as any[]) {
     const vals = e.logbook_entry_values || [];
+    const prof = e.profiles;
+    const name = prof ? [prof.first_name, prof.last_name].filter(Boolean).join(' ').trim() : '';
     for (const v of vals) {
       if (!v.value_text) continue;
       try {
@@ -210,14 +212,17 @@ async function fetchLocationData(
         if (existing) {
           existing.total += total;
           existing.variance = variance;
+          if (name) existing.countedBy.add(name);
         } else {
-          dayMap.set(e.entry_date, { total, variance });
+          const set = new Set<string>();
+          if (name) set.add(name);
+          dayMap.set(e.entry_date, { total, variance, countedBy: set });
         }
       } catch {}
     }
   }
   const cashDays = Array.from(dayMap.entries())
-    .map(([date, v]) => ({ date, total: v.total, variance: v.variance }))
+    .map(([date, v]) => ({ date, total: v.total, variance: v.variance, countedBy: Array.from(v.countedBy).join(', ') }))
     .sort((a, b) => a.date.localeCompare(b.date));
   const cashTotal = cashDays.reduce((s, d) => s + d.total, 0);
   const cashTotalVariance = cashDays.reduce((s, d) => s + d.variance, 0);
