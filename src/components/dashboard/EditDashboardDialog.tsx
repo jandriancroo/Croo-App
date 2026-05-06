@@ -95,6 +95,8 @@ export interface CubeConfig {
   locationId?: string | null;
   // Per-user "hide from my dashboard" toggle state for the current viewer
   hiddenForSelf?: boolean;
+  // user_id of the widget creator (for "Created by" attribution)
+  createdBy?: string;
 }
 
 interface EditDashboardDialogProps {
