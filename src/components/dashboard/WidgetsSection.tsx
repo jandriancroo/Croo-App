@@ -499,8 +499,12 @@ export const WidgetsSection = memo(function WidgetsSection({
   };
 
   // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
-  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data' || c.cubeType === 'tracker');
-  const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
+  const dataCubes = localCubes.filter(c =>
+    trackersOnly
+      ? c.cubeType === 'tracker'
+      : (c.cubeType === 'data-3d' || c.cubeType === 'data' || c.cubeType === 'tracker')
+  );
+  const salesChart = trackersOnly ? undefined : localCubes.find(c => c.cubeType === 'sales-chart');
 
   // Section order: use prop if provided, else read from localStorage
   const sectionOrder = useMemo(() => {
