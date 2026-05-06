@@ -129,21 +129,47 @@ async function fetchLocationData(
   // That count's items = ENDING. The previous completed count = STARTING. Purchases come
   // from `inventory_order_assignments` bound to the ending count (same logic as
   // PeriodDetailPanel) — NOT a date-range scan over vendor_invoices.
-  const endingCountRow = endingCountR.data;
+  // Pick the best ending count: prefer MONTHLY (full close) > WEEKLY > anything else.
+  // This ensures a "Last Month" preset uses the monthly close, not a mid-month weekly.
+  const endingRows = (endingCountR.data || []) as Array<{ id: string; count_date: string; period_end_date: string; period_type: string }>;
+  const periodRank = (t?: string) => t === 'monthly' ? 0 : t === 'weekly' ? 1 : 2;
+  const endingCountRow = endingRows.length
+    ? [...endingRows].sort((a, b) => {
+        const r = periodRank(a.period_type) - periodRank(b.period_type);
+        if (r !== 0) return r;
+        return (b.period_end_date || '').localeCompare(a.period_end_date || '');
+      })[0]
+    : null;
 
-  // Anchor the previous completed count (any period_type) for the starting baseline
+  // Anchor the previous completed count of the SAME period_type for the starting baseline
+  // (monthly → previous monthly; weekly → previous weekly). Fall back to any type.
   let startingCountRow: { id: string; count_date: string; period_end_date: string | null } | null = null;
   if (endingCountRow?.period_end_date) {
-    const { data: prev } = await supabase
+    const sameTypeP = supabase
       .from('inventory_counts')
       .select('id, count_date, period_end_date')
       .eq('location_id', locationId)
       .eq('status', 'completed')
+      .eq('period_type', endingCountRow.period_type)
       .lt('period_end_date', endingCountRow.period_end_date)
       .order('period_end_date', { ascending: false })
       .limit(1)
       .maybeSingle();
-    startingCountRow = prev as any;
+    const { data: prev } = await sameTypeP;
+    if (prev) {
+      startingCountRow = prev as any;
+    } else {
+      const { data: anyPrev } = await supabase
+        .from('inventory_counts')
+        .select('id, count_date, period_end_date')
+        .eq('location_id', locationId)
+        .eq('status', 'completed')
+        .lt('period_end_date', endingCountRow.period_end_date)
+        .order('period_end_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      startingCountRow = anyPrev as any;
+    }
   }
 
   // Sum a count's value using the snapshot fields (cost_at_count × quantity / pack snapshot)
