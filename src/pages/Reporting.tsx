@@ -269,6 +269,7 @@ export default function Reporting() {
   const [templateName, setTemplateName] = useState('');
   const [templateDesc, setTemplateDesc] = useState('');
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [organizationName, setOrganizationName] = useState<string>('');
   const previewRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
