@@ -178,7 +178,69 @@ function LaborBlock({ data, salesNet, options }: { data: any; salesNet: number; 
   if (!hasAny) {
     return <p className="text-sm text-muted-foreground italic">No labor data synced for this period.</p>;
   }
+  const view: 'summary' | 'weekly' | 'percent' = options?.view ?? 'summary';
+  const enabledMetrics: string[] = options?.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages', 'laborPct'];
   const laborPct = salesNet > 0 ? (data.grossWages / salesNet) * 100 : 0;
+
+  if (view === 'percent') {
+    return (
+      <div className="p-3 rounded bg-muted/40">
+        <div className="text-xs text-muted-foreground">Labor % of Sales</div>
+        <div className="text-2xl font-bold">{salesNet > 0 ? `${laborPct.toFixed(1)}%` : '—'}</div>
+      </div>
+    );
+  }
+
+  if (view === 'weekly') {
+    // Group days by ISO week (Mon-Sun)
+    const weekMap = new Map<string, { start: string; end: string; totalHours: number; otHours: number; dotHours: number; grossWages: number }>();
+    (data.days || []).forEach((d: any) => {
+      const dt = new Date(d.date + 'T00:00:00');
+      const day = (dt.getDay() + 6) % 7; // Mon=0
+      const monday = new Date(dt); monday.setDate(dt.getDate() - day);
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      const key = monday.toISOString().slice(0, 10);
+      const ex = weekMap.get(key);
+      if (ex) { ex.totalHours += d.totalHours; ex.otHours += d.otHours; ex.dotHours += d.dotHours; ex.grossWages += d.grossWages; ex.end = sunday.toISOString().slice(0, 10); }
+      else weekMap.set(key, { start: key, end: sunday.toISOString().slice(0, 10), totalHours: d.totalHours, otHours: d.otHours, dotHours: d.dotHours, grossWages: d.grossWages });
+    });
+    const weeks = Array.from(weekMap.values()).sort((a, b) => a.start.localeCompare(b.start));
+    return (
+      <table className="w-full text-sm">
+        <thead className="text-xs text-muted-foreground border-b">
+          <tr>
+            <th className="text-left py-1">Week</th>
+            <th className="text-right py-1">Hours</th>
+            {enabledMetrics.includes('otHours') && <th className="text-right py-1">OT</th>}
+            {enabledMetrics.includes('dotHours') && <th className="text-right py-1">DOT</th>}
+            <th className="text-right py-1">Wages</th>
+            {enabledMetrics.includes('laborPct') && <th className="text-right py-1">Labor %</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {weeks.map(w => (
+            <tr key={w.start} className="border-b last:border-0">
+              <td className="py-1.5">{w.start} – {w.end}</td>
+              <td className="py-1.5 text-right tabular-nums">{w.totalHours.toFixed(1)}</td>
+              {enabledMetrics.includes('otHours') && <td className="py-1.5 text-right tabular-nums">{w.otHours.toFixed(1)}</td>}
+              {enabledMetrics.includes('dotHours') && <td className="py-1.5 text-right tabular-nums">{w.dotHours.toFixed(1)}</td>}
+              <td className="py-1.5 text-right tabular-nums">${w.grossWages.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+              {enabledMetrics.includes('laborPct') && <td className="py-1.5 text-right tabular-nums">—</td>}
+            </tr>
+          ))}
+          <tr className="font-semibold">
+            <td className="py-1.5">Total</td>
+            <td className="py-1.5 text-right tabular-nums">{data.totalHours.toFixed(1)}</td>
+            {enabledMetrics.includes('otHours') && <td className="py-1.5 text-right tabular-nums">{data.otHours.toFixed(1)}</td>}
+            {enabledMetrics.includes('dotHours') && <td className="py-1.5 text-right tabular-nums">{data.dotHours.toFixed(1)}</td>}
+            <td className="py-1.5 text-right tabular-nums">${data.grossWages.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+            {enabledMetrics.includes('laborPct') && <td className="py-1.5 text-right tabular-nums">{salesNet > 0 ? `${laborPct.toFixed(1)}%` : '—'}</td>}
+          </tr>
+        </tbody>
+      </table>
+    );
+  }
+
   const all = [
     { key: 'totalHours', label: 'Total Hours', val: data.totalHours.toFixed(1) },
     { key: 'regularHours', label: 'Regular Hours', val: data.regularHours.toFixed(1) },
@@ -187,8 +249,7 @@ function LaborBlock({ data, salesNet, options }: { data: any; salesNet: number; 
     { key: 'grossWages', label: 'Gross Wages', val: `$${data.grossWages.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
     { key: 'laborPct', label: 'Labor %', val: salesNet > 0 ? `${laborPct.toFixed(1)}%` : '—' },
   ];
-  const enabled = options?.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages', 'laborPct'];
-  const visible = all.filter(s => enabled.includes(s.key));
+  const visible = all.filter(s => enabledMetrics.includes(s.key));
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
       {visible.map(s => (
@@ -201,10 +262,64 @@ function LaborBlock({ data, salesNet, options }: { data: any; salesNet: number; 
   );
 }
 
-function CashBlock({ data }: { data: any }) {
+function CashBlock({ data, options }: { data: any; options?: any }) {
   if (!data.days || data.days.length === 0) {
     return <p className="text-sm text-muted-foreground italic">No cash drawer data for this period.</p>;
   }
+  const view: 'daily' | 'weekly' | 'total' = options?.view ?? 'daily';
+
+  if (view === 'total') {
+    return (
+      <div className="p-3 rounded bg-muted/40">
+        <div className="text-xs text-muted-foreground">Total Over/Short</div>
+        <div className={cn('text-2xl font-bold tabular-nums', data.totalVariance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
+          {data.totalVariance >= 0 ? '+' : ''}${data.totalVariance.toFixed(2)}
+        </div>
+        <div className="text-xs text-muted-foreground mt-1">Drawer Total: ${data.total.toFixed(2)}</div>
+      </div>
+    );
+  }
+
+  if (view === 'weekly') {
+    const weekMap = new Map<string, { start: string; end: string; total: number; variance: number }>();
+    data.days.forEach((d: any) => {
+      const dt = new Date(d.date + 'T00:00:00');
+      const day = (dt.getDay() + 6) % 7;
+      const monday = new Date(dt); monday.setDate(dt.getDate() - day);
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      const key = monday.toISOString().slice(0, 10);
+      const ex = weekMap.get(key);
+      if (ex) { ex.total += d.total; ex.variance += d.variance; ex.end = sunday.toISOString().slice(0, 10); }
+      else weekMap.set(key, { start: key, end: sunday.toISOString().slice(0, 10), total: d.total, variance: d.variance });
+    });
+    const weeks = Array.from(weekMap.values()).sort((a, b) => a.start.localeCompare(b.start));
+    return (
+      <table className="w-full text-sm">
+        <thead className="text-xs text-muted-foreground border-b">
+          <tr><th className="text-left py-1">Week</th><th className="text-right py-1">Drawer Total</th><th className="text-right py-1">Over/Short</th></tr>
+        </thead>
+        <tbody>
+          {weeks.map(w => (
+            <tr key={w.start} className="border-b last:border-0">
+              <td className="py-1.5">{w.start} – {w.end}</td>
+              <td className="py-1.5 text-right tabular-nums">${w.total.toFixed(2)}</td>
+              <td className={cn('py-1.5 text-right tabular-nums', w.variance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
+                {w.variance >= 0 ? '+' : ''}${w.variance.toFixed(2)}
+              </td>
+            </tr>
+          ))}
+          <tr className="font-semibold">
+            <td className="py-1.5">Total</td>
+            <td className="py-1.5 text-right tabular-nums">${data.total.toFixed(2)}</td>
+            <td className={cn('py-1.5 text-right tabular-nums', data.totalVariance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
+              {data.totalVariance >= 0 ? '+' : ''}${data.totalVariance.toFixed(2)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    );
+  }
+
   return (
     <div>
       <table className="w-full text-sm">
