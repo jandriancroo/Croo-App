@@ -77,7 +77,7 @@ async function fetchLocationData(
   // Drawer counts (LogBook → "Drawer Count" category)
   const drawerP = supabase
     .from('logbook_entries')
-    .select('id, entry_date, created_by, logbook_categories!inner(name), logbook_entry_values(value_text), profiles:created_by(first_name, last_name)')
+    .select('id, entry_date, created_by, logbook_categories!inner(name), logbook_entry_values(value_text), profiles:created_by(full_name, nickname, email)')
     .eq('location_id', locationId)
     .ilike('logbook_categories.name', 'Drawer Count')
     .gte('entry_date', fromISO)
