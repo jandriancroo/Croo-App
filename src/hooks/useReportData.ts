@@ -294,7 +294,11 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         // Cash: aggregate by date
         r.cash.days.forEach(d => {
           const existing = combined.cash.days.find(x => x.date === d.date);
-          if (existing) { existing.total += d.total; existing.variance += d.variance; }
+          if (existing) {
+            existing.total += d.total; existing.variance += d.variance;
+            const merged = new Set([...(existing.countedBy ? existing.countedBy.split(', ').filter(Boolean) : []), ...((d as any).countedBy ? (d as any).countedBy.split(', ').filter(Boolean) : [])]);
+            (existing as any).countedBy = Array.from(merged).join(', ');
+          }
           else combined.cash.days.push({ ...d });
         });
         combined.cash.total += r.cash.total;
