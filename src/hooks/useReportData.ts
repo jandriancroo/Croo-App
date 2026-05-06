@@ -62,6 +62,9 @@ async function fetchLocationData(
   // Inventory counts — read straight from the inventory period panel source of truth.
   // Pick the most recent COMPLETED count whose period_end_date falls inside the window.
   // Then anchor the previous completed count (any period_type) as the starting baseline.
+  // Pull all completed counts whose period_end_date is inside the window; we'll pick
+  // the best one below — preferring MONTHLY > WEEKLY > other to match the inventory
+  // period panel hierarchy (don't grab a weekly when a full monthly close exists).
   const endingCountP = supabase
     .from('inventory_counts')
     .select('id, count_date, period_end_date, period_type')
@@ -69,9 +72,7 @@ async function fetchLocationData(
     .eq('status', 'completed')
     .gte('period_end_date', fromISO)
     .lte('period_end_date', toISO)
-    .order('period_end_date', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order('period_end_date', { ascending: false });
 
   // Drawer counts (LogBook → "Drawer Count" category)
   const drawerP = supabase
