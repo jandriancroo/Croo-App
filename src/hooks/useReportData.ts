@@ -54,15 +54,25 @@ async function fetchLocationData(
     .gte('labor_date', fromISO)
     .lte('labor_date', toISO);
 
-  // Vendor invoices in window
+  // Vendor invoices — match on delivery_date if present, else invoice_date
   const invoicesP = supabase
     .from('vendor_invoices')
     .select('vendor_name, total_amount, invoice_date, delivery_date')
     .eq('location_id', locationId)
-    .or(`invoice_date.gte.${fromISO},delivery_date.gte.${fromISO}`)
-    .or(`invoice_date.lte.${toISO},delivery_date.lte.${toISO}`);
+    .gte('invoice_date', fromISO)
+    .lte('invoice_date', toISO);
 
-  // Inventory counts in window (for start/end)
+  // Inventory counts — fetch last count BEFORE window (starting) + all completed in window
+  const startingCountP = supabase
+    .from('inventory_counts')
+    .select('id, count_date')
+    .eq('location_id', locationId)
+    .eq('status', 'completed')
+    .lt('count_date', fromISO)
+    .order('count_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const countsP = supabase
     .from('inventory_counts')
     .select('id, count_date, status')
@@ -72,7 +82,7 @@ async function fetchLocationData(
     .lte('count_date', toISO)
     .order('count_date', { ascending: true });
 
-  const [salesR, laborR, invoicesR, countsR] = await Promise.all([salesP, laborP, invoicesP, countsP]);
+  const [salesR, laborR, invoicesR, countsR, startingCountR] = await Promise.all([salesP, laborP, invoicesP, countsP, startingCountP]);
 
   // === Sales ===
   const salesRows = salesR.data || [];
