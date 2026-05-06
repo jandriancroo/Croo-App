@@ -17,6 +17,7 @@ export interface LocationReportData {
     otHours: number;
     dotHours: number;
     grossWages: number;
+    days: { date: string; totalHours: number; otHours: number; dotHours: number; grossWages: number }[];
   };
   cash: {
     days: { date: string; total: number; variance: number }[];
