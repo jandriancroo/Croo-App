@@ -20,6 +20,7 @@ export interface DashboardWidgetRow {
   accent_color: string | null;
   widget_size: 'small' | 'medium' | 'large';
   reference_id: string | null;
+  hidden_for_user_ids: string[] | null;
 }
 
 /**
@@ -43,6 +44,7 @@ export interface UnifiedWidgetConfig {
   brandId: string | null;
   organizationId: string | null;
   locationId: string | null;
+  hiddenForSelf: boolean;
   // 3D
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
@@ -58,7 +60,7 @@ export interface UnifiedWidgetConfig {
   trackerRankMetrics?: TrackerRankMetric[];
 }
 
-function mapRow(row: DashboardWidgetRow): UnifiedWidgetConfig {
+function mapRow(row: DashboardWidgetRow, userId: string): UnifiedWidgetConfig {
   const cfg = row.config || {};
   return {
     id: row.id,
@@ -74,6 +76,7 @@ function mapRow(row: DashboardWidgetRow): UnifiedWidgetConfig {
     brandId: row.brand_id ?? null,
     organizationId: row.organization_id ?? null,
     locationId: row.location_id ?? null,
+    hiddenForSelf: Array.isArray(row.hidden_for_user_ids) && row.hidden_for_user_ids.includes(userId),
     faceMetrics: (cfg.face_metrics as MetricType[][]) || [],
     faceTitles: (cfg.face_titles as string[]) || [],
     numFaces: cfg.num_faces || 1,
@@ -92,6 +95,10 @@ function mapRow(row: DashboardWidgetRow): UnifiedWidgetConfig {
  * Fetch all widgets visible to the current user for the given location.
  * RLS filters by visibility/role; we filter client-side to widgets that
  * apply to this location (self/location bound to id, or org/brand/app cascading down).
+ *
+ * Widgets the user has personally hidden are returned with `hiddenForSelf=true`
+ * so the Edit dialog can list them; consumers rendering the live dashboard
+ * should filter them out (see Dashboard.tsx).
  */
 export function useDashboardWidgets(locationId: string | null | undefined) {
   const { user } = useAuth();
@@ -114,9 +121,6 @@ export function useDashboardWidgets(locationId: string | null | undefined) {
 
       const rows = (data || []) as DashboardWidgetRow[];
 
-      // Keep widgets relevant to this location.
-      // org/brand/app cascade are visible everywhere within their scope (already RLS-filtered).
-      // self/location must match the current location.
       const filtered = rows.filter(r => {
         if (r.authority_scope === 'org' || r.authority_scope === 'brand' || r.authority_scope === 'app') {
           return true;
@@ -124,7 +128,7 @@ export function useDashboardWidgets(locationId: string | null | undefined) {
         return r.location_id === locationId;
       });
 
-      return filtered.map(mapRow);
+      return filtered.map(r => mapRow(r, user.id));
     },
     enabled: !!user?.id && !!locationId,
     staleTime: 30 * 1000,

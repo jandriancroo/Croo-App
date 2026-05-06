@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy, Upload, X, Crop, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy, Upload, X, Crop, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
@@ -38,10 +38,10 @@ import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { resolveBrandId } from "@/utils/resolveBrandId";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
-import { createDashboardWidget, updateDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
+import { createDashboardWidget, updateDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
@@ -93,6 +93,8 @@ export interface CubeConfig {
   brandId?: string | null;
   organizationId?: string | null;
   locationId?: string | null;
+  // Per-user "hide from my dashboard" toggle state for the current viewer
+  hiddenForSelf?: boolean;
 }
 
 interface EditDashboardDialogProps {
@@ -129,9 +131,19 @@ function SortableSectionRow({ sectionKey, children }: { sectionKey: string; chil
 }
 
 // Sortable cube row within data cubes section
-function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit: (cube: CubeConfig) => void; onDelete: (id: string) => void }) {
+function SortableCubeRow({
+  cube,
+  onEdit,
+  onDelete,
+  onToggleHidden,
+}: {
+  cube: CubeConfig;
+  onEdit: (cube: CubeConfig) => void;
+  onDelete: (id: string) => void;
+  onToggleHidden?: (cube: CubeConfig) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cube.id });
-  
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -145,7 +157,7 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
     <div
       ref={setNodeRef}
       style={style}
-      className="flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors hover:bg-accent/50"
+      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors hover:bg-accent/50 ${cube.hiddenForSelf ? 'opacity-60' : ''}`}
       onClick={() => onEdit(cube)}
     >
       <div
@@ -156,7 +168,7 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
       >
         <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
       </div>
-      <div 
+      <div
         className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${accentClass}`}
         style={accentBg ? { backgroundColor: accentBg } : undefined}
       >
@@ -167,13 +179,26 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
           {cube.title || '3D Data Cube'}
         </p>
         <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
-          {cube.cubeType === 'data-3d'
-            ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
-            : cube.cubeType === 'tracker'
-              ? `${cube.trackerDisplayMode === 'expandable' ? 'Expandable' : 'My rank'} · DAY/WTD/Promo`
-              : `${cube.size} · ${cube.metrics.length} metrics`}
+          {cube.hiddenForSelf
+            ? 'Hidden from your dashboard'
+            : cube.cubeType === 'data-3d'
+              ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
+              : cube.cubeType === 'tracker'
+                ? `${cube.trackerDisplayMode === 'expandable' ? 'Expandable' : 'My rank'} · DAY/WTD/Promo`
+                : `${cube.size} · ${cube.metrics.length} metrics`}
         </p>
       </div>
+      {onToggleHidden && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
+          title={cube.hiddenForSelf ? 'Show on my dashboard' : 'Hide from my dashboard'}
+          onClick={(e) => { e.stopPropagation(); onToggleHidden(cube); }}
+        >
+          {cube.hiddenForSelf ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon"
@@ -211,6 +236,20 @@ export function EditDashboardDialog({
   const { user } = useAuth();
   const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin;
+  // Personal "hide from my dashboard" toggle is reserved for management roles.
+  // (Lower roles see fewer widgets to begin with — they don't need to declutter.)
+  const canHideForSelf = isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin;
+  const queryClient = useQueryClient();
+
+  const handleToggleHiddenForSelf = async (cube: CubeConfig) => {
+    try {
+      const nowHidden = await toggleWidgetHiddenForSelf(cube.id);
+      toast.success(nowHidden ? 'Hidden from your dashboard' : 'Shown on your dashboard');
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update visibility');
+    }
+  };
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishInitialized, setPublishInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -642,6 +681,7 @@ export function EditDashboardDialog({
                   cube={cube}
                   onEdit={handleEditCube}
                   onDelete={(id) => setDeleteId(id)}
+                  onToggleHidden={canHideForSelf ? handleToggleHiddenForSelf : undefined}
                 />
               ))}
             </div>
