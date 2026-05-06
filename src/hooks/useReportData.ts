@@ -250,6 +250,14 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.labor.grossWages += r.labor.grossWages;
         combined.sales.net += r.sales.net;
         combined.sales.guests += r.sales.guests;
+        // Labor: aggregate by date
+        r.labor.days.forEach(d => {
+          const ex = combined.labor.days.find(x => x.date === d.date);
+          if (ex) {
+            ex.totalHours += d.totalHours; ex.otHours += d.otHours;
+            ex.dotHours += d.dotHours; ex.grossWages += d.grossWages;
+          } else combined.labor.days.push({ ...d });
+        });
         // Cash: aggregate by date
         r.cash.days.forEach(d => {
           const existing = combined.cash.days.find(x => x.date === d.date);
@@ -260,6 +268,7 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.cash.totalVariance += r.cash.totalVariance;
       });
       combined.cash.days.sort((a, b) => a.date.localeCompare(b.date));
+      combined.labor.days.sort((a, b) => a.date.localeCompare(b.date));
       combined.inventory.vendors = Array.from(vendorMap.entries())
         .map(([name, amount]) => ({ name, amount }))
         .sort((a, b) => b.amount - a.amount);
