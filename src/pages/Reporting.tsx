@@ -110,62 +110,76 @@ function SortableBlock({ block, onRemove, onEdit }: { block: ReportBlock; onRemo
   );
 }
 
-// ============ MOCK DATA RENDERERS ============
-function InventoryBlock({ data }: { data: any }) {
+// ============ DATA RENDERERS ============
+function InventoryBlock({ data, options }: { data: any; options?: any }) {
+  const showVendors = options?.showVendors !== false;
+  const showCogs = options?.showCogs !== false;
   const usage = (data.startingCount ?? 0) + (data.totalPurchases ?? 0) - (data.endingCount ?? 0);
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-3 gap-3 text-sm">
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">Starting Count</div>
-          <div className="font-semibold">${data.startingCount.toLocaleString()}</div>
+          <div className="font-semibold">${data.startingCount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">Ending Count</div>
-          <div className="font-semibold">${data.endingCount.toLocaleString()}</div>
+          <div className="font-semibold">${data.endingCount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">COGS %</div>
           <div className="font-semibold">{data.cogsPct}%</div>
         </div>
       </div>
-      <div className="text-xs font-semibold mt-3 mb-1">Purchases by Vendor</div>
-      <table className="w-full text-sm">
-        <tbody>
-          {data.vendors.map((v: any) => (
-            <tr key={v.name} className="border-b last:border-0">
-              <td className="py-1.5">{v.name}</td>
-              <td className="py-1.5 text-right tabular-nums">${v.amount.toLocaleString()}</td>
-            </tr>
-          ))}
-          <tr className="font-semibold">
-            <td className="py-1.5">Total Purchases</td>
-            <td className="py-1.5 text-right tabular-nums">${data.totalPurchases.toLocaleString()}</td>
-          </tr>
-          <tr className="font-semibold">
-            <td className="py-1.5">Usage (Start + Purchases − End)</td>
-            <td className="py-1.5 text-right tabular-nums">${usage.toLocaleString()}</td>
-          </tr>
-          <tr className="font-semibold text-primary">
-            <td className="py-1.5">COGS</td>
-            <td className="py-1.5 text-right tabular-nums">${data.cogs.toLocaleString()}</td>
-          </tr>
-        </tbody>
-      </table>
+      {showVendors && data.vendors.length > 0 && (
+        <>
+          <div className="text-xs font-semibold mt-3 mb-1">Purchases by Vendor</div>
+          <table className="w-full text-sm">
+            <tbody>
+              {data.vendors.map((v: any) => (
+                <tr key={v.name} className="border-b last:border-0">
+                  <td className="py-1.5">{v.name}</td>
+                  <td className="py-1.5 text-right tabular-nums">${v.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                </tr>
+              ))}
+              <tr className="font-semibold">
+                <td className="py-1.5">Total Purchases</td>
+                <td className="py-1.5 text-right tabular-nums">${data.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+              </tr>
+              {showCogs && (
+                <>
+                  <tr className="font-semibold">
+                    <td className="py-1.5">Usage (Start + Purchases − End)</td>
+                    <td className="py-1.5 text-right tabular-nums">${usage.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                  </tr>
+                  <tr className="font-semibold text-primary">
+                    <td className="py-1.5">COGS</td>
+                    <td className="py-1.5 text-right tabular-nums">${data.cogs.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
     </div>
   );
 }
 
-function LaborBlock({ data }: { data: any }) {
+function LaborBlock({ data, options }: { data: any; options?: any }) {
+  const all = [
+    { key: 'totalHours', label: 'Total Hours', val: data.totalHours.toFixed(1) },
+    { key: 'regularHours', label: 'Regular Hours', val: data.regularHours.toFixed(1) },
+    { key: 'otHours', label: 'OT Hours', val: data.otHours.toFixed(1) },
+    { key: 'dotHours', label: 'DOT Hours', val: data.dotHours.toFixed(1) },
+    { key: 'grossWages', label: 'Gross Wages', val: `$${data.grossWages.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+  ];
+  const enabled = options?.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages'];
+  const visible = all.filter(s => enabled.includes(s.key));
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-      {[
-        { label: 'Total Hours', val: data.totalHours.toFixed(1) },
-        { label: 'OT Hours', val: data.otHours.toFixed(1) },
-        { label: 'DOT Hours', val: data.dotHours.toFixed(1) },
-        { label: 'Gross Wages', val: `$${data.grossWages.toLocaleString()}` },
-      ].map(s => (
-        <div key={s.label} className="p-2 rounded bg-muted/40">
+      {visible.map(s => (
+        <div key={s.key} className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">{s.label}</div>
           <div className="font-semibold">{s.val}</div>
         </div>
@@ -175,6 +189,9 @@ function LaborBlock({ data }: { data: any }) {
 }
 
 function CashBlock({ data }: { data: any }) {
+  if (!data.days || data.days.length === 0) {
+    return <p className="text-sm text-muted-foreground italic">No cash drawer data for this period.</p>;
+  }
   return (
     <div>
       <table className="w-full text-sm">
@@ -204,7 +221,7 @@ function CashBlock({ data }: { data: any }) {
   );
 }
 
-function renderBlock(block: ReportBlock, locationData: any) {
+function renderBlock(block: ReportBlock, locationData: LocationReportData) {
   switch (block.type) {
     case 'header':
       return <h2 className="text-xl font-bold border-b pb-1">{block.title}</h2>;
@@ -213,17 +230,19 @@ function renderBlock(block: ReportBlock, locationData: any) {
     case 'spacer':
       return <div style={{ height: block.options?.height || 24 }} />;
     case 'inventory':
-      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><InventoryBlock data={locationData.inventory} /></div>;
+      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><InventoryBlock data={locationData.inventory} options={block.options} /></div>;
     case 'labor':
-      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} /></div>;
+      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} options={block.options} /></div>;
     case 'cash':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><CashBlock data={locationData.cash} /></div>;
     case 'sales':
       return (
         <div>
           <h3 className="font-semibold text-sm mb-2">{block.title}</h3>
-          <div className="text-2xl font-bold tabular-nums">${locationData.sales.net.toLocaleString()}</div>
-          <div className="text-xs text-muted-foreground">Guests: {locationData.sales.guests.toLocaleString()}</div>
+          <div className="text-2xl font-bold tabular-nums">${locationData.sales.net.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          {block.options?.showGuests !== false && (
+            <div className="text-xs text-muted-foreground">Guests: {locationData.sales.guests.toLocaleString()}</div>
+          )}
         </div>
       );
   }
