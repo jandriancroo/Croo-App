@@ -41,7 +41,8 @@ import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useQuery } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
-import { createDashboardWidget, updateDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
+import { createDashboardWidget, updateDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf } from "@/lib/dashboardWidgetsClient";
+import { useQueryClient } from "@tanstack/react-query";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
