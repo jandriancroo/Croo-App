@@ -448,16 +448,19 @@ export default function Reporting() {
   const exportCSV = () => {
     const rows: any[] = [];
     targetLocations.forEach(loc => {
-      rows.push({ Location: loc.name, Section: 'Inventory — Starting Count', Value: mockLocationData.inventory.startingCount });
-      mockLocationData.inventory.vendors.forEach(v => rows.push({ Location: loc.name, Section: `Inventory — ${v.name}`, Value: v.amount }));
-      rows.push({ Location: loc.name, Section: 'Inventory — COGS', Value: mockLocationData.inventory.cogs });
-      rows.push({ Location: loc.name, Section: 'Inventory — COGS %', Value: mockLocationData.inventory.cogsPct });
-      rows.push({ Location: loc.name, Section: 'Labor — Total Hours', Value: mockLocationData.labor.totalHours });
-      rows.push({ Location: loc.name, Section: 'Labor — OT Hours', Value: mockLocationData.labor.otHours });
-      rows.push({ Location: loc.name, Section: 'Labor — DOT Hours', Value: mockLocationData.labor.dotHours });
-      rows.push({ Location: loc.name, Section: 'Labor — Gross Wages', Value: mockLocationData.labor.grossWages });
-      rows.push({ Location: loc.name, Section: 'Cash — Total', Value: mockLocationData.cash.total });
-      rows.push({ Location: loc.name, Section: 'Cash — Variance', Value: mockLocationData.cash.totalVariance });
+      const d = dataByLocation[loc.id] ?? EMPTY;
+      rows.push({ Location: loc.name, Section: 'Inventory — Starting Count', Value: d.inventory.startingCount });
+      rows.push({ Location: loc.name, Section: 'Inventory — Ending Count', Value: d.inventory.endingCount });
+      d.inventory.vendors.forEach(v => rows.push({ Location: loc.name, Section: `Inventory — ${v.name}`, Value: v.amount }));
+      rows.push({ Location: loc.name, Section: 'Inventory — Total Purchases', Value: d.inventory.totalPurchases });
+      rows.push({ Location: loc.name, Section: 'Inventory — COGS', Value: d.inventory.cogs });
+      rows.push({ Location: loc.name, Section: 'Inventory — COGS %', Value: d.inventory.cogsPct });
+      rows.push({ Location: loc.name, Section: 'Labor — Total Hours', Value: d.labor.totalHours });
+      rows.push({ Location: loc.name, Section: 'Labor — OT Hours', Value: d.labor.otHours });
+      rows.push({ Location: loc.name, Section: 'Labor — DOT Hours', Value: d.labor.dotHours });
+      rows.push({ Location: loc.name, Section: 'Labor — Gross Wages', Value: d.labor.grossWages });
+      rows.push({ Location: loc.name, Section: 'Sales — Net', Value: d.sales.net });
+      rows.push({ Location: loc.name, Section: 'Sales — Guests', Value: d.sales.guests });
     });
     const csv = Papa.unparse(rows);
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -469,8 +472,44 @@ export default function Reporting() {
   };
 
   const sendEmail = async () => {
-    toast.info('Email send — coming online with delivery service. PDF generation works now.');
-    setEmailDialogOpen(false);
+    const recips = emailRecipients.split(',').map(s => s.trim()).filter(Boolean);
+    if (recips.length === 0) { toast.error('Add at least one recipient'); return; }
+    if (!previewRef.current) { toast.error('Preview not ready'); return; }
+    setEmailSending(true);
+    try {
+      toast.info('Generating PDF…');
+      const canvas = await html2canvas(previewRef.current, { scale: 2, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: config.orientation, unit: 'pt', format: 'letter' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW - 40;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      let heightLeft = imgH;
+      let position = 20;
+      pdf.addImage(imgData, 'PNG', 20, position, imgW, imgH);
+      heightLeft -= (pageH - 40);
+      while (heightLeft > 0) {
+        pdf.addPage();
+        position = 20 - (imgH - heightLeft);
+        pdf.addImage(imgData, 'PNG', 20, position, imgW, imgH);
+        heightLeft -= (pageH - 40);
+      }
+      const pdfBase64 = pdf.output('datauristring').split(',')[1];
+      const fileName = `${config.reportTitle.replace(/\s+/g, '_')}_${format(range.from, 'yyyyMMdd')}-${format(range.to, 'yyyyMMdd')}.pdf`;
+      const period = `${format(range.from, 'MMM d, yyyy')} – ${format(range.to, 'MMM d, yyyy')}`;
+      const { error } = await supabase.functions.invoke('send-report-email', {
+        body: { recipients: recips, reportTitle: config.reportTitle, period, author: config.author, pdfBase64, fileName },
+      });
+      if (error) throw error;
+      toast.success(`Sent to ${recips.length} recipient${recips.length > 1 ? 's' : ''}`);
+      setEmailDialogOpen(false);
+      setEmailRecipients('');
+    } catch (err: any) {
+      toast.error('Send failed: ' + (err?.message || String(err)));
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   if (!canAccess) {
