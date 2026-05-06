@@ -1117,6 +1117,7 @@ export default function Reporting() {
                   )}
                 </div>
               </div>
+              </div>
             </div>
           </div>
 
