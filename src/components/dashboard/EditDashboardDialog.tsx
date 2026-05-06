@@ -38,11 +38,10 @@ import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { resolveBrandId } from "@/utils/resolveBrandId";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
 import { createDashboardWidget, updateDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf } from "@/lib/dashboardWidgetsClient";
-import { useQueryClient } from "@tanstack/react-query";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
