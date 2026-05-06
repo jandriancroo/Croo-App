@@ -82,7 +82,17 @@ async function fetchLocationData(
     .lte('count_date', toISO)
     .order('count_date', { ascending: true });
 
-  const [salesR, laborR, invoicesR, countsR, startingCountR] = await Promise.all([salesP, laborP, invoicesP, countsP, startingCountP]);
+  // Drawer counts (LogBook → "Drawer Count" category)
+  const drawerP = supabase
+    .from('logbook_entries')
+    .select('id, entry_date, logbook_categories!inner(name), logbook_entry_values(value_text)')
+    .eq('location_id', locationId)
+    .ilike('logbook_categories.name', 'Drawer Count')
+    .gte('entry_date', fromISO)
+    .lte('entry_date', toISO)
+    .order('entry_date', { ascending: true });
+
+  const [salesR, laborR, invoicesR, countsR, startingCountR, drawerR] = await Promise.all([salesP, laborP, invoicesP, countsP, startingCountP, drawerP]);
 
   // === Sales ===
   const salesRows = salesR.data || [];
@@ -151,6 +161,34 @@ async function fetchLocationData(
   const cogs = startingCount + totalPurchases - endingCount;
   const cogsPct = salesNet > 0 ? (cogs / salesNet) * 100 : 0;
 
+  // === Cash drawer === parse value_text JSON from logbook entries
+  const drawerRows = drawerR.data || [];
+  const dayMap = new Map<string, { total: number; variance: number }>();
+  for (const e of drawerRows as any[]) {
+    const vals = e.logbook_entry_values || [];
+    for (const v of vals) {
+      if (!v.value_text) continue;
+      try {
+        const parsed = JSON.parse(v.value_text);
+        const total = Number(parsed.totalDrawer || 0);
+        const variance = Number(parsed.variance || 0);
+        // If multiple drawer counts for same day, sum totals but use the LAST variance (most recent count)
+        const existing = dayMap.get(e.entry_date);
+        if (existing) {
+          existing.total += total;
+          existing.variance = variance;
+        } else {
+          dayMap.set(e.entry_date, { total, variance });
+        }
+      } catch {}
+    }
+  }
+  const cashDays = Array.from(dayMap.entries())
+    .map(([date, v]) => ({ date, total: v.total, variance: v.variance }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const cashTotal = cashDays.reduce((s, d) => s + d.total, 0);
+  const cashTotalVariance = cashDays.reduce((s, d) => s + d.variance, 0);
+
   return {
     inventory: {
       startingCount,
@@ -161,7 +199,7 @@ async function fetchLocationData(
       cogsPct: Math.round(cogsPct * 10) / 10,
     },
     labor: laborAgg,
-    cash: { days: [], total: 0, totalVariance: 0 }, // Cash drawer data not yet in DB
+    cash: { days: cashDays, total: cashTotal, totalVariance: cashTotalVariance },
     sales: { net: salesNet, guests },
   };
 }
@@ -203,7 +241,16 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.labor.grossWages += r.labor.grossWages;
         combined.sales.net += r.sales.net;
         combined.sales.guests += r.sales.guests;
+        // Cash: aggregate by date
+        r.cash.days.forEach(d => {
+          const existing = combined.cash.days.find(x => x.date === d.date);
+          if (existing) { existing.total += d.total; existing.variance += d.variance; }
+          else combined.cash.days.push({ ...d });
+        });
+        combined.cash.total += r.cash.total;
+        combined.cash.totalVariance += r.cash.totalVariance;
       });
+      combined.cash.days.sort((a, b) => a.date.localeCompare(b.date));
       combined.inventory.vendors = Array.from(vendorMap.entries())
         .map(([name, amount]) => ({ name, amount }))
         .sort((a, b) => b.amount - a.amount);
