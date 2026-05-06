@@ -108,12 +108,17 @@ function SortableBlock({ block, onRemove, onEdit }: { block: ReportBlock; onRemo
 
 // ============ MOCK DATA RENDERERS ============
 function InventoryBlock({ data }: { data: any }) {
+  const usage = (data.startingCount ?? 0) + (data.totalPurchases ?? 0) - (data.endingCount ?? 0);
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="grid grid-cols-3 gap-3 text-sm">
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">Starting Count</div>
           <div className="font-semibold">${data.startingCount.toLocaleString()}</div>
+        </div>
+        <div className="p-2 rounded bg-muted/40">
+          <div className="text-xs text-muted-foreground">Ending Count</div>
+          <div className="font-semibold">${data.endingCount.toLocaleString()}</div>
         </div>
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">COGS %</div>
@@ -132,6 +137,10 @@ function InventoryBlock({ data }: { data: any }) {
           <tr className="font-semibold">
             <td className="py-1.5">Total Purchases</td>
             <td className="py-1.5 text-right tabular-nums">${data.totalPurchases.toLocaleString()}</td>
+          </tr>
+          <tr className="font-semibold">
+            <td className="py-1.5">Usage (Start + Purchases − End)</td>
+            <td className="py-1.5 text-right tabular-nums">${usage.toLocaleString()}</td>
           </tr>
           <tr className="font-semibold text-primary">
             <td className="py-1.5">COGS</td>
