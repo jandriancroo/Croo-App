@@ -93,12 +93,15 @@ export function AddWidgetDialog({
   });
 
   const { user } = useAuth();
+  const { currentLocation } = useLocation();
   const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin; // admin, org_admin, brand_admin, super_admin
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishLocationsInitialized, setPublishLocationsInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
+  type PublishScope = 'location' | 'org' | 'brand' | 'all';
+  const [publishScope, setPublishScope] = useState<PublishScope>('location');
 
   // Visibility scope at creation time (data cubes only — trackers use the
   // dedicated "Publish to locations" panel below).
