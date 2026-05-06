@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { useLocation } from "@/hooks/useLocation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
 import { createDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
