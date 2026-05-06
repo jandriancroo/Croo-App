@@ -92,6 +92,17 @@ export async function deleteDashboardWidget(widget_id: string): Promise<void> {
 }
 
 /**
+ * Toggle whether the current user has hidden this widget from their own
+ * dashboard. Doesn't change widget scope or visibility for any other user.
+ * Returns true if now hidden, false if now visible.
+ */
+export async function toggleWidgetHiddenForSelf(widget_id: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('toggle_widget_hidden_for_self', { _widget_id: widget_id });
+  if (error) throw error;
+  return data as boolean;
+}
+
+/**
  * Build the `config` JSONB blob from the legacy CubeConfig shape used by the UI.
  * Anything that's a top-level column is stripped.
  */
