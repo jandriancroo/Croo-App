@@ -194,10 +194,10 @@ async function fetchLocationData(
     const brandIds = Array.from(new Set((items || []).map((i: any) => i.brand_item_id).filter(Boolean)));
     const conversionMap = new Map<string, any>();
     if (brandIds.length) {
-      const { data: convs } = await supabase
+      const { data: convs } = await (supabase as any)
         .from('item_conversions')
         .select('brand_item_id, outer_qty, canonical_qty_per_inner, canonical_unit')
-        .in('brand_item_id', brandIds);
+        .in('brand_item_id', brandIds as string[]);
       for (const c of convs || []) conversionMap.set((c as any).brand_item_id, c);
     }
     return rows.reduce((s, ci) => {
