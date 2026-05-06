@@ -819,7 +819,13 @@ export default function Reporting() {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
           <div className="flex flex-1 overflow-hidden">
             {/* CANVAS / BLOCKS LIST */}
-            <div className="w-56 border-r overflow-y-auto bg-muted/20 p-2">
+            <div className={cn(
+              "border-r overflow-y-auto bg-muted/20 p-2",
+              "md:w-56 md:flex-shrink-0",
+              "w-full",
+              isMobile && mobileTab !== 'build' && "hidden",
+              isMobile && mobileTab === 'build' && "flex-1"
+            )}>
               <div className="text-xs font-semibold text-muted-foreground mb-2 px-1">Report Blocks ({config.blocks.length})</div>
               <SortableContext items={config.blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
