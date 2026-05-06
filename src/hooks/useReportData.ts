@@ -123,50 +123,75 @@ async function fetchLocationData(
     { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: dayRows }
   );
 
-  // === Vendor invoices ===
-  const invoiceRows = invoicesR.data || [];
-  const vendorMap = new Map<string, number>();
-  for (const inv of invoiceRows) {
-    vendorMap.set(inv.vendor_name, (vendorMap.get(inv.vendor_name) || 0) + Number(inv.total_amount || 0));
+  // === Inventory: SOURCE OF TRUTH = inventory period panel ===
+  // Pick the latest completed count whose period_end_date is inside the report window.
+  // That count's items = ENDING. The previous completed count = STARTING. Purchases come
+  // from `inventory_order_assignments` bound to the ending count (same logic as
+  // PeriodDetailPanel) — NOT a date-range scan over vendor_invoices.
+  const endingCountRow = endingCountR.data;
+
+  // Anchor the previous completed count (any period_type) for the starting baseline
+  let startingCountRow: { id: string; count_date: string; period_end_date: string | null } | null = null;
+  if (endingCountRow?.period_end_date) {
+    const { data: prev } = await supabase
+      .from('inventory_counts')
+      .select('id, count_date, period_end_date')
+      .eq('location_id', locationId)
+      .eq('status', 'completed')
+      .lt('period_end_date', endingCountRow.period_end_date)
+      .order('period_end_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    startingCountRow = prev as any;
   }
-  const vendors = Array.from(vendorMap.entries())
-    .map(([name, amount]) => ({ name, amount }))
-    .sort((a, b) => b.amount - a.amount);
-  const totalPurchases = vendors.reduce((s, v) => s + v.amount, 0);
 
-  // === Inventory counts ===
-  // Starting = last completed count BEFORE the window (fallback: first count inside window)
-  // Ending   = last completed count INSIDE the window (fallback: starting)
-  const countList = countsR.data || [];
-  const startingCountRow = startingCountR.data;
-  const startCountRow = startingCountRow ?? countList[0];
-  const endCountRow = countList[countList.length - 1] ?? startCountRow;
-  const startCountId = startCountRow?.id;
-  const endCountId = endCountRow?.id;
-
-  // "Aligned" = the report period truly maps to existing count boundaries.
-  // Heuristic: starting count is from BEFORE the window (true period start) AND
-  // an ending count exists within the window whose date is within 3 days of `toISO`.
-  const daysBetween = (a: string, b: string) => Math.abs((new Date(a).getTime() - new Date(b).getTime()) / 86400000);
-  const aligned = !!startingCountRow
-    && countList.length > 0
-    && daysBetween(endCountRow!.count_date as string, toISO) <= 3;
-
+  // Sum a count's value using the snapshot fields (cost_at_count × quantity / pack snapshot)
   const sumCount = async (id?: string) => {
     if (!id) return 0;
     const { data } = await supabase
       .from('inventory_count_items')
-      .select('quantity, cost_at_count')
+      .select('quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units')
       .eq('count_id', id);
-    return (data || []).reduce(
-      (s, r: any) => s + Number(r.quantity || 0) * Number(r.cost_at_count || 0),
-      0
-    );
+    return (data || []).reduce((s, r: any) => {
+      const packQty = Number(r.pack_quantity_at_count) || 1;
+      const cost = Number(r.cost_at_count) || 0;
+      const qty = Number(r.quantity) || 0;
+      // Per-unit cost = cost_per_case / pack_qty (matches PeriodDetailPanel snapshot path)
+      return s + (qty * cost) / Math.max(packQty, 1);
+    }, 0);
   };
 
-  let startingCount = await sumCount(startCountId);
-  let endingCount = endCountId === startCountId ? startingCount : await sumCount(endCountId);
+  let startingCount = await sumCount(startingCountRow?.id);
+  let endingCount = await sumCount(endingCountRow?.id);
 
+  // === Purchases: bound assignments for the ending count (same as period panel) ===
+  let totalPurchases = 0;
+  let vendors: { name: string; amount: number }[] = [];
+  if (endingCountRow?.id) {
+    const { data: assigns } = await supabase
+      .from('inventory_order_assignments')
+      .select('source_type, source_row_id')
+      .eq('count_id', endingCountRow.id);
+    const pfgIds = (assigns || []).filter(a => a.source_type === 'pfg').map(a => a.source_row_id);
+    const paIds = (assigns || []).filter(a => a.source_type === 'pa').map(a => a.source_row_id);
+    const invIds = (assigns || []).filter(a => a.source_type === 'invoice').map(a => a.source_row_id);
+    const [pfgR, paR, invR] = await Promise.all([
+      pfgIds.length ? supabase.from('pfg_orders').select('total_amount').in('id', pfgIds) : Promise.resolve({ data: [] as any[] }),
+      paIds.length ? supabase.from('pa_orders').select('total_amount').in('id', paIds) : Promise.resolve({ data: [] as any[] }),
+      invIds.length ? supabase.from('vendor_invoices').select('vendor_name, total_amount').in('id', invIds) : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const vendorMap = new Map<string, number>();
+    (pfgR.data || []).forEach((o: any) => vendorMap.set('PFG', (vendorMap.get('PFG') || 0) + (Number(o.total_amount) || 0)));
+    (paR.data || []).forEach((o: any) => vendorMap.set('Produce Alliance', (vendorMap.get('Produce Alliance') || 0) + (Number(o.total_amount) || 0)));
+    (invR.data || []).forEach((o: any) => {
+      const name = o.vendor_name || 'Other';
+      vendorMap.set(name, (vendorMap.get(name) || 0) + (Number(o.total_amount) || 0));
+    });
+    vendors = Array.from(vendorMap.entries()).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount);
+    totalPurchases = vendors.reduce((s, v) => s + v.amount, 0);
+  }
+
+  const aligned = !!endingCountRow;
   const cogs = startingCount + totalPurchases - endingCount;
   const cogsPct = salesNet > 0 ? (cogs / salesNet) * 100 : 0;
 
