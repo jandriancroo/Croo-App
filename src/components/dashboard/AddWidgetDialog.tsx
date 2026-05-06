@@ -284,7 +284,12 @@ export function AddWidgetDialog({
       return;
     }
 
-    onAdd(config);
+    // Data cubes / 3D: pass through admin-chosen visibility scope + audience
+    onAdd({
+      ...config,
+      authorityScope: canPublish ? visibilityScope : 'self',
+      audienceRoles: canPublish && visibilityScope !== 'self' ? audienceRoles : null,
+    });
     handleClose(false);
   };
 
