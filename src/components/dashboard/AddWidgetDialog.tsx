@@ -91,12 +91,32 @@ export function AddWidgetDialog({
   });
 
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin; // admin, org_admin, brand_admin, super_admin
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishLocationsInitialized, setPublishLocationsInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
+
+  // Visibility scope at creation time (data cubes only — trackers use the
+  // dedicated "Publish to locations" panel below).
+  type Scope = 'self' | 'location' | 'org' | 'brand' | 'app';
+  const [visibilityScope, setVisibilityScope] = useState<Scope>('self');
+  const allowedScopes = ((): Scope[] => {
+    const scopes: Scope[] = ['self'];
+    if (isAdmin) scopes.push('location');
+    if (isOrgAdmin) scopes.push('org');
+    if (isBrandAdmin) scopes.push('brand');
+    if (isSuperAdmin) scopes.push('app');
+    return scopes;
+  })();
+  const SCOPE_LABEL: Record<Scope, string> = {
+    self: 'Just Me',
+    location: 'This Location',
+    org: 'All Locations in Org',
+    brand: 'All Locations in Brand',
+    app: 'App-Wide',
+  };
 
   const { data: publishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
