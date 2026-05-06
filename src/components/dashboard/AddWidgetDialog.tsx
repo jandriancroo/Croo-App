@@ -615,6 +615,31 @@ export function AddWidgetDialog({
               ))}
             </div>}
 
+            {/* Visibility scope (admins only, non-tracker — trackers use the publish panel above) */}
+            {selectedType !== 'tracker' && canPublish && allowedScopes.length > 1 && (
+              <div className="space-y-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Visible to</Label>
+                <Select value={visibilityScope} onValueChange={(v) => setVisibilityScope(v as Scope)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedScopes.map(s => (
+                      <SelectItem key={s} value={s}>{SCOPE_LABEL[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {visibilityScope !== 'self' && (
+                  <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  {visibilityScope === 'self'
+                    ? 'Only you will see this widget.'
+                    : 'Pick roles to limit who sees it. Leave all unchecked = everyone with access to the scope.'}
+                </p>
+              </div>
+            )}
+
             {/* Color Selection */}
             <div className="space-y-2">
               <Label>Accent Color</Label>
