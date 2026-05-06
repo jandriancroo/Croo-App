@@ -241,7 +241,16 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.labor.grossWages += r.labor.grossWages;
         combined.sales.net += r.sales.net;
         combined.sales.guests += r.sales.guests;
+        // Cash: aggregate by date
+        r.cash.days.forEach(d => {
+          const existing = combined.cash.days.find(x => x.date === d.date);
+          if (existing) { existing.total += d.total; existing.variance += d.variance; }
+          else combined.cash.days.push({ ...d });
+        });
+        combined.cash.total += r.cash.total;
+        combined.cash.totalVariance += r.cash.totalVariance;
       });
+      combined.cash.days.sort((a, b) => a.date.localeCompare(b.date));
       combined.inventory.vendors = Array.from(vendorMap.entries())
         .map(([name, amount]) => ({ name, amount }))
         .sort((a, b) => b.amount - a.amount);
