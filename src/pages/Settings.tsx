@@ -64,12 +64,13 @@ const textSizes = [
 // Sections that belong to the location tab
 const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inventory', 'punch-clock', 'kds-board', 'location-profile'];
 // Sections that belong to the org tab
-const ORG_SECTIONS = ['billing', 'org-members', 'org-roles'];
+const ORG_SECTIONS = ['billing', 'reporting', 'org-members', 'org-roles'];
 // Sections only super admins see
 const SUPER_ADMIN_SECTIONS = ['live-alerts', 'clone-settings', 'brands', 'organizations', 'maintenance', 'data-streams'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
+  reporting: { title: 'Reporting', icon: <FileText className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
   'food-safety-audits': { title: 'Audit Results', icon: <ShieldCheck className="h-4 w-4" /> },
