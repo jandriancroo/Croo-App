@@ -89,14 +89,19 @@ async function fetchLocationData(
   const salesNet = salesRows.reduce((s, r) => s + Number(r.net_sales || 0), 0);
   const guests = salesRows.reduce((s, r) => s + Number(r.guest_count || 0), 0);
 
-  // === Labor === — pick best source per day (punch_clock preferred)
+  // === Labor === — pick best source per day: prefer the row that actually has cost/hours
   const laborRows = laborR.data || [];
   const byDay = new Map<string, any>();
   for (const r of laborRows) {
     const key = r.labor_date;
     const existing = byDay.get(key);
-    if (!existing) byDay.set(key, r);
-    else if (r.source === 'punch_clock' && existing.source !== 'punch_clock') byDay.set(key, r);
+    if (!existing) { byDay.set(key, r); continue; }
+    const rHasData = Number(r.labor_cost || 0) > 0 || Number(r.labor_hours || 0) > 0;
+    const eHasData = Number(existing.labor_cost || 0) > 0 || Number(existing.labor_hours || 0) > 0;
+    if (rHasData && !eHasData) { byDay.set(key, r); continue; }
+    if (rHasData && eHasData && r.source === 'punch_clock' && existing.source !== 'punch_clock') {
+      byDay.set(key, r);
+    }
   }
   const laborAgg = Array.from(byDay.values()).reduce(
     (acc, r) => ({
