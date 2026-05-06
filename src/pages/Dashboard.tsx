@@ -210,6 +210,7 @@ export default function Dashboard() {
     organizationId: w.organizationId,
     locationId: w.locationId,
     hiddenForSelf: w.hiddenForSelf,
+    createdBy: w.createdBy,
   })), [unifiedWidgets]);
 
   const handleUpdateCube = async (id: string, updates: Partial<CubeConfig>) => {
