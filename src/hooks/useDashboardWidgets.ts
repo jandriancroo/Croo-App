@@ -20,6 +20,7 @@ export interface DashboardWidgetRow {
   accent_color: string | null;
   widget_size: 'small' | 'medium' | 'large';
   reference_id: string | null;
+  hidden_for_user_ids: string[] | null;
 }
 
 /**
