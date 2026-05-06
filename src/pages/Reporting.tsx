@@ -1205,19 +1205,28 @@ export default function Reporting() {
                 })()}
 
                 {editingBlock.type === 'cash' && (
-                  <div>
-                    <Label>View</Label>
-                    <Select
-                      value={editingBlock.options?.view ?? 'daily'}
-                      onValueChange={v => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, view: v } })}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="total">Month Total only</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-3">
+                    <div>
+                      <Label>View</Label>
+                      <Select
+                        value={editingBlock.options?.view ?? 'daily'}
+                        onValueChange={v => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, view: v } })}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="total">Month Total only</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={editingBlock.options?.showCountedBy !== false}
+                        onCheckedChange={v => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, showCountedBy: v === true } })}
+                      />
+                      Show "Counted By" (daily view only)
+                    </label>
                   </div>
                 )}
 
