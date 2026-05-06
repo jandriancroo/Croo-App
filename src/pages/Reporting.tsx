@@ -116,18 +116,24 @@ function InventoryBlock({ data, options }: { data: any; options?: any }) {
   const showCogs = options?.showCogs !== false;
   const usage = (data.startingCount ?? 0) + (data.totalPurchases ?? 0) - (data.endingCount ?? 0);
   const hasAny = data.startingCount > 0 || data.endingCount > 0 || data.totalPurchases > 0;
+  const fmtDate = (s?: string) => s ? new Date(s + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
   if (!hasAny) {
     return <p className="text-sm text-muted-foreground italic">No inventory counts or vendor invoices in this period.</p>;
   }
   return (
     <div className="space-y-2">
+      {!data.aligned && (
+        <div className="text-xs p-2 rounded border border-amber-300 bg-amber-50 text-amber-900">
+          ⚠️ This date range doesn't align with your inventory count periods. For accurate Starting/Ending values, select a <strong>weekly</strong> or <strong>monthly</strong> preset that matches your count schedule.
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-3 text-sm">
         <div className="p-2 rounded bg-muted/40">
-          <div className="text-xs text-muted-foreground">Starting Count</div>
+          <div className="text-xs text-muted-foreground">Starting Count{data.startLabel && <span className="ml-1 text-[10px] opacity-70">({fmtDate(data.startLabel)})</span>}</div>
           <div className="font-semibold">${Number(data.startingCount).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
         <div className="p-2 rounded bg-muted/40">
-          <div className="text-xs text-muted-foreground">Ending Count</div>
+          <div className="text-xs text-muted-foreground">Ending Count{data.endLabel && <span className="ml-1 text-[10px] opacity-70">({fmtDate(data.endLabel)})</span>}</div>
           <div className="font-semibold">${Number(data.endingCount).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
         <div className="p-2 rounded bg-muted/40">
@@ -477,7 +483,7 @@ export default function Reporting() {
   const { data: liveData, isLoading: dataLoading } = useMultiLocationReportData(targetIds, range.from, range.to);
 
   const EMPTY: LocationReportData = {
-    inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0 },
+    inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0, aligned: false },
     labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: [] },
     cash: { days: [], total: 0, totalVariance: 0 },
     sales: { net: 0, guests: 0 },
