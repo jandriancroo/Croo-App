@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import Papa from 'papaparse';
+import { useMultiLocationReportData, type LocationReportData } from '@/hooks/useReportData';
 
 // ============ TYPES ============
 type Orientation = 'portrait' | 'landscape';
