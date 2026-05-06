@@ -79,8 +79,39 @@ serve(async (req) => {
       });
     }
 
+    // ──────────────────────────────────────────────────
+    // AWS SNS SubscriptionConfirmation handshake
+    // When Qu (via SNS) first subscribes, they send a message with
+    // Type === "SubscriptionConfirmation" containing a SubscribeURL.
+    // We must GET that URL to confirm the subscription.
+    // ──────────────────────────────────────────────────
+    if (data && typeof data === "object" && (data.Type === "SubscriptionConfirmation" || data.Type === "UnsubscribeConfirmation")) {
+      const subscribeUrl = data.SubscribeURL;
+      console.log(`[kds-stream] ${data.Type} received. SubscribeURL: ${subscribeUrl}`);
+      if (subscribeUrl) {
+        try {
+          const confirmRes = await fetch(subscribeUrl, { method: "GET" });
+          const confirmText = await confirmRes.text();
+          console.log(`[kds-stream] Confirmation response ${confirmRes.status}: ${confirmText.slice(0, 500)}`);
+        } catch (e) {
+          console.error(`[kds-stream] Failed to confirm subscription: ${e}`);
+        }
+      }
+      return new Response("OK", { status: 200, headers: corsHeaders });
+    }
+
+    // SNS Notification wrapper — actual event payload is in data.Message (JSON string)
+    let eventsSource: any = data;
+    if (data && typeof data === "object" && data.Type === "Notification" && typeof data.Message === "string") {
+      try {
+        eventsSource = JSON.parse(data.Message);
+      } catch {
+        eventsSource = data.Message;
+      }
+    }
+
     // Handle both single events and batched arrays
-    const events = Array.isArray(data) ? data : [data];
+    const events = Array.isArray(eventsSource) ? eventsSource : [eventsSource];
 
     for (const event of events) {
       try {
