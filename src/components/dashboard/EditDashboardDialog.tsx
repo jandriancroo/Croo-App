@@ -138,11 +138,15 @@ function SortableCubeRow({
   onEdit,
   onDelete,
   onToggleHidden,
+  creatorName,
+  isOwn,
 }: {
   cube: CubeConfig;
   onEdit: (cube: CubeConfig) => void;
   onDelete: (id: string) => void;
   onToggleHidden?: (cube: CubeConfig) => void;
+  creatorName?: string | null;
+  isOwn?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cube.id });
 
@@ -177,9 +181,16 @@ function SortableCubeRow({
         {cube.cubeType === 'tracker' ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium leading-tight">
-          {cube.title || '3D Data Cube'}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-sm font-medium leading-tight">
+            {cube.title || '3D Data Cube'}
+          </p>
+          {!isOwn && creatorName && (
+            <span className="flex-shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+              by {creatorName}
+            </span>
+          )}
+        </div>
         <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
           {cube.hiddenForSelf
             ? 'Hidden from your dashboard'
