@@ -278,6 +278,7 @@ export default function Reporting() {
   const mockLocationData = useMemo(() => ({
     inventory: {
       startingCount: 12450,
+      endingCount: 12120,
       vendors: [
         { name: 'PFG', amount: 4560 },
         { name: 'Produce Alliance', amount: 2000 },
