@@ -245,7 +245,7 @@ function renderBlock(block: ReportBlock, locationData: LocationReportData) {
     case 'inventory':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><InventoryBlock data={locationData.inventory} options={block.options} /></div>;
     case 'labor':
-      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} options={block.options} /></div>;
+      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} salesNet={locationData.sales.net} options={block.options} /></div>;
     case 'cash':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><CashBlock data={locationData.cash} /></div>;
     case 'sales':
