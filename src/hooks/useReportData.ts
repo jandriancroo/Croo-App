@@ -173,36 +173,125 @@ async function fetchLocationData(
     }
   }
 
-  // Sum a count's value using the snapshot fields (cost_at_count × quantity / pack snapshot)
+  // Sum a count's value using the canonical calculator (same as PeriodDetailPanel).
+  // Pulls inventory_items and item_conversions to honor pack overrides + brand mapping
+  // so the math matches the inventory period panel exactly.
   const sumCount = async (id?: string) => {
     if (!id) return 0;
-    const { data } = await supabase
+    const { data: ciRows } = await supabase
       .from('inventory_count_items')
-      .select('quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units')
+      .select('item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units')
       .eq('count_id', id);
-    return (data || []).reduce((s, r: any) => {
-      const packQty = Number(r.pack_quantity_at_count) || 1;
-      const cost = Number(r.cost_at_count) || 0;
-      const qty = Number(r.quantity) || 0;
-      // Per-unit cost = cost_per_case / pack_qty (matches PeriodDetailPanel snapshot path)
-      return s + (qty * cost) / Math.max(packQty, 1);
+    const rows = (ciRows || []) as any[];
+    if (!rows.length) return 0;
+    const itemIds = Array.from(new Set(rows.map(r => r.item_id)));
+    const { data: items } = await supabase
+      .from('inventory_items')
+      .select('id, cost_per_unit, pack_quantity, pack_quantity_override, brand_item_id')
+      .in('id', itemIds);
+    const itemMap = new Map<string, any>();
+    for (const it of items || []) itemMap.set(it.id, it);
+    const brandIds = Array.from(new Set((items || []).map((i: any) => i.brand_item_id).filter(Boolean)));
+    const conversionMap = new Map<string, any>();
+    if (brandIds.length) {
+      const { data: convs } = await supabase
+        .from('item_conversions')
+        .select('brand_item_id, outer_qty, canonical_qty_per_inner, canonical_unit')
+        .in('brand_item_id', brandIds);
+      for (const c of convs || []) conversionMap.set((c as any).brand_item_id, c);
+    }
+    return rows.reduce((s, ci) => {
+      const item = itemMap.get(ci.item_id);
+      const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+      return s + calculateCountItemValue(
+        ci,
+        item ? {
+          brand_item_id: item.brand_item_id,
+          cost_per_unit: item.cost_per_unit,
+          pack_quantity: item.pack_quantity,
+          pack_quantity_override: item.pack_quantity_override,
+        } : undefined,
+        conversion || null,
+        false
+      );
     }, 0);
   };
 
   let startingCount = await sumCount(startingCountRow?.id);
   let endingCount = await sumCount(endingCountRow?.id);
 
-  // === Purchases: bound assignments for the ending count (same as period panel) ===
+  // === Purchases: mirror PeriodDetailPanel exactly ===
+  // For monthly/yearly counts, aggregate this count's own assignments PLUS all
+  // child weekly counts' assignments within the period (minus exclusions and
+  // anything locked to a different same-type count).
   let totalPurchases = 0;
   let vendors: { name: string; amount: number }[] = [];
   if (endingCountRow?.id) {
-    const { data: assigns } = await supabase
-      .from('inventory_order_assignments')
-      .select('source_type, source_row_id')
-      .eq('count_id', endingCountRow.id);
-    const pfgIds = (assigns || []).filter(a => a.source_type === 'pfg').map(a => a.source_row_id);
-    const paIds = (assigns || []).filter(a => a.source_type === 'pa').map(a => a.source_row_id);
-    const invIds = (assigns || []).filter(a => a.source_type === 'invoice').map(a => a.source_row_id);
+    const periodType = endingCountRow.period_type as 'weekly' | 'monthly' | 'yearly';
+    const isAggregating = periodType === 'monthly' || periodType === 'yearly';
+
+    // Resolve this period's date range (start = day after previous count end)
+    const periodEnd = endingCountRow.period_end_date;
+    const periodStart = startingCountRow?.period_end_date
+      ? format(new Date(new Date(startingCountRow.period_end_date + 'T12:00:00').getTime() + 86400000), 'yyyy-MM-dd')
+      : periodEnd;
+
+    let childWeeklyCountIds: string[] = [];
+    if (isAggregating && periodEnd) {
+      const { data: childCounts } = await supabase
+        .from('inventory_counts')
+        .select('id')
+        .eq('location_id', locationId)
+        .eq('period_type', 'weekly')
+        .gte('period_end_date', periodStart)
+        .lte('period_end_date', periodEnd);
+      childWeeklyCountIds = (childCounts || []).map(c => c.id);
+    }
+
+    const [sameTypeAssignsR, childWeeklyAssignsR, exclusionsR] = await Promise.all([
+      supabase
+        .from('inventory_order_assignments')
+        .select('source_type, source_row_id, count_id')
+        .eq('location_id', locationId)
+        .eq('period_type', periodType),
+      isAggregating && childWeeklyCountIds.length
+        ? supabase
+            .from('inventory_order_assignments')
+            .select('source_type, source_row_id')
+            .eq('location_id', locationId)
+            .eq('period_type', 'weekly')
+            .in('count_id', childWeeklyCountIds)
+        : Promise.resolve({ data: [] as any[] }),
+      supabase
+        .from('inventory_order_exclusions')
+        .select('source_type, source_row_id')
+        .eq('location_id', locationId)
+        .eq('period_type', periodType)
+        .eq('count_id', endingCountRow.id),
+    ]);
+
+    const exclusionSet = new Set<string>(((exclusionsR.data as any[]) || []).map(e => `${e.source_type}_${e.source_row_id}`));
+    const sameTypeMap = new Map<string, string>();
+    for (const a of (sameTypeAssignsR.data as any[]) || []) {
+      sameTypeMap.set(`${a.source_type}_${a.source_row_id}`, a.count_id);
+    }
+
+    const targetIds = { pfg: new Set<string>(), pa: new Set<string>(), invoice: new Set<string>() };
+    for (const a of (sameTypeAssignsR.data as any[]) || []) {
+      if (a.count_id !== endingCountRow.id) continue;
+      (targetIds as any)[a.source_type]?.add(a.source_row_id);
+    }
+    for (const a of (childWeeklyAssignsR.data as any[]) || []) {
+      const k = `${a.source_type}_${a.source_row_id}`;
+      const lockedElsewhere = sameTypeMap.has(k) && sameTypeMap.get(k) !== endingCountRow.id;
+      if (!exclusionSet.has(k) && !lockedElsewhere) {
+        (targetIds as any)[a.source_type]?.add(a.source_row_id);
+      }
+    }
+
+    const pfgIds = Array.from(targetIds.pfg);
+    const paIds = Array.from(targetIds.pa);
+    const invIds = Array.from(targetIds.invoice);
     const [pfgR, paR, invR] = await Promise.all([
       pfgIds.length ? supabase.from('pfg_orders').select('total_amount').in('id', pfgIds) : Promise.resolve({ data: [] as any[] }),
       paIds.length ? supabase.from('pa_orders').select('total_amount').in('id', paIds) : Promise.resolve({ data: [] as any[] }),
