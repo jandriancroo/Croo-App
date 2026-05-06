@@ -840,7 +840,12 @@ export default function Reporting() {
             </div>
 
             {/* PREVIEW */}
-            <div className="w-[50%] border-l bg-muted/20 overflow-y-auto p-4">
+            <div className={cn(
+              "border-l bg-muted/20 overflow-y-auto p-4",
+              "md:w-[50%] md:flex-shrink-0",
+              "w-full flex-1",
+              isMobile && mobileTab !== 'preview' && "hidden"
+            )}>
               <div className="flex items-center gap-1 mb-2 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" />Live Preview</div>
               <div className={cn('mx-auto bg-white shadow-lg', pageW)} style={{ minHeight: config.orientation === 'portrait' ? '1056px' : '816px' }}>
                 <div ref={previewRef} className="p-12 text-foreground bg-white" style={{ color: '#000' }}>
