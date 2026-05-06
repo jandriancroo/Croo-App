@@ -153,8 +153,18 @@ async function fetchLocationData(
   // Ending   = last completed count INSIDE the window (fallback: starting)
   const countList = countsR.data || [];
   const startingCountRow = startingCountR.data;
-  const startCountId = startingCountRow?.id ?? countList[0]?.id;
-  const endCountId = countList[countList.length - 1]?.id ?? startCountId;
+  const startCountRow = startingCountRow ?? countList[0];
+  const endCountRow = countList[countList.length - 1] ?? startCountRow;
+  const startCountId = startCountRow?.id;
+  const endCountId = endCountRow?.id;
+
+  // "Aligned" = the report period truly maps to existing count boundaries.
+  // Heuristic: starting count is from BEFORE the window (true period start) AND
+  // an ending count exists within the window whose date is within 3 days of `toISO`.
+  const daysBetween = (a: string, b: string) => Math.abs((new Date(a).getTime() - new Date(b).getTime()) / 86400000);
+  const aligned = !!startingCountRow
+    && countList.length > 0
+    && daysBetween(endCountRow!.count_date as string, toISO) <= 3;
 
   const sumCount = async (id?: string) => {
     if (!id) return 0;
@@ -185,7 +195,6 @@ async function fetchLocationData(
         const parsed = JSON.parse(v.value_text);
         const total = Number(parsed.totalDrawer || 0);
         const variance = Number(parsed.variance || 0);
-        // If multiple drawer counts for same day, sum totals but use the LAST variance (most recent count)
         const existing = dayMap.get(e.entry_date);
         if (existing) {
           existing.total += total;
@@ -210,6 +219,9 @@ async function fetchLocationData(
       totalPurchases,
       cogs,
       cogsPct: Math.round(cogsPct * 10) / 10,
+      aligned,
+      startLabel: startCountRow?.count_date as string | undefined,
+      endLabel: endCountRow?.count_date as string | undefined,
     },
     labor: laborAgg,
     cash: { days: cashDays, total: cashTotal, totalVariance: cashTotalVariance },
