@@ -27,11 +27,13 @@ import {
   CalendarIcon, Plus, Save, Download, Trash2, GripVertical, FileText, Mail,
   FileSpreadsheet, Building2, MapPin, Settings2, Eye, Layout as LayoutIcon,
   Package, Clock, DollarSign, ArrowLeft, Image as ImageIcon, Library,
+  SlidersHorizontal, LayoutGrid,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfDay, startOfMonth, startOfYear, endOfDay, endOfMonth, endOfYear, subDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
@@ -273,6 +275,10 @@ export default function Reporting() {
   const previewRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const isMobile = useIsMobile();
+  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+  const [mobileDataPointsOpen, setMobileDataPointsOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'build' | 'preview'>('build');
 
   // Fetch templates
   useEffect(() => {
@@ -479,15 +485,15 @@ export default function Reporting() {
             <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
               <ArrowLeft className="h-4 w-4 mr-1" />
             </Button>
-            <div>
-              <h1 className="text-lg font-bold">Reporting</h1>
-              <p className="text-xs text-muted-foreground">Build custom reports for your organization</p>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold truncate">Reporting</h1>
+              <p className="hidden sm:block text-xs text-muted-foreground">Build custom reports for your organization</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Sheet open={templatesOpen} onOpenChange={setTemplatesOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm"><Library className="h-4 w-4 mr-1" />Templates ({templates.length})</Button>
+                <Button variant="outline" size="sm"><Library className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Templates ({templates.length})</span></Button>
               </SheetTrigger>
               <SheetContent>
                 <h3 className="font-semibold mb-3">Saved Templates</h3>
@@ -512,7 +518,7 @@ export default function Reporting() {
             </Sheet>
 
             <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-              <DialogTrigger asChild><Button variant="outline" size="sm"><Save className="h-4 w-4 mr-1" />Save Template</Button></DialogTrigger>
+              <DialogTrigger asChild><Button variant="outline" size="sm"><Save className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Save Template</span></Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Save Report Template</DialogTitle></DialogHeader>
                 <div className="space-y-3">
@@ -524,7 +530,7 @@ export default function Reporting() {
             </Dialog>
 
             <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
-              <DialogTrigger asChild><Button size="sm"><Download className="h-4 w-4 mr-1" />Export</Button></DialogTrigger>
+              <DialogTrigger asChild><Button size="sm"><Download className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Export</span></Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Export Report</DialogTitle></DialogHeader>
                 <div className="grid grid-cols-3 gap-3">
@@ -559,8 +565,134 @@ export default function Reporting() {
           </div>
         </div>
 
-        {/* ROW 1 — TITLE INFO + SETTINGS */}
-        <div className="px-4 py-3 border-b bg-card">
+        {/* MOBILE CONTROL BAR — settings + data points + view toggle */}
+        <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b bg-card">
+          <Button variant="outline" size="sm" className="h-8 flex-1" onClick={() => setMobileSettingsOpen(true)}>
+            <SlidersHorizontal className="h-3.5 w-3.5 mr-1" />Settings
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 flex-1" onClick={() => setMobileDataPointsOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1" />Add Block
+          </Button>
+        </div>
+        <div className="md:hidden border-b bg-muted/30 px-3 py-2">
+          <Tabs value={mobileTab} onValueChange={v => setMobileTab(v as 'build' | 'preview')}>
+            <TabsList className="h-8 grid grid-cols-2 w-full">
+              <TabsTrigger value="build" className="text-xs h-7"><LayoutGrid className="h-3 w-3 mr-1" />Build</TabsTrigger>
+              <TabsTrigger value="preview" className="text-xs h-7"><Eye className="h-3 w-3 mr-1" />Preview</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {/* MOBILE SETTINGS SHEET */}
+        <Sheet open={mobileSettingsOpen} onOpenChange={setMobileSettingsOpen}>
+          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+            <h3 className="font-semibold mb-4">Report Settings</h3>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs">Report Title</Label>
+                <Input value={config.reportTitle} onChange={e => setConfig(c => ({ ...c, reportTitle: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Author</Label>
+                <Input value={config.author} onChange={e => setConfig(c => ({ ...c, author: e.target.value }))} placeholder="Your name" />
+              </div>
+              <div className="flex items-center justify-between p-2 rounded border">
+                <Label className="text-sm">Show CrooHQ logo</Label>
+                <Switch checked={config.showCrooLogo} onCheckedChange={v => setConfig(c => ({ ...c, showCrooLogo: v }))} />
+              </div>
+              <div>
+                <Label className="text-xs mb-2 block">Time Period</Label>
+                <Select value={preset} onValueChange={v => setPreset(v as DatePreset)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="last7">Last 7 days</SelectItem>
+                    <SelectItem value="mtd">Month to date</SelectItem>
+                    <SelectItem value="lastMonth">Last month</SelectItem>
+                    <SelectItem value="ytd">Year to date</SelectItem>
+                    <SelectItem value="custom">Custom range</SelectItem>
+                  </SelectContent>
+                </Select>
+                {preset === 'custom' && (
+                  <div className="mt-2">
+                    <Calendar mode="range" selected={{ from: customRange.from, to: customRange.to }}
+                      onSelect={r => r?.from && r?.to && setCustomRange({ from: r.from, to: r.to })}
+                      className="p-3 pointer-events-auto border rounded" />
+                  </div>
+                )}
+                <div className="text-xs text-muted-foreground mt-2">
+                  {format(range.from, 'MMM d, yyyy')} – {format(range.to, 'MMM d, yyyy')}
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs mb-2 block">Orientation</Label>
+                <Tabs value={config.orientation} onValueChange={v => setConfig(c => ({ ...c, orientation: v as Orientation }))}>
+                  <TabsList className="grid grid-cols-2 w-full">
+                    <TabsTrigger value="portrait">Portrait</TabsTrigger>
+                    <TabsTrigger value="landscape">Landscape</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              <div>
+                <Label className="text-xs mb-2 block">Scope</Label>
+                <Tabs value={config.scope} onValueChange={v => setConfig(c => ({ ...c, scope: v as 'org' | 'locations' }))}>
+                  <TabsList className="grid grid-cols-2 w-full">
+                    <TabsTrigger value="org"><Building2 className="h-3.5 w-3.5 mr-1" />Org Total</TabsTrigger>
+                    <TabsTrigger value="locations"><MapPin className="h-3.5 w-3.5 mr-1" />Pick Locations</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                {config.scope === 'locations' && (
+                  <div className="mt-3 space-y-2">
+                    <ScrollArea className="h-48 border rounded p-2">
+                      <div className="space-y-1">
+                        {allLocations.filter(l => l.organization_id === organizationId).map(l => (
+                          <label key={l.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1.5 rounded">
+                            <Checkbox checked={config.locationIds.includes(l.id)}
+                              onCheckedChange={v => setConfig(c => ({ ...c, locationIds: v ? [...c.locationIds, l.id] : c.locationIds.filter(id => id !== l.id) }))} />
+                            <span>{l.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    <div className="flex items-center justify-between p-2 rounded border">
+                      <Label className="text-sm">Combine into one report</Label>
+                      <Switch checked={config.combineLocations} onCheckedChange={v => setConfig(c => ({ ...c, combineLocations: v }))} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <Button className="w-full mt-4" onClick={() => setMobileSettingsOpen(false)}>Done</Button>
+          </SheetContent>
+        </Sheet>
+
+        {/* MOBILE DATA POINTS SHEET */}
+        <Sheet open={mobileDataPointsOpen} onOpenChange={setMobileDataPointsOpen}>
+          <SheetContent side="bottom" className="h-[60vh] overflow-y-auto">
+            <h3 className="font-semibold mb-3">Add Data Block</h3>
+            <div className="space-y-2">
+              {DATA_LIBRARY.map(item => {
+                const Icon = item.icon;
+                return (
+                  <button key={item.type}
+                    onClick={() => { addBlock(item.type); setMobileDataPointsOpen(false); }}
+                    className="w-full flex items-start gap-3 p-3 rounded-lg border hover:border-primary/40 hover:bg-muted/30 text-left transition-colors">
+                    <Icon className="h-5 w-5 mt-0.5 text-primary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{item.title}</div>
+                      <div className="text-xs text-muted-foreground">{item.description}</div>
+                    </div>
+                    <Plus className="h-4 w-4 text-muted-foreground mt-1" />
+                  </button>
+                );
+              })}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* ROW 1 — TITLE INFO + SETTINGS (desktop only) */}
+        <div className="hidden md:block px-4 py-3 border-b bg-card">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 min-w-[180px]">
               <Label className="text-xs">Report Title</Label>
@@ -619,7 +751,7 @@ export default function Reporting() {
         </div>
 
         {/* ROW 2 — TIME PERIOD TOOLBAR */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30 flex-wrap">
+        <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b bg-muted/30 flex-wrap">
           <Tabs value={preset} onValueChange={v => setPreset(v as DatePreset)}>
             <TabsList className="h-8">
               <TabsTrigger value="today" className="text-xs h-7">Today</TabsTrigger>
@@ -661,7 +793,7 @@ export default function Reporting() {
         </div>
 
         {/* ROW 3 — DATA POINTS (horizontal) */}
-        <div className="border-b bg-card">
+        <div className="hidden md:block border-b bg-card">
           <div className="flex items-center gap-2 px-4 py-2">
             <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Data Points:</span>
             <ScrollArea className="flex-1">
@@ -687,7 +819,13 @@ export default function Reporting() {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
           <div className="flex flex-1 overflow-hidden">
             {/* CANVAS / BLOCKS LIST */}
-            <div className="w-56 border-r overflow-y-auto bg-muted/20 p-2">
+            <div className={cn(
+              "border-r overflow-y-auto bg-muted/20 p-2",
+              "md:w-56 md:flex-shrink-0",
+              "w-full",
+              isMobile && mobileTab !== 'build' && "hidden",
+              isMobile && mobileTab === 'build' && "flex-1"
+            )}>
               <div className="text-xs font-semibold text-muted-foreground mb-2 px-1">Report Blocks ({config.blocks.length})</div>
               <SortableContext items={config.blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
@@ -702,10 +840,15 @@ export default function Reporting() {
             </div>
 
             {/* PREVIEW */}
-            <div className="w-[50%] border-l bg-muted/20 overflow-y-auto p-4">
+            <div className={cn(
+              "border-l bg-muted/20 overflow-y-auto p-4",
+              "md:w-[50%] md:flex-shrink-0",
+              "w-full flex-1",
+              isMobile && mobileTab !== 'preview' && "hidden"
+            )}>
               <div className="flex items-center gap-1 mb-2 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" />Live Preview</div>
-              <div className={cn('mx-auto bg-white shadow-lg', pageW)} style={{ minHeight: config.orientation === 'portrait' ? '1056px' : '816px' }}>
-                <div ref={previewRef} className="p-12 text-foreground bg-white" style={{ color: '#000' }}>
+              <div className={cn('mx-auto bg-white shadow-lg w-full', pageW)} style={{ minHeight: config.orientation === 'portrait' ? '1056px' : '816px' }}>
+                <div ref={previewRef} className="p-4 sm:p-8 md:p-12 text-foreground bg-white" style={{ color: '#000' }}>
                   {/* LETTERHEAD */}
                   <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-black">
                     <div>
