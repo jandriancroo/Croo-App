@@ -682,6 +682,7 @@ export function EditDashboardDialog({
                   cube={cube}
                   onEdit={handleEditCube}
                   onDelete={(id) => setDeleteId(id)}
+                  onToggleHidden={canHideForSelf ? handleToggleHiddenForSelf : undefined}
                 />
               ))}
             </div>
