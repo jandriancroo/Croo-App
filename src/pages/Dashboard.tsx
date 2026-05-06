@@ -525,8 +525,13 @@ export default function Dashboard() {
   // 2. User wants to use personal metrics (always available)
   // For now, always show WidgetsSection since personal metrics are available to all
   const showWidgets = isSectionVisible('data-cubes') && (canSeeSales || !hasQuBeyondIntegration);
-  
-  const dashboardContent = showWidgets ? (
+  // When sales are hidden but the user still has trackers published to them
+  // (promo rank widgets), render WidgetsSection in trackers-only mode so the
+  // tracker still shows alongside checklists.
+  const hasVisibleTracker = dashboardCubes.some(c => c.cubeType === 'tracker' && !(c as any).hiddenForSelf);
+  const showTrackersOnly = !showWidgets && hasVisibleTracker;
+
+  const dashboardContent = (showWidgets || showTrackersOnly) ? (
     <WidgetsSection 
       salesData={combinedSalesData} 
       isLoadingSales={isLoadingSales} 
@@ -540,6 +545,7 @@ export default function Dashboard() {
       roleCubes={roleCubes}
       useRoleCubes={shouldUseRoleCubes}
       sectionOrder={dashboardSectionOrder}
+      trackersOnly={showTrackersOnly}
     />
   ) : (
     // If section not visible, just render the checklists grid directly
