@@ -125,35 +125,28 @@ async function fetchLocationData(
     .sort((a, b) => b.amount - a.amount);
   const totalPurchases = vendors.reduce((s, v) => s + v.amount, 0);
 
-  // === Inventory counts === fetch totals for first/last counts
+  // === Inventory counts ===
+  // Starting = last completed count BEFORE the window (fallback: first count inside window)
+  // Ending   = last completed count INSIDE the window (fallback: starting)
   const countList = countsR.data || [];
-  const startCountId = countList[0]?.id;
-  const endCountId = countList[countList.length - 1]?.id;
+  const startingCountRow = startingCountR.data;
+  const startCountId = startingCountRow?.id ?? countList[0]?.id;
+  const endCountId = countList[countList.length - 1]?.id ?? startCountId;
 
-  let startingCount = 0;
-  let endingCount = 0;
-  if (startCountId) {
+  const sumCount = async (id?: string) => {
+    if (!id) return 0;
     const { data } = await supabase
       .from('inventory_count_items')
       .select('quantity, cost_at_count')
-      .eq('count_id', startCountId);
-    startingCount = (data || []).reduce(
+      .eq('count_id', id);
+    return (data || []).reduce(
       (s, r: any) => s + Number(r.quantity || 0) * Number(r.cost_at_count || 0),
       0
     );
-  }
-  if (endCountId && endCountId !== startCountId) {
-    const { data } = await supabase
-      .from('inventory_count_items')
-      .select('quantity, cost_at_count')
-      .eq('count_id', endCountId);
-    endingCount = (data || []).reduce(
-      (s, r: any) => s + Number(r.quantity || 0) * Number(r.cost_at_count || 0),
-      0
-    );
-  } else if (startCountId && !endCountId) {
-    endingCount = startingCount;
-  }
+  };
+
+  let startingCount = await sumCount(startCountId);
+  let endingCount = endCountId === startCountId ? startingCount : await sumCount(endCountId);
 
   const cogs = startingCount + totalPurchases - endingCount;
   const cogsPct = salesNet > 0 ? (cogs / salesNet) * 100 : 0;
