@@ -114,15 +114,23 @@ async function fetchLocationData(
       byDay.set(key, r);
     }
   }
-  const laborAgg = Array.from(byDay.values()).reduce(
+  const dayRows = Array.from(byDay.entries()).map(([date, r]) => ({
+    date,
+    totalHours: Number(r.labor_hours || 0),
+    otHours: Number(r.overtime_hours || 0),
+    dotHours: Number(r.double_time_hours || 0),
+    grossWages: Number(r.labor_cost || 0),
+  })).sort((a, b) => a.date.localeCompare(b.date));
+  const laborAgg = dayRows.reduce(
     (acc, r) => ({
-      totalHours: acc.totalHours + Number(r.labor_hours || 0),
-      regularHours: acc.regularHours + Number(r.regular_hours || 0),
-      otHours: acc.otHours + Number(r.overtime_hours || 0),
-      dotHours: acc.dotHours + Number(r.double_time_hours || 0),
-      grossWages: acc.grossWages + Number(r.labor_cost || 0),
+      totalHours: acc.totalHours + r.totalHours,
+      regularHours: acc.regularHours + Number(byDay.get(r.date)?.regular_hours || 0),
+      otHours: acc.otHours + r.otHours,
+      dotHours: acc.dotHours + r.dotHours,
+      grossWages: acc.grossWages + r.grossWages,
+      days: acc.days,
     }),
-    { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0 }
+    { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: dayRows }
   );
 
   // === Vendor invoices ===
