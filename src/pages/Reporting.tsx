@@ -335,7 +335,7 @@ function CashBlock({ data, options }: { data: any; options?: any }) {
         <tbody>
           {data.days.map((d: any) => (
             <tr key={d.date} className="border-b last:border-0">
-              <td className="py-1.5">{d.date}</td>
+              <td className="py-1.5">{format(new Date(d.date + 'T00:00:00'), 'MMM d, yyyy')}</td>
               <td className="py-1.5 text-right tabular-nums">${d.total.toFixed(2)}</td>
               <td className={cn('py-1.5 text-right tabular-nums', d.variance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
                 {d.variance >= 0 ? '+' : ''}${d.variance.toFixed(2)}
