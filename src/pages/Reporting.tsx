@@ -27,6 +27,7 @@ import {
   CalendarIcon, Plus, Save, Download, Trash2, GripVertical, FileText, Mail,
   FileSpreadsheet, Building2, MapPin, Settings2, Eye, Layout as LayoutIcon,
   Package, Clock, DollarSign, ArrowLeft, Image as ImageIcon, Library,
+  SlidersHorizontal, LayoutGrid,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfDay, startOfMonth, startOfYear, endOfDay, endOfMonth, endOfYear, subDays } from 'date-fns';
