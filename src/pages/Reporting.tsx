@@ -669,8 +669,9 @@ export default function Reporting() {
     );
   }
 
-  // Page sizing for canvas (visual only)
-  const pageW = config.orientation === 'portrait' ? 'max-w-[816px]' : 'max-w-[1056px]';
+  // Page sizing for canvas (visual only) — fixed width so landscape actually appears wider
+  const pageWidthPx = config.orientation === 'portrait' ? 816 : 1056;
+  const pageHeightPx = config.orientation === 'portrait' ? 1056 : 816;
 
   return (
     <Layout>
