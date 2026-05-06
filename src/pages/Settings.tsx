@@ -463,6 +463,7 @@ export default function Settings() {
               'inventory': () => navigate(`/inventory/${currentLocation?.id}`),
               'punch-clock': () => navigate(`/location/${currentLocation?.id}/punch-clock`),
               'billing': () => navigate('/billing'),
+              'reporting': () => navigate('/reporting'),
               'kds-board': () => navigate('/kds'),
               'live-alerts': () => navigate('/alerts'),
             };
