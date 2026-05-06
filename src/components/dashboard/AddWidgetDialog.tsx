@@ -495,16 +495,6 @@ export function AddWidgetDialog({
                   onChange={(items) => setConfig(prev => ({ ...prev, trackerItemRefs: items }))}
                 />
                 <div className="space-y-1.5">
-                  <Label>Scope</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['user', 'role', 'location'] as TrackerScopeType[]).map(scope => (
-                      <Button key={scope} type="button" variant={config.trackerScope?.type === scope ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerScope: { type: scope } }))}>
-                        {scope === 'user' ? 'User' : scope === 'role' ? 'Role' : 'Location'}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
                   <Label>Dashboard View</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <Button type="button" variant={config.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
