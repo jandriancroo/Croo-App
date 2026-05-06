@@ -17,6 +17,7 @@ export interface LocationReportData {
     otHours: number;
     dotHours: number;
     grossWages: number;
+    days: { date: string; totalHours: number; otHours: number; dotHours: number; grossWages: number }[];
   };
   cash: {
     days: { date: string; total: number; variance: number }[];
@@ -28,7 +29,7 @@ export interface LocationReportData {
 
 const EMPTY_DATA: LocationReportData = {
   inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0 },
-  labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0 },
+  labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: [] },
   cash: { days: [], total: 0, totalVariance: 0 },
   sales: { net: 0, guests: 0 },
 };
@@ -113,15 +114,23 @@ async function fetchLocationData(
       byDay.set(key, r);
     }
   }
-  const laborAgg = Array.from(byDay.values()).reduce(
+  const dayRows = Array.from(byDay.entries()).map(([date, r]) => ({
+    date,
+    totalHours: Number(r.labor_hours || 0),
+    otHours: Number(r.overtime_hours || 0),
+    dotHours: Number(r.double_time_hours || 0),
+    grossWages: Number(r.labor_cost || 0),
+  })).sort((a, b) => a.date.localeCompare(b.date));
+  const laborAgg = dayRows.reduce(
     (acc, r) => ({
-      totalHours: acc.totalHours + Number(r.labor_hours || 0),
-      regularHours: acc.regularHours + Number(r.regular_hours || 0),
-      otHours: acc.otHours + Number(r.overtime_hours || 0),
-      dotHours: acc.dotHours + Number(r.double_time_hours || 0),
-      grossWages: acc.grossWages + Number(r.labor_cost || 0),
+      totalHours: acc.totalHours + r.totalHours,
+      regularHours: acc.regularHours + Number(byDay.get(r.date)?.regular_hours || 0),
+      otHours: acc.otHours + r.otHours,
+      dotHours: acc.dotHours + r.dotHours,
+      grossWages: acc.grossWages + r.grossWages,
+      days: acc.days,
     }),
-    { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0 }
+    { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: dayRows }
   );
 
   // === Vendor invoices ===
@@ -241,6 +250,14 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.labor.grossWages += r.labor.grossWages;
         combined.sales.net += r.sales.net;
         combined.sales.guests += r.sales.guests;
+        // Labor: aggregate by date
+        r.labor.days.forEach(d => {
+          const ex = combined.labor.days.find(x => x.date === d.date);
+          if (ex) {
+            ex.totalHours += d.totalHours; ex.otHours += d.otHours;
+            ex.dotHours += d.dotHours; ex.grossWages += d.grossWages;
+          } else combined.labor.days.push({ ...d });
+        });
         // Cash: aggregate by date
         r.cash.days.forEach(d => {
           const existing = combined.cash.days.find(x => x.date === d.date);
@@ -251,6 +268,7 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.cash.totalVariance += r.cash.totalVariance;
       });
       combined.cash.days.sort((a, b) => a.date.localeCompare(b.date));
+      combined.labor.days.sort((a, b) => a.date.localeCompare(b.date));
       combined.inventory.vendors = Array.from(vendorMap.entries())
         .map(([name, amount]) => ({ name, amount }))
         .sort((a, b) => b.amount - a.amount);

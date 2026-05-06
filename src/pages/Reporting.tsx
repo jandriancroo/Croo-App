@@ -178,7 +178,69 @@ function LaborBlock({ data, salesNet, options }: { data: any; salesNet: number; 
   if (!hasAny) {
     return <p className="text-sm text-muted-foreground italic">No labor data synced for this period.</p>;
   }
+  const view: 'summary' | 'weekly' | 'percent' = options?.view ?? 'summary';
+  const enabledMetrics: string[] = options?.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages', 'laborPct'];
   const laborPct = salesNet > 0 ? (data.grossWages / salesNet) * 100 : 0;
+
+  if (view === 'percent') {
+    return (
+      <div className="p-3 rounded bg-muted/40">
+        <div className="text-xs text-muted-foreground">Labor % of Sales</div>
+        <div className="text-2xl font-bold">{salesNet > 0 ? `${laborPct.toFixed(1)}%` : '—'}</div>
+      </div>
+    );
+  }
+
+  if (view === 'weekly') {
+    // Group days by ISO week (Mon-Sun)
+    const weekMap = new Map<string, { start: string; end: string; totalHours: number; otHours: number; dotHours: number; grossWages: number }>();
+    (data.days || []).forEach((d: any) => {
+      const dt = new Date(d.date + 'T00:00:00');
+      const day = (dt.getDay() + 6) % 7; // Mon=0
+      const monday = new Date(dt); monday.setDate(dt.getDate() - day);
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      const key = monday.toISOString().slice(0, 10);
+      const ex = weekMap.get(key);
+      if (ex) { ex.totalHours += d.totalHours; ex.otHours += d.otHours; ex.dotHours += d.dotHours; ex.grossWages += d.grossWages; ex.end = sunday.toISOString().slice(0, 10); }
+      else weekMap.set(key, { start: key, end: sunday.toISOString().slice(0, 10), totalHours: d.totalHours, otHours: d.otHours, dotHours: d.dotHours, grossWages: d.grossWages });
+    });
+    const weeks = Array.from(weekMap.values()).sort((a, b) => a.start.localeCompare(b.start));
+    return (
+      <table className="w-full text-sm">
+        <thead className="text-xs text-muted-foreground border-b">
+          <tr>
+            <th className="text-left py-1">Week</th>
+            <th className="text-right py-1">Hours</th>
+            {enabledMetrics.includes('otHours') && <th className="text-right py-1">OT</th>}
+            {enabledMetrics.includes('dotHours') && <th className="text-right py-1">DOT</th>}
+            <th className="text-right py-1">Wages</th>
+            {enabledMetrics.includes('laborPct') && <th className="text-right py-1">Labor %</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {weeks.map(w => (
+            <tr key={w.start} className="border-b last:border-0">
+              <td className="py-1.5">{w.start} – {w.end}</td>
+              <td className="py-1.5 text-right tabular-nums">{w.totalHours.toFixed(1)}</td>
+              {enabledMetrics.includes('otHours') && <td className="py-1.5 text-right tabular-nums">{w.otHours.toFixed(1)}</td>}
+              {enabledMetrics.includes('dotHours') && <td className="py-1.5 text-right tabular-nums">{w.dotHours.toFixed(1)}</td>}
+              <td className="py-1.5 text-right tabular-nums">${w.grossWages.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+              {enabledMetrics.includes('laborPct') && <td className="py-1.5 text-right tabular-nums">—</td>}
+            </tr>
+          ))}
+          <tr className="font-semibold">
+            <td className="py-1.5">Total</td>
+            <td className="py-1.5 text-right tabular-nums">{data.totalHours.toFixed(1)}</td>
+            {enabledMetrics.includes('otHours') && <td className="py-1.5 text-right tabular-nums">{data.otHours.toFixed(1)}</td>}
+            {enabledMetrics.includes('dotHours') && <td className="py-1.5 text-right tabular-nums">{data.dotHours.toFixed(1)}</td>}
+            <td className="py-1.5 text-right tabular-nums">${data.grossWages.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+            {enabledMetrics.includes('laborPct') && <td className="py-1.5 text-right tabular-nums">{salesNet > 0 ? `${laborPct.toFixed(1)}%` : '—'}</td>}
+          </tr>
+        </tbody>
+      </table>
+    );
+  }
+
   const all = [
     { key: 'totalHours', label: 'Total Hours', val: data.totalHours.toFixed(1) },
     { key: 'regularHours', label: 'Regular Hours', val: data.regularHours.toFixed(1) },
@@ -187,8 +249,7 @@ function LaborBlock({ data, salesNet, options }: { data: any; salesNet: number; 
     { key: 'grossWages', label: 'Gross Wages', val: `$${data.grossWages.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
     { key: 'laborPct', label: 'Labor %', val: salesNet > 0 ? `${laborPct.toFixed(1)}%` : '—' },
   ];
-  const enabled = options?.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages', 'laborPct'];
-  const visible = all.filter(s => enabled.includes(s.key));
+  const visible = all.filter(s => enabledMetrics.includes(s.key));
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
       {visible.map(s => (
@@ -201,10 +262,64 @@ function LaborBlock({ data, salesNet, options }: { data: any; salesNet: number; 
   );
 }
 
-function CashBlock({ data }: { data: any }) {
+function CashBlock({ data, options }: { data: any; options?: any }) {
   if (!data.days || data.days.length === 0) {
     return <p className="text-sm text-muted-foreground italic">No cash drawer data for this period.</p>;
   }
+  const view: 'daily' | 'weekly' | 'total' = options?.view ?? 'daily';
+
+  if (view === 'total') {
+    return (
+      <div className="p-3 rounded bg-muted/40">
+        <div className="text-xs text-muted-foreground">Total Over/Short</div>
+        <div className={cn('text-2xl font-bold tabular-nums', data.totalVariance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
+          {data.totalVariance >= 0 ? '+' : ''}${data.totalVariance.toFixed(2)}
+        </div>
+        <div className="text-xs text-muted-foreground mt-1">Drawer Total: ${data.total.toFixed(2)}</div>
+      </div>
+    );
+  }
+
+  if (view === 'weekly') {
+    const weekMap = new Map<string, { start: string; end: string; total: number; variance: number }>();
+    data.days.forEach((d: any) => {
+      const dt = new Date(d.date + 'T00:00:00');
+      const day = (dt.getDay() + 6) % 7;
+      const monday = new Date(dt); monday.setDate(dt.getDate() - day);
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      const key = monday.toISOString().slice(0, 10);
+      const ex = weekMap.get(key);
+      if (ex) { ex.total += d.total; ex.variance += d.variance; ex.end = sunday.toISOString().slice(0, 10); }
+      else weekMap.set(key, { start: key, end: sunday.toISOString().slice(0, 10), total: d.total, variance: d.variance });
+    });
+    const weeks = Array.from(weekMap.values()).sort((a, b) => a.start.localeCompare(b.start));
+    return (
+      <table className="w-full text-sm">
+        <thead className="text-xs text-muted-foreground border-b">
+          <tr><th className="text-left py-1">Week</th><th className="text-right py-1">Drawer Total</th><th className="text-right py-1">Over/Short</th></tr>
+        </thead>
+        <tbody>
+          {weeks.map(w => (
+            <tr key={w.start} className="border-b last:border-0">
+              <td className="py-1.5">{w.start} – {w.end}</td>
+              <td className="py-1.5 text-right tabular-nums">${w.total.toFixed(2)}</td>
+              <td className={cn('py-1.5 text-right tabular-nums', w.variance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
+                {w.variance >= 0 ? '+' : ''}${w.variance.toFixed(2)}
+              </td>
+            </tr>
+          ))}
+          <tr className="font-semibold">
+            <td className="py-1.5">Total</td>
+            <td className="py-1.5 text-right tabular-nums">${data.total.toFixed(2)}</td>
+            <td className={cn('py-1.5 text-right tabular-nums', data.totalVariance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
+              {data.totalVariance >= 0 ? '+' : ''}${data.totalVariance.toFixed(2)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    );
+  }
+
   return (
     <div>
       <table className="w-full text-sm">
@@ -247,7 +362,7 @@ function renderBlock(block: ReportBlock, locationData: LocationReportData) {
     case 'labor':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} salesNet={locationData.sales.net} options={block.options} /></div>;
     case 'cash':
-      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><CashBlock data={locationData.cash} /></div>;
+      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><CashBlock data={locationData.cash} options={block.options} /></div>;
     case 'sales':
       return (
         <div>
@@ -361,7 +476,7 @@ export default function Reporting() {
 
   const EMPTY: LocationReportData = {
     inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0 },
-    labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0 },
+    labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: [] },
     cash: { days: [], total: 0, totalVariance: 0 },
     sales: { net: 0, guests: 0 },
   };
@@ -994,11 +1109,108 @@ export default function Reporting() {
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Block</DialogTitle></DialogHeader>
             {editingBlock && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div><Label>Title</Label><Input value={editingBlock.title} onChange={e => setEditingBlock({ ...editingBlock, title: e.target.value })} /></div>
+
                 {editingBlock.type === 'text' && (
                   <div><Label>Body</Label><Textarea rows={5} value={editingBlock.options?.body || ''}
                     onChange={e => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, body: e.target.value } })} /></div>
+                )}
+
+                {editingBlock.type === 'labor' && (() => {
+                  const opts = editingBlock.options || {};
+                  const view = opts.view ?? 'summary';
+                  const metrics: string[] = opts.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages', 'laborPct'];
+                  const toggleMetric = (k: string) => {
+                    const next = metrics.includes(k) ? metrics.filter(m => m !== k) : [...metrics, k];
+                    setEditingBlock({ ...editingBlock, options: { ...opts, metrics: next } });
+                  };
+                  return (
+                    <>
+                      <div>
+                        <Label>View</Label>
+                        <Select value={view} onValueChange={v => setEditingBlock({ ...editingBlock, options: { ...opts, view: v } })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="summary">Month Summary (totals)</SelectItem>
+                            <SelectItem value="weekly">Weekly Breakdown</SelectItem>
+                            <SelectItem value="percent">Labor % only</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {view !== 'percent' && (
+                        <div>
+                          <Label>Metrics shown</Label>
+                          <div className="grid grid-cols-2 gap-2 mt-1">
+                            {[
+                              { k: 'totalHours', l: 'Total Hours' },
+                              { k: 'regularHours', l: 'Regular Hours' },
+                              { k: 'otHours', l: 'OT Hours' },
+                              { k: 'dotHours', l: 'DOT Hours' },
+                              { k: 'grossWages', l: 'Gross Wages' },
+                              { k: 'laborPct', l: 'Labor %' },
+                            ].map(m => (
+                              <label key={m.k} className="flex items-center gap-2 text-sm">
+                                <Checkbox checked={metrics.includes(m.k)} onCheckedChange={() => toggleMetric(m.k)} />
+                                {m.l}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {editingBlock.type === 'cash' && (
+                  <div>
+                    <Label>View</Label>
+                    <Select
+                      value={editingBlock.options?.view ?? 'daily'}
+                      onValueChange={v => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, view: v } })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="total">Month Total only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {editingBlock.type === 'inventory' && (() => {
+                  const opts = editingBlock.options || {};
+                  return (
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={opts.showVendors !== false}
+                          onCheckedChange={v => setEditingBlock({ ...editingBlock, options: { ...opts, showVendors: v === true } })} />
+                        Show purchases by vendor
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={opts.showCogs !== false}
+                          onCheckedChange={v => setEditingBlock({ ...editingBlock, options: { ...opts, showCogs: v === true } })} />
+                        Show usage / COGS rows
+                      </label>
+                    </div>
+                  );
+                })()}
+
+                {editingBlock.type === 'sales' && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={editingBlock.options?.showGuests !== false}
+                      onCheckedChange={v => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, showGuests: v === true } })} />
+                    Show guest count
+                  </label>
+                )}
+
+                {editingBlock.type === 'spacer' && (
+                  <div>
+                    <Label>Height (px)</Label>
+                    <Input type="number" value={editingBlock.options?.height ?? 24}
+                      onChange={e => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, height: Number(e.target.value) } })} />
+                  </div>
                 )}
               </div>
             )}
