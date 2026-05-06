@@ -751,7 +751,7 @@ export default function Reporting() {
         </div>
 
         {/* ROW 2 — TIME PERIOD TOOLBAR */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30 flex-wrap">
+        <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b bg-muted/30 flex-wrap">
           <Tabs value={preset} onValueChange={v => setPreset(v as DatePreset)}>
             <TabsList className="h-8">
               <TabsTrigger value="today" className="text-xs h-7">Today</TabsTrigger>
