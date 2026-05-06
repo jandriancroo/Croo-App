@@ -75,6 +75,7 @@ const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocation
 const ToastPreview = lazyWithRetry(() => import("./pages/ToastPreview"));
 
 const Billing = lazyWithRetry(() => import("./pages/Billing"));
+const Reporting = lazyWithRetry(() => import("./pages/Reporting"));
 const Terms = lazyWithRetry(() => import("./pages/Terms"));
 const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
 const Inventory = lazyWithRetry(() => import("./pages/Inventory"));
@@ -186,6 +187,7 @@ const AppContent = () => {
         <Route path="/time-tracking" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+        <Route path="/reporting" element={<ProtectedRoute><Reporting /></ProtectedRoute>} />
         <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
         <Route path="/location/:locationId/punch-clock" element={<ProtectedRoute><PunchClockCustomization /></ProtectedRoute>} />
         <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
