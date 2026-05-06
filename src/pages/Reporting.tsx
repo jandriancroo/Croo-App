@@ -336,36 +336,24 @@ export default function Reporting() {
       });
   }, [user?.id]);
 
-  // ============ MOCK DATA — replace with live queries in Phase 2 ============
-  const mockLocationData = useMemo(() => ({
-    inventory: {
-      startingCount: 12450,
-      endingCount: 12120,
-      vendors: [
-        { name: 'PFG', amount: 4560 },
-        { name: 'Produce Alliance', amount: 2000 },
-      ],
-      totalPurchases: 6560,
-      cogs: 6890,
-      cogsPct: 28.4,
-    },
-    labor: { totalHours: 1240.5, otHours: 32.0, dotHours: 4.0, grossWages: 28450 },
-    cash: {
-      days: [
-        { date: format(range.from, 'MMM d'), total: 1245.50, variance: -2.50 },
-        { date: format(range.to, 'MMM d'), total: 1389.00, variance: 5.00 },
-      ],
-      total: 2634.50,
-      totalVariance: 2.50,
-    },
-    sales: { net: 24230, guests: 1850 },
-  }), [range.from, range.to]);
-
   // Resolve which locations to render
   const targetLocations = useMemo(() => {
     if (config.scope === 'org') return allLocations.filter(l => l.organization_id === organizationId);
     return allLocations.filter(l => config.locationIds.includes(l.id));
   }, [config.scope, config.locationIds, allLocations, organizationId]);
+
+  // ============ LIVE DATA ============
+  const targetIds = useMemo(() => targetLocations.map(l => l.id), [targetLocations]);
+  const { data: liveData, isLoading: dataLoading } = useMultiLocationReportData(targetIds, range.from, range.to);
+
+  const EMPTY: LocationReportData = {
+    inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0 },
+    labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0 },
+    cash: { days: [], total: 0, totalVariance: 0 },
+    sales: { net: 0, guests: 0 },
+  };
+  const combinedData = liveData?.combined ?? EMPTY;
+  const dataByLocation = liveData?.byLocation ?? {};
 
   // ============ DRAG HANDLERS ============
   const onDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
