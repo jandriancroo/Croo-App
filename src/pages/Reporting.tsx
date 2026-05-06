@@ -518,7 +518,7 @@ export default function Reporting() {
             </Sheet>
 
             <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-              <DialogTrigger asChild><Button variant="outline" size="sm"><Save className="h-4 w-4 mr-1" />Save Template</Button></DialogTrigger>
+              <DialogTrigger asChild><Button variant="outline" size="sm"><Save className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Save Template</span></Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Save Report Template</DialogTitle></DialogHeader>
                 <div className="space-y-3">
