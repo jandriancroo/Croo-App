@@ -1864,6 +1864,7 @@ export type Database = {
           created_at: string
           created_by: string
           display_order: number
+          hidden_for_user_ids: string[]
           id: string
           is_active: boolean
           location_id: string | null
@@ -1883,6 +1884,7 @@ export type Database = {
           created_at?: string
           created_by: string
           display_order?: number
+          hidden_for_user_ids?: string[]
           id?: string
           is_active?: boolean
           location_id?: string | null
@@ -1902,6 +1904,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           display_order?: number
+          hidden_for_user_ids?: string[]
           id?: string
           is_active?: boolean
           location_id?: string | null
@@ -9735,6 +9738,10 @@ export type Database = {
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      toggle_widget_hidden_for_self: {
+        Args: { _widget_id: string }
+        Returns: boolean
+      }
       trigger_alarm_tasks_sql: { Args: never; Returns: undefined }
       update_dashboard_widget: {
         Args: {
