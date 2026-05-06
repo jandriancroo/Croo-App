@@ -228,7 +228,7 @@ async function fetchLocationData(
   for (const e of drawerRows as any[]) {
     const vals = e.logbook_entry_values || [];
     const prof = e.profiles;
-    const name = prof ? [prof.first_name, prof.last_name].filter(Boolean).join(' ').trim() : '';
+    const name = prof ? (prof.nickname || prof.full_name || prof.email || '').trim() : '';
     for (const v of vals) {
       if (!v.value_text) continue;
       try {
