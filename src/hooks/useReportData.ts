@@ -161,6 +161,34 @@ async function fetchLocationData(
   const cogs = startingCount + totalPurchases - endingCount;
   const cogsPct = salesNet > 0 ? (cogs / salesNet) * 100 : 0;
 
+  // === Cash drawer === parse value_text JSON from logbook entries
+  const drawerRows = drawerR.data || [];
+  const dayMap = new Map<string, { total: number; variance: number }>();
+  for (const e of drawerRows as any[]) {
+    const vals = e.logbook_entry_values || [];
+    for (const v of vals) {
+      if (!v.value_text) continue;
+      try {
+        const parsed = JSON.parse(v.value_text);
+        const total = Number(parsed.totalDrawer || 0);
+        const variance = Number(parsed.variance || 0);
+        // If multiple drawer counts for same day, sum totals but use the LAST variance (most recent count)
+        const existing = dayMap.get(e.entry_date);
+        if (existing) {
+          existing.total += total;
+          existing.variance = variance;
+        } else {
+          dayMap.set(e.entry_date, { total, variance });
+        }
+      } catch {}
+    }
+  }
+  const cashDays = Array.from(dayMap.entries())
+    .map(([date, v]) => ({ date, total: v.total, variance: v.variance }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const cashTotal = cashDays.reduce((s, d) => s + d.total, 0);
+  const cashTotalVariance = cashDays.reduce((s, d) => s + d.variance, 0);
+
   return {
     inventory: {
       startingCount,
@@ -171,7 +199,7 @@ async function fetchLocationData(
       cogsPct: Math.round(cogsPct * 10) / 10,
     },
     labor: laborAgg,
-    cash: { days: [], total: 0, totalVariance: 0 }, // Cash drawer data not yet in DB
+    cash: { days: cashDays, total: cashTotal, totalVariance: cashTotalVariance },
     sales: { net: salesNet, guests },
   };
 }
