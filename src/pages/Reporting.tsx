@@ -793,7 +793,7 @@ export default function Reporting() {
         </div>
 
         {/* ROW 3 — DATA POINTS (horizontal) */}
-        <div className="border-b bg-card">
+        <div className="hidden md:block border-b bg-card">
           <div className="flex items-center gap-2 px-4 py-2">
             <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Data Points:</span>
             <ScrollArea className="flex-1">
