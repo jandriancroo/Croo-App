@@ -524,7 +524,10 @@ export default function Dashboard() {
   // 1. QuBeyond integration is active AND user can see sales, OR
   // 2. User wants to use personal metrics (always available)
   // For now, always show WidgetsSection since personal metrics are available to all
-  const showWidgets = isSectionVisible('data-cubes') && (canSeeSales || !hasQuBeyondIntegration);
+  // While role/permissions are still loading, treat sales as visible to avoid
+  // a flash of "No checklists yet"/missing widgets caused by the role hook
+  // resolving slower than location/checklist data on first load.
+  const showWidgets = isSectionVisible('data-cubes') && (salesVisibilityLoading || canSeeSales || !hasQuBeyondIntegration);
   // When sales are hidden but the user still has trackers published to them
   // (promo rank widgets), render WidgetsSection in trackers-only mode so the
   // tracker still shows alongside checklists.
