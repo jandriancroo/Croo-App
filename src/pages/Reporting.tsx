@@ -477,7 +477,7 @@ export default function Reporting() {
   const { data: liveData, isLoading: dataLoading } = useMultiLocationReportData(targetIds, range.from, range.to);
 
   const EMPTY: LocationReportData = {
-    inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0 },
+    inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0, aligned: false },
     labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: [] },
     cash: { days: [], total: 0, totalVariance: 0 },
     sales: { net: 0, guests: 0 },
