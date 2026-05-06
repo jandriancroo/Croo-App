@@ -405,7 +405,38 @@ export function EditDashboardDialog({
   // Drag-and-drop reorder for data cubes within data-cubes section
   const dataCubes = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d' || c.cubeType === 'tracker');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
+
+  // Lookup creator display names for "Created by" attribution on each row.
+  // Only fetched when the dialog is open and there are widgets created by other users.
+  const otherCreatorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of dataCubes) {
+      if (c.createdBy && c.createdBy !== user?.id) ids.add(c.createdBy);
+    }
+    return Array.from(ids);
+  }, [dataCubes, user?.id]);
+
+  const { data: creatorNamesMap = {} } = useQuery({
+    queryKey: ['widget-creator-names', otherCreatorIds.sort().join(',')],
+    queryFn: async () => {
+      if (otherCreatorIds.length === 0) return {} as Record<string, string>;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, nickname')
+        .in('id', otherCreatorIds);
+      if (error) { console.error('[EditDashboardDialog] creator names error', error); return {}; }
+      const map: Record<string, string> = {};
+      for (const p of (data || []) as Array<{ id: string; full_name: string | null; nickname: string | null }>) {
+        const name = (p.nickname || p.full_name || '').trim();
+        if (name) map[p.id] = name.split(/\s+/)[0];
+      }
+      return map;
+    },
+    enabled: open && otherCreatorIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
   
+
   const handleCubeDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
