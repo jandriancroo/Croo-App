@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
 import { createDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type TrackerScopeType = 'user' | 'role' | 'location';
 export type TrackerDisplayMode = 'summary' | 'expandable';
@@ -43,6 +44,9 @@ export interface NewDataCubeConfig {
   trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
+  // Visibility (admin-only at create time)
+  authorityScope?: 'self' | 'location' | 'org' | 'brand' | 'app';
+  audienceRoles?: AudienceRole[] | null;
 }
 
 interface AddWidgetDialogProps {
@@ -88,12 +92,32 @@ export function AddWidgetDialog({
   });
 
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin; // admin, org_admin, brand_admin, super_admin
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishLocationsInitialized, setPublishLocationsInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
+
+  // Visibility scope at creation time (data cubes only — trackers use the
+  // dedicated "Publish to locations" panel below).
+  type Scope = 'self' | 'location' | 'org' | 'brand' | 'app';
+  const [visibilityScope, setVisibilityScope] = useState<Scope>('self');
+  const allowedScopes = ((): Scope[] => {
+    const scopes: Scope[] = ['self'];
+    if (isAdmin) scopes.push('location');
+    if (isOrgAdmin) scopes.push('org');
+    if (isBrandAdmin) scopes.push('brand');
+    if (isSuperAdmin) scopes.push('app');
+    return scopes;
+  })();
+  const SCOPE_LABEL: Record<Scope, string> = {
+    self: 'Just Me',
+    location: 'This Location',
+    org: 'All Locations in Org',
+    brand: 'All Locations in Brand',
+    app: 'App-Wide',
+  };
 
   const { data: publishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
@@ -187,6 +211,8 @@ export function AddWidgetDialog({
         trackerLocationRefs: [],
         trackerRankMetrics: ['units', 'sales', 'pmix'],
     });
+    setVisibilityScope('self');
+    setAudienceRoles(null);
   };
 
   const handleClose = (isOpen: boolean) => {
@@ -260,7 +286,12 @@ export function AddWidgetDialog({
       return;
     }
 
-    onAdd(config);
+    // Data cubes / 3D: pass through admin-chosen visibility scope + audience
+    onAdd({
+      ...config,
+      authorityScope: canPublish ? visibilityScope : 'self',
+      audienceRoles: canPublish && visibilityScope !== 'self' ? audienceRoles : null,
+    });
     handleClose(false);
   };
 
@@ -585,6 +616,31 @@ export function AddWidgetDialog({
                 </div>
               ))}
             </div>}
+
+            {/* Visibility scope (admins only, non-tracker — trackers use the publish panel above) */}
+            {selectedType !== 'tracker' && canPublish && allowedScopes.length > 1 && (
+              <div className="space-y-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Visible to</Label>
+                <Select value={visibilityScope} onValueChange={(v) => setVisibilityScope(v as Scope)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedScopes.map(s => (
+                      <SelectItem key={s} value={s}>{SCOPE_LABEL[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {visibilityScope !== 'self' && (
+                  <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  {visibilityScope === 'self'
+                    ? 'Only you will see this widget.'
+                    : 'Pick roles to limit who sees it. Leave all unchecked = everyone with access to the scope.'}
+                </p>
+              </div>
+            )}
 
             {/* Color Selection */}
             <div className="space-y-2">

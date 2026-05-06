@@ -417,7 +417,22 @@ export const WidgetsSection = memo(function WidgetsSection({
       const nextOrder = localCubes.reduce((m, c) => Math.max(m, c.displayOrder), -1) + 1;
       // Trackers added from a personal dashboard are still 'self'-scoped — admin
       // publishing flows (location/org/brand/app + audience_roles) are handled
-      // inside the AddWidgetDialog itself.
+      // inside the AddWidgetDialog itself. For data cubes, AddWidgetDialog now
+      // also passes through admin-chosen authorityScope + audienceRoles.
+      const scope = (config as any).authorityScope as ('self'|'location'|'org'|'brand'|'app'|undefined) || 'self';
+      const audience = ((config as any).audienceRoles ?? null) as string[] | null;
+      let organization_id: string | null = null;
+      let brand_id: string | null = null;
+      let location_id: string | null = currentLocation.id;
+      if (scope === 'org') {
+        organization_id = (currentLocation as any)?.organization_id ?? null;
+        location_id = null;
+      } else if (scope === 'brand') {
+        brand_id = await (await import('@/utils/resolveBrandId')).resolveBrandId(currentLocation.id);
+        location_id = null;
+      } else if (scope === 'app' || scope === 'self') {
+        location_id = scope === 'self' ? currentLocation.id : null;
+      }
       await createDashboardWidget({
         widget_type: config.cubeType,
         config: buildWidgetConfigJson({
@@ -431,8 +446,11 @@ export const WidgetsSection = memo(function WidgetsSection({
           trackerLocationRefs: config.trackerLocationRefs || [],
           trackerRankMetrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
         }),
-        authority_scope: 'self',
-        location_id: currentLocation.id,
+        authority_scope: scope,
+        location_id,
+        organization_id,
+        brand_id,
+        audience_roles: scope === 'self' ? null : audience,
         title: config.title || null,
         accent_color: config.accentColor,
         widget_size: config.size,
