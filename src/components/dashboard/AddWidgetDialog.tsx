@@ -126,17 +126,52 @@ export function AddWidgetDialog({
   const { data: publishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [] as Array<{ id: string; name: string; organization_id: string | null }>;
+      if (!user?.id) return [] as Array<{ id: string; name: string; organization_id: string | null; brand_id: string | null }>;
       const { data, error } = await supabase.rpc('get_publishable_locations', { _user_id: user.id });
       if (error) {
         console.error('[AddWidgetDialog] get_publishable_locations error', error);
         return [];
       }
-      return (data || []) as Array<{ id: string; name: string; organization_id: string | null }>;
+      return (data || []) as Array<{ id: string; name: string; organization_id: string | null; brand_id: string | null }>;
     },
     enabled: !!user?.id && canPublish && open,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Determine current scope context from the active location
+  const currentLocId = currentLocation?.id || null;
+  const currentLocRow = publishableLocations.find(l => l.id === currentLocId) || null;
+  const currentOrgId = currentLocRow?.organization_id || currentLocation?.organization_id || null;
+  const currentBrandId = currentLocRow?.brand_id || null;
+
+  const orgLocations = currentOrgId ? publishableLocations.filter(l => l.organization_id === currentOrgId) : [];
+  const brandLocations = currentBrandId ? publishableLocations.filter(l => l.brand_id === currentBrandId) : [];
+
+  const availableScopes: PublishScope[] = (() => {
+    const out: PublishScope[] = [];
+    if (currentLocId) out.push('location');
+    if (orgLocations.length > 1 && (isOrgAdmin || isBrandAdmin || isSuperAdmin)) out.push('org');
+    if (brandLocations.length > 1 && (isBrandAdmin || isSuperAdmin)) out.push('brand');
+    if (publishableLocations.length > 1 && isSuperAdmin) out.push('all');
+    return out;
+  })();
+
+  const SCOPE_CHIP_LABEL: Record<PublishScope, string> = {
+    location: 'This Location',
+    org: 'Organization',
+    brand: 'Brand',
+    all: 'App-Wide',
+  };
+
+  const applyScope = (scope: PublishScope) => {
+    setPublishScope(scope);
+    let ids: string[] = [];
+    if (scope === 'location' && currentLocId) ids = [currentLocId];
+    else if (scope === 'org') ids = orgLocations.map(l => l.id);
+    else if (scope === 'brand') ids = brandLocations.map(l => l.id);
+    else if (scope === 'all') ids = publishableLocations.map(l => l.id);
+    setPublishLocationIds(ids);
+  };
 
   useEffect(() => {
     if (!publishLocationsInitialized && publishableLocations.length > 0) {
