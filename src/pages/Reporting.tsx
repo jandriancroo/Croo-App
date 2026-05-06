@@ -226,7 +226,7 @@ function LaborBlock({ data, salesNet, options }: { data: any; salesNet: number; 
         <tbody>
           {weeks.map(w => (
             <tr key={w.start} className="border-b last:border-0">
-              <td className="py-1.5">{w.start} – {w.end}</td>
+              <td className="py-1.5">{format(new Date(w.start + 'T00:00:00'), 'MMM d')} – {format(new Date(w.end + 'T00:00:00'), 'MMM d, yyyy')}</td>
               <td className="py-1.5 text-right tabular-nums">{w.totalHours.toFixed(1)}</td>
               {enabledMetrics.includes('otHours') && <td className="py-1.5 text-right tabular-nums">{w.otHours.toFixed(1)}</td>}
               {enabledMetrics.includes('dotHours') && <td className="py-1.5 text-right tabular-nums">{w.dotHours.toFixed(1)}</td>}
@@ -307,7 +307,7 @@ function CashBlock({ data, options }: { data: any; options?: any }) {
         <tbody>
           {weeks.map(w => (
             <tr key={w.start} className="border-b last:border-0">
-              <td className="py-1.5">{w.start} – {w.end}</td>
+              <td className="py-1.5">{format(new Date(w.start + 'T00:00:00'), 'MMM d')} – {format(new Date(w.end + 'T00:00:00'), 'MMM d, yyyy')}</td>
               <td className="py-1.5 text-right tabular-nums">${w.total.toFixed(2)}</td>
               <td className={cn('py-1.5 text-right tabular-nums', w.variance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
                 {w.variance >= 0 ? '+' : ''}${w.variance.toFixed(2)}
@@ -335,7 +335,7 @@ function CashBlock({ data, options }: { data: any; options?: any }) {
         <tbody>
           {data.days.map((d: any) => (
             <tr key={d.date} className="border-b last:border-0">
-              <td className="py-1.5">{d.date}</td>
+              <td className="py-1.5">{format(new Date(d.date + 'T00:00:00'), 'MMM d, yyyy')}</td>
               <td className="py-1.5 text-right tabular-nums">${d.total.toFixed(2)}</td>
               <td className={cn('py-1.5 text-right tabular-nums', d.variance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
                 {d.variance >= 0 ? '+' : ''}${d.variance.toFixed(2)}
