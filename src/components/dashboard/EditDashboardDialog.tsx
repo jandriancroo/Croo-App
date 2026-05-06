@@ -237,6 +237,20 @@ export function EditDashboardDialog({
   const { user } = useAuth();
   const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin;
+  // Personal "hide from my dashboard" toggle is reserved for management roles.
+  // (Lower roles see fewer widgets to begin with — they don't need to declutter.)
+  const canHideForSelf = isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin;
+  const queryClient = useQueryClient();
+
+  const handleToggleHiddenForSelf = async (cube: CubeConfig) => {
+    try {
+      const nowHidden = await toggleWidgetHiddenForSelf(cube.id);
+      toast.success(nowHidden ? 'Hidden from your dashboard' : 'Shown on your dashboard');
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] });
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update visibility');
+    }
+  };
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishInitialized, setPublishInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
