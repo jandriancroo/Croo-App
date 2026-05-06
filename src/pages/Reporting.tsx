@@ -390,25 +390,43 @@ export default function Reporting() {
     setConfig(c => ({ ...c, blocks: c.blocks.map(b => b.id === id ? { ...b, ...patch } : b) }));
 
   // ============ TEMPLATE SAVE/LOAD ============
+  const refetchTemplates = async () => {
+    if (!organizationId) return;
+    const { data } = await supabase.from('report_templates').select('*').eq('organization_id', organizationId).order('updated_at', { ascending: false });
+    setTemplates(data || []);
+  };
+
   const saveTemplate = async () => {
     if (!organizationId || !templateName.trim()) return;
-    const { error } = await supabase.from('report_templates').insert({
+    const { data, error } = await supabase.from('report_templates').insert({
       organization_id: organizationId,
       name: templateName.trim(),
       description: templateDesc.trim() || null,
       config: config as any,
       created_by: user?.id,
-    });
+    }).select('id').maybeSingle();
     if (error) { toast.error('Could not save: ' + error.message); return; }
     toast.success('Template saved');
     setSaveDialogOpen(false);
     setTemplateName(''); setTemplateDesc('');
-    const { data } = await supabase.from('report_templates').select('*').eq('organization_id', organizationId).order('updated_at', { ascending: false });
-    setTemplates(data || []);
+    if (data?.id) setLoadedTemplateId(data.id);
+    refetchTemplates();
+  };
+
+  const updateLoadedTemplate = async () => {
+    if (!loadedTemplateId) return;
+    const { error } = await supabase.from('report_templates').update({
+      config: config as any,
+      updated_at: new Date().toISOString(),
+    }).eq('id', loadedTemplateId);
+    if (error) { toast.error('Could not update: ' + error.message); return; }
+    toast.success('Template updated');
+    refetchTemplates();
   };
 
   const loadTemplate = (t: any) => {
     setConfig(t.config as ReportConfig);
+    setLoadedTemplateId(t.id);
     setTemplatesOpen(false);
     toast.success(`Loaded: ${t.name}`);
   };
