@@ -238,6 +238,9 @@ interface WidgetsSectionProps {
   useRoleCubes?: boolean;
   // Section order from parent (reactive)
   sectionOrder?: string[];
+  // When true, only tracker widgets render (sales-bearing cubes/chart are hidden).
+  // Used for users without view_sales permission so promo trackers still show.
+  trackersOnly?: boolean;
 }
 
 export const WidgetsSection = memo(function WidgetsSection({
