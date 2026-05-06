@@ -226,7 +226,7 @@ function LaborBlock({ data, salesNet, options }: { data: any; salesNet: number; 
         <tbody>
           {weeks.map(w => (
             <tr key={w.start} className="border-b last:border-0">
-              <td className="py-1.5">{w.start} – {w.end}</td>
+              <td className="py-1.5">{format(new Date(w.start + 'T00:00:00'), 'MMM d')} – {format(new Date(w.end + 'T00:00:00'), 'MMM d, yyyy')}</td>
               <td className="py-1.5 text-right tabular-nums">{w.totalHours.toFixed(1)}</td>
               {enabledMetrics.includes('otHours') && <td className="py-1.5 text-right tabular-nums">{w.otHours.toFixed(1)}</td>}
               {enabledMetrics.includes('dotHours') && <td className="py-1.5 text-right tabular-nums">{w.dotHours.toFixed(1)}</td>}
