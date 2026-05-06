@@ -9607,6 +9607,7 @@ export type Database = {
       get_publishable_locations: {
         Args: { _user_id: string }
         Returns: {
+          brand_id: string
           id: string
           name: string
           organization_id: string

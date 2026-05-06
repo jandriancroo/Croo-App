@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { useLocation } from "@/hooks/useLocation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
 import { createDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
@@ -92,12 +93,15 @@ export function AddWidgetDialog({
   });
 
   const { user } = useAuth();
+  const { currentLocation } = useLocation();
   const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin; // admin, org_admin, brand_admin, super_admin
   const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
   const [publishLocationsInitialized, setPublishLocationsInitialized] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
+  type PublishScope = 'location' | 'org' | 'brand' | 'all';
+  const [publishScope, setPublishScope] = useState<PublishScope>('location');
 
   // Visibility scope at creation time (data cubes only — trackers use the
   // dedicated "Publish to locations" panel below).
@@ -122,24 +126,65 @@ export function AddWidgetDialog({
   const { data: publishableLocations = [] } = useQuery({
     queryKey: ['publishable-locations', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [] as Array<{ id: string; name: string; organization_id: string | null }>;
+      if (!user?.id) return [] as Array<{ id: string; name: string; organization_id: string | null; brand_id: string | null }>;
       const { data, error } = await supabase.rpc('get_publishable_locations', { _user_id: user.id });
       if (error) {
         console.error('[AddWidgetDialog] get_publishable_locations error', error);
         return [];
       }
-      return (data || []) as Array<{ id: string; name: string; organization_id: string | null }>;
+      return (data || []) as Array<{ id: string; name: string; organization_id: string | null; brand_id: string | null }>;
     },
     enabled: !!user?.id && canPublish && open,
     staleTime: 5 * 60 * 1000,
   });
 
+  // Determine current scope context from the active location
+  const currentLocId = currentLocation?.id || null;
+  const currentLocRow = publishableLocations.find(l => l.id === currentLocId) || null;
+  const currentOrgId = currentLocRow?.organization_id || currentLocation?.organization_id || null;
+  const currentBrandId = currentLocRow?.brand_id || null;
+
+  const orgLocations = currentOrgId ? publishableLocations.filter(l => l.organization_id === currentOrgId) : [];
+  const brandLocations = currentBrandId ? publishableLocations.filter(l => l.brand_id === currentBrandId) : [];
+
+  const availableScopes: PublishScope[] = (() => {
+    const out: PublishScope[] = [];
+    if (currentLocId) out.push('location');
+    if (orgLocations.length > 1 && (isOrgAdmin || isBrandAdmin || isSuperAdmin)) out.push('org');
+    if (brandLocations.length > 1 && (isBrandAdmin || isSuperAdmin)) out.push('brand');
+    if (publishableLocations.length > 1 && isSuperAdmin) out.push('all');
+    return out;
+  })();
+
+  const SCOPE_CHIP_LABEL: Record<PublishScope, string> = {
+    location: 'This Location',
+    org: 'Organization',
+    brand: 'Brand',
+    all: 'App-Wide',
+  };
+
+  const applyScope = (scope: PublishScope) => {
+    setPublishScope(scope);
+    let ids: string[] = [];
+    if (scope === 'location' && currentLocId) ids = [currentLocId];
+    else if (scope === 'org') ids = orgLocations.map(l => l.id);
+    else if (scope === 'brand') ids = brandLocations.map(l => l.id);
+    else if (scope === 'all') ids = publishableLocations.map(l => l.id);
+    setPublishLocationIds(ids);
+  };
+
   useEffect(() => {
     if (!publishLocationsInitialized && publishableLocations.length > 0) {
-      setPublishLocationIds(publishableLocations.map((l) => l.id));
+      // Default to "This Location" scope when possible
+      if (currentLocId && publishableLocations.some(l => l.id === currentLocId)) {
+        setPublishScope('location');
+        setPublishLocationIds([currentLocId]);
+      } else {
+        setPublishLocationIds(publishableLocations.map((l) => l.id));
+      }
       setPublishLocationsInitialized(true);
     }
-  }, [publishableLocations, publishLocationsInitialized]);
+  }, [publishableLocations, publishLocationsInitialized, currentLocId]);
 
   const togglePublishLocation = (id: string) => {
     setPublishLocationIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -536,6 +581,29 @@ export function AddWidgetDialog({
                 {canPublish && publishableLocations.length > 0 && (
                   <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
+
+                    {availableScopes.length > 1 && (
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Scope</Label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {availableScopes.map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => applyScope(s)}
+                              className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                                publishScope === s
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-border bg-background text-foreground hover:bg-accent'
+                              }`}
+                            >
+                              {SCOPE_CHIP_LABEL[s]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-1.5">
                         <Send className="h-3.5 w-3.5" />
@@ -552,7 +620,7 @@ export function AddWidgetDialog({
                       </button>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Publishes one tracker per selected location. Use "Visible to" above to limit which roles see it.
+                      Pick a scope above for one-tap selection, or fine-tune the locations below. Use "Visible to" to limit which roles see it.
                     </p>
                     <div className="max-h-40 space-y-1 overflow-y-auto">
                       {publishableLocations.map((loc) => {
