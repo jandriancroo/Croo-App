@@ -43,6 +43,9 @@ export interface NewDataCubeConfig {
   trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
+  // Visibility (admin-only at create time)
+  authorityScope?: 'self' | 'location' | 'org' | 'brand' | 'app';
+  audienceRoles?: AudienceRole[] | null;
 }
 
 interface AddWidgetDialogProps {
