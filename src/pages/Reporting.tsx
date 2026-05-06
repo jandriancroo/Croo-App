@@ -485,9 +485,9 @@ export default function Reporting() {
             <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
               <ArrowLeft className="h-4 w-4 mr-1" />
             </Button>
-            <div>
-              <h1 className="text-lg font-bold">Reporting</h1>
-              <p className="text-xs text-muted-foreground">Build custom reports for your organization</p>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold truncate">Reporting</h1>
+              <p className="hidden sm:block text-xs text-muted-foreground">Build custom reports for your organization</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
