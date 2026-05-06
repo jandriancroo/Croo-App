@@ -59,33 +59,19 @@ async function fetchLocationData(
     .gte('labor_date', fromISO)
     .lte('labor_date', toISO);
 
-  // Vendor invoices — match on delivery_date if present, else invoice_date
-  const invoicesP = supabase
-    .from('vendor_invoices')
-    .select('vendor_name, total_amount, invoice_date, delivery_date')
-    .eq('location_id', locationId)
-    .gte('invoice_date', fromISO)
-    .lte('invoice_date', toISO);
-
-  // Inventory counts — fetch last count BEFORE window (starting) + all completed in window
-  const startingCountP = supabase
+  // Inventory counts — read straight from the inventory period panel source of truth.
+  // Pick the most recent COMPLETED count whose period_end_date falls inside the window.
+  // Then anchor the previous completed count (any period_type) as the starting baseline.
+  const endingCountP = supabase
     .from('inventory_counts')
-    .select('id, count_date')
+    .select('id, count_date, period_end_date, period_type')
     .eq('location_id', locationId)
     .eq('status', 'completed')
-    .lt('count_date', fromISO)
-    .order('count_date', { ascending: false })
+    .gte('period_end_date', fromISO)
+    .lte('period_end_date', toISO)
+    .order('period_end_date', { ascending: false })
     .limit(1)
     .maybeSingle();
-
-  const countsP = supabase
-    .from('inventory_counts')
-    .select('id, count_date, status')
-    .eq('location_id', locationId)
-    .eq('status', 'completed')
-    .gte('count_date', fromISO)
-    .lte('count_date', toISO)
-    .order('count_date', { ascending: true });
 
   // Drawer counts (LogBook → "Drawer Count" category)
   const drawerP = supabase
@@ -97,7 +83,7 @@ async function fetchLocationData(
     .lte('entry_date', toISO)
     .order('entry_date', { ascending: true });
 
-  const [salesR, laborR, invoicesR, countsR, startingCountR, drawerR] = await Promise.all([salesP, laborP, invoicesP, countsP, startingCountP, drawerP]);
+  const [salesR, laborR, endingCountR, drawerR] = await Promise.all([salesP, laborP, endingCountP, drawerP]);
 
   // === Sales ===
   const salesRows = salesR.data || [];
