@@ -389,6 +389,8 @@ export default function Reporting() {
   const [preset, setPreset] = useState<DatePreset>('mtd');
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date }>(presetRange('mtd'));
   const range = preset === 'custom' ? customRange : presetRange(preset);
+  const [zoom, setZoom] = useState(1);
+  const previewScrollRef = useRef<HTMLDivElement>(null);
 
   // Report config
   const [config, setConfig] = useState<ReportConfig>({
