@@ -581,6 +581,29 @@ export function AddWidgetDialog({
                 {canPublish && publishableLocations.length > 0 && (
                   <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
+
+                    {availableScopes.length > 1 && (
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Scope</Label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {availableScopes.map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => applyScope(s)}
+                              className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                                publishScope === s
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-border bg-background text-foreground hover:bg-accent'
+                              }`}
+                            >
+                              {SCOPE_CHIP_LABEL[s]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-1.5">
                         <Send className="h-3.5 w-3.5" />
@@ -597,7 +620,7 @@ export function AddWidgetDialog({
                       </button>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Publishes one tracker per selected location. Use "Visible to" above to limit which roles see it.
+                      Pick a scope above for one-tap selection, or fine-tune the locations below. Use "Visible to" to limit which roles see it.
                     </p>
                     <div className="max-h-40 space-y-1 overflow-y-auto">
                       {publishableLocations.map((loc) => {
