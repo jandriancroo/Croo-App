@@ -27,7 +27,7 @@ import {
   CalendarIcon, Plus, Save, Download, Trash2, GripVertical, FileText, Mail,
   FileSpreadsheet, Building2, MapPin, Settings2, Eye, Layout as LayoutIcon,
   Package, Clock, DollarSign, ArrowLeft, Image as ImageIcon, Library,
-  SlidersHorizontal, LayoutGrid,
+  SlidersHorizontal, LayoutGrid, ZoomIn, ZoomOut, Maximize2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfDay, startOfMonth, startOfYear, endOfDay, endOfMonth, endOfYear, subDays } from 'date-fns';
@@ -389,6 +389,8 @@ export default function Reporting() {
   const [preset, setPreset] = useState<DatePreset>('mtd');
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date }>(presetRange('mtd'));
   const range = preset === 'custom' ? customRange : presetRange(preset);
+  const [zoom, setZoom] = useState(1);
+  const previewScrollRef = useRef<HTMLDivElement>(null);
 
   // Report config
   const [config, setConfig] = useState<ReportConfig>({
@@ -985,6 +987,27 @@ export default function Reporting() {
             {format(range.from, 'MMM d')} – {format(range.to, 'MMM d, yyyy')}
           </Badge>
           <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-background">
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setZoom(z => Math.max(0.25, +(z - 0.1).toFixed(2)))} title="Zoom out">
+                <ZoomOut className="h-3.5 w-3.5" />
+              </Button>
+              <button onClick={() => setZoom(1)} className="text-xs font-medium tabular-nums w-10 text-center hover:text-primary" title="Reset to 100%">
+                {Math.round(zoom * 100)}%
+              </button>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Zoom in">
+                <ZoomIn className="h-3.5 w-3.5" />
+              </Button>
+              <Separator orientation="vertical" className="h-4 mx-0.5" />
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
+                const el = previewScrollRef.current;
+                if (!el) return;
+                const avail = el.clientWidth - 32; // p-4
+                const fit = Math.max(0.25, Math.min(2, avail / pageWidthPx));
+                setZoom(+fit.toFixed(2));
+              }} title="Fit to screen">
+                <Maximize2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
             <Tabs value={config.orientation} onValueChange={v => setConfig(c => ({ ...c, orientation: v as Orientation }))}>
               <TabsList className="h-8">
                 <TabsTrigger value="portrait" className="text-xs h-7">Portrait</TabsTrigger>
@@ -1042,14 +1065,15 @@ export default function Reporting() {
             </div>
 
             {/* PREVIEW */}
-            <div className={cn(
+            <div ref={previewScrollRef} className={cn(
               "border-l bg-muted/20 overflow-auto p-4",
               "md:w-[50%] md:flex-shrink-0",
               "w-full flex-1",
               isMobile && mobileTab !== 'preview' && "hidden"
             )}>
               <div className="flex items-center gap-1 mb-2 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" />Live Preview</div>
-              <div className="mx-auto bg-white shadow-lg" style={{ width: pageWidthPx, minHeight: pageHeightPx }}>
+              <div style={{ width: pageWidthPx * zoom, height: pageHeightPx * zoom, margin: '0 auto' }}>
+                <div className="bg-white shadow-lg" style={{ width: pageWidthPx, minHeight: pageHeightPx, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
                 <div ref={previewRef} className="p-4 sm:p-8 md:p-12 text-foreground bg-white" style={{ color: '#000' }}>
                   {/* LETTERHEAD */}
                   <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-black">
@@ -1092,6 +1116,7 @@ export default function Reporting() {
                     </div>
                   )}
                 </div>
+              </div>
               </div>
             </div>
           </div>
