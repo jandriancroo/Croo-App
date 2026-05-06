@@ -1065,14 +1065,15 @@ export default function Reporting() {
             </div>
 
             {/* PREVIEW */}
-            <div className={cn(
+            <div ref={previewScrollRef} className={cn(
               "border-l bg-muted/20 overflow-auto p-4",
               "md:w-[50%] md:flex-shrink-0",
               "w-full flex-1",
               isMobile && mobileTab !== 'preview' && "hidden"
             )}>
               <div className="flex items-center gap-1 mb-2 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" />Live Preview</div>
-              <div className="mx-auto bg-white shadow-lg" style={{ width: pageWidthPx, minHeight: pageHeightPx }}>
+              <div style={{ width: pageWidthPx * zoom, height: pageHeightPx * zoom, margin: '0 auto' }}>
+                <div className="bg-white shadow-lg" style={{ width: pageWidthPx, minHeight: pageHeightPx, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
                 <div ref={previewRef} className="p-4 sm:p-8 md:p-12 text-foreground bg-white" style={{ color: '#000' }}>
                   {/* LETTERHEAD */}
                   <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-black">
