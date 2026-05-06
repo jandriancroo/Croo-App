@@ -81,7 +81,7 @@ export default function Dashboard() {
   const {
     isAdmin, isManager, isShiftManager, isGeneralManager
   } = useUserRole();
-  const { canSeeSales } = useTeamSalesVisibility();
+  const { canSeeSales, loading: salesVisibilityLoading } = useTeamSalesVisibility();
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, organizationId } = useAppLocation();
