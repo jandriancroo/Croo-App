@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Send } from "lucide-react";
 import { createDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type TrackerScopeType = 'user' | 'role' | 'location';
 export type TrackerDisplayMode = 'summary' | 'expandable';
