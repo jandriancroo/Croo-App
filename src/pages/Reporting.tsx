@@ -331,12 +331,18 @@ function CashBlock({ data, options }: { data: any; options?: any }) {
     <div>
       <table className="w-full text-sm">
         <thead className="text-xs text-muted-foreground border-b">
-          <tr><th className="text-left py-1">Date</th><th className="text-right py-1">Drawer Total</th><th className="text-right py-1">Over/Short</th></tr>
+          <tr>
+            <th className="text-left py-1">Date</th>
+            {showCountedBy && <th className="text-left py-1">Counted By</th>}
+            <th className="text-right py-1">Drawer Total</th>
+            <th className="text-right py-1">Over/Short</th>
+          </tr>
         </thead>
         <tbody>
           {data.days.map((d: any) => (
             <tr key={d.date} className="border-b last:border-0">
               <td className="py-1.5">{format(new Date(d.date + 'T00:00:00'), 'MMM d, yyyy')}</td>
+              {showCountedBy && <td className="py-1.5 text-muted-foreground">{d.countedBy || '—'}</td>}
               <td className="py-1.5 text-right tabular-nums">${d.total.toFixed(2)}</td>
               <td className={cn('py-1.5 text-right tabular-nums', d.variance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
                 {d.variance >= 0 ? '+' : ''}${d.variance.toFixed(2)}
@@ -345,6 +351,7 @@ function CashBlock({ data, options }: { data: any; options?: any }) {
           ))}
           <tr className="font-semibold">
             <td className="py-1.5">Total</td>
+            {showCountedBy && <td />}
             <td className="py-1.5 text-right tabular-nums">${data.total.toFixed(2)}</td>
             <td className={cn('py-1.5 text-right tabular-nums', data.totalVariance >= 0 ? 'text-emerald-600' : 'text-destructive')}>
               {data.totalVariance >= 0 ? '+' : ''}${data.totalVariance.toFixed(2)}
