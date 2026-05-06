@@ -175,10 +175,16 @@ export function AddWidgetDialog({
 
   useEffect(() => {
     if (!publishLocationsInitialized && publishableLocations.length > 0) {
-      setPublishLocationIds(publishableLocations.map((l) => l.id));
+      // Default to "This Location" scope when possible
+      if (currentLocId && publishableLocations.some(l => l.id === currentLocId)) {
+        setPublishScope('location');
+        setPublishLocationIds([currentLocId]);
+      } else {
+        setPublishLocationIds(publishableLocations.map((l) => l.id));
+      }
       setPublishLocationsInitialized(true);
     }
-  }, [publishableLocations, publishLocationsInitialized]);
+  }, [publishableLocations, publishLocationsInitialized, currentLocId]);
 
   const togglePublishLocation = (id: string) => {
     setPublishLocationIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
