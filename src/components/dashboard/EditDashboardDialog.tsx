@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,6 +95,8 @@ export interface CubeConfig {
   locationId?: string | null;
   // Per-user "hide from my dashboard" toggle state for the current viewer
   hiddenForSelf?: boolean;
+  // user_id of the widget creator (for "Created by" attribution)
+  createdBy?: string;
 }
 
 interface EditDashboardDialogProps {
@@ -136,11 +138,15 @@ function SortableCubeRow({
   onEdit,
   onDelete,
   onToggleHidden,
+  creatorName,
+  isOwn,
 }: {
   cube: CubeConfig;
   onEdit: (cube: CubeConfig) => void;
   onDelete: (id: string) => void;
   onToggleHidden?: (cube: CubeConfig) => void;
+  creatorName?: string | null;
+  isOwn?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cube.id });
 
@@ -175,9 +181,16 @@ function SortableCubeRow({
         {cube.cubeType === 'tracker' ? <Trophy className="h-4 w-4 text-white" /> : <Box className="h-4 w-4 text-white" />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium leading-tight">
-          {cube.title || '3D Data Cube'}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-sm font-medium leading-tight">
+            {cube.title || '3D Data Cube'}
+          </p>
+          {!isOwn && creatorName && (
+            <span className="flex-shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+              by {creatorName}
+            </span>
+          )}
+        </div>
         <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
           {cube.hiddenForSelf
             ? 'Hidden from your dashboard'
@@ -392,7 +405,38 @@ export function EditDashboardDialog({
   // Drag-and-drop reorder for data cubes within data-cubes section
   const dataCubes = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d' || c.cubeType === 'tracker');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
+
+  // Lookup creator display names for "Created by" attribution on each row.
+  // Only fetched when the dialog is open and there are widgets created by other users.
+  const otherCreatorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of dataCubes) {
+      if (c.createdBy && c.createdBy !== user?.id) ids.add(c.createdBy);
+    }
+    return Array.from(ids);
+  }, [dataCubes, user?.id]);
+
+  const { data: creatorNamesMap = {} } = useQuery({
+    queryKey: ['widget-creator-names', otherCreatorIds.sort().join(',')],
+    queryFn: async () => {
+      if (otherCreatorIds.length === 0) return {} as Record<string, string>;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, nickname')
+        .in('id', otherCreatorIds);
+      if (error) { console.error('[EditDashboardDialog] creator names error', error); return {}; }
+      const map: Record<string, string> = {};
+      for (const p of (data || []) as Array<{ id: string; full_name: string | null; nickname: string | null }>) {
+        const name = (p.nickname || p.full_name || '').trim();
+        if (name) map[p.id] = name.split(/\s+/)[0];
+      }
+      return map;
+    },
+    enabled: open && otherCreatorIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
   
+
   const handleCubeDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -682,6 +726,8 @@ export function EditDashboardDialog({
                   onEdit={handleEditCube}
                   onDelete={(id) => setDeleteId(id)}
                   onToggleHidden={canHideForSelf ? handleToggleHiddenForSelf : undefined}
+                  isOwn={!!user?.id && cube.createdBy === user.id}
+                  creatorName={cube.createdBy ? creatorNamesMap[cube.createdBy] : undefined}
                 />
               ))}
             </div>
