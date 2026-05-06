@@ -530,7 +530,7 @@ export default function Reporting() {
             </Dialog>
 
             <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
-              <DialogTrigger asChild><Button size="sm"><Download className="h-4 w-4 mr-1" />Export</Button></DialogTrigger>
+              <DialogTrigger asChild><Button size="sm"><Download className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Export</span></Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Export Report</DialogTitle></DialogHeader>
                 <div className="grid grid-cols-3 gap-3">
