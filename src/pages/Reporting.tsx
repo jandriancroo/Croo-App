@@ -173,19 +173,21 @@ function InventoryBlock({ data, options }: { data: any; options?: any }) {
   );
 }
 
-function LaborBlock({ data, options }: { data: any; options?: any }) {
+function LaborBlock({ data, salesNet, options }: { data: any; salesNet: number; options?: any }) {
   const hasAny = data.totalHours > 0 || data.grossWages > 0;
   if (!hasAny) {
     return <p className="text-sm text-muted-foreground italic">No labor data synced for this period.</p>;
   }
+  const laborPct = salesNet > 0 ? (data.grossWages / salesNet) * 100 : 0;
   const all = [
     { key: 'totalHours', label: 'Total Hours', val: data.totalHours.toFixed(1) },
     { key: 'regularHours', label: 'Regular Hours', val: data.regularHours.toFixed(1) },
     { key: 'otHours', label: 'OT Hours', val: data.otHours.toFixed(1) },
     { key: 'dotHours', label: 'DOT Hours', val: data.dotHours.toFixed(1) },
     { key: 'grossWages', label: 'Gross Wages', val: `$${data.grossWages.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+    { key: 'laborPct', label: 'Labor %', val: salesNet > 0 ? `${laborPct.toFixed(1)}%` : '—' },
   ];
-  const enabled = options?.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages'];
+  const enabled = options?.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages', 'laborPct'];
   const visible = all.filter(s => enabled.includes(s.key));
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
@@ -243,7 +245,7 @@ function renderBlock(block: ReportBlock, locationData: LocationReportData) {
     case 'inventory':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><InventoryBlock data={locationData.inventory} options={block.options} /></div>;
     case 'labor':
-      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} options={block.options} /></div>;
+      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} salesNet={locationData.sales.net} options={block.options} /></div>;
     case 'cash':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><CashBlock data={locationData.cash} /></div>;
     case 'sales':
