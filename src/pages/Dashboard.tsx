@@ -597,7 +597,7 @@ export default function Dashboard() {
               <Skeleton className="h-14 rounded-xl" />
               <Skeleton className="h-[200px] rounded-xl" />
             </div>
-          ) : checklists.length === 0 ? (
+          ) : checklists.length === 0 && dashboardCubes.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
                 <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
