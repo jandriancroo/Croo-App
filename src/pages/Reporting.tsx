@@ -273,6 +273,7 @@ function CashBlock({ data, options }: { data: any; options?: any }) {
     return <p className="text-sm text-muted-foreground italic">No cash drawer data for this period.</p>;
   }
   const view: 'daily' | 'weekly' | 'total' = options?.view ?? 'daily';
+  const showCountedBy = options?.showCountedBy !== false;
 
   if (view === 'total') {
     return (
