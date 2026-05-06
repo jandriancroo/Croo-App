@@ -275,6 +275,10 @@ export default function Reporting() {
   const previewRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const isMobile = useIsMobile();
+  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+  const [mobileDataPointsOpen, setMobileDataPointsOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'build' | 'preview'>('build');
 
   // Fetch templates
   useEffect(() => {
