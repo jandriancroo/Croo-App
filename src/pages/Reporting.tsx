@@ -269,6 +269,7 @@ export default function Reporting() {
   const [templateName, setTemplateName] = useState('');
   const [templateDesc, setTemplateDesc] = useState('');
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [organizationName, setOrganizationName] = useState<string>('');
   const previewRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -281,6 +282,13 @@ export default function Reporting() {
       .eq('organization_id', organizationId)
       .order('updated_at', { ascending: false })
       .then(({ data }) => setTemplates(data || []));
+  }, [organizationId]);
+
+  // Fetch organization name for letterhead
+  useEffect(() => {
+    if (!organizationId) return;
+    supabase.from('organizations').select('name').eq('id', organizationId).maybeSingle()
+      .then(({ data }) => setOrganizationName(data?.name || ''));
   }, [organizationId]);
 
   // Auto-fill author with current user's name (only if empty)
@@ -553,60 +561,58 @@ export default function Reporting() {
 
         {/* ROW 1 — TITLE INFO + SETTINGS */}
         <div className="px-4 py-3 border-b bg-card">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-            <div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[180px]">
               <Label className="text-xs">Report Title</Label>
               <Input value={config.reportTitle} onChange={e => setConfig(c => ({ ...c, reportTitle: e.target.value }))} className="h-8" />
             </div>
-            <div>
+            <div className="flex-1 min-w-[180px]">
               <Label className="text-xs">Author</Label>
-              <Input value={config.author} onChange={e => setConfig(c => ({ ...c, author: e.target.value }))} placeholder="Dave Patrick" className="h-8" />
-            </div>
-            <div className="flex items-center gap-4 h-8">
-              <div className="flex items-center gap-2">
-                <Label className="text-xs whitespace-nowrap">CrooHQ logo</Label>
-                <Switch checked={config.showCrooLogo} onCheckedChange={v => setConfig(c => ({ ...c, showCrooLogo: v }))} />
-              </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-xs whitespace-nowrap">Brand logo</Label>
-                <Switch checked={config.showBrandLogo} onCheckedChange={v => setConfig(c => ({ ...c, showBrandLogo: v }))} />
-              </div>
+              <Input value={config.author} onChange={e => setConfig(c => ({ ...c, author: e.target.value }))} placeholder="Your name" className="h-8" />
             </div>
             <div className="flex flex-col gap-1">
+              <Label className="text-xs">CrooHQ logo</Label>
+              <div className="h-8 flex items-center">
+                <Switch checked={config.showCrooLogo} onCheckedChange={v => setConfig(c => ({ ...c, showCrooLogo: v }))} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 min-w-[260px]">
               <Label className="text-xs">Scope</Label>
               <div className="flex items-center gap-2">
-                <Tabs value={config.scope} onValueChange={v => setConfig(c => ({ ...c, scope: v as 'org' | 'locations' }))} className="flex-1">
-                  <TabsList className="h-8 w-full grid grid-cols-2">
+                <Tabs value={config.scope} onValueChange={v => setConfig(c => ({ ...c, scope: v as 'org' | 'locations' }))}>
+                  <TabsList className="h-8">
                     <TabsTrigger value="org" className="text-xs h-7"><Building2 className="h-3 w-3 mr-1" />Org Total</TabsTrigger>
                     <TabsTrigger value="locations" className="text-xs h-7"><MapPin className="h-3 w-3 mr-1" />Pick</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 {config.scope === 'locations' && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-8 whitespace-nowrap">
-                        {config.locationIds.length || 0} loc
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-2" align="end">
-                      <ScrollArea className="h-48">
-                        <div className="space-y-1">
-                          {allLocations.filter(l => l.organization_id === organizationId).map(l => (
-                            <label key={l.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
-                              <Checkbox checked={config.locationIds.includes(l.id)}
-                                onCheckedChange={v => setConfig(c => ({ ...c, locationIds: v ? [...c.locationIds, l.id] : c.locationIds.filter(id => id !== l.id) }))} />
-                              <span>{l.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    </PopoverContent>
-                  </Popover>
+                  <>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 whitespace-nowrap">
+                          {config.locationIds.length || 0} loc
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-2" align="end">
+                        <ScrollArea className="h-48">
+                          <div className="space-y-1">
+                            {allLocations.filter(l => l.organization_id === organizationId).map(l => (
+                              <label key={l.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
+                                <Checkbox checked={config.locationIds.includes(l.id)}
+                                  onCheckedChange={v => setConfig(c => ({ ...c, locationIds: v ? [...c.locationIds, l.id] : c.locationIds.filter(id => id !== l.id) }))} />
+                                <span>{l.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-xs whitespace-nowrap">Combine</Label>
+                      <Switch checked={config.combineLocations} onCheckedChange={v => setConfig(c => ({ ...c, combineLocations: v }))} />
+                    </div>
+                  </>
                 )}
-                <div className="flex items-center gap-1">
-                  <Label className="text-xs whitespace-nowrap">Combine</Label>
-                  <Switch checked={config.combineLocations} onCheckedChange={v => setConfig(c => ({ ...c, combineLocations: v }))} />
-                </div>
               </div>
             </div>
           </div>
@@ -704,11 +710,13 @@ export default function Reporting() {
                   <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-black">
                     <div>
                       <h1 className="text-2xl font-bold">{config.reportTitle}</h1>
+                      {config.scope === 'org' && organizationName && (
+                        <p className="text-sm font-semibold text-gray-700 mt-0.5">{organizationName}</p>
+                      )}
                       <p className="text-sm text-gray-600 mt-1">{format(range.from, 'MMM d, yyyy')} – {format(range.to, 'MMM d, yyyy')}</p>
                       {config.author && <p className="text-xs text-gray-500 mt-2">Prepared by: {config.author}</p>}
                     </div>
                     <div className="flex items-center gap-3">
-                      {config.showBrandLogo && <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-400"><ImageIcon className="h-6 w-6" /></div>}
                       {config.showCrooLogo && <div className="text-right"><div className="text-xs text-gray-400">Powered by</div><div className="font-bold text-sm">CrooHQ</div></div>}
                     </div>
                   </div>
