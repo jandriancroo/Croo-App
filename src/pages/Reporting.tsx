@@ -987,27 +987,6 @@ export default function Reporting() {
             {format(range.from, 'MMM d')} – {format(range.to, 'MMM d, yyyy')}
           </Badge>
           <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-background">
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setZoom(z => Math.max(0.25, +(z - 0.1).toFixed(2)))} title="Zoom out">
-                <ZoomOut className="h-3.5 w-3.5" />
-              </Button>
-              <button onClick={() => setZoom(1)} className="text-xs font-medium tabular-nums w-10 text-center hover:text-primary" title="Reset to 100%">
-                {Math.round(zoom * 100)}%
-              </button>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Zoom in">
-                <ZoomIn className="h-3.5 w-3.5" />
-              </Button>
-              <Separator orientation="vertical" className="h-4 mx-0.5" />
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
-                const el = previewScrollRef.current;
-                if (!el) return;
-                const avail = el.clientWidth - 32; // p-4
-                const fit = Math.max(0.25, Math.min(2, avail / pageWidthPx));
-                setZoom(+fit.toFixed(2));
-              }} title="Fit to screen">
-                <Maximize2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
             <Tabs value={config.orientation} onValueChange={v => setConfig(c => ({ ...c, orientation: v as Orientation }))}>
               <TabsList className="h-8">
                 <TabsTrigger value="portrait" className="text-xs h-7">Portrait</TabsTrigger>
