@@ -174,6 +174,10 @@ function InventoryBlock({ data, options }: { data: any; options?: any }) {
 }
 
 function LaborBlock({ data, options }: { data: any; options?: any }) {
+  const hasAny = data.totalHours > 0 || data.grossWages > 0;
+  if (!hasAny) {
+    return <p className="text-sm text-muted-foreground italic">No labor data synced for this period.</p>;
+  }
   const all = [
     { key: 'totalHours', label: 'Total Hours', val: data.totalHours.toFixed(1) },
     { key: 'regularHours', label: 'Regular Hours', val: data.regularHours.toFixed(1) },
