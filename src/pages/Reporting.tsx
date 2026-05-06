@@ -1109,11 +1109,108 @@ export default function Reporting() {
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Block</DialogTitle></DialogHeader>
             {editingBlock && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div><Label>Title</Label><Input value={editingBlock.title} onChange={e => setEditingBlock({ ...editingBlock, title: e.target.value })} /></div>
+
                 {editingBlock.type === 'text' && (
                   <div><Label>Body</Label><Textarea rows={5} value={editingBlock.options?.body || ''}
                     onChange={e => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, body: e.target.value } })} /></div>
+                )}
+
+                {editingBlock.type === 'labor' && (() => {
+                  const opts = editingBlock.options || {};
+                  const view = opts.view ?? 'summary';
+                  const metrics: string[] = opts.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages', 'laborPct'];
+                  const toggleMetric = (k: string) => {
+                    const next = metrics.includes(k) ? metrics.filter(m => m !== k) : [...metrics, k];
+                    setEditingBlock({ ...editingBlock, options: { ...opts, metrics: next } });
+                  };
+                  return (
+                    <>
+                      <div>
+                        <Label>View</Label>
+                        <Select value={view} onValueChange={v => setEditingBlock({ ...editingBlock, options: { ...opts, view: v } })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="summary">Month Summary (totals)</SelectItem>
+                            <SelectItem value="weekly">Weekly Breakdown</SelectItem>
+                            <SelectItem value="percent">Labor % only</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {view !== 'percent' && (
+                        <div>
+                          <Label>Metrics shown</Label>
+                          <div className="grid grid-cols-2 gap-2 mt-1">
+                            {[
+                              { k: 'totalHours', l: 'Total Hours' },
+                              { k: 'regularHours', l: 'Regular Hours' },
+                              { k: 'otHours', l: 'OT Hours' },
+                              { k: 'dotHours', l: 'DOT Hours' },
+                              { k: 'grossWages', l: 'Gross Wages' },
+                              { k: 'laborPct', l: 'Labor %' },
+                            ].map(m => (
+                              <label key={m.k} className="flex items-center gap-2 text-sm">
+                                <Checkbox checked={metrics.includes(m.k)} onCheckedChange={() => toggleMetric(m.k)} />
+                                {m.l}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {editingBlock.type === 'cash' && (
+                  <div>
+                    <Label>View</Label>
+                    <Select
+                      value={editingBlock.options?.view ?? 'daily'}
+                      onValueChange={v => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, view: v } })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="total">Month Total only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {editingBlock.type === 'inventory' && (() => {
+                  const opts = editingBlock.options || {};
+                  return (
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={opts.showVendors !== false}
+                          onCheckedChange={v => setEditingBlock({ ...editingBlock, options: { ...opts, showVendors: v === true } })} />
+                        Show purchases by vendor
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={opts.showCogs !== false}
+                          onCheckedChange={v => setEditingBlock({ ...editingBlock, options: { ...opts, showCogs: v === true } })} />
+                        Show usage / COGS rows
+                      </label>
+                    </div>
+                  );
+                })()}
+
+                {editingBlock.type === 'sales' && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={editingBlock.options?.showGuests !== false}
+                      onCheckedChange={v => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, showGuests: v === true } })} />
+                    Show guest count
+                  </label>
+                )}
+
+                {editingBlock.type === 'spacer' && (
+                  <div>
+                    <Label>Height (px)</Label>
+                    <Input type="number" value={editingBlock.options?.height ?? 24}
+                      onChange={e => setEditingBlock({ ...editingBlock, options: { ...editingBlock.options, height: Number(e.target.value) } })} />
+                  </div>
                 )}
               </div>
             )}
