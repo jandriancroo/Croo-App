@@ -593,7 +593,12 @@ export default function Reporting() {
                   <div><Label>Name</Label><Input value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="Monthly P&L" /></div>
                   <div><Label>Description (optional)</Label><Textarea value={templateDesc} onChange={e => setTemplateDesc(e.target.value)} /></div>
                 </div>
-                <DialogFooter><Button onClick={saveTemplate} disabled={!templateName.trim()}>Save</Button></DialogFooter>
+                <DialogFooter className="gap-2">
+                  {loadedTemplateId && (
+                    <Button variant="outline" onClick={() => { updateLoadedTemplate(); setSaveDialogOpen(false); }}>Update existing</Button>
+                  )}
+                  <Button onClick={saveTemplate} disabled={!templateName.trim()}>Save as new</Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
 
@@ -627,7 +632,7 @@ export default function Reporting() {
                 <div className="space-y-3">
                   <div><Label>Recipients (comma-separated)</Label><Input value={emailRecipients} onChange={e => setEmailRecipients(e.target.value)} placeholder="dave@store.com, gm@store.com" /></div>
                 </div>
-                <DialogFooter><Button onClick={sendEmail}>Send</Button></DialogFooter>
+                <DialogFooter><Button onClick={sendEmail} disabled={emailSending}>{emailSending ? 'Sending…' : 'Send'}</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
