@@ -258,6 +258,7 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.inventory.endingCount += r.inventory.endingCount;
         combined.inventory.totalPurchases += r.inventory.totalPurchases;
         combined.inventory.cogs += r.inventory.cogs;
+        combined.inventory.aligned = combined.inventory.aligned || r.inventory.aligned;
         r.inventory.vendors.forEach(v => vendorMap.set(v.name, (vendorMap.get(v.name) || 0) + v.amount));
         combined.labor.totalHours += r.labor.totalHours;
         combined.labor.regularHours += r.labor.regularHours;
