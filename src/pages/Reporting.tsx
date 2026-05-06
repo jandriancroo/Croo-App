@@ -289,10 +289,12 @@ export default function Reporting() {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [emailRecipients, setEmailRecipients] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [templateDesc, setTemplateDesc] = useState('');
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [organizationName, setOrganizationName] = useState<string>('');
+  const [loadedTemplateId, setLoadedTemplateId] = useState<string | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
