@@ -296,8 +296,12 @@ export const WidgetsSection = memo(function WidgetsSection({
   // Unified Widgets: reads + writes go through dashboard_widgets via RPCs.
   const { data: unifiedWidgets = [], isLoading } = useDashboardWidgets(currentLocation?.id);
 
+  // Live render: hide widgets the current user has personally hidden via the
+  // eyeball toggle in the Edit dialog. They're still in `unifiedWidgets` so
+  // the Edit dialog (managed by Dashboard.tsx) can show them with a restore
+  // affordance.
   const cubes: DataCubeConfig[] = useMemo(
-    () => unifiedWidgets.map(w => ({
+    () => unifiedWidgets.filter(w => !w.hiddenForSelf).map(w => ({
       id: w.id,
       title: w.title,
       size: w.size,
