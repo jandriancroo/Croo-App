@@ -93,6 +93,8 @@ export interface CubeConfig {
   brandId?: string | null;
   organizationId?: string | null;
   locationId?: string | null;
+  // Per-user "hide from my dashboard" toggle state for the current viewer
+  hiddenForSelf?: boolean;
 }
 
 interface EditDashboardDialogProps {
