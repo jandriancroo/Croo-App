@@ -493,7 +493,7 @@ export default function Reporting() {
           <div className="flex items-center gap-2">
             <Sheet open={templatesOpen} onOpenChange={setTemplatesOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm"><Library className="h-4 w-4 mr-1" />Templates ({templates.length})</Button>
+                <Button variant="outline" size="sm"><Library className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Templates ({templates.length})</span></Button>
               </SheetTrigger>
               <SheetContent>
                 <h3 className="font-semibold mb-3">Saved Templates</h3>
