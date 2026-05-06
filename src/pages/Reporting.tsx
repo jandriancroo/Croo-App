@@ -33,6 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import { format, startOfDay, startOfMonth, startOfYear, endOfDay, endOfMonth, endOfYear, subDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
