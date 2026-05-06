@@ -283,6 +283,22 @@ export default function Reporting() {
       .then(({ data }) => setTemplates(data || []));
   }, [organizationId]);
 
+  // Auto-fill author with current user's name (only if empty)
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from('profiles')
+      .select('full_name, nickname')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        const name = (data.nickname?.trim() || data.full_name?.trim() || '').toString();
+        if (name) {
+          setConfig(c => (c.author?.trim() ? c : { ...c, author: name }));
+        }
+      });
+  }, [user?.id]);
+
   // ============ MOCK DATA — replace with live queries in Phase 2 ============
   const mockLocationData = useMemo(() => ({
     inventory: {
