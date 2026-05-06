@@ -80,14 +80,16 @@ serve(async (req) => {
     }
 
     // ──────────────────────────────────────────────────
-    // AWS SNS SubscriptionConfirmation handshake
-    // When Qu (via SNS) first subscribes, they send a message with
-    // Type === "SubscriptionConfirmation" containing a SubscribeURL.
-    // We must GET that URL to confirm the subscription.
+    // AWS SNS handshake — discriminate via x-amz-sns-message-type
+    // header (Qu's reference impl) with body Type as fallback.
     // ──────────────────────────────────────────────────
-    if (data && typeof data === "object" && (data.Type === "SubscriptionConfirmation" || data.Type === "UnsubscribeConfirmation")) {
-      const subscribeUrl = data.SubscribeURL;
-      console.log(`[kds-stream] ${data.Type} received. SubscribeURL: ${subscribeUrl}`);
+    const snsMessageType =
+      req.headers.get("x-amz-sns-message-type") ||
+      (data && typeof data === "object" ? data.Type : null);
+
+    if (snsMessageType === "SubscriptionConfirmation" || snsMessageType === "UnsubscribeConfirmation") {
+      const subscribeUrl = data?.SubscribeURL;
+      console.log(`[kds-stream] ${snsMessageType} received. SubscribeURL: ${subscribeUrl}`);
       if (subscribeUrl) {
         try {
           const confirmRes = await fetch(subscribeUrl, { method: "GET" });
@@ -102,7 +104,7 @@ serve(async (req) => {
 
     // SNS Notification wrapper — actual event payload is in data.Message (JSON string)
     let eventsSource: any = data;
-    if (data && typeof data === "object" && data.Type === "Notification" && typeof data.Message === "string") {
+    if (snsMessageType === "Notification" && typeof data?.Message === "string") {
       try {
         eventsSource = JSON.parse(data.Message);
       } catch {
