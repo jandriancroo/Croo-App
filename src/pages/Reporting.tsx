@@ -94,14 +94,14 @@ function SortableBlock({ block, onRemove, onEdit }: { block: ReportBlock; onRemo
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const Icon = DATA_LIBRARY.find(d => d.type === block.type)?.icon ?? FileText;
   return (
-    <div ref={setNodeRef} style={style} className="group flex items-center gap-2 p-3 rounded-lg border bg-card hover:border-primary/40 transition-colors">
-      <button {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+    <div ref={setNodeRef} style={style} className="group flex items-start gap-1.5 p-2 rounded-lg border bg-card hover:border-primary/40 transition-colors">
+      <button {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-0.5 flex-shrink-0">
         <GripVertical className="h-4 w-4" />
       </button>
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <span className="flex-1 text-sm font-medium truncate">{block.title}</span>
-      <Button size="sm" variant="ghost" onClick={onEdit}><Settings2 className="h-3.5 w-3.5" /></Button>
-      <Button size="sm" variant="ghost" onClick={onRemove}><Trash2 className="h-3.5 w-3.5" /></Button>
+      <Icon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+      <span className="flex-1 text-xs font-medium leading-tight break-words line-clamp-2 min-w-0">{block.title}</span>
+      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0" onClick={onEdit}><Settings2 className="h-3.5 w-3.5" /></Button>
+      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 flex-shrink-0" onClick={onRemove}><Trash2 className="h-3.5 w-3.5" /></Button>
     </div>
   );
 }
