@@ -82,7 +82,17 @@ async function fetchLocationData(
     .lte('count_date', toISO)
     .order('count_date', { ascending: true });
 
-  const [salesR, laborR, invoicesR, countsR, startingCountR] = await Promise.all([salesP, laborP, invoicesP, countsP, startingCountP]);
+  // Drawer counts (LogBook → "Drawer Count" category)
+  const drawerP = supabase
+    .from('logbook_entries')
+    .select('id, entry_date, logbook_categories!inner(name), logbook_entry_values(value_text)')
+    .eq('location_id', locationId)
+    .ilike('logbook_categories.name', 'Drawer Count')
+    .gte('entry_date', fromISO)
+    .lte('entry_date', toISO)
+    .order('entry_date', { ascending: true });
+
+  const [salesR, laborR, invoicesR, countsR, startingCountR, drawerR] = await Promise.all([salesP, laborP, invoicesP, countsP, startingCountP, drawerP]);
 
   // === Sales ===
   const salesRows = salesR.data || [];
