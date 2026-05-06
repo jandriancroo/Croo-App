@@ -923,19 +923,20 @@ export default function Reporting() {
                       <div className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
                         {config.scope === 'org' ? 'Organization Total' : 'Combined Total'}
                       </div>
-                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, mockLocationData)}</div>)}
+                      {dataLoading && <p className="text-sm text-gray-400">Loading data…</p>}
+                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, combinedData)}</div>)}
                     </div>
                   )}
                   {config.scope === 'locations' && !config.combineLocations && targetLocations.map((loc, i) => (
                     <div key={loc.id} className={cn('space-y-4', i > 0 && 'mt-8 pt-8 border-t')}>
                       <h2 className="text-lg font-bold">{loc.name}</h2>
-                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, mockLocationData)}</div>)}
+                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, dataByLocation[loc.id] ?? EMPTY)}</div>)}
                     </div>
                   ))}
                   {config.scope === 'locations' && !config.combineLocations && targetLocations.length > 1 && (
                     <div className="mt-8 pt-8 border-t-2 border-black space-y-4">
                       <h2 className="text-lg font-bold">Grand Total</h2>
-                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, mockLocationData)}</div>)}
+                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, combinedData)}</div>)}
                     </div>
                   )}
                 </div>
