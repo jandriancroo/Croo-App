@@ -211,6 +211,8 @@ export function AddWidgetDialog({
         trackerLocationRefs: [],
         trackerRankMetrics: ['units', 'sales', 'pmix'],
     });
+    setVisibilityScope('self');
+    setAudienceRoles(null);
   };
 
   const handleClose = (isOpen: boolean) => {
