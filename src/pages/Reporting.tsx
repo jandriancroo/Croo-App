@@ -284,6 +284,13 @@ export default function Reporting() {
       .then(({ data }) => setTemplates(data || []));
   }, [organizationId]);
 
+  // Fetch organization name for letterhead
+  useEffect(() => {
+    if (!organizationId) return;
+    supabase.from('organizations').select('name').eq('id', organizationId).maybeSingle()
+      .then(({ data }) => setOrganizationName(data?.name || ''));
+  }, [organizationId]);
+
   // Auto-fill author with current user's name (only if empty)
   useEffect(() => {
     if (!user?.id) return;
