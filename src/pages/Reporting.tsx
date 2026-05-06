@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import Papa from 'papaparse';
+import { useMultiLocationReportData, type LocationReportData } from '@/hooks/useReportData';
 
 // ============ TYPES ============
 type Orientation = 'portrait' | 'landscape';
@@ -109,62 +110,76 @@ function SortableBlock({ block, onRemove, onEdit }: { block: ReportBlock; onRemo
   );
 }
 
-// ============ MOCK DATA RENDERERS ============
-function InventoryBlock({ data }: { data: any }) {
+// ============ DATA RENDERERS ============
+function InventoryBlock({ data, options }: { data: any; options?: any }) {
+  const showVendors = options?.showVendors !== false;
+  const showCogs = options?.showCogs !== false;
   const usage = (data.startingCount ?? 0) + (data.totalPurchases ?? 0) - (data.endingCount ?? 0);
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-3 gap-3 text-sm">
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">Starting Count</div>
-          <div className="font-semibold">${data.startingCount.toLocaleString()}</div>
+          <div className="font-semibold">${data.startingCount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">Ending Count</div>
-          <div className="font-semibold">${data.endingCount.toLocaleString()}</div>
+          <div className="font-semibold">${data.endingCount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
         </div>
         <div className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">COGS %</div>
           <div className="font-semibold">{data.cogsPct}%</div>
         </div>
       </div>
-      <div className="text-xs font-semibold mt-3 mb-1">Purchases by Vendor</div>
-      <table className="w-full text-sm">
-        <tbody>
-          {data.vendors.map((v: any) => (
-            <tr key={v.name} className="border-b last:border-0">
-              <td className="py-1.5">{v.name}</td>
-              <td className="py-1.5 text-right tabular-nums">${v.amount.toLocaleString()}</td>
-            </tr>
-          ))}
-          <tr className="font-semibold">
-            <td className="py-1.5">Total Purchases</td>
-            <td className="py-1.5 text-right tabular-nums">${data.totalPurchases.toLocaleString()}</td>
-          </tr>
-          <tr className="font-semibold">
-            <td className="py-1.5">Usage (Start + Purchases − End)</td>
-            <td className="py-1.5 text-right tabular-nums">${usage.toLocaleString()}</td>
-          </tr>
-          <tr className="font-semibold text-primary">
-            <td className="py-1.5">COGS</td>
-            <td className="py-1.5 text-right tabular-nums">${data.cogs.toLocaleString()}</td>
-          </tr>
-        </tbody>
-      </table>
+      {showVendors && data.vendors.length > 0 && (
+        <>
+          <div className="text-xs font-semibold mt-3 mb-1">Purchases by Vendor</div>
+          <table className="w-full text-sm">
+            <tbody>
+              {data.vendors.map((v: any) => (
+                <tr key={v.name} className="border-b last:border-0">
+                  <td className="py-1.5">{v.name}</td>
+                  <td className="py-1.5 text-right tabular-nums">${v.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                </tr>
+              ))}
+              <tr className="font-semibold">
+                <td className="py-1.5">Total Purchases</td>
+                <td className="py-1.5 text-right tabular-nums">${data.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+              </tr>
+              {showCogs && (
+                <>
+                  <tr className="font-semibold">
+                    <td className="py-1.5">Usage (Start + Purchases − End)</td>
+                    <td className="py-1.5 text-right tabular-nums">${usage.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                  </tr>
+                  <tr className="font-semibold text-primary">
+                    <td className="py-1.5">COGS</td>
+                    <td className="py-1.5 text-right tabular-nums">${data.cogs.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
     </div>
   );
 }
 
-function LaborBlock({ data }: { data: any }) {
+function LaborBlock({ data, options }: { data: any; options?: any }) {
+  const all = [
+    { key: 'totalHours', label: 'Total Hours', val: data.totalHours.toFixed(1) },
+    { key: 'regularHours', label: 'Regular Hours', val: data.regularHours.toFixed(1) },
+    { key: 'otHours', label: 'OT Hours', val: data.otHours.toFixed(1) },
+    { key: 'dotHours', label: 'DOT Hours', val: data.dotHours.toFixed(1) },
+    { key: 'grossWages', label: 'Gross Wages', val: `$${data.grossWages.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+  ];
+  const enabled = options?.metrics ?? ['totalHours', 'otHours', 'dotHours', 'grossWages'];
+  const visible = all.filter(s => enabled.includes(s.key));
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-      {[
-        { label: 'Total Hours', val: data.totalHours.toFixed(1) },
-        { label: 'OT Hours', val: data.otHours.toFixed(1) },
-        { label: 'DOT Hours', val: data.dotHours.toFixed(1) },
-        { label: 'Gross Wages', val: `$${data.grossWages.toLocaleString()}` },
-      ].map(s => (
-        <div key={s.label} className="p-2 rounded bg-muted/40">
+      {visible.map(s => (
+        <div key={s.key} className="p-2 rounded bg-muted/40">
           <div className="text-xs text-muted-foreground">{s.label}</div>
           <div className="font-semibold">{s.val}</div>
         </div>
@@ -174,6 +189,9 @@ function LaborBlock({ data }: { data: any }) {
 }
 
 function CashBlock({ data }: { data: any }) {
+  if (!data.days || data.days.length === 0) {
+    return <p className="text-sm text-muted-foreground italic">No cash drawer data for this period.</p>;
+  }
   return (
     <div>
       <table className="w-full text-sm">
@@ -203,7 +221,7 @@ function CashBlock({ data }: { data: any }) {
   );
 }
 
-function renderBlock(block: ReportBlock, locationData: any) {
+function renderBlock(block: ReportBlock, locationData: LocationReportData) {
   switch (block.type) {
     case 'header':
       return <h2 className="text-xl font-bold border-b pb-1">{block.title}</h2>;
@@ -212,17 +230,19 @@ function renderBlock(block: ReportBlock, locationData: any) {
     case 'spacer':
       return <div style={{ height: block.options?.height || 24 }} />;
     case 'inventory':
-      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><InventoryBlock data={locationData.inventory} /></div>;
+      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><InventoryBlock data={locationData.inventory} options={block.options} /></div>;
     case 'labor':
-      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} /></div>;
+      return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><LaborBlock data={locationData.labor} options={block.options} /></div>;
     case 'cash':
       return <div><h3 className="font-semibold text-sm mb-2">{block.title}</h3><CashBlock data={locationData.cash} /></div>;
     case 'sales':
       return (
         <div>
           <h3 className="font-semibold text-sm mb-2">{block.title}</h3>
-          <div className="text-2xl font-bold tabular-nums">${locationData.sales.net.toLocaleString()}</div>
-          <div className="text-xs text-muted-foreground">Guests: {locationData.sales.guests.toLocaleString()}</div>
+          <div className="text-2xl font-bold tabular-nums">${locationData.sales.net.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          {block.options?.showGuests !== false && (
+            <div className="text-xs text-muted-foreground">Guests: {locationData.sales.guests.toLocaleString()}</div>
+          )}
         </div>
       );
   }
@@ -269,10 +289,12 @@ export default function Reporting() {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [emailRecipients, setEmailRecipients] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [templateDesc, setTemplateDesc] = useState('');
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [organizationName, setOrganizationName] = useState<string>('');
+  const [loadedTemplateId, setLoadedTemplateId] = useState<string | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -314,36 +336,24 @@ export default function Reporting() {
       });
   }, [user?.id]);
 
-  // ============ MOCK DATA — replace with live queries in Phase 2 ============
-  const mockLocationData = useMemo(() => ({
-    inventory: {
-      startingCount: 12450,
-      endingCount: 12120,
-      vendors: [
-        { name: 'PFG', amount: 4560 },
-        { name: 'Produce Alliance', amount: 2000 },
-      ],
-      totalPurchases: 6560,
-      cogs: 6890,
-      cogsPct: 28.4,
-    },
-    labor: { totalHours: 1240.5, otHours: 32.0, dotHours: 4.0, grossWages: 28450 },
-    cash: {
-      days: [
-        { date: format(range.from, 'MMM d'), total: 1245.50, variance: -2.50 },
-        { date: format(range.to, 'MMM d'), total: 1389.00, variance: 5.00 },
-      ],
-      total: 2634.50,
-      totalVariance: 2.50,
-    },
-    sales: { net: 24230, guests: 1850 },
-  }), [range.from, range.to]);
-
   // Resolve which locations to render
   const targetLocations = useMemo(() => {
     if (config.scope === 'org') return allLocations.filter(l => l.organization_id === organizationId);
     return allLocations.filter(l => config.locationIds.includes(l.id));
   }, [config.scope, config.locationIds, allLocations, organizationId]);
+
+  // ============ LIVE DATA ============
+  const targetIds = useMemo(() => targetLocations.map(l => l.id), [targetLocations]);
+  const { data: liveData, isLoading: dataLoading } = useMultiLocationReportData(targetIds, range.from, range.to);
+
+  const EMPTY: LocationReportData = {
+    inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0 },
+    labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0 },
+    cash: { days: [], total: 0, totalVariance: 0 },
+    sales: { net: 0, guests: 0 },
+  };
+  const combinedData = liveData?.combined ?? EMPTY;
+  const dataByLocation = liveData?.byLocation ?? {};
 
   // ============ DRAG HANDLERS ============
   const onDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
@@ -380,25 +390,43 @@ export default function Reporting() {
     setConfig(c => ({ ...c, blocks: c.blocks.map(b => b.id === id ? { ...b, ...patch } : b) }));
 
   // ============ TEMPLATE SAVE/LOAD ============
+  const refetchTemplates = async () => {
+    if (!organizationId) return;
+    const { data } = await supabase.from('report_templates').select('*').eq('organization_id', organizationId).order('updated_at', { ascending: false });
+    setTemplates(data || []);
+  };
+
   const saveTemplate = async () => {
     if (!organizationId || !templateName.trim()) return;
-    const { error } = await supabase.from('report_templates').insert({
+    const { data, error } = await supabase.from('report_templates').insert({
       organization_id: organizationId,
       name: templateName.trim(),
       description: templateDesc.trim() || null,
       config: config as any,
       created_by: user?.id,
-    });
+    }).select('id').maybeSingle();
     if (error) { toast.error('Could not save: ' + error.message); return; }
     toast.success('Template saved');
     setSaveDialogOpen(false);
     setTemplateName(''); setTemplateDesc('');
-    const { data } = await supabase.from('report_templates').select('*').eq('organization_id', organizationId).order('updated_at', { ascending: false });
-    setTemplates(data || []);
+    if (data?.id) setLoadedTemplateId(data.id);
+    refetchTemplates();
+  };
+
+  const updateLoadedTemplate = async () => {
+    if (!loadedTemplateId) return;
+    const { error } = await supabase.from('report_templates').update({
+      config: config as any,
+      updated_at: new Date().toISOString(),
+    }).eq('id', loadedTemplateId);
+    if (error) { toast.error('Could not update: ' + error.message); return; }
+    toast.success('Template updated');
+    refetchTemplates();
   };
 
   const loadTemplate = (t: any) => {
     setConfig(t.config as ReportConfig);
+    setLoadedTemplateId(t.id);
     setTemplatesOpen(false);
     toast.success(`Loaded: ${t.name}`);
   };
@@ -438,16 +466,19 @@ export default function Reporting() {
   const exportCSV = () => {
     const rows: any[] = [];
     targetLocations.forEach(loc => {
-      rows.push({ Location: loc.name, Section: 'Inventory — Starting Count', Value: mockLocationData.inventory.startingCount });
-      mockLocationData.inventory.vendors.forEach(v => rows.push({ Location: loc.name, Section: `Inventory — ${v.name}`, Value: v.amount }));
-      rows.push({ Location: loc.name, Section: 'Inventory — COGS', Value: mockLocationData.inventory.cogs });
-      rows.push({ Location: loc.name, Section: 'Inventory — COGS %', Value: mockLocationData.inventory.cogsPct });
-      rows.push({ Location: loc.name, Section: 'Labor — Total Hours', Value: mockLocationData.labor.totalHours });
-      rows.push({ Location: loc.name, Section: 'Labor — OT Hours', Value: mockLocationData.labor.otHours });
-      rows.push({ Location: loc.name, Section: 'Labor — DOT Hours', Value: mockLocationData.labor.dotHours });
-      rows.push({ Location: loc.name, Section: 'Labor — Gross Wages', Value: mockLocationData.labor.grossWages });
-      rows.push({ Location: loc.name, Section: 'Cash — Total', Value: mockLocationData.cash.total });
-      rows.push({ Location: loc.name, Section: 'Cash — Variance', Value: mockLocationData.cash.totalVariance });
+      const d = dataByLocation[loc.id] ?? EMPTY;
+      rows.push({ Location: loc.name, Section: 'Inventory — Starting Count', Value: d.inventory.startingCount });
+      rows.push({ Location: loc.name, Section: 'Inventory — Ending Count', Value: d.inventory.endingCount });
+      d.inventory.vendors.forEach(v => rows.push({ Location: loc.name, Section: `Inventory — ${v.name}`, Value: v.amount }));
+      rows.push({ Location: loc.name, Section: 'Inventory — Total Purchases', Value: d.inventory.totalPurchases });
+      rows.push({ Location: loc.name, Section: 'Inventory — COGS', Value: d.inventory.cogs });
+      rows.push({ Location: loc.name, Section: 'Inventory — COGS %', Value: d.inventory.cogsPct });
+      rows.push({ Location: loc.name, Section: 'Labor — Total Hours', Value: d.labor.totalHours });
+      rows.push({ Location: loc.name, Section: 'Labor — OT Hours', Value: d.labor.otHours });
+      rows.push({ Location: loc.name, Section: 'Labor — DOT Hours', Value: d.labor.dotHours });
+      rows.push({ Location: loc.name, Section: 'Labor — Gross Wages', Value: d.labor.grossWages });
+      rows.push({ Location: loc.name, Section: 'Sales — Net', Value: d.sales.net });
+      rows.push({ Location: loc.name, Section: 'Sales — Guests', Value: d.sales.guests });
     });
     const csv = Papa.unparse(rows);
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -459,8 +490,44 @@ export default function Reporting() {
   };
 
   const sendEmail = async () => {
-    toast.info('Email send — coming online with delivery service. PDF generation works now.');
-    setEmailDialogOpen(false);
+    const recips = emailRecipients.split(',').map(s => s.trim()).filter(Boolean);
+    if (recips.length === 0) { toast.error('Add at least one recipient'); return; }
+    if (!previewRef.current) { toast.error('Preview not ready'); return; }
+    setEmailSending(true);
+    try {
+      toast.info('Generating PDF…');
+      const canvas = await html2canvas(previewRef.current, { scale: 2, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: config.orientation, unit: 'pt', format: 'letter' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW - 40;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      let heightLeft = imgH;
+      let position = 20;
+      pdf.addImage(imgData, 'PNG', 20, position, imgW, imgH);
+      heightLeft -= (pageH - 40);
+      while (heightLeft > 0) {
+        pdf.addPage();
+        position = 20 - (imgH - heightLeft);
+        pdf.addImage(imgData, 'PNG', 20, position, imgW, imgH);
+        heightLeft -= (pageH - 40);
+      }
+      const pdfBase64 = pdf.output('datauristring').split(',')[1];
+      const fileName = `${config.reportTitle.replace(/\s+/g, '_')}_${format(range.from, 'yyyyMMdd')}-${format(range.to, 'yyyyMMdd')}.pdf`;
+      const period = `${format(range.from, 'MMM d, yyyy')} – ${format(range.to, 'MMM d, yyyy')}`;
+      const { error } = await supabase.functions.invoke('send-report-email', {
+        body: { recipients: recips, reportTitle: config.reportTitle, period, author: config.author, pdfBase64, fileName },
+      });
+      if (error) throw error;
+      toast.success(`Sent to ${recips.length} recipient${recips.length > 1 ? 's' : ''}`);
+      setEmailDialogOpen(false);
+      setEmailRecipients('');
+    } catch (err: any) {
+      toast.error('Send failed: ' + (err?.message || String(err)));
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   if (!canAccess) {
@@ -526,7 +593,12 @@ export default function Reporting() {
                   <div><Label>Name</Label><Input value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="Monthly P&L" /></div>
                   <div><Label>Description (optional)</Label><Textarea value={templateDesc} onChange={e => setTemplateDesc(e.target.value)} /></div>
                 </div>
-                <DialogFooter><Button onClick={saveTemplate} disabled={!templateName.trim()}>Save</Button></DialogFooter>
+                <DialogFooter className="gap-2">
+                  {loadedTemplateId && (
+                    <Button variant="outline" onClick={() => { updateLoadedTemplate(); setSaveDialogOpen(false); }}>Update existing</Button>
+                  )}
+                  <Button onClick={saveTemplate} disabled={!templateName.trim()}>Save as new</Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
 
@@ -560,7 +632,7 @@ export default function Reporting() {
                 <div className="space-y-3">
                   <div><Label>Recipients (comma-separated)</Label><Input value={emailRecipients} onChange={e => setEmailRecipients(e.target.value)} placeholder="dave@store.com, gm@store.com" /></div>
                 </div>
-                <DialogFooter><Button onClick={sendEmail}>Send</Button></DialogFooter>
+                <DialogFooter><Button onClick={sendEmail} disabled={emailSending}>{emailSending ? 'Sending…' : 'Send'}</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -874,19 +946,20 @@ export default function Reporting() {
                       <div className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
                         {config.scope === 'org' ? 'Organization Total' : 'Combined Total'}
                       </div>
-                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, mockLocationData)}</div>)}
+                      {dataLoading && <p className="text-sm text-gray-400">Loading data…</p>}
+                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, combinedData)}</div>)}
                     </div>
                   )}
                   {config.scope === 'locations' && !config.combineLocations && targetLocations.map((loc, i) => (
                     <div key={loc.id} className={cn('space-y-4', i > 0 && 'mt-8 pt-8 border-t')}>
                       <h2 className="text-lg font-bold">{loc.name}</h2>
-                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, mockLocationData)}</div>)}
+                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, dataByLocation[loc.id] ?? EMPTY)}</div>)}
                     </div>
                   ))}
                   {config.scope === 'locations' && !config.combineLocations && targetLocations.length > 1 && (
                     <div className="mt-8 pt-8 border-t-2 border-black space-y-4">
                       <h2 className="text-lg font-bold">Grand Total</h2>
-                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, mockLocationData)}</div>)}
+                      {config.blocks.map(b => <div key={b.id}>{renderBlock(b, combinedData)}</div>)}
                     </div>
                   )}
                 </div>
