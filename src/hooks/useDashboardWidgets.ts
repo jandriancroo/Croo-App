@@ -88,6 +88,7 @@ function mapRow(row: DashboardWidgetRow, userId: string): UnifiedWidgetConfig {
     trackerPromoEnd: cfg.tracker_promo_end ?? null,
     trackerPromoImageUrl: cfg.tracker_promo_image_url ?? null,
     trackerLocationRefs: (cfg.tracker_location_refs as string[]) || [],
+    trackerLocationScope: (cfg.tracker_location_scope as 'org' | 'brand') || 'org',
     trackerRankMetrics: (cfg.tracker_rank_metrics as TrackerRankMetric[]) || ['units', 'sales', 'pmix'],
   };
 }
