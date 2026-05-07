@@ -34,6 +34,7 @@ interface LogBookNewEntrySheetProps {
 
 const getCategoryIcon = (name: string) => {
   const lower = name.toLowerCase();
+  if (lower.includes('cash count tool')) return <Calculator className="h-6 w-6" />;
   if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
   if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
   if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
