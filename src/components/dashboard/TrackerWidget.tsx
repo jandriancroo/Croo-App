@@ -263,7 +263,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           <div className="relative z-40 w-[68%] px-3 py-2 pr-5">
             <div className="relative z-40 inline-flex max-w-full flex-col">
               <div
-                className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/50 px-2 py-1.5 text-left text-background shadow-md shadow-foreground/15 backdrop-blur-md"
+                className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/35 px-2 py-1.5 text-left text-background shadow-md shadow-foreground/15 backdrop-blur-md"
                 onTouchStart={handleItemTouchStart}
                 onTouchEnd={handleItemTouchEnd}
               >
@@ -285,14 +285,9 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                       <ChevronLeft className="h-3.5 w-3.5" />
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setItemMenuOpen(value => !value)}
-                    className="flex min-w-0 flex-1 items-center gap-1 text-sm font-semibold leading-tight"
-                  >
-                    <span className="min-w-0 truncate">{activeItemLabel}</span>
-                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${itemMenuOpen ? 'rotate-180' : ''}`} />
-                  </button>
+                  <span className="flex min-w-0 flex-1 items-center text-sm font-semibold leading-tight">
+                    <span className="break-words">{activeItemLabel}</span>
+                  </span>
                   {itemSwitchOptions.length > 1 && (
                     <button
                       type="button"
