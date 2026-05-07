@@ -281,8 +281,11 @@ export function CashCountTool({ drawerBank }: CashCountToolProps) {
     if (activeId === id) setActiveId(drawers[0].id);
   };
 
-  const resetAll = () =>
-    setDrawers([{ ...newDrawer(1) }]) || setActiveId((a) => a);
+  const resetAll = () => {
+    const fresh = newDrawer(1);
+    setDrawers([fresh]);
+    setActiveId(fresh.id);
+  };
 
   return (
     <div className="space-y-4">
