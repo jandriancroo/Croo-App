@@ -300,25 +300,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                   )}
                 </div>
               </div>
-              {itemMenuOpen && (
-                <div className="absolute left-0 top-full z-50 mt-1 min-w-full overflow-hidden rounded-md border border-border/70 bg-card text-card-foreground shadow-lg shadow-background/20">
-                  {itemSwitchOptions.map(itemRef => (
-                    <button
-                      key={itemRef}
-                      type="button"
-                      onClick={() => {
-                        setSelectedItemRef(itemRef);
-                        setItemMenuOpen(false);
-                      }}
-                      className={`block w-full px-3 py-2 text-left text-xs font-semibold transition-colors ${
-                        activeItemRef === itemRef ? 'bg-muted/65 text-foreground' : 'hover:bg-muted/50'
-                      }`}
-                    >
-                      {itemRef}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
