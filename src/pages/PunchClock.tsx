@@ -1063,6 +1063,10 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
+    if (!currentLocation?.id) {
+      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      return;
+    }
     // Use timezone-aware timestamp for punch recording
     const { getNowISOString } = await import('@/utils/timezoneUtils');
     
