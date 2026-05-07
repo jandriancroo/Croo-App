@@ -943,6 +943,11 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
+    // HARD GUARD: never write a punch with NULL location_id
+    if (!currentLocation?.id) {
+      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      return;
+    }
     // Block if already clocked in
     if (lastPunch?.punch_type === 'clock_in') {
       toast.error('You are already clocked in');
