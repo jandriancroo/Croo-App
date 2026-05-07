@@ -260,46 +260,50 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-gradient-to-r from-background/15 via-transparent to-background/15" />
             </div>
           )}
-          <div className="relative z-40 w-[85%] px-3 py-2 pr-5">
-            <div className="relative z-40 inline-flex max-w-full flex-col">
-              <div
-                className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/35 px-2 py-1.5 text-left text-background shadow-md shadow-foreground/15 backdrop-blur-md"
-                onTouchStart={handleItemTouchStart}
-                onTouchEnd={handleItemTouchEnd}
-              >
-                <span className="flex shrink-0 items-center gap-1.5 leading-none">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(142_76%_55%)]" />
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-background">LIVE</span>
-                </span>
-                <div className="mt-1 flex items-center gap-1">
-                  {itemSwitchOptions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
-                      className="-ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-background/80 transition-colors hover:bg-background/15 hover:text-background"
-                      aria-label="Previous item"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  <span className="flex min-w-0 flex-1 items-center text-sm font-semibold leading-tight">
-                    <span className="break-words">{activeItemLabel}</span>
-                  </span>
-                  {itemSwitchOptions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-background/80 transition-colors hover:bg-background/15 hover:text-background"
-                      aria-label="Next item"
-                    >
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
+          <div className="relative z-40 flex items-center justify-center px-3 py-2.5">
+            <div
+              className="inline-flex max-w-full items-center gap-2 rounded-full border border-background/15 bg-foreground/35 px-3 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md"
+              onTouchStart={handleItemTouchStart}
+              onTouchEnd={handleItemTouchEnd}
+            >
+              {itemSwitchOptions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/75 transition-colors hover:bg-background/15 hover:text-background"
+                  aria-label="Previous item"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              )}
+              <span className="relative flex h-2 w-2 shrink-0" aria-label="Live">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(142_76%_55%)]" />
+              </span>
+              <span className="min-w-0 truncate text-sm font-bold leading-tight">{activeItemLabel}</span>
+              {itemSwitchOptions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/75 transition-colors hover:bg-background/15 hover:text-background"
+                  aria-label="Next item"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+              {canExpand && (
+                <>
+                  <span className="mx-0.5 h-4 w-px bg-background/20" />
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/85 transition-colors hover:bg-background/15 hover:text-background"
+                    aria-label={expanded ? 'Collapse rankings' : 'Expand rankings'}
+                  >
+                    <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : '-rotate-90'}`} />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
