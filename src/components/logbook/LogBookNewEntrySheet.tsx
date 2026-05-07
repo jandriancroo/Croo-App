@@ -794,7 +794,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <SheetTitle className="!mt-0">
-                {selectedCategory === 'bank-deposit' ? 'Bank Deposit' : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
+                {selectedCategory === 'bank-deposit' ? 'Bank Deposit' : selectedCategory === 'cash-count-tool' ? 'Cash Count Tool' : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
               </SheetTitle>
             </SheetHeader>
             <div className="mt-4 space-y-4">
