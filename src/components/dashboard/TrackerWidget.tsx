@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -19,6 +19,7 @@ interface TrackerConfig {
   trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
+  trackerLocationScope?: 'org' | 'brand';
 }
 
 interface TrackerWidgetProps {
@@ -68,6 +69,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
   const [selectedItemRef, setSelectedItemRef] = useState<string>(() => tracker.trackerItemRefs?.[0] || '');
   const [itemMenuOpen, setItemMenuOpen] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
@@ -75,7 +77,46 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const promoEnd = tracker.trackerPromoEnd || today;
   const trackedItemRefs = tracker.trackerItemRefs || [];
   const trackedItems = trackedItemRefs.map(item => item.toLowerCase());
-  const locationPool = tracker.trackerLocationRefs?.length ? tracker.trackerLocationRefs : locations.map(location => location.id);
+  const isBrandScope = tracker.trackerLocationScope === 'brand';
+
+  const { data: brandLocations = [] } = useQuery({
+    queryKey: ['tracker-brand-locations', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return [] as Array<{ id: string; name: string }>;
+      const { data: loc } = await supabase
+        .from('locations')
+        .select('organization_id')
+        .eq('id', currentLocation.id)
+        .maybeSingle();
+      const orgId = (loc as any)?.organization_id;
+      if (!orgId) return [];
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('brand_id')
+        .eq('id', orgId)
+        .maybeSingle();
+      const brandId = (org as any)?.brand_id;
+      if (!brandId) return [];
+      const { data: orgs } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('brand_id', brandId);
+      const orgIds = ((orgs || []) as any[]).map(o => o.id);
+      if (orgIds.length === 0) return [];
+      const { data: locs } = await supabase
+        .from('locations')
+        .select('id, name')
+        .in('organization_id', orgIds);
+      return ((locs || []) as any[]) as Array<{ id: string; name: string }>;
+    },
+    enabled: !!currentLocation?.id && isBrandScope,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const effectiveLocations = isBrandScope && brandLocations.length > 0 ? brandLocations : locations;
+  const locationPool = tracker.trackerLocationRefs?.length
+    ? tracker.trackerLocationRefs
+    : effectiveLocations.map(location => location.id);
 
   const range = period === 'day'
     ? { start: today, end: today }
@@ -100,7 +141,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
       const byLocation = new Map<string, StoreRankRow>();
       for (const locationId of locationPool) {
-        const location = locations.find(loc => loc.id === locationId);
+        const location = effectiveLocations.find(loc => loc.id === locationId);
         byLocation.set(locationId, {
           locationId,
           locationName: location?.name || 'Store',
@@ -176,6 +217,25 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     setPeriod(PERIOD_MODES[nextIndex]);
   };
 
+  const cycleItem = (direction: 'prev' | 'next') => {
+    if (itemSwitchOptions.length <= 1) return;
+    const currentIndex = Math.max(0, itemSwitchOptions.indexOf(activeItemRef));
+    const nextIndex = direction === 'next'
+      ? (currentIndex + 1) % itemSwitchOptions.length
+      : (currentIndex - 1 + itemSwitchOptions.length) % itemSwitchOptions.length;
+    setSelectedItemRef(itemSwitchOptions[nextIndex]);
+  };
+
+  const handleItemTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+  const handleItemTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (Math.abs(dx) > 40) cycleItem(dx < 0 ? 'next' : 'prev');
+  };
+
   const MetricButton = ({ metric, label, value }: { metric: TrackerSortMetric; label: string; value: string }) => (
     <button
       type="button"
@@ -202,17 +262,49 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           )}
           <div className="relative z-40 w-[68%] px-3 py-2 pr-5">
             <div className="relative z-40 inline-flex max-w-full flex-col">
-              <button
-                type="button"
-                onClick={() => setItemMenuOpen(value => !value)}
-                className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/50 px-2.5 py-1.5 text-left text-background shadow-md shadow-foreground/15 backdrop-blur-md"
+              <div
+                className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/50 px-2 py-1.5 text-left text-background shadow-md shadow-foreground/15 backdrop-blur-md"
+                onTouchStart={handleItemTouchStart}
+                onTouchEnd={handleItemTouchEnd}
               >
-                <span className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-background/70">Live promo</span>
-                <span className="mt-1 flex min-w-0 max-w-full items-center gap-1 text-sm font-semibold leading-tight">
-                  <span className="min-w-0 truncate">{activeItemLabel}</span>
-                  <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${itemMenuOpen ? 'rotate-180' : ''}`} />
+                <span className="flex shrink-0 items-center gap-1.5 leading-none">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(142_76%_55%)]" />
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-background">LIVE</span>
                 </span>
-              </button>
+                <div className="mt-1 flex items-center gap-1">
+                  {itemSwitchOptions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
+                      className="-ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-background/80 transition-colors hover:bg-background/15 hover:text-background"
+                      aria-label="Previous item"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setItemMenuOpen(value => !value)}
+                    className="flex min-w-0 flex-1 items-center gap-1 text-sm font-semibold leading-tight"
+                  >
+                    <span className="min-w-0 truncate">{activeItemLabel}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${itemMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {itemSwitchOptions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-background/80 transition-colors hover:bg-background/15 hover:text-background"
+                      aria-label="Next item"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
               {itemMenuOpen && (
                 <div className="absolute left-0 top-full z-50 mt-1 min-w-full overflow-hidden rounded-md border border-border/70 bg-card text-card-foreground shadow-lg shadow-background/20">
                   {itemSwitchOptions.map(itemRef => (

@@ -83,6 +83,7 @@ export interface CubeConfig {
   trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
+  trackerLocationScope?: 'org' | 'brand';
   // 3D cube specific
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
@@ -335,6 +336,7 @@ export function EditDashboardDialog({
         trackerPromoImageUrl: editForm.trackerPromoImageUrl,
         trackerLocationRefs: editForm.trackerLocationRefs || [],
         trackerRankMetrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        trackerLocationScope: editForm.trackerLocationScope || 'org',
       });
 
       // For each selected location, find an existing location-scoped tracker
@@ -518,6 +520,7 @@ export function EditDashboardDialog({
         trackerPromoImageUrl: cube.trackerPromoImageUrl || null,
         trackerLocationRefs: cube.trackerLocationRefs || [],
         trackerRankMetrics: cube.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        trackerLocationScope: cube.trackerLocationScope || 'org',
       });
     } else if (cube.cubeType === 'data-3d') {
       const faces = cube.faceMetrics || [[], [], [], []];
@@ -1135,6 +1138,14 @@ export function EditDashboardDialog({
                       <Button type="button" variant={editForm.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
                       <Button type="button" variant={editForm.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
                     </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Ranking Pool</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button type="button" variant={(editForm.trackerLocationScope || 'org') === 'org' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerLocationScope: 'org' }))}>Organization</Button>
+                      <Button type="button" variant={editForm.trackerLocationScope === 'brand' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerLocationScope: 'brand' }))}>Brand-Wide</Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Brand-Wide ranks every store in the brand.</p>
                   </div>
 
                   {canPublish && publishableLocations.length > 0 && (

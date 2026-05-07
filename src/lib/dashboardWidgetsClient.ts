@@ -119,6 +119,7 @@ export function buildWidgetConfigJson(cube: {
   trackerPromoImageUrl?: any;
   trackerLocationRefs?: any;
   trackerRankMetrics?: any;
+  trackerLocationScope?: any;
 }): Record<string, any> {
   const cfg: Record<string, any> = {};
   if (cube.metrics !== undefined) cfg.metrics = cube.metrics;
@@ -133,5 +134,6 @@ export function buildWidgetConfigJson(cube: {
   if (cube.trackerPromoImageUrl !== undefined) cfg.tracker_promo_image_url = cube.trackerPromoImageUrl;
   if (cube.trackerLocationRefs !== undefined) cfg.tracker_location_refs = cube.trackerLocationRefs;
   if (cube.trackerRankMetrics !== undefined) cfg.tracker_rank_metrics = cube.trackerRankMetrics;
+  if (cube.trackerLocationScope !== undefined) cfg.tracker_location_scope = cube.trackerLocationScope;
   return cfg;
 }

@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export type TrackerScopeType = 'user' | 'role' | 'location';
 export type TrackerDisplayMode = 'summary' | 'expandable';
 export type TrackerRankMetric = 'units' | 'sales' | 'pmix';
+export type TrackerLocationScope = 'org' | 'brand';
 export type CubeType = 'data' | 'sales-chart' | 'tracker';
 
 export interface NewDataCubeConfig {
@@ -45,6 +46,7 @@ export interface NewDataCubeConfig {
   trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
+  trackerLocationScope?: TrackerLocationScope;
   // Visibility (admin-only at create time)
   authorityScope?: 'self' | 'location' | 'org' | 'brand' | 'app';
   audienceRoles?: AudienceRole[] | null;
@@ -90,6 +92,7 @@ export function AddWidgetDialog({
     trackerPromoImageUrl: null,
     trackerLocationRefs: [],
     trackerRankMetrics: ['units', 'sales', 'pmix'],
+    trackerLocationScope: 'org',
   });
 
   const { user } = useAuth();
@@ -213,6 +216,7 @@ export function AddWidgetDialog({
         trackerPromoImageUrl: config.trackerPromoImageUrl,
         trackerLocationRefs: config.trackerLocationRefs || [],
         trackerRankMetrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        trackerLocationScope: config.trackerLocationScope || 'org',
       });
       const results = await Promise.allSettled(publishLocationIds.map(loc_id =>
         createDashboardWidget({
@@ -542,7 +546,7 @@ export function AddWidgetDialog({
                         <div className="absolute inset-0 bg-background/30" />
                         <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
                         <div className="absolute left-3 top-2 inline-flex max-w-[68%] flex-col rounded-md border border-background/20 bg-foreground/50 px-2.5 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md">
-                          <p className="text-[10px] font-bold uppercase leading-none tracking-wider text-background/70">Live promo</p>
+                          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase leading-none tracking-[0.18em] text-background"><span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" /></span>LIVE</p>
                           <p className="mt-1 max-w-full truncate text-sm font-semibold leading-tight">{config.title || 'Promo'}</p>
                         </div>
                         <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 h-7 w-7" onClick={() => setConfig(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
@@ -576,6 +580,14 @@ export function AddWidgetDialog({
                     <Button type="button" variant={config.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
                     <Button type="button" variant={config.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Ranking Pool</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={(config.trackerLocationScope || 'org') === 'org' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerLocationScope: 'org' }))}>Organization</Button>
+                    <Button type="button" variant={config.trackerLocationScope === 'brand' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerLocationScope: 'brand' }))}>Brand-Wide</Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Brand-Wide ranks every store in the brand, no matter how many.</p>
                 </div>
 
                 {canPublish && publishableLocations.length > 0 && (
