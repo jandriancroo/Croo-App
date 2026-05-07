@@ -217,6 +217,25 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     setPeriod(PERIOD_MODES[nextIndex]);
   };
 
+  const cycleItem = (direction: 'prev' | 'next') => {
+    if (itemSwitchOptions.length <= 1) return;
+    const currentIndex = Math.max(0, itemSwitchOptions.indexOf(activeItemRef));
+    const nextIndex = direction === 'next'
+      ? (currentIndex + 1) % itemSwitchOptions.length
+      : (currentIndex - 1 + itemSwitchOptions.length) % itemSwitchOptions.length;
+    setSelectedItemRef(itemSwitchOptions[nextIndex]);
+  };
+
+  const handleItemTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+  const handleItemTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+    touchStartXRef.current = null;
+    if (Math.abs(dx) > 40) cycleItem(dx < 0 ? 'next' : 'prev');
+  };
+
   const MetricButton = ({ metric, label, value }: { metric: TrackerSortMetric; label: string; value: string }) => (
     <button
       type="button"
