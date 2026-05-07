@@ -260,7 +260,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
             </div>
           )}
-          <div className="relative z-40 w-[68%] px-3 py-2 pr-5">
+          <div className="relative z-40 w-[85%] px-3 py-2 pr-5">
             <div className="relative z-40 inline-flex max-w-full flex-col">
               <div
                 className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/35 px-2 py-1.5 text-left text-background shadow-md shadow-foreground/15 backdrop-blur-md"
