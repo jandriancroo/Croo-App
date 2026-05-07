@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { CalendarIcon, Paperclip, Plus, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
+import { CalendarIcon, Paperclip, Plus, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine, Calculator } from "lucide-react";
 import { Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DrawerCountForm, type PriorPull } from "@/components/logbook/DrawerCountForm";
@@ -18,6 +18,7 @@ import { EmployeeWriteUpForm } from "@/components/logbook/EmployeeWriteUpForm";
 import { ReadAndSignForm } from "@/components/logbook/ReadAndSignForm";
 import { PerformanceReviewForm } from "@/components/logbook/PerformanceReviewForm";
 import { WasteLogForm, type WasteLogData } from "@/components/logbook/WasteLogForm";
+import { CashCountTool } from "@/components/logbook/CashCountTool";
 import type { DrawerCountData } from "@/components/logbook/DrawerCountForm";
 import type { SafeCountData } from "@/components/logbook/SafeCountForm";
 import type { BankDepositData } from "@/components/logbook/BankDepositForm";
@@ -33,6 +34,7 @@ interface LogBookNewEntrySheetProps {
 
 const getCategoryIcon = (name: string) => {
   const lower = name.toLowerCase();
+  if (lower.includes('cash count tool')) return <Calculator className="h-6 w-6" />;
   if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
   if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
   if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
@@ -67,12 +69,26 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
   const isSafeCount = currentCategoryName === 'safe count';
   const isWeeklySummary = currentCategoryName === 'weekly summary';
   const isBankDeposit = selectedCategory === 'bank-deposit' || currentCategoryName === 'bank deposit';
+  const isCashCountTool = selectedCategory === 'cash-count-tool';
   const isEmployeeWriteUp = ['employee write-up', 'employee writeup', 'employee write up', 'write-up', 'writeup', 'write up'].includes(currentCategoryName || '');
   const isReadAndSign = ['read & sign', 'read and sign', 'read-and-sign'].includes(currentCategoryName || '');
   const isPerformanceReview = ['performance review', 'performance-review'].includes(currentCategoryName || '');
   const isWasteLog = ['waste log', 'waste', 'waste report'].includes(currentCategoryName || '');
 
   const renderFormContent = () => {
+    if (isCashCountTool) {
+      return (
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold">Cash Count Tool</h2>
+          <p className="text-xs text-muted-foreground">
+            Calculator-only utility. Useful for the morning re-count to confirm the drawer
+            still contains the bank — nothing here is saved or recorded.
+          </p>
+          <CashCountTool drawerBank={locationSettings?.drawer_bank ?? 200} />
+        </div>
+      );
+    }
+
     if (isPerformanceReview) {
       return (
         <div className="space-y-4">
@@ -739,17 +755,19 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
               <SheetTitle>New Log Entry</SheetTitle>
             </SheetHeader>
             <div className="mt-4 grid grid-cols-3 gap-3">
-              {[...categories]
-                .sort((a: any, b: any) => {
+              {[
+                ...[...categories].sort((a: any, b: any) => {
                   const cashHandlingNames = ['drawer count', 'safe count', 'bank deposit'];
                   const aIsCash = cashHandlingNames.some(name => a.name.toLowerCase().includes(name));
                   const bIsCash = cashHandlingNames.some(name => b.name.toLowerCase().includes(name));
                   if (aIsCash && !bIsCash) return 1;
                   if (!aIsCash && bIsCash) return -1;
                   return (a.display_order || 0) - (b.display_order || 0);
-                })
+                }),
+                { id: 'cash-count-tool', name: 'Cash Count Tool', __synthetic: true },
+              ]
                 .map((category: any) => {
-                  const isCashHandling = ['drawer', 'safe', 'bank', 'deposit'].some(term => category.name.toLowerCase().includes(term));
+                  const isCashHandling = ['drawer', 'safe', 'bank', 'deposit', 'cash count tool'].some(term => category.name.toLowerCase().includes(term));
                   return (
                     <button
                       key={category.id}
@@ -776,7 +794,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <SheetTitle className="!mt-0">
-                {selectedCategory === 'bank-deposit' ? 'Bank Deposit' : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
+                {selectedCategory === 'bank-deposit' ? 'Bank Deposit' : selectedCategory === 'cash-count-tool' ? 'Cash Count Tool' : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
               </SheetTitle>
             </SheetHeader>
             <div className="mt-4 space-y-4">
