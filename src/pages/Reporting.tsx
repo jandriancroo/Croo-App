@@ -1099,7 +1099,6 @@ export default function Reporting() {
                         <p className="text-sm font-semibold text-gray-700 mt-0.5">{organizationName}</p>
                       )}
                       <p className="text-sm text-gray-600 mt-1">{format(range.from, 'MMM d, yyyy')} – {format(range.to, 'MMM d, yyyy')}</p>
-                      {config.author && <p className="text-xs text-gray-500 mt-2">Prepared by: {config.author}</p>}
                     </div>
                     <div className="flex items-center gap-3">
                       {config.showCrooLogo && <div className="text-right"><div className="text-xs text-gray-400">Powered by</div><div className="font-bold text-sm">CrooHQ</div></div>}
@@ -1129,6 +1128,11 @@ export default function Reporting() {
                     <div className="mt-8 pt-8 border-t-2 border-black space-y-4">
                       <h2 className="text-lg font-bold">Grand Total</h2>
                       {config.blocks.map(b => <div key={b.id}>{renderBlock(b, combinedData)}</div>)}
+                    </div>
+                  )}
+                  {config.author && (
+                    <div className="mt-8 pt-4 border-t text-xs text-gray-500 text-center">
+                      Prepared by: {config.author}
                     </div>
                   )}
                 </div>
