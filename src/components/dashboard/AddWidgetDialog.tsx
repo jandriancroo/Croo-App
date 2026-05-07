@@ -92,6 +92,7 @@ export function AddWidgetDialog({
     trackerPromoImageUrl: null,
     trackerLocationRefs: [],
     trackerRankMetrics: ['units', 'sales', 'pmix'],
+    trackerLocationScope: 'org',
   });
 
   const { user } = useAuth();
