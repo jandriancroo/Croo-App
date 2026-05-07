@@ -1130,6 +1130,11 @@ export default function Reporting() {
                       {config.blocks.map(b => <div key={b.id}>{renderBlock(b, combinedData)}</div>)}
                     </div>
                   )}
+                  {config.author && (
+                    <div className="mt-8 pt-4 border-t text-xs text-gray-500 text-center">
+                      Prepared by: {config.author}
+                    </div>
+                  )}
                 </div>
               </div>
               </div>
