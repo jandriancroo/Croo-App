@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -19,6 +19,7 @@ interface TrackerConfig {
   trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
+  trackerLocationScope?: 'org' | 'brand';
 }
 
 interface TrackerWidgetProps {
