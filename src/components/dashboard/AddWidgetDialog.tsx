@@ -216,6 +216,7 @@ export function AddWidgetDialog({
         trackerPromoImageUrl: config.trackerPromoImageUrl,
         trackerLocationRefs: config.trackerLocationRefs || [],
         trackerRankMetrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        trackerLocationScope: config.trackerLocationScope || 'org',
       });
       const results = await Promise.allSettled(publishLocationIds.map(loc_id =>
         createDashboardWidget({
