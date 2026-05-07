@@ -85,11 +85,14 @@ export function ShiftSummaryCard({
       const now = new Date();
       const lookbackTime = new Date(now.getTime() - 16 * 60 * 60 * 1000);
 
+      // Don't filter by location_id strictly — some legacy punches were
+      // recorded with NULL location_id, which would otherwise hide the
+      // active session and show 00:00 Hours Worked.
       const { data: punches } = await supabase
         .from('time_punches')
         .select('*')
         .eq('user_id', user.id)
-        .eq('location_id', locationId)
+        .or(`location_id.eq.${locationId},location_id.is.null`)
         .gte('punch_time', lookbackTime.toISOString())
         .order('punch_time', { ascending: true });
 
