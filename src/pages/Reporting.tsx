@@ -1099,7 +1099,6 @@ export default function Reporting() {
                         <p className="text-sm font-semibold text-gray-700 mt-0.5">{organizationName}</p>
                       )}
                       <p className="text-sm text-gray-600 mt-1">{format(range.from, 'MMM d, yyyy')} – {format(range.to, 'MMM d, yyyy')}</p>
-                      {config.author && <p className="text-xs text-gray-500 mt-2">Prepared by: {config.author}</p>}
                     </div>
                     <div className="flex items-center gap-3">
                       {config.showCrooLogo && <div className="text-right"><div className="text-xs text-gray-400">Powered by</div><div className="font-bold text-sm">CrooHQ</div></div>}
