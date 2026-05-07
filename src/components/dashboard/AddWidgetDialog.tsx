@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export type TrackerScopeType = 'user' | 'role' | 'location';
 export type TrackerDisplayMode = 'summary' | 'expandable';
 export type TrackerRankMetric = 'units' | 'sales' | 'pmix';
+export type TrackerLocationScope = 'org' | 'brand';
 export type CubeType = 'data' | 'sales-chart' | 'tracker';
 
 export interface NewDataCubeConfig {
