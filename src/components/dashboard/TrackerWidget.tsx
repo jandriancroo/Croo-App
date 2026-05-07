@@ -252,7 +252,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   return (
     <Card className="overflow-visible border-border/50 bg-card shadow-lg shadow-background/20">
       <CardContent className="p-0 md:p-0">
-        <div className="relative min-h-[58px] rounded-t-lg bg-primary text-primary-foreground">
+        <div className="relative min-h-[88px] rounded-t-lg bg-primary text-primary-foreground">
           {promoImageUrl && (
             <div className="absolute inset-0 overflow-hidden rounded-t-lg">
               <img src={promoImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
@@ -260,37 +260,42 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-gradient-to-r from-background/15 via-transparent to-background/15" />
             </div>
           )}
-          <div className="relative z-40 flex items-center justify-center px-3 py-2.5">
+          <div className="relative z-40 flex items-center justify-center px-3 py-3">
             <div
-              className="inline-flex max-w-full items-center gap-2 rounded-full border border-background/15 bg-foreground/35 px-3 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md"
+              className="inline-flex max-w-full flex-col items-center gap-1 rounded-2xl border border-background/15 bg-foreground/35 px-3 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md"
               onTouchStart={handleItemTouchStart}
               onTouchEnd={handleItemTouchEnd}
             >
-              {itemSwitchOptions.length > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/75 transition-colors hover:bg-background/15 hover:text-background"
-                  aria-label="Previous item"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-              )}
-              <span className="relative flex h-2 w-2 shrink-0" aria-label="Live">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(142_76%_55%)]" />
+              <span className="flex items-center gap-1.5 leading-none">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(142_76%_55%)]" />
+                </span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-background/90">PROMO</span>
               </span>
-              <span className="min-w-0 truncate text-sm font-bold leading-tight">{activeItemLabel}</span>
-              {itemSwitchOptions.length > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/75 transition-colors hover:bg-background/15 hover:text-background"
-                  aria-label="Next item"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {itemSwitchOptions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/75 transition-colors hover:bg-background/15 hover:text-background"
+                    aria-label="Previous item"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                )}
+                <span className="min-w-0 truncate text-sm font-bold leading-tight">{activeItemLabel}</span>
+                {itemSwitchOptions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/75 transition-colors hover:bg-background/15 hover:text-background"
+                    aria-label="Next item"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
