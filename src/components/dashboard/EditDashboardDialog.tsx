@@ -336,6 +336,7 @@ export function EditDashboardDialog({
         trackerPromoImageUrl: editForm.trackerPromoImageUrl,
         trackerLocationRefs: editForm.trackerLocationRefs || [],
         trackerRankMetrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        trackerLocationScope: editForm.trackerLocationScope || 'org',
       });
 
       // For each selected location, find an existing location-scoped tracker
