@@ -69,6 +69,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
   const [selectedItemRef, setSelectedItemRef] = useState<string>(() => tracker.trackerItemRefs?.[0] || '');
   const [itemMenuOpen, setItemMenuOpen] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
@@ -76,7 +77,46 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const promoEnd = tracker.trackerPromoEnd || today;
   const trackedItemRefs = tracker.trackerItemRefs || [];
   const trackedItems = trackedItemRefs.map(item => item.toLowerCase());
-  const locationPool = tracker.trackerLocationRefs?.length ? tracker.trackerLocationRefs : locations.map(location => location.id);
+  const isBrandScope = tracker.trackerLocationScope === 'brand';
+
+  const { data: brandLocations = [] } = useQuery({
+    queryKey: ['tracker-brand-locations', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return [] as Array<{ id: string; name: string }>;
+      const { data: loc } = await supabase
+        .from('locations')
+        .select('organization_id')
+        .eq('id', currentLocation.id)
+        .maybeSingle();
+      const orgId = (loc as any)?.organization_id;
+      if (!orgId) return [];
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('brand_id')
+        .eq('id', orgId)
+        .maybeSingle();
+      const brandId = (org as any)?.brand_id;
+      if (!brandId) return [];
+      const { data: orgs } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('brand_id', brandId);
+      const orgIds = ((orgs || []) as any[]).map(o => o.id);
+      if (orgIds.length === 0) return [];
+      const { data: locs } = await supabase
+        .from('locations')
+        .select('id, name')
+        .in('organization_id', orgIds);
+      return ((locs || []) as any[]) as Array<{ id: string; name: string }>;
+    },
+    enabled: !!currentLocation?.id && isBrandScope,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const effectiveLocations = isBrandScope && brandLocations.length > 0 ? brandLocations : locations;
+  const locationPool = tracker.trackerLocationRefs?.length
+    ? tracker.trackerLocationRefs
+    : effectiveLocations.map(location => location.id);
 
   const range = period === 'day'
     ? { start: today, end: today }
