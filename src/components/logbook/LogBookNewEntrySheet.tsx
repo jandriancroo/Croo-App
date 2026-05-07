@@ -76,6 +76,19 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
   const isWasteLog = ['waste log', 'waste', 'waste report'].includes(currentCategoryName || '');
 
   const renderFormContent = () => {
+    if (isCashCountTool) {
+      return (
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold">Cash Count Tool</h2>
+          <p className="text-xs text-muted-foreground">
+            Calculator-only utility. Useful for the morning re-count to confirm the drawer
+            still contains the bank — nothing here is saved or recorded.
+          </p>
+          <CashCountTool drawerBank={locationSettings?.drawer_bank ?? 200} />
+        </div>
+      );
+    }
+
     if (isPerformanceReview) {
       return (
         <div className="space-y-4">
