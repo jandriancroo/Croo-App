@@ -308,83 +308,91 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           </div>
         </div>
 
-        <div className="relative z-10 -mt-px flex justify-center px-6">
-          <div className="flex max-w-full items-stretch overflow-hidden rounded-b-md border border-t-0 border-border/70 bg-card/95 text-foreground shadow-md shadow-background/15">
-            <button
-              type="button"
-              onClick={() => cyclePeriod('prev')}
-              className="flex h-8 w-8 shrink-0 items-center justify-center transition-colors hover:bg-muted/50"
-              aria-label="Previous period"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => cyclePeriod('next')}
-              className="flex h-8 min-w-[118px] items-center justify-center px-4 text-sm font-semibold leading-none transition-colors hover:bg-muted/50"
-            >
-              <span className="truncate">{activePeriodLabel}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => cyclePeriod('next')}
-              className="flex h-8 w-8 shrink-0 items-center justify-center transition-colors hover:bg-muted/50"
-              aria-label="Next period"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+        {(!canExpand || !expanded) && (
+          <div className="flex items-center justify-between gap-2 rounded-b-lg bg-card px-3 py-2.5 text-[12px]">
+            <span className="min-w-0 truncate text-muted-foreground">
+              You're <span className="font-bold text-orange-500">{rankChipLabel}</span>
+              {activeItemRef && <> on <span className="font-medium text-foreground">{activeItemLabel}</span></>}
+            </span>
+            <span className="shrink-0 font-medium tabular-nums text-muted-foreground">
+              {isLoading ? '--' : money(myVisibleStats.sales)} sales · {isLoading ? '--' : number(myVisibleStats.units)} units
+            </span>
           </div>
-        </div>
-
-        <div className="space-y-3 bg-card px-3 pb-3 pt-3">
-          <div className="flex gap-2">
-            {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
-            {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
-            {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myVisibleStats.pmix)} />}
-            <button
-              type="button"
-              disabled={!canExpand}
-              onClick={() => canExpand && setExpanded(value => !value)}
-              className="ml-auto flex min-w-[72px] items-center justify-between gap-1 rounded-md border border-accent/45 bg-accent px-2 py-1 text-left text-accent-foreground shadow-sm transition-colors enabled:hover:bg-accent/90 disabled:cursor-default"
-            >
-              <span className="min-w-0">
-                <p className="text-[9px] font-medium uppercase leading-none text-accent-foreground/75">Rank</p>
-                <p className="mt-0.5 truncate text-[13px] font-bold leading-none tabular-nums">{rankChipLabel}</p>
-              </span>
-              {canExpand && <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />}
-            </button>
-          </div>
-        </div>
+        )}
 
         {canExpand && expanded && (
-          <div className="space-y-1 pt-0.5">
-            <div className="grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 px-1.5 text-[10px] font-medium uppercase text-muted-foreground">
-              <span>#</span>
-              <span>Store</span>
-              {(['units', 'sales', 'pmix'] as TrackerSortMetric[]).map(metric => (
-                <button key={metric} type="button" onClick={() => setSortMetric(metric)} className="flex items-center justify-end gap-0.5">
-                  {metric === 'units' ? 'Items' : metric === 'sales' ? 'Sales' : 'PMIX'}
-                  {sortMetric === metric && <ArrowDown className="h-2.5 w-2.5" />}
+          <>
+            <div className="relative z-10 -mt-px flex justify-center px-6">
+              <div className="flex max-w-full items-stretch overflow-hidden rounded-b-md border border-t-0 border-border/70 bg-card/95 text-foreground shadow-md shadow-background/15">
+                <button
+                  type="button"
+                  onClick={() => cyclePeriod('prev')}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center transition-colors hover:bg-muted/50"
+                  aria-label="Previous period"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => cyclePeriod('next')}
+                  className="flex h-8 min-w-[118px] items-center justify-center px-4 text-sm font-semibold leading-none transition-colors hover:bg-muted/50"
+                >
+                  <span className="truncate">{activePeriodLabel}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cyclePeriod('next')}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center transition-colors hover:bg-muted/50"
+                  aria-label="Next period"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 bg-card px-3 pb-3 pt-3">
+              <div className="flex gap-2">
+                {rankMetrics.includes('units') && <MetricButton metric="units" label="Units" value={isLoading ? '--' : number(myVisibleStats.units)} />}
+                {rankMetrics.includes('sales') && <MetricButton metric="sales" label="Sales" value={isLoading ? '--' : money(myVisibleStats.sales)} />}
+                {rankMetrics.includes('pmix') && <MetricButton metric="pmix" label="PMIX" value={isLoading ? '--' : percent(myVisibleStats.pmix)} />}
+                <div className="ml-auto flex min-w-[72px] items-center justify-between gap-1 rounded-md border border-accent/45 bg-accent px-2 py-1 text-left text-accent-foreground shadow-sm">
+                  <span className="min-w-0">
+                    <p className="text-[9px] font-medium uppercase leading-none text-accent-foreground/75">Rank</p>
+                    <p className="mt-0.5 truncate text-[13px] font-bold leading-none tabular-nums">{rankChipLabel}</p>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1 px-1 pb-2 pt-0.5">
+              <div className="grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 px-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+                <span>#</span>
+                <span>Store</span>
+                {(['units', 'sales', 'pmix'] as TrackerSortMetric[]).map(metric => (
+                  <button key={metric} type="button" onClick={() => setSortMetric(metric)} className="flex items-center justify-end gap-0.5">
+                    {metric === 'units' ? 'Items' : metric === 'sales' ? 'Sales' : 'PMIX'}
+                    {sortMetric === metric && <ArrowDown className="h-2.5 w-2.5" />}
+                  </button>
+                ))}
+              </div>
+              {sortedRanking.slice(0, 20).map(store => (
+                <div
+                  key={store.locationId}
+                  className={`grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 rounded-md px-1.5 py-1.5 text-[11px] ${
+                    store.locationId === currentLocation?.id
+                      ? 'bg-accent text-accent-foreground shadow-sm'
+                      : 'bg-muted/45'
+                  }`}
+                >
+                  <span className="font-semibold">#{store.rank}</span>
+                  <span className="truncate">{store.locationName}</span>
+                  <span className="text-right font-medium tabular-nums">{number(getMetricValue(store, 'units'))}</span>
+                  <span className="text-right font-medium tabular-nums">{money(getMetricValue(store, 'sales'))}</span>
+                  <span className="text-right font-medium tabular-nums">{percent(getMetricValue(store, 'pmix'))}</span>
+                </div>
               ))}
             </div>
-            {sortedRanking.slice(0, 20).map(store => (
-              <div
-                key={store.locationId}
-                className={`grid grid-cols-[1.75rem_1fr_3.1rem_3.6rem_3rem] items-center gap-1 rounded-md px-1.5 py-1.5 text-[11px] ${
-                  store.locationId === currentLocation?.id
-                    ? 'bg-accent text-accent-foreground shadow-sm'
-                    : 'bg-muted/45'
-                }`}
-              >
-                <span className="font-semibold">#{store.rank}</span>
-                <span className="truncate">{store.locationName}</span>
-                <span className="text-right font-medium tabular-nums">{number(getMetricValue(store, 'units'))}</span>
-                <span className="text-right font-medium tabular-nums">{money(getMetricValue(store, 'sales'))}</span>
-                <span className="text-right font-medium tabular-nums">{percent(getMetricValue(store, 'pmix'))}</span>
-              </div>
-            ))}
-          </div>
+          </>
         )}
       </CardContent>
     </Card>
