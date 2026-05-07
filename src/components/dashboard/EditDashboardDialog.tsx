@@ -520,6 +520,7 @@ export function EditDashboardDialog({
         trackerPromoImageUrl: cube.trackerPromoImageUrl || null,
         trackerLocationRefs: cube.trackerLocationRefs || [],
         trackerRankMetrics: cube.trackerRankMetrics || ['units', 'sales', 'pmix'],
+        trackerLocationScope: cube.trackerLocationScope || 'org',
       });
     } else if (cube.cubeType === 'data-3d') {
       const faces = cube.faceMetrics || [[], [], [], []];
