@@ -291,19 +291,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
                   <ChevronRight className="h-4 w-4" />
                 </button>
               )}
-              {canExpand && (
-                <>
-                  <span className="mx-0.5 h-4 w-px bg-background/20" />
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-background/85 transition-colors hover:bg-background/15 hover:text-background"
-                    aria-label={expanded ? 'Collapse rankings' : 'Expand rankings'}
-                  >
-                    <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : '-rotate-90'}`} />
-                  </button>
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -314,8 +301,18 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               You're <span className="font-bold text-orange-500">{rankChipLabel}</span>
               {activeItemRef && <> on <span className="font-medium text-foreground">{activeItemLabel}</span></>}
             </span>
-            <span className="shrink-0 font-medium tabular-nums text-muted-foreground">
-              {isLoading ? '--' : money(myVisibleStats.sales)} sales · {isLoading ? '--' : number(myVisibleStats.units)} units
+            <span className="flex shrink-0 items-center gap-2 font-medium tabular-nums text-muted-foreground">
+              <span>{isLoading ? '--' : money(myVisibleStats.sales)} sales · {isLoading ? '--' : number(myVisibleStats.units)} units</span>
+              {canExpand && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(v => !v)}
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label={expanded ? 'Collapse rankings' : 'Expand rankings'}
+                >
+                  <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                </button>
+              )}
             </span>
           </div>
         )}
