@@ -141,7 +141,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
 
       const byLocation = new Map<string, StoreRankRow>();
       for (const locationId of locationPool) {
-        const location = locations.find(loc => loc.id === locationId);
+        const location = effectiveLocations.find(loc => loc.id === locationId);
         byLocation.set(locationId, {
           locationId,
           locationName: location?.name || 'Store',
