@@ -1148,6 +1148,10 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
+    if (!currentLocation?.id) {
+      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      return;
+    }
     if (!breakStatus?.canEnd) {
       const mins = Math.floor(breakStatus!.remaining / 60);
       const secs = breakStatus!.remaining % 60;
