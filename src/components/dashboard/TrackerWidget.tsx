@@ -262,17 +262,49 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           )}
           <div className="relative z-40 w-[68%] px-3 py-2 pr-5">
             <div className="relative z-40 inline-flex max-w-full flex-col">
-              <button
-                type="button"
-                onClick={() => setItemMenuOpen(value => !value)}
-                className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/50 px-2.5 py-1.5 text-left text-background shadow-md shadow-foreground/15 backdrop-blur-md"
+              <div
+                className="inline-flex max-w-full flex-col rounded-md border border-background/20 bg-foreground/50 px-2 py-1.5 text-left text-background shadow-md shadow-foreground/15 backdrop-blur-md"
+                onTouchStart={handleItemTouchStart}
+                onTouchEnd={handleItemTouchEnd}
               >
-                <span className="shrink-0 text-[10px] font-bold uppercase leading-none tracking-wider text-background/70">Live promo</span>
-                <span className="mt-1 flex min-w-0 max-w-full items-center gap-1 text-sm font-semibold leading-tight">
-                  <span className="min-w-0 truncate">{activeItemLabel}</span>
-                  <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${itemMenuOpen ? 'rotate-180' : ''}`} />
+                <span className="flex shrink-0 items-center gap-1.5 leading-none">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(142_76%_55%)]" />
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-background">LIVE</span>
                 </span>
-              </button>
+                <div className="mt-1 flex items-center gap-1">
+                  {itemSwitchOptions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
+                      className="-ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-background/80 transition-colors hover:bg-background/15 hover:text-background"
+                      aria-label="Previous item"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setItemMenuOpen(value => !value)}
+                    className="flex min-w-0 flex-1 items-center gap-1 text-sm font-semibold leading-tight"
+                  >
+                    <span className="min-w-0 truncate">{activeItemLabel}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${itemMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {itemSwitchOptions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-background/80 transition-colors hover:bg-background/15 hover:text-background"
+                      aria-label="Next item"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
               {itemMenuOpen && (
                 <div className="absolute left-0 top-full z-50 mt-1 min-w-full overflow-hidden rounded-md border border-border/70 bg-card text-card-foreground shadow-lg shadow-background/20">
                   {itemSwitchOptions.map(itemRef => (
