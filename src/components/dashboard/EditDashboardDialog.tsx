@@ -83,6 +83,7 @@ export interface CubeConfig {
   trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
   trackerRankMetrics?: TrackerRankMetric[];
+  trackerLocationScope?: 'org' | 'brand';
   // 3D cube specific
   faceMetrics?: MetricType[][];
   faceTitles?: string[];
