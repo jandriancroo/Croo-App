@@ -260,7 +260,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
               <div className="absolute inset-0 bg-gradient-to-r from-background/15 via-transparent to-background/15" />
             </div>
           )}
-          <div className="relative z-40 flex items-center justify-center px-3 py-3">
+          <div className="absolute inset-0 z-40 flex items-center justify-center px-3">
             <div
               className="inline-flex max-w-full flex-col items-center gap-1 rounded-2xl border border-background/15 bg-foreground/35 px-3 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md"
               onTouchStart={handleItemTouchStart}
