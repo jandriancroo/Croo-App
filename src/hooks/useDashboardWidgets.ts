@@ -57,6 +57,7 @@ export interface UnifiedWidgetConfig {
   trackerPromoEnd?: string | null;
   trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
+  trackerLocationScope?: 'org' | 'brand';
   trackerRankMetrics?: TrackerRankMetric[];
 }
 
