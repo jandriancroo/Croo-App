@@ -262,11 +262,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           )}
           <div className="relative z-40 flex items-center justify-center px-3 py-3">
             <div
-              className="inline-flex max-w-full flex-col items-start gap-1 rounded-2xl border border-background/15 bg-foreground/35 px-3 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md"
+              className="inline-flex max-w-full flex-col items-center gap-1 rounded-2xl border border-background/15 bg-foreground/35 px-3 py-1.5 text-background shadow-md shadow-foreground/15 backdrop-blur-md"
               onTouchStart={handleItemTouchStart}
               onTouchEnd={handleItemTouchEnd}
             >
-              <span className="flex items-center gap-1.5 self-start leading-none">
+              <span className="flex items-center gap-1.5 leading-none">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(142_76%_55%)]" />
