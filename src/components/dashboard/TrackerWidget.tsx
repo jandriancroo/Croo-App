@@ -298,7 +298,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         <div className={`flex items-center justify-between gap-2 bg-card px-3 py-2.5 text-[12px] ${canExpand && expanded ? '' : 'rounded-b-lg'}`}>
           <span className="min-w-0 truncate text-muted-foreground">
             You're <span className="font-bold text-orange-500">{rankChipLabel}</span>
-            {activeItemRef && <> on <span className="font-medium text-foreground">{activeItemLabel}</span></>}
           </span>
           <span className="flex shrink-0 items-center gap-2 font-medium tabular-nums text-muted-foreground">
             <span>{isLoading ? '--' : money(myVisibleStats.sales)} sales · {isLoading ? '--' : number(myVisibleStats.units)} units</span>
