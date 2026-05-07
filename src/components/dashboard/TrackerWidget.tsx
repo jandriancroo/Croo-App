@@ -256,8 +256,8 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
           {promoImageUrl && (
             <div className="absolute inset-0 overflow-hidden rounded-t-lg">
               <img src={promoImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-              <div className="absolute inset-0 bg-background/30" />
-              <div className="absolute inset-0 bg-gradient-to-r from-background/35 via-background/10 to-background/35" />
+              <div className="absolute inset-0 bg-background/10" />
+              <div className="absolute inset-0 bg-gradient-to-r from-background/15 via-transparent to-background/15" />
             </div>
           )}
           <div className="relative z-40 w-[85%] px-3 py-2 pr-5">
