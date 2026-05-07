@@ -142,9 +142,25 @@ const getDailyFacts = () => {
 
 const DAILY_FACTS = getDailyFacts();
 
+// Kiosk PWA persists its assigned location here so anon/unauthenticated
+// kiosk sessions still have a location even though useAppLocation() is null.
+const KIOSK_LOCATION_KEY = 'croohq_kiosk_location';
+const readKioskLocation = (): { id: string; name?: string; organization_id?: string } | null => {
+  try {
+    const raw = localStorage.getItem(KIOSK_LOCATION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.id ? parsed : null;
+  } catch { return null; }
+};
+
 export default function PunchClock() {
-  const { currentLocation } = useAppLocation();
-  const { timezone, closeTime } = useLocationTimezone();
+  const { currentLocation: authLocation } = useAppLocation();
+  // Fallback to the kiosk-assigned location so PIN-only/anon sessions never
+  // write punches with location_id = NULL.
+  const kioskLocation = readKioskLocation();
+  const currentLocation = authLocation ?? (kioskLocation as any) ?? null;
+  const { timezone, closeTime } = useLocationTimezone(kioskLocation?.id);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -927,6 +943,11 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
+    // HARD GUARD: never write a punch with NULL location_id
+    if (!currentLocation?.id) {
+      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      return;
+    }
     // Block if already clocked in
     if (lastPunch?.punch_type === 'clock_in') {
       toast.error('You are already clocked in');
@@ -1042,6 +1063,10 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
+    if (!currentLocation?.id) {
+      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      return;
+    }
     // Use timezone-aware timestamp for punch recording
     const { getNowISOString } = await import('@/utils/timezoneUtils');
     
@@ -1123,6 +1148,10 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
+    if (!currentLocation?.id) {
+      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      return;
+    }
     if (!breakStatus?.canEnd) {
       const mins = Math.floor(breakStatus!.remaining / 60);
       const secs = breakStatus!.remaining % 60;
@@ -1171,6 +1200,10 @@ export default function PunchClock() {
     if (isPunchingRef.current) return;
     isPunchingRef.current = true;
     try {
+    if (!currentLocation?.id) {
+      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      return;
+    }
     // Use the open shift_id from the last punch (handles overnight shifts).
     const activeShiftId = lastPunch?.shift_id ?? todayShift?.id;
 
