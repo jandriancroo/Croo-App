@@ -755,17 +755,19 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
               <SheetTitle>New Log Entry</SheetTitle>
             </SheetHeader>
             <div className="mt-4 grid grid-cols-3 gap-3">
-              {[...categories]
-                .sort((a: any, b: any) => {
+              {[
+                ...[...categories].sort((a: any, b: any) => {
                   const cashHandlingNames = ['drawer count', 'safe count', 'bank deposit'];
                   const aIsCash = cashHandlingNames.some(name => a.name.toLowerCase().includes(name));
                   const bIsCash = cashHandlingNames.some(name => b.name.toLowerCase().includes(name));
                   if (aIsCash && !bIsCash) return 1;
                   if (!aIsCash && bIsCash) return -1;
                   return (a.display_order || 0) - (b.display_order || 0);
-                })
+                }),
+                { id: 'cash-count-tool', name: 'Cash Count Tool', __synthetic: true },
+              ]
                 .map((category: any) => {
-                  const isCashHandling = ['drawer', 'safe', 'bank', 'deposit'].some(term => category.name.toLowerCase().includes(term));
+                  const isCashHandling = ['drawer', 'safe', 'bank', 'deposit', 'cash count tool'].some(term => category.name.toLowerCase().includes(term));
                   return (
                     <button
                       key={category.id}
