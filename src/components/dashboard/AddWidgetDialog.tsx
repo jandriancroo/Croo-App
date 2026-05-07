@@ -581,6 +581,14 @@ export function AddWidgetDialog({
                     <Button type="button" variant={config.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
                   </div>
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Ranking Pool</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={(config.trackerLocationScope || 'org') === 'org' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerLocationScope: 'org' }))}>Organization</Button>
+                    <Button type="button" variant={config.trackerLocationScope === 'brand' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerLocationScope: 'brand' }))}>Brand-Wide</Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Brand-Wide ranks every store in the brand, no matter how many.</p>
+                </div>
 
                 {canPublish && publishableLocations.length > 0 && (
                   <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
