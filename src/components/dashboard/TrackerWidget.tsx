@@ -301,7 +301,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         </div>
 
         <div className={`flex items-center justify-between gap-2 bg-card px-3 py-2.5 text-[12px] ${canExpand && expanded ? '' : 'rounded-b-lg'}`}>
-          <span className="min-w-0 truncate text-muted-foreground">
+          <span className="min-w-0 truncate text-muted-foreground text-sm">
             You're <span className="font-bold text-orange-500">{rankChipLabel}</span>
           </span>
           <span className="flex shrink-0 items-center gap-2 font-medium tabular-nums text-muted-foreground">
