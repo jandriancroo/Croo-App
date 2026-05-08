@@ -191,6 +191,12 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
       return;
     }
 
+    // HARD GUARD: never write a punch with NULL location_id
+    if (!currentLocation?.id) {
+      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      return;
+    }
+
     // Block future dates
     if (isDateInFuture()) {
       toast.error('Cannot create punches for future dates');
