@@ -1136,19 +1136,38 @@ export function EditDashboardDialog({
                   {canPublish && publishableLocations.length > 0 && (
                     <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                       <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
-                      <p className="text-[11px] text-muted-foreground">
-                        Saving will push this update to all {publishableLocations.length} location{publishableLocations.length === 1 ? '' : 's'}. Use "Visible to" to limit which roles see it.
-                      </p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="w-full"
-                        onClick={handlePublishUpdate}
-                        disabled={isPublishing || !editForm.title?.trim()}
-                      >
-                        {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                        Push update to all {publishableLocations.length} location{publishableLocations.length === 1 ? '' : 's'}
-                      </Button>
+                      <div className="space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setExcludeOpen(v => !v)}
+                          className="flex w-full items-center justify-between text-left"
+                        >
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Active at {publishableLocations.length - excludedLocationIds.length}/{publishableLocations.length} stores
+                          </span>
+                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            {excludeOpen ? 'Hide' : 'Exclude stores'}
+                            {excludeOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          </span>
+                        </button>
+                        {excludeOpen && (
+                          <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border bg-background p-1">
+                            {publishableLocations.map((loc) => {
+                              const excluded = excludedLocationIds.includes(loc.id);
+                              return (
+                                <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
+                                  <Checkbox
+                                    checked={!excluded}
+                                    onCheckedChange={() => setExcludedLocationIds(prev => excluded ? prev.filter(x => x !== loc.id) : [...prev, loc.id])}
+                                  />
+                                  <span className={`text-sm ${excluded ? 'text-muted-foreground line-through' : ''}`}>{loc.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">Saving updates every included store. Excluded stores have the tracker removed.</p>
+                      </div>
                     </div>
                   )}
                 </div>
