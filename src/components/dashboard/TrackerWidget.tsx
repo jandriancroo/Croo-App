@@ -159,7 +159,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
       .map((store, index) => ({ ...store, rank: index + 1 }));
   }, [ranking, sortMetric, activeItemRef]);
   const myStore = useMemo(() => sortedRanking.find(store => store.locationId === currentLocation?.id), [sortedRanking, currentLocation?.id]);
-  const totalLocationCount = locationPool.length;
+  const totalLocationCount = sortedRanking.length;
   const rankChipLabel = isLoading ? '#--/--' : `#${myStore?.rank ?? '-'}/${totalLocationCount || '-'}`;
   const myVisibleStats = activeItemRef
     ? myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 }
