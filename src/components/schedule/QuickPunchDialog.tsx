@@ -90,6 +90,12 @@ export function QuickPunchDialog({
       return;
     }
 
+    // HARD GUARD: never write a punch with NULL location_id
+    if (!currentLocation?.id) {
+      toast.error('Location not loaded yet. Please wait a moment and try again.');
+      return;
+    }
+
     // Validate no future times
     if (isTimeInFuture(startTime)) {
       toast.error('Clock in time cannot be in the future');
