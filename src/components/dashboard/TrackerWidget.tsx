@@ -79,84 +79,45 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const trackedItems = trackedItemRefs.map(item => item.toLowerCase());
   const isBrandScope = tracker.trackerLocationScope === 'brand';
 
-  const { data: brandLocations = [] } = useQuery({
-    queryKey: ['tracker-brand-locations', currentLocation?.id],
-    queryFn: async () => {
-      if (!currentLocation?.id) return [] as Array<{ id: string; name: string }>;
-      const { data: loc } = await supabase
-        .from('locations')
-        .select('organization_id')
-        .eq('id', currentLocation.id)
-        .maybeSingle();
-      const orgId = (loc as any)?.organization_id;
-      if (!orgId) return [];
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('brand_id')
-        .eq('id', orgId)
-        .maybeSingle();
-      const brandId = (org as any)?.brand_id;
-      if (!brandId) return [];
-      const { data: orgs } = await supabase
-        .from('organizations')
-        .select('id')
-        .eq('brand_id', brandId);
-      const orgIds = ((orgs || []) as any[]).map(o => o.id);
-      if (orgIds.length === 0) return [];
-      const { data: locs } = await supabase
-        .from('locations')
-        .select('id, name')
-        .in('organization_id', orgIds);
-      return ((locs || []) as any[]) as Array<{ id: string; name: string }>;
-    },
-    enabled: !!currentLocation?.id && isBrandScope,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const effectiveLocations = isBrandScope && brandLocations.length > 0 ? brandLocations : locations;
-  const locationPool = tracker.trackerLocationRefs?.length
-    ? tracker.trackerLocationRefs
-    : effectiveLocations.map(location => location.id);
-
   const range = period === 'day'
     ? { start: today, end: today }
     : period === 'wtd'
       ? { start: wtdStart, end: today }
       : { start: promoStart, end: promoEnd };
 
-  const { data: ranking = [], isLoading } = useQuery({
-    queryKey: ['dashboard-tracker-ranking', tracker.id, locationPool, trackedItems, range.start, range.end],
+  const explicitRefs = tracker.trackerLocationRefs?.length ? tracker.trackerLocationRefs : null;
+
+  const { data: rpcResult, isLoading } = useQuery({
+    queryKey: ['dashboard-tracker-ranking-rpc', tracker.id, currentLocation?.id, isBrandScope, explicitRefs, trackedItems, range.start, range.end],
     queryFn: async () => {
-      if (!currentLocation?.id || locationPool.length === 0 || trackedItems.length === 0) return [];
+      if (!currentLocation?.id || trackedItems.length === 0) return { rows: [] as StoreRankRow[] };
 
-      const { data, error } = await supabase
-        .from('sales_cache')
-        .select('location_id, sale_date, net_sales, product_mix')
-        .in('location_id', locationPool)
-        .gte('sale_date', range.start)
-        .lte('sale_date', range.end)
-        .not('product_mix', 'is', null);
-
+      const { data, error } = await supabase.rpc('get_tracker_ranking', {
+        _location_id: currentLocation.id,
+        _scope: isBrandScope ? 'brand' : 'org',
+        _location_refs: explicitRefs,
+        _start_date: range.start,
+        _end_date: range.end,
+      });
       if (error) throw error;
 
       const byLocation = new Map<string, StoreRankRow>();
-      for (const locationId of locationPool) {
-        const location = effectiveLocations.find(loc => loc.id === locationId);
-        byLocation.set(locationId, {
-          locationId,
-          locationName: location?.name || 'Store',
-          units: 0,
-          sales: 0,
-          pmix: 0,
-          totalSales: 0,
-          itemStats: Object.fromEntries(trackedItemRefs.map(item => [item, { units: 0, sales: 0, pmix: 0 }])),
-          rank: 0,
-        });
-      }
-
-      for (const row of data || []) {
-        const entry = byLocation.get(row.location_id);
-        if (!entry) continue;
+      for (const row of (data || []) as any[]) {
+        let entry = byLocation.get(row.location_id);
+        if (!entry) {
+          entry = {
+            locationId: row.location_id,
+            locationName: row.location_name || 'Store',
+            units: 0,
+            sales: 0,
+            pmix: 0,
+            totalSales: 0,
+            itemStats: Object.fromEntries(trackedItemRefs.map(item => [item, { units: 0, sales: 0, pmix: 0 }])),
+            rank: 0,
+          };
+          byLocation.set(row.location_id, entry);
+        }
+        if (row.product_mix == null) continue;
         entry.totalSales += Number(row.net_sales) || 0;
         for (const item of normalizeMix(row.product_mix)) {
           const matchedRef = trackedItemRefs.find(target => item.itemName.toLowerCase().includes(target.toLowerCase()));
@@ -170,19 +131,21 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         }
       }
 
-      return Array.from(byLocation.values())
-        .map(store => ({
-          ...store,
-          pmix: store.totalSales > 0 ? (store.sales / store.totalSales) * 100 : 0,
-          itemStats: Object.fromEntries(Object.entries(store.itemStats).map(([name, stats]) => [
-            name,
-            { ...stats, pmix: store.totalSales > 0 ? (stats.sales / store.totalSales) * 100 : 0 },
-          ])),
-        }));
+      const rows = Array.from(byLocation.values()).map(store => ({
+        ...store,
+        pmix: store.totalSales > 0 ? (store.sales / store.totalSales) * 100 : 0,
+        itemStats: Object.fromEntries(Object.entries(store.itemStats).map(([name, stats]) => [
+          name,
+          { ...stats, pmix: store.totalSales > 0 ? (stats.sales / store.totalSales) * 100 : 0 },
+        ])),
+      }));
+      return { rows };
     },
     enabled: !!currentLocation?.id,
     staleTime: 60 * 1000,
   });
+
+  const ranking = rpcResult?.rows || [];
 
   const activeItemRef = trackedItemRefs.includes(selectedItemRef) ? selectedItemRef : trackedItemRefs[0] || '';
   const getMetricValue = (store: StoreRankRow, metric: TrackerSortMetric) => {
@@ -196,7 +159,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
       .map((store, index) => ({ ...store, rank: index + 1 }));
   }, [ranking, sortMetric, activeItemRef]);
   const myStore = useMemo(() => sortedRanking.find(store => store.locationId === currentLocation?.id), [sortedRanking, currentLocation?.id]);
-  const totalLocationCount = locationPool.length;
+  const totalLocationCount = sortedRanking.length;
   const rankChipLabel = isLoading ? '#--/--' : `#${myStore?.rank ?? '-'}/${totalLocationCount || '-'}`;
   const myVisibleStats = activeItemRef
     ? myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 }
