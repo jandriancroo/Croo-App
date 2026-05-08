@@ -874,38 +874,39 @@ export function EditDashboardDialog({
                 )}
               </div>
 
-              {/* Visibility panel — change scope + audience post-create */}
-              <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-                <Label className="text-xs font-semibold">Visibility</Label>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Who can see this widget</Label>
-                  <Select
-                    value={visibilityScope}
-                    onValueChange={(v) => {
-                      setVisibilityScope(v as Scope);
-                      setVisibilityChanged(true);
-                    }}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allowedScopes.map(s => (
-                        <SelectItem key={s} value={s}>{SCOPE_LABEL[s]}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {editingCube.cubeType !== 'tracker' && (
+                <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                  <Label className="text-xs font-semibold">Visibility</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Who can see this widget</Label>
+                    <Select
+                      value={visibilityScope}
+                      onValueChange={(v) => {
+                        setVisibilityScope(v as Scope);
+                        setVisibilityChanged(true);
+                      }}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allowedScopes.map(s => (
+                          <SelectItem key={s} value={s}>{SCOPE_LABEL[s]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {visibilityScope !== 'self' && (
+                    <AudienceSelector
+                      value={visibilityAudience}
+                      onChange={(v) => {
+                        setVisibilityAudience(v);
+                        setVisibilityChanged(true);
+                      }}
+                    />
+                  )}
                 </div>
-                {visibilityScope !== 'self' && (
-                  <AudienceSelector
-                    value={visibilityAudience}
-                    onChange={(v) => {
-                      setVisibilityAudience(v);
-                      setVisibilityChanged(true);
-                    }}
-                  />
-                )}
-              </div>
+              )}
 
               {/* Metrics Selection - only for flat data cubes */}
               {editingCube.cubeType === 'data' && (
