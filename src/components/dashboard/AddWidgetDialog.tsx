@@ -147,47 +147,23 @@ export function AddWidgetDialog({
   const currentOrgId = currentLocRow?.organization_id || currentLocation?.organization_id || null;
   const currentBrandId = currentLocRow?.brand_id || null;
 
-  const orgLocations = currentOrgId ? publishableLocations.filter(l => l.organization_id === currentOrgId) : [];
-  const brandLocations = currentBrandId ? publishableLocations.filter(l => l.brand_id === currentBrandId) : [];
-
-  const availableScopes: PublishScope[] = (() => {
-    const out: PublishScope[] = [];
-    if (currentLocId) out.push('location');
-    if (orgLocations.length > 1 && (isOrgAdmin || isBrandAdmin || isSuperAdmin)) out.push('org');
-    if (brandLocations.length > 1 && (isBrandAdmin || isSuperAdmin)) out.push('brand');
-    if (publishableLocations.length > 1 && isSuperAdmin) out.push('all');
-    return out;
-  })();
-
-  const SCOPE_CHIP_LABEL: Record<PublishScope, string> = {
-    location: 'This Location',
-    org: 'Organization',
-    brand: 'Brand',
-    all: 'App-Wide',
-  };
-
-  const applyScope = (scope: PublishScope) => {
-    setPublishScope(scope);
-    let ids: string[] = [];
-    if (scope === 'location' && currentLocId) ids = [currentLocId];
-    else if (scope === 'org') ids = orgLocations.map(l => l.id);
-    else if (scope === 'brand') ids = brandLocations.map(l => l.id);
-    else if (scope === 'all') ids = publishableLocations.map(l => l.id);
-    setPublishLocationIds(ids);
-  };
+  // Tracker publishing is strictly scoped to locations within the CURRENT brand.
+  // No org-only, no app-wide. Brand is the top tier.
+  const brandLocations = currentBrandId
+    ? publishableLocations.filter(l => l.brand_id === currentBrandId)
+    : (currentLocId ? publishableLocations.filter(l => l.id === currentLocId) : []);
 
   useEffect(() => {
-    if (!publishLocationsInitialized && publishableLocations.length > 0) {
-      // Default to "This Location" scope when possible
-      if (currentLocId && publishableLocations.some(l => l.id === currentLocId)) {
-        setPublishScope('location');
+    if (!publishLocationsInitialized && brandLocations.length > 0) {
+      // Default to current location only when available, else nothing selected
+      if (currentLocId && brandLocations.some(l => l.id === currentLocId)) {
         setPublishLocationIds([currentLocId]);
       } else {
-        setPublishLocationIds(publishableLocations.map((l) => l.id));
+        setPublishLocationIds([]);
       }
       setPublishLocationsInitialized(true);
     }
-  }, [publishableLocations, publishLocationsInitialized, currentLocId]);
+  }, [brandLocations, publishLocationsInitialized, currentLocId]);
 
   const togglePublishLocation = (id: string) => {
     setPublishLocationIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
