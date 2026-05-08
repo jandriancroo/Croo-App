@@ -85,8 +85,12 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
       ? { start: wtdStart, end: today }
       : { start: promoStart, end: promoEnd };
 
-  // Brand scope must always recompute the live brand pool — ignore stale snapshot refs
-  const explicitRefs = !isBrandScope && tracker.trackerLocationRefs?.length ? tracker.trackerLocationRefs : null;
+  // Higher-level scopes (brand/org) must always recompute the live pool — ignore any stale trackerLocationRefs snapshot
+  const explicitRefs =
+    !(isBrandScope || tracker.trackerLocationScope === 'org') &&
+    tracker.trackerLocationRefs?.length
+      ? tracker.trackerLocationRefs
+      : null;
 
   const { data: rpcResult, isLoading } = useQuery({
     queryKey: ['dashboard-tracker-ranking-rpc', tracker.id, currentLocation?.id, isBrandScope, explicitRefs, trackedItems, range.start, range.end],
