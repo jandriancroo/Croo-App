@@ -1122,23 +1122,7 @@ export function EditDashboardDialog({
                     value={editForm.trackerItemRefs || []}
                     onChange={(items) => setEditForm(prev => ({ ...prev, trackerItemRefs: items }))}
                   />
-                  <div className="space-y-1.5">
-                    <Label>Scope</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['user', 'role', 'location'] as TrackerScopeType[]).map(scope => (
-                        <Button key={scope} type="button" variant={editForm.trackerScope?.type === scope ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerScope: { type: scope } }))}>
-                          {scope === 'user' ? 'User' : scope === 'role' ? 'Role' : 'Location'}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Dashboard View</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button type="button" variant={editForm.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
-                      <Button type="button" variant={editForm.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setEditForm(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
-                    </div>
-                  </div>
+
                   <div className="space-y-1.5">
                     <Label>Ranking Pool</Label>
                     <div className="grid grid-cols-2 gap-2">
