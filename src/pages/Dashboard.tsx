@@ -204,6 +204,7 @@ export default function Dashboard() {
     trackerPromoImageUrl: w.trackerPromoImageUrl,
     trackerLocationRefs: w.trackerLocationRefs,
     trackerRankMetrics: w.trackerRankMetrics,
+    trackerLocationScope: w.trackerLocationScope,
     authorityScope: w.authorityScope,
     audienceRoles: (w.audienceRoles ?? null) as any,
     brandId: w.brandId,
