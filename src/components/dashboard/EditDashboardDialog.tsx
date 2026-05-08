@@ -40,7 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send } from "lucide-react";
+
 import { createDashboardWidget, updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 
