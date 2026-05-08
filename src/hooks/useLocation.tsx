@@ -30,7 +30,19 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [currentLocation, setCurrentLocationState] = useState<Location | null>(null);
+  // Hydrate immediately from localStorage so the location never flickers null
+  // during auth refresh / hard reloads (eliminates the ~80ms blink window
+  // where a punch could be written with location_id = NULL).
+  const [currentLocation, setCurrentLocationState] = useState<Location | null>(() => {
+    try {
+      const cached = localStorage.getItem('currentLocationCache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.id) return parsed as Location;
+      }
+    } catch {}
+    return null;
+  });
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
