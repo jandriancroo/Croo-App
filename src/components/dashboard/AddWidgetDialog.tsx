@@ -99,8 +99,8 @@ export function AddWidgetDialog({
   const { currentLocation } = useLocation();
   const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin; // admin, org_admin, brand_admin, super_admin
-  const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
-  const [publishLocationsInitialized, setPublishLocationsInitialized] = useState(false);
+  const [excludedLocationIds, setExcludedLocationIds] = useState<string[]>([]);
+  const [excludeOpen, setExcludeOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
   type PublishScope = 'location' | 'org' | 'brand' | 'all';
