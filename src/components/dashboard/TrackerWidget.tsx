@@ -165,7 +165,8 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   }, [ranking, sortMetric, activeItemRef]);
   const myStore = useMemo(() => sortedRanking.find(store => store.locationId === currentLocation?.id), [sortedRanking, currentLocation?.id]);
   const totalLocationCount = sortedRanking.length;
-  const rankChipLabel = isLoading ? '#--/--' : `#${myStore?.rank ?? '-'}/${totalLocationCount || '-'}`;
+  const isPending = isLoading || isFetching || !currentLocation?.id || !rpcResult;
+  const rankChipLabel = isPending ? '#--/--' : `#${myStore?.rank ?? '-'}/${totalLocationCount || '-'}`;
   const myVisibleStats = activeItemRef
     ? myStore?.itemStats[activeItemRef] || { units: 0, sales: 0, pmix: 0 }
     : { units: myStore?.units || 0, sales: myStore?.sales || 0, pmix: myStore?.pmix || 0 };
