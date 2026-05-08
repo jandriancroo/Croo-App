@@ -92,7 +92,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
       ? tracker.trackerLocationRefs
       : null;
 
-  const { data: rpcResult, isLoading } = useQuery({
+  const { data: rpcResult, isLoading, isFetching } = useQuery({
     queryKey: ['dashboard-tracker-ranking-rpc', tracker.id, currentLocation?.id, isBrandScope, explicitRefs, trackedItems, range.start, range.end],
     queryFn: async () => {
       if (!currentLocation?.id || trackedItems.length === 0) return { rows: [] as StoreRankRow[] };
