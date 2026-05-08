@@ -178,8 +178,42 @@ export function AddWidgetDialog({
       toast.error('Select at least one location');
       return;
     }
+
     setIsPublishing(true);
     try {
+      // Safety net: block any location that already has a tracker with the same
+      // title (case-insensitive). Prevents accidental dupes on re-publish.
+      const { data: existing, error: dupeErr } = await supabase
+        .from('dashboard_widgets')
+        .select('location_id, title')
+        .eq('widget_type', 'tracker')
+        .eq('is_active', true)
+        .in('location_id', publishLocationIds)
+        .ilike('title', config.title.trim());
+      if (dupeErr) throw dupeErr;
+
+      const dupeLocIds = new Set((existing || []).map((r: any) => r.location_id));
+      const targetLocIds = publishLocationIds.filter(id => !dupeLocIds.has(id));
+
+      if (dupeLocIds.size > 0) {
+        const dupeNames = brandLocations
+          .filter(l => dupeLocIds.has(l.id))
+          .map(l => l.name)
+          .join(', ');
+        if (targetLocIds.length === 0) {
+          toast.error(`A tracker named "${config.title}" already exists at: ${dupeNames}. Rename it or delete the old one.`);
+          setIsPublishing(false);
+          return;
+        }
+        const proceed = window.confirm(
+          `A tracker named "${config.title}" already exists at: ${dupeNames}.\n\nSkip those and publish only to the remaining ${targetLocIds.length} location${targetLocIds.length === 1 ? '' : 's'}?`
+        );
+        if (!proceed) {
+          setIsPublishing(false);
+          return;
+        }
+      }
+
       // Unified model: ONE location-scoped widget per location (audience_roles
       // gates who sees it). No per-user fan-out anymore.
       const cfgJson = buildWidgetConfigJson({
@@ -194,7 +228,7 @@ export function AddWidgetDialog({
         trackerRankMetrics: config.trackerRankMetrics || ['units', 'sales', 'pmix'],
         trackerLocationScope: config.trackerLocationScope || 'org',
       });
-      const results = await Promise.allSettled(publishLocationIds.map(loc_id =>
+      const results = await Promise.allSettled(targetLocIds.map(loc_id =>
         createDashboardWidget({
           widget_type: 'tracker',
           config: cfgJson,
@@ -208,7 +242,12 @@ export function AddWidgetDialog({
       ));
       const created = results.filter(r => r.status === 'fulfilled').length;
       const failed = results.length - created;
-      toast.success(`Published to ${created} location${created === 1 ? '' : 's'}${failed ? ` (${failed} failed)` : ''}`);
+      const skipped = dupeLocIds.size;
+      toast.success(
+        `Published to ${created} location${created === 1 ? '' : 's'}` +
+        (skipped ? ` (${skipped} skipped — duplicate name)` : '') +
+        (failed ? ` (${failed} failed)` : '')
+      );
       handleClose(false);
     } catch (e: any) {
       toast.error(e.message || 'Failed to publish tracker');
