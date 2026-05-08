@@ -167,8 +167,11 @@ export function AddWidgetDialog({
       toast.error('Add a promo name first');
       return;
     }
-    if (publishLocationIds.length === 0) {
-      toast.error('Select at least one location');
+    const includedLocIds = brandLocations
+      .map(l => l.id)
+      .filter(id => !excludedLocationIds.includes(id));
+    if (includedLocIds.length === 0) {
+      toast.error('At least one store must be included');
       return;
     }
 
@@ -181,12 +184,12 @@ export function AddWidgetDialog({
         .select('location_id, title')
         .eq('widget_type', 'tracker')
         .eq('is_active', true)
-        .in('location_id', publishLocationIds)
+        .in('location_id', includedLocIds)
         .ilike('title', config.title.trim());
       if (dupeErr) throw dupeErr;
 
       const dupeLocIds = new Set((existing || []).map((r: any) => r.location_id));
-      const targetLocIds = publishLocationIds.filter(id => !dupeLocIds.has(id));
+      const targetLocIds = includedLocIds.filter(id => !dupeLocIds.has(id));
 
       if (dupeLocIds.size > 0) {
         const dupeNames = brandLocations
