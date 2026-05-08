@@ -58,6 +58,7 @@ interface DataCubeConfig {
   trackerPromoEnd?: string | null;
   trackerPromoImageUrl?: string | null;
   trackerLocationRefs?: string[];
+  trackerLocationScope?: 'org' | 'brand';
   trackerRankMetrics?: TrackerRankMetric[];
   // 3D cube specific
   faceMetrics?: MetricType[][];
@@ -323,6 +324,7 @@ export const WidgetsSection = memo(function WidgetsSection({
       trackerPromoEnd: w.trackerPromoEnd,
       trackerPromoImageUrl: w.trackerPromoImageUrl,
       trackerLocationRefs: w.trackerLocationRefs,
+      trackerLocationScope: w.trackerLocationScope,
       trackerRankMetrics: w.trackerRankMetrics,
     })),
     [unifiedWidgets]
