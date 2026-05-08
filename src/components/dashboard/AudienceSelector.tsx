@@ -1,14 +1,29 @@
+import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { supabase } from '@/integrations/supabase/client';
 
-export type AudienceRole = 'team_member' | 'shift_manager' | 'manager' | 'admin' | 'org_admin' | 'brand_admin' | 'super_admin';
+export type AudienceRole = string;
 
-const ROLE_OPTIONS: { value: AudienceRole; label: string }[] = [
-  { value: 'team_member', label: 'Team Members' },
-  { value: 'shift_manager', label: 'Shift Managers' },
-  { value: 'manager', label: 'Managers' },
-  { value: 'admin', label: 'Admins' },
-];
+// Friendly labels for known roles; unknown roles fall back to a humanized version.
+const ROLE_LABEL_OVERRIDES: Record<string, string> = {
+  team_member: 'Team Members',
+  shift_manager: 'Shift Managers',
+  manager: 'Managers',
+  general_manager: 'General Managers',
+  admin: 'Admins',
+  org_admin: 'Org Admins',
+  brand_admin: 'Brand Admins',
+  super_admin: 'Super Admins',
+  fbc: 'FBC',
+};
+
+// Roles we never want to show as an audience option (system-only / too privileged to scope by).
+const HIDDEN_ROLES = new Set<string>(['super_admin', 'brand_admin', 'org_admin', 'fbc']);
+
+const humanize = (role: string) =>
+  ROLE_LABEL_OVERRIDES[role] ??
+  role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) + 's';
 
 interface AudienceSelectorProps {
   value: AudienceRole[] | null; // null = everyone
@@ -17,11 +32,29 @@ interface AudienceSelectorProps {
 
 /**
  * Compact audience-roles picker for unified widgets.
+ * Roles are pulled live from `role_permissions` (the Permissions page source of truth),
+ * so adding/renaming a role there flows through automatically.
  * Empty selection → null (visible to everyone in scope).
  */
 export function AudienceSelector({ value, onChange }: AudienceSelectorProps) {
+  const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([]);
   const selected = value ?? [];
   const allSelected = selected.length === 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('role_permissions')
+        .select('role');
+      if (error || cancelled) return;
+      const distinct = Array.from(new Set((data ?? []).map((r: any) => r.role as string)))
+        .filter((r) => !HIDDEN_ROLES.has(r))
+        .sort();
+      setRoleOptions(distinct.map((r) => ({ value: r, label: humanize(r) })));
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const toggle = (role: AudienceRole) => {
     const next = selected.includes(role)
@@ -48,7 +81,9 @@ export function AudienceSelector({ value, onChange }: AudienceSelectorProps) {
         {allSelected ? 'Everyone with access to this scope' : `${selected.length} role${selected.length === 1 ? '' : 's'} selected`}
       </p>
       <div className="flex flex-wrap gap-1.5">
-        {ROLE_OPTIONS.map(opt => {
+        {roleOptions.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground italic">Loading roles…</p>
+        ) : roleOptions.map(opt => {
           const checked = selected.includes(opt.value);
           return (
             <label
