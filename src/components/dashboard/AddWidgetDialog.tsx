@@ -597,37 +597,38 @@ export function AddWidgetDialog({
                 {canPublish && brandLocations.length > 0 && (
                   <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
-
-                    <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-1.5">
-                        <Send className="h-3.5 w-3.5" />
-                        Publish to locations
-                      </Label>
+                    <div className="space-y-1.5">
                       <button
                         type="button"
-                        className="text-[11px] text-muted-foreground hover:text-foreground"
-                        onClick={() => setPublishLocationIds(
-                          publishLocationIds.length === brandLocations.length ? [] : brandLocations.map(l => l.id)
-                        )}
+                        onClick={() => setExcludeOpen(v => !v)}
+                        className="flex w-full items-center justify-between text-left"
                       >
-                        {publishLocationIds.length === brandLocations.length ? 'Clear all' : 'Select all'}
+                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Publishing to {brandLocations.length - excludedLocationIds.length}/{brandLocations.length} stores
+                        </span>
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          {excludeOpen ? 'Hide' : 'Exclude stores'}
+                          {excludeOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        </span>
                       </button>
+                      {excludeOpen && (
+                        <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border bg-background p-1">
+                          {brandLocations.map((loc) => {
+                            const excluded = excludedLocationIds.includes(loc.id);
+                            return (
+                              <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
+                                <Checkbox
+                                  checked={!excluded}
+                                  onCheckedChange={() => setExcludedLocationIds(prev => excluded ? prev.filter(x => x !== loc.id) : [...prev, loc.id])}
+                                />
+                                <span className={`text-sm ${excluded ? 'text-muted-foreground line-through' : ''}`}>{loc.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">By default the tracker is published to every store in this brand. Uncheck any store that doesn't want to participate.</p>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Pick which stores in this brand should show the tracker. Use "Visible to" to limit which roles see it.
-                    </p>
-                    <div className="max-h-40 space-y-1 overflow-y-auto">
-                      {brandLocations.map((loc) => {
-                        const checked = publishLocationIds.includes(loc.id);
-                        return (
-                          <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
-                            <Checkbox checked={checked} onCheckedChange={() => togglePublishLocation(loc.id)} />
-                            <span className="text-sm">{loc.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Click <span className="font-semibold text-foreground">Add Tracker</span> below to save and publish.</p>
                   </div>
                 )}
               </div>
