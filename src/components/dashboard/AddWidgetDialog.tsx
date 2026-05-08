@@ -604,29 +604,6 @@ export function AddWidgetDialog({
                     </Button>
                   </div>
                 )}
-                    <div className="max-h-40 space-y-1 overflow-y-auto">
-                      {publishableLocations.map((loc) => {
-                        const checked = publishLocationIds.includes(loc.id);
-                        return (
-                          <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
-                            <Checkbox checked={checked} onCheckedChange={() => togglePublishLocation(loc.id)} />
-                            <span className="text-sm">{loc.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="w-full"
-                      onClick={handlePublishToLocations}
-                      disabled={isPublishing || publishLocationIds.length === 0 || !config.title?.trim()}
-                    >
-                      {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                      Publish to {publishLocationIds.length} location{publishLocationIds.length === 1 ? '' : 's'}
-                    </Button>
-                  </div>
-                )}
               </div>
             )}
 
