@@ -53,6 +53,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     if (!user) {
       setLocations([]);
       setCurrentLocationState(null);
+      try { localStorage.removeItem('currentLocationCache'); } catch {}
       setLoading(false);
       return;
     }
