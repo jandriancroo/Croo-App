@@ -305,85 +305,78 @@ export function EditDashboardDialog({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Preselect all publishable locations when entering tracker edit
+  // Reset exclusion state when leaving edit view
   useEffect(() => {
-    if (view === 'edit' && editingCube?.cubeType === 'tracker' && !publishInitialized && publishableLocations.length > 0) {
-      setPublishLocationIds(publishableLocations.map(l => l.id));
-      setPublishInitialized(true);
-    }
     if (view !== 'edit') {
-      setPublishInitialized(false);
+      setExcludedLocationIds([]);
+      setExcludeOpen(false);
     }
-  }, [view, editingCube, publishableLocations, publishInitialized]);
+  }, [view]);
 
-  const togglePublishLocation = (id: string) => {
-    setPublishLocationIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  const handlePublishUpdate = async () => {
+  // Sync this tracker (by title) across all publishable brand locations.
+  // Included = upsert; excluded = remove.
+  const syncTrackerAcrossLocations = async () => {
     if (!editingCube || editingCube.cubeType !== 'tracker') return;
-    if (!editForm.title?.trim()) { toast.error('Add a promo name first'); return; }
-    if (publishLocationIds.length === 0) { toast.error('Select at least one location'); return; }
-    setIsPublishing(true);
-    try {
-      const cfgJson = buildWidgetConfigJson({
-        metrics: [],
-        trackerScope: editForm.trackerScope,
-        trackerDisplayMode: editForm.trackerDisplayMode,
-        trackerItemRefs: editForm.trackerItemRefs || [],
-        trackerPromoStart: editForm.trackerPromoStart,
-        trackerPromoEnd: editForm.trackerPromoEnd,
-        trackerPromoImageUrl: editForm.trackerPromoImageUrl,
-        trackerLocationRefs: editForm.trackerLocationRefs || [],
-        trackerRankMetrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
-        trackerLocationScope: editForm.trackerLocationScope || 'org',
-      });
+    if (!editForm.title?.trim()) return;
+    const includedLocIds = publishableLocations
+      .map(l => l.id)
+      .filter(id => !excludedLocationIds.includes(id));
 
-      // For each selected location, find an existing location-scoped tracker
-      // with the same title; update it if found, else create a new one.
-      const { data: existing } = await supabase
-        .from('dashboard_widgets')
-        .select('id, location_id')
-        .eq('authority_scope', 'location')
-        .eq('widget_type', 'tracker')
-        .eq('title', editingCube.title || '')
-        .in('location_id', publishLocationIds);
-      const byLoc = new Map<string, string>();
-      (existing || []).forEach((r: any) => { if (r.location_id) byLoc.set(r.location_id, r.id); });
+    const cfgJson = buildWidgetConfigJson({
+      metrics: [],
+      trackerScope: editForm.trackerScope,
+      trackerDisplayMode: editForm.trackerDisplayMode,
+      trackerItemRefs: editForm.trackerItemRefs || [],
+      trackerPromoStart: editForm.trackerPromoStart,
+      trackerPromoEnd: editForm.trackerPromoEnd,
+      trackerPromoImageUrl: editForm.trackerPromoImageUrl,
+      trackerLocationRefs: editForm.trackerLocationRefs || [],
+      trackerRankMetrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
+      trackerLocationScope: editForm.trackerLocationScope || 'org',
+    });
 
-      const results = await Promise.allSettled(publishLocationIds.map(loc_id => {
-        const existingId = byLoc.get(loc_id);
-        if (existingId) {
-          return updateDashboardWidget({
-            widget_id: existingId,
-            title: editForm.title,
-            accent_color: editForm.accentColor,
-            audience_roles: audienceRoles,
-            config: cfgJson,
-          });
-        }
-        return createDashboardWidget({
-          widget_type: 'tracker',
-          config: cfgJson,
-          authority_scope: 'location',
-          location_id: loc_id,
-          audience_roles: audienceRoles,
-          title: editForm.title!,
+    const allLocIds = publishableLocations.map(l => l.id);
+    const { data: existing } = await supabase
+      .from('dashboard_widgets')
+      .select('id, location_id')
+      .eq('authority_scope', 'location')
+      .eq('widget_type', 'tracker')
+      .eq('title', editingCube.title || '')
+      .in('location_id', allLocIds);
+    const byLoc = new Map<string, string>();
+    (existing || []).forEach((r: any) => { if (r.location_id) byLoc.set(r.location_id, r.id); });
+
+    const upserts = includedLocIds.map(loc_id => {
+      const existingId = byLoc.get(loc_id);
+      if (existingId) {
+        return updateDashboardWidget({
+          widget_id: existingId,
+          title: editForm.title,
           accent_color: editForm.accentColor,
-          widget_size: 'large',
+          audience_roles: audienceRoles,
+          config: cfgJson,
         });
-      }));
-      const ok = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.length - ok;
-      toast.success(`Updated ${ok} location${ok === 1 ? '' : 's'}${failed ? ` (${failed} failed)` : ''}`);
-      onOpenChange(false);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to publish update');
-    } finally {
-      setIsPublishing(false);
-    }
+      }
+      return createDashboardWidget({
+        widget_type: 'tracker',
+        config: cfgJson,
+        authority_scope: 'location',
+        location_id: loc_id,
+        audience_roles: audienceRoles,
+        title: editForm.title!,
+        accent_color: editForm.accentColor,
+        widget_size: 'large',
+      });
+    });
+    const removals = excludedLocationIds
+      .map(id => byLoc.get(id))
+      .filter((id): id is string => !!id)
+      .map(id => deleteDashboardWidget(id));
+
+    await Promise.allSettled([...upserts, ...removals]);
   };
-  
+
+
   // Section order state
   const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(DEFAULT_SECTION_ORDER);
   
