@@ -427,7 +427,7 @@ export function AddWidgetDialog({
 
         {/* Step 1: Type Selection */}
         {step === 'type' && (
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 px-4 py-4">
             <p className="text-sm text-muted-foreground text-center">
               What would you like to add?
             </p>
