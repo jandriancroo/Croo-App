@@ -4,7 +4,8 @@ import { Bell, Check, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { getAlarmIntervalKey, DEFAULT_TIMEZONE, getTimezoneOffset, getTodayInTimezone } from "@/utils/timezoneUtils";
+import { getAlarmIntervalKey, DEFAULT_TIMEZONE, getTodayInTimezone, parseDateStringInTimezone, getEndOfDateStringInTimezone } from "@/utils/timezoneUtils";
+import { getActivePunchStatesByUser } from '@/utils/activePunchState';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface AlarmTask {
@@ -124,11 +125,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     setLoadingEmployees(true);
     try {
       const todayStr = getTodayInTimezone(timezone);
-      const offset = getTimezoneOffset(timezone);
-      const startOfDay = new Date(`${todayStr}T00:00:00${offset}`);
-      const startMinus = new Date(startOfDay);
+      const startMinus = new Date(parseDateStringInTimezone(todayStr, timezone));
       startMinus.setHours(startMinus.getHours() - 12);
-      const endOfDayPlus = new Date(`${todayStr}T23:59:59${offset}`);
+      const endOfDayPlus = new Date(getEndOfDateStringInTimezone(todayStr, timezone));
       endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
 
       const { data: punches, error } = await supabase
@@ -140,24 +139,10 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         .order('punch_time', { ascending: true });
       if (error) throw error;
 
-      const userPunches: Record<string, typeof punches> = {};
-      (punches || []).forEach(p => {
-        if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
-        userPunches[p.user_id].push(p);
-      });
-
-      const clockedInUserIds: string[] = [];
-      Object.entries(userPunches).forEach(([userId, userPunchList]) => {
-        const sorted = [...userPunchList].sort((a, b) =>
-          new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
-        );
-        let isClockedIn = false;
-        sorted.forEach(p => {
-          if (p.punch_type === 'clock_in') isClockedIn = true;
-          else if (p.punch_type === 'clock_out') isClockedIn = false;
-        });
-        if (isClockedIn) clockedInUserIds.push(userId);
-      });
+      const statesByUser = getActivePunchStatesByUser(punches || []);
+      const clockedInUserIds = Array.from(statesByUser.entries())
+        .filter(([, state]) => state.isClockedIn)
+        .map(([userId]) => userId);
 
       if (clockedInUserIds.length === 0) {
         setClockedInEmployees([]);
