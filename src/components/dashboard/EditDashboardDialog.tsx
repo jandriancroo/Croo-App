@@ -266,7 +266,6 @@ export function EditDashboardDialog({
   };
   const [excludedLocationIds, setExcludedLocationIds] = useState<string[]>([]);
   const [excludeOpen, setExcludeOpen] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
 
   // ── Visibility (post-create scope editing) ─────────────────────────────
