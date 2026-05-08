@@ -30,7 +30,19 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [currentLocation, setCurrentLocationState] = useState<Location | null>(null);
+  // Hydrate immediately from localStorage so the location never flickers null
+  // during auth refresh / hard reloads (eliminates the ~80ms blink window
+  // where a punch could be written with location_id = NULL).
+  const [currentLocation, setCurrentLocationState] = useState<Location | null>(() => {
+    try {
+      const cached = localStorage.getItem('currentLocationCache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.id) return parsed as Location;
+      }
+    } catch {}
+    return null;
+  });
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
@@ -41,6 +53,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     if (!user) {
       setLocations([]);
       setCurrentLocationState(null);
+      try { localStorage.removeItem('currentLocationCache'); } catch {}
       setLoading(false);
       return;
     }
@@ -101,19 +114,22 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
 
       // Set current location: priority is localStorage > default_location_id > first location
       const savedLocationId = localStorage.getItem('currentLocationId');
+      const persistLocation = (loc: Location) => {
+        setCurrentLocationState(loc);
+        localStorage.setItem('currentLocationId', loc.id);
+        try { localStorage.setItem('currentLocationCache', JSON.stringify(loc)); } catch {}
+      };
       if (savedLocationId && locs?.find(l => l.id === savedLocationId)) {
-        setCurrentLocationState(locs.find(l => l.id === savedLocationId)!);
+        persistLocation(locs.find(l => l.id === savedLocationId)!);
       } else {
         const defaultLoc = profile?.default_location_id 
           ? locs?.find(l => l.id === profile.default_location_id)
           : null;
         
         if (defaultLoc) {
-          setCurrentLocationState(defaultLoc);
-          localStorage.setItem('currentLocationId', defaultLoc.id);
+          persistLocation(defaultLoc);
         } else if (locs && locs.length > 0) {
-          setCurrentLocationState(locs[0]);
-          localStorage.setItem('currentLocationId', locs[0].id);
+          persistLocation(locs[0]);
         }
       }
     } catch (error) {
@@ -138,6 +154,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     // Update location state + localStorage
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
+    try { localStorage.setItem('currentLocationCache', JSON.stringify(location)); } catch {}
 
     const locationScopedKeys = [
       'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',

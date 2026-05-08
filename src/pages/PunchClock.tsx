@@ -142,25 +142,9 @@ const getDailyFacts = () => {
 
 const DAILY_FACTS = getDailyFacts();
 
-// Kiosk PWA persists its assigned location here so anon/unauthenticated
-// kiosk sessions still have a location even though useAppLocation() is null.
-const KIOSK_LOCATION_KEY = 'croohq_kiosk_location';
-const readKioskLocation = (): { id: string; name?: string; organization_id?: string } | null => {
-  try {
-    const raw = localStorage.getItem(KIOSK_LOCATION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed?.id ? parsed : null;
-  } catch { return null; }
-};
-
 export default function PunchClock() {
-  const { currentLocation: authLocation } = useAppLocation();
-  // Fallback to the kiosk-assigned location so PIN-only/anon sessions never
-  // write punches with location_id = NULL.
-  const kioskLocation = readKioskLocation();
-  const currentLocation = authLocation ?? (kioskLocation as any) ?? null;
-  const { timezone, closeTime } = useLocationTimezone(kioskLocation?.id);
+  const { currentLocation } = useAppLocation();
+  const { timezone, closeTime } = useLocationTimezone();
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
