@@ -204,6 +204,7 @@ export default function Dashboard() {
     trackerPromoImageUrl: w.trackerPromoImageUrl,
     trackerLocationRefs: w.trackerLocationRefs,
     trackerRankMetrics: w.trackerRankMetrics,
+    trackerLocationScope: w.trackerLocationScope,
     authorityScope: w.authorityScope,
     audienceRoles: (w.audienceRoles ?? null) as any,
     brandId: w.brandId,
@@ -231,6 +232,7 @@ export default function Dashboard() {
         trackerPromoImageUrl: updates.trackerPromoImageUrl ?? existing?.trackerPromoImageUrl,
         trackerLocationRefs: updates.trackerLocationRefs ?? existing?.trackerLocationRefs,
         trackerRankMetrics: updates.trackerRankMetrics ?? existing?.trackerRankMetrics,
+        trackerLocationScope: updates.trackerLocationScope ?? existing?.trackerLocationScope,
       });
 
       const scopeChanged = updates.authorityScope !== undefined && updates.authorityScope !== existing?.authorityScope;
