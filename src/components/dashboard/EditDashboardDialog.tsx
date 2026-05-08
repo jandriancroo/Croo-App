@@ -802,8 +802,8 @@ export function EditDashboardDialog({
           {/* List View - Section-based */}
           {view === 'list' && (
             <div className="flex-1 flex flex-col min-h-0">
-              <ScrollArea className="flex-1 -mx-6 px-6">
-                <div className="space-y-2 pb-4">
+              <ScrollArea className="flex-1">
+                <div className="space-y-2 px-4 py-3">
                   {cubes.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       No widgets yet. Add one to get started!
