@@ -616,6 +616,15 @@ export function EditDashboardDialog({
       } else {
         await onUpdateCube(editingCube.id, { ...editForm, ...visUpdates });
       }
+      // For trackers: also sync (upsert/remove) across all brand locations
+      if (editingCube.cubeType === 'tracker' && canPublish && publishableLocations.length > 0) {
+        try {
+          await syncTrackerAcrossLocations();
+        } catch (e: any) {
+          console.error('[EditDashboardDialog] tracker sync failed', e);
+          toast.error('Saved, but failed to sync to other locations');
+        }
+      }
       handleBack();
     } finally {
       setIsSaving(false);
