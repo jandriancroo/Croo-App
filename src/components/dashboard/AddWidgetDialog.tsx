@@ -21,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "@/hooks/useLocation";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { createDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
