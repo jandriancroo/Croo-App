@@ -147,47 +147,23 @@ export function AddWidgetDialog({
   const currentOrgId = currentLocRow?.organization_id || currentLocation?.organization_id || null;
   const currentBrandId = currentLocRow?.brand_id || null;
 
-  const orgLocations = currentOrgId ? publishableLocations.filter(l => l.organization_id === currentOrgId) : [];
-  const brandLocations = currentBrandId ? publishableLocations.filter(l => l.brand_id === currentBrandId) : [];
-
-  const availableScopes: PublishScope[] = (() => {
-    const out: PublishScope[] = [];
-    if (currentLocId) out.push('location');
-    if (orgLocations.length > 1 && (isOrgAdmin || isBrandAdmin || isSuperAdmin)) out.push('org');
-    if (brandLocations.length > 1 && (isBrandAdmin || isSuperAdmin)) out.push('brand');
-    if (publishableLocations.length > 1 && isSuperAdmin) out.push('all');
-    return out;
-  })();
-
-  const SCOPE_CHIP_LABEL: Record<PublishScope, string> = {
-    location: 'This Location',
-    org: 'Organization',
-    brand: 'Brand',
-    all: 'App-Wide',
-  };
-
-  const applyScope = (scope: PublishScope) => {
-    setPublishScope(scope);
-    let ids: string[] = [];
-    if (scope === 'location' && currentLocId) ids = [currentLocId];
-    else if (scope === 'org') ids = orgLocations.map(l => l.id);
-    else if (scope === 'brand') ids = brandLocations.map(l => l.id);
-    else if (scope === 'all') ids = publishableLocations.map(l => l.id);
-    setPublishLocationIds(ids);
-  };
+  // Tracker publishing is strictly scoped to locations within the CURRENT brand.
+  // No org-only, no app-wide. Brand is the top tier.
+  const brandLocations = currentBrandId
+    ? publishableLocations.filter(l => l.brand_id === currentBrandId)
+    : (currentLocId ? publishableLocations.filter(l => l.id === currentLocId) : []);
 
   useEffect(() => {
-    if (!publishLocationsInitialized && publishableLocations.length > 0) {
-      // Default to "This Location" scope when possible
-      if (currentLocId && publishableLocations.some(l => l.id === currentLocId)) {
-        setPublishScope('location');
+    if (!publishLocationsInitialized && brandLocations.length > 0) {
+      // Default to current location only when available, else nothing selected
+      if (currentLocId && brandLocations.some(l => l.id === currentLocId)) {
         setPublishLocationIds([currentLocId]);
       } else {
-        setPublishLocationIds(publishableLocations.map((l) => l.id));
+        setPublishLocationIds([]);
       }
       setPublishLocationsInitialized(true);
     }
-  }, [publishableLocations, publishLocationsInitialized, currentLocId]);
+  }, [brandLocations, publishLocationsInitialized, currentLocId]);
 
   const togglePublishLocation = (id: string) => {
     setPublishLocationIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -575,46 +551,17 @@ export function AddWidgetDialog({
                   onChange={(items) => setConfig(prev => ({ ...prev, trackerItemRefs: items }))}
                 />
                 <div className="space-y-1.5">
-                  <Label>Dashboard View</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button type="button" variant={config.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
-                    <Button type="button" variant={config.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
                   <Label>Ranking Pool</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <Button type="button" variant={(config.trackerLocationScope || 'org') === 'org' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerLocationScope: 'org' }))}>Organization</Button>
                     <Button type="button" variant={config.trackerLocationScope === 'brand' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerLocationScope: 'brand' }))}>Brand-Wide</Button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Brand-Wide ranks every store in the brand, no matter how many.</p>
+                  <p className="text-[11px] text-muted-foreground">Who appears on the leaderboard. Brand-Wide ranks every store in the brand.</p>
                 </div>
 
-                {canPublish && publishableLocations.length > 0 && (
+                {canPublish && brandLocations.length > 0 && (
                   <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
-
-                    {availableScopes.length > 1 && (
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Scope</Label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {availableScopes.map((s) => (
-                            <button
-                              key={s}
-                              type="button"
-                              onClick={() => applyScope(s)}
-                              className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
-                                publishScope === s
-                                  ? 'border-primary bg-primary text-primary-foreground'
-                                  : 'border-border bg-background text-foreground hover:bg-accent'
-                              }`}
-                            >
-                              {SCOPE_CHIP_LABEL[s]}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-1.5">
@@ -625,17 +572,17 @@ export function AddWidgetDialog({
                         type="button"
                         className="text-[11px] text-muted-foreground hover:text-foreground"
                         onClick={() => setPublishLocationIds(
-                          publishLocationIds.length === publishableLocations.length ? [] : publishableLocations.map(l => l.id)
+                          publishLocationIds.length === brandLocations.length ? [] : brandLocations.map(l => l.id)
                         )}
                       >
-                        {publishLocationIds.length === publishableLocations.length ? 'Clear all' : 'Select all'}
+                        {publishLocationIds.length === brandLocations.length ? 'Clear all' : 'Select all'}
                       </button>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Pick a scope above for one-tap selection, or fine-tune the locations below. Use "Visible to" to limit which roles see it.
+                      Pick which stores in this brand should show the tracker. Use "Visible to" to limit which roles see it.
                     </p>
                     <div className="max-h-40 space-y-1 overflow-y-auto">
-                      {publishableLocations.map((loc) => {
+                      {brandLocations.map((loc) => {
                         const checked = publishLocationIds.includes(loc.id);
                         return (
                           <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
