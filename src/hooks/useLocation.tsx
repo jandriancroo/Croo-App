@@ -153,6 +153,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     // Update location state + localStorage
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
+    try { localStorage.setItem('currentLocationCache', JSON.stringify(location)); } catch {}
 
     const locationScopedKeys = [
       'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',
