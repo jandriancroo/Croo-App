@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy, Upload, X, Crop, Loader2, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck, Trophy, Upload, X, Crop, Loader2, Eye, EyeOff, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
@@ -40,8 +40,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send } from "lucide-react";
-import { createDashboardWidget, updateDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf } from "@/lib/dashboardWidgetsClient";
+
+import { createDashboardWidget, updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
@@ -264,9 +264,8 @@ export function EditDashboardDialog({
       toast.error(e?.message || 'Failed to update visibility');
     }
   };
-  const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
-  const [publishInitialized, setPublishInitialized] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
+  const [excludedLocationIds, setExcludedLocationIds] = useState<string[]>([]);
+  const [excludeOpen, setExcludeOpen] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
 
   // ── Visibility (post-create scope editing) ─────────────────────────────
@@ -305,85 +304,78 @@ export function EditDashboardDialog({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Preselect all publishable locations when entering tracker edit
+  // Reset exclusion state when leaving edit view
   useEffect(() => {
-    if (view === 'edit' && editingCube?.cubeType === 'tracker' && !publishInitialized && publishableLocations.length > 0) {
-      setPublishLocationIds(publishableLocations.map(l => l.id));
-      setPublishInitialized(true);
-    }
     if (view !== 'edit') {
-      setPublishInitialized(false);
+      setExcludedLocationIds([]);
+      setExcludeOpen(false);
     }
-  }, [view, editingCube, publishableLocations, publishInitialized]);
+  }, [view]);
 
-  const togglePublishLocation = (id: string) => {
-    setPublishLocationIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  const handlePublishUpdate = async () => {
+  // Sync this tracker (by title) across all publishable brand locations.
+  // Included = upsert; excluded = remove.
+  const syncTrackerAcrossLocations = async () => {
     if (!editingCube || editingCube.cubeType !== 'tracker') return;
-    if (!editForm.title?.trim()) { toast.error('Add a promo name first'); return; }
-    if (publishLocationIds.length === 0) { toast.error('Select at least one location'); return; }
-    setIsPublishing(true);
-    try {
-      const cfgJson = buildWidgetConfigJson({
-        metrics: [],
-        trackerScope: editForm.trackerScope,
-        trackerDisplayMode: editForm.trackerDisplayMode,
-        trackerItemRefs: editForm.trackerItemRefs || [],
-        trackerPromoStart: editForm.trackerPromoStart,
-        trackerPromoEnd: editForm.trackerPromoEnd,
-        trackerPromoImageUrl: editForm.trackerPromoImageUrl,
-        trackerLocationRefs: editForm.trackerLocationRefs || [],
-        trackerRankMetrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
-        trackerLocationScope: editForm.trackerLocationScope || 'org',
-      });
+    if (!editForm.title?.trim()) return;
+    const includedLocIds = publishableLocations
+      .map(l => l.id)
+      .filter(id => !excludedLocationIds.includes(id));
 
-      // For each selected location, find an existing location-scoped tracker
-      // with the same title; update it if found, else create a new one.
-      const { data: existing } = await supabase
-        .from('dashboard_widgets')
-        .select('id, location_id')
-        .eq('authority_scope', 'location')
-        .eq('widget_type', 'tracker')
-        .eq('title', editingCube.title || '')
-        .in('location_id', publishLocationIds);
-      const byLoc = new Map<string, string>();
-      (existing || []).forEach((r: any) => { if (r.location_id) byLoc.set(r.location_id, r.id); });
+    const cfgJson = buildWidgetConfigJson({
+      metrics: [],
+      trackerScope: editForm.trackerScope,
+      trackerDisplayMode: editForm.trackerDisplayMode,
+      trackerItemRefs: editForm.trackerItemRefs || [],
+      trackerPromoStart: editForm.trackerPromoStart,
+      trackerPromoEnd: editForm.trackerPromoEnd,
+      trackerPromoImageUrl: editForm.trackerPromoImageUrl,
+      trackerLocationRefs: editForm.trackerLocationRefs || [],
+      trackerRankMetrics: editForm.trackerRankMetrics || ['units', 'sales', 'pmix'],
+      trackerLocationScope: editForm.trackerLocationScope || 'org',
+    });
 
-      const results = await Promise.allSettled(publishLocationIds.map(loc_id => {
-        const existingId = byLoc.get(loc_id);
-        if (existingId) {
-          return updateDashboardWidget({
-            widget_id: existingId,
-            title: editForm.title,
-            accent_color: editForm.accentColor,
-            audience_roles: audienceRoles,
-            config: cfgJson,
-          });
-        }
-        return createDashboardWidget({
-          widget_type: 'tracker',
-          config: cfgJson,
-          authority_scope: 'location',
-          location_id: loc_id,
-          audience_roles: audienceRoles,
-          title: editForm.title!,
+    const allLocIds = publishableLocations.map(l => l.id);
+    const { data: existing } = await supabase
+      .from('dashboard_widgets')
+      .select('id, location_id')
+      .eq('authority_scope', 'location')
+      .eq('widget_type', 'tracker')
+      .eq('title', editingCube.title || '')
+      .in('location_id', allLocIds);
+    const byLoc = new Map<string, string>();
+    (existing || []).forEach((r: any) => { if (r.location_id) byLoc.set(r.location_id, r.id); });
+
+    const upserts = includedLocIds.map(loc_id => {
+      const existingId = byLoc.get(loc_id);
+      if (existingId) {
+        return updateDashboardWidget({
+          widget_id: existingId,
+          title: editForm.title,
           accent_color: editForm.accentColor,
-          widget_size: 'large',
+          audience_roles: audienceRoles,
+          config: cfgJson,
         });
-      }));
-      const ok = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.length - ok;
-      toast.success(`Updated ${ok} location${ok === 1 ? '' : 's'}${failed ? ` (${failed} failed)` : ''}`);
-      onOpenChange(false);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to publish update');
-    } finally {
-      setIsPublishing(false);
-    }
+      }
+      return createDashboardWidget({
+        widget_type: 'tracker',
+        config: cfgJson,
+        authority_scope: 'location',
+        location_id: loc_id,
+        audience_roles: audienceRoles,
+        title: editForm.title!,
+        accent_color: editForm.accentColor,
+        widget_size: 'large',
+      });
+    });
+    const removals = excludedLocationIds
+      .map(id => byLoc.get(id))
+      .filter((id): id is string => !!id)
+      .map(id => deleteDashboardWidget(id));
+
+    await Promise.allSettled([...upserts, ...removals]);
   };
-  
+
+
   // Section order state
   const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(DEFAULT_SECTION_ORDER);
   
@@ -622,6 +614,15 @@ export function EditDashboardDialog({
         });
       } else {
         await onUpdateCube(editingCube.id, { ...editForm, ...visUpdates });
+      }
+      // For trackers: also sync (upsert/remove) across all brand locations
+      if (editingCube.cubeType === 'tracker' && canPublish && publishableLocations.length > 0) {
+        try {
+          await syncTrackerAcrossLocations();
+        } catch (e: any) {
+          console.error('[EditDashboardDialog] tracker sync failed', e);
+          toast.error('Saved, but failed to sync to other locations');
+        }
       }
       handleBack();
     } finally {
@@ -1136,19 +1137,38 @@ export function EditDashboardDialog({
                   {canPublish && publishableLocations.length > 0 && (
                     <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                       <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
-                      <p className="text-[11px] text-muted-foreground">
-                        Saving will push this update to all {publishableLocations.length} location{publishableLocations.length === 1 ? '' : 's'}. Use "Visible to" to limit which roles see it.
-                      </p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="w-full"
-                        onClick={handlePublishUpdate}
-                        disabled={isPublishing || !editForm.title?.trim()}
-                      >
-                        {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                        Push update to all {publishableLocations.length} location{publishableLocations.length === 1 ? '' : 's'}
-                      </Button>
+                      <div className="space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setExcludeOpen(v => !v)}
+                          className="flex w-full items-center justify-between text-left"
+                        >
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Active at {publishableLocations.length - excludedLocationIds.length}/{publishableLocations.length} stores
+                          </span>
+                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            {excludeOpen ? 'Hide' : 'Exclude stores'}
+                            {excludeOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          </span>
+                        </button>
+                        {excludeOpen && (
+                          <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border bg-background p-1">
+                            {publishableLocations.map((loc) => {
+                              const excluded = excludedLocationIds.includes(loc.id);
+                              return (
+                                <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
+                                  <Checkbox
+                                    checked={!excluded}
+                                    onCheckedChange={() => setExcludedLocationIds(prev => excluded ? prev.filter(x => x !== loc.id) : [...prev, loc.id])}
+                                  />
+                                  <span className={`text-sm ${excluded ? 'text-muted-foreground line-through' : ''}`}>{loc.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">Saving updates every included store. Excluded stores have the tracker removed.</p>
+                      </div>
                     </div>
                   )}
                 </div>

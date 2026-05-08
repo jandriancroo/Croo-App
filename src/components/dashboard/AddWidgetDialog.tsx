@@ -21,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "@/hooks/useLocation";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { createDashboardWidget, buildWidgetConfigJson } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -99,8 +99,8 @@ export function AddWidgetDialog({
   const { currentLocation } = useLocation();
   const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin; // admin, org_admin, brand_admin, super_admin
-  const [publishLocationIds, setPublishLocationIds] = useState<string[]>([]);
-  const [publishLocationsInitialized, setPublishLocationsInitialized] = useState(false);
+  const [excludedLocationIds, setExcludedLocationIds] = useState<string[]>([]);
+  const [excludeOpen, setExcludeOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [audienceRoles, setAudienceRoles] = useState<AudienceRole[] | null>(null);
   type PublishScope = 'location' | 'org' | 'brand' | 'all';
@@ -153,29 +153,25 @@ export function AddWidgetDialog({
     ? publishableLocations.filter(l => l.brand_id === currentBrandId)
     : (currentLocId ? publishableLocations.filter(l => l.id === currentLocId) : []);
 
+  // Reset exclusion state when dialog closes
   useEffect(() => {
-    if (!publishLocationsInitialized && brandLocations.length > 0) {
-      // Default to current location only when available, else nothing selected
-      if (currentLocId && brandLocations.some(l => l.id === currentLocId)) {
-        setPublishLocationIds([currentLocId]);
-      } else {
-        setPublishLocationIds([]);
-      }
-      setPublishLocationsInitialized(true);
+    if (!open) {
+      setExcludedLocationIds([]);
+      setExcludeOpen(false);
     }
-  }, [brandLocations, publishLocationsInitialized, currentLocId]);
+  }, [open]);
 
-  const togglePublishLocation = (id: string) => {
-    setPublishLocationIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
 
   const handlePublishToLocations = async () => {
     if (!config.title?.trim()) {
       toast.error('Add a promo name first');
       return;
     }
-    if (publishLocationIds.length === 0) {
-      toast.error('Select at least one location');
+    const includedLocIds = brandLocations
+      .map(l => l.id)
+      .filter(id => !excludedLocationIds.includes(id));
+    if (includedLocIds.length === 0) {
+      toast.error('At least one store must be included');
       return;
     }
 
@@ -188,12 +184,12 @@ export function AddWidgetDialog({
         .select('location_id, title')
         .eq('widget_type', 'tracker')
         .eq('is_active', true)
-        .in('location_id', publishLocationIds)
+        .in('location_id', includedLocIds)
         .ilike('title', config.title.trim());
       if (dupeErr) throw dupeErr;
 
       const dupeLocIds = new Set((existing || []).map((r: any) => r.location_id));
-      const targetLocIds = publishLocationIds.filter(id => !dupeLocIds.has(id));
+      const targetLocIds = includedLocIds.filter(id => !dupeLocIds.has(id));
 
       if (dupeLocIds.size > 0) {
         const dupeNames = brandLocations
@@ -344,8 +340,8 @@ export function AddWidgetDialog({
   const handleAddDataCube = async () => {
     if (config.cubeType !== 'tracker' && config.metrics.length === 0) return;
 
-    // For trackers: if admin has locations selected, publish to all of them (skip own-dashboard add — publish covers it)
-    if (config.cubeType === 'tracker' && canPublish && publishLocationIds.length > 0) {
+    // For trackers: always publish to all (non-excluded) brand locations
+    if (config.cubeType === 'tracker' && canPublish && brandLocations.length > 0) {
       await handlePublishToLocations();
       return;
     }
@@ -601,37 +597,38 @@ export function AddWidgetDialog({
                 {canPublish && brandLocations.length > 0 && (
                   <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
-
-                    <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-1.5">
-                        <Send className="h-3.5 w-3.5" />
-                        Publish to locations
-                      </Label>
+                    <div className="space-y-1.5">
                       <button
                         type="button"
-                        className="text-[11px] text-muted-foreground hover:text-foreground"
-                        onClick={() => setPublishLocationIds(
-                          publishLocationIds.length === brandLocations.length ? [] : brandLocations.map(l => l.id)
-                        )}
+                        onClick={() => setExcludeOpen(v => !v)}
+                        className="flex w-full items-center justify-between text-left"
                       >
-                        {publishLocationIds.length === brandLocations.length ? 'Clear all' : 'Select all'}
+                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Publishing to {brandLocations.length - excludedLocationIds.length}/{brandLocations.length} stores
+                        </span>
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          {excludeOpen ? 'Hide' : 'Exclude stores'}
+                          {excludeOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        </span>
                       </button>
+                      {excludeOpen && (
+                        <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border bg-background p-1">
+                          {brandLocations.map((loc) => {
+                            const excluded = excludedLocationIds.includes(loc.id);
+                            return (
+                              <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
+                                <Checkbox
+                                  checked={!excluded}
+                                  onCheckedChange={() => setExcludedLocationIds(prev => excluded ? prev.filter(x => x !== loc.id) : [...prev, loc.id])}
+                                />
+                                <span className={`text-sm ${excluded ? 'text-muted-foreground line-through' : ''}`}>{loc.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">By default the tracker is published to every store in this brand. Uncheck any store that doesn't want to participate.</p>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Pick which stores in this brand should show the tracker. Use "Visible to" to limit which roles see it.
-                    </p>
-                    <div className="max-h-40 space-y-1 overflow-y-auto">
-                      {brandLocations.map((loc) => {
-                        const checked = publishLocationIds.includes(loc.id);
-                        return (
-                          <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
-                            <Checkbox checked={checked} onCheckedChange={() => togglePublishLocation(loc.id)} />
-                            <span className="text-sm">{loc.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Click <span className="font-semibold text-foreground">Add Tracker</span> below to save and publish.</p>
                   </div>
                 )}
               </div>
