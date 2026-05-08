@@ -9654,6 +9654,22 @@ export type Database = {
           organization_id: string
         }[]
       }
+      get_tracker_ranking: {
+        Args: {
+          _end_date: string
+          _location_id: string
+          _location_refs: string[]
+          _scope: string
+          _start_date: string
+        }
+        Returns: {
+          location_id: string
+          location_name: string
+          net_sales: number
+          product_mix: Json
+          sale_date: string
+        }[]
+      }
       get_unread_chat_count: { Args: { _user_id: string }; Returns: number }
       get_user_location_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_role: {
