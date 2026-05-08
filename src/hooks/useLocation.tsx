@@ -113,19 +113,22 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
 
       // Set current location: priority is localStorage > default_location_id > first location
       const savedLocationId = localStorage.getItem('currentLocationId');
+      const persistLocation = (loc: Location) => {
+        setCurrentLocationState(loc);
+        localStorage.setItem('currentLocationId', loc.id);
+        try { localStorage.setItem('currentLocationCache', JSON.stringify(loc)); } catch {}
+      };
       if (savedLocationId && locs?.find(l => l.id === savedLocationId)) {
-        setCurrentLocationState(locs.find(l => l.id === savedLocationId)!);
+        persistLocation(locs.find(l => l.id === savedLocationId)!);
       } else {
         const defaultLoc = profile?.default_location_id 
           ? locs?.find(l => l.id === profile.default_location_id)
           : null;
         
         if (defaultLoc) {
-          setCurrentLocationState(defaultLoc);
-          localStorage.setItem('currentLocationId', defaultLoc.id);
+          persistLocation(defaultLoc);
         } else if (locs && locs.length > 0) {
-          setCurrentLocationState(locs[0]);
-          localStorage.setItem('currentLocationId', locs[0].id);
+          persistLocation(locs[0]);
         }
       }
     } catch (error) {
