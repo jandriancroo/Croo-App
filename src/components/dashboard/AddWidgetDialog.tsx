@@ -551,46 +551,17 @@ export function AddWidgetDialog({
                   onChange={(items) => setConfig(prev => ({ ...prev, trackerItemRefs: items }))}
                 />
                 <div className="space-y-1.5">
-                  <Label>Dashboard View</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button type="button" variant={config.trackerDisplayMode === 'summary' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'summary' }))}>My Rank</Button>
-                    <Button type="button" variant={config.trackerDisplayMode === 'expandable' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerDisplayMode: 'expandable' }))}>Expandable</Button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
                   <Label>Ranking Pool</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <Button type="button" variant={(config.trackerLocationScope || 'org') === 'org' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerLocationScope: 'org' }))}>Organization</Button>
                     <Button type="button" variant={config.trackerLocationScope === 'brand' ? 'default' : 'outline'} size="sm" onClick={() => setConfig(prev => ({ ...prev, trackerLocationScope: 'brand' }))}>Brand-Wide</Button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Brand-Wide ranks every store in the brand, no matter how many.</p>
+                  <p className="text-[11px] text-muted-foreground">Who appears on the leaderboard. Brand-Wide ranks every store in the brand.</p>
                 </div>
 
-                {canPublish && publishableLocations.length > 0 && (
+                {canPublish && brandLocations.length > 0 && (
                   <div className="space-y-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
                     <AudienceSelector value={audienceRoles} onChange={setAudienceRoles} />
-
-                    {availableScopes.length > 1 && (
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Scope</Label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {availableScopes.map((s) => (
-                            <button
-                              key={s}
-                              type="button"
-                              onClick={() => applyScope(s)}
-                              className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
-                                publishScope === s
-                                  ? 'border-primary bg-primary text-primary-foreground'
-                                  : 'border-border bg-background text-foreground hover:bg-accent'
-                              }`}
-                            >
-                              {SCOPE_CHIP_LABEL[s]}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-1.5">
@@ -601,15 +572,38 @@ export function AddWidgetDialog({
                         type="button"
                         className="text-[11px] text-muted-foreground hover:text-foreground"
                         onClick={() => setPublishLocationIds(
-                          publishLocationIds.length === publishableLocations.length ? [] : publishableLocations.map(l => l.id)
+                          publishLocationIds.length === brandLocations.length ? [] : brandLocations.map(l => l.id)
                         )}
                       >
-                        {publishLocationIds.length === publishableLocations.length ? 'Clear all' : 'Select all'}
+                        {publishLocationIds.length === brandLocations.length ? 'Clear all' : 'Select all'}
                       </button>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Pick a scope above for one-tap selection, or fine-tune the locations below. Use "Visible to" to limit which roles see it.
+                      Pick which stores in this brand should show the tracker. Use "Visible to" to limit which roles see it.
                     </p>
+                    <div className="max-h-40 space-y-1 overflow-y-auto">
+                      {brandLocations.map((loc) => {
+                        const checked = publishLocationIds.includes(loc.id);
+                        return (
+                          <label key={loc.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
+                            <Checkbox checked={checked} onCheckedChange={() => togglePublishLocation(loc.id)} />
+                            <span className="text-sm">{loc.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full"
+                      onClick={handlePublishToLocations}
+                      disabled={isPublishing || publishLocationIds.length === 0 || !config.title?.trim()}
+                    >
+                      {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                      Publish to {publishLocationIds.length} location{publishLocationIds.length === 1 ? '' : 's'}
+                    </Button>
+                  </div>
+                )}
                     <div className="max-h-40 space-y-1 overflow-y-auto">
                       {publishableLocations.map((loc) => {
                         const checked = publishLocationIds.includes(loc.id);
