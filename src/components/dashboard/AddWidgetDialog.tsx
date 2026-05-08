@@ -153,21 +153,14 @@ export function AddWidgetDialog({
     ? publishableLocations.filter(l => l.brand_id === currentBrandId)
     : (currentLocId ? publishableLocations.filter(l => l.id === currentLocId) : []);
 
+  // Reset exclusion state when dialog closes
   useEffect(() => {
-    if (!publishLocationsInitialized && brandLocations.length > 0) {
-      // Default to current location only when available, else nothing selected
-      if (currentLocId && brandLocations.some(l => l.id === currentLocId)) {
-        setPublishLocationIds([currentLocId]);
-      } else {
-        setPublishLocationIds([]);
-      }
-      setPublishLocationsInitialized(true);
+    if (!open) {
+      setExcludedLocationIds([]);
+      setExcludeOpen(false);
     }
-  }, [brandLocations, publishLocationsInitialized, currentLocId]);
+  }, [open]);
 
-  const togglePublishLocation = (id: string) => {
-    setPublishLocationIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
 
   const handlePublishToLocations = async () => {
     if (!config.title?.trim()) {
