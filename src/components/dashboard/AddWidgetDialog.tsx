@@ -592,16 +592,7 @@ export function AddWidgetDialog({
                         );
                       })}
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="w-full"
-                      onClick={handlePublishToLocations}
-                      disabled={isPublishing || publishLocationIds.length === 0 || !config.title?.trim()}
-                    >
-                      {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                      Publish to {publishLocationIds.length} location{publishLocationIds.length === 1 ? '' : 's'}
-                    </Button>
+                    <p className="text-[11px] text-muted-foreground">Click <span className="font-semibold text-foreground">Add Tracker</span> below to save and publish.</p>
                   </div>
                 )}
               </div>
