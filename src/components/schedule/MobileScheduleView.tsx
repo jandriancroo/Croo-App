@@ -336,15 +336,25 @@ export function MobileScheduleView({
         if (shiftGroups.length === 0) return;
 
         // STEP 2: Pick the shift that belongs to the viewed day.
-        // Priority: (1) any shift currently open/active, (2) a shift whose clock_in is on
-        // the viewed local date, (3) a shift whose clock_out is on the viewed local date
-        // (overnight shifts ending today).
+        // CRITICAL: only consider groups whose clock_in OR clock_out is on the viewed
+        // local date. This prevents a still-open shift from a LATER day from hijacking
+        // the choice when viewing a past date (which would then trip the >16h sanity
+        // guard and silently drop the user from the day's completed list).
         const matchesDate = (iso: string) =>
           new Date(iso).toLocaleDateString('en-CA', { timeZone: timezone }) === punchDateStr;
 
-        const activeShift = shiftGroups.find((s) => !s.clockOut);
-        const inOnDate = shiftGroups.find((s) => matchesDate(s.clockIn.punch_time));
-        const outOnDate = shiftGroups.find((s) => s.clockOut && matchesDate(s.clockOut.punch_time));
+        const candidates = shiftGroups.filter(
+          (s) =>
+            matchesDate(s.clockIn.punch_time) ||
+            (s.clockOut && matchesDate(s.clockOut.punch_time))
+        );
+        if (candidates.length === 0) return;
+
+        // Within candidates, prefer an active (still-open) shift, then one whose
+        // clock_in is on the date, then one whose clock_out is on the date.
+        const activeShift = candidates.find((s) => !s.clockOut);
+        const inOnDate = candidates.find((s) => matchesDate(s.clockIn.punch_time));
+        const outOnDate = candidates.find((s) => s.clockOut && matchesDate(s.clockOut.punch_time));
 
         const chosen = activeShift || inOnDate || outOnDate;
         if (!chosen) return;
