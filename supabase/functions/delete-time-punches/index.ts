@@ -25,7 +25,6 @@ serve(async (req: Request): Promise<Response> => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Use getClaims for signing-keys compatibility
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -33,17 +32,17 @@ serve(async (req: Request): Promise<Response> => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsErr } = await (userClient.auth as any).getClaims(token);
+    const { data: userData, error: userErr } = await userClient.auth.getUser(token);
 
-    if (claimsErr || !claimsData?.claims?.sub) {
-      console.error("Auth error:", claimsErr);
+    if (userErr || !userData?.user?.id) {
+      console.error("Auth error:", userErr);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = userData.user.id;
 
     const body = await req.json();
     const locationId = body.location_id;
