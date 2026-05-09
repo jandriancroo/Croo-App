@@ -219,7 +219,7 @@ serve(async (req) => {
           const employeeName = (ci.profiles as any)?.full_name || 'Unknown';
 
           // Check if there's already a clock_out after this clock_in
-          const { data: existingOut } = await supabase
+          const { data: existingOut, error: existingOutErr } = await supabase
             .from('time_punches')
             .select('id')
             .eq('user_id', ci.user_id)
@@ -227,6 +227,18 @@ serve(async (req) => {
             .eq('punch_type', 'clock_out')
             .gt('punch_time', ci.punch_time)
             .limit(1);
+
+          if (existingOutErr) {
+            // CRITICAL: never insert an auto-punch when we couldn't verify a real one doesn't exist.
+            console.error(`[Auto-Punch] ${employeeName}: existingOut check FAILED, skipping to avoid duplicate. ${existingOutErr.message}`);
+            results.push({
+              location_id: location.id, location_name: location.name, employee_name: employeeName,
+              user_id: ci.user_id, clock_in_time: ci.punch_time, auto_punch_time: ci.punch_time,
+              shift_hours: 0, reason: 'no_schedule', status: 'skipped',
+              detail: `existingOut query failed: ${existingOutErr.message}`,
+            });
+            continue;
+          }
 
           if (existingOut && existingOut.length > 0) continue; // already clocked out
 
@@ -310,6 +322,20 @@ serve(async (req) => {
           // If reason is no_schedule but we're past close buffer, label appropriately
           if (reason === 'no_schedule' && now >= cutoffUTC) {
             reason = 'past_close_buffer';
+          }
+
+          // FINAL guard: re-check immediately before insert (race-safe)
+          const { data: lastSecondCheck, error: lastSecondErr } = await supabase
+            .from('time_punches')
+            .select('id')
+            .eq('user_id', ci.user_id)
+            .eq('location_id', location.id)
+            .eq('punch_type', 'clock_out')
+            .gt('punch_time', ci.punch_time)
+            .limit(1);
+          if (lastSecondErr || (lastSecondCheck && lastSecondCheck.length > 0)) {
+            console.log(`[Auto-Punch] ${employeeName}: clock_out appeared during processing, skipping insert.`);
+            continue;
           }
 
           // Insert auto clock-out
