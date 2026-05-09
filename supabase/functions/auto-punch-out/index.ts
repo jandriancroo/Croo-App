@@ -88,6 +88,25 @@ function computeCloseUTC(businessDateStr: string, closeTimeStr: string, timezone
 }
 
 // ============================================================
+// QUERY RETRY HELPER (transient PostgREST error mitigation)
+// ============================================================
+
+async function queryWithRetry<T>(
+  queryFn: () => PromiseLike<{ data: T | null; error: unknown }>,
+  label: string,
+  retries = 1,
+  delayMs = 500
+): Promise<{ data: T | null; error: unknown }> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const { data, error } = await queryFn();
+    if (!error) return { data, error: null };
+    console.warn(`[Auto-Punch] ${label}: attempt ${attempt + 1} failed — ${JSON.stringify(error)}`);
+    if (attempt < retries) await new Promise(r => setTimeout(r, delayMs));
+  }
+  return { data: null, error: new Error(`${label}: all retries exhausted`) };
+}
+
+// ============================================================
 // MAIN
 // ============================================================
 
