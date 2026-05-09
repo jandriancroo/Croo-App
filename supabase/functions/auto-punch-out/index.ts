@@ -324,6 +324,20 @@ serve(async (req) => {
             reason = 'past_close_buffer';
           }
 
+          // FINAL guard: re-check immediately before insert (race-safe)
+          const { data: lastSecondCheck, error: lastSecondErr } = await supabase
+            .from('time_punches')
+            .select('id')
+            .eq('user_id', ci.user_id)
+            .eq('location_id', location.id)
+            .eq('punch_type', 'clock_out')
+            .gt('punch_time', ci.punch_time)
+            .limit(1);
+          if (lastSecondErr || (lastSecondCheck && lastSecondCheck.length > 0)) {
+            console.log(`[Auto-Punch] ${employeeName}: clock_out appeared during processing, skipping insert.`);
+            continue;
+          }
+
           // Insert auto clock-out
           const { data: inserted, error: insErr } = await supabase
             .from('time_punches')
