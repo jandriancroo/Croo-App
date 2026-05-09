@@ -88,6 +88,25 @@ function computeCloseUTC(businessDateStr: string, closeTimeStr: string, timezone
 }
 
 // ============================================================
+// QUERY RETRY HELPER (transient PostgREST error mitigation)
+// ============================================================
+
+async function queryWithRetry<T>(
+  queryFn: () => PromiseLike<{ data: T | null; error: unknown }>,
+  label: string,
+  retries = 1,
+  delayMs = 500
+): Promise<{ data: T | null; error: unknown }> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const { data, error } = await queryFn();
+    if (!error) return { data, error: null };
+    console.warn(`[Auto-Punch] ${label}: attempt ${attempt + 1} failed — ${JSON.stringify(error)}`);
+    if (attempt < retries) await new Promise(r => setTimeout(r, delayMs));
+  }
+  return { data: null, error: new Error(`${label}: all retries exhausted`) };
+}
+
+// ============================================================
 // MAIN
 // ============================================================
 
@@ -218,24 +237,27 @@ serve(async (req) => {
         for (const ci of clockIns || []) {
           const employeeName = (ci.profiles as any)?.full_name || 'Unknown';
 
-          // Check if there's already a clock_out after this clock_in
-          const { data: existingOut, error: existingOutErr } = await supabase
-            .from('time_punches')
-            .select('id')
-            .eq('user_id', ci.user_id)
-            .eq('location_id', location.id)
-            .eq('punch_type', 'clock_out')
-            .gt('punch_time', ci.punch_time)
-            .limit(1);
+          // Check if there's already a clock_out after this clock_in (with retry on transient errors)
+          const { data: existingOut, error: existingOutErr } = await queryWithRetry<Array<{ id: string }>>(
+            () => supabase
+              .from('time_punches')
+              .select('id')
+              .eq('user_id', ci.user_id)
+              .eq('location_id', location.id)
+              .eq('punch_type', 'clock_out')
+              .gt('punch_time', ci.punch_time)
+              .limit(1),
+            `existingOut for ${employeeName}`
+          );
 
           if (existingOutErr) {
             // CRITICAL: never insert an auto-punch when we couldn't verify a real one doesn't exist.
-            console.error(`[Auto-Punch] ${employeeName}: existingOut check FAILED, skipping to avoid duplicate. ${existingOutErr.message}`);
+            console.error(`[Auto-Punch] ${employeeName}: existingOut check failed after retries, skipping to avoid duplicate. ${JSON.stringify(existingOutErr)}`);
             results.push({
               location_id: location.id, location_name: location.name, employee_name: employeeName,
               user_id: ci.user_id, clock_in_time: ci.punch_time, auto_punch_time: ci.punch_time,
               shift_hours: 0, reason: 'no_schedule', status: 'skipped',
-              detail: `existingOut query failed: ${existingOutErr.message}`,
+              detail: `existingOut query failed after retry: ${JSON.stringify(existingOutErr)}`,
             });
             continue;
           }
