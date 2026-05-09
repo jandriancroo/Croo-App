@@ -1,120 +1,109 @@
+## Inner-Pack Counting Tier — Cleanup & Build Plan
 
-# Theo Upgrade Plan
+Picks up the deferred brief (`/mnt/documents/inner-pack-counting-tier.md`). Scope: add a third counting tier (Case → Inner Pack → Unit), fix the hydration drift it would otherwise amplify, and backfill 15 brand-catalog items.
 
-## Phase 1: Immediate (This Session)
-
-### 1A. System Prompt Overhaul
-- Replace current personality prompt with the elite "Digital GM / Co-Pilot" persona
-- Keep all existing tool-calling logic, formatting rules, and safety guards intact
-- Add SOP/knowledge-base awareness instructions
-
-### 1B. Long-Term Memory System ("Theo's Brain")
-- **Database**: Create `theo_knowledge` table with `location_id`, `topic`, `content`, and `embedding` (pgvector)
-- **Save Button**: Add a "Pin to Memory" button next to Theo's responses
-- **Embedding**: When pinned, call Lovable AI to generate an embedding and store it
-- **Retrieval**: Before each query, do a similarity search on `theo_knowledge` and inject top 3 relevant facts into context
-- **Edge Function**: Add a `theo-memory` edge function to handle save + search
-
-### 1C. System Prompt: Employee Tag Format
-- Switch from `[[employee:Name]]` to `<employee>Name</employee>` tags as requested (update markdown renderer too)
-
-## Phase 2: Coverage Assessment for 50 Questions
-
-### ✅ Already Supported (Theo can answer these TODAY with existing tools)
-- Questions 1-5, 7, 9 (Sales/Labor via `query_sales`, `query_labor`)
-- Questions 11-14, 16-19 (Ovation via `query_ovation_reviews`)
-- Questions 21-22, 24, 29-30 (Schedule/Punches via `query_schedule`, `query_labor`)
-- Questions 41-49 (Checklists, tasks, logbook, catering via existing tools)
-
-### ⚠️ Partially Supported (need minor tool tweaks)
-- Q5 "cut one person" — needs labor projection logic (complex, future)
-- Q6 "overtime across brand" — needs cross-location query (org-level)
-- Q20 "auto-flag reviews" — needs task-creation tool (new)
-- Q27 "which SM had highest labor%" — needs shift-level labor correlation
-- Q44 "create a temporary task" — needs task-creation tool (new)
-- Q50 "shift-readiness report" — composite query across multiple tools
-
-### ❌ Needs New Data Sources (not available in your system yet)
-- Q7, Q10 (KDS ticket times, discounts/comps — not in sales_cache)
-- Q8 (Catering vs Walk-in split — not tracked separately in POS data)
-- Q23 (I-9 documents — no HR document tracking table)
-- Q25 (OPUS training data — no integration exists)
-- Q31-39 (Recipe database, prep pars, shelf life, ingredient impact — no recipe/COGS tables yet)
-
-## Recommendation
-Start with **Phase 1** now (prompt + memory + tag format). The 50-question coverage is mostly already there — the gaps are data sources that don't exist yet, not Theo limitations. We can add task-creation as a new tool in this session too.
+### Goals
+- Operators can count partial cases as sleeves/inner packs/bundles instead of "0 cases" or 3,000 individual liners.
+- Zero regression for items where `inner_pack_quantity IS NULL` (today's behavior).
+- Kill the Apr 30 Palm Springs $270 pan reverse-derivation drift as part of the same work.
+- Costing, vendor ordering, PFG sync, AvT, pan layer all untouched.
 
 ---
 
-# QU API Optimization Plan
+### Phase 1 — Hydration Contract Refactor (do this FIRST, ship alone)
 
-## Phase 1: Quick Wins ✅ COMPLETED (April 10, 2026)
+This is the unlock. Inner packs cannot land safely on top of a hydration path that reverse-derives `entered_units` from `quantity − cases × pack_qty`.
 
-### Changes Made
-1. **Removed dead payment endpoints** — Stripped `payments/main` and `payment-types/main` from both `sales-service` and `fetch-qubeyond-sales`. Only `summary/payments` is used (the only one that works for Blaze stores).
-2. **Removed 100-item product mix cap** — `.slice(0, 100)` removed from `fetch-qubeyond-sales` so full menu data is preserved.
-3. **Skip unprovisioned stores (Sparks)** — `fetchHourlySales` now detects 403 "No operational units" and throws `UNPROVISIONED_STORE`, causing the sync loop to skip all remaining API calls for that location.
+**Rule:** `entered_cases`, `entered_units`, `pan_units` (and later `entered_inner_packs`) are the source of truth. `quantity` is a derived denormalized total, recomputed only on save, never read at hydrate.
 
-### Results
-- **Before:** ~32,500 QU API calls/day
-- **After:** ~21,600 QU API calls/day
-- **Savings:** ~10,900 dead calls/day eliminated (33.6% reduction)
-- **Zero error log noise** from 404/403 responses on dead endpoints
+Changes:
+- `src/components/inventory/InventoryCountSession.tsx` + `InventoryCountView.tsx`: load each input field directly from `inventory_count_items` and `pan_inputs`. Remove any `quantity − …` math from the load path.
+- `src/utils/countItemValue.ts`: confirm valuation reads explicit fields; only `quantity` math at save time.
+- Add a one-time validator (dev-only console log behind a flag) that recomputes expected `quantity` on hydrate and warns on mismatch. Use it to sweep existing 2-tier counts before Phase 2.
+
+**Acceptance:** Apr 30 Palm Springs Edit Count opens with $270 drift gone, all other location counts unchanged.
 
 ---
 
-## Phase 2: Data Streaming Migration (PLANNED — NOT YET STARTED)
+### Phase 2 — Schema
 
-### Goal
-Replace 1-minute polling with real-time webhook consumption from QU Data Streaming Service. Target: **96% total API reduction** (from ~21,600 → ~1,400 calls/day).
+Single migration:
+- `inventory_items.inner_pack_quantity INT NULL` (brand catalog + local mirror — same dual-scope as `pack_quantity`).
+- `inventory_count_items.entered_inner_packs INT NULL`
+- `inventory_count_items.inner_pack_quantity_at_count INT NULL` (Phase 3 snapshot lock pattern, mirrors `pack_quantity_at_count`).
 
-### Already Subscribed Topics (via `kds-stream` webhook)
-- Sales (Closed Check, modifications)
-- Cash (Till Close/Reconcile)
-- Labor (Time Entry)
-- Menu/Inventory Updates
-- Operations (End of Day)
-- Monitoring (Terminal Update)
-
-### Implementation Steps
-
-#### Step 2a: Wire "Closed Check" stream → sales_cache
-- Parse incoming Closed Check webhooks for: net sales, guest count, payment type, line items (product mix)
-- Accumulate into `sales_cache` in real-time instead of polling
-- Derive hourly breakdown from check timestamps
-- **Eliminates:** `hourly-sales`, `product-mix`, `summary/payments` polling for all streaming-enabled locations
-- **Savings:** ~20,160 calls/day (8 locations × 3 endpoints × 840 minutes)
-
-#### Step 2b: Add streaming status flag to location_integrations
-- Add `streaming_active` boolean or `sync_mode` enum ('polling' | 'streaming') to `location_integrations`
-- `sales-service` checks this flag: if streaming is active, skip API polling for that location
-- Fallback: if no stream events received in 5 minutes during business hours, temporarily revert to polling
-
-#### Step 2c: KDS polling retirement
-- Once Closed Check stream is proven reliable, disable `kds-orders` 10-second polling for KDS locations
-- **Savings:** ~10,080 calls/day (2 locations × 6/min × 840 min)
-
-#### Step 2d: Monitoring & alerting
-- Add a "stream health" check: if a location hasn't received a stream event in X minutes during business hours, log a warning and auto-fallback to polling
-- Dashboard indicator showing which locations are on streaming vs polling
-
-### Estimated Final State
-| Metric | Polling Only | After Phase 1 | After Phase 2 |
-|---|---|---|---|
-| QU API calls/day | ~32,500 | ~21,600 | ~1,400 |
-| Reduction | — | -33% | -96% |
-| Data freshness | 1 min | 1 min | Real-time |
-| Error noise | High (404/403) | Low | Minimal |
-
-### Risks & Mitigations
-- **Stream downtime:** Automatic fallback to polling if no events in 5 min
-- **Data gaps:** Reconciliation check at End of Day (compare stream totals vs API snapshot)
-- **Ordering:** Stream events may arrive out of order — use check timestamps, not arrival order
+No backfill in this migration — values stay null, behavior unchanged.
 
 ---
 
-## Phase 3: pos-search Local Cache (PLANNED)
-- Move `pos-search` edge function from live QU API to querying `sales_cache.product_mix` column
-- Eliminates dangerous 90-day multi-location API queries on user search
-- Prevents rate limit risk from concurrent searches
-- Also fixes the 500-item pagination bug (irrelevant once searching local data)
+### Phase 3 — Save-Time Formula + Snapshot
+
+In count save path:
+```
+quantity = entered_cases × pack_quantity
+         + entered_inner_packs × inner_pack_quantity
+         + entered_units
+         + pan_units
+```
+Write `inner_pack_quantity_at_count = inner_pack_quantity` at save (same place `pack_quantity_at_count` is captured). Null-safe: if `inner_pack_quantity IS NULL`, the inner-pack term is 0 and the formula collapses to today's behavior.
+
+---
+
+### Phase 4 — Count UI: Third Input
+
+Conditionally render a third numeric input in the count session row when `inner_pack_quantity IS NOT NULL`. Contextual label driven by item category / common name:
+- Cups, lids → "Sleeves"
+- Pizza boxes, to-go bags, napkins → "Bundles"
+- Gloves, condiment packets → "Inner Boxes"
+- Default fallback → "Inner Packs"
+
+Place between Cases and Units. Mobile-first: same pill styling as existing inputs, no layout regression on iPhone widths. Field hidden entirely for null items so the 95% case stays a 2-tier UI.
+
+---
+
+### Phase 5 — Brand-Catalog Backfill (15 items)
+
+Backfill at brand level so all locations inherit (per the brand-centric manifesto). Confirmed values from the brief:
+
+| Item | inner_pack_quantity |
+|---|---|
+| Regular Paper Cups (24 oz) | 50 |
+| Small Paper Cups (16 oz) | 50 |
+| 1/2 Pizza Boxes | 50 |
+| 11" Pizza Boxes | 25 |
+| 14" Pizza Boxes | 25 |
+| Portion Cups (2500) | 250 |
+| Gloves S/M/L/XL | 100 |
+
+TBD (need physical confirmation before writing): Sugar / Red Pepper / Parmesan packets, To-Go Bags, 24 oz Coke Cups, Water Cups, Cold Cup Lids, Napkins, Pizza Liners.
+
+Excluded: beer/wine 24-packs (SKU concern, not a counting concern).
+
+Done as a SQL migration (idempotent, matches by brand + canonical item name).
+
+---
+
+### Phase 6 — Verification
+
+- Apr 30 Palm Springs Edit Count: drift is gone (already validated in Phase 1, re-verify post-Phase 4).
+- Run inventory-reconciliation-scan for Palm Springs current period — counts in line, no orphan rows.
+- Take one fresh count at a backfilled item using all three tiers; confirm `quantity` math + valuation + AvT are all correct.
+
+---
+
+### Memory updates (after build)
+- New: `mem://architecture/inventory/count-input-tier-contract` — explicit-fields-only hydration rule.
+- Update: `mem://architecture/inventory/count-history-integrity-standards` — add `inner_pack_quantity_at_count` to denormalized snapshot list.
+- Update: `mem://features/inventory/counting-session-logic` — third tier + conditional render rule.
+
+---
+
+### Sequencing recommendation
+
+Ship **Phase 1 alone first** (hydration refactor is the highest-risk, lowest-visible change — needs a clean week of count sessions to validate). Then Phases 2–4 together as the inner-pack feature drop. Phase 5 backfill last so the UI is proven before items start showing the third input.
+
+### Out of scope
+- Vendor ordering / PFG sync changes
+- Cost-per-oz math
+- Pan / Cambro layer changes
+- Beer/wine 6-pack SKU restructuring
