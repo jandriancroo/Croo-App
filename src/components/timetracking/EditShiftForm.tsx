@@ -446,18 +446,14 @@ export function EditShiftForm({
                     <div className="grid grid-cols-2 gap-3 mt-3">
                       <div className="space-y-2">
                         <label className="text-xs text-muted-foreground">Type</label>
-                        <Select
+                        <select
                           value={brk.type}
-                          onValueChange={(v) => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, type: v as 'paid' | 'unpaid' } : b) })}
+                          onChange={(e) => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, type: e.target.value as 'paid' | 'unpaid' } : b) })}
+                          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                         >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background z-50">
-                            <SelectItem value="unpaid">Unpaid (30m)</SelectItem>
-                            <SelectItem value="paid">Paid (10m)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <option value="unpaid">Unpaid (30m)</option>
+                          <option value="paid">Paid (10m)</option>
+                        </select>
                       </div>
 
                       <div className="space-y-2">
