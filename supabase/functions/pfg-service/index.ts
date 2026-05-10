@@ -2081,6 +2081,24 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
                     if (!cascadeErr && count) cascadeWrites += count;
                   }
 
+                  // Inner-pack cascade (Phase 5): parse sleeves/bundles/inner-packs
+                  // from the description text. Only set when currently null so we
+                  // never overwrite a manual edit. Additive — zero risk.
+                  const innerPackQty = parseInnerPackQuantity(meta?.name);
+                  if (innerPackQty) {
+                    const { error: innerErr, count } = await supabase
+                      .from('inventory_items')
+                      .update({
+                        inner_pack_quantity: innerPackQty,
+                        updated_at: new Date().toISOString(),
+                      }, { count: 'exact' })
+                      .eq('brand_item_id', t.id)
+                      .is('inner_pack_quantity', null);
+                    if (!innerErr && count) {
+                      console.log(`[PFG Sync] Set inner_pack_quantity=${innerPackQty} on ${count} rows for SKU ${sku} ("${meta?.name}")`);
+                    }
+                  }
+
                   // Location-scoped price write — case price comes straight from
                   // PFG line item.price; we only write to THIS location since
                   // pricing varies by territory/contract.
