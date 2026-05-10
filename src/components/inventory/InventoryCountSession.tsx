@@ -546,18 +546,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }, 0);
   }, [panCounts]);
 
-  // Calculate total quantity for an item (cases * pack_quantity + units + pan units)
-  // Uses rawInputs if available (live typing), falls back to committed counts
-  const getTotalQuantity = useCallback((itemId: string, packQuantity: number | null, panSizes?: PanSizesConfig | null) => {
+  // Calculate total quantity for an item:
+  //   cases × pack_quantity + inner_packs × inner_pack_quantity + units + pan_units
+  // Uses rawInputs if available (live typing), falls back to committed counts.
+  // innerPackQuantity is null/undefined for items without an inner-pack tier — that term collapses to 0.
+  const getTotalQuantity = useCallback((itemId: string, packQuantity: number | null, panSizes?: PanSizesConfig | null, innerPackQuantity?: number | null) => {
     const packQty = packQuantity || 1;
+    const innerPackQty = innerPackQuantity || 0;
     // Prefer live rawInputs so cost updates while the user is typing
     const rawCases = parseFloat(rawInputs[itemId]?.cases ?? '');
     const rawUnits = parseFloat(rawInputs[itemId]?.units ?? '');
-    const committed = counts[itemId] || { cases: 0, units: 0 };
+    const rawInner = parseFloat(rawInputs[itemId]?.innerPacks ?? '');
+    const committed = counts[itemId] || { cases: 0, units: 0, innerPacks: 0 };
     const casesVal = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
+    const innerVal = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
     const panUnits = panSizes !== undefined ? getPanUnitsTotal(itemId, panSizes) : 0;
-    return Math.round((casesVal * packQty + unitsVal + panUnits) * 100) / 100;
+    return Math.round((casesVal * packQty + innerVal * innerPackQty + unitsVal + panUnits) * 100) / 100;
   }, [counts, rawInputs, getPanUnitsTotal]);
 
   // Calculate cost for a single item (supports recipe cost trickle-down)
