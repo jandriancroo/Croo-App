@@ -36,6 +36,7 @@ interface EditPunchDialogProps {
   userName: string;
   userPhoto: string | null;
   punchDate: string; // The date in YYYY-MM-DD format
+  clockInId: string;
   timezone: string;
   locationId: string;
   onPunchUpdated?: () => void;
@@ -48,6 +49,7 @@ export function EditPunchDialog({
   userName,
   userPhoto,
   punchDate,
+  clockInId,
   timezone,
   locationId,
   onPunchUpdated
@@ -70,10 +72,10 @@ export function EditPunchDialog({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (open && userId && punchDate && locationId) {
+    if (open && userId && punchDate && locationId && clockInId) {
       fetchPunches();
     }
-  }, [open, userId, punchDate, locationId]);
+  }, [open, userId, punchDate, locationId, clockInId]);
 
   const fetchPunches = async () => {
     setLoading(true);
@@ -96,21 +98,43 @@ export function EditPunchDialog({
         return punchLocalDate === punchDate;
       });
 
-      setPunches(filteredPunches);
-
-      // Set form values from punches - sorted by time
       const sortedPunches = [...filteredPunches].sort((a, b) => 
         new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
       );
+
+      const targetClockInIndex = sortedPunches.findIndex(
+        (p) => p.id === clockInId && p.punch_type === 'clock_in'
+      );
+
+      const nextClockInIndex = targetClockInIndex === -1
+        ? -1
+        : sortedPunches.findIndex(
+            (p, index) => index > targetClockInIndex && p.punch_type === 'clock_in'
+          );
+
+      const scopedPunches = targetClockInIndex === -1
+        ? filteredPunches
+        : sortedPunches.filter((_, index) => {
+            if (index < targetClockInIndex) return false;
+            if (nextClockInIndex !== -1 && index >= nextClockInIndex) return false;
+            return true;
+          });
+
+      setPunches(scopedPunches);
+
+      // Set form values from punches - sorted by time
+      const relevantPunches = [...scopedPunches].sort((a, b) => 
+        new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
+      );
       
-      const clockIn = sortedPunches.find(p => p.punch_type === 'clock_in');
-      const clockOut = sortedPunches.find(p => p.punch_type === 'clock_out');
+      const clockIn = relevantPunches.find(p => p.punch_type === 'clock_in');
+      const clockOut = relevantPunches.find(p => p.punch_type === 'clock_out');
       
       // Find ALL break_start and break_end punches
-      const breakStarts = sortedPunches.filter(p => p.punch_type === 'break_start');
-      const breakEnds = sortedPunches.filter(p => p.punch_type === 'break_end');
+      const breakStarts = relevantPunches.filter(p => p.punch_type === 'break_start');
+      const breakEnds = relevantPunches.filter(p => p.punch_type === 'break_end');
       // Also get clock_ins that could serve as break ends (legacy behavior)
-      const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
+      const clockIns = relevantPunches.filter(p => p.punch_type === 'clock_in');
 
       setClockInTime(clockIn ? formatInTimeZone(parseISO(clockIn.punch_time), timezone, 'HH:mm') : '');
       const clockOutTimeVal = clockOut ? formatInTimeZone(parseISO(clockOut.punch_time), timezone, 'HH:mm') : '';

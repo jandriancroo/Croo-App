@@ -145,7 +145,7 @@ export function MobileScheduleView({
   const [editPunchOpen, setEditPunchOpen] = useState(false);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
-  const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
+  const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string, clockInId: string} | null>(null);
   const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
   const [insightsExpanded, setInsightsExpanded] = useState(false);
   
@@ -979,7 +979,8 @@ export function MobileScheduleView({
                                 userId: punch.user_id,
                                 userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
                                 userPhoto: punch.profile.profile_photo_url,
-                                punchDate: today
+                                punchDate: today,
+                                clockInId: punch.id,
                               });
                               setEditPunchOpen(true);
                             }}
@@ -1160,7 +1161,8 @@ export function MobileScheduleView({
                                 userId: punch.user_id,
                                 userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
                                 userPhoto: punch.profile.profile_photo_url,
-                                punchDate: today
+                                punchDate: today,
+                                clockInId: punch.id,
                               });
                               setEditPunchOpen(true);
                             }}
@@ -1255,7 +1257,8 @@ export function MobileScheduleView({
                           userId: punch.user_id,
                           userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
                           userPhoto: punch.profile.profile_photo_url,
-                          punchDate: selectedDateStr
+                          punchDate: selectedDateStr,
+                          clockInId: punch.id,
                         });
                         setEditPunchOpen(true);
                       }}
@@ -1408,6 +1411,7 @@ export function MobileScheduleView({
           userName={selectedPunch.userName}
           userPhoto={selectedPunch.userPhoto}
           punchDate={selectedPunch.punchDate}
+          clockInId={selectedPunch.clockInId}
           timezone={timezone}
           locationId={currentLocation.id}
           onPunchUpdated={() => {
