@@ -57,6 +57,8 @@ interface CountItem {
   pack_size: string | null;
   pack_quantity: number | null;
   pack_quantity_override: number | null;
+  /** Phase 3: units per inner pack (sleeve/bundle/inner box). NULL = no inner-pack tier. */
+  inner_pack_quantity: number | null;
   brand_item_id: string | null;
   item_number: string | null;
   brand: string | null;
@@ -67,10 +69,21 @@ interface CountItem {
   count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
 }
 
-// Count state: cases + individual units (supports decimals for partial cases)
+// Count state: cases + inner packs + individual units (supports decimals for partial cases)
 interface ItemCount {
   cases: number;
   units: number;
+  /** Phase 4: optional inner-pack tier (sleeves/bundles/inner boxes). Defaults to 0 when item has no inner_pack_quantity. */
+  innerPacks?: number;
+}
+
+// Phase 4: infer the user-facing label for the inner-pack tier from item name.
+function getInnerPackLabel(itemName: string | null | undefined): string {
+  const n = (itemName || '').toLowerCase();
+  if (/\b(cup|lid)s?\b/.test(n)) return 'Sleeves';
+  if (/\b(pizza\s*box|to-?go\s*bag|bag|napkin|liner)s?\b/.test(n)) return 'Bundles';
+  if (/\b(glove|packet)s?\b/.test(n)) return 'Inner Boxes';
+  return 'Inner Packs';
 }
 
 interface PendingEdit {
@@ -98,7 +111,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   });
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
-  const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
+  const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string; innerPacks?: string }>>({});
   // panCounts: itemId -> { panKey -> count of that pan }
   const [panCounts, setPanCounts] = useState<Record<string, Record<string, number>>>({});
   // rawPanInputs: itemId -> { panKey -> raw string while typing }
@@ -156,6 +169,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           pack_size,
           pack_quantity,
           pack_quantity_override,
+          inner_pack_quantity,
           brand_item_id,
           item_number,
           brand,
@@ -247,21 +261,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Count items now use storage_location_id to distinguish split entries
       const { data: countItems, error: countError } = await supabase
         .from("inventory_count_items")
-        .select("id, item_id, quantity, entered_cases, entered_units, storage_location_id, cost_at_count, pack_quantity_at_count, pan_inputs")
+        .select("id, item_id, quantity, entered_cases, entered_units, entered_inner_packs, storage_location_id, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, pan_inputs")
         .eq("count_id", countId) as any;
       
       if (countError) throw countError;
 
-      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units, cost_at_count, pack_quantity_at_count, pan_inputs }
-      // Phase 1: pan_inputs is now hydrated as source of truth for pan-counted rows.
+      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units, entered_inner_packs, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, pan_inputs }
+      // Phase 1: pan_inputs hydrated as source of truth.
+      // Phase 3: entered_inner_packs + inner_pack_quantity_at_count hydrated for the third counting tier.
       const countMap = new Map(
         (countItems as any[])?.map((ci: any) => [
           `${ci.item_id}|${ci.storage_location_id || ''}`, 
-          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count, pan_inputs: ci.pan_inputs }
+          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, entered_inner_packs: ci.entered_inner_packs, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count, inner_pack_quantity_at_count: ci.inner_pack_quantity_at_count, pan_inputs: ci.pan_inputs }
         ]) || []
       );
       // Also keep a simple item_id map for backwards compat (old counts without storage_location_id)
-      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count, pan_inputs: ci.pan_inputs }]) || []);
+      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, entered_inner_packs: ci.entered_inner_packs, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count, inner_pack_quantity_at_count: ci.inner_pack_quantity_at_count, pan_inputs: ci.pan_inputs }]) || []);
 
       const result: (CountItem & { _existingQuantity: number; _existingCases: number | null; _existingUnits: number | null; _countItemId: string | null; _splitKey: string })[] = [];
 
@@ -320,6 +335,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               ?? (item as any).pack_quantity_override
               ?? item.pack_quantity,
             pack_quantity_override: null,
+            // Phase 3: brand-level inner pack tier (NULL = no inner-pack input shown)
+            inner_pack_quantity: (item as any).inner_pack_quantity ?? null,
             brand_item_id: (item as any).brand_item_id ?? null,
             item_number: item.item_number,
             brand: item.brand,
@@ -339,8 +356,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             _existingCases: countData?.entered_cases ?? null,
             _existingUnits: countData?.entered_units ?? null,
             _existingPanInputs: (countData as any)?.pan_inputs ?? null,
+            _existingInnerPacks: (countData as any)?.entered_inner_packs ?? null,
             _costAtCount: (countData as any)?.cost_at_count ?? null,
             _packQuantityAtCount: (countData as any)?.pack_quantity_at_count ?? null,
+            _innerPackQuantityAtCount: (countData as any)?.inner_pack_quantity_at_count ?? null,
             _countItemId: countData?.countItemId || null,
             _splitKey: splitKey,
             _sortOrder: sortOrder,
@@ -403,29 +422,35 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const key = (item as any)._splitKey || item.item_id;
       const existingCases = (item as any)._existingCases;
       const existingUnits = (item as any)._existingUnits;
+      const existingInnerPacks = (item as any)._existingInnerPacks;
       const existingPanInputs = (item as any)._existingPanInputs;
       const totalUnits = (item as any)._existingQuantity || 0;
       // For previously-saved rows, the effective pack qty must match the one used
       // when the row was saved — otherwise shortcut/junction pack-qty overrides
       // applied later would fabricate phantom diffs on edit.
       const packQty = (item as any)._packQuantityAtCount ?? item.pack_quantity ?? 1;
+      // Phase 3: snapshot inner_pack_quantity at save time, fall back to live for new rows.
+      const innerPackQty = (item as any)._innerPackQuantityAtCount ?? (item as any).inner_pack_quantity ?? null;
       
-      // PHASE 1 (source of truth): entered_cases / entered_units / pan_inputs are
-      // the authoritative inputs. `quantity` is derived only at save time and is
+      // PHASE 1 (source of truth): entered_cases / entered_units / entered_inner_packs / pan_inputs
+      // are the authoritative inputs. `quantity` is derived only at save time and is
       // never read here. Fall back to decomposing quantity ONLY for truly legacy
-      // rows that never stored the split (both fields null).
+      // rows that never stored the split (all fields null).
       const hasStoredInput =
         (existingCases !== null && existingCases !== undefined) ||
-        (existingUnits !== null && existingUnits !== undefined);
+        (existingUnits !== null && existingUnits !== undefined) ||
+        (existingInnerPacks !== null && existingInnerPacks !== undefined);
       if (hasStoredInput) {
         initialCounts[key] = {
           cases: existingCases ?? 0,
           units: existingUnits ?? 0,
+          innerPacks: existingInnerPacks ?? 0,
         };
       } else {
         initialCounts[key] = {
           cases: Math.floor(totalUnits / packQty),
-          units: totalUnits % packQty
+          units: totalUnits % packQty,
+          innerPacks: 0,
         };
       }
 
@@ -441,13 +466,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       }
 
       // Dev validator: flag rows where stored quantity disagrees with derived
-      // (cases × pack + units + pan units). Surfaces silent split/pan drift.
+      // (cases × pack + inner_packs × inner_pack + units + pan units).
       if (import.meta.env.DEV && hasStoredInput) {
         const panTotal = Object.entries(initialPanCounts[key] || {}).reduce((sum, [pk, qty]) => {
           const unitsPer = item.pan_sizes ? (getPanUnits(item.pan_sizes, pk) ?? 0) : 0;
           return sum + unitsPer * (qty as number);
         }, 0);
-        const derived = (existingCases ?? 0) * packQty + (existingUnits ?? 0) + panTotal;
+        const innerPackTerm = innerPackQty != null ? (existingInnerPacks ?? 0) * innerPackQty : 0;
+        const derived = (existingCases ?? 0) * packQty + innerPackTerm + (existingUnits ?? 0) + panTotal;
         if (Math.abs(derived - totalUnits) > 0.01) {
           // eslint-disable-next-line no-console
           console.warn('[hydration-validator] quantity drift', {
@@ -455,7 +481,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             key,
             storedQuantity: totalUnits,
             derived,
-            cases: existingCases, units: existingUnits, packQty, panTotal,
+            cases: existingCases, units: existingUnits, innerPacks: existingInnerPacks, packQty, innerPackQty, panTotal,
           });
         }
       }
@@ -520,18 +546,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }, 0);
   }, [panCounts]);
 
-  // Calculate total quantity for an item (cases * pack_quantity + units + pan units)
-  // Uses rawInputs if available (live typing), falls back to committed counts
-  const getTotalQuantity = useCallback((itemId: string, packQuantity: number | null, panSizes?: PanSizesConfig | null) => {
+  // Calculate total quantity for an item:
+  //   cases × pack_quantity + inner_packs × inner_pack_quantity + units + pan_units
+  // Uses rawInputs if available (live typing), falls back to committed counts.
+  // innerPackQuantity is null/undefined for items without an inner-pack tier — that term collapses to 0.
+  const getTotalQuantity = useCallback((itemId: string, packQuantity: number | null, panSizes?: PanSizesConfig | null, innerPackQuantity?: number | null) => {
     const packQty = packQuantity || 1;
+    const innerPackQty = innerPackQuantity || 0;
     // Prefer live rawInputs so cost updates while the user is typing
     const rawCases = parseFloat(rawInputs[itemId]?.cases ?? '');
     const rawUnits = parseFloat(rawInputs[itemId]?.units ?? '');
-    const committed = counts[itemId] || { cases: 0, units: 0 };
+    const rawInner = parseFloat(rawInputs[itemId]?.innerPacks ?? '');
+    const committed = counts[itemId] || { cases: 0, units: 0, innerPacks: 0 };
     const casesVal = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
+    const innerVal = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
     const panUnits = panSizes !== undefined ? getPanUnitsTotal(itemId, panSizes) : 0;
-    return Math.round((casesVal * packQty + unitsVal + panUnits) * 100) / 100;
+    return Math.round((casesVal * packQty + innerVal * innerPackQty + unitsVal + panUnits) * 100) / 100;
   }, [counts, rawInputs, getPanUnitsTotal]);
 
   // Calculate cost for a single item (supports recipe cost trickle-down)
@@ -558,10 +589,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // Live values (mid-typing) override saved values
     const rawCases = parseFloat(rawInputs[key]?.cases ?? '');
     const rawUnits = parseFloat(rawInputs[key]?.units ?? '');
-    const committed = counts[key] || { cases: 0, units: 0 };
+    const rawInner = parseFloat(rawInputs[key]?.innerPacks ?? '');
+    const committed = counts[key] || { cases: 0, units: 0, innerPacks: 0 };
     const casesVal = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
+    const innerVal = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
     const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
+    // Phase 3: inner packs roll into entered_units for the shared SOT valuation,
+    // mirroring how pan units are folded in. innerPackQty=0 collapses cleanly.
+    const innerPackQty = (item as any).inner_pack_quantity || 0;
+    const innerPackUnits = innerVal * innerPackQty;
 
     // [hydration-drift diagnostic] compare hydrated counts vs DB existing values
     const dbCases = Number((item as any)._existingCases ?? 0);
@@ -574,12 +611,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         casesVal, dbCases,
         unitsVal, dbUnits,
         panUnits,
+        innerPackUnits,
       });
     }
 
     // PHASE 1: forceLiveData=true — Edit Count must match Period/Review/Export by
     // recomputing every line via current live cost + live pack chain, ignoring
-    // any cost_at_count / pack_quantity_at_count snapshot. This will revert in Phase 3.
+    // any cost_at_count / pack_quantity_at_count snapshot.
     // Standard contract: pass entered_cases / entered_units (no synthesized quantity);
     // pass full item shape; pass Pipeline 1 conversion lookup.
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
@@ -588,7 +626,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       {
         quantity: null,
         entered_cases: casesVal,
-        entered_units: unitsVal + panUnits,
+        entered_units: unitsVal + panUnits + innerPackUnits,
         cost_at_count: null,
         pack_quantity_at_count: null,
       },
@@ -703,13 +741,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const edits: PendingEdit[] = [];
     
     for (const item of items) {
-      const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string; _packQuantityAtCount?: number | null };
+      const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string; _packQuantityAtCount?: number | null; _innerPackQuantityAtCount?: number | null };
       const key = extendedItem._splitKey || item.item_id;
-      // Use historical pack_quantity_at_count for diff math on previously-saved rows
-      // so a later shortcut/junction pack-qty override doesn't fabricate phantom changes.
-      // For brand-new rows (no snapshot), fall back to the live effective pack qty.
+      // Use historical pack_quantity_at_count / inner_pack_quantity_at_count for diff
+      // math on previously-saved rows so a later override doesn't fabricate phantom changes.
+      // For brand-new rows (no snapshot), fall back to the live effective values.
       const effectivePackQty = extendedItem._packQuantityAtCount ?? item.pack_quantity;
-      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes);
+      const effectiveInnerPackQty = extendedItem._innerPackQuantityAtCount ?? (item as any).inner_pack_quantity ?? null;
+      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, effectiveInnerPackQty);
       const originalQuantity = originalCounts.current[key] ?? 0;
       
       if (newQuantity !== originalQuantity) {
@@ -762,23 +801,29 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const itemCounts = items.map(item => {
         const key = (item as any)._splitKey || item.item_id;
         const storLocId = item.storage_location_id;
-        const countState = counts[key] || { cases: 0, units: 0 };
+        const countState = counts[key] || { cases: 0, units: 0, innerPacks: 0 };
+        const innerPackQty = (item as any).inner_pack_quantity ?? null;
         return {
           item_id: item.item_id,
-          quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes),
+          quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes, innerPackQty),
           storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
           entered_cases: countState.cases,
           entered_units: countState.units,
+          // Phase 3: third counting tier
+          entered_inner_packs: countState.innerPacks ?? 0,
           // Snapshot fields for historical integrity
           item_name_at_count: item.item_name,
           cost_at_count: item.cost_per_unit,
           unit_at_count: item.unit,
           pack_quantity_at_count: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+          // Phase 3: snapshot the inner_pack_quantity at save time (mirrors pack_quantity_at_count)
+          inner_pack_quantity_at_count: innerPackQty,
           pan_sizes_at_count: item.pan_sizes ?? null,
           // --- Audit log fields (Palm Springs forensic logging) ---
           _item_name: item.item_name,
           _storage_location_name: item.storage_location,
           _pack_quantity: item.pack_quantity,
+          _inner_pack_quantity: innerPackQty,
           _pan_sizes: item.pan_sizes,
           _pan_inputs: panCounts[key] || null,
         };
@@ -848,7 +893,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // ONE query to fetch all existing count items for this count
       const { data: allExisting, error: fetchErr } = await supabase
         .from("inventory_count_items")
-        .select("id, item_id, storage_location_id, quantity, entered_cases, entered_units")
+        .select("id, item_id, storage_location_id, quantity, entered_cases, entered_units, entered_inner_packs")
         .eq("count_id", countId) as any;
       
       if (fetchErr) throw fetchErr;
@@ -861,15 +906,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       }
 
       // Separate into updates vs inserts, and skip unchanged items
-      const toUpdate: { id: string; quantity: number; entered_cases: number; entered_units: number }[] = [];
+      const toUpdate: { id: string; quantity: number; entered_cases: number; entered_units: number; entered_inner_packs: number }[] = [];
       const toInsert: any[] = [];
 
       for (const ic of itemCounts) {
         const key = `${ic.item_id}|${ic.storage_location_id || ''}`;
         const existing = existingMap.get(key);
+        const innerPacksVal = ic.entered_inner_packs ?? 0;
         
-        // Build a fingerprint to skip unchanged items
-        const fingerprint = `${ic.quantity}|${ic.entered_cases}|${ic.entered_units}`;
+        // Build a fingerprint to skip unchanged items (Phase 3: includes inner packs)
+        const fingerprint = `${ic.quantity}|${ic.entered_cases}|${ic.entered_units}|${innerPacksVal}`;
         const lastSaved = lastSavedQuantitiesRef.current.get(key);
         
         if (existing) {
@@ -882,7 +928,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           }
           
           // Skip if quantity hasn't changed from DB AND from last save
-          const dbFingerprint = `${existing.quantity}|${existing.entered_cases ?? 0}|${existing.entered_units ?? 0}`;
+          const dbFingerprint = `${existing.quantity}|${existing.entered_cases ?? 0}|${existing.entered_units ?? 0}|${existing.entered_inner_packs ?? 0}`;
           if (fingerprint === dbFingerprint && fingerprint === lastSaved) continue;
           
           toUpdate.push({
@@ -890,6 +936,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             quantity: ic.quantity,
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
+            entered_inner_packs: innerPacksVal,
             pan_inputs: ic._pan_inputs ?? null,
           } as any);
         } else {
@@ -901,10 +948,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             storage_location_id: ic.storage_location_id,
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
+            entered_inner_packs: innerPacksVal,
             item_name_at_count: ic.item_name_at_count,
             cost_at_count: ic.cost_at_count,
             unit_at_count: ic.unit_at_count,
             pack_quantity_at_count: ic.pack_quantity_at_count,
+            inner_pack_quantity_at_count: ic.inner_pack_quantity_at_count ?? null,
             pan_sizes_at_count: ic.pan_sizes_at_count,
             pan_inputs: ic._pan_inputs ?? null,
           });
@@ -927,13 +976,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         try {
           const { error } = await supabase
             .from("inventory_count_items")
-            .update({ quantity: upd.quantity, entered_cases: upd.entered_cases, entered_units: upd.entered_units, pan_inputs: (upd as any).pan_inputs ?? null } as any)
+            .update({ quantity: upd.quantity, entered_cases: upd.entered_cases, entered_units: upd.entered_units, entered_inner_packs: upd.entered_inner_packs, pan_inputs: (upd as any).pan_inputs ?? null } as any)
             .eq("id", upd.id);
           if (error) throw error;
           const key = findKeyForUpd(upd.id);
           if (key) {
             const k = `${key.item_id}|${key.storage_location_id || ''}`;
-            lastSavedQuantitiesRef.current.set(k, `${upd.quantity}|${upd.entered_cases}|${upd.entered_units}`);
+            lastSavedQuantitiesRef.current.set(k, `${upd.quantity}|${upd.entered_cases}|${upd.entered_units}|${upd.entered_inner_packs}`);
             failedItemsRef.current.delete(k);
           }
           saved++;
@@ -964,7 +1013,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           if (error) throw error;
           for (const ins of toInsert) {
             const k = `${ins.item_id}|${ins.storage_location_id || ''}`;
-            lastSavedQuantitiesRef.current.set(k, `${ins.quantity}|${ins.entered_cases}|${ins.entered_units}`);
+            lastSavedQuantitiesRef.current.set(k, `${ins.quantity}|${ins.entered_cases}|${ins.entered_units}|${ins.entered_inner_packs ?? 0}`);
             failedItemsRef.current.delete(k);
           }
           saved += toInsert.length;
@@ -1195,19 +1244,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const storLocId = item.storage_location_id;
       const casesVal = counts[key]?.cases || 0;
       const unitsVal = counts[key]?.units || 0;
+      const innerVal = counts[key]?.innerPacks || 0;
+      const innerPackQty = (item as any).inner_pack_quantity ?? null;
       return {
         item_id: item.item_id,
-        quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes),
+        quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes, innerPackQty),
         storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
         entered_cases: casesVal,
         entered_units: unitsVal,
+        // Phase 3: third counting tier
+        entered_inner_packs: innerVal,
         item_name_at_count: item.item_name,
         cost_at_count: item.cost_per_unit,
         unit_at_count: item.unit,
+        pack_quantity_at_count: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+        // Phase 3: snapshot inner_pack_quantity at save time for historical immutability
+        inner_pack_quantity_at_count: innerPackQty,
+        pan_sizes_at_count: item.pan_sizes ?? null,
         // Audit log metadata (Palm Springs forensic logging)
         _item_name: item.item_name,
         _storage_location_name: item.storage_location,
         _pack_quantity: item.pack_quantity,
+        _inner_pack_quantity: innerPackQty,
         _pan_sizes: item.pan_sizes,
         _pan_inputs: panCounts[key] || null,
       };
@@ -1270,8 +1328,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       return {
         ...prev,
         [itemId]: {
+          ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
           cases: newValue,
-          units: prev[itemId]?.units || 0
         }
       };
     });
@@ -1301,7 +1359,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const updateUnits = (itemId: string, delta: number) => {
     setCounts(prev => {
       const newValue = Math.max(0, Math.round(((prev[itemId]?.units || 0) + delta) * 100) / 100);
-      // Also update raw input to stay in sync
       setRawInputs(p => ({
         ...p,
         [itemId]: { ...p[itemId], units: String(newValue) }
@@ -1309,8 +1366,26 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       return {
         ...prev,
         [itemId]: {
-          cases: prev[itemId]?.cases || 0,
-          units: newValue
+          ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+          units: newValue,
+        }
+      };
+    });
+  };
+
+  // Phase 4: third counting tier (Sleeves / Bundles / Inner Boxes / Inner Packs)
+  const updateInnerPacks = (itemId: string, delta: number) => {
+    setCounts(prev => {
+      const newValue = Math.max(0, Math.round(((prev[itemId]?.innerPacks || 0) + delta) * 100) / 100);
+      setRawInputs(p => ({
+        ...p,
+        [itemId]: { ...p[itemId], innerPacks: String(newValue) }
+      }));
+      return {
+        ...prev,
+        [itemId]: {
+          ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+          innerPacks: newValue,
         }
       };
     });
@@ -1333,7 +1408,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     setCounts(prev => ({
       ...prev,
-      [itemId]: { cases: finalValue, units: prev[itemId]?.units || 0 }
+      [itemId]: {
+        ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+        cases: finalValue,
+      }
     }));
     
     setRawInputs(prev => ({
@@ -1359,12 +1437,40 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     setCounts(prev => ({
       ...prev,
-      [itemId]: { cases: prev[itemId]?.cases || 0, units: finalValue }
+      [itemId]: {
+        ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+        units: finalValue,
+      }
     }));
     
     setRawInputs(prev => ({
       ...prev,
       [itemId]: { ...prev[itemId], units: String(finalValue) }
+    }));
+  };
+
+  // Phase 4: inner pack input handlers
+  const handleInnerPacksInput = (itemId: string, inputValue: string) => {
+    setRawInputs(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], innerPacks: inputValue, cases: prev[itemId]?.cases || '', units: prev[itemId]?.units || '' }
+    }));
+  };
+
+  const handleInnerPacksBlur = (itemId: string) => {
+    const rawValue = rawInputs[itemId]?.innerPacks || '';
+    const value = parseFloat(rawValue);
+    const finalValue = isNaN(value) ? 0 : Math.max(0, value);
+    setCounts(prev => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+        innerPacks: finalValue,
+      }
+    }));
+    setRawInputs(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], innerPacks: String(finalValue) }
     }));
   };
 
@@ -1725,7 +1831,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       <div className="space-y-3 -mx-1 sm:mx-0">
         {currentItems.map((item) => {
           const splitKey = (item as any)._splitKey || item.item_id;
-          const count = counts[splitKey] || { cases: 0, units: 0 };
+          const count = counts[splitKey] || { cases: 0, units: 0, innerPacks: 0 };
+          const innerPackQty = (item as any).inner_pack_quantity ?? null;
+          const showInnerPacks = !item.is_recipe && innerPackQty != null && innerPackQty > 0;
+          const innerPackLabel = showInnerPacks ? getInnerPackLabel(item.item_name) : '';
           const itemCost = getItemCost(item);
           const conv = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
           const pipeline2Pack =
@@ -1760,7 +1869,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
                 <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
                 <p className="text-[9px] text-accent-foreground/70 text-center">
-                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : item.pack_quantity, item.pan_sizes)} {item.is_recipe ? (item.unit || 'ea') : 'units'}
+                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : item.pack_quantity, item.pan_sizes, innerPackQty)} {item.is_recipe ? (item.unit || 'ea') : 'units'}
                 </p>
               </div>
 
@@ -1840,7 +1949,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       </div>
                     </div>
                   ) : (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={cn("grid gap-2", showInnerPacks ? "grid-cols-3" : "grid-cols-2")}>
                     {/* Cases counter — hidden if count_by=units_only */}
                     {showCases && (
                     <div>
@@ -1871,6 +1980,45 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             type="button"
                             className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, 1)}
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    )}
+
+                    {/* Phase 4: Inner pack counter — Sleeves / Bundles / Inner Boxes / Inner Packs */}
+                    {showInnerPacks && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
+                        {innerPackLabel}
+                        <span className="ml-1 normal-case tracking-normal">({innerPackQty}/ea)</span>
+                      </p>
+                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateInnerPacks(splitKey, -1)}
+                          >
+                            <Minus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rawInputs[splitKey]?.innerPacks ?? (count.innerPacks ?? 0)}
+                          onChange={(e) => handleInnerPacksInput(splitKey, e.target.value)}
+                          onBlur={() => handleInnerPacksBlur(splitKey)}
+                          disabled={isViewOnly}
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                        />
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateInnerPacks(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
                           </button>
