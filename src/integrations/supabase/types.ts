@@ -7887,6 +7887,7 @@ export type Database = {
           day_of_week: number
           end_time: string
           id: string
+          is_phantom: boolean
           is_time_off: boolean | null
           original_end_time: string | null
           schedule_id: string | null
@@ -7901,6 +7902,7 @@ export type Database = {
           day_of_week: number
           end_time: string
           id?: string
+          is_phantom?: boolean
           is_time_off?: boolean | null
           original_end_time?: string | null
           schedule_id?: string | null
@@ -7915,6 +7917,7 @@ export type Database = {
           day_of_week?: number
           end_time?: string
           id?: string
+          is_phantom?: boolean
           is_time_off?: boolean | null
           original_end_time?: string | null
           schedule_id?: string | null
