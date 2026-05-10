@@ -51,6 +51,7 @@ export interface ItemForValue {
   pack_quantity?: number | null;
   pack_quantity_override?: number | null;
   inner_pack_quantity?: number | null;
+  is_recipe?: boolean | null;
 }
 
 export interface ConversionForValue {
@@ -74,6 +75,15 @@ export function calculateCountItemValue(
         : Number(item?.cost_per_unit) || 0);
 
   if (costPerCase === 0) return 0;
+
+  // Recipe items: cost_per_unit IS the per-batch cost, and quantity is in batches.
+  // Pack/conversion math does not apply — recipes have a yield, not a vendor pack.
+  if (item?.is_recipe) {
+    const qty = ci.quantity != null
+      ? Number(ci.quantity) || 0
+      : (Number(ci.entered_cases || 0) + Number(ci.entered_units || 0) + Number(ci.entered_inner_packs || 0));
+    return qty * costPerCase;
+  }
 
   const enteredCasesNum = Number(ci.entered_cases || 0);
   const enteredUnitsNum = Number(ci.entered_units || 0);

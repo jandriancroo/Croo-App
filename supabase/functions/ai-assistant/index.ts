@@ -23,6 +23,15 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
         : Number(item?.cost_per_unit) || 0);
   if (costPerCase === 0) return 0;
 
+  // Recipe items: cost_per_unit is per-batch cost, quantity is in batches. No pack division.
+  if (item?.is_recipe) {
+    const qty = ci?.quantity != null
+      ? Number(ci.quantity) || 0
+      : (Number(ci?.entered_cases || 0) + Number(ci?.entered_units || 0) + Number(ci?.entered_inner_packs || 0));
+    return qty * costPerCase;
+  }
+
+
   const enteredCasesNum = Number(ci?.entered_cases || 0);
   const enteredUnitsNum = Number(ci?.entered_units || 0);
   const enteredInnerPacksNum = Number(ci?.entered_inner_packs || 0);
@@ -1204,7 +1213,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
           const { data: invItems } = await supabase
             .from("inventory_items")
-            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, brand_item_id")
+            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, brand_item_id, is_recipe")
             .in("id", Array.from(referencedIds));
 
           const itemMap = new Map((invItems || []).map((i: any) => [i.id, i]));
@@ -1318,7 +1327,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (args.include_items) {
             const { data: items } = await supabase
               .from("inventory_count_items")
-              .select("quantity, entered_cases, entered_units, theoretical_quantity, variance, variance_cost, cost_at_count, pack_quantity_at_count, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity, pack_quantity_override)")
+              .select("quantity, entered_cases, entered_units, theoretical_quantity, variance, variance_cost, cost_at_count, pack_quantity_at_count, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity, pack_quantity_override, is_recipe)")
               .eq("count_id", count.id);
 
             let itemResults = (items || []).map((i: any) => {
