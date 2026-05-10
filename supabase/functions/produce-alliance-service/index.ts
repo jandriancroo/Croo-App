@@ -1049,6 +1049,29 @@ function parsePackFromName(name: string): { packSize: string | null; packQuantit
   return { packSize: null, packQuantity: null, packUnit: null };
 }
 
+// Parse the inner-pack quantity (sleeves / bundles / inner boxes) from a free-form
+// description or item name. Mirrors the PFG parser. Patterns:
+//   "50/slv", "50/sleeve", "50 per sleeve"
+//   "25/bundle", "25/bdl", "25/bx"
+//   "100/pk", "100/pack", "100/inner"
+// Conservative: returns null when no clear "<N>/<word>" or "<N> per <word>" hit.
+function parseInnerPackQuantity(text: string | undefined | null): number | null {
+  if (!text) return null;
+  const m = text.match(
+    /(\d+)\s*(?:\/|\s+per\s+)\s*(slv|sleeve|sleeves|bdl|bundle|bundles|inner(?:\s+pack)?|pk|pack|packs|bx|box|boxes)\b/i,
+  );
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (Number.isFinite(n) && n > 1 && n <= 10000) return n;
+  }
+  const m2 = text.match(/(\d+)\s+inner\b/i);
+  if (m2) {
+    const n = parseInt(m2[1], 10);
+    if (Number.isFinite(n) && n > 1 && n <= 10000) return n;
+  }
+  return null;
+}
+
 // ============================================================================
 // ACTION HANDLERS
 // ============================================================================
@@ -1517,6 +1540,13 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
         if (templateId) updateData.brand_item_id = templateId;
       }
       toUpsert.push(updateData);
+
+      // Phase 5: queue an inner-pack patch only when we confidently parsed one.
+      // Done as a separate guarded update so we never overwrite a manual edit.
+      const innerPackQty = parseInnerPackQuantity(item.description);
+      if (innerPackQty) {
+        (updateData as any).__innerPackQty = innerPackQty;
+      }
     } else {
       // VENDOR GATE: Do NOT create new inventory_items.
       // Route unmatched PA items to vendor_gap_alerts for brand-level resolution.
@@ -1543,7 +1573,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   for (let i = 0; i < toUpsert.length; i += 25) {
     const chunk = toUpsert.slice(i, i + 25);
     const results = await Promise.all(
-      chunk.map(async ({ id, ...payload }) => {
+      chunk.map(async ({ id, __innerPackQty, ...payload }: any) => {
         const { error } = await supabase
           .from('inventory_items')
           .update(payload)
@@ -1551,6 +1581,16 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
 
         if (error) {
           updateFailures.push({ id, message: error.message });
+        }
+
+        // Phase 5: inner-pack patch — only when parsed AND currently null.
+        // Guarded so manual edits are never overwritten.
+        if (__innerPackQty) {
+          await supabase
+            .from('inventory_items')
+            .update({ inner_pack_quantity: __innerPackQty })
+            .eq('id', id)
+            .is('inner_pack_quantity', null);
         }
       })
     );
