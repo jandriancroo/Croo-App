@@ -758,6 +758,7 @@ export default function BrandInventory() {
               product_name: t.product_name,
               common_name: t.common_name ?? null,
               category: t.category ?? null,
+              is_recipe: (t as any).is_recipe ?? false,
             }));
           })()}
           conversionMap={conversionMap}
