@@ -7,8 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { parseISO } from 'date-fns';
-import { toISOStringInTimezone } from '@/utils/timezoneUtils';
+import { addDays, parseISO } from 'date-fns';
+import { getEndOfDateStringInTimezone, parseDateStringInTimezone, toISOStringInTimezone } from '@/utils/timezoneUtils';
 import { Clock, Trash2, Plus, X } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
@@ -80,25 +80,26 @@ export function EditPunchDialog({
   const fetchPunches = async () => {
     setLoading(true);
     try {
-      // Use timezone-aware date range to properly capture punches
-      // The punchDate is in YYYY-MM-DD format representing the local date
-      // We need to find punches that occurred during that local date
+      const dayStart = parseDateStringInTimezone(punchDate, timezone);
+      const fetchStart = new Date(dayStart);
+      fetchStart.setHours(fetchStart.getHours() - 12);
+
+      const dayEnd = getEndOfDateStringInTimezone(punchDate, timezone);
+      const fetchEnd = new Date(dayEnd);
+      fetchEnd.setHours(fetchEnd.getHours() + 12);
+
       const { data, error } = await supabase
         .from('time_punches')
         .select('id, punch_time, punch_type, notes')
         .eq('user_id', userId)
         .eq('location_id', locationId)
+        .gte('punch_time', fetchStart.toISOString())
+        .lte('punch_time', fetchEnd.toISOString())
         .order('punch_time', { ascending: true });
 
       if (error) throw error;
 
-      // Filter punches to those that fall on the target date in the location's timezone
-      const filteredPunches = (data || []).filter(punch => {
-        const punchLocalDate = formatInTimeZone(parseISO(punch.punch_time), timezone, 'yyyy-MM-dd');
-        return punchLocalDate === punchDate;
-      });
-
-      const sortedPunches = [...filteredPunches].sort((a, b) => 
+      const sortedPunches = [...(data || [])].sort((a, b) => 
         new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
       );
 
@@ -112,13 +113,15 @@ export function EditPunchDialog({
             (p, index) => index > targetClockInIndex && p.punch_type === 'clock_in'
           );
 
-      const scopedPunches = targetClockInIndex === -1
-        ? filteredPunches
-        : sortedPunches.filter((_, index) => {
-            if (index < targetClockInIndex) return false;
-            if (nextClockInIndex !== -1 && index >= nextClockInIndex) return false;
-            return true;
-          });
+      if (targetClockInIndex === -1) {
+        throw new Error(`Could not find selected clock-in ${clockInId} for ${userId}`);
+      }
+
+      const scopedPunches = sortedPunches.filter((_, index) => {
+        if (index < targetClockInIndex) return false;
+        if (nextClockInIndex !== -1 && index >= nextClockInIndex) return false;
+        return true;
+      });
 
       setPunches(scopedPunches);
 
@@ -127,7 +130,7 @@ export function EditPunchDialog({
         new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
       );
       
-      const clockIn = relevantPunches.find(p => p.punch_type === 'clock_in');
+      const clockIn = relevantPunches.find(p => p.id === clockInId) || relevantPunches.find(p => p.punch_type === 'clock_in');
       const clockOut = relevantPunches.find(p => p.punch_type === 'clock_out');
       
       // Find ALL break_start and break_end punches
@@ -297,9 +300,7 @@ export function EditPunchDialog({
         // Only advance date if clock-out hour is earlier than clock-in hour
         // (indicating overnight shift, e.g., in at 10 PM, out at 2 AM)
         if (outHour < inHour) {
-          const nextDay = new Date(baseDate);
-          nextDay.setDate(nextDay.getDate() + 1);
-          return nextDay.toISOString().slice(0, 10);
+          return formatInTimeZone(addDays(parseDateStringInTimezone(baseDate, timezone), 1), timezone, 'yyyy-MM-dd');
         }
         return baseDate;
       };
