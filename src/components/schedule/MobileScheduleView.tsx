@@ -343,20 +343,15 @@ export function MobileScheduleView({
         const matchesDate = (iso: string) =>
           new Date(iso).toLocaleDateString('en-CA', { timeZone: timezone }) === punchDateStr;
 
-        const candidates = shiftGroups.filter(
-          (s) =>
-            matchesDate(s.clockIn.punch_time) ||
-            (s.clockOut && matchesDate(s.clockOut.punch_time))
-        );
+        // A shift belongs to its CLOCK-IN (business) date. Overnight shifts that
+        // close after midnight stay anchored to the day they started — they must
+        // NOT show up on the next calendar day as "clocked out".
+        const candidates = shiftGroups.filter((s) => matchesDate(s.clockIn.punch_time));
         if (candidates.length === 0) return;
 
-        // Within candidates, prefer an active (still-open) shift, then one whose
-        // clock_in is on the date, then one whose clock_out is on the date.
+        // Prefer an active (still-open) shift, otherwise the latest one that started today.
         const activeShift = candidates.find((s) => !s.clockOut);
-        const inOnDate = candidates.find((s) => matchesDate(s.clockIn.punch_time));
-        const outOnDate = candidates.find((s) => s.clockOut && matchesDate(s.clockOut.punch_time));
-
-        const chosen = activeShift || inOnDate || outOnDate;
+        const chosen = activeShift || candidates[candidates.length - 1];
         if (!chosen) return;
 
         // STEP 3: Compute hours, with sanity cap on stale "active" shifts.
