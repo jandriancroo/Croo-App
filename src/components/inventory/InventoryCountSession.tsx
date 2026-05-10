@@ -538,12 +538,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, [panCounts]);
 
   // Calculate total quantity for an item:
-  //   cases × pack_quantity + inner_packs × inner_pack_quantity + units + pan_units
+  //   cases × (pack_quantity × inner_pack_quantity when present, else pack_quantity)
+  //   + inner_packs × inner_pack_quantity + units + pan_units
   // Uses rawInputs if available (live typing), falls back to committed counts.
   // innerPackQuantity is null/undefined for items without an inner-pack tier — that term collapses to 0.
   const getTotalQuantity = useCallback((itemId: string, packQuantity: number | null, panSizes?: PanSizesConfig | null, innerPackQuantity?: number | null) => {
     const packQty = packQuantity || 1;
     const innerPackQty = innerPackQuantity || 0;
+    const caseUnits = innerPackQty > 0 ? packQty * innerPackQty : packQty;
     // Prefer live rawInputs so cost updates while the user is typing
     const rawCases = parseFloat(rawInputs[itemId]?.cases ?? '');
     const rawUnits = parseFloat(rawInputs[itemId]?.units ?? '');
@@ -553,7 +555,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const innerVal = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
     const panUnits = panSizes !== undefined ? getPanUnitsTotal(itemId, panSizes) : 0;
-    return Math.round((casesVal * packQty + innerVal * innerPackQty + unitsVal + panUnits) * 100) / 100;
+    return Math.round((casesVal * caseUnits + innerVal * innerPackQty + unitsVal + panUnits) * 100) / 100;
   }, [counts, rawInputs, getPanUnitsTotal]);
 
   // Calculate cost for a single item (supports recipe cost trickle-down)
@@ -586,10 +588,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const innerVal = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
     const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
-    // Phase 3: inner packs roll into entered_units for the shared SOT valuation,
-    // mirroring how pan units are folded in. innerPackQty=0 collapses cleanly.
     const innerPackQty = (item as any).inner_pack_quantity || 0;
-    const innerPackUnits = innerVal * innerPackQty;
 
     // [hydration-drift diagnostic] compare hydrated counts vs DB existing values
     const dbCases = Number((item as any)._existingCases ?? 0);
@@ -602,7 +601,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         casesVal, dbCases,
         unitsVal, dbUnits,
         panUnits,
-        innerPackUnits,
+        innerPacksVal: innerVal,
+        innerPackQty,
       });
     }
 
@@ -617,9 +617,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       {
         quantity: null,
         entered_cases: casesVal,
-        entered_units: unitsVal + panUnits + innerPackUnits,
+        entered_units: unitsVal + panUnits,
+        entered_inner_packs: innerVal,
         cost_at_count: null,
         pack_quantity_at_count: null,
+        inner_pack_quantity_at_count: innerPackQty || null,
       },
       {
         brand_item_id: item.brand_item_id,
@@ -628,6 +630,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         // so calculateCountItemValue receives the same shape as Period/Review/Export.
         pack_quantity: (item as any)._rawPackQuantity ?? item.pack_quantity,
         pack_quantity_override: (item as any)._rawPackQuantityOverride ?? null,
+        inner_pack_quantity: innerPackQty || null,
       },
       conversion || null,
       true
