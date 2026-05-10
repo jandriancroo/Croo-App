@@ -27,11 +27,13 @@ interface CountItem {
   quantity: number;
   cost_at_count?: number | null;
   pack_quantity_at_count?: number | null;
+  inner_pack_quantity_at_count?: number | null;
   item: {
     name: string;
     unit: string;
     cost_per_unit: number | null;
     pack_quantity: number | null;
+    inner_pack_quantity?: number | null;
     pack_quantity_override?: number | null;
     brand_item_id?: string | null;
     pack_size: string | null;
@@ -47,6 +49,14 @@ interface AuditEdit {
   new_qty: number;
   logged_at: string;
   userName: string;
+}
+
+function getInnerPackLabel(itemName: string | null | undefined): string {
+  const n = (itemName || '').toLowerCase();
+  if (/\b(cup|lid)s?\b/.test(n)) return 'slv';
+  if (/\b(pizza\s*box|to-?go\s*bag|bag|napkin|liner)s?\b/.test(n)) return 'bdl';
+  if (/\b(glove|packet)s?\b/.test(n)) return 'box';
+  return 'pk';
 }
 
 const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCountViewProps) => {
@@ -86,8 +96,10 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
           quantity,
           cost_at_count,
           pack_quantity_at_count,
+          inner_pack_quantity_at_count,
           entered_cases,
           entered_units,
+          entered_inner_packs,
           storage_location_id,
           count_storage_location:inventory_locations(name, display_order),
           item:inventory_items(
@@ -97,6 +109,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
             cost_per_unit,
             pack_quantity,
             pack_quantity_override,
+            inner_pack_quantity,
             brand_item_id,
             pack_size,
             item_number,
@@ -355,24 +368,30 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                           </TableHeader>
                           <TableBody>
                             {items.map((item) => {
-                              const hasEnteredValues = (item as any).entered_cases != null || (item as any).entered_units != null;
+                              const hasEnteredValues = (item as any).entered_cases != null || (item as any).entered_units != null || (item as any).entered_inner_packs != null;
                               let cases: number;
+                              let innerPacks: number;
                               let units: number;
                               if (hasEnteredValues) {
                                 cases = (item as any).entered_cases ?? 0;
+                                innerPacks = (item as any).entered_inner_packs ?? 0;
                                 units = (item as any).entered_units ?? 0;
                               } else {
                                 const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || null);
                                 const hasPackQty = packQty != null && packQty > 1;
                                 cases = hasPackQty ? Math.floor(item.quantity / packQty) : 0;
+                                innerPacks = 0;
                                 units = hasPackQty ? Math.round((item.quantity % packQty) * 100) / 100 : item.quantity;
                               }
                               const value = getItemValue(item);
                               const itemEdits = editHistory?.get(item.item_id) || [];
                               const hasEdits = itemEdits.length > 0;
+                              const innerPackQty = item.inner_pack_quantity_at_count ?? item.item?.inner_pack_quantity ?? null;
+                              const innerPackLabel = getInnerPackLabel(item.item?.name);
                               
                               const smartParts: string[] = [];
                               if (cases > 0) smartParts.push(`${cases} cs`);
+                              if ((innerPacks || 0) > 0 && innerPackQty != null && innerPackQty > 0) smartParts.push(`${innerPacks} ${innerPackLabel}`);
                               if (units > 0) smartParts.push(`${units % 1 === 0 ? units : units.toFixed(1)} ea`);
                               if (smartParts.length === 0 && item.quantity === 0) smartParts.push("0");
                               if (smartParts.length === 0) smartParts.push(`${item.quantity} ea`);
