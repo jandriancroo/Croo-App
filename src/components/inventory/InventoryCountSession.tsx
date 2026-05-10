@@ -1013,7 +1013,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           if (error) throw error;
           for (const ins of toInsert) {
             const k = `${ins.item_id}|${ins.storage_location_id || ''}`;
-            lastSavedQuantitiesRef.current.set(k, `${ins.quantity}|${ins.entered_cases}|${ins.entered_units}`);
+            lastSavedQuantitiesRef.current.set(k, `${ins.quantity}|${ins.entered_cases}|${ins.entered_units}|${ins.entered_inner_packs ?? 0}`);
             failedItemsRef.current.delete(k);
           }
           saved += toInsert.length;
