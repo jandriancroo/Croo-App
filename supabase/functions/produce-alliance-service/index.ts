@@ -1540,6 +1540,13 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
         if (templateId) updateData.brand_item_id = templateId;
       }
       toUpsert.push(updateData);
+
+      // Phase 5: queue an inner-pack patch only when we confidently parsed one.
+      // Done as a separate guarded update so we never overwrite a manual edit.
+      const innerPackQty = parseInnerPackQuantity(item.description);
+      if (innerPackQty) {
+        (updateData as any).__innerPackQty = innerPackQty;
+      }
     } else {
       // VENDOR GATE: Do NOT create new inventory_items.
       // Route unmatched PA items to vendor_gap_alerts for brand-level resolution.
