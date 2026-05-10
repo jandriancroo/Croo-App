@@ -1049,6 +1049,29 @@ function parsePackFromName(name: string): { packSize: string | null; packQuantit
   return { packSize: null, packQuantity: null, packUnit: null };
 }
 
+// Parse the inner-pack quantity (sleeves / bundles / inner boxes) from a free-form
+// description or item name. Mirrors the PFG parser. Patterns:
+//   "50/slv", "50/sleeve", "50 per sleeve"
+//   "25/bundle", "25/bdl", "25/bx"
+//   "100/pk", "100/pack", "100/inner"
+// Conservative: returns null when no clear "<N>/<word>" or "<N> per <word>" hit.
+function parseInnerPackQuantity(text: string | undefined | null): number | null {
+  if (!text) return null;
+  const m = text.match(
+    /(\d+)\s*(?:\/|\s+per\s+)\s*(slv|sleeve|sleeves|bdl|bundle|bundles|inner(?:\s+pack)?|pk|pack|packs|bx|box|boxes)\b/i,
+  );
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (Number.isFinite(n) && n > 1 && n <= 10000) return n;
+  }
+  const m2 = text.match(/(\d+)\s+inner\b/i);
+  if (m2) {
+    const n = parseInt(m2[1], 10);
+    if (Number.isFinite(n) && n > 1 && n <= 10000) return n;
+  }
+  return null;
+}
+
 // ============================================================================
 // ACTION HANDLERS
 // ============================================================================
