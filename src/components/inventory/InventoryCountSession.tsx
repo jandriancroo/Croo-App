@@ -1869,7 +1869,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
                 <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
                 <p className="text-[9px] text-accent-foreground/70 text-center">
-                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : item.pack_quantity, item.pan_sizes)} {item.is_recipe ? (item.unit || 'ea') : 'units'}
+                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : item.pack_quantity, item.pan_sizes, innerPackQty)} {item.is_recipe ? (item.unit || 'ea') : 'units'}
                 </p>
               </div>
 
