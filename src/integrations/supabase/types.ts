@@ -686,8 +686,8 @@ export type Database = {
           pack_override_inner_type: string | null
           pack_override_outer_qty: number | null
           pack_override_outer_type: string | null
-          pan_baseline_key: string
-          pan_enabled_keys: string[]
+          pan_baseline_key: string | null
+          pan_enabled_keys: string[] | null
           pan_overrides: Json | null
           pan_units_per_lb: number | null
           pan_units_per_unit: number | null
@@ -728,8 +728,8 @@ export type Database = {
           pack_override_inner_type?: string | null
           pack_override_outer_qty?: number | null
           pack_override_outer_type?: string | null
-          pan_baseline_key?: string
-          pan_enabled_keys?: string[]
+          pan_baseline_key?: string | null
+          pan_enabled_keys?: string[] | null
           pan_overrides?: Json | null
           pan_units_per_lb?: number | null
           pan_units_per_unit?: number | null
@@ -770,8 +770,8 @@ export type Database = {
           pack_override_inner_type?: string | null
           pack_override_outer_qty?: number | null
           pack_override_outer_type?: string | null
-          pan_baseline_key?: string
-          pan_enabled_keys?: string[]
+          pan_baseline_key?: string | null
+          pan_enabled_keys?: string[] | null
           pan_overrides?: Json | null
           pan_units_per_lb?: number | null
           pan_units_per_unit?: number | null
