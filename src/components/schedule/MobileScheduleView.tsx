@@ -207,7 +207,7 @@ export function MobileScheduleView({
       // Parallel queries for all data
       const punchesQuery = supabase
         .from('time_punches')
-        .select('id, user_id, punch_time, punch_type, notes, created_by')
+        .select('id, user_id, punch_time, punch_type, notes, created_by, shift_id')
         .eq('location_id', currentLocation.id)
         .gte('punch_time', startOfDayTime)
         .lte('punch_time', endOfDayTime)
@@ -291,6 +291,7 @@ export function MobileScheduleView({
         // OR when we see a second clock_in without an intervening clock_out — in which case
         // we treat the prior open shift as orphaned and abandon it).
         type ShiftGroup = {
+          shiftId: string | null;
           clockIn: { id: string; punch_time: string; created_by: string | null };
           clockOut: { punch_time: string } | null;
           breakStart: { punch_time: string; notes: string } | null;
@@ -304,6 +305,7 @@ export function MobileScheduleView({
             // If there's an open shift with no clock_out, push it (orphaned) and start fresh.
             if (current) shiftGroups.push(current);
             current = {
+              shiftId: p.shift_id ?? null,
               clockIn: { id: p.id, punch_time: p.punch_time, created_by: p.created_by },
               clockOut: null,
               breakStart: null,
@@ -313,6 +315,7 @@ export function MobileScheduleView({
           }
           if (p.punch_type === 'clock_out') {
             if (!current) return; // orphan clock_out, ignore
+            if (!current.shiftId && p.shift_id) current.shiftId = p.shift_id;
             current.clockOut = { punch_time: p.punch_time };
             shiftGroups.push(current);
             current = null;
@@ -320,12 +323,14 @@ export function MobileScheduleView({
           }
           if (p.punch_type === 'break_start') {
             if (!current) return;
+            if (!current.shiftId && p.shift_id) current.shiftId = p.shift_id;
             current.breakStart = { punch_time: p.punch_time, notes: p.notes || '' };
             current.breakEnd = null;
             return;
           }
           if (p.punch_type === 'break_end') {
             if (!current) return;
+            if (!current.shiftId && p.shift_id) current.shiftId = p.shift_id;
             current.breakEnd = { punch_time: p.punch_time };
             return;
           }
@@ -390,7 +395,9 @@ export function MobileScheduleView({
         }
         const hoursWorked = rawHours;
 
-        const scheduledShift = todayScheduledShifts.find((s) => s.user_id === userId);
+        const scheduledShift = chosen.shiftId
+          ? todayScheduledShifts.find((s) => s.id === chosen.shiftId)
+          : todayScheduledShifts.find((s) => s.user_id === userId);
         const createdByOther = chosen.clockIn.created_by && chosen.clockIn.created_by !== userId;
         const createdByName = createdByOther
           ? creatorMap.get(chosen.clockIn.created_by!) || null

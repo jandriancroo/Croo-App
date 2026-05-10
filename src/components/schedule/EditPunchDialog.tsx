@@ -11,6 +11,7 @@ import { addDays, parseISO } from 'date-fns';
 import { getEndOfDateStringInTimezone, parseDateStringInTimezone, toISOStringInTimezone } from '@/utils/timezoneUtils';
 import { Clock, Trash2, Plus, X } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
+import { DateTime } from 'luxon';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,7 @@ interface PunchRecord {
   punch_time: string;
   punch_type: string;
   notes?: string | null;
+  shift_id?: string | null;
 }
 
 interface EditPunchDialogProps {
@@ -90,7 +92,7 @@ export function EditPunchDialog({
 
       const { data, error } = await supabase
         .from('time_punches')
-        .select('id, punch_time, punch_type, notes')
+        .select('id, punch_time, punch_type, notes, shift_id')
         .eq('user_id', userId)
         .eq('location_id', locationId)
         .gte('punch_time', fetchStart.toISOString())
@@ -231,19 +233,29 @@ export function EditPunchDialog({
     setBreaks(newBreaks);
   };
 
-  // Helper to check if a time is in the future
-  const isTimeInFuture = (timeStr: string): boolean => {
+  const resolvePunchDate = (type: string, timeStr: string) => {
+    if (type !== 'clock_out' || !clockInTime) return punchDate;
+
+    const [outHour] = timeStr.split(':').map(Number);
+    const [inHour] = clockInTime.split(':').map(Number);
+
+    if (outHour < inHour) {
+      return formatInTimeZone(addDays(parseDateStringInTimezone(punchDate, timezone), 1), timezone, 'yyyy-MM-dd');
+    }
+
+    return punchDate;
+  };
+
+  const isPunchInFuture = (type: string, timeStr: string): boolean => {
     if (!timeStr) return false;
-    const now = new Date();
-    const nowInTimezone = formatInTimeZone(now, timezone, 'yyyy-MM-dd HH:mm');
-    const [nowDate, nowTime] = nowInTimezone.split(' ');
-    
-    // If the punch date is in the future, ALL times are in the future
-    if (punchDate > nowDate) return true;
-    // If the punch date is in the past, no time is "in the future"
-    if (punchDate < nowDate) return false;
-    // Same day - compare times
-    return timeStr > nowTime;
+
+    const resolvedDate = resolvePunchDate(type, timeStr);
+    const punchMoment = DateTime.fromISO(`${resolvedDate}T${timeStr}`, { zone: timezone });
+    const nowMoment = DateTime.now().setZone(timezone);
+
+    if (!punchMoment.isValid) return false;
+
+    return punchMoment.toMillis() > nowMoment.toMillis();
   };
 
   const handleSave = async () => {
@@ -253,11 +265,11 @@ export function EditPunchDialog({
     }
 
     // Validate that punch times are not in the future
-    if (isTimeInFuture(clockInTime)) {
+    if (isPunchInFuture('clock_in', clockInTime)) {
       toast.error('Clock in time cannot be in the future');
       return;
     }
-    if (showClockOut && clockOutTime && isTimeInFuture(clockOutTime)) {
+    if (showClockOut && clockOutTime && isPunchInFuture('clock_out', clockOutTime)) {
       toast.error('Clock out time cannot be in the future');
       return;
     }
@@ -265,11 +277,11 @@ export function EditPunchDialog({
     // Validate all breaks
     for (let i = 0; i < breaks.length; i++) {
       const brk = breaks[i];
-      if (brk.startTime && isTimeInFuture(brk.startTime)) {
+      if (brk.startTime && isPunchInFuture('break_start', brk.startTime)) {
         toast.error(`Break ${i + 1} start time cannot be in the future`);
         return;
       }
-      if (brk.endTime && isTimeInFuture(brk.endTime)) {
+      if (brk.endTime && isPunchInFuture('break_end', brk.endTime)) {
         toast.error(`Break ${i + 1} end time cannot be in the future`);
         return;
       }
@@ -293,18 +305,6 @@ export function EditPunchDialog({
       // ONLY applies to clock_out - breaks and clock_in always use the base date
       // This prevents bugs where backdating a break (e.g., 8:30 AM with 1 PM clock-in)
       // incorrectly rolls to the next day
-      const getAdjustedDateForClockOut = (clockOutTime: string, clockInTime: string, baseDate: string): string => {
-        const [outHour] = clockOutTime.split(':').map(Number);
-        const [inHour] = clockInTime.split(':').map(Number);
-        
-        // Only advance date if clock-out hour is earlier than clock-in hour
-        // (indicating overnight shift, e.g., in at 10 PM, out at 2 AM)
-        if (outHour < inHour) {
-          return formatInTimeZone(addDays(parseDateStringInTimezone(baseDate, timezone), 1), timezone, 'yyyy-MM-dd');
-        }
-        return baseDate;
-      };
-
       // Update or create clock in/out
       const updates: Array<{ type: string; time: string; existingId?: string; notes?: string }> = [];
 
@@ -335,9 +335,7 @@ export function EditPunchDialog({
       for (const update of updates) {
         // Use timezone-aware conversion to ISO string
         // Only clock_out can cross midnight - all other punch types stay on the shift's start date
-        const adjustedDate = update.type === 'clock_out' 
-          ? getAdjustedDateForClockOut(update.time, clockInTime, punchDate)
-          : punchDate;
+        const adjustedDate = resolvePunchDate(update.type, update.time);
         const punchTime = toISOStringInTimezone(adjustedDate, update.time, timezone);
 
         if (update.existingId) {
