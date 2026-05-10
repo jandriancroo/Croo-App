@@ -111,7 +111,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   });
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
-  const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
+  const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string; innerPacks?: string }>>({});
   // panCounts: itemId -> { panKey -> count of that pan }
   const [panCounts, setPanCounts] = useState<Record<string, Record<string, number>>>({});
   // rawPanInputs: itemId -> { panKey -> raw string while typing }
