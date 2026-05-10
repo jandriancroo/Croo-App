@@ -422,29 +422,35 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const key = (item as any)._splitKey || item.item_id;
       const existingCases = (item as any)._existingCases;
       const existingUnits = (item as any)._existingUnits;
+      const existingInnerPacks = (item as any)._existingInnerPacks;
       const existingPanInputs = (item as any)._existingPanInputs;
       const totalUnits = (item as any)._existingQuantity || 0;
       // For previously-saved rows, the effective pack qty must match the one used
       // when the row was saved — otherwise shortcut/junction pack-qty overrides
       // applied later would fabricate phantom diffs on edit.
       const packQty = (item as any)._packQuantityAtCount ?? item.pack_quantity ?? 1;
+      // Phase 3: snapshot inner_pack_quantity at save time, fall back to live for new rows.
+      const innerPackQty = (item as any)._innerPackQuantityAtCount ?? (item as any).inner_pack_quantity ?? null;
       
-      // PHASE 1 (source of truth): entered_cases / entered_units / pan_inputs are
-      // the authoritative inputs. `quantity` is derived only at save time and is
+      // PHASE 1 (source of truth): entered_cases / entered_units / entered_inner_packs / pan_inputs
+      // are the authoritative inputs. `quantity` is derived only at save time and is
       // never read here. Fall back to decomposing quantity ONLY for truly legacy
-      // rows that never stored the split (both fields null).
+      // rows that never stored the split (all fields null).
       const hasStoredInput =
         (existingCases !== null && existingCases !== undefined) ||
-        (existingUnits !== null && existingUnits !== undefined);
+        (existingUnits !== null && existingUnits !== undefined) ||
+        (existingInnerPacks !== null && existingInnerPacks !== undefined);
       if (hasStoredInput) {
         initialCounts[key] = {
           cases: existingCases ?? 0,
           units: existingUnits ?? 0,
+          innerPacks: existingInnerPacks ?? 0,
         };
       } else {
         initialCounts[key] = {
           cases: Math.floor(totalUnits / packQty),
-          units: totalUnits % packQty
+          units: totalUnits % packQty,
+          innerPacks: 0,
         };
       }
 
@@ -460,13 +466,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       }
 
       // Dev validator: flag rows where stored quantity disagrees with derived
-      // (cases × pack + units + pan units). Surfaces silent split/pan drift.
+      // (cases × pack + inner_packs × inner_pack + units + pan units).
       if (import.meta.env.DEV && hasStoredInput) {
         const panTotal = Object.entries(initialPanCounts[key] || {}).reduce((sum, [pk, qty]) => {
           const unitsPer = item.pan_sizes ? (getPanUnits(item.pan_sizes, pk) ?? 0) : 0;
           return sum + unitsPer * (qty as number);
         }, 0);
-        const derived = (existingCases ?? 0) * packQty + (existingUnits ?? 0) + panTotal;
+        const innerPackTerm = innerPackQty != null ? (existingInnerPacks ?? 0) * innerPackQty : 0;
+        const derived = (existingCases ?? 0) * packQty + innerPackTerm + (existingUnits ?? 0) + panTotal;
         if (Math.abs(derived - totalUnits) > 0.01) {
           // eslint-disable-next-line no-console
           console.warn('[hydration-validator] quantity drift', {
@@ -474,7 +481,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             key,
             storedQuantity: totalUnits,
             derived,
-            cases: existingCases, units: existingUnits, packQty, panTotal,
+            cases: existingCases, units: existingUnits, innerPacks: existingInnerPacks, packQty, innerPackQty, panTotal,
           });
         }
       }
