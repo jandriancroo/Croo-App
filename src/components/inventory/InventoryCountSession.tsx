@@ -422,6 +422,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const packQty = (item as any)._packQuantityAtCount ?? item.pack_quantity ?? 1;
       // Phase 3: snapshot inner_pack_quantity at save time, fall back to live for new rows.
       const innerPackQty = (item as any)._innerPackQuantityAtCount ?? (item as any).inner_pack_quantity ?? null;
+      const caseUnits = innerPackQty != null && innerPackQty > 0 ? packQty * innerPackQty : packQty;
       
       // PHASE 1 (source of truth): entered_cases / entered_units / entered_inner_packs / pan_inputs
       // are the authoritative inputs. `quantity` is derived only at save time and is
@@ -438,10 +439,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           innerPacks: existingInnerPacks ?? 0,
         };
       } else {
+        const wholeCases = Math.floor(totalUnits / caseUnits);
+        const afterCases = totalUnits - (wholeCases * caseUnits);
+        const wholeInnerPacks = innerPackQty != null && innerPackQty > 0 ? Math.floor(afterCases / innerPackQty) : 0;
+        const remainingUnits = afterCases - (wholeInnerPacks * (innerPackQty ?? 0));
         initialCounts[key] = {
-          cases: Math.floor(totalUnits / packQty),
-          units: totalUnits % packQty,
-          innerPacks: 0,
+          cases: wholeCases,
+          units: remainingUnits,
+          innerPacks: wholeInnerPacks,
         };
       }
 
@@ -464,7 +469,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           return sum + unitsPer * (qty as number);
         }, 0);
         const innerPackTerm = innerPackQty != null ? (existingInnerPacks ?? 0) * innerPackQty : 0;
-        const derived = (existingCases ?? 0) * packQty + innerPackTerm + (existingUnits ?? 0) + panTotal;
+        const derived = (existingCases ?? 0) * caseUnits + innerPackTerm + (existingUnits ?? 0) + panTotal;
         if (Math.abs(derived - totalUnits) > 0.01) {
           // eslint-disable-next-line no-console
           console.warn('[hydration-validator] quantity drift', {
