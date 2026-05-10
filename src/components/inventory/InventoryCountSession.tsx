@@ -1328,8 +1328,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       return {
         ...prev,
         [itemId]: {
+          ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
           cases: newValue,
-          units: prev[itemId]?.units || 0
         }
       };
     });
@@ -1359,7 +1359,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const updateUnits = (itemId: string, delta: number) => {
     setCounts(prev => {
       const newValue = Math.max(0, Math.round(((prev[itemId]?.units || 0) + delta) * 100) / 100);
-      // Also update raw input to stay in sync
       setRawInputs(p => ({
         ...p,
         [itemId]: { ...p[itemId], units: String(newValue) }
@@ -1367,8 +1366,26 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       return {
         ...prev,
         [itemId]: {
-          cases: prev[itemId]?.cases || 0,
-          units: newValue
+          ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+          units: newValue,
+        }
+      };
+    });
+  };
+
+  // Phase 4: third counting tier (Sleeves / Bundles / Inner Boxes / Inner Packs)
+  const updateInnerPacks = (itemId: string, delta: number) => {
+    setCounts(prev => {
+      const newValue = Math.max(0, Math.round(((prev[itemId]?.innerPacks || 0) + delta) * 100) / 100);
+      setRawInputs(p => ({
+        ...p,
+        [itemId]: { ...p[itemId], innerPacks: String(newValue) }
+      }));
+      return {
+        ...prev,
+        [itemId]: {
+          ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+          innerPacks: newValue,
         }
       };
     });
@@ -1391,7 +1408,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     setCounts(prev => ({
       ...prev,
-      [itemId]: { cases: finalValue, units: prev[itemId]?.units || 0 }
+      [itemId]: {
+        ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+        cases: finalValue,
+      }
     }));
     
     setRawInputs(prev => ({
@@ -1417,12 +1437,40 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     setCounts(prev => ({
       ...prev,
-      [itemId]: { cases: prev[itemId]?.cases || 0, units: finalValue }
+      [itemId]: {
+        ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+        units: finalValue,
+      }
     }));
     
     setRawInputs(prev => ({
       ...prev,
       [itemId]: { ...prev[itemId], units: String(finalValue) }
+    }));
+  };
+
+  // Phase 4: inner pack input handlers
+  const handleInnerPacksInput = (itemId: string, inputValue: string) => {
+    setRawInputs(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], innerPacks: inputValue, cases: prev[itemId]?.cases || '', units: prev[itemId]?.units || '' }
+    }));
+  };
+
+  const handleInnerPacksBlur = (itemId: string) => {
+    const rawValue = rawInputs[itemId]?.innerPacks || '';
+    const value = parseFloat(rawValue);
+    const finalValue = isNaN(value) ? 0 : Math.max(0, value);
+    setCounts(prev => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || { cases: 0, units: 0, innerPacks: 0 }),
+        innerPacks: finalValue,
+      }
+    }));
+    setRawInputs(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], innerPacks: String(finalValue) }
     }));
   };
 
