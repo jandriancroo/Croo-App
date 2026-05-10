@@ -81,4 +81,38 @@ describe('calculateCountItemValue', () => {
     // 2 × $50 + 7 × $50 / 10 = $100 + $35 = $135
     expect(result).toBeCloseTo(135, 2);
   });
+
+  it('values cases, packs, and units for nested packaging correctly', () => {
+    const result = calculateCountItemValue(
+      {
+        quantity: 50,
+        entered_cases: 0,
+        entered_units: 0,
+        entered_inner_packs: 1,
+        cost_at_count: 31.59,
+        pack_quantity_at_count: 6,
+        inner_pack_quantity_at_count: 50,
+      },
+      { pack_quantity: 6, inner_pack_quantity: 50 },
+      null
+    );
+    expect(result).toBeCloseTo(5.27, 2);
+  });
+
+  it('values a full nested case correctly', () => {
+    const result = calculateCountItemValue(
+      {
+        quantity: 300,
+        entered_cases: 1,
+        entered_units: 0,
+        entered_inner_packs: 0,
+        cost_at_count: 31.59,
+        pack_quantity_at_count: 6,
+        inner_pack_quantity_at_count: 50,
+      },
+      { pack_quantity: 6, inner_pack_quantity: 50 },
+      null
+    );
+    expect(result).toBeCloseTo(31.59, 2);
+  });
 });

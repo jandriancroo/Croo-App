@@ -25,6 +25,7 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
 
   const enteredCasesNum = Number(ci?.entered_cases || 0);
   const enteredUnitsNum = Number(ci?.entered_units || 0);
+  const enteredInnerPacksNum = Number(ci?.entered_inner_packs || 0);
   const quantityNum = Number(ci?.quantity || 0);
 
   const pipeline1PackQty = conversion
@@ -41,21 +42,28 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
 
   const packQty = Number(packQtyRaw);
   const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;
+  const innerPackQtyRaw = forceLiveData
+    ? (item?.inner_pack_quantity ?? null)
+    : (ci?.inner_pack_quantity_at_count ?? item?.inner_pack_quantity ?? null);
+  const innerPackQty = Number(innerPackQtyRaw);
+  const safeInnerPackQty = Number.isFinite(innerPackQty) && innerPackQty > 0 ? innerPackQty : 0;
+  const caseUnits = safeInnerPackQty > 0 ? safePackQty * safeInnerPackQty : safePackQty;
 
-  const hasEntered = ci?.entered_cases != null || ci?.entered_units != null;
+  const hasEntered = ci?.entered_cases != null || ci?.entered_units != null || ci?.entered_inner_packs != null;
   let value: number;
   if (hasEntered) {
     // Pan-inclusive: derive non-case units from quantity (which folds in pan units)
     // so Period/Review match Edit Count's pan-aware total.
     const caseValue = enteredCasesNum * costPerCase;
-    const derivedNonCaseUnits = quantityNum - (enteredCasesNum * safePackQty);
-    const nonCaseUnits = quantityNum > 0 && derivedNonCaseUnits >= enteredUnitsNum
+    const derivedNonCaseUnits = quantityNum - (enteredCasesNum * caseUnits);
+    const fallbackNonCaseUnits = enteredUnitsNum + (enteredInnerPacksNum * safeInnerPackQty);
+    const nonCaseUnits = quantityNum > 0 && derivedNonCaseUnits >= fallbackNonCaseUnits
       ? derivedNonCaseUnits
-      : enteredUnitsNum;
-    const unitValue = (nonCaseUnits * costPerCase) / safePackQty;
+      : fallbackNonCaseUnits;
+    const unitValue = (nonCaseUnits * costPerCase) / caseUnits;
     value = caseValue + unitValue;
   } else {
-    value = quantityNum * (costPerCase / safePackQty);
+    value = quantityNum * (costPerCase / caseUnits);
   }
 
   if (!Number.isFinite(value) || value < 0) {
