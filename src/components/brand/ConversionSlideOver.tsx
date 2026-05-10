@@ -397,6 +397,16 @@ export default function ConversionSlideOver({
           <TabsContent value="conversion" className="flex-1 overflow-y-auto px-5 py-4 space-y-5 mt-0">
             {!currentItem ? (
               <div className="text-sm text-muted-foreground text-center py-12">No item selected</div>
+            ) : currentItem.is_recipe ? (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium text-foreground">Recipe — tracked by batch</div>
+                  <div className="text-muted-foreground mt-1">
+                    Yield is managed in the Recipe Builder. No case conversion needed.
+                  </div>
+                </div>
+              </div>
             ) : (
               <>
                 {activeConversion && activeConversion.source !== 'needs_review' && (
