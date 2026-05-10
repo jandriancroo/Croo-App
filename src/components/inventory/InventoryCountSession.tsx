@@ -69,10 +69,20 @@ interface CountItem {
   count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
 }
 
-// Count state: cases + individual units (supports decimals for partial cases)
+// Count state: cases + inner packs + individual units (supports decimals for partial cases)
 interface ItemCount {
   cases: number;
+  innerPacks: number;
   units: number;
+}
+
+// Phase 4: infer the user-facing label for the inner-pack tier from item name.
+function getInnerPackLabel(itemName: string | null | undefined): string {
+  const n = (itemName || '').toLowerCase();
+  if (/\b(cup|lid)s?\b/.test(n)) return 'Sleeves';
+  if (/\b(pizza\s*box|to-?go\s*bag|bag|napkin|liner)s?\b/.test(n)) return 'Bundles';
+  if (/\b(glove|packet)s?\b/.test(n)) return 'Inner Boxes';
+  return 'Inner Packs';
 }
 
 interface PendingEdit {
