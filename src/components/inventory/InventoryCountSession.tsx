@@ -72,8 +72,9 @@ interface CountItem {
 // Count state: cases + inner packs + individual units (supports decimals for partial cases)
 interface ItemCount {
   cases: number;
-  innerPacks: number;
   units: number;
+  /** Phase 4: optional inner-pack tier (sleeves/bundles/inner boxes). Defaults to 0 when item has no inner_pack_quantity. */
+  innerPacks?: number;
 }
 
 // Phase 4: infer the user-facing label for the inner-pack tier from item name.
