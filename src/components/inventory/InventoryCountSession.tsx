@@ -1988,6 +1988,45 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                     )}
 
+                    {/* Phase 4: Inner pack counter — Sleeves / Bundles / Inner Boxes / Inner Packs */}
+                    {showInnerPacks && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
+                        {innerPackLabel}
+                        <span className="ml-1 normal-case tracking-normal">({innerPackQty}/ea)</span>
+                      </p>
+                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateInnerPacks(splitKey, -1)}
+                          >
+                            <Minus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rawInputs[splitKey]?.innerPacks ?? (count.innerPacks ?? 0)}
+                          onChange={(e) => handleInnerPacksInput(splitKey, e.target.value)}
+                          onBlur={() => handleInnerPacksBlur(splitKey)}
+                          disabled={isViewOnly}
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                        />
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateInnerPacks(splitKey, 1)}
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    )}
+
                     {/* Units counter — hidden if count_by=cases_only */}
                     {showUnits && (
                     <div>
