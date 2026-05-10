@@ -337,6 +337,32 @@ const parsePackQuantity = (packSize: string | undefined): number | null => {
   return match ? parseInt(match[1], 10) : null;
 };
 
+// Parse the inner-pack quantity (sleeves / bundles / inner boxes) from a free-form
+// product description or name. PFG packSize gives us only outer/inner case structure
+// ("6 / 1 LB"), but the inner-pack tier (e.g. 50 cups per sleeve, 25 boxes per bundle)
+// shows up in the description text. Patterns recognized:
+//   "50/slv", "50/sleeve", "50 per sleeve"
+//   "25/bundle", "25/bdl", "25/bx"
+//   "100/pk", "100/pack", "100/inner", "300/cs 50 inner"
+// Conservative: returns null if no clear "<N>/<word>" or "<N> per <word>" hit.
+const parseInnerPackQuantity = (text: string | undefined | null): number | null => {
+  if (!text) return null;
+  const m = text.match(
+    /(\d+)\s*(?:\/|\s+per\s+)\s*(slv|sleeve|sleeves|bdl|bundle|bundles|inner(?:\s+pack)?|pk|pack|packs|bx|box|boxes)\b/i,
+  );
+  if (m) {
+    const n = parseInt(m[1], 10);
+    if (Number.isFinite(n) && n > 1 && n <= 10000) return n;
+  }
+  // "300/cs 50 inner" style — number directly before "inner"
+  const m2 = text.match(/(\d+)\s+inner\b/i);
+  if (m2) {
+    const n = parseInt(m2[1], 10);
+    if (Number.isFinite(n) && n > 1 && n <= 10000) return n;
+  }
+  return null;
+};
+
 // Parse a full PFG packSize string ("6 / 1 LB", "16 / 3.5 OZ", "1 / 1000CT")
 // into a normalized conversion record. Returns null for malformed strings
 // (e.g. "6 / #10 CN") so callers can skip them safely.
