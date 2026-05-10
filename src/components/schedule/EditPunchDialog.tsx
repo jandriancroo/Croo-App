@@ -106,12 +106,18 @@ export function EditPunchDialog({
         (p) => p.id === clockInId && p.punch_type === 'clock_in'
       );
 
+      const nextClockInIndex = targetClockInIndex === -1
+        ? -1
+        : sortedPunches.findIndex(
+            (p, index) => index > targetClockInIndex && p.punch_type === 'clock_in'
+          );
+
       const scopedPunches = targetClockInIndex === -1
         ? filteredPunches
-        : sortedPunches.filter((punch, index) => {
+        : sortedPunches.filter((_, index) => {
             if (index < targetClockInIndex) return false;
-            if (index === targetClockInIndex) return true;
-            return punch.punch_type !== 'clock_in';
+            if (nextClockInIndex !== -1 && index >= nextClockInIndex) return false;
+            return true;
           });
 
       setPunches(scopedPunches);
