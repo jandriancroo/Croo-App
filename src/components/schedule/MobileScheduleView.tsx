@@ -315,6 +315,7 @@ export function MobileScheduleView({
           }
           if (p.punch_type === 'clock_out') {
             if (!current) return; // orphan clock_out, ignore
+            if (!current.shiftId && p.shift_id) current.shiftId = p.shift_id;
             current.clockOut = { punch_time: p.punch_time };
             shiftGroups.push(current);
             current = null;
@@ -322,12 +323,14 @@ export function MobileScheduleView({
           }
           if (p.punch_type === 'break_start') {
             if (!current) return;
+            if (!current.shiftId && p.shift_id) current.shiftId = p.shift_id;
             current.breakStart = { punch_time: p.punch_time, notes: p.notes || '' };
             current.breakEnd = null;
             return;
           }
           if (p.punch_type === 'break_end') {
             if (!current) return;
+            if (!current.shiftId && p.shift_id) current.shiftId = p.shift_id;
             current.breakEnd = { punch_time: p.punch_time };
             return;
           }
