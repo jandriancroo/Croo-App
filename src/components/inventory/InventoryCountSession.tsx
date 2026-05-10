@@ -1240,19 +1240,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const storLocId = item.storage_location_id;
       const casesVal = counts[key]?.cases || 0;
       const unitsVal = counts[key]?.units || 0;
+      const innerVal = counts[key]?.innerPacks || 0;
+      const innerPackQty = (item as any).inner_pack_quantity ?? null;
       return {
         item_id: item.item_id,
-        quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes),
+        quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes, innerPackQty),
         storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
         entered_cases: casesVal,
         entered_units: unitsVal,
+        // Phase 3: third counting tier
+        entered_inner_packs: innerVal,
         item_name_at_count: item.item_name,
         cost_at_count: item.cost_per_unit,
         unit_at_count: item.unit,
+        pack_quantity_at_count: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+        // Phase 3: snapshot inner_pack_quantity at save time for historical immutability
+        inner_pack_quantity_at_count: innerPackQty,
+        pan_sizes_at_count: item.pan_sizes ?? null,
         // Audit log metadata (Palm Springs forensic logging)
         _item_name: item.item_name,
         _storage_location_name: item.storage_location,
         _pack_quantity: item.pack_quantity,
+        _inner_pack_quantity: innerPackQty,
         _pan_sizes: item.pan_sizes,
         _pan_inputs: panCounts[key] || null,
       };
