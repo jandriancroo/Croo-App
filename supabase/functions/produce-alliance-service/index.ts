@@ -1573,7 +1573,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   for (let i = 0; i < toUpsert.length; i += 25) {
     const chunk = toUpsert.slice(i, i + 25);
     const results = await Promise.all(
-      chunk.map(async ({ id, ...payload }) => {
+      chunk.map(async ({ id, __innerPackQty, ...payload }: any) => {
         const { error } = await supabase
           .from('inventory_items')
           .update(payload)
@@ -1581,6 +1581,16 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
 
         if (error) {
           updateFailures.push({ id, message: error.message });
+        }
+
+        // Phase 5: inner-pack patch — only when parsed AND currently null.
+        // Guarded so manual edits are never overwritten.
+        if (__innerPackQty) {
+          await supabase
+            .from('inventory_items')
+            .update({ inner_pack_quantity: __innerPackQty })
+            .eq('id', id)
+            .is('inner_pack_quantity', null);
         }
       })
     );
