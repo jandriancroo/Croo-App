@@ -2981,8 +2981,10 @@ export type Database = {
           count_id: string | null
           counted_at: string
           entered_cases: number | null
+          entered_inner_packs: number | null
           entered_units: number | null
           id: string
+          inner_pack_quantity_at_count: number | null
           item_id: string | null
           item_name_at_count: string | null
           pack_quantity_at_count: number | null
@@ -3000,8 +3002,10 @@ export type Database = {
           count_id?: string | null
           counted_at?: string
           entered_cases?: number | null
+          entered_inner_packs?: number | null
           entered_units?: number | null
           id?: string
+          inner_pack_quantity_at_count?: number | null
           item_id?: string | null
           item_name_at_count?: string | null
           pack_quantity_at_count?: number | null
@@ -3019,8 +3023,10 @@ export type Database = {
           count_id?: string | null
           counted_at?: string
           entered_cases?: number | null
+          entered_inner_packs?: number | null
           entered_units?: number | null
           id?: string
+          inner_pack_quantity_at_count?: number | null
           item_id?: string | null
           item_name_at_count?: string | null
           pack_quantity_at_count?: number | null
@@ -3257,6 +3263,7 @@ export type Database = {
           display_order: number | null
           id: string
           image_url: string | null
+          inner_pack_quantity: number | null
           is_active: boolean | null
           is_daily_tracked: boolean
           is_recipe: boolean
@@ -3304,6 +3311,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           image_url?: string | null
+          inner_pack_quantity?: number | null
           is_active?: boolean | null
           is_daily_tracked?: boolean
           is_recipe?: boolean
@@ -3351,6 +3359,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           image_url?: string | null
+          inner_pack_quantity?: number | null
           is_active?: boolean | null
           is_daily_tracked?: boolean
           is_recipe?: boolean
