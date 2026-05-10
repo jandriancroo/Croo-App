@@ -1893,16 +1893,30 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             #{item.item_number}
                           </span>
                         )}
-                        {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (
-                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            {item.is_recipe
-                              ? `${formatCurrency(recipeCosts?.get(item.item_id) || item.cost_per_unit || 0)}/ea`
-                              : item.cost_per_unit
-                                ? `${formatCurrency(item.cost_per_unit)}/cs`
-                                : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
-                            }
-                          </span>
-                        )}
+                        {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (() => {
+                          if (item.is_recipe) {
+                            return (
+                              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                {formatCurrency(recipeCosts?.get(item.item_id) || item.cost_per_unit || 0)}/ea
+                              </span>
+                            );
+                          }
+                          const caseCost = item.cost_per_unit || 0;
+                          if (!caseCost) return null;
+                          const packsPerCase = (item.pack_quantity || 1);
+                          const unitsPerPack = (item as any).inner_pack_quantity || 0;
+                          const hasInner = unitsPerPack > 0;
+                          const totalUnits = hasInner ? packsPerCase * unitsPerPack : packsPerCase;
+                          const perPack = hasInner ? caseCost / packsPerCase : null;
+                          const perUnit = totalUnits > 0 ? caseCost / totalUnits : null;
+                          return (
+                            <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              {formatCurrency(caseCost)}/cs
+                              {perPack != null && ` · ${formatCurrency(perPack)}/pk`}
+                              {perUnit != null && ` · ${formatCurrency(perUnit)}/u`}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
