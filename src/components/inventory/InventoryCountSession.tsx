@@ -69,21 +69,12 @@ interface CountItem {
   count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
 }
 
-// Count state: cases + inner packs + individual units (supports decimals for partial cases)
+// Count state: cases + pack tier + individual units (supports decimals for partial cases)
 interface ItemCount {
   cases: number;
   units: number;
-  /** Phase 4: optional inner-pack tier (sleeves/bundles/inner boxes). Defaults to 0 when item has no inner_pack_quantity. */
+  /** Phase 4: optional pack tier between cases and individual units. Defaults to 0 when item has no inner_pack_quantity. */
   innerPacks?: number;
-}
-
-// Phase 4: infer the user-facing label for the inner-pack tier from item name.
-function getInnerPackLabel(itemName: string | null | undefined): string {
-  const n = (itemName || '').toLowerCase();
-  if (/\b(cup|lid)s?\b/.test(n)) return 'Sleeves';
-  if (/\b(pizza\s*box|to-?go\s*bag|bag|napkin|liner)s?\b/.test(n)) return 'Bundles';
-  if (/\b(glove|packet)s?\b/.test(n)) return 'Inner Boxes';
-  return 'Inner Packs';
 }
 
 interface PendingEdit {
@@ -1834,7 +1825,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const count = counts[splitKey] || { cases: 0, units: 0, innerPacks: 0 };
           const innerPackQty = (item as any).inner_pack_quantity ?? null;
           const showInnerPacks = !item.is_recipe && innerPackQty != null && innerPackQty > 0;
-          const innerPackLabel = showInnerPacks ? getInnerPackLabel(item.item_name) : '';
           const itemCost = getItemCost(item);
           const conv = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
           const pipeline2Pack =
@@ -1988,12 +1978,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                     )}
 
-                    {/* Phase 4: Inner pack counter — Sleeves / Bundles / Inner Boxes / Inner Packs */}
+                    {/* Phase 4: Pack counter — the middle tier between cases and individual units */}
                     {showInnerPacks && (
                     <div>
                       <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
-                        {innerPackLabel}
-                        <span className="ml-1 normal-case tracking-normal">({innerPackQty}/ea)</span>
+                        Packs
+                        <span className="ml-1 normal-case tracking-normal">({innerPackQty} units/pack)</span>
                       </p>
                       <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
@@ -2032,9 +2022,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     <div>
                       <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
                         Units
-                        {packQty > 1 && (
-                          <span className="ml-1 normal-case tracking-normal">({packQty}/case)</span>
-                        )}
+                        <span className="ml-1 normal-case tracking-normal">(individual)</span>
                       </p>
                       <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
