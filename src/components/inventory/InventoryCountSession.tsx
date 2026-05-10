@@ -1831,7 +1831,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       <div className="space-y-3 -mx-1 sm:mx-0">
         {currentItems.map((item) => {
           const splitKey = (item as any)._splitKey || item.item_id;
-          const count = counts[splitKey] || { cases: 0, units: 0 };
+          const count = counts[splitKey] || { cases: 0, units: 0, innerPacks: 0 };
+          const innerPackQty = (item as any).inner_pack_quantity ?? null;
+          const showInnerPacks = !item.is_recipe && innerPackQty != null && innerPackQty > 0;
+          const innerPackLabel = showInnerPacks ? getInnerPackLabel(item.item_name) : '';
           const itemCost = getItemCost(item);
           const conv = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
           const pipeline2Pack =
