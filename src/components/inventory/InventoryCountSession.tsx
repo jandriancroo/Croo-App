@@ -893,7 +893,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // ONE query to fetch all existing count items for this count
       const { data: allExisting, error: fetchErr } = await supabase
         .from("inventory_count_items")
-        .select("id, item_id, storage_location_id, quantity, entered_cases, entered_units")
+        .select("id, item_id, storage_location_id, quantity, entered_cases, entered_units, entered_inner_packs")
         .eq("count_id", countId) as any;
       
       if (fetchErr) throw fetchErr;
@@ -906,15 +906,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       }
 
       // Separate into updates vs inserts, and skip unchanged items
-      const toUpdate: { id: string; quantity: number; entered_cases: number; entered_units: number }[] = [];
+      const toUpdate: { id: string; quantity: number; entered_cases: number; entered_units: number; entered_inner_packs: number }[] = [];
       const toInsert: any[] = [];
 
       for (const ic of itemCounts) {
         const key = `${ic.item_id}|${ic.storage_location_id || ''}`;
         const existing = existingMap.get(key);
+        const innerPacksVal = ic.entered_inner_packs ?? 0;
         
-        // Build a fingerprint to skip unchanged items
-        const fingerprint = `${ic.quantity}|${ic.entered_cases}|${ic.entered_units}`;
+        // Build a fingerprint to skip unchanged items (Phase 3: includes inner packs)
+        const fingerprint = `${ic.quantity}|${ic.entered_cases}|${ic.entered_units}|${innerPacksVal}`;
         const lastSaved = lastSavedQuantitiesRef.current.get(key);
         
         if (existing) {
@@ -927,7 +928,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           }
           
           // Skip if quantity hasn't changed from DB AND from last save
-          const dbFingerprint = `${existing.quantity}|${existing.entered_cases ?? 0}|${existing.entered_units ?? 0}`;
+          const dbFingerprint = `${existing.quantity}|${existing.entered_cases ?? 0}|${existing.entered_units ?? 0}|${existing.entered_inner_packs ?? 0}`;
           if (fingerprint === dbFingerprint && fingerprint === lastSaved) continue;
           
           toUpdate.push({
@@ -935,6 +936,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             quantity: ic.quantity,
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
+            entered_inner_packs: innerPacksVal,
             pan_inputs: ic._pan_inputs ?? null,
           } as any);
         } else {
@@ -946,10 +948,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             storage_location_id: ic.storage_location_id,
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
+            entered_inner_packs: innerPacksVal,
             item_name_at_count: ic.item_name_at_count,
             cost_at_count: ic.cost_at_count,
             unit_at_count: ic.unit_at_count,
             pack_quantity_at_count: ic.pack_quantity_at_count,
+            inner_pack_quantity_at_count: ic.inner_pack_quantity_at_count ?? null,
             pan_sizes_at_count: ic.pan_sizes_at_count,
             pan_inputs: ic._pan_inputs ?? null,
           });
