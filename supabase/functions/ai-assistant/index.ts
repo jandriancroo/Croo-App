@@ -23,6 +23,15 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
         : Number(item?.cost_per_unit) || 0);
   if (costPerCase === 0) return 0;
 
+  // Recipe items: cost_per_unit is per-batch cost, quantity is in batches. No pack division.
+  if (item?.is_recipe) {
+    const qty = ci?.quantity != null
+      ? Number(ci.quantity) || 0
+      : (Number(ci?.entered_cases || 0) + Number(ci?.entered_units || 0) + Number(ci?.entered_inner_packs || 0));
+    return qty * costPerCase;
+  }
+
+
   const enteredCasesNum = Number(ci?.entered_cases || 0);
   const enteredUnitsNum = Number(ci?.entered_units || 0);
   const enteredInnerPacksNum = Number(ci?.entered_inner_packs || 0);
