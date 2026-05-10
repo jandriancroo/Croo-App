@@ -1949,7 +1949,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       </div>
                     </div>
                   ) : (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={cn("grid gap-2", showInnerPacks ? "grid-cols-3" : "grid-cols-2")}>
                     {/* Cases counter — hidden if count_by=units_only */}
                     {showCases && (
                     <div>
