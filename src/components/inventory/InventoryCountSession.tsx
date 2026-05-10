@@ -247,20 +247,21 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Count items now use storage_location_id to distinguish split entries
       const { data: countItems, error: countError } = await supabase
         .from("inventory_count_items")
-        .select("id, item_id, quantity, entered_cases, entered_units, storage_location_id, cost_at_count, pack_quantity_at_count")
+        .select("id, item_id, quantity, entered_cases, entered_units, storage_location_id, cost_at_count, pack_quantity_at_count, pan_inputs")
         .eq("count_id", countId) as any;
       
       if (countError) throw countError;
 
-      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units, cost_at_count, pack_quantity_at_count }
+      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units, cost_at_count, pack_quantity_at_count, pan_inputs }
+      // Phase 1: pan_inputs is now hydrated as source of truth for pan-counted rows.
       const countMap = new Map(
         (countItems as any[])?.map((ci: any) => [
           `${ci.item_id}|${ci.storage_location_id || ''}`, 
-          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count }
+          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count, pan_inputs: ci.pan_inputs }
         ]) || []
       );
       // Also keep a simple item_id map for backwards compat (old counts without storage_location_id)
-      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count }]) || []);
+      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units, cost_at_count: ci.cost_at_count, pack_quantity_at_count: ci.pack_quantity_at_count, pan_inputs: ci.pan_inputs }]) || []);
 
       const result: (CountItem & { _existingQuantity: number; _existingCases: number | null; _existingUnits: number | null; _countItemId: string | null; _splitKey: string })[] = [];
 
@@ -337,6 +338,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             _existingQuantity: countData?.quantity ?? 0,
             _existingCases: countData?.entered_cases ?? null,
             _existingUnits: countData?.entered_units ?? null,
+            _existingPanInputs: (countData as any)?.pan_inputs ?? null,
             _costAtCount: (countData as any)?.cost_at_count ?? null,
             _packQuantityAtCount: (countData as any)?.pack_quantity_at_count ?? null,
             _countItemId: countData?.countItemId || null,
@@ -394,35 +396,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     countsInitializedRef.current = true;
     
     const initialCounts: Record<string, ItemCount> = {};
+    const initialPanCounts: Record<string, Record<string, number>> = {};
     const originals: Record<string, number> = {};
     
     items.forEach(item => {
       const key = (item as any)._splitKey || item.item_id;
       const existingCases = (item as any)._existingCases;
       const existingUnits = (item as any)._existingUnits;
+      const existingPanInputs = (item as any)._existingPanInputs;
       const totalUnits = (item as any)._existingQuantity || 0;
       // For previously-saved rows, the effective pack qty must match the one used
       // when the row was saved — otherwise shortcut/junction pack-qty overrides
       // applied later would fabricate phantom diffs on edit.
       const packQty = (item as any)._packQuantityAtCount ?? item.pack_quantity ?? 1;
       
-      // Prefer stored entered_cases/entered_units (exact user input).
-      // Fall back to mathematical decomposition of quantity ONLY when both fields
-      // are null — i.e. a truly legacy row that never stored the split.
-      // Why: quantity includes pan units (cases×pack + loose + pans). Decomposing
-      // it inflates `units` by pan value, then getItemCost adds panUnits on top
-      // again — double-counting pans. If the DB stored EITHER entered_cases or
-      // entered_units (even as 0), trust them directly.
+      // PHASE 1 (source of truth): entered_cases / entered_units / pan_inputs are
+      // the authoritative inputs. `quantity` is derived only at save time and is
+      // never read here. Fall back to decomposing quantity ONLY for truly legacy
+      // rows that never stored the split (both fields null).
       const hasStoredInput =
         (existingCases !== null && existingCases !== undefined) ||
         (existingUnits !== null && existingUnits !== undefined);
       if (hasStoredInput) {
-        // Trust stored entered_cases/entered_units exactly as the user input them.
-        // Do NOT fold the (quantity - cases*pack - units) remainder into units —
-        // that remainder is the pan portion, and getItemCost adds pan units again
-        // via getPanUnitsTotal, which would double-count pans on Edit Count load.
-        // Pan inputs aren't persisted yet, so pan rows will hydrate at $0 here;
-        // re-enter pans in the pan UI when editing a pan item.
         initialCounts[key] = {
           cases: existingCases ?? 0,
           units: existingUnits ?? 0,
@@ -433,6 +428,37 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           units: totalUnits % packQty
         };
       }
+
+      // Hydrate persisted pan inputs so pan-counted rows restore at full value
+      // instead of $0 on Edit Count load.
+      if (existingPanInputs && typeof existingPanInputs === 'object') {
+        const panMap: Record<string, number> = {};
+        for (const [panKey, qty] of Object.entries(existingPanInputs as Record<string, any>)) {
+          const n = Number(qty);
+          if (Number.isFinite(n) && n > 0) panMap[panKey] = n;
+        }
+        if (Object.keys(panMap).length > 0) initialPanCounts[key] = panMap;
+      }
+
+      // Dev validator: flag rows where stored quantity disagrees with derived
+      // (cases × pack + units + pan units). Surfaces silent split/pan drift.
+      if (import.meta.env.DEV && hasStoredInput) {
+        const panTotal = Object.entries(initialPanCounts[key] || {}).reduce((sum, [pk, qty]) => {
+          const unitsPer = item.pan_sizes ? (getPanUnits(item.pan_sizes, pk) ?? 0) : 0;
+          return sum + unitsPer * (qty as number);
+        }, 0);
+        const derived = (existingCases ?? 0) * packQty + (existingUnits ?? 0) + panTotal;
+        if (Math.abs(derived - totalUnits) > 0.01) {
+          // eslint-disable-next-line no-console
+          console.warn('[hydration-validator] quantity drift', {
+            name: (item as any).item_name,
+            key,
+            storedQuantity: totalUnits,
+            derived,
+            cases: existingCases, units: existingUnits, packQty, panTotal,
+          });
+        }
+      }
       
       // Store original quantities for edit tracking
       if (isEditing) {
@@ -441,6 +467,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     });
     
     setCounts(initialCounts);
+    if (Object.keys(initialPanCounts).length > 0) setPanCounts(initialPanCounts);
     // Mark counts as ready AFTER state is set (next tick)
     setTimeout(() => { countsReadyRef.current = true; }, 0);
     if (isEditing) {
