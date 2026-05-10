@@ -1213,7 +1213,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
           const { data: invItems } = await supabase
             .from("inventory_items")
-            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, brand_item_id")
+            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, brand_item_id, is_recipe")
             .in("id", Array.from(referencedIds));
 
           const itemMap = new Map((invItems || []).map((i: any) => [i.id, i]));
