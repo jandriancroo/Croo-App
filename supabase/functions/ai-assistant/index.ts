@@ -57,7 +57,7 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
     const caseValue = enteredCasesNum * costPerCase;
     const derivedNonCaseUnits = quantityNum - (enteredCasesNum * caseUnits);
     const fallbackNonCaseUnits = enteredUnitsNum + (enteredInnerPacksNum * safeInnerPackQty);
-    const nonCaseUnits = quantityNum > 0 && derivedNonCaseUnits >= enteredUnitsNum
+    const nonCaseUnits = quantityNum > 0 && derivedNonCaseUnits >= fallbackNonCaseUnits
       ? derivedNonCaseUnits
       : fallbackNonCaseUnits;
     const unitValue = (nonCaseUnits * costPerCase) / caseUnits;
