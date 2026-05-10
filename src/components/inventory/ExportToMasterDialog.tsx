@@ -304,6 +304,75 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         .from("brand_inventory_templates")
         .upsert(uniqueTemplates as any, { onConflict: "brand_id,product_name" });
       if (error) throw error;
+
+      // ============================================================
+      // ARCHITECTURAL FIX (May 2026): For every is_recipe item being
+      // promoted, also clone its local recipe_blueprint (and ingredients)
+      // up to a brand-level blueprint (location_id = NULL, brand_id set).
+      // Previously this was missing, leaving brand templates with no
+      // recipe instructions — and the heal logic would mutate the local
+      // blueprint into a hybrid broken state.
+      // ============================================================
+      const recipeItems = items.filter(i => i.is_recipe && itemIds.includes(i.id));
+      if (recipeItems.length > 0) {
+        // Pull the local blueprints for these items
+        const { data: localBlueprints, error: bpErr } = await supabase
+          .from("recipe_blueprints")
+          .select("id, name, category, yield_qty, yield_unit, source, r365_name, catalog_section, recipe_type, is_countable, produces_item_id")
+          .eq("location_id", locationId)
+          .in("produces_item_id", recipeItems.map(i => i.id))
+          .eq("is_active", true);
+        if (bpErr) throw bpErr;
+
+        // Pull existing brand-level blueprints to dedupe (idempotent)
+        const { data: existingBrandBps } = await supabase
+          .from("recipe_blueprints")
+          .select("id, name")
+          .eq("brand_id", brandId)
+          .is("location_id", null)
+          .eq("is_active", true);
+        const existingNames = new Set((existingBrandBps || []).map(b => b.name.toLowerCase()));
+
+        for (const local of (localBlueprints || [])) {
+          if (existingNames.has(local.name.toLowerCase())) continue; // already promoted
+
+          // Clone the blueprint at brand level — produces_item_id stays NULL
+          // (brand blueprints don't bind to a single location's item)
+          const { data: newBp, error: insErr } = await supabase
+            .from("recipe_blueprints")
+            .insert({
+              location_id: null,
+              brand_id: brandId,
+              name: local.name,
+              category: local.category,
+              yield_qty: local.yield_qty,
+              yield_unit: local.yield_unit,
+              source: local.source || 'manual',
+              r365_name: local.r365_name,
+              catalog_section: local.catalog_section,
+              recipe_type: local.recipe_type,
+              is_countable: local.is_countable,
+              produces_item_id: null,
+              is_active: true,
+            })
+            .select("id")
+            .single();
+          if (insErr) throw insErr;
+
+          // Copy ingredients
+          const { data: ingredients } = await supabase
+            .from("recipe_blueprint_ingredients")
+            .select("ingredient_type, vendor_item_id, sub_blueprint_id, quantity, unit, source_name")
+            .eq("blueprint_id", local.id);
+
+          if (ingredients && ingredients.length > 0) {
+            const { error: ingErr } = await supabase
+              .from("recipe_blueprint_ingredients")
+              .insert(ingredients.map(ing => ({ ...ing, blueprint_id: newBp.id })));
+            if (ingErr) throw ingErr;
+          }
+        }
+      }
     },
     onSuccess: () => {
       toast.success("Exported to master catalog");
