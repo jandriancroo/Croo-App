@@ -19,6 +19,7 @@ interface CatalogItem {
   product_name: string;
   common_name: string | null;
   category: string | null;
+  is_recipe?: boolean | null;
 }
 
 interface ConversionSlideOverProps {
