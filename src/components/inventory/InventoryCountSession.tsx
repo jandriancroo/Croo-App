@@ -589,10 +589,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // Live values (mid-typing) override saved values
     const rawCases = parseFloat(rawInputs[key]?.cases ?? '');
     const rawUnits = parseFloat(rawInputs[key]?.units ?? '');
-    const committed = counts[key] || { cases: 0, units: 0 };
+    const rawInner = parseFloat(rawInputs[key]?.innerPacks ?? '');
+    const committed = counts[key] || { cases: 0, units: 0, innerPacks: 0 };
     const casesVal = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
+    const innerVal = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
     const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
+    // Phase 3: inner packs roll into entered_units for the shared SOT valuation,
+    // mirroring how pan units are folded in. innerPackQty=0 collapses cleanly.
+    const innerPackQty = (item as any).inner_pack_quantity || 0;
+    const innerPackUnits = innerVal * innerPackQty;
 
     // [hydration-drift diagnostic] compare hydrated counts vs DB existing values
     const dbCases = Number((item as any)._existingCases ?? 0);
@@ -605,12 +611,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         casesVal, dbCases,
         unitsVal, dbUnits,
         panUnits,
+        innerPackUnits,
       });
     }
 
     // PHASE 1: forceLiveData=true — Edit Count must match Period/Review/Export by
     // recomputing every line via current live cost + live pack chain, ignoring
-    // any cost_at_count / pack_quantity_at_count snapshot. This will revert in Phase 3.
+    // any cost_at_count / pack_quantity_at_count snapshot.
     // Standard contract: pass entered_cases / entered_units (no synthesized quantity);
     // pass full item shape; pass Pipeline 1 conversion lookup.
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
@@ -619,7 +626,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       {
         quantity: null,
         entered_cases: casesVal,
-        entered_units: unitsVal + panUnits,
+        entered_units: unitsVal + panUnits + innerPackUnits,
         cost_at_count: null,
         pack_quantity_at_count: null,
       },
