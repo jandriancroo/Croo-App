@@ -57,6 +57,8 @@ interface CountItem {
   pack_size: string | null;
   pack_quantity: number | null;
   pack_quantity_override: number | null;
+  /** Phase 3: units per inner pack (sleeve/bundle/inner box). NULL = no inner-pack tier. */
+  inner_pack_quantity: number | null;
   brand_item_id: string | null;
   item_number: string | null;
   brand: string | null;
