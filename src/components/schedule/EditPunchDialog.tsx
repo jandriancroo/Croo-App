@@ -11,6 +11,7 @@ import { addDays, parseISO } from 'date-fns';
 import { getEndOfDateStringInTimezone, parseDateStringInTimezone, toISOStringInTimezone } from '@/utils/timezoneUtils';
 import { Clock, Trash2, Plus, X } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
+import { DateTime } from 'luxon';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,7 @@ interface PunchRecord {
   punch_time: string;
   punch_type: string;
   notes?: string | null;
+  shift_id?: string | null;
 }
 
 interface EditPunchDialogProps {
@@ -90,7 +92,7 @@ export function EditPunchDialog({
 
       const { data, error } = await supabase
         .from('time_punches')
-        .select('id, punch_time, punch_type, notes')
+        .select('id, punch_time, punch_type, notes, shift_id')
         .eq('user_id', userId)
         .eq('location_id', locationId)
         .gte('punch_time', fetchStart.toISOString())
