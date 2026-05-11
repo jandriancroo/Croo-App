@@ -27,18 +27,22 @@ export async function resolveBrandId(locationId: string): Promise<string | null>
  */
 export async function fetchBlueprintsForLocation(
   locationId: string,
-  selectFields: string = "id, name, category, yield_qty, yield_unit, source, catalog_section"
+  selectFields: string = "id, name, category, yield_qty, yield_unit, source, catalog_section",
+  options: { brandOnly?: boolean } = {}
 ) {
   const brandId = await resolveBrandId(locationId);
+  const { brandOnly = false } = options;
 
   const [localRes, brandRes] = await Promise.all([
-    supabase
-      .from("recipe_blueprints" as any)
-      .select(selectFields)
-      .eq("location_id", locationId)
-      .eq("is_active", true)
-      .neq("source", "simulator")
-      .order("name"),
+    brandOnly
+      ? Promise.resolve({ data: [], error: null })
+      : supabase
+          .from("recipe_blueprints" as any)
+          .select(selectFields)
+          .eq("location_id", locationId)
+          .eq("is_active", true)
+          .neq("source", "simulator")
+          .order("name"),
     brandId
       ? supabase
           .from("recipe_blueprints" as any)
