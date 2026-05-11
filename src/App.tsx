@@ -89,6 +89,7 @@ const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
 const TheoPlacementPreview = lazyWithRetry(() => import("./pages/TheoPlacementPreview"));
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
+const BrandUnpricedIngredients = lazyWithRetry(() => import("./pages/BrandUnpricedIngredients"));
 const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 const KDSBoard = lazyWithRetry(() => import("./pages/KDSBoard"));
 const DemoGate = lazyWithRetry(() => import("./pages/DemoGate"));
