@@ -393,9 +393,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       const [beginItems, endItems] = await Promise.all([
         beginCount
-          ? supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units").eq("count_id", beginCount.id)
+          ? supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs").eq("count_id", beginCount.id)
           : { data: [] },
-        supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units").eq("count_id", count.id),
+        supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs").eq("count_id", count.id),
       ]);
 
       // Collect all item_ids referenced in both counts to include inactive items
@@ -407,7 +407,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       // an item after counting doesn't silently drop its value from COGS
       const { data: items } = await supabase
         .from("inventory_items")
-        .select("id, cost_per_unit, pack_quantity, pack_quantity_override, count_units_per_case, is_recipe, brand_item_id")
+        .select("id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, count_units_per_case, is_recipe, brand_item_id")
         .in("id", Array.from(referencedIds));
 
       const itemMap = new Map<string, any>();
@@ -429,6 +429,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             cost_per_unit: item.cost_per_unit,
             pack_quantity: item.pack_quantity,
             pack_quantity_override: item.pack_quantity_override,
+            inner_pack_quantity: item.inner_pack_quantity,
             is_recipe: item.is_recipe === true,
           } : undefined,
           conversion || null,

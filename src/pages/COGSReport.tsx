@@ -72,11 +72,11 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       const [beginItems, endItems] = await Promise.all([
         beginning ? supabase
           .from("inventory_count_items")
-          .select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units")
+          .select("item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs")
           .eq("count_id", beginning.id) : { data: [] },
         ending ? supabase
           .from("inventory_count_items")
-          .select("item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units")
+          .select("item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs")
           .eq("count_id", ending.id) : { data: [] },
       ]);
 
@@ -95,7 +95,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       if (!locationId) return [];
       const { data } = await supabase
         .from("inventory_items")
-        .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, unit, vendor_source, category, is_recipe, brand_item_id")
+        .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, unit, vendor_source, category, is_recipe, brand_item_id")
         .eq("location_id", locationId)
         .eq("is_active", true);
       return data || [];
@@ -232,6 +232,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
           cost_per_unit: item.cost_per_unit,
           pack_quantity: item.pack_quantity,
           pack_quantity_override: item.pack_quantity_override,
+          inner_pack_quantity: item.inner_pack_quantity,
           is_recipe: (item as any).is_recipe === true,
         } : undefined,
         conversion || null,
