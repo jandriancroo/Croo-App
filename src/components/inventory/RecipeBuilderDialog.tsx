@@ -272,11 +272,13 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
       const { resolveBrandId } = await import("@/utils/resolveBrandId");
       const brandId = await resolveBrandId(locationId);
       if (!brandId) return [];
+      // A0: No status filter — include archived templates so recipe ingredient
+      // names still resolve when a brand template is archived (prevents
+      // "ingredient-xxxx" garbage names in the recipe builder).
       const { data, error } = await supabase
         .from("brand_inventory_templates")
         .select("id, product_name")
-        .eq("brand_id", brandId)
-        .eq("status", "active");
+        .eq("brand_id", brandId);
       if (error) throw error;
       return data || [];
     },
