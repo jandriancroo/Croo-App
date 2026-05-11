@@ -215,18 +215,20 @@ export async function fetchBlueprintCosts(
   ): BlueprintCostResult {
     if (costCache.has(blueprintId)) return costCache.get(blueprintId)!;
     if (visited.has(blueprintId))
-      return { batchCost: 0, missingItems: [], isPartial: false };
+      return { batchCost: 0, missingItems: [], archivedItems: [], unpricedItems: [], isPartial: false };
     visited.add(blueprintId);
 
     const ingredients = ingredientsByBp.get(blueprintId) || [];
     if (ingredients.length === 0) {
-      const result: BlueprintCostResult = { batchCost: 0, missingItems: [], isPartial: false };
+      const result: BlueprintCostResult = { batchCost: 0, missingItems: [], archivedItems: [], unpricedItems: [], isPartial: false };
       costCache.set(blueprintId, result);
       return result;
     }
 
     let totalBatchCost = 0;
     const missingItems: string[] = [];
+    const archivedItems: string[] = [];
+    const unpricedItems: string[] = [];
 
     for (const ing of ingredients) {
       if (ing.ingredient_type === "blueprint" && ing.sub_blueprint_id) {
@@ -238,6 +240,8 @@ export async function fetchBlueprintCosts(
         }
         const subResult = calculateBatchCost(ing.sub_blueprint_id, new Set(visited));
         if (subResult.missingItems.length > 0) missingItems.push(...subResult.missingItems);
+        if (subResult.archivedItems.length > 0) archivedItems.push(...subResult.archivedItems);
+        if (subResult.unpricedItems.length > 0) unpricedItems.push(...subResult.unpricedItems);
         const subYield = subBp.yield_qty || 1;
         const subYieldUnit = normalizeIngUnit(subBp.yield_unit);
         const ingUnit = normalizeIngUnit(ing.unit);
@@ -253,6 +257,13 @@ export async function fetchBlueprintCosts(
           totalBatchCost += costPerYieldUnit * ing.quantity;
         }
       } else if (ing.vendor_item_id) {
+        // A0: archived brand template — flag separately, don't silently zero out.
+        const isArchived = archivedTemplateIds.has(ing.vendor_item_id);
+        if (isArchived) {
+          archivedItems.push(ing.vendor_item_id);
+          continue;
+        }
+
         // Vendor item: resolve brand template ID → local inventory item for cost
         const localId = templateToLocalId.get(ing.vendor_item_id);
         const vendor = localId ? vendorMap.get(localId) : undefined;
@@ -263,7 +274,8 @@ export async function fetchBlueprintCosts(
 
         const caseCost = vendor.blended_price ?? vendor.cost_per_unit ?? 0;
         if (caseCost === 0) {
-          // No pricing data — item exists but has no cost
+          // A0: item exists & is active but has no resolvable price — flag as data gap.
+          unpricedItems.push(ing.vendor_item_id);
           continue;
         }
 
@@ -320,7 +332,10 @@ export async function fetchBlueprintCosts(
     const result: BlueprintCostResult = {
       batchCost: totalBatchCost,
       missingItems,
-      isPartial: missingItems.length > 0,
+      archivedItems,
+      unpricedItems,
+      isPartial:
+        missingItems.length > 0 || archivedItems.length > 0 || unpricedItems.length > 0,
     };
     costCache.set(blueprintId, result);
     return result;
