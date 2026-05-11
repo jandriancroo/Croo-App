@@ -156,8 +156,24 @@ export async function fetchBlueprintCosts(
   let vendorMap = new Map<string, VendorItemInfo>();
   // Map from brand_template_id → local inventory_item for cost lookup
   const templateToLocalId = new Map<string, string>();
+  // A0: track which brand templates are archived so the engine can flag them
+  // separately from "missing" (no deployment) and "unpriced" (data gap).
+  const archivedTemplateIds = new Set<string>();
 
   if (brandTemplateIds.length > 0) {
+    // A0: pull template status alongside the deployment lookup so we can
+    // distinguish archived ingredients from data-gap and missing ingredients.
+    const { data: templateStatuses, error: tplErr } = await supabase
+      .from("brand_inventory_templates")
+      .select("id, status")
+      .in("id", brandTemplateIds);
+    if (tplErr) throw tplErr;
+    for (const t of templateStatuses || []) {
+      if ((t as any).status && (t as any).status !== "active") {
+        archivedTemplateIds.add((t as any).id);
+      }
+    }
+
     // Resolve brand templates → local inventory items via deployments
     const { data: deployments, error: depErr } = await supabase
       .from("brand_inventory_deployments")
