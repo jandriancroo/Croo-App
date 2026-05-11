@@ -57,7 +57,7 @@ export async function fetchRecipeDataQuality(
     .select("id, name")
     .in("id", blueprintIds);
   const bpNameMap = new Map<string, string>(
-    ((bpRows || []) as Array<{ id: string; name: string }>).map(r => [r.id, r.name])
+    ((bpRows || []) as unknown as Array<{ id: string; name: string }>).map(r => [r.id, r.name])
   );
 
   // Template names — archived/unpriced/missing IDs are brand_inventory_templates references
@@ -66,10 +66,10 @@ export async function fetchRecipeDataQuality(
   if (idArr.length > 0) {
     const { data: tplRows } = await supabase
       .from("brand_inventory_templates")
-      .select("id, name")
+      .select("id, common_name, product_name")
       .in("id", idArr);
-    for (const t of (tplRows || []) as Array<{ id: string; name: string | null }>) {
-      tplNameMap.set(t.id, t.name || t.id);
+    for (const t of ((tplRows || []) as unknown as Array<{ id: string; common_name: string | null; product_name: string | null }>)) {
+      tplNameMap.set(t.id, t.common_name || t.product_name || t.id);
     }
     // Some IDs may be sub-blueprint refs in the missing bucket — fall back to blueprint table
     const unresolved = idArr.filter(id => !tplNameMap.has(id));
@@ -78,7 +78,7 @@ export async function fetchRecipeDataQuality(
         .from("recipe_blueprints" as any)
         .select("id, name")
         .in("id", unresolved);
-      for (const b of ((subBpRows || []) as Array<{ id: string; name: string }>)) {
+      for (const b of ((subBpRows || []) as unknown as Array<{ id: string; name: string }>)) {
         tplNameMap.set(b.id, b.name);
       }
     }
