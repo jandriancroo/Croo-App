@@ -13,14 +13,15 @@ _Last updated: 2026-05-11_
 - **Recipe count-sheet fix** — `is_recipe` propagated through 5 call sites; Balsamic now shows $5.90 instead of $0.
 - **Hemet Balsamic duplicate** — orphan deleted, real count data reassigned to priced recipe.
 
+- **A2** — Unpriced Ingredients report (diagnostic only, no manual price entry).
+  - ✅ Util `fetchBrandUnpricedIngredients(brandId)` — finds active brand templates referenced by ≥1 active blueprint where no deployed inventory item has a non-zero cost.
+  - ✅ Standalone page `/brand/:brandId/inventory/unpriced` — table with last known invoice price, recipes popover, "Sync All Vendor Prices" (calls `vendor-sku-health-sync`), per-row Archive (sets template status='archived').
+  - ✅ Inline summary card on AvT report linking to the page.
+  - ✅ Header button on Brand Inventory page.
+  - **Hard rule honored:** no fallback price field, no manual price typing anywhere.
+
 ## In progress 🚧
-- **A2 — Unpriced Ingredients report + bulk fallback price**
-  - [ ] Decide placement (inline AvT card vs standalone page vs both) — _waiting on user_
-  - [ ] Decide fallback scope (brand default vs per-location vs per-row toggle) — _waiting on user_
-  - [ ] Build query: brand items where resolved cost = 0 + recipes that depend on them
-  - [ ] UI: list view with bulk-select + "set fallback price" action
-  - [ ] Wire write path (brand_inventory_templates.fallback_price OR inventory_items.cost_per_unit)
-  - [ ] Surface count of unpriced ingredients on AvT data-quality card
+_(none — pick next from queue)_
 
 ## Queued 📋
 - **A3** — Recipe costing fix #2 (audit other "divide by yield" call sites that may still be wrong).
