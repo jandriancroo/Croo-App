@@ -67,6 +67,22 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
     staleTime: 60_000,
   });
 
+  // A4: count of auto-deployments at this location in the last 24h
+  const { data: autoDeployedRecent } = useQuery({
+    queryKey: ["auto-deployed-recent", locationId],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count, error } = await supabase
+        .from("brand_auto_deployment_log")
+        .select("id", { count: "exact", head: true })
+        .eq("location_id", locationId)
+        .gte("deployed_at", since);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    staleTime: 60_000,
+  });
+
   // Get the current count's period_type so we can match previous counts of the same type.
   // Without this, a Monthly count would pick up the most recent Weekly count as its
   // "previous" — collapsing the sales window to just the last few days of the month.
@@ -351,6 +367,32 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
               </div>
             </div>
           )}
+        </Card>
+      )}
+
+      {/* A4: Auto-deployment badge — surfaces what the nightly sweep fixed automatically */}
+      {brandId && autoDeployedRecent !== undefined && autoDeployedRecent > 0 && (
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <div className="flex items-center justify-between p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span className="font-medium">
+                Auto-deployed {autoDeployedRecent} item{autoDeployedRecent === 1 ? "" : "s"} in the last 24h
+              </span>
+              <span className="text-xs text-muted-foreground">
+                missing recipe ingredients added by nightly sweep
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-7 text-xs"
+              onClick={() => navigate(`/brand/${brandId}/inventory/auto-deploy-log?location=${locationId}`)}
+            >
+              View log
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+          </div>
         </Card>
       )}
 

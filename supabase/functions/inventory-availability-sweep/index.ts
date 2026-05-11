@@ -373,7 +373,161 @@ async function sweepLocation(
     result.errors.push(msg);
   }
 
+  // ── A4: auto-deploy missing recipe ingredients ─────────────────
+  try {
+    if (location.brand_id && !dryRun) {
+      const autoResult = await autoDeployMissingIngredients(supabase, location);
+      (result as any).autoDeployed = autoResult.deployed;
+      (result as any).autoReactivated = autoResult.reactivated;
+      if (autoResult.errors.length) result.errors.push(...autoResult.errors);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[auto-deploy] ${location.name} failed:`, msg);
+    result.errors.push(`auto-deploy: ${msg}`);
+  }
+
   return result;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// A4: Auto-deploy missing recipe ingredients
+// For each active brand-level recipe blueprint at this brand, find
+// vendor_item_ids (brand_inventory_templates.id) that aren't deployed
+// to this location. If the template is live + auto_deploy_enabled, create
+// (or reactivate) the local inventory_items row and log it.
+// ──────────────────────────────────────────────────────────────────
+async function autoDeployMissingIngredients(
+  supabase: SupabaseClient,
+  location: { id: string; name: string; brand_id: string | null },
+): Promise<{ deployed: number; reactivated: number; errors: string[] }> {
+  const out = { deployed: 0, reactivated: 0, errors: [] as string[] };
+  if (!location.brand_id) return out;
+
+  // 1. Active brand blueprints + their vendor ingredient ids
+  const { data: blueprints, error: bpErr } = await supabase
+    .from("recipe_blueprints")
+    .select("id, recipe_blueprint_ingredients(vendor_item_id)")
+    .eq("brand_id", location.brand_id)
+    .is("location_id", null)
+    .eq("is_active", true);
+  if (bpErr) {
+    out.errors.push(`recipe_blueprints query: ${bpErr.message}`);
+    return out;
+  }
+
+  // template_id -> blueprint_ids that reference it
+  const refMap = new Map<string, Set<string>>();
+  for (const bp of blueprints ?? []) {
+    for (const ing of (bp as any).recipe_blueprint_ingredients ?? []) {
+      const vid = ing?.vendor_item_id;
+      if (!vid) continue;
+      const set = refMap.get(vid) ?? new Set<string>();
+      set.add((bp as any).id);
+      refMap.set(vid, set);
+    }
+  }
+  if (refMap.size === 0) return out;
+
+  const referencedIds = Array.from(refMap.keys());
+
+  // 2. Templates: only live + auto_deploy_enabled
+  const { data: templates, error: tErr } = await supabase
+    .from("brand_inventory_templates")
+    .select("id, product_name, status, auto_deploy_enabled, storage_location_name")
+    .in("id", referencedIds)
+    .eq("brand_id", location.brand_id)
+    .eq("status", "live")
+    .eq("auto_deploy_enabled", true);
+  if (tErr) {
+    out.errors.push(`brand_inventory_templates query: ${tErr.message}`);
+    return out;
+  }
+
+  // 3. Existing local rows for those templates
+  const tplIds = (templates ?? []).map((t: any) => t.id);
+  if (tplIds.length === 0) return out;
+
+  const { data: existing, error: eErr } = await supabase
+    .from("inventory_items")
+    .select("id, brand_item_id, is_active")
+    .eq("location_id", location.id)
+    .in("brand_item_id", tplIds);
+  if (eErr) {
+    out.errors.push(`inventory_items lookup: ${eErr.message}`);
+    return out;
+  }
+  const existingByTpl = new Map<string, { id: string; is_active: boolean }>();
+  for (const r of existing ?? []) {
+    existingByTpl.set((r as any).brand_item_id, { id: (r as any).id, is_active: (r as any).is_active });
+  }
+
+  // 4. Deploy / reactivate
+  const logRows: any[] = [];
+  for (const tpl of (templates ?? []) as any[]) {
+    const existingRow = existingByTpl.get(tpl.id);
+    const recipeIds = Array.from(refMap.get(tpl.id) ?? []);
+
+    if (existingRow?.is_active) continue; // already deployed and active
+
+    if (existingRow && !existingRow.is_active) {
+      // Reactivate
+      const { error: upErr } = await supabase
+        .from("inventory_items")
+        .update({ is_active: true })
+        .eq("id", existingRow.id);
+      if (upErr) {
+        out.errors.push(`reactivate ${tpl.product_name}: ${upErr.message}`);
+        continue;
+      }
+      out.reactivated++;
+      logRows.push({
+        location_id: location.id,
+        brand_template_id: tpl.id,
+        inventory_item_id: existingRow.id,
+        recipe_ids: recipeIds,
+        action: "reactivated",
+      });
+    } else {
+      // Create new minimal local row — vendor SKUs intentionally NOT stamped
+      // (matches existing deploy-location-inventory behavior; later vendor syncs fill them).
+      const insertRow = {
+        location_id: location.id,
+        brand_item_id: tpl.id,
+        name: tpl.product_name,
+        is_active: true,
+      };
+      const { data: created, error: insErr } = await supabase
+        .from("inventory_items")
+        .insert(insertRow)
+        .select("id")
+        .single();
+      if (insErr) {
+        out.errors.push(`deploy ${tpl.product_name}: ${insErr.message}`);
+        continue;
+      }
+      out.deployed++;
+      logRows.push({
+        location_id: location.id,
+        brand_template_id: tpl.id,
+        inventory_item_id: created?.id ?? null,
+        recipe_ids: recipeIds,
+        action: "created",
+      });
+    }
+  }
+
+  if (logRows.length > 0) {
+    const { error: logErr } = await supabase
+      .from("brand_auto_deployment_log")
+      .insert(logRows);
+    if (logErr) out.errors.push(`auto-deploy log: ${logErr.message}`);
+  }
+
+  console.log(
+    `[auto-deploy] ${location.name}: deployed=${out.deployed}, reactivated=${out.reactivated}, errs=${out.errors.length}`,
+  );
+  return out;
 }
 
 // ──────────────────────────────────────────────────────────────────

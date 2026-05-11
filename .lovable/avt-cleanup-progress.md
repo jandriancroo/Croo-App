@@ -27,11 +27,18 @@ _Last updated: 2026-05-11_
   - `useMenuPricing.ts` + `RecipeGeniusCard.tsx` (per-serving menu cost) ✅ correct
   - **No additional bugs found.** The count-sheet path was the only broken one and is already fixed.
 
+- **A4** — Auto-deploy missing recipe ingredients (nightly).
+  - ✅ Migration: `brand_auto_deployment_log` table + `auto_deploy_enabled` flag on `brand_inventory_templates` (default true).
+  - ✅ Extended `inventory-availability-sweep` (already runs 3 AM PST via `queue_nightly_maintenance`) with `autoDeployMissingIngredients()`: scans active brand recipe blueprints, finds referenced `brand_template_id`s with no active local row, creates or reactivates them, and logs each event.
+  - ✅ Skips archived templates and templates with `auto_deploy_enabled=false`. Reactivates inactive rows instead of duplicating.
+  - ✅ Vendor SKUs intentionally not stamped (matches `deploy-location-inventory` structure-only behavior — vendor syncs fill them).
+  - ✅ AvT report: emerald "Auto-deployed N items in last 24h" badge → links to `/brand/:brandId/inventory/auto-deploy-log?location=…`.
+  - ✅ Standalone log page with per-action badges (Created / Reactivated) and brand-wide or per-location filtering.
+
 ## In progress 🚧
 _(none — pick next from queue)_
 
 ## Queued 📋
-- **A4** — One-click "Deploy missing items to this location" button on AvT data-quality card.
 - **A5** — Constraint pass #2: mirror the recipe orphan constraint on `brand_inventory_items` to prevent local items leaking to brand.
 
 ---
