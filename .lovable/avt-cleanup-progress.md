@@ -35,11 +35,17 @@ _Last updated: 2026-05-11_
   - ✅ AvT report: emerald "Auto-deployed N items in last 24h" badge → links to `/brand/:brandId/inventory/auto-deploy-log?location=…`.
   - ✅ Standalone log page with per-action badges (Created / Reactivated) and brand-wide or per-location filtering.
 
+- **A5** — Brand-orphan constraint on `inventory_items`.
+  - ✅ Trigger `enforce_inventory_item_brand_link` blocks any insert/update where `is_active=true AND brand_item_id IS NULL`.
+  - ✅ Mirrors the existing `recipe_blueprints` orphan rule and enforces the Brand-Centric Manifesto end-to-end.
+  - ✅ Verified pre-migration: 0 active orphans, 491 inactive legacy orphans (untouched).
+  - ✅ Brand Catalog deployment paths already always set `brand_item_id`, so no application code changes needed.
+
 ## In progress 🚧
-_(none — pick next from queue)_
+_(none — A1–A5 all shipped)_
 
 ## Queued 📋
-- **A5** — Constraint pass #2: mirror the recipe orphan constraint on `brand_inventory_items` to prevent local items leaking to brand.
+_(empty)_
 
 ---
 
