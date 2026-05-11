@@ -370,6 +370,32 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
         </Card>
       )}
 
+      {/* A4: Auto-deployment badge — surfaces what the nightly sweep fixed automatically */}
+      {brandId && autoDeployedRecent !== undefined && autoDeployedRecent > 0 && (
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <div className="flex items-center justify-between p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span className="font-medium">
+                Auto-deployed {autoDeployedRecent} item{autoDeployedRecent === 1 ? "" : "s"} in the last 24h
+              </span>
+              <span className="text-xs text-muted-foreground">
+                missing recipe ingredients added by nightly sweep
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-7 text-xs"
+              onClick={() => navigate(`/brand/${brandId}/inventory/auto-deploy-log?location=${locationId}`)}
+            >
+              View log
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Variance Table */}
       <Card>
         <CardHeader className="pb-2">
