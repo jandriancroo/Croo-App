@@ -245,6 +245,34 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
         </div>
       )}
 
+
+      {/* A2: Brand-level unpriced ingredients summary → links to standalone page */}
+      {brandId && unpriced && unpriced.length > 0 && (
+        <Card className="border-orange-500/30 bg-orange-500/5">
+          <div className="flex items-center justify-between p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <HelpCircle className="h-4 w-4 text-orange-600" />
+              <span className="font-medium">Unpriced Ingredients</span>
+              <Badge variant="outline" className="text-[10px] border-orange-500/40">
+                {unpriced.length} item{unpriced.length > 1 ? "s" : ""}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                affecting {unpricedRecipeCount} recipe{unpricedRecipeCount === 1 ? "" : "s"}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-7 text-xs"
+              onClick={() => navigate(`/brand/${brandId}/inventory/unpriced`)}
+            >
+              View details
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* A1: Recipe Data Quality — separates "real" variance from data gaps */}
       {dataQuality && dataQuality.totalAffectedRecipes > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/5">
