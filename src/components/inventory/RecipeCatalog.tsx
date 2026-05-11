@@ -31,13 +31,19 @@ const RecipeCatalog = ({ locationId, readOnly = false, brandId }: RecipeCatalogP
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const posMap = usePosMapping(locationId, brandId);
 
+  // Brand context: when a brandId prop is provided (e.g. Brand Inventory page),
+  // fetch ONLY brand-level blueprints (location_id IS NULL). Local-scoped recipes
+  // must never appear on brand pages — see Brand-Centric Scoping rule.
+  const brandOnly = !!brandId;
+
   const { data: blueprints } = useQuery({
-    queryKey: ["recipe-catalog-blueprints", locationId],
+    queryKey: ["recipe-catalog-blueprints", locationId, brandOnly ? "brand-only" : "merged"],
     queryFn: async () => {
       const { fetchBlueprintsForLocation } = await import("@/utils/resolveBrandId");
       const data = await fetchBlueprintsForLocation(
         locationId,
-        "id, name, r365_name, category, yield_qty, yield_unit, source, catalog_section"
+        "id, name, r365_name, category, yield_qty, yield_unit, source, catalog_section",
+        { brandOnly }
       );
       return (data || []) as unknown as MenuItem[];
     },
