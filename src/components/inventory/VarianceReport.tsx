@@ -35,9 +35,29 @@ const formatCurrency = (v: number) =>
 const formatPct = (v: number) => `${v.toFixed(2)}%`;
 
 const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: VarianceReportProps) => {
+  const navigate = useNavigate();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showUnmatchedDetail, setShowUnmatchedDetail] = useState(false);
   const [showDataQualityDetail, setShowDataQualityDetail] = useState(false);
+
+  // A2: brand-level unpriced ingredients summary (links to standalone page)
+  const { data: brandId } = useQuery({
+    queryKey: ["resolve-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    staleTime: 5 * 60_000,
+  });
+  const { data: unpriced } = useQuery({
+    queryKey: ["brand-unpriced-ingredients", brandId],
+    queryFn: () => fetchBrandUnpricedIngredients(brandId!),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+  const unpricedRecipeCount = (() => {
+    if (!unpriced) return 0;
+    const set = new Set<string>();
+    for (const i of unpriced) for (const r of i.recipes) set.add(r.blueprintId);
+    return set.size;
+  })();
 
   // A1: surface archived/unpriced/missing recipe ingredients separately so they
   // don't get silently buried as variance noise.
