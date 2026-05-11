@@ -270,7 +270,24 @@ const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMappi
           )}>
             {isExpanded && <DollarSign className="h-3 w-3" />}
             ${totalCost.toFixed(2)}
-            {isPartial && <AlertCircle className="h-3 w-3 text-amber-500 ml-0.5" />}
+            {isPartial && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="ml-0.5 inline-flex"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  <div className="font-medium mb-0.5">Partial cost</div>
+                  {archivedCount > 0 && <div>{archivedCount} archived ingredient{archivedCount > 1 ? "s" : ""} (brand discontinued)</div>}
+                  {unpricedCount > 0 && <div>{unpricedCount} unpriced ingredient{unpricedCount > 1 ? "s" : ""} (no vendor cost)</div>}
+                  {missingCount > 0 && <div>{missingCount} missing ingredient{missingCount > 1 ? "s" : ""} (not deployed)</div>}
+                </TooltipContent>
+              </Tooltip>
+            )}
           </span>
         )}
         {item.yield_qty && item.yield_unit && (
