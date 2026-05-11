@@ -145,6 +145,15 @@ const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMappi
   const bpCost: BlueprintCostResult | undefined = costResult?.get(item.id);
   const totalCost = bpCost?.batchCost || 0;
   const isPartial = bpCost?.isPartial || false;
+  const archivedCount = bpCost?.archivedItems.length || 0;
+  const unpricedCount = bpCost?.unpricedItems.length || 0;
+  const missingCount = bpCost?.missingItems.length || 0;
+
+  const partialReasonParts: string[] = [];
+  if (archivedCount > 0) partialReasonParts.push(`${archivedCount} archived`);
+  if (unpricedCount > 0) partialReasonParts.push(`${unpricedCount} unpriced`);
+  if (missingCount > 0) partialReasonParts.push(`${missingCount} missing`);
+  const partialReason = partialReasonParts.join(" • ");
 
   const vendorNameMap = new Map(vendorItems?.map(v => [v.id, v.name]) || []);
   const vendorDataMap = new Map(vendorItems?.map(v => [v.id, v]) || []);
