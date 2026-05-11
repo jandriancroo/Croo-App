@@ -42,6 +42,10 @@ interface ActiveConversionRow {
 export interface BlueprintCostResult {
   batchCost: number;
   missingItems: string[];
+  /** A0: ingredients whose brand template exists but is archived (deliberate brand decision). */
+  archivedItems: string[];
+  /** A0: ingredients that exist & are active but have no resolvable price (data gap). */
+  unpricedItems: string[];
   isPartial: boolean;
 }
 
