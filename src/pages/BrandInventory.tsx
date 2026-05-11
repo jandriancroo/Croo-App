@@ -370,6 +370,15 @@ export default function BrandInventory() {
               </p>
             </div>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={() => navigate(`/brand/${brandId}/inventory/unpriced`)}
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Unpriced Ingredients</span>
+          </Button>
         </div>
 
         {/* Tabs */}
