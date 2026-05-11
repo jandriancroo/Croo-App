@@ -125,7 +125,11 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         if (row.product_mix == null) continue;
         entry.totalSales += Number(row.net_sales) || 0;
         for (const item of normalizeMix(row.product_mix)) {
-          const matchedRef = trackedItemRefs.find(target => item.itemName.toLowerCase().includes(target.toLowerCase()));
+          const itemNameLower = item.itemName.toLowerCase();
+          // Match most-specific (longest) ref first so "Prosciutto Pizza (Large)" wins over "Prosciutto Pizza"
+          const matchedRef = [...trackedItemRefs]
+            .sort((a, b) => b.length - a.length)
+            .find(target => itemNameLower.includes(target.toLowerCase()));
           if (matchedRef) {
             entry.units += item.quantity;
             entry.sales += item.netSales;
