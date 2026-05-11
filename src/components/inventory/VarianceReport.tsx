@@ -67,6 +67,22 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
     staleTime: 60_000,
   });
 
+  // A4: count of auto-deployments at this location in the last 24h
+  const { data: autoDeployedRecent } = useQuery({
+    queryKey: ["auto-deployed-recent", locationId],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count, error } = await supabase
+        .from("brand_auto_deployment_log")
+        .select("id", { count: "exact", head: true })
+        .eq("location_id", locationId)
+        .gte("deployed_at", since);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    staleTime: 60_000,
+  });
+
   // Get the current count's period_type so we can match previous counts of the same type.
   // Without this, a Monthly count would pick up the most recent Weekly count as its
   // "previous" — collapsing the sales window to just the last few days of the month.
