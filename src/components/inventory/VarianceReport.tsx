@@ -33,6 +33,15 @@ const formatPct = (v: number) => `${v.toFixed(2)}%`;
 const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: VarianceReportProps) => {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showUnmatchedDetail, setShowUnmatchedDetail] = useState(false);
+  const [showDataQualityDetail, setShowDataQualityDetail] = useState(false);
+
+  // A1: surface archived/unpriced/missing recipe ingredients separately so they
+  // don't get silently buried as variance noise.
+  const { data: dataQuality } = useQuery({
+    queryKey: ["recipe-data-quality", locationId],
+    queryFn: () => fetchRecipeDataQuality(locationId),
+    staleTime: 60_000,
+  });
 
   // Get the current count's period_type so we can match previous counts of the same type.
   // Without this, a Monthly count would pick up the most recent Weekly count as its
