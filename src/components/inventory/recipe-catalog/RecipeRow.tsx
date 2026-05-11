@@ -350,7 +350,9 @@ const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMappi
 
           {totalCost > 0 && ingredients && ingredients.length > 0 && (
             <div className="flex items-center justify-between pt-1 mt-1 border-t border-border/30 text-xs font-semibold">
-              <span>Recipe Cost{isPartial && <span className="text-amber-500 font-normal ml-1">(partial)</span>}</span>
+              <span>Recipe Cost{isPartial && partialReason && (
+                <span className="text-amber-500 font-normal ml-1">({partialReason})</span>
+              )}</span>
               <span className="text-emerald-600">${totalCost.toFixed(2)}</span>
             </div>
           )}
