@@ -19,12 +19,18 @@ _Last updated: 2026-05-11_
   - ✅ Inline summary card on AvT report linking to the page.
   - ✅ Header button on Brand Inventory page.
   - **Hard rule honored:** no fallback price field, no manual price typing anywhere.
+  - ✅ Verified live on Hemet: page reports "No unpriced ingredients."
+
+- **A3** — Recipe-cost yield-division audit. Reviewed all `batchCost / yieldQty` call sites:
+  - `varianceReport.ts` (theoretical COGS per unit sold) ✅ correct
+  - `InventoryItemsManager.tsx` (display-only `liveUnitCost`) ✅ correct
+  - `useMenuPricing.ts` + `RecipeGeniusCard.tsx` (per-serving menu cost) ✅ correct
+  - **No additional bugs found.** The count-sheet path was the only broken one and is already fixed.
 
 ## In progress 🚧
 _(none — pick next from queue)_
 
 ## Queued 📋
-- **A3** — Recipe costing fix #2 (audit other "divide by yield" call sites that may still be wrong).
 - **A4** — One-click "Deploy missing items to this location" button on AvT data-quality card.
 - **A5** — Constraint pass #2: mirror the recipe orphan constraint on `brand_inventory_items` to prevent local items leaking to brand.
 
