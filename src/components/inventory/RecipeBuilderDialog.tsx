@@ -1430,11 +1430,22 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId, edi
                   {costPerYieldUnit !== null && costPerYieldUnit !== recipeCost && (
                     <p className="text-xs text-muted-foreground font-mono">= ${costPerYieldUnit.toFixed(4)}/{yieldUnit}</p>
                   )}
-                  {recipeCostResult && !recipeCostResult.allHaveCost && (
-                    <p className="text-xs text-muted-foreground italic">
-                      ⚠ Partial — {recipeCostResult.missingItems.length} ingredient{recipeCostResult.missingItems.length > 1 ? "s" : ""} missing cost data
-                    </p>
-                  )}
+                  {recipeCostResult && !recipeCostResult.allHaveCost && (() => {
+                    // A1: differentiate cause when this recipe exists in the engine result.
+                    const engineResult = editBlueprintId ? blueprintCostsMap?.get(editBlueprintId) : undefined;
+                    const archived = engineResult?.archivedItems.length || 0;
+                    const unpriced = engineResult?.unpricedItems.length || 0;
+                    const missing = engineResult?.missingItems.length || recipeCostResult.missingItems.length;
+                    const parts: string[] = [];
+                    if (archived > 0) parts.push(`${archived} archived (brand discontinued)`);
+                    if (unpriced > 0) parts.push(`${unpriced} unpriced (no vendor cost)`);
+                    if (missing > 0) parts.push(`${missing} missing cost data`);
+                    return (
+                      <p className="text-xs text-muted-foreground italic">
+                        ⚠ Partial — {parts.join(" • ")}
+                      </p>
+                    );
+                  })()}
                   <div className="border-t border-border/40 pt-2 mt-2">
                     <Label className="text-xs text-muted-foreground">Menu Price</Label>
                     <div className="flex items-center gap-2 mt-1">

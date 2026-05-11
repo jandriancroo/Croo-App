@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateVarianceReport, type VarianceCategoryRow, type VarianceItemRow } from "@/utils/varianceReport";
+import { fetchRecipeDataQuality } from "@/utils/recipeDataQuality";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info, ChevronDown, ChevronRight, CheckCircle2, Archive, HelpCircle, PackageX } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { addDays, format } from "date-fns";
 
@@ -32,6 +33,15 @@ const formatPct = (v: number) => `${v.toFixed(2)}%`;
 const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: VarianceReportProps) => {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showUnmatchedDetail, setShowUnmatchedDetail] = useState(false);
+  const [showDataQualityDetail, setShowDataQualityDetail] = useState(false);
+
+  // A1: surface archived/unpriced/missing recipe ingredients separately so they
+  // don't get silently buried as variance noise.
+  const { data: dataQuality } = useQuery({
+    queryKey: ["recipe-data-quality", locationId],
+    queryFn: () => fetchRecipeDataQuality(locationId),
+    staleTime: 60_000,
+  });
 
   // Get the current count's period_type so we can match previous counts of the same type.
   // Without this, a Monthly count would pick up the most recent Weekly count as its
@@ -209,6 +219,87 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
             POS Mappings with sales: {report.mappingCoverage.mapped} of {report.mappingCoverage.total} linked recipes had matching POS data
           </span>
         </div>
+      )}
+
+      {/* A1: Recipe Data Quality — separates "real" variance from data gaps */}
+      {dataQuality && dataQuality.totalAffectedRecipes > 0 && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <button
+            type="button"
+            onClick={() => setShowDataQualityDetail(!showDataQualityDetail)}
+            className="w-full flex items-center justify-between p-3 hover:bg-amber-500/10 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-sm">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span className="font-medium">Recipe Data Quality</span>
+              <Badge variant="outline" className="text-[10px] border-amber-500/40">
+                {dataQuality.totalAffectedRecipes} recipe{dataQuality.totalAffectedRecipes > 1 ? "s" : ""} affected
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              {dataQuality.archivedRecipeCount > 0 && (
+                <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                  <Archive className="h-3 w-3" />
+                  {dataQuality.archivedRecipeCount} archived
+                </span>
+              )}
+              {dataQuality.unpricedRecipeCount > 0 && (
+                <span className="flex items-center gap-1 text-orange-700 dark:text-orange-400">
+                  <HelpCircle className="h-3 w-3" />
+                  {dataQuality.unpricedRecipeCount} unpriced
+                </span>
+              )}
+              {dataQuality.missingRecipeCount > 0 && (
+                <span className="flex items-center gap-1 text-red-700 dark:text-red-400">
+                  <PackageX className="h-3 w-3" />
+                  {dataQuality.missingRecipeCount} missing
+                </span>
+              )}
+              {showDataQualityDetail ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </div>
+          </button>
+          {showDataQualityDetail && (
+            <div className="px-3 pb-3 pt-0 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                These recipes have ingredients that are <strong>archived</strong> (brand discontinued the SKU),
+                <strong> unpriced</strong> (no vendor cost on file), or <strong>missing</strong> (template not deployed here).
+                Until they're fixed, theoretical COGS for these items understates true cost — variance below may be data-gap noise, not real loss.
+              </p>
+              <div className="max-h-64 overflow-y-auto rounded-md border border-amber-500/20 bg-background/50 divide-y divide-border/50">
+                {dataQuality.issues.slice(0, 50).map(issue => (
+                  <div key={issue.blueprintId} className="p-2 text-xs">
+                    <div className="font-medium mb-1">{issue.recipeName}</div>
+                    <div className="space-y-0.5 text-muted-foreground">
+                      {issue.archivedNames.length > 0 && (
+                        <div className="flex items-start gap-1">
+                          <Archive className="h-3 w-3 mt-0.5 text-amber-600 flex-shrink-0" />
+                          <span><span className="text-amber-700 dark:text-amber-400 font-medium">Archived:</span> {issue.archivedNames.join(", ")}</span>
+                        </div>
+                      )}
+                      {issue.unpricedNames.length > 0 && (
+                        <div className="flex items-start gap-1">
+                          <HelpCircle className="h-3 w-3 mt-0.5 text-orange-600 flex-shrink-0" />
+                          <span><span className="text-orange-700 dark:text-orange-400 font-medium">Unpriced:</span> {issue.unpricedNames.join(", ")}</span>
+                        </div>
+                      )}
+                      {issue.missingNames.length > 0 && (
+                        <div className="flex items-start gap-1">
+                          <PackageX className="h-3 w-3 mt-0.5 text-red-600 flex-shrink-0" />
+                          <span><span className="text-red-700 dark:text-red-400 font-medium">Missing:</span> {issue.missingNames.join(", ")}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {dataQuality.issues.length > 50 && (
+                  <div className="p-2 text-xs text-muted-foreground italic">
+                    ... and {dataQuality.issues.length - 50} more
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </Card>
       )}
 
       {/* Variance Table */}

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Pencil, DollarSign, AlertCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { MenuItem, BlueprintIngredient } from "./types";
 import { getCleanDisplayName } from "./utils";
@@ -144,6 +145,15 @@ const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMappi
   const bpCost: BlueprintCostResult | undefined = costResult?.get(item.id);
   const totalCost = bpCost?.batchCost || 0;
   const isPartial = bpCost?.isPartial || false;
+  const archivedCount = bpCost?.archivedItems.length || 0;
+  const unpricedCount = bpCost?.unpricedItems.length || 0;
+  const missingCount = bpCost?.missingItems.length || 0;
+
+  const partialReasonParts: string[] = [];
+  if (archivedCount > 0) partialReasonParts.push(`${archivedCount} archived`);
+  if (unpricedCount > 0) partialReasonParts.push(`${unpricedCount} unpriced`);
+  if (missingCount > 0) partialReasonParts.push(`${missingCount} missing`);
+  const partialReason = partialReasonParts.join(" • ");
 
   const vendorNameMap = new Map(vendorItems?.map(v => [v.id, v.name]) || []);
   const vendorDataMap = new Map(vendorItems?.map(v => [v.id, v]) || []);
@@ -260,7 +270,24 @@ const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMappi
           )}>
             {isExpanded && <DollarSign className="h-3 w-3" />}
             ${totalCost.toFixed(2)}
-            {isPartial && <AlertCircle className="h-3 w-3 text-amber-500 ml-0.5" />}
+            {isPartial && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="ml-0.5 inline-flex"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  <div className="font-medium mb-0.5">Partial cost</div>
+                  {archivedCount > 0 && <div>{archivedCount} archived ingredient{archivedCount > 1 ? "s" : ""} (brand discontinued)</div>}
+                  {unpricedCount > 0 && <div>{unpricedCount} unpriced ingredient{unpricedCount > 1 ? "s" : ""} (no vendor cost)</div>}
+                  {missingCount > 0 && <div>{missingCount} missing ingredient{missingCount > 1 ? "s" : ""} (not deployed)</div>}
+                </TooltipContent>
+              </Tooltip>
+            )}
           </span>
         )}
         {item.yield_qty && item.yield_unit && (
@@ -323,7 +350,9 @@ const RecipeRow = ({ item, tagLabel, locationId, brandId, onEditRecipe, posMappi
 
           {totalCost > 0 && ingredients && ingredients.length > 0 && (
             <div className="flex items-center justify-between pt-1 mt-1 border-t border-border/30 text-xs font-semibold">
-              <span>Recipe Cost{isPartial && <span className="text-amber-500 font-normal ml-1">(partial)</span>}</span>
+              <span>Recipe Cost{isPartial && partialReason && (
+                <span className="text-amber-500 font-normal ml-1">({partialReason})</span>
+              )}</span>
               <span className="text-emerald-600">${totalCost.toFixed(2)}</span>
             </div>
           )}
