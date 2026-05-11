@@ -200,6 +200,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         cost_per_unit: item.cost_per_unit,
         pack_quantity: item.pack_quantity,
         pack_quantity_override: item.pack_quantity_override,
+        is_recipe: item.is_recipe === true,
       },
       conversion || null,
       false
