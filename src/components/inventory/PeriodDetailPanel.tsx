@@ -429,6 +429,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             cost_per_unit: item.cost_per_unit,
             pack_quantity: item.pack_quantity,
             pack_quantity_override: item.pack_quantity_override,
+            is_recipe: item.is_recipe === true,
           } : undefined,
           conversion || null,
           false
