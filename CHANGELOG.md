@@ -11,3 +11,4 @@ Plain-language notes for meaningful changes. SupaCRM ingests this file via the G
 2026-04-24 [crm-pattern] — Established CHANGELOG convention so SupaCRM can show plain-language notes alongside per-page commit feeds.
 2026-04-24 [inventory] — Wired inventory-availability-sweep into queue_nightly_maintenance; runs nightly at 3am PST after vendor/labor jobs.
 2026-04-24 [inventory] — Sweep now skips manual/invoice-only items (vendor_source filter), eliminating false 60-day flags. 76 items dropped from Hemet sweep, 81% match rate on remainder.
+2026-05-11 [inventory] — A4: Nightly sweep now auto-deploys missing recipe ingredients. Brand recipes referencing brand templates not present locally get the local row created (or reactivated) automatically; every event logged to brand_auto_deployment_log. Emerald "Auto-deployed N items" badge appears on AvT report; full log at /brand/:brandId/inventory/auto-deploy-log.
