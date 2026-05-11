@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity,
+  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle,
 } from 'lucide-react';
 
 import { useUserRole } from '@/hooks/useUserRole';
@@ -370,6 +370,15 @@ export default function BrandInventory() {
               </p>
             </div>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={() => navigate(`/brand/${brandId}/inventory/unpriced`)}
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Unpriced Ingredients</span>
+          </Button>
         </div>
 
         {/* Tabs */}

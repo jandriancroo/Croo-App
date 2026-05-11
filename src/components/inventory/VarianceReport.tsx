@@ -1,12 +1,16 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateVarianceReport, type VarianceCategoryRow, type VarianceItemRow } from "@/utils/varianceReport";
 import { fetchRecipeDataQuality } from "@/utils/recipeDataQuality";
+import { fetchBrandUnpricedIngredients } from "@/utils/brandUnpricedIngredients";
+import { resolveBrandId } from "@/utils/resolveBrandId";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info, ChevronDown, ChevronRight, CheckCircle2, Archive, HelpCircle, PackageX } from "lucide-react";
+import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info, ChevronDown, ChevronRight, CheckCircle2, Archive, HelpCircle, PackageX, ArrowRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { addDays, format } from "date-fns";
 
@@ -31,9 +35,29 @@ const formatCurrency = (v: number) =>
 const formatPct = (v: number) => `${v.toFixed(2)}%`;
 
 const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: VarianceReportProps) => {
+  const navigate = useNavigate();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showUnmatchedDetail, setShowUnmatchedDetail] = useState(false);
   const [showDataQualityDetail, setShowDataQualityDetail] = useState(false);
+
+  // A2: brand-level unpriced ingredients summary (links to standalone page)
+  const { data: brandId } = useQuery({
+    queryKey: ["resolve-brand-id", locationId],
+    queryFn: () => resolveBrandId(locationId),
+    staleTime: 5 * 60_000,
+  });
+  const { data: unpriced } = useQuery({
+    queryKey: ["brand-unpriced-ingredients", brandId],
+    queryFn: () => fetchBrandUnpricedIngredients(brandId!),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+  const unpricedRecipeCount = (() => {
+    if (!unpriced) return 0;
+    const set = new Set<string>();
+    for (const i of unpriced) for (const r of i.recipes) set.add(r.blueprintId);
+    return set.size;
+  })();
 
   // A1: surface archived/unpriced/missing recipe ingredients separately so they
   // don't get silently buried as variance noise.
@@ -219,6 +243,34 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
             POS Mappings with sales: {report.mappingCoverage.mapped} of {report.mappingCoverage.total} linked recipes had matching POS data
           </span>
         </div>
+      )}
+
+
+      {/* A2: Brand-level unpriced ingredients summary → links to standalone page */}
+      {brandId && unpriced && unpriced.length > 0 && (
+        <Card className="border-orange-500/30 bg-orange-500/5">
+          <div className="flex items-center justify-between p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <HelpCircle className="h-4 w-4 text-orange-600" />
+              <span className="font-medium">Unpriced Ingredients</span>
+              <Badge variant="outline" className="text-[10px] border-orange-500/40">
+                {unpriced.length} item{unpriced.length > 1 ? "s" : ""}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                affecting {unpricedRecipeCount} recipe{unpricedRecipeCount === 1 ? "" : "s"}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-7 text-xs"
+              onClick={() => navigate(`/brand/${brandId}/inventory/unpriced`)}
+            >
+              View details
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </Card>
       )}
 
       {/* A1: Recipe Data Quality — separates "real" variance from data gaps */}

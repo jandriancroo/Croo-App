@@ -89,6 +89,7 @@ const FeatureTree = lazyWithRetry(() => import("./pages/FeatureTree"));
 const TheoPlacementPreview = lazyWithRetry(() => import("./pages/TheoPlacementPreview"));
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
+const BrandUnpricedIngredients = lazyWithRetry(() => import("./pages/BrandUnpricedIngredients"));
 const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 const KDSBoard = lazyWithRetry(() => import("./pages/KDSBoard"));
 const DemoGate = lazyWithRetry(() => import("./pages/DemoGate"));
@@ -193,6 +194,7 @@ const AppContent = () => {
         <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
         <Route path="/brands" element={<ProtectedRoute><BrandManagement /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory" element={<ProtectedRoute><BrandInventory /></ProtectedRoute>} />
+        <Route path="/brand/:brandId/inventory/unpriced" element={<ProtectedRoute><BrandUnpricedIngredients /></ProtectedRoute>} />
         <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
         <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
         <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
