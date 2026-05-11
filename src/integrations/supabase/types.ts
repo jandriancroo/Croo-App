@@ -478,6 +478,61 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_auto_deployment_log: {
+        Row: {
+          action: string
+          brand_template_id: string
+          deployed_at: string
+          id: string
+          inventory_item_id: string | null
+          location_id: string
+          recipe_ids: string[]
+          triggered_by: string
+        }
+        Insert: {
+          action?: string
+          brand_template_id: string
+          deployed_at?: string
+          id?: string
+          inventory_item_id?: string | null
+          location_id: string
+          recipe_ids?: string[]
+          triggered_by?: string
+        }
+        Update: {
+          action?: string
+          brand_template_id?: string
+          deployed_at?: string
+          id?: string
+          inventory_item_id?: string | null
+          location_id?: string
+          recipe_ids?: string[]
+          triggered_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_auto_deployment_log_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_auto_deployment_log_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_auto_deployment_log_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_event_categories: {
         Row: {
           brand_id: string
@@ -669,6 +724,7 @@ export type Database = {
       }
       brand_inventory_templates: {
         Row: {
+          auto_deploy_enabled: boolean
           brand_id: string
           category: string | null
           common_name: string | null
@@ -711,6 +767,7 @@ export type Database = {
           vendor_source: string | null
         }
         Insert: {
+          auto_deploy_enabled?: boolean
           brand_id: string
           category?: string | null
           common_name?: string | null
@@ -753,6 +810,7 @@ export type Database = {
           vendor_source?: string | null
         }
         Update: {
+          auto_deploy_enabled?: boolean
           brand_id?: string
           category?: string | null
           common_name?: string | null
