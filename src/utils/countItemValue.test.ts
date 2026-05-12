@@ -144,4 +144,3 @@ describe('calculateCountItemValue', () => {
     expect(result).toBe(20);
   });
 });
-});
