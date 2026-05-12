@@ -577,12 +577,31 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }) => {
     const key = (item as any)._splitKey || item.item_id;
 
-    // Recipe items: cost_per_unit is the per-produced-unit cost (e.g. $0.16/dough ball).
-    // Count is in "each", so total cost = count × per-unit cost — NO pack_quantity multiplier.
+    // Recipe items: route through the canonical calculator so yield-qty
+    // division applies (counted unit may differ from yield unit).
     const batchCost = recipeCosts?.get(item.item_id);
     if (batchCost !== undefined && batchCost > 0) {
       const totalUnits = getTotalQuantity(key, 1, item.pan_sizes);
-      return totalUnits * batchCost;
+      return calculateCountItemValue(
+        {
+          quantity: totalUnits,
+          entered_cases: null,
+          entered_units: null,
+          entered_inner_packs: null,
+          cost_at_count: null,
+          pack_quantity_at_count: null,
+          inner_pack_quantity_at_count: null,
+        },
+        {
+          cost_per_unit: batchCost,
+          is_recipe: true,
+          unit: (item as any).unit,
+          recipe_yield_qty: (item as any).recipe_yield_qty,
+          recipe_yield_unit: (item as any).recipe_yield_unit,
+        },
+        null,
+        true
+      );
     }
 
     // Live values (mid-typing) override saved values
