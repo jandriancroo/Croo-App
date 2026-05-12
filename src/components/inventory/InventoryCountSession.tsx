@@ -84,6 +84,19 @@ interface PendingEdit {
   newQuantity: number;
   itemId?: string;
   storageLocationId?: string;
+  // Snapshot + entered fields so the edit save mirrors the autosave shape
+  // (otherwise re-opening the count would show stale entered_cases / entered_units
+  // and the next "Save Changes" pass would compute the diff against zero inputs).
+  enteredCases?: number;
+  enteredUnits?: number;
+  enteredInnerPacks?: number;
+  panInputs?: Record<string, number> | null;
+  costAtCount?: number | null;
+  packQuantityAtCount?: number | null;
+  innerPackQuantityAtCount?: number | null;
+  itemNameAtCount?: string | null;
+  unitAtCount?: string | null;
+  panSizesAtCount?: any | null;
 }
 
 const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false, isViewOnly = false, saveRef }: InventoryCountSessionProps) => {
@@ -483,9 +496,29 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         }
       }
       
-      // Store original quantities for edit tracking
+      // Store original quantities for edit tracking.
+      // CRITICAL: derive the baseline from the SAME formula getTotalQuantity uses
+      // (cases × caseUnits + innerPacks × innerPackQty + units + panUnits) so the
+      // edit-mode "is this a change?" check compares apples to apples with what
+      // the user sees in the input fields. Comparing against the stored `quantity`
+      // produces phantom diffs (or, worse, hides real diffs) whenever the legacy
+      // quantity column drifted from the entered split — e.g. recipes whose
+      // quantity was bumped by a prior edit but whose entered_cases stayed at 0.
       if (isEditing) {
-        originals[key] = totalUnits;
+        if (hasStoredInput) {
+          const baseCases = existingCases ?? 0;
+          const baseUnits = existingUnits ?? 0;
+          const baseInner = existingInnerPacks ?? 0;
+          const basePan = Object.entries(initialPanCounts[key] || {}).reduce((sum, [pk, qty]) => {
+            const u = item.pan_sizes ? (getPanUnits(item.pan_sizes, pk) ?? 0) : 0;
+            return sum + u * (qty as number);
+          }, 0);
+          originals[key] = Math.round(
+            (baseCases * caseUnits + baseInner * (innerPackQty || 0) + baseUnits + basePan) * 100
+          ) / 100;
+        } else {
+          originals[key] = totalUnits;
+        }
       }
     });
     
@@ -708,6 +741,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const CONCURRENCY = 6;
         const runEdit = async (edit: PendingEdit) => {
           let countItemId = edit.countItemId;
+          // Build the full payload so the row mirrors what an autosave would
+          // have written. Without this, only `quantity` updates and the entered
+          // split / snapshots stay stale — which is what caused "no changes to
+          // save" on subsequent edits.
+          const payload: Record<string, any> = {
+            quantity: edit.newQuantity,
+            entered_cases: edit.enteredCases ?? 0,
+            entered_units: edit.enteredUnits ?? 0,
+            entered_inner_packs: edit.enteredInnerPacks ?? 0,
+            pan_inputs: edit.panInputs ?? null,
+            cost_at_count: edit.costAtCount ?? null,
+            pack_quantity_at_count: edit.packQuantityAtCount ?? null,
+            inner_pack_quantity_at_count: edit.innerPackQuantityAtCount ?? null,
+            item_name_at_count: edit.itemNameAtCount ?? null,
+            unit_at_count: edit.unitAtCount ?? null,
+            pan_sizes_at_count: edit.panSizesAtCount ?? null,
+          };
           if (!countItemId) {
             const storLocId = edit.storageLocationId;
             const { data: inserted, error: insertErr } = await supabase
@@ -715,9 +765,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               .insert({
                 count_id: countId,
                 item_id: edit.itemId!,
-                quantity: edit.newQuantity,
                 storage_location_id:
                   storLocId === "uncategorized" || storLocId === "recipes" ? null : storLocId,
+                ...payload,
               } as any)
               .select("id")
               .single();
@@ -726,7 +776,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           } else {
             await supabase
               .from("inventory_count_items")
-              .update({ quantity: edit.newQuantity })
+              .update(payload)
               .eq("id", countItemId);
           }
           await supabase.from("inventory_count_edits").insert({
@@ -766,29 +816,43 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     for (const item of items) {
       const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string; _packQuantityAtCount?: number | null; _innerPackQuantityAtCount?: number | null };
       const key = extendedItem._splitKey || item.item_id;
-      // Use historical pack_quantity_at_count / inner_pack_quantity_at_count for diff
-      // math on previously-saved rows so a later override doesn't fabricate phantom changes.
-      // For brand-new rows (no snapshot), fall back to the live effective values.
-      const effectivePackQty = extendedItem._packQuantityAtCount ?? item.pack_quantity;
-      const effectiveInnerPackQty = extendedItem._innerPackQuantityAtCount ?? (item as any).inner_pack_quantity ?? null;
-      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, effectiveInnerPackQty);
+      const innerPackQty = (item as any).inner_pack_quantity ?? null;
+      // Diff math uses the LIVE effective pack qty so the baseline (computed from
+      // the current entered_cases × current caseUnits) and the new value share
+      // the same multiplier. Snapshots are stamped on save below for history.
+      const effectivePackQty = item.pack_quantity;
+      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, innerPackQty);
       const originalQuantity = originalCounts.current[key] ?? 0;
       
       if (newQuantity !== originalQuantity) {
+        const liveCounts = counts[key] || { cases: 0, units: 0, innerPacks: 0 };
+        const livePan = panCounts[key] || null;
         edits.push({
           countItemId: extendedItem._countItemId,
           itemName: item.item_name,
           previousQuantity: originalQuantity,
           newQuantity,
-          // Carry forward item metadata for inserts
           itemId: item.item_id,
           storageLocationId: extendedItem.storage_location_id,
+          // Mirror the autosave snapshot shape so re-opening the count shows the
+          // correct entered_cases / entered_units and Period view value math stays
+          // consistent (it derives unit value from quantity − cases × pack).
+          enteredCases: liveCounts.cases || 0,
+          enteredUnits: liveCounts.units || 0,
+          enteredInnerPacks: liveCounts.innerPacks || 0,
+          panInputs: livePan && Object.keys(livePan).length > 0 ? livePan : null,
+          costAtCount: item.cost_per_unit ?? null,
+          packQuantityAtCount: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+          innerPackQuantityAtCount: innerPackQty,
+          itemNameAtCount: item.item_name,
+          unitAtCount: (item as any).unit ?? null,
+          panSizesAtCount: item.pan_sizes ?? null,
         } as PendingEdit);
       }
     }
     
     return edits;
-  }, [isEditing, items, getTotalQuantity]);
+  }, [isEditing, items, getTotalQuantity, counts, panCounts]);
 
   // Handle save for edit mode
   const handleSaveEdits = () => {
