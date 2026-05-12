@@ -84,6 +84,19 @@ interface PendingEdit {
   newQuantity: number;
   itemId?: string;
   storageLocationId?: string;
+  // Snapshot + entered fields so the edit save mirrors the autosave shape
+  // (otherwise re-opening the count would show stale entered_cases / entered_units
+  // and the next "Save Changes" pass would compute the diff against zero inputs).
+  enteredCases?: number;
+  enteredUnits?: number;
+  enteredInnerPacks?: number;
+  panInputs?: Record<string, number> | null;
+  costAtCount?: number | null;
+  packQuantityAtCount?: number | null;
+  innerPackQuantityAtCount?: number | null;
+  itemNameAtCount?: string | null;
+  unitAtCount?: string | null;
+  panSizesAtCount?: any | null;
 }
 
 const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false, isViewOnly = false, saveRef }: InventoryCountSessionProps) => {
