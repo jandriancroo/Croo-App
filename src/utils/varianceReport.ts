@@ -145,6 +145,8 @@ export async function calculateVarianceReport(
         cost_per_unit: item.cost_per_unit,
         pack_quantity: item.pack_quantity,
         pack_quantity_override: item.pack_quantity_override,
+        inner_pack_quantity: item.inner_pack_quantity,
+        is_recipe: item.is_recipe === true,
       } : undefined,
       conversion || null,
       true
@@ -596,7 +598,7 @@ export async function calculateVarianceReport(
 async function fetchCountItems(countId: string) {
   const { data, error } = await supabase
     .from("inventory_count_items")
-    .select("item_id, quantity, cost_at_count, pack_quantity_at_count")
+    .select("item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs")
     .eq("count_id", countId);
   if (error) throw error;
   return data || [];
@@ -669,7 +671,7 @@ async function fetchTransfersForPeriod(locationId: string, start: string, end: s
 async function fetchAllInventoryItems(locationId: string) {
   const { data, error } = await supabase
     .from("inventory_items")
-    .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active, brand_item_id")
+    .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, inner_pack_quantity, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active, brand_item_id")
     .eq("location_id", locationId);
   if (error) throw error;
   return data || [];
