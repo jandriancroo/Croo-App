@@ -32,6 +32,12 @@ export const TO_OZ: Record<string, number> = {
 
   // ─── Passthrough ───
   ea: 1,
+  cn: 1, // can — treated as each (1 can = 1 each); embedded-size variants like "can(8.4oz-fl)" handled by expandEmbeddedUnit
+};
+
+/** Industry-standard #N can sizes in fluid ounces */
+const HASH_CAN_OZ: Record<string, number> = {
+  "1": 11, "2": 20, "2.5": 29, "3": 33, "5": 56, "10": 104,
 };
 
 /** Maps messy vendor / user strings → canonical keys in TO_OZ */
@@ -60,7 +66,7 @@ export const UNIT_ALIASES: Record<string, string> = {
   "milliliter": "ml", "milliliters": "ml",
 
   // countable
-  "each": "ea", "count": "ea",
+  "each": "ea", "count": "ea", "ct": "ea",
   "case": "cs", "cases": "cs",
   "can": "cn", "cans": "cn",
 };
@@ -82,12 +88,13 @@ export function normalizeUnit(unit: string | null | undefined): string {
   if (TO_OZ[cleaned] !== undefined) return cleaned;
 
   // Prefix / substring fallbacks for messy vendor data
-  if (cleaned.startsWith("case") || cleaned.startsWith("pack")) return "cs";
+  // Skip case/pack swallowing when the string carries an embedded size like "pack(9.6lb)" — expandEmbeddedUnit handles those.
+  if ((cleaned.startsWith("case") || cleaned.startsWith("pack")) && !cleaned.includes("(")) return "cs";
   if (cleaned.includes("gallon")) return "gal";
   if (cleaned.includes("liter") || cleaned.includes("litre")) return "l";
-  if (cleaned.includes("oz")) return "oz";
+  if (cleaned.includes("oz") && !cleaned.includes("(")) return "oz";
   if (cleaned.includes("gram")) return "g";
-  if (cleaned.includes("lb") || cleaned.includes("pound")) return "lb";
+  if ((cleaned.includes("lb") || cleaned.includes("pound")) && !cleaned.includes("(")) return "lb";
   if (cleaned.includes("tablespoon")) return "tbsp";
   if (cleaned.includes("teaspoon")) return "tsp";
 
@@ -95,15 +102,54 @@ export function normalizeUnit(unit: string | null | undefined): string {
 }
 
 /**
+ * Expand an embedded-size unit string into a base quantity + canonical unit.
+ *
+ * Handles strings like:
+ *   "bottle(20oz-fl)" + qty=3 → { qty: 60, unit: "oz" }
+ *   "pack(9.6lb)" + qty=2     → { qty: 19.2, unit: "lb" }
+ *   "#10can" + qty=1          → { qty: 104, unit: "oz" }
+ *
+ * For plain units (no embedded size) returns { qty, unit: normalizeUnit(rawUnit) }.
+ *
+ * Used by costing engines so a recipe ingredient like "3 bottle(20oz-fl)" of olive oil
+ * is priced as 60 oz of olive oil, not as 3 unrecognized strings.
+ */
+export function expandEmbeddedUnit(qty: number, rawUnit: string | null | undefined): { qty: number; unit: string } {
+  if (!rawUnit) return { qty, unit: "" };
+  const cleaned = rawUnit.trim().toLowerCase().replace(/\s+/g, "");
+
+  // #10can, #5can, #2.5can, etc. — industry-standard can sizes
+  const hashMatch = cleaned.match(/^#(\d+(?:\.\d+)?)can$/);
+  if (hashMatch) {
+    const oz = HASH_CAN_OZ[hashMatch[1]];
+    if (oz) return { qty: qty * oz, unit: "oz" };
+  }
+
+  // bottle(20oz-fl), pack(9.6lb), can(8.4oz-fl), pack(158oz-wt), bottle(330ml), etc.
+  const m = cleaned.match(/\(([\d.]+)([a-z-]+)\)/);
+  if (m) {
+    const amount = parseFloat(m[1]);
+    const innerUnit = normalizeUnit(m[2]);
+    if (Number.isFinite(amount) && innerUnit && TO_OZ[innerUnit] !== undefined) {
+      return { qty: qty * amount, unit: innerUnit };
+    }
+  }
+
+  return { qty, unit: normalizeUnit(rawUnit) };
+}
+
+/**
  * Convert a quantity from one unit to another via the oz bridge.
- * Returns null if either unit is unknown.
+ * Returns null if either unit is unknown. Embedded-size units are expanded first.
  */
 export function convertUnits(qty: number, fromUnit: string, toUnit: string): number | null {
-  const from = normalizeUnit(fromUnit);
-  const to = normalizeUnit(toUnit);
-  if (from === to) return qty;
+  const fromExp = expandEmbeddedUnit(qty, fromUnit);
+  const toExp = expandEmbeddedUnit(1, toUnit); // expand "to" for normalization only; multiplier baked into divisor
+  const from = fromExp.unit;
+  const to = toExp.unit;
+  if (from === to) return fromExp.qty / toExp.qty;
   const fromFactor = TO_OZ[from];
   const toFactor = TO_OZ[to];
   if (fromFactor == null || toFactor == null) return null;
-  return (qty * fromFactor) / toFactor;
+  return (fromExp.qty * fromFactor) / (toExp.qty * toFactor);
 }

@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { reconcileSaladGroup, getReconciliationGroups } from "./saladReconciliation";
 
-import { TO_OZ, normalizeUnit as norm } from "./unitConversion";
+import { TO_OZ, normalizeUnit as norm, expandEmbeddedUnit } from "./unitConversion";
 import { calculateCountItemValue } from "./countItemValue";
 function parseCansPerCase(ps: string | null): number | null {
   if (!ps) return null;
@@ -349,14 +349,16 @@ export async function calculateVarianceReport(
         if (!subBp) continue;
         const subBreakdown = resolveBreakdown(ing.sub_blueprint_id, new Set(visited));
         const subYield = subBp.yield_qty || 1;
-        const ingUnit = norm(ing.unit);
+        const subEx = expandEmbeddedUnit(Number(ing.quantity) || 0, ing.unit);
+        const ingUnit = subEx.unit;
+        const ingQty = subEx.qty;
         const subYieldUnit = norm(subBp.yield_unit);
 
-        let scale = ing.quantity / subYield;
+        let scale = ingQty / subYield;
         if (ingUnit && subYieldUnit && ingUnit !== subYieldUnit
             && ingUnit !== "ea" && subYieldUnit !== "ea"
             && TO_OZ[ingUnit] && TO_OZ[subYieldUnit]) {
-          scale = (ing.quantity * TO_OZ[ingUnit]) / (subYield * TO_OZ[subYieldUnit]);
+          scale = (ingQty * TO_OZ[ingUnit]) / (subYield * TO_OZ[subYieldUnit]);
         }
 
         for (const [itemId, cost] of subBreakdown) {
@@ -373,28 +375,31 @@ export async function calculateVarianceReport(
 
         const caseCost = vendor.blended_price ?? vendor.cost_per_unit ?? 0;
         if (caseCost === 0) continue;
-        const ingUnit = norm(ing.unit);
+        // Expand embedded-size units ("bottle(20oz-fl)", "#10can", "pack(9.6lb)") and aliases ("cn"→"ea")
+        const expanded = expandEmbeddedUnit(Number(ing.quantity) || 0, ing.unit);
+        const ingUnit = expanded.unit;
+        const ingQty = expanded.qty;
         const nativeUnit = norm(vendor.count_unit);
         let cost = 0;
 
         if (ingUnit === "cs" || ingUnit === "case") {
-          cost = caseCost * ing.quantity;
+          cost = caseCost * ingQty;
         } else if (ingUnit === "cn" || ingUnit === "can") {
           const cpc = parseCansPerCase(vendor.pack_size);
           if (cpc && cpc > 0) {
-            cost = (ing.quantity / cpc) * caseCost;
+            cost = (ingQty / cpc) * caseCost;
           } else {
             const upc = vendor.count_units_per_case || vendor.pack_quantity_override || vendor.pack_quantity || 1;
-            cost = (caseCost / upc) * ing.quantity;
+            cost = (caseCost / upc) * ingQty;
           }
         } else {
           const upc = vendor.count_units_per_case || vendor.pack_quantity_override || vendor.pack_quantity || 1;
           const cpnu = caseCost / upc;
           if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
-            const inNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
+            const inNative = (ingQty * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
             cost = cpnu * inNative;
           } else {
-            cost = cpnu * ing.quantity;
+            cost = cpnu * ingQty;
           }
         }
 
