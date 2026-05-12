@@ -1,0 +1,1 @@
+DELETE FROM public.dashboard_widgets WHERE title ILIKE '%detroit%';
