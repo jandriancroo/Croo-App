@@ -1351,7 +1351,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (args.include_items) {
             const { data: items } = await supabase
               .from("inventory_count_items")
-              .select("quantity, entered_cases, entered_units, entered_inner_packs, theoretical_quantity, variance, variance_cost, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, is_recipe)")
+              .select("quantity, entered_cases, entered_units, entered_inner_packs, theoretical_quantity, variance, variance_cost, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, is_recipe, unit, recipe_yield_qty, recipe_yield_unit)")
               .eq("count_id", count.id);
 
             let itemResults = (items || []).map((i: any) => {
