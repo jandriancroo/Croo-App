@@ -65,6 +65,8 @@ interface CountItem {
   image_url: string | null;
   pan_sizes: PanSizesConfig | null;
   is_recipe: boolean;
+  /** Recipe yield qty (e.g. 22 for "yields 22 qt"). Used to convert per-batch cost to per-yield-unit. */
+  recipe_yield_qty?: number | null;
   /** Per-shortcut counting mode: inherit uses global settings */
   count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
 }
@@ -170,6 +172,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           is_recipe,
           countable,
           recipe_yield_unit,
+          recipe_yield_qty,
           storage_location:inventory_locations(name)
       `;
       
@@ -342,6 +345,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               return basePan;
             })(),
             is_recipe: isRecipe,
+            recipe_yield_qty: (item as any).recipe_yield_qty ?? null,
             count_by: (locId ? countByMap.get(`${item.id}|${locId}`) : 'inherit') as CountItem['count_by'] || 'inherit',
             _existingQuantity: countData?.quantity ?? 0,
             _existingCases: countData?.entered_cases ?? null,
@@ -576,12 +580,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }) => {
     const key = (item as any)._splitKey || item.item_id;
 
-    // Recipe items: cost_per_unit is the per-produced-unit cost (e.g. $0.16/dough ball).
-    // Count is in "each", so total cost = count × per-unit cost — NO pack_quantity multiplier.
+    // Recipe items: recipeCosts returns the per-batch cost. Quantity is in yield
+    // units (e.g. qt). Divide by yield to get cost per yield-unit before multiplying.
     const batchCost = recipeCosts?.get(item.item_id);
     if (batchCost !== undefined && batchCost > 0) {
       const totalUnits = getTotalQuantity(key, 1, item.pan_sizes);
-      return totalUnits * batchCost;
+      const yieldQty = Number((item as any).recipe_yield_qty) || 0;
+      const costPerYieldUnit = yieldQty > 0 ? batchCost / yieldQty : batchCost;
+      return totalUnits * costPerYieldUnit;
     }
 
     // Live values (mid-typing) override saved values
@@ -637,6 +643,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         pack_quantity_override: (item as any)._rawPackQuantityOverride ?? null,
         inner_pack_quantity: innerPackQty || null,
         is_recipe: (item as any).is_recipe === true,
+        recipe_yield_qty: (item as any).recipe_yield_qty,
       },
       conversion || null,
       true
@@ -1896,9 +1903,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                         {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (() => {
                           if (item.is_recipe) {
+                            const batchCost = recipeCosts?.get(item.item_id) || item.cost_per_unit || 0;
+                            const yieldQty = Number((item as any).recipe_yield_qty) || 0;
+                            const perYieldUnit = yieldQty > 0 ? batchCost / yieldQty : batchCost;
+                            const yieldUnit = item.unit || 'ea';
                             return (
                               <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                {formatCurrency(recipeCosts?.get(item.item_id) || item.cost_per_unit || 0)}/ea
+                                {formatCurrency(perYieldUnit)}/{yieldUnit}
                               </span>
                             );
                           }

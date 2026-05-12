@@ -77,6 +77,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             item_number,
             category,
             is_recipe,
+            recipe_yield_qty,
             storage_location:inventory_locations(name)
           )
         `)
@@ -124,6 +125,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             pack_quantity_override: item?.pack_quantity_override,
             inner_pack_quantity: item?.inner_pack_quantity,
             is_recipe: item?.is_recipe === true,
+            recipe_yield_qty: item?.recipe_yield_qty,
           },
           conversion || null,
           false
@@ -206,6 +208,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         pack_quantity_override: item.pack_quantity_override,
         inner_pack_quantity: item.inner_pack_quantity,
         is_recipe: item.is_recipe === true,
+        recipe_yield_qty: item.recipe_yield_qty,
       },
       conversion || null,
       false

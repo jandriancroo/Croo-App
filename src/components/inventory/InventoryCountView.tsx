@@ -115,6 +115,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
             item_number,
             display_order,
             is_recipe,
+            recipe_yield_qty,
             storage_location_id,
             storage_location:inventory_locations(name, display_order)
           )
@@ -215,6 +216,8 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
         pack_quantity: itm.pack_quantity,
         pack_quantity_override: itm.pack_quantity_override,
         is_recipe: itm.is_recipe === true,
+        recipe_yield_qty: itm.recipe_yield_qty,
+        inner_pack_quantity: itm.inner_pack_quantity,
       },
       conversion || null,
       false

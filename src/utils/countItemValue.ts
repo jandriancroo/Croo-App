@@ -1,6 +1,10 @@
 /**
  * Single source of truth for valuing a count item in inventory reports.
  *
+ * Recipe items: cost_per_unit IS the per-batch cost. Quantity is in yield units
+ * (e.g., qt). Value = quantity × (cost_per_batch / recipe_yield_qty). When
+ * yield_qty is missing, falls back to qty × cost_per_batch (legacy behaviour).
+ *
  * Math (when entered_cases or entered_units is present):
  *   caseValue   = entered_cases × cost_per_case
  *   nonCaseUnits = max(quantity − entered_cases × pack_qty, entered_units)
@@ -52,6 +56,7 @@ export interface ItemForValue {
   pack_quantity_override?: number | null;
   inner_pack_quantity?: number | null;
   is_recipe?: boolean | null;
+  recipe_yield_qty?: number | null;
 }
 
 export interface ConversionForValue {
@@ -78,11 +83,18 @@ export function calculateCountItemValue(
 
   // Recipe items: cost_per_unit IS the per-batch cost, and quantity is in batches.
   // Pack/conversion math does not apply — recipes have a yield, not a vendor pack.
+  // Recipe items: cost_per_unit IS the per-batch cost (sum of ingredient costs).
+  // Quantity is counted in the recipe's yield unit (e.g., qt). Divide batch cost
+  // by yield qty to get cost-per-yield-unit, then multiply by quantity counted.
+  // Falls back to legacy (qty × batch cost) only when yield is missing/zero so
+  // recipes without yield set don't silently zero out.
   if (item?.is_recipe) {
     const qty = ci.quantity != null
       ? Number(ci.quantity) || 0
       : (Number(ci.entered_cases || 0) + Number(ci.entered_units || 0) + Number(ci.entered_inner_packs || 0));
-    return qty * costPerCase;
+    const yieldQty = Number(item?.recipe_yield_qty) || 0;
+    const costPerYieldUnit = yieldQty > 0 ? costPerCase / yieldQty : costPerCase;
+    return qty * costPerYieldUnit;
   }
 
   const enteredCasesNum = Number(ci.entered_cases || 0);

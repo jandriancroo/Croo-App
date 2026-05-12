@@ -95,7 +95,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
       if (!locationId) return [];
       const { data } = await supabase
         .from("inventory_items")
-        .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, unit, vendor_source, category, is_recipe, brand_item_id")
+        .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, unit, vendor_source, category, is_recipe, recipe_yield_qty, brand_item_id")
         .eq("location_id", locationId)
         .eq("is_active", true);
       return data || [];
@@ -234,6 +234,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
           pack_quantity_override: item.pack_quantity_override,
           inner_pack_quantity: item.inner_pack_quantity,
           is_recipe: (item as any).is_recipe === true,
+          recipe_yield_qty: (item as any).recipe_yield_qty,
         } : undefined,
         conversion || null,
         true
