@@ -799,29 +799,43 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     for (const item of items) {
       const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string; _packQuantityAtCount?: number | null; _innerPackQuantityAtCount?: number | null };
       const key = extendedItem._splitKey || item.item_id;
-      // Use historical pack_quantity_at_count / inner_pack_quantity_at_count for diff
-      // math on previously-saved rows so a later override doesn't fabricate phantom changes.
-      // For brand-new rows (no snapshot), fall back to the live effective values.
-      const effectivePackQty = extendedItem._packQuantityAtCount ?? item.pack_quantity;
-      const effectiveInnerPackQty = extendedItem._innerPackQuantityAtCount ?? (item as any).inner_pack_quantity ?? null;
-      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, effectiveInnerPackQty);
+      const innerPackQty = (item as any).inner_pack_quantity ?? null;
+      // Diff math uses the LIVE effective pack qty so the baseline (computed from
+      // the current entered_cases × current caseUnits) and the new value share
+      // the same multiplier. Snapshots are stamped on save below for history.
+      const effectivePackQty = item.pack_quantity;
+      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, innerPackQty);
       const originalQuantity = originalCounts.current[key] ?? 0;
       
       if (newQuantity !== originalQuantity) {
+        const liveCounts = counts[key] || { cases: 0, units: 0, innerPacks: 0 };
+        const livePan = panCounts[key] || null;
         edits.push({
           countItemId: extendedItem._countItemId,
           itemName: item.item_name,
           previousQuantity: originalQuantity,
           newQuantity,
-          // Carry forward item metadata for inserts
           itemId: item.item_id,
           storageLocationId: extendedItem.storage_location_id,
+          // Mirror the autosave snapshot shape so re-opening the count shows the
+          // correct entered_cases / entered_units and Period view value math stays
+          // consistent (it derives unit value from quantity − cases × pack).
+          enteredCases: liveCounts.cases || 0,
+          enteredUnits: liveCounts.units || 0,
+          enteredInnerPacks: liveCounts.innerPacks || 0,
+          panInputs: livePan && Object.keys(livePan).length > 0 ? livePan : null,
+          costAtCount: item.cost_per_unit ?? null,
+          packQuantityAtCount: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+          innerPackQuantityAtCount: innerPackQty,
+          itemNameAtCount: item.item_name,
+          unitAtCount: (item as any).unit ?? null,
+          panSizesAtCount: item.pan_sizes ?? null,
         } as PendingEdit);
       }
     }
     
     return edits;
-  }, [isEditing, items, getTotalQuantity]);
+  }, [isEditing, items, getTotalQuantity, counts, panCounts]);
 
   // Handle save for edit mode
   const handleSaveEdits = () => {
