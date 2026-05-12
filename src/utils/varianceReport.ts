@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { reconcileSaladGroup, getReconciliationGroups } from "./saladReconciliation";
 
-import { TO_OZ, normalizeUnit as norm } from "./unitConversion";
+import { TO_OZ, normalizeUnit as norm, expandEmbeddedUnit } from "./unitConversion";
 import { calculateCountItemValue } from "./countItemValue";
 function parseCansPerCase(ps: string | null): number | null {
   if (!ps) return null;
