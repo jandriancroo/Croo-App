@@ -134,7 +134,7 @@ const Inventory = () => {
       if (itemIds.length > 0) {
         const { data: items } = await supabase
           .from("inventory_items")
-          .select("id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe, recipe_yield_qty")
+          .select("id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe")
           .in("id", itemIds);
         for (const i of (items || [])) {
           if (i.is_recipe) recipeIds.add(i.id);
@@ -162,10 +162,7 @@ const Inventory = () => {
           const item = itemMap.get(ci.item_id);
           const batchCost = recipeCostMap?.get(ci.item_id);
           if (recipeIds.has(ci.item_id) && batchCost && batchCost > 0) {
-            // Recipe: divide batch cost by yield to get cost per yield-unit (qt, gal, etc.)
-            const yieldQty = Number(item?.recipe_yield_qty) || 0;
-            const costPerYieldUnit = yieldQty > 0 ? batchCost / yieldQty : batchCost;
-            statsMap[ci.count_id].totalCost += ci.quantity * costPerYieldUnit;
+            statsMap[ci.count_id].totalCost += ci.quantity * batchCost;
           } else {
             statsMap[ci.count_id].totalCost += calculateCountItemValue(ci as any, item, null, false);
           }
