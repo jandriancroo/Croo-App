@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-import { TO_OZ, normalizeUnit as normalizeIngUnit } from "./unitConversion";
+import { TO_OZ, normalizeUnit as normalizeIngUnit, expandEmbeddedUnit } from "./unitConversion";
 import { parsePackSizeToOz } from "./legacy/conversionLegacy";
 
 export { parsePackSizeToOz };
