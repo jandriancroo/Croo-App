@@ -32,6 +32,12 @@ export const TO_OZ: Record<string, number> = {
 
   // ─── Passthrough ───
   ea: 1,
+  cn: 1, // can — treated as each (1 can = 1 each); embedded-size variants like "can(8.4oz-fl)" handled by expandEmbeddedUnit
+};
+
+/** Industry-standard #N can sizes in fluid ounces */
+const HASH_CAN_OZ: Record<string, number> = {
+  "1": 11, "2": 20, "2.5": 29, "3": 33, "5": 56, "10": 104,
 };
 
 /** Maps messy vendor / user strings → canonical keys in TO_OZ */
