@@ -1903,9 +1903,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                         {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (() => {
                           if (item.is_recipe) {
+                            const batchCost = recipeCosts?.get(item.item_id) || item.cost_per_unit || 0;
+                            const yieldQty = Number((item as any).recipe_yield_qty) || 0;
+                            const perYieldUnit = yieldQty > 0 ? batchCost / yieldQty : batchCost;
+                            const yieldUnit = item.unit || 'ea';
                             return (
                               <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                {formatCurrency(recipeCosts?.get(item.item_id) || item.cost_per_unit || 0)}/ea
+                                {formatCurrency(perYieldUnit)}/{yieldUnit}
                               </span>
                             );
                           }
