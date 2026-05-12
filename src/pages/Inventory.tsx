@@ -162,7 +162,10 @@ const Inventory = () => {
           const item = itemMap.get(ci.item_id);
           const batchCost = recipeCostMap?.get(ci.item_id);
           if (recipeIds.has(ci.item_id) && batchCost && batchCost > 0) {
-            statsMap[ci.count_id].totalCost += ci.quantity * batchCost;
+            // Recipe: divide batch cost by yield to get cost per yield-unit (qt, gal, etc.)
+            const yieldQty = Number(item?.recipe_yield_qty) || 0;
+            const costPerYieldUnit = yieldQty > 0 ? batchCost / yieldQty : batchCost;
+            statsMap[ci.count_id].totalCost += ci.quantity * costPerYieldUnit;
           } else {
             statsMap[ci.count_id].totalCost += calculateCountItemValue(ci as any, item, null, false);
           }
