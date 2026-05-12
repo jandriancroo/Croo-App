@@ -114,6 +114,7 @@ describe('calculateCountItemValue', () => {
       null
     );
     expect(result).toBeCloseTo(31.59, 2);
+  });
 
   it('values recipe by yield: 1 qt counted of 16 qt batch costing $24.41 = $1.53', () => {
     const result = calculateCountItemValue(
