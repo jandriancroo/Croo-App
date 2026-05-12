@@ -180,14 +180,14 @@ async function fetchLocationData(
     if (!id) return 0;
     const { data: ciRows } = await supabase
       .from('inventory_count_items')
-      .select('item_id, quantity, cost_at_count, pack_quantity_at_count, entered_cases, entered_units')
+      .select('item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs')
       .eq('count_id', id);
     const rows = (ciRows || []) as any[];
     if (!rows.length) return 0;
     const itemIds = Array.from(new Set(rows.map(r => r.item_id)));
     const { data: items } = await supabase
       .from('inventory_items')
-      .select('id, cost_per_unit, pack_quantity, pack_quantity_override, brand_item_id, is_recipe')
+      .select('id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe')
       .in('id', itemIds);
     const itemMap = new Map<string, any>();
     for (const it of items || []) itemMap.set(it.id, it);
@@ -210,6 +210,7 @@ async function fetchLocationData(
           cost_per_unit: item.cost_per_unit,
           pack_quantity: item.pack_quantity,
           pack_quantity_override: item.pack_quantity_override,
+          inner_pack_quantity: item.inner_pack_quantity,
           is_recipe: item.is_recipe === true,
         } : undefined,
         conversion || null,

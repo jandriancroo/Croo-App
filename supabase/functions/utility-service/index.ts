@@ -656,7 +656,13 @@ async function handleFlushInventoryCount(req: Request, supabaseAdmin: any): Prom
       if (match) {
         await supabaseAdmin
           .from("inventory_count_items")
-          .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units })
+          .update({
+            quantity: ic.quantity,
+            entered_cases: ic.entered_cases,
+            entered_units: ic.entered_units,
+            entered_inner_packs: ic.entered_inner_packs ?? null,
+            inner_pack_quantity_at_count: ic.inner_pack_quantity_at_count ?? null,
+          })
           .eq("id", match.id);
       } else {
         await supabaseAdmin
@@ -668,6 +674,8 @@ async function handleFlushInventoryCount(req: Request, supabaseAdmin: any): Prom
             storage_location_id: storLocId,
             entered_cases: ic.entered_cases,
             entered_units: ic.entered_units,
+            entered_inner_packs: ic.entered_inner_packs ?? null,
+            inner_pack_quantity_at_count: ic.inner_pack_quantity_at_count ?? null,
           });
       }
     }

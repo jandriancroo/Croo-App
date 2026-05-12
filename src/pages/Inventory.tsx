@@ -124,24 +124,21 @@ const Inventory = () => {
       const countIds = data.map(c => c.id);
       const { data: countItems } = await supabase
         .from("inventory_count_items")
-        .select("count_id, quantity, item_id")
+        .select("count_id, item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs")
         .in("count_id", countIds);
 
-      // Get unique item IDs for cost lookup (include pack_quantity_override and is_recipe)
+      // Get unique item IDs for cost lookup (include inner_pack_quantity + is_recipe)
       const itemIds = [...new Set((countItems || []).map(ci => ci.item_id))];
-      let costMap: Record<string, number> = {};
-      let recipeIds = new Set<string>();
+      const itemMap = new Map<string, any>();
+      const recipeIds = new Set<string>();
       if (itemIds.length > 0) {
         const { data: items } = await supabase
           .from("inventory_items")
-          .select("id, cost_per_unit, pack_quantity, pack_quantity_override, is_recipe")
+          .select("id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe")
           .in("id", itemIds);
         for (const i of (items || [])) {
-          if (i.is_recipe) {
-            recipeIds.add(i.id);
-          }
-          const packQty = i.pack_quantity_override ?? (i.pack_quantity || 1);
-          costMap[i.id] = (i.cost_per_unit || 0) / Math.max(packQty, 1);
+          if (i.is_recipe) recipeIds.add(i.id);
+          itemMap.set(i.id, i);
         }
       }
 
@@ -152,19 +149,22 @@ const Inventory = () => {
         recipeCostMap = await fetchRecipeCosts(locationId);
       }
 
-      // Aggregate stats per count — totalItems = actual count items, not current active items
+      const { calculateCountItemValue } = await import("@/utils/countItemValue");
+
+      // Aggregate stats per count using the canonical valuation calculator so
+      // inner-pack items value identically to PeriodDetailPanel / COGSReport.
       const statsMap: Record<string, { totalItems: number; countedItems: number; totalCost: number }> = {};
       for (const ci of (countItems || [])) {
         if (!statsMap[ci.count_id]) statsMap[ci.count_id] = { totalItems: 0, countedItems: 0, totalCost: 0 };
         statsMap[ci.count_id].totalItems++;
         if (ci.quantity > 0) {
           statsMap[ci.count_id].countedItems++;
-          // Use recipe batch cost if available, otherwise use normalized unit cost
+          const item = itemMap.get(ci.item_id);
           const batchCost = recipeCostMap?.get(ci.item_id);
           if (recipeIds.has(ci.item_id) && batchCost && batchCost > 0) {
             statsMap[ci.count_id].totalCost += ci.quantity * batchCost;
           } else {
-            statsMap[ci.count_id].totalCost += ci.quantity * (costMap[ci.item_id] || 0);
+            statsMap[ci.count_id].totalCost += calculateCountItemValue(ci as any, item, null, false);
           }
         }
       }
