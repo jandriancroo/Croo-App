@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { parsePackSizeToOz } from "./legacy/conversionLegacy";
-import { TO_OZ, normalizeUnit } from "./unitConversion";
+import { TO_OZ, normalizeUnit, expandEmbeddedUnit } from "./unitConversion";
 
 interface RecipeIngredient {
   recipe_item_id: string;
