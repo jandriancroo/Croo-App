@@ -79,11 +79,18 @@ export function calculateCountItemValue(
 
   // Recipe items: cost_per_unit IS the per-batch cost, and quantity is in batches.
   // Pack/conversion math does not apply — recipes have a yield, not a vendor pack.
+  // Recipe items: cost_per_unit IS the per-batch cost (sum of ingredient costs).
+  // Quantity is counted in the recipe's yield unit (e.g., qt). Divide batch cost
+  // by yield qty to get cost-per-yield-unit, then multiply by quantity counted.
+  // Falls back to legacy (qty × batch cost) only when yield is missing/zero so
+  // recipes without yield set don't silently zero out.
   if (item?.is_recipe) {
     const qty = ci.quantity != null
       ? Number(ci.quantity) || 0
       : (Number(ci.entered_cases || 0) + Number(ci.entered_units || 0) + Number(ci.entered_inner_packs || 0));
-    return qty * costPerCase;
+    const yieldQty = Number(item?.recipe_yield_qty) || 0;
+    const costPerYieldUnit = yieldQty > 0 ? costPerCase / yieldQty : costPerCase;
+    return qty * costPerYieldUnit;
   }
 
   const enteredCasesNum = Number(ci.entered_cases || 0);
