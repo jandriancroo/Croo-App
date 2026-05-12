@@ -170,6 +170,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           is_recipe,
           countable,
           recipe_yield_unit,
+          recipe_yield_qty,
           storage_location:inventory_locations(name)
       `;
       
