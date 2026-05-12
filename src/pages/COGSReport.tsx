@@ -234,6 +234,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
           pack_quantity_override: item.pack_quantity_override,
           inner_pack_quantity: item.inner_pack_quantity,
           is_recipe: (item as any).is_recipe === true,
+          recipe_yield_qty: (item as any).recipe_yield_qty,
         } : undefined,
         conversion || null,
         true
