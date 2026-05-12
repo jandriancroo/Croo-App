@@ -216,6 +216,8 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
         pack_quantity: itm.pack_quantity,
         pack_quantity_override: itm.pack_quantity_override,
         is_recipe: itm.is_recipe === true,
+        recipe_yield_qty: itm.recipe_yield_qty,
+        inner_pack_quantity: itm.inner_pack_quantity,
       },
       conversion || null,
       false
