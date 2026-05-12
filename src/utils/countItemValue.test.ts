@@ -115,4 +115,32 @@ describe('calculateCountItemValue', () => {
     );
     expect(result).toBeCloseTo(31.59, 2);
   });
+
+  it('values recipe by yield: 1 qt counted of 16 qt batch costing $24.41 = $1.53', () => {
+    const result = calculateCountItemValue(
+      { quantity: 1, entered_cases: null, entered_units: null, cost_at_count: 24.41, pack_quantity_at_count: null },
+      { is_recipe: true, cost_per_unit: 24.41, unit: 'qt', recipe_yield_qty: 16, recipe_yield_unit: 'qt' },
+      null
+    );
+    expect(result).toBeCloseTo(1.53, 2);
+  });
+
+  it('values recipe with unit conversion: 1 gal counted of 16 qt batch = full batch ($24.41)', () => {
+    const result = calculateCountItemValue(
+      { quantity: 1, entered_cases: null, entered_units: null, cost_at_count: 24.41, pack_quantity_at_count: null },
+      { is_recipe: true, cost_per_unit: 24.41, unit: 'gal', recipe_yield_qty: 16, recipe_yield_unit: 'qt' },
+      null
+    );
+    // 1 gal = 4 qt → 4 × ($24.41/16) = $6.10
+    expect(result).toBeCloseTo(6.10, 2);
+  });
+
+  it('falls back to batch math when yield qty is missing', () => {
+    const result = calculateCountItemValue(
+      { quantity: 2, entered_cases: null, entered_units: null, cost_at_count: 10, pack_quantity_at_count: null },
+      { is_recipe: true, cost_per_unit: 10 },
+      null
+    );
+    expect(result).toBe(20);
+  });
 });

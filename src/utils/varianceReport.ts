@@ -147,6 +147,9 @@ export async function calculateVarianceReport(
         pack_quantity_override: item.pack_quantity_override,
         inner_pack_quantity: item.inner_pack_quantity,
         is_recipe: item.is_recipe === true,
+        unit: item.unit,
+        recipe_yield_qty: item.recipe_yield_qty,
+        recipe_yield_unit: item.recipe_yield_unit,
       } : undefined,
       conversion || null,
       true
@@ -671,7 +674,7 @@ async function fetchTransfersForPeriod(locationId: string, start: string, end: s
 async function fetchAllInventoryItems(locationId: string) {
   const { data, error } = await supabase
     .from("inventory_items")
-    .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, inner_pack_quantity, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active, brand_item_id")
+    .select("id, name, category, cost_per_unit, blended_price, pack_quantity, pack_quantity_override, inner_pack_quantity, pack_size, item_number, pa_item_id, count_unit, count_units_per_case, is_recipe, is_active, brand_item_id, unit, recipe_yield_qty, recipe_yield_unit")
     .eq("location_id", locationId);
   if (error) throw error;
   return data || [];

@@ -187,7 +187,7 @@ async function fetchLocationData(
     const itemIds = Array.from(new Set(rows.map(r => r.item_id)));
     const { data: items } = await supabase
       .from('inventory_items')
-      .select('id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe')
+      .select('id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe, unit, recipe_yield_qty, recipe_yield_unit')
       .in('id', itemIds);
     const itemMap = new Map<string, any>();
     for (const it of items || []) itemMap.set(it.id, it);
@@ -212,6 +212,9 @@ async function fetchLocationData(
           pack_quantity_override: item.pack_quantity_override,
           inner_pack_quantity: item.inner_pack_quantity,
           is_recipe: item.is_recipe === true,
+          unit: item.unit,
+          recipe_yield_qty: item.recipe_yield_qty,
+          recipe_yield_unit: item.recipe_yield_unit,
         } : undefined,
         conversion || null,
         false

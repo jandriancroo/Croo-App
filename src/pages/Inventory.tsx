@@ -134,7 +134,7 @@ const Inventory = () => {
       if (itemIds.length > 0) {
         const { data: items } = await supabase
           .from("inventory_items")
-          .select("id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe")
+          .select("id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe, unit, recipe_yield_qty, recipe_yield_unit")
           .in("id", itemIds);
         for (const i of (items || [])) {
           if (i.is_recipe) recipeIds.add(i.id);
@@ -161,11 +161,22 @@ const Inventory = () => {
           statsMap[ci.count_id].countedItems++;
           const item = itemMap.get(ci.item_id);
           const batchCost = recipeCostMap?.get(ci.item_id);
-          if (recipeIds.has(ci.item_id) && batchCost && batchCost > 0) {
-            statsMap[ci.count_id].totalCost += ci.quantity * batchCost;
-          } else {
-            statsMap[ci.count_id].totalCost += calculateCountItemValue(ci as any, item, null, false);
-          }
+          // For recipes, override the live cost_per_unit with the freshly
+          // computed batch cost (from fetchRecipeCosts) but let the canonical
+          // calculator handle the yield-qty division so quantity counted in
+          // yield units (e.g. qt) doesn't get multiplied by full batch cost.
+          const itemForValue = item ? {
+            ...item,
+            cost_per_unit: recipeIds.has(ci.item_id) && batchCost && batchCost > 0
+              ? batchCost
+              : item.cost_per_unit,
+          } : item;
+          statsMap[ci.count_id].totalCost += calculateCountItemValue(
+            ci as any,
+            itemForValue,
+            null,
+            recipeIds.has(ci.item_id) && batchCost && batchCost > 0 ? true : false
+          );
         }
       }
 

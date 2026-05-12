@@ -23,11 +23,35 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
         : Number(item?.cost_per_unit) || 0);
   if (costPerCase === 0) return 0;
 
-  // Recipe items: cost_per_unit is per-batch cost, quantity is in batches. No pack division.
+  // Recipe items: cost_per_unit is the cost to make ONE BATCH that produces
+  // recipe_yield_qty of recipe_yield_unit. Divide by yield to get cost per
+  // counted unit. Convert via oz-bridge if count unit differs from yield unit.
   if (item?.is_recipe) {
     const qty = ci?.quantity != null
       ? Number(ci.quantity) || 0
       : (Number(ci?.entered_cases || 0) + Number(ci?.entered_units || 0) + Number(ci?.entered_inner_packs || 0));
+    const yieldQty = Number(item?.recipe_yield_qty) || 0;
+    if (yieldQty > 0) {
+      const TO_OZ: Record<string, number> = { oz:1, lb:16, tsp:0.1667, tbsp:0.5, cup:8, cups:8, pt:16, qt:32, gal:128, g:0.03527, kg:35.274, ml:0.033814, cl:0.33814, l:33.814, ea:1 };
+      const norm = (u: any) => {
+        if (!u) return "";
+        const c = String(u).trim().toLowerCase().replace(/\s+/g,"").replace(/_/g,"-");
+        const map: Record<string,string> = { lbs:"lb", pound:"lb", pounds:"lb", gallon:"gal", gallons:"gal", quart:"qt", quarts:"qt", pint:"pt", pints:"pt", cup:"cups", liter:"l", liters:"l", each:"ea", count:"ea" };
+        if (map[c]) return map[c];
+        if (TO_OZ[c] != null) return c;
+        return c;
+      };
+      const cu = norm(item?.unit);
+      const yu = norm(item?.recipe_yield_unit);
+      let qtyInYield: number | null = qty;
+      if (cu && yu && cu !== yu) {
+        const f = TO_OZ[cu]; const t = TO_OZ[yu];
+        qtyInYield = (f != null && t != null) ? (qty * f) / t : null;
+      }
+      if (qtyInYield != null && Number.isFinite(qtyInYield)) {
+        return qtyInYield * (costPerCase / yieldQty);
+      }
+    }
     return qty * costPerCase;
   }
 
@@ -1213,7 +1237,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
           const { data: invItems } = await supabase
             .from("inventory_items")
-            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, count_units_per_case, brand_item_id, is_recipe")
+            .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, count_units_per_case, brand_item_id, is_recipe, unit, recipe_yield_qty, recipe_yield_unit")
             .in("id", Array.from(referencedIds));
 
           const itemMap = new Map((invItems || []).map((i: any) => [i.id, i]));
@@ -1327,7 +1351,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (args.include_items) {
             const { data: items } = await supabase
               .from("inventory_count_items")
-              .select("quantity, entered_cases, entered_units, entered_inner_packs, theoretical_quantity, variance, variance_cost, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, is_recipe)")
+              .select("quantity, entered_cases, entered_units, entered_inner_packs, theoretical_quantity, variance, variance_cost, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, inventory_items(product_name, common_name, category, cost_per_case, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, is_recipe, unit, recipe_yield_qty, recipe_yield_unit)")
               .eq("count_id", count.id);
 
             let itemResults = (items || []).map((i: any) => {
