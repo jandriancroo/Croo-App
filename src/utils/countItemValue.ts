@@ -52,6 +52,9 @@ export interface ItemForValue {
   pack_quantity_override?: number | null;
   inner_pack_quantity?: number | null;
   is_recipe?: boolean | null;
+  unit?: string | null;
+  recipe_yield_qty?: number | null;
+  recipe_yield_unit?: string | null;
 }
 
 export interface ConversionForValue {
