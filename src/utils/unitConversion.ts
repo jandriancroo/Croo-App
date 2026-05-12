@@ -66,7 +66,7 @@ export const UNIT_ALIASES: Record<string, string> = {
   "milliliter": "ml", "milliliters": "ml",
 
   // countable
-  "each": "ea", "count": "ea",
+  "each": "ea", "count": "ea", "ct": "ea",
   "case": "cs", "cases": "cs",
   "can": "cn", "cans": "cn",
 };
