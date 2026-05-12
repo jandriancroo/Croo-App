@@ -741,6 +741,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const CONCURRENCY = 6;
         const runEdit = async (edit: PendingEdit) => {
           let countItemId = edit.countItemId;
+          // Build the full payload so the row mirrors what an autosave would
+          // have written. Without this, only `quantity` updates and the entered
+          // split / snapshots stay stale — which is what caused "no changes to
+          // save" on subsequent edits.
+          const payload: Record<string, any> = {
+            quantity: edit.newQuantity,
+            entered_cases: edit.enteredCases ?? 0,
+            entered_units: edit.enteredUnits ?? 0,
+            entered_inner_packs: edit.enteredInnerPacks ?? 0,
+            pan_inputs: edit.panInputs ?? null,
+            cost_at_count: edit.costAtCount ?? null,
+            pack_quantity_at_count: edit.packQuantityAtCount ?? null,
+            inner_pack_quantity_at_count: edit.innerPackQuantityAtCount ?? null,
+            item_name_at_count: edit.itemNameAtCount ?? null,
+            unit_at_count: edit.unitAtCount ?? null,
+            pan_sizes_at_count: edit.panSizesAtCount ?? null,
+          };
           if (!countItemId) {
             const storLocId = edit.storageLocationId;
             const { data: inserted, error: insertErr } = await supabase
@@ -748,9 +765,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               .insert({
                 count_id: countId,
                 item_id: edit.itemId!,
-                quantity: edit.newQuantity,
                 storage_location_id:
                   storLocId === "uncategorized" || storLocId === "recipes" ? null : storLocId,
+                ...payload,
               } as any)
               .select("id")
               .single();
@@ -759,7 +776,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           } else {
             await supabase
               .from("inventory_count_items")
-              .update({ quantity: edit.newQuantity })
+              .update(payload)
               .eq("id", countItemId);
           }
           await supabase.from("inventory_count_edits").insert({
