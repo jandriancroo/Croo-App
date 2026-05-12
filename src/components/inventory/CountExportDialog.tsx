@@ -77,6 +77,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             item_number,
             category,
             is_recipe,
+            recipe_yield_qty,
             storage_location:inventory_locations(name)
           )
         `)
