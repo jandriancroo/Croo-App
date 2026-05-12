@@ -235,9 +235,13 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         const costPerYieldUnit = subBatchCost / subYield;
         totalBatchCost += costPerYieldUnit * ing.quantity;
       } else {
-        // Raw ingredient: determine proper divisor based on unit
+        // Raw ingredient: determine proper divisor based on unit.
+        // Expand embedded-size units first ("bottle(20oz-fl)" → 20 oz, "#10can" → 104 oz, "cn"→"ea")
+        // so cans, bottles, packs and counts all flow through the same TO_OZ math.
         const caseCost = ingItem.blended_price ?? ingItem.cost_per_unit ?? 0;
-        const ingUnit = normalizeUnit(ing.unit);
+        const expanded = expandEmbeddedUnit(Number(ing.quantity) || 0, ing.unit);
+        const ingQty = expanded.qty;
+        const ingUnit = expanded.unit;
 
         // Pipeline 1 lookup — ingItem.brand_item_id is the brand template id
         const brandConversion = ingItem.brand_item_id
@@ -253,20 +257,26 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         const costPerSingleUnit = caseCost / unitsPerCase;
 
         if (ingUnit === 'cs' || ingUnit === 'case') {
-          totalBatchCost += caseCost * ing.quantity;
-        } else if (ingUnit === nativeUnit || (ingUnit === 'ea' && nativeUnit === 'ea')) {
-          totalBatchCost += costPerSingleUnit * ing.quantity;
+          totalBatchCost += caseCost * ingQty;
+        } else if (
+          ingUnit === nativeUnit ||
+          (ingUnit === 'ea' && nativeUnit === 'ea') ||
+          // Treat 'cn' (can) and 'ea' as interchangeable — items sold as cans typically count as each.
+          (ingUnit === 'cn' && (nativeUnit === 'ea' || nativeUnit === 'cn' || !nativeUnit)) ||
+          (ingUnit === 'ea' && nativeUnit === 'cn')
+        ) {
+          totalBatchCost += costPerSingleUnit * ingQty;
         } else if (ingUnit && nativeUnit && ingUnit !== nativeUnit && TO_OZ[ingUnit] && TO_OZ[nativeUnit]) {
-          const ingInNative = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
+          const ingInNative = (ingQty * TO_OZ[ingUnit]) / TO_OZ[nativeUnit];
           totalBatchCost += costPerSingleUnit * ingInNative;
         } else if (!nativeUnit && TO_OZ[ingUnit] && !brandConversion) {
           const totalOz = parsePackSizeToOz(ingItem.pack_size);
           if (totalOz && totalOz > 0) {
             const cpu = caseCost / totalOz;
-            totalBatchCost += ing.quantity * (TO_OZ[ingUnit] / TO_OZ["oz"]) * cpu;
+            totalBatchCost += ingQty * (TO_OZ[ingUnit] / TO_OZ["oz"]) * cpu;
           }
-        } else if (!nativeUnit && ingUnit === 'ea') {
-          totalBatchCost += costPerSingleUnit * ing.quantity;
+        } else if (!nativeUnit && (ingUnit === 'ea' || ingUnit === 'cn')) {
+          totalBatchCost += costPerSingleUnit * ingQty;
         }
         // else: can't determine unit — skip
       }
