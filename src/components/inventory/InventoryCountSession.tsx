@@ -65,6 +65,8 @@ interface CountItem {
   image_url: string | null;
   pan_sizes: PanSizesConfig | null;
   is_recipe: boolean;
+  /** Recipe yield qty (e.g. 22 for "yields 22 qt"). Used to convert per-batch cost to per-yield-unit. */
+  recipe_yield_qty?: number | null;
   /** Per-shortcut counting mode: inherit uses global settings */
   count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
 }
