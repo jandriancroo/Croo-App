@@ -580,12 +580,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }) => {
     const key = (item as any)._splitKey || item.item_id;
 
-    // Recipe items: cost_per_unit is the per-produced-unit cost (e.g. $0.16/dough ball).
-    // Count is in "each", so total cost = count × per-unit cost — NO pack_quantity multiplier.
+    // Recipe items: recipeCosts returns the per-batch cost. Quantity is in yield
+    // units (e.g. qt). Divide by yield to get cost per yield-unit before multiplying.
     const batchCost = recipeCosts?.get(item.item_id);
     if (batchCost !== undefined && batchCost > 0) {
       const totalUnits = getTotalQuantity(key, 1, item.pan_sizes);
-      return totalUnits * batchCost;
+      const yieldQty = Number((item as any).recipe_yield_qty) || 0;
+      const costPerYieldUnit = yieldQty > 0 ? batchCost / yieldQty : batchCost;
+      return totalUnits * costPerYieldUnit;
     }
 
     // Live values (mid-typing) override saved values
