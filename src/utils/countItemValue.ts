@@ -1,6 +1,10 @@
 /**
  * Single source of truth for valuing a count item in inventory reports.
  *
+ * Recipe items: cost_per_unit IS the per-batch cost. Quantity is in yield units
+ * (e.g., qt). Value = quantity × (cost_per_batch / recipe_yield_qty). When
+ * yield_qty is missing, falls back to qty × cost_per_batch (legacy behaviour).
+ *
  * Math (when entered_cases or entered_units is present):
  *   caseValue   = entered_cases × cost_per_case
  *   nonCaseUnits = max(quantity − entered_cases × pack_qty, entered_units)
