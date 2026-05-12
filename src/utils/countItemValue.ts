@@ -81,12 +81,28 @@ export function calculateCountItemValue(
 
   if (costPerCase === 0) return 0;
 
-  // Recipe items: cost_per_unit IS the per-batch cost, and quantity is in batches.
-  // Pack/conversion math does not apply — recipes have a yield, not a vendor pack.
+  // Recipe items: cost_per_unit is the cost to make ONE BATCH that produces
+  // recipe_yield_qty of recipe_yield_unit. The operator typically counts in
+  // the yield unit (e.g., qt of Red Sauce), so we must divide the batch cost
+  // by yield qty to get cost per counted unit. If the count unit differs from
+  // the yield unit, convert via the oz bridge. If conversion isn't possible
+  // (e.g., counted in "ea"/batches), fall back to treating qty as batches.
   if (item?.is_recipe) {
     const qty = ci.quantity != null
       ? Number(ci.quantity) || 0
       : (Number(ci.entered_cases || 0) + Number(ci.entered_units || 0) + Number(ci.entered_inner_packs || 0));
+    const yieldQty = Number(item?.recipe_yield_qty) || 0;
+    if (yieldQty > 0) {
+      const yieldUnit = item?.recipe_yield_unit || null;
+      const countUnit = item?.unit || null;
+      let qtyInYield: number | null = qty;
+      if (countUnit && yieldUnit && normalizeUnit(countUnit) !== normalizeUnit(yieldUnit)) {
+        qtyInYield = convertUnits(qty, countUnit, yieldUnit);
+      }
+      if (qtyInYield != null && Number.isFinite(qtyInYield)) {
+        return qtyInYield * (costPerCase / yieldQty);
+      }
+    }
     return qty * costPerCase;
   }
 
