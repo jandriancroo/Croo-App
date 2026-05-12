@@ -259,6 +259,15 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         if (ingUnit === 'cs' || ingUnit === 'case') {
           totalBatchCost += caseCost * ingQty;
         } else if (
+          (ingUnit === 'cn' || ingUnit === 'can') &&
+          brandConversion &&
+          brandConversion.outer_qty > 0 &&
+          (brandConversion.canonical_qty_per_inner ?? 1) !== 1
+        ) {
+          // Item is sold in cans (outer_qty cans per case), priced per can.
+          // Don't fall through to oz math — that would treat 1 can as 1 oz.
+          totalBatchCost += (caseCost / brandConversion.outer_qty) * ingQty;
+        } else if (
           ingUnit === nativeUnit ||
           (ingUnit === 'ea' && nativeUnit === 'ea') ||
           // Treat 'cn' (can) and 'ea' as interchangeable — items sold as cans typically count as each.
