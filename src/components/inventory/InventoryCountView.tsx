@@ -115,6 +115,8 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
             item_number,
             display_order,
             is_recipe,
+            recipe_yield_qty,
+            recipe_yield_unit,
             storage_location_id,
             storage_location:inventory_locations(name, display_order)
           )
