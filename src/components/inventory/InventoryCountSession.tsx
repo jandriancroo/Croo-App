@@ -638,6 +638,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         pack_quantity_override: (item as any)._rawPackQuantityOverride ?? null,
         inner_pack_quantity: innerPackQty || null,
         is_recipe: (item as any).is_recipe === true,
+        unit: (item as any).unit,
+        recipe_yield_qty: (item as any).recipe_yield_qty,
+        recipe_yield_unit: (item as any).recipe_yield_unit,
       },
       conversion || null,
       true
