@@ -244,17 +244,19 @@ export async function fetchBlueprintCosts(
         if (subResult.unpricedItems.length > 0) unpricedItems.push(...subResult.unpricedItems);
         const subYield = subBp.yield_qty || 1;
         const subYieldUnit = normalizeIngUnit(subBp.yield_unit);
-        const ingUnit = normalizeIngUnit(ing.unit);
+        const subExpanded = expandEmbeddedUnit(Number(ing.quantity) || 0, ing.unit);
+        const ingUnit = subExpanded.unit;
+        const ingQty = subExpanded.qty;
         const costPerYieldUnit = subResult.batchCost / subYield;
 
         // Convert ingredient quantity to yield units if they differ
         if (ingUnit && subYieldUnit && ingUnit !== subYieldUnit
             && ingUnit !== "ea" && subYieldUnit !== "ea"
             && TO_OZ[ingUnit] && TO_OZ[subYieldUnit]) {
-          const ingInYieldUnits = (ing.quantity * TO_OZ[ingUnit]) / TO_OZ[subYieldUnit];
+          const ingInYieldUnits = (ingQty * TO_OZ[ingUnit]) / TO_OZ[subYieldUnit];
           totalBatchCost += costPerYieldUnit * ingInYieldUnits;
         } else {
-          totalBatchCost += costPerYieldUnit * ing.quantity;
+          totalBatchCost += costPerYieldUnit * ingQty;
         }
       } else if (ing.vendor_item_id) {
         // A0: archived brand template — flag separately, don't silently zero out.
