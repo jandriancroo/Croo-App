@@ -496,9 +496,29 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         }
       }
       
-      // Store original quantities for edit tracking
+      // Store original quantities for edit tracking.
+      // CRITICAL: derive the baseline from the SAME formula getTotalQuantity uses
+      // (cases × caseUnits + innerPacks × innerPackQty + units + panUnits) so the
+      // edit-mode "is this a change?" check compares apples to apples with what
+      // the user sees in the input fields. Comparing against the stored `quantity`
+      // produces phantom diffs (or, worse, hides real diffs) whenever the legacy
+      // quantity column drifted from the entered split — e.g. recipes whose
+      // quantity was bumped by a prior edit but whose entered_cases stayed at 0.
       if (isEditing) {
-        originals[key] = totalUnits;
+        if (hasStoredInput) {
+          const baseCases = existingCases ?? 0;
+          const baseUnits = existingUnits ?? 0;
+          const baseInner = existingInnerPacks ?? 0;
+          const basePan = Object.entries(initialPanCounts[key] || {}).reduce((sum, [pk, qty]) => {
+            const u = item.pan_sizes ? (getPanUnits(item.pan_sizes, pk) ?? 0) : 0;
+            return sum + u * (qty as number);
+          }, 0);
+          originals[key] = Math.round(
+            (baseCases * caseUnits + baseInner * (innerPackQty || 0) + baseUnits + basePan) * 100
+          ) / 100;
+        } else {
+          originals[key] = totalUnits;
+        }
       }
     });
     
