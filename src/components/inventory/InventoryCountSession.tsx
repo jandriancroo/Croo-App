@@ -345,6 +345,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               return basePan;
             })(),
             is_recipe: isRecipe,
+            recipe_yield_qty: (item as any).recipe_yield_qty ?? null,
             count_by: (locId ? countByMap.get(`${item.id}|${locId}`) : 'inherit') as CountItem['count_by'] || 'inherit',
             _existingQuantity: countData?.quantity ?? 0,
             _existingCases: countData?.entered_cases ?? null,
