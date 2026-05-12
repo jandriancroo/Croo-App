@@ -134,7 +134,7 @@ const Inventory = () => {
       if (itemIds.length > 0) {
         const { data: items } = await supabase
           .from("inventory_items")
-          .select("id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe")
+          .select("id, cost_per_unit, pack_quantity, pack_quantity_override, inner_pack_quantity, brand_item_id, is_recipe, unit, recipe_yield_qty, recipe_yield_unit")
           .in("id", itemIds);
         for (const i of (items || [])) {
           if (i.is_recipe) recipeIds.add(i.id);
