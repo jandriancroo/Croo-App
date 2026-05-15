@@ -889,11 +889,12 @@ function EditTemplateForm({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
       {/* Template ID */}
       <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/40 rounded-md">
         <span className="text-[10px] text-muted-foreground font-mono">ID:</span>
-        <span className="text-[10px] text-muted-foreground font-mono select-all">{template.id}</span>
+        <span className="text-[10px] text-muted-foreground font-mono select-all truncate">{template.id}</span>
       </div>
 
       {/* Recipe badge */}
@@ -939,155 +940,207 @@ function EditTemplateForm({
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label>Product Name</Label>
-        <Input value={name} onChange={e => setName(e.target.value)} />
-      </div>
-      <div className="space-y-2">
-        <Label>Category</Label>
-        <Select value={category || '__none__'} onValueChange={v => setCategory(v === '__none__' ? '' : v)}>
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">No category</SelectItem>
-            {categories.map(cat => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Pack Size Override */}
-      <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-semibold">Pack Size Override</Label>
-          <Switch checked={packOverrideEnabled} onCheckedChange={setPackOverrideEnabled} />
+      {/* Name + Category — two columns */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Product Name</Label>
+          <Input value={name} onChange={e => setName(e.target.value)} className="h-9" />
         </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Category</Label>
+          <Select value={category || '__none__'} onValueChange={v => setCategory(v === '__none__' ? '' : v)}>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">No category</SelectItem>
+              {categories.map(cat => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-        {packOverrideEnabled && (
-          <div className="space-y-3 pt-1">
-            {/* Outer container */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">Container Type</Label>
-                <Select value={outerType} onValueChange={setOuterType}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CONTAINER_TYPES.map(t => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">
-                  {hasInnerLayer ? `${innerType}s per ${outerType}` : `Pieces per ${outerType}`}
-                </Label>
-                <Input
-                  type="number"
-                  className="h-8 text-xs"
-                  value={outerQty}
-                  onChange={e => setOuterQty(e.target.value)}
-                  placeholder="e.g. 2"
-                />
-              </div>
-            </div>
-
-            {/* Inner layer toggle */}
+      {/* Pack Size Override — collapsible */}
+      <Collapsible defaultOpen={packOverrideEnabled}>
+        <div className="rounded-lg border border-border/60 bg-muted/20">
+          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-3">
             <div className="flex items-center gap-2">
-              <Switch checked={hasInnerLayer} onCheckedChange={setHasInnerLayer} />
-              <span className="text-xs text-muted-foreground">Has inner packaging</span>
+              <Label className="text-xs font-semibold cursor-pointer">Pack Size Override</Label>
+              {packOverrideEnabled && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0">ON</Badge>
+              )}
             </div>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-3 pb-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Enable override</span>
+                <Switch checked={packOverrideEnabled} onCheckedChange={setPackOverrideEnabled} />
+              </div>
 
-            {hasInnerLayer && (
+              {packOverrideEnabled && (
+                <div className="space-y-3 pt-1">
+                  {/* Outer container */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Container Type</Label>
+                      <Select value={outerType} onValueChange={setOuterType}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CONTAINER_TYPES.map(t => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">
+                        {hasInnerLayer ? `${innerType}s per ${outerType}` : `Pieces per ${outerType}`}
+                      </Label>
+                      <Input
+                        type="number"
+                        className="h-8 text-xs"
+                        value={outerQty}
+                        onChange={e => setOuterQty(e.target.value)}
+                        placeholder="e.g. 2"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Inner layer toggle */}
+                  <div className="flex items-center gap-2">
+                    <Switch checked={hasInnerLayer} onCheckedChange={setHasInnerLayer} />
+                    <span className="text-xs text-muted-foreground">Has inner packaging</span>
+                  </div>
+
+                  {hasInnerLayer && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Inner Type</Label>
+                        <Select value={innerType} onValueChange={setInnerType}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {INNER_TYPES.map(t => (
+                              <SelectItem key={t} value={t}>{t}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Pieces per {innerType}</Label>
+                        <Input
+                          type="number"
+                          className="h-8 text-xs"
+                          value={innerQty}
+                          onChange={e => setInnerQty(e.target.value)}
+                          placeholder="e.g. 32"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {effectiveOverride && effectiveOverride > 0 && (
+                    <div className="text-xs text-center py-1.5 rounded-md bg-primary/10 text-primary font-medium">
+                      Effective: {effectiveOverride} pieces per {outerType.toLowerCase()}
+                      {hasInnerLayer && innerQty && ` (${outerQty} × ${innerQty})`}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-[10px] text-muted-foreground">
+                For PFG/PA items only — overrides the vendor-reported case structure when it's wrong (e.g. vendor says 1 case but it's actually 2×12pk inside)
+              </p>
+            </div>
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
+
+      {/* Count Configuration — collapsible */}
+      <Collapsible defaultOpen={!!template.count_unit}>
+        <div className="rounded-lg border border-border/60 bg-muted/20">
+          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-3">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs font-semibold cursor-pointer">Count Configuration</Label>
+              {countUnit && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                  {countUnit}{countUnitsPerCase ? ` × ${countUnitsPerCase}` : ''}
+                </Badge>
+              )}
+            </div>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-3 pb-3 space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Inner Type</Label>
-                  <Select value={innerType} onValueChange={setInnerType}>
+                  <Label className="text-[10px] text-muted-foreground">Count Unit</Label>
+                  <Select value={countUnit || '__none__'} onValueChange={v => setCountUnit(v === '__none__' ? '' : v)}>
                     <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
+                      <SelectValue placeholder="Auto (from vendor)" />
                     </SelectTrigger>
                     <SelectContent>
-                      {INNER_TYPES.map(t => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      ))}
+                      <SelectItem value="__none__">Auto (from vendor)</SelectItem>
+                      <SelectItem value="bag">Bag</SelectItem>
+                      <SelectItem value="head">Head</SelectItem>
+                      <SelectItem value="bunch">Bunch</SelectItem>
+                      <SelectItem value="each">Each</SelectItem>
+                      <SelectItem value="lb">Pound</SelectItem>
+                      <SelectItem value="oz">Ounce</SelectItem>
+                      <SelectItem value="case">Case</SelectItem>
+                      <SelectItem value="tray">Tray</SelectItem>
+                      <SelectItem value="box">Box</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Pieces per {innerType}</Label>
+                  <Label className="text-[10px] text-muted-foreground">Units per Case</Label>
                   <Input
                     type="number"
                     className="h-8 text-xs"
-                    value={innerQty}
-                    onChange={e => setInnerQty(e.target.value)}
-                    placeholder="e.g. 32"
+                    value={countUnitsPerCase}
+                    onChange={e => setCountUnitsPerCase(e.target.value)}
+                    placeholder="e.g. 6"
                   />
                 </div>
               </div>
-            )}
-
-            {effectiveOverride && effectiveOverride > 0 && (
-              <div className="text-xs text-center py-1.5 rounded-md bg-primary/10 text-primary font-medium">
-                Effective: {effectiveOverride} pieces per {outerType.toLowerCase()}
-                {hasInnerLayer && innerQty && ` (${outerQty} × ${innerQty})`}
-              </div>
-            )}
-          </div>
-        )}
-
-        <p className="text-[10px] text-muted-foreground">
-          For PFG/PA items only — overrides the vendor-reported case structure when it's wrong (e.g. vendor says 1 case but it's actually 2×12pk inside)
-        </p>
-      </div>
-
-      {/* Count Unit Configuration */}
-      <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-        <Label className="text-xs font-semibold">Count Configuration</Label>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-[10px] text-muted-foreground">Count Unit</Label>
-            <Select value={countUnit || '__none__'} onValueChange={v => setCountUnit(v === '__none__' ? '' : v)}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Auto (from vendor)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Auto (from vendor)</SelectItem>
-                <SelectItem value="bag">Bag</SelectItem>
-                <SelectItem value="head">Head</SelectItem>
-                <SelectItem value="bunch">Bunch</SelectItem>
-                <SelectItem value="each">Each</SelectItem>
-                <SelectItem value="lb">Pound</SelectItem>
-                <SelectItem value="oz">Ounce</SelectItem>
-                <SelectItem value="case">Case</SelectItem>
-                <SelectItem value="tray">Tray</SelectItem>
-                <SelectItem value="box">Box</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[10px] text-muted-foreground">Units per Case</Label>
-            <Input
-              type="number"
-              className="h-8 text-xs"
-              value={countUnitsPerCase}
-              onChange={e => setCountUnitsPerCase(e.target.value)}
-              placeholder="e.g. 6"
-            />
-          </div>
+              <p className="text-[10px] text-muted-foreground">
+                For non-synced vendors (Heimark, produce, manual items) — set how many individual units are in one case so per-unit cost calculates correctly
+              </p>
+            </div>
+          </CollapsibleContent>
         </div>
-        <p className="text-[10px] text-muted-foreground">
-          For non-synced vendors (Heimark, produce, manual items) — set how many individual units are in one case so per-unit cost calculates correctly
-        </p>
+      </Collapsible>
+
+      {/* Vendor Mappings — collapsible */}
+      <Collapsible defaultOpen={false}>
+        <div className="rounded-lg border border-border/60 bg-muted/20">
+          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-3">
+            <Label className="text-xs font-semibold cursor-pointer">Vendor IDs</Label>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-3 pb-3">
+              <VendorMappingsDisplay template={template} />
+            </div>
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
+
+      {template.status === 'draft' && (
+        <InlineLinkToExisting draft={template} onLinked={onCancel} />
+      )}
       </div>
 
-      {/* Vendor Mappings */}
-      <VendorMappingsDisplay template={template} />
-
-      <div className="flex gap-2">
+      {/* Sticky footer */}
+      <div className="flex gap-2 px-6 py-3 border-t bg-background shrink-0">
         <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
         <Button
           className="flex-1"
@@ -1097,10 +1150,6 @@ function EditTemplateForm({
           {isPending ? 'Saving...' : 'Save'}
         </Button>
       </div>
-
-      {template.status === 'draft' && (
-        <InlineLinkToExisting draft={template} onLinked={onCancel} />
-      )}
     </div>
   );
 }
