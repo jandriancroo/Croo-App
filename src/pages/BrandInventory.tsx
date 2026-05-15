@@ -20,6 +20,8 @@ import {
   RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle, ChevronDown, Link2,
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tag as TagIcon, Check } from 'lucide-react';
 
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
