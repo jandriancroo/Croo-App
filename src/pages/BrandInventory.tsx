@@ -17,9 +17,10 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle, ChevronDown, Link2,
+  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle, ChevronDown, Link2, Check,
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
@@ -889,7 +890,49 @@ function EditTemplateForm({
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 relative">
+      {/* Category badge — top-right of card (similar to interview rating popover) */}
+      <div className="absolute top-[-38px] right-12 z-10">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border/60 bg-muted/60 hover:bg-muted text-xs font-medium transition-colors"
+            >
+              <Tag className="h-3 w-3 text-muted-foreground" />
+              <span className={category ? 'text-foreground' : 'text-muted-foreground italic'}>
+                {category || 'No category'}
+              </span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-56 p-1.5 max-h-[60vh] overflow-y-auto">
+            <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Set Category
+            </div>
+            <button
+              type="button"
+              onClick={() => setCategory('')}
+              className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-muted text-left"
+            >
+              <span className="italic text-muted-foreground">No category</span>
+              {!category && <Check className="h-3.5 w-3.5 text-primary" />}
+            </button>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategory(cat)}
+                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-muted text-left"
+              >
+                <span className="truncate">{cat}</span>
+                {category === cat && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+      </div>
+
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
       {/* Name + ID stacked */}
       <div className="space-y-1.5">
@@ -943,22 +986,6 @@ function EditTemplateForm({
           )}
         </div>
       )}
-
-      {/* Category — own row */}
-      <div className="space-y-1.5">
-        <Label className="text-xs">Category</Label>
-        <Select value={category || '__none__'} onValueChange={v => setCategory(v === '__none__' ? '' : v)}>
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">No category</SelectItem>
-            {categories.map(cat => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
 
       {/* Vendor IDs — always visible, right under name/ID block */}
       <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
