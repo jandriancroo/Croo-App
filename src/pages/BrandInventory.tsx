@@ -17,8 +17,9 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle,
+  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle, ChevronDown,
 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
