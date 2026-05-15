@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle, ChevronDown,
+  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle, ChevronDown, Link2,
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -891,10 +891,14 @@ function EditTemplateForm({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-      {/* Template ID */}
-      <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/40 rounded-md">
-        <span className="text-[10px] text-muted-foreground font-mono">ID:</span>
-        <span className="text-[10px] text-muted-foreground font-mono select-all truncate">{template.id}</span>
+      {/* Name + ID stacked */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Product Name</Label>
+        <Input value={name} onChange={e => setName(e.target.value)} className="h-9" />
+        <div className="flex items-center gap-2 px-2 py-1 bg-muted/40 rounded-md">
+          <span className="text-[10px] text-muted-foreground font-mono">ID:</span>
+          <span className="text-[10px] text-muted-foreground font-mono select-all truncate">{template.id}</span>
+        </div>
       </div>
 
       {/* Recipe badge */}
@@ -940,29 +944,27 @@ function EditTemplateForm({
         </div>
       )}
 
-      {/* Name + Category — two columns */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Product Name</Label>
-          <Input value={name} onChange={e => setName(e.target.value)} className="h-9" />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Category</Label>
-          <Select value={category || '__none__'} onValueChange={v => setCategory(v === '__none__' ? '' : v)}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No category</SelectItem>
-              {categories.map(cat => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Category — own row */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Category</Label>
+        <Select value={category || '__none__'} onValueChange={v => setCategory(v === '__none__' ? '' : v)}>
+          <SelectTrigger className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">No category</SelectItem>
+            {categories.map(cat => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Pack Size Override — collapsible */}
+      {/* Vendor IDs — always visible, right under name/ID block */}
+      <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+        <Label className="text-xs font-semibold">Vendor IDs</Label>
+        <VendorMappingsDisplay template={template} />
+      </div>
       <Collapsible defaultOpen={packOverrideEnabled}>
         <div className="rounded-lg border border-border/60 bg-muted/20">
           <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-3">
@@ -1119,23 +1121,24 @@ function EditTemplateForm({
         </div>
       </Collapsible>
 
-      {/* Vendor Mappings — collapsible */}
-      <Collapsible defaultOpen={false}>
-        <div className="rounded-lg border border-border/60 bg-muted/20">
-          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-3">
-            <Label className="text-xs font-semibold cursor-pointer">Vendor IDs</Label>
-            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="px-3 pb-3">
-              <VendorMappingsDisplay template={template} />
-            </div>
-          </CollapsibleContent>
-        </div>
-      </Collapsible>
-
+      {/* Link to Existing — collapsed by default (drafts only) */}
       {template.status === 'draft' && (
-        <InlineLinkToExisting draft={template} onLinked={onCancel} />
+        <Collapsible defaultOpen={false}>
+          <div className="rounded-lg border border-border/60 bg-muted/20">
+            <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-3">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <Label className="text-xs font-semibold cursor-pointer">Link to Existing (merge duplicate)</Label>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-3 pb-3">
+                <InlineLinkToExisting draft={template} onLinked={onCancel} hideHeader />
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
       )}
       </div>
 
