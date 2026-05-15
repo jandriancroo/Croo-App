@@ -17,6 +17,7 @@ interface InlineLinkToExistingProps {
     vendor_source?: string | null;
   };
   onLinked: () => void;
+  hideHeader?: boolean;
 }
 
 /** Simple word-overlap fuzzy score: fraction of draft words found in candidate */
