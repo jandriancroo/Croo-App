@@ -1121,23 +1121,24 @@ function EditTemplateForm({
         </div>
       </Collapsible>
 
-      {/* Vendor Mappings — collapsible */}
-      <Collapsible defaultOpen={false}>
-        <div className="rounded-lg border border-border/60 bg-muted/20">
-          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-3">
-            <Label className="text-xs font-semibold cursor-pointer">Vendor IDs</Label>
-            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="px-3 pb-3">
-              <VendorMappingsDisplay template={template} />
-            </div>
-          </CollapsibleContent>
-        </div>
-      </Collapsible>
-
+      {/* Link to Existing — collapsed by default (drafts only) */}
       {template.status === 'draft' && (
-        <InlineLinkToExisting draft={template} onLinked={onCancel} />
+        <Collapsible defaultOpen={false}>
+          <div className="rounded-lg border border-border/60 bg-muted/20">
+            <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-3">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <Label className="text-xs font-semibold cursor-pointer">Link to Existing (merge duplicate)</Label>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-3 pb-3">
+                <InlineLinkToExisting draft={template} onLinked={onCancel} hideHeader />
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
       )}
       </div>
 
