@@ -33,7 +33,7 @@ function fuzzyScore(draftName: string, candidateName: string): number {
   return hits / draftWords.length;
 }
 
-export default function InlineLinkToExisting({ draft, onLinked }: InlineLinkToExistingProps) {
+export default function InlineLinkToExisting({ draft, onLinked, hideHeader }: InlineLinkToExistingProps) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [userTyped, setUserTyped] = useState(false);
