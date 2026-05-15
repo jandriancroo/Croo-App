@@ -944,29 +944,27 @@ function EditTemplateForm({
         </div>
       )}
 
-      {/* Name + Category — two columns */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Product Name</Label>
-          <Input value={name} onChange={e => setName(e.target.value)} className="h-9" />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Category</Label>
-          <Select value={category || '__none__'} onValueChange={v => setCategory(v === '__none__' ? '' : v)}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No category</SelectItem>
-              {categories.map(cat => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Category — own row */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Category</Label>
+        <Select value={category || '__none__'} onValueChange={v => setCategory(v === '__none__' ? '' : v)}>
+          <SelectTrigger className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">No category</SelectItem>
+            {categories.map(cat => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Pack Size Override — collapsible */}
+      {/* Vendor IDs — always visible, right under name/ID block */}
+      <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+        <Label className="text-xs font-semibold">Vendor IDs</Label>
+        <VendorMappingsDisplay template={template} />
+      </div>
       <Collapsible defaultOpen={packOverrideEnabled}>
         <div className="rounded-lg border border-border/60 bg-muted/20">
           <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 p-3">
