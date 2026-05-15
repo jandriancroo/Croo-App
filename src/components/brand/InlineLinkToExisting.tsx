@@ -149,11 +149,13 @@ export default function InlineLinkToExisting({ draft, onLinked }: InlineLinkToEx
   };
 
   return (
-    <div className="border-t pt-3 space-y-2">
-      <p className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
-        <Link2 className="h-3.5 w-3.5" />
-        Link to Existing (merge duplicate)
-      </p>
+    <div className={hideHeader ? "space-y-2" : "border-t pt-3 space-y-2"}>
+      {!hideHeader && (
+        <p className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+          <Link2 className="h-3.5 w-3.5" />
+          Link to Existing (merge duplicate)
+        </p>
+      )}
 
       {isAutoMode && autoMatches.length > 0 && (
         <p className="text-[10px] text-muted-foreground flex items-center gap-1">
