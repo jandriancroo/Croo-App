@@ -307,11 +307,15 @@ export function useAvailabilityData() {
     if (!deletingRequestId) return;
     setProcessing(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("availability_requests")
         .delete()
-        .eq("id", deletingRequestId);
+        .eq("id", deletingRequestId)
+        .select("id");
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("You don't have permission to delete this request");
+      }
       toast.success("Request deleted");
       setDeleteDialogOpen(false);
       setDeletingRequestId(null);
