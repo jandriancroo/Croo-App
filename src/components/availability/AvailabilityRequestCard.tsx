@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { getDisplayName } from "@/utils/displayName";
 import {
@@ -8,6 +9,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Check, X, Clock, Pencil, Trash2, ChevronDown } from "lucide-react";
 import type { AvailabilityRequest } from "@/hooks/useAvailabilityData";
 
