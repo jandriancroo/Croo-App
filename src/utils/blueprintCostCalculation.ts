@@ -169,7 +169,9 @@ export async function fetchBlueprintCosts(
       .in("id", brandTemplateIds);
     if (tplErr) throw tplErr;
     for (const t of templateStatuses || []) {
-      if ((t as any).status && (t as any).status !== "active") {
+      // Brand templates use status 'live' | 'draft' | 'archived'.
+      // Only 'archived' should be flagged — 'live' and 'draft' are usable.
+      if ((t as any).status === "archived") {
         archivedTemplateIds.add((t as any).id);
       }
     }
