@@ -331,17 +331,17 @@ export function useAvailabilityData() {
   // Formatting helpers
   const formatTimeScope = (request: AvailabilityRequest) => {
     if (request.time_scope === "partial_day") {
-      const dateStr = fmtDate(request.start_date, "MMM d, yyyy");
+      const dateStr = fmtDate(request.start_date, "MMM d");
       const timeRange = `${format(new Date(`2000-01-01T${request.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${request.end_time}`), "h:mm a")}`;
       return `${dateStr} • ${timeRange}`;
     } else if (request.time_scope === "multi_day") {
       const start = request.start_date;
       const end = request.end_date;
-      if (!end) return fmtDate(start, "MMM d, yyyy");
+      if (!end) return fmtDate(start, "MMM d");
       const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start];
-      return `${fmtDate(rangeStart, "MMM d")} - ${fmtDate(rangeEnd, "MMM d, yyyy")}`;
+      return `${fmtDate(rangeStart, "MMM d")} - ${fmtDate(rangeEnd, "MMM d")}`;
     } else {
-      return fmtDate(request.start_date, "MMM d, yyyy");
+      return fmtDate(request.start_date, "MMM d");
     }
   };
 
