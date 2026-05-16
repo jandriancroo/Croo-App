@@ -322,7 +322,7 @@ export function useAvailabilityData() {
       fetchData();
     } catch (error: any) {
       console.error("Error deleting request:", error);
-      toast.error("Failed to delete request");
+      toast.error(error?.message || "Failed to delete request");
     } finally {
       setProcessing(false);
     }
