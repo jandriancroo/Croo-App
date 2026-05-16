@@ -43,7 +43,12 @@ export function AvailabilityRequestCard({
   onEmployeeEdit,
   onDelete,
 }: AvailabilityRequestCardProps) {
+  const [notesOpen, setNotesOpen] = useState(false);
   const statusLabel = request.status.charAt(0).toUpperCase() + request.status.slice(1);
+  const noteText = (request.notes || "").trim();
+  const NOTE_PREVIEW_LIMIT = 40;
+  const noteIsLong = noteText.length > NOTE_PREVIEW_LIMIT;
+  const notePreview = noteIsLong ? `${noteText.slice(0, NOTE_PREVIEW_LIMIT).trim()}…` : noteText;
 
   const StatusButton = (
     <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer hover:opacity-80 ${
@@ -112,7 +117,25 @@ export function AvailabilityRequestCard({
     ) : null
   );
 
+  const NoteCell = noteText ? (
+    noteIsLong ? (
+      <button
+        type="button"
+        onClick={() => setNotesOpen(true)}
+        className="text-sm text-muted-foreground italic text-left hover:text-foreground transition-colors line-clamp-2 underline-offset-2 hover:underline"
+        title="Click to read full reason"
+      >
+        "{notePreview}"
+      </button>
+    ) : (
+      <span className="text-sm text-muted-foreground italic line-clamp-2">"{notePreview}"</span>
+    )
+  ) : (
+    <span className="text-xs text-muted-foreground/50">—</span>
+  );
+
   return (
+    <>
     <div className="flex border rounded-lg overflow-hidden hover:border-primary/30 transition-colors">
       {/* Left: Requested date */}
       <div className="w-24 shrink-0 bg-muted/30 p-3 flex flex-col items-center justify-center border-r text-center">
@@ -131,15 +154,18 @@ export function AvailabilityRequestCard({
           <div className="font-medium truncate">
             {canApproveRequests ? getDisplayName(request.profiles.full_name, request.profiles.nickname) : "You"}
           </div>
-          <div className="flex items-start justify-between mt-1">
-            <div className="font-semibold text-primary">
-              <div className="text-xs text-muted-foreground font-medium">
-                {formatDayOfWeek(request)}
-              </div>
-              <div>{formatTimeScope(request)}</div>
+          <div className="mt-1">
+            <div className="text-xs text-muted-foreground font-medium">
+              {formatDayOfWeek(request)}
             </div>
-            <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
+            <div className="font-semibold text-primary flex items-baseline gap-2 flex-wrap">
+              <span>{formatTimeScope(request)}</span>
+              <span className="text-foreground">• {request.hours_requested}h</span>
+            </div>
           </div>
+          {noteText && (
+            <div className="mt-2">{NoteCell}</div>
+          )}
           <div className="flex items-center justify-between mt-2">
             <Badge
               variant={request.request_type === "paid" ? "default" : "secondary"}
@@ -166,17 +192,19 @@ export function AvailabilityRequestCard({
             <div className="font-medium truncate w-32 lg:w-48 shrink-0">
               {canApproveRequests ? getDisplayName(request.profiles.full_name, request.profiles.nickname) : "You"}
             </div>
-            <div className="font-semibold text-primary w-44 lg:w-56 shrink-0">
+            <div className="font-semibold text-primary w-56 lg:w-72 shrink-0">
               <div className="text-xs text-muted-foreground font-medium mb-0.5">
                 {formatDayOfWeek(request)}
               </div>
-              <div>{formatTimeScope(request)}</div>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span>{formatTimeScope(request)}</span>
+                <span className="text-foreground">• {request.hours_requested}h</span>
+              </div>
             </div>
-            <div className="hidden lg:flex flex-1 justify-center">
-              <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
+            <div className="hidden lg:flex flex-1 min-w-0 pr-2">
+              {NoteCell}
             </div>
             <div className="flex items-center gap-3 text-sm text-muted-foreground shrink-0">
-              <span className="font-semibold text-base text-foreground lg:hidden">{request.hours_requested}h</span>
               <Badge
                 variant={request.request_type === "paid" ? "default" : "secondary"}
                 className="text-xs px-2 py-0.5"
@@ -200,5 +228,15 @@ export function AvailabilityRequestCard({
         </div>
       </div>
     </div>
+
+    <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Request Reason</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-foreground whitespace-pre-wrap">{noteText}</p>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
