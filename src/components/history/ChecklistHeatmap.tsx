@@ -184,8 +184,11 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
     };
   });
 
-  const getColor = (pct: number | null, inRange: boolean) => {
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  const getColor = (pct: number | null, inRange: boolean, isFuture: boolean) => {
     if (!inRange) return 'bg-muted/20';
+    if (isFuture) return 'bg-muted/30';
     if (pct === null) return 'bg-muted/40';
     if (pct === 0) return 'bg-destructive/20';
     if (pct < 25) return 'bg-destructive/40';
@@ -195,8 +198,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
     return 'bg-emerald-500';
   };
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   // Compute summary
   const summary = useMemo(() => {
