@@ -86,6 +86,44 @@ export function NotesTextarea({ value, onChange, placeholder, rows = 2, classNam
         ref={ref}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' || e.shiftKey) return;
+          const el = ref.current;
+          if (!el) return;
+          const text = value || '';
+          const pos = el.selectionStart ?? text.length;
+          const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+          const currentLine = text.slice(lineStart, pos);
+          const match = currentLine.match(/^(\s*)([-•]\s+|(\d+)\.\s+)(.*)$/);
+          if (!match) return;
+          const [, indent, , numStr, rest] = match;
+          // Empty item → exit list (remove prefix, plain newline)
+          if (rest.trim() === '') {
+            e.preventDefault();
+            const before = text.slice(0, lineStart);
+            const after = text.slice(pos);
+            const newText = before + indent + '\n' + after;
+            onChange(newText);
+            requestAnimationFrame(() => {
+              el.focus();
+              const caret = before.length + indent.length + 1;
+              el.setSelectionRange(caret, caret);
+            });
+            return;
+          }
+          e.preventDefault();
+          const prefix = numStr ? `${parseInt(numStr, 10) + 1}. ` : '- ';
+          const insert = `\n${indent}${prefix}`;
+          const before = text.slice(0, pos);
+          const after = text.slice(pos);
+          const newText = before + insert + after;
+          onChange(newText);
+          requestAnimationFrame(() => {
+            el.focus();
+            const caret = before.length + insert.length;
+            el.setSelectionRange(caret, caret);
+          });
+        }}
         placeholder={placeholder}
         rows={rows}
         className={className}
