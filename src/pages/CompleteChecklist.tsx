@@ -1097,6 +1097,7 @@ export default function CompleteChecklist() {
             
             return sortedItems.map((item, idx) => {
               const showDivider = hasAmPmDivision && 
+                !hasSectionHeaders &&
                 !renderedDivider && 
                 item.manager_shift === 'pm' && 
                 sortedItems.some(i => i.manager_shift === 'am');
