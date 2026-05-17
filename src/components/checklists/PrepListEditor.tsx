@@ -239,6 +239,7 @@ function PrepRowEditor({
           disabled={isLinked}
         />
       )}
+      <Input
         type="number"
         inputMode="decimal"
         value={row.par ?? ''}
