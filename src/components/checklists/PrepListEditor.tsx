@@ -2,16 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, X, Plus, Link2, Unlink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ALL_CONTAINERS } from '@/components/inventory/PanSizesSection';
 
 export interface PrepRow {
   id?: string;
   inventory_item_id?: string | null;
   item_name: string;
   unit?: string | null;
+  pan_key?: string | null;
   par?: number | null;
   order_index: number;
+  // transient: enabled pan keys for the linked inventory item (not persisted as a column)
+  _enabled_pan_keys?: string[] | null;
 }
 
 interface InvItem {
@@ -22,7 +27,9 @@ interface InvItem {
   par_level: number | null;
   brand: string | null;
   pack_size: string | null;
+  pan_sizes: any;
 }
+
 
 interface Props {
   rows: PrepRow[];
