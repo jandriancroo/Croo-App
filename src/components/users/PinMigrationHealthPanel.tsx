@@ -36,7 +36,8 @@ type RowUser = {
   full_name: string | null;
   pin_pending: string | null;
   pin_pending_set_at: string | null;
-  user_locations: { location_id: string; locations: { id: string; name: string } | null }[];
+  location_ids: string[];
+  location_names: string[];
 };
 
 const ALL = "__all__";
