@@ -3,11 +3,12 @@ import { Layout } from "@/components/Layout";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { DateNavigator } from "@/components/ui/date-navigator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, addDays, subDays } from "date-fns";
+import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek } from "date-fns";
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
 import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
+import { ChecklistHeatmap } from '@/components/history/ChecklistHeatmap';
 import { useTasksData } from '@/hooks/useTasksData';
-import { Layers, LayoutList } from 'lucide-react';
+import { Layers, Grid3x3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
 
@@ -31,7 +32,8 @@ export default function Tasks() {
   } = useTasksData();
 
   const [selectedCompletedTask, setSelectedCompletedTask] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<'grouped' | 'timeline'>('grouped');
+  const [viewMode, setViewMode] = useState<'grouped' | 'heatmap'>('grouped');
+  const [heatmapRange, setHeatmapRange] = useState<'week' | 'month'>('week');
 
   // Calculate completion percentage
   const completionPercent = useMemo(() => {
@@ -89,52 +91,100 @@ export default function Tasks() {
               <PageSkeleton variant="grid" />
             ) : (
               <>
-                {/* View toggle + Date navigator row */}
+                {/* View toggle ABOVE date navigator */}
                 <div className="flex items-center gap-2">
                   <div className="flex items-center bg-muted rounded-lg p-0.5">
                     <button
                       onClick={() => setViewMode('grouped')}
                       className={cn(
-                        'p-1.5 rounded-md transition-colors',
+                        'px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium',
                         viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
                       )}
                       aria-label="Grouped view"
                     >
-                      <Layers className="h-4 w-4" />
+                      <Layers className="h-3.5 w-3.5" />
+                      <span>By Category</span>
                     </button>
                     <button
-                      onClick={() => setViewMode('timeline')}
+                      onClick={() => setViewMode('heatmap')}
                       className={cn(
-                        'p-1.5 rounded-md transition-colors',
-                        viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                        'px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium',
+                        viewMode === 'heatmap' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
                       )}
-                      aria-label="Timeline view"
+                      aria-label="Heatmap view"
                     >
-                      <LayoutList className="h-4 w-4" />
+                      <Grid3x3 className="h-3.5 w-3.5" />
+                      <span>Heatmap</span>
                     </button>
                   </div>
-                  <div className="flex-1">
-                    <DateNavigator
-                      onPrev={() => setHistoryDate(subDays(historyDate, 1))}
-                      onNext={() => setHistoryDate(addDays(historyDate, 1))}
-                      label={format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') 
-                        ? `Today, ${format(historyDate, 'MMM d')}` 
-                        : `${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
-                      canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
-                      className="w-full"
-                    />
-                  </div>
+
+                  {/* When in heatmap mode, show week/month sub-toggle */}
+                  {viewMode === 'heatmap' && (
+                    <div className="flex items-center bg-muted rounded-lg p-0.5">
+                      <button
+                        onClick={() => setHeatmapRange('week')}
+                        className={cn(
+                          'px-2.5 py-1 rounded-md transition-colors text-xs font-medium',
+                          heatmapRange === 'week' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                        )}
+                      >
+                        Week
+                      </button>
+                      <button
+                        onClick={() => setHeatmapRange('month')}
+                        className={cn(
+                          'px-2.5 py-1 rounded-md transition-colors text-xs font-medium',
+                          heatmapRange === 'month' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                        )}
+                      >
+                        Month
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <TasksHistoryTimeline
-                  historyStats={historyStats}
-                  completedTempTasks={completedTempTasks}
-                  eventCompletions={eventCompletions}
-                  logbookEntries={logbookEntries}
-                  selectedDate={historyDate}
-                  viewMode={viewMode}
-                  onTaskClick={setSelectedCompletedTask}
+                {/* Date navigator — steps by day / week / month based on view */}
+                <DateNavigator
+                  onPrev={() => {
+                    if (viewMode === 'grouped') setHistoryDate(subDays(historyDate, 1));
+                    else if (heatmapRange === 'week') setHistoryDate(subWeeks(historyDate, 1));
+                    else setHistoryDate(subMonths(historyDate, 1));
+                  }}
+                  onNext={() => {
+                    if (viewMode === 'grouped') setHistoryDate(addDays(historyDate, 1));
+                    else if (heatmapRange === 'week') setHistoryDate(addWeeks(historyDate, 1));
+                    else setHistoryDate(addMonths(historyDate, 1));
+                  }}
+                  label={
+                    viewMode === 'grouped'
+                      ? (format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                          ? `Today, ${format(historyDate, 'MMM d')}`
+                          : `${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`)
+                      : heatmapRange === 'week'
+                        ? `Week of ${format(startOfWeek(historyDate, { weekStartsOn: 0 }), 'MMM d, yyyy')}`
+                        : format(historyDate, 'MMMM yyyy')
+                  }
+                  canGoNext={
+                    viewMode === 'grouped'
+                      ? format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')
+                      : historyDate < new Date()
+                  }
+                  className="w-full"
                 />
+
+                {viewMode === 'grouped' ? (
+                  <TasksHistoryTimeline
+                    historyStats={historyStats}
+                    completedTempTasks={completedTempTasks}
+                    eventCompletions={eventCompletions}
+                    logbookEntries={logbookEntries}
+                    selectedDate={historyDate}
+                    viewMode="grouped"
+                    onTaskClick={setSelectedCompletedTask}
+                  />
+                ) : (
+                  <ChecklistHeatmap anchorDate={historyDate} range={heatmapRange} />
+                )}
               </>
             )}
           </TabsContent>
