@@ -186,7 +186,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
           </div>
         )}
 
-        {item.item_type === 'multiple_choice' && (
+        {!isSection && item.item_type === 'multiple_choice' && (
           <Input
             value={Array.isArray(item.options) ? item.options.join(', ') : ''}
             onChange={(e) =>
