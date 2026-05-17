@@ -87,8 +87,6 @@ export default function UserManagement() {
           </CardContent>
         </Card>
 
-        {data.isSuperAdmin && <PinMigrationHealthPanel />}
-
         {/* Certifications Section */}
         <div className="border-t pt-6">
           <div className="flex items-center justify-between">
