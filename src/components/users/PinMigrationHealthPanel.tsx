@@ -58,12 +58,7 @@ export function PinMigrationHealthPanel() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["pin-migration-health"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("profiles")
-        .select(
-          "id, full_name, pin_pending, pin_pending_set_at, user_locations(location_id, locations(id, name))"
-        )
-        .order("full_name", { ascending: true });
+      const { data, error } = await supabase.rpc("get_pin_migration_health");
       if (error) throw error;
       return (data || []) as RowUser[];
     },
@@ -78,9 +73,11 @@ export function PinMigrationHealthPanel() {
     // Unique locations across all users (for the dropdown)
     const locMap = new Map<string, string>();
     for (const u of users) {
-      for (const ul of u.user_locations || []) {
-        if (ul.locations?.id) locMap.set(ul.locations.id, ul.locations.name);
-      }
+      const ids = u.location_ids || [];
+      const names = u.location_names || [];
+      ids.forEach((id, i) => {
+        if (id) locMap.set(id, names[i] || "Unknown");
+      });
     }
     const locations = Array.from(locMap.entries())
       .map(([id, name]) => ({ id, name }))
@@ -90,9 +87,7 @@ export function PinMigrationHealthPanel() {
       locationFilter === ALL
         ? pending
         : pending.filter((u) =>
-            (u.user_locations || []).some(
-              (ul) => ul.location_id === locationFilter
-            )
+            (u.location_ids || []).includes(locationFilter)
           );
 
     return { total, migrated, pending, locations, filteredPending };
