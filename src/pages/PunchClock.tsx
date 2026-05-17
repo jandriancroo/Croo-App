@@ -521,9 +521,12 @@ export default function PunchClock() {
     };
   }, []);
 
-  // Fetch all user data in parallel after PIN verification
+  // Fetch all user data in parallel after PIN verification.
+  // IMPORTANT: also depend on currentLocation?.id — if the location hydrates
+  // AFTER the user enters their PIN, we must re-run checkTodayShift, otherwise
+  // it queries with an undefined location_id and falsely reports "Not scheduled today".
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && currentLocation?.id) {
       Promise.all([
         checkTodayShift(),
         checkLastPunch(),
@@ -531,7 +534,7 @@ export default function PunchClock() {
         checkActiveMeetingEvent()
       ]);
     }
-  }, [currentUser]);
+  }, [currentUser, currentLocation?.id]);
 
   const checkAllBirthdays = async () => {
     try {
@@ -727,6 +730,13 @@ export default function PunchClock() {
 
   const checkTodayShift = async () => {
     if (!currentUser) return;
+    // Guard: without a location we cannot filter the schedule. Running the query
+    // anyway returns zero rows and falsely flags the user as "Not scheduled today".
+    // Bail and let the useEffect re-run once currentLocation hydrates.
+    if (!currentLocation?.id) {
+      console.warn('[PunchClock] checkTodayShift skipped — location not loaded yet');
+      return;
+    }
 
     // CRITICAL: Use location timezone, not device local time.
     // Device clocks can drift to UTC and silently roll "today" past midnight,
@@ -737,7 +747,7 @@ export default function PunchClock() {
       .select('*, schedules!inner(location_id)')
       .eq('user_id', currentUser.id)
       .eq('shift_date', today)
-      .eq('schedules.location_id', currentLocation?.id)
+      .eq('schedules.location_id', currentLocation.id)
       .order('start_time', { ascending: true })
       .limit(1);
 
