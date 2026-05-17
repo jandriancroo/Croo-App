@@ -127,6 +127,7 @@ export function PrepListComplete({
         location_id: locationId,
         item_name: row.item_name,
         unit: row.unit,
+        pan_key: row.pan_key,
         par_at_time: row.par,
         on_hand: onHand,
         prep_amount: prep,
