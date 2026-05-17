@@ -634,7 +634,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
           />
         )}
 
-        {item.item_type === 'temperature' && (
+        {!isSection && item.item_type === 'temperature' && (
           <div className="flex items-center space-x-2">
             <Checkbox
               id={`temp-alert-${index}`}
