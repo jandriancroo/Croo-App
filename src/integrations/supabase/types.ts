@@ -6780,6 +6780,7 @@ export type Database = {
           nickname: string | null
           phone_number: string | null
           pin_pending: string | null
+          pin_pending_plaintext: string | null
           pin_pending_set_at: string | null
           pin_pending_set_by: string | null
           profile_photo_url: string | null
@@ -6810,6 +6811,7 @@ export type Database = {
           nickname?: string | null
           phone_number?: string | null
           pin_pending?: string | null
+          pin_pending_plaintext?: string | null
           pin_pending_set_at?: string | null
           pin_pending_set_by?: string | null
           profile_photo_url?: string | null
@@ -6840,6 +6842,7 @@ export type Database = {
           nickname?: string | null
           phone_number?: string | null
           pin_pending?: string | null
+          pin_pending_plaintext?: string | null
           pin_pending_set_at?: string | null
           pin_pending_set_by?: string | null
           profile_photo_url?: string | null
@@ -9676,6 +9679,7 @@ export type Database = {
       check_alerts_sql: { Args: never; Returns: undefined }
       cleanup_internal_logs: { Args: never; Returns: undefined }
       cleanup_theo_chat_messages: { Args: never; Returns: undefined }
+      clear_all_pending_pin_plaintext: { Args: never; Returns: Json }
       convert_recipe_unit_to_count: {
         Args: { p_count_unit: string; p_recipe_unit: string }
         Returns: number
@@ -9760,6 +9764,7 @@ export type Database = {
           location_ids: string[]
           location_names: string[]
           pin_pending: string
+          pin_pending_plaintext: string
           pin_pending_set_at: string
         }[]
       }
