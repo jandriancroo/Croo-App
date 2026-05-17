@@ -118,6 +118,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               {item.item_type === 'temperature' && <Thermometer className="h-3.5 w-3.5" />}
               {item.item_type === 'multiple_choice' && <List className="h-3.5 w-3.5" />}
               {item.item_type === 'section_header' && <Heading className="h-3.5 w-3.5" />}
+              {item.item_type === 'prep_list' && <ClipboardList className="h-3.5 w-3.5" />}
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="confirmation"><span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" /> Check</span></SelectItem>
@@ -126,6 +127,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               <SelectItem value="image"><span className="flex items-center gap-2"><Camera className="h-3.5 w-3.5" /> Photo</span></SelectItem>
               <SelectItem value="temperature"><span className="flex items-center gap-2"><Thermometer className="h-3.5 w-3.5" /> Temp Photo</span></SelectItem>
               <SelectItem value="multiple_choice"><span className="flex items-center gap-2"><List className="h-3.5 w-3.5" /> Multiple Choice</span></SelectItem>
+              <SelectItem value="prep_list"><span className="flex items-center gap-2"><ClipboardList className="h-3.5 w-3.5" /> Prep List</span></SelectItem>
               <SelectItem value="section_header"><span className="flex items-center gap-2"><Heading className="h-3.5 w-3.5" /> Section Header</span></SelectItem>
             </SelectContent>
           </Select>
