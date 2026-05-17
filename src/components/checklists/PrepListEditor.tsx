@@ -214,14 +214,31 @@ function PrepRowEditor({
           </div>
         )}
       </div>
-      <Input
-        value={row.unit || ''}
-        onChange={(e) => onChange({ unit: e.target.value })}
-        placeholder="ea"
-        className="h-7 text-xs px-1.5"
-        disabled={isLinked}
-      />
-      <Input
+      {isLinked && row._enabled_pan_keys && row._enabled_pan_keys.length > 0 ? (
+        <Select value={row.pan_key || ''} onValueChange={(v) => onChange({ pan_key: v })}>
+          <SelectTrigger className="h-7 text-xs px-1.5">
+            <SelectValue placeholder="Pan" />
+          </SelectTrigger>
+          <SelectContent>
+            {row._enabled_pan_keys.map((k) => {
+              const c = ALL_CONTAINERS.find((x) => x.key === k);
+              return (
+                <SelectItem key={k} value={k} className="text-xs">
+                  {c?.label || k}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Input
+          value={row.unit || ''}
+          onChange={(e) => onChange({ unit: e.target.value, pan_key: null })}
+          placeholder={isLinked ? '—' : 'ea'}
+          className="h-7 text-xs px-1.5"
+          disabled={isLinked}
+        />
+      )}
         type="number"
         inputMode="decimal"
         value={row.par ?? ''}
