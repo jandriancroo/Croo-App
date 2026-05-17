@@ -1427,6 +1427,140 @@ export type Database = {
         }
         Relationships: []
       }
+      checklist_prep_completions: {
+        Row: {
+          business_date: string | null
+          checklist_item_id: string
+          completed_by: string | null
+          created_at: string
+          id: string
+          inventory_item_id: string | null
+          item_name: string
+          location_id: string | null
+          on_hand: number | null
+          par_at_time: number | null
+          prep_amount: number | null
+          prep_row_id: string | null
+          submission_id: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_date?: string | null
+          checklist_item_id: string
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          inventory_item_id?: string | null
+          item_name: string
+          location_id?: string | null
+          on_hand?: number | null
+          par_at_time?: number | null
+          prep_amount?: number | null
+          prep_row_id?: string | null
+          submission_id: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_date?: string | null
+          checklist_item_id?: string
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          inventory_item_id?: string | null
+          item_name?: string
+          location_id?: string | null
+          on_hand?: number | null
+          par_at_time?: number | null
+          prep_amount?: number | null
+          prep_row_id?: string | null
+          submission_id?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_prep_completions_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_prep_completions_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_prep_completions_prep_row_id_fkey"
+            columns: ["prep_row_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_prep_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_prep_completions_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_prep_rows: {
+        Row: {
+          checklist_item_id: string
+          created_at: string
+          id: string
+          inventory_item_id: string | null
+          item_name: string
+          order_index: number
+          par: number | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          checklist_item_id: string
+          created_at?: string
+          id?: string
+          inventory_item_id?: string | null
+          item_name: string
+          order_index?: number
+          par?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checklist_item_id?: string
+          created_at?: string
+          id?: string
+          inventory_item_id?: string | null
+          item_name?: string
+          order_index?: number
+          par?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_prep_rows_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_prep_rows_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_responses: {
         Row: {
           completed_by: string | null
