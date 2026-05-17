@@ -52,7 +52,11 @@ interface SortableChecklistItemProps {
   onBlur?: () => void;
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur }: SortableChecklistItemProps) {
+interface SortableChecklistItemPropsExt extends SortableChecklistItemProps {
+  belongsToSection?: boolean;
+}
+
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur, belongsToSection }: SortableChecklistItemPropsExt) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [showReference, setShowReference] = useState(false);
@@ -62,7 +66,13 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex gap-1.5 p-2 border rounded-lg bg-background transition-colors ${isDragging ? 'opacity-50 z-50' : ''} ${isFocused ? 'border-primary ring-1 ring-primary/30' : ''}`}
+      className={`flex gap-1.5 p-2 border rounded-lg transition-colors ${
+        isSection
+          ? 'bg-primary/5 border-primary/30 font-semibold mt-3'
+          : belongsToSection
+            ? 'bg-background ml-5 border-l-2 border-l-primary/40'
+            : 'bg-background'
+      } ${isDragging ? 'opacity-50 z-50' : ''} ${isFocused ? 'border-primary ring-1 ring-primary/30' : ''}`}
     >
       <button
         className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-2 shrink-0"
@@ -611,13 +621,34 @@ export default function EditChecklist() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      setItems((items) => {
-        const oldIndex = items.findIndex((_, i) => `item-${i}` === active.id);
-        const newIndex = items.findIndex((_, i) => `item-${i}` === over.id);
+    if (!over || active.id === over.id) return;
+    setItems((items) => {
+      const oldIndex = items.findIndex((_, i) => `item-${i}` === active.id);
+      const newIndex = items.findIndex((_, i) => `item-${i}` === over.id);
+      if (oldIndex < 0 || newIndex < 0) return items;
+
+      const isHeader = items[oldIndex].item_type === 'section_header';
+      if (!isHeader) {
         return arrayMove(items, oldIndex, newIndex);
-      });
-    }
+      }
+
+      // Section header: move the whole block (header + items until next header)
+      let blockEnd = items.length;
+      for (let i = oldIndex + 1; i < items.length; i++) {
+        if (items[i].item_type === 'section_header') { blockEnd = i; break; }
+      }
+      // Don't allow dropping inside own block
+      if (newIndex > oldIndex && newIndex < blockEnd) return items;
+
+      const block = items.slice(oldIndex, blockEnd);
+      const rest = [...items.slice(0, oldIndex), ...items.slice(blockEnd)];
+      const targetItem = items[newIndex];
+      let insertAt = rest.indexOf(targetItem);
+      if (insertAt < 0) insertAt = rest.length;
+      // Moving down: insert after target so visual position matches drop
+      if (oldIndex < newIndex) insertAt += 1;
+      return [...rest.slice(0, insertAt), ...block, ...rest.slice(insertAt)];
+    });
   };
 
   if (roleLoading || loading) {
@@ -751,24 +782,53 @@ export default function EditChecklist() {
           <CardContent className="space-y-3 px-4">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={items.map((_, i) => `item-${i}`)} strategy={verticalListSortingStrategy}>
-                {items.map((item, index) => (
-                  <SortableChecklistItem
-                    key={`item-${index}`}
-                    id={`item-${index}`}
-                    item={item}
-                    index={index}
-                    updateItem={updateItem}
-                    removeItem={removeItem}
-                    handleReferenceImageUpload={handleReferenceImageUpload}
-                    showAmPmSelector={enableAmPmDivision}
-                    showPositionSelector={positionFilteringEnabled}
-                    availablePositions={availablePositions}
-                    onEnterKey={(idx) => addItem(idx)}
-                    isFocused={focusedItemIndex === index}
-                    onFocus={(idx) => setFocusedItemIndex(idx)}
-                    onBlur={() => setFocusedItemIndex(null)}
-                  />
-                ))}
+                {(() => {
+                  // Compute which items are children of a preceding section header
+                  let currentSection = false;
+                  return items.map((item, index) => {
+                    if (item.item_type === 'section_header') {
+                      currentSection = true;
+                      return (
+                        <SortableChecklistItem
+                          key={`item-${index}`}
+                          id={`item-${index}`}
+                          item={item}
+                          index={index}
+                          updateItem={updateItem}
+                          removeItem={removeItem}
+                          handleReferenceImageUpload={handleReferenceImageUpload}
+                          showAmPmSelector={enableAmPmDivision}
+                          showPositionSelector={positionFilteringEnabled}
+                          availablePositions={availablePositions}
+                          onEnterKey={(idx) => addItem(idx)}
+                          isFocused={focusedItemIndex === index}
+                          onFocus={(idx) => setFocusedItemIndex(idx)}
+                          onBlur={() => setFocusedItemIndex(null)}
+                          belongsToSection={false}
+                        />
+                      );
+                    }
+                    return (
+                      <SortableChecklistItem
+                        key={`item-${index}`}
+                        id={`item-${index}`}
+                        item={item}
+                        index={index}
+                        updateItem={updateItem}
+                        removeItem={removeItem}
+                        handleReferenceImageUpload={handleReferenceImageUpload}
+                        showAmPmSelector={enableAmPmDivision}
+                        showPositionSelector={positionFilteringEnabled}
+                        availablePositions={availablePositions}
+                        onEnterKey={(idx) => addItem(idx)}
+                        isFocused={focusedItemIndex === index}
+                        onFocus={(idx) => setFocusedItemIndex(idx)}
+                        onBlur={() => setFocusedItemIndex(null)}
+                        belongsToSection={currentSection}
+                      />
+                    );
+                  });
+                })()}
               </SortableContext>
             </DndContext>
           </CardContent>
