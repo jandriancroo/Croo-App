@@ -249,17 +249,19 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
           <div className="grid grid-cols-7 gap-1.5">
             {cells.map(cell => {
               const isToday = cell.dateStr === todayStr;
+              const isFuture = cell.dateStr > todayStr;
               return (
                 <Tooltip key={cell.dateStr}>
                   <TooltipTrigger asChild>
                     <div
                       className={cn(
                         'aspect-square rounded-md flex items-center justify-center text-[11px] font-medium transition-all cursor-default relative',
-                        getColor(cell.completionPct, cell.inRange),
+                        getColor(cell.completionPct, cell.inRange, isFuture),
                         !cell.inRange && 'opacity-30',
-                        cell.inRange && 'hover:ring-2 hover:ring-primary/40',
+                        isFuture && 'opacity-50',
+                        cell.inRange && !isFuture && 'hover:ring-2 hover:ring-primary/40',
                         isToday && 'ring-2 ring-primary',
-                        cell.completionPct !== null && cell.completionPct >= 50 ? 'text-foreground' : 'text-muted-foreground'
+                        !isFuture && cell.completionPct !== null && cell.completionPct >= 50 ? 'text-foreground' : 'text-muted-foreground'
                       )}
                     >
                       {format(cell.date, 'd')}
