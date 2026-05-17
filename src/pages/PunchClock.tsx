@@ -911,17 +911,21 @@ export default function PunchClock() {
     
     // Check if early clock-in is allowed
     const now = new Date();
-    const shiftStart = new Date(`${todayShift.shift_date}T${todayShift.start_time}`);
-    
+    // CRITICAL: build shiftStart in the location's timezone so a device clock
+    // set to UTC (or any other zone) cannot shift the comparison window.
+    const tz = timezone || DEFAULT_TIMEZONE;
+    const startHHmm = String(todayShift.start_time).slice(0, 5);
+    const shiftStart = new Date(toISOStringInTimezone(todayShift.shift_date, startHHmm, tz));
+
     if (!laborRules?.allow_early_clock_in) {
       // Early clock-in disabled - can only clock in at or after shift start
       return now >= shiftStart;
     }
-    
+
     // Early clock-in allowed - use configured minutes
     const earlyMinutes = laborRules?.early_clock_in_minutes ?? 30;
     const earliestClockIn = new Date(shiftStart.getTime() - earlyMinutes * 60000);
-    
+
     return now >= earliestClockIn;
   };
 
