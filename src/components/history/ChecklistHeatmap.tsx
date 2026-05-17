@@ -270,7 +270,9 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
                   <TooltipContent side="top">
                     <div className="text-xs">
                       <div className="font-semibold">{format(cell.date, 'EEE, MMM d')}</div>
-                      {cell.completionPct === null ? (
+                      {isFuture ? (
+                        <div className="text-muted-foreground">Upcoming</div>
+                      ) : cell.completionPct === null ? (
                         <div className="text-muted-foreground">No checklists scheduled</div>
                       ) : (
                         <>
