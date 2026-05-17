@@ -84,12 +84,16 @@ function PrepRowEditor({
   onRemove: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
   const [results, setResults] = useState<InvItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const isLinked = !!row.inventory_item_id;
 
+  // Live search driven by what user types in the item name field
   useEffect(() => {
     if (!open || !locationId) return;
+    const term = row.item_name.trim();
+    setLoading(true);
     const handle = setTimeout(async () => {
       let q = supabase
         .from('inventory_items')
@@ -98,12 +102,25 @@ function PrepRowEditor({
         .eq('is_active', true)
         .order('name')
         .limit(25);
-      if (search.trim()) q = q.ilike('name', `%${search.trim()}%`);
+      if (term) q = q.ilike('name', `%${term}%`);
       const { data } = await q;
       setResults((data || []) as InvItem[]);
-    }, 200);
+      setLoading(false);
+    }, 180);
     return () => clearTimeout(handle);
-  }, [open, search, locationId]);
+  }, [open, row.item_name, locationId]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
 
   const pickItem = (item: InvItem) => {
     onChange({
@@ -113,7 +130,6 @@ function PrepRowEditor({
       par: item.par_level ?? row.par ?? null,
     });
     setOpen(false);
-    setSearch('');
   };
 
   const unlink = () => {
@@ -122,61 +138,64 @@ function PrepRowEditor({
 
   return (
     <div className="grid grid-cols-[1fr_70px_70px_28px] gap-1 items-center">
-      <div className="flex gap-1 items-center min-w-0">
-        <Input
-          value={row.item_name}
-          onChange={(e) => onChange({ item_name: e.target.value, inventory_item_id: null })}
-          placeholder="Item name"
-          className={cn('h-7 text-xs', isLinked && 'border-primary/50 bg-primary/5')}
-        />
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant={isLinked ? 'default' : 'ghost'}
-              size="icon"
-              className="h-7 w-7 shrink-0"
-              title={isLinked ? 'Linked to inventory' : 'Search inventory'}
-            >
-              {isLinked ? <Link2 className="h-3 w-3" /> : <Search className="h-3 w-3" />}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-2" align="start">
-            <div className="space-y-2">
-              {isLinked && (
-                <Button type="button" variant="outline" size="sm" onClick={unlink} className="w-full h-7 text-xs">
-                  Unlink from inventory
-                </Button>
+      <div ref={wrapperRef} className="relative flex gap-1 items-center min-w-0">
+        <div className="relative flex-1">
+          <Input
+            value={row.item_name}
+            onChange={(e) => {
+              onChange({ item_name: e.target.value, inventory_item_id: null });
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            placeholder="Search or type item name"
+            className={cn('h-7 text-xs pr-7', isLinked && 'border-primary/50 bg-primary/5')}
+          />
+          <Search className="h-3 w-3 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        </div>
+        {isLinked && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={unlink}
+            title="Unlink from inventory"
+          >
+            <Unlink className="h-3 w-3" />
+          </Button>
+        )}
+        {open && (
+          <div className="absolute z-50 top-full left-0 mt-1 w-72 max-w-[90vw] rounded-md border bg-popover shadow-md p-1">
+            <div className="max-h-60 overflow-y-auto space-y-0.5">
+              {loading && results.length === 0 && (
+                <p className="text-[11px] text-muted-foreground px-2 py-2">Searching…</p>
               )}
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search inventory…"
-                className="h-7 text-xs"
-                autoFocus
-              />
-              <div className="max-h-60 overflow-y-auto space-y-0.5">
-                {results.length === 0 && (
-                  <p className="text-[11px] text-muted-foreground px-1 py-2">No matches</p>
-                )}
-                {results.map((it) => (
-                  <button
-                    key={it.id}
-                    type="button"
-                    onClick={() => pickItem(it)}
-                    className="w-full text-left px-2 py-1.5 rounded hover:bg-accent text-xs"
-                  >
-                    <div className="font-medium truncate">{it.name}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">
-                      {[it.brand, it.pack_size, it.count_unit || it.unit].filter(Boolean).join(' · ')}
-                      {it.par_level != null && ` · par ${it.par_level}`}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {!loading && results.length === 0 && (
+                <p className="text-[11px] text-muted-foreground px-2 py-2">
+                  No matches{row.item_name.trim() ? ' — keep typing to use freehand' : ''}
+                </p>
+              )}
+              {results.map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pickItem(it)}
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-accent text-xs"
+                >
+                  <div className="font-medium truncate flex items-center gap-1">
+                    <Link2 className="h-3 w-3 text-primary shrink-0" />
+                    {it.name}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate pl-4">
+                    {[it.brand, it.pack_size, it.count_unit || it.unit].filter(Boolean).join(' · ')}
+                    {it.par_level != null && ` · par ${it.par_level}`}
+                  </div>
+                </button>
+              ))}
             </div>
-          </PopoverContent>
-        </Popover>
+          </div>
+        )}
       </div>
       <Input
         value={row.unit || ''}
