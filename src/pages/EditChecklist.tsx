@@ -198,6 +198,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
         )}
 
         {/* Collapsible notes + reference materials */}
+        {!isSection && (
         <Collapsible open={showReference} onOpenChange={setShowReference}>
           <CollapsibleTrigger asChild>
             <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1">
