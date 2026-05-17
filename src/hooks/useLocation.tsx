@@ -51,9 +51,11 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchLocations = useCallback(async () => {
     if (!user) {
-      setLocations([]);
-      setCurrentLocationState(null);
-      try { localStorage.removeItem('currentLocationCache'); } catch {}
+      // Transient null user (token refresh blip, iPad sleep/wake, brief network
+      // hiccup) — do NOT wipe currentLocation or the localStorage cache. Doing
+      // so causes the punch-clock to flash "Location not loaded" + false
+      // "Not scheduled today" toasts for anyone who PINs during that window.
+      // An explicit sign-out is handled by the SIGNED_OUT listener below.
       setLoading(false);
       return;
     }
