@@ -244,7 +244,12 @@ export default function CompleteChecklist() {
   // Calculate completion percentage
   useEffect(() => {
     if (items.length === 0) return;
-    const completedCount = items.filter(item => {
+    const answerableItems = items.filter(item => item.item_type !== 'section_header');
+    if (answerableItems.length === 0) {
+      setCompletionPercentage(100);
+      return;
+    }
+    const completedCount = answerableItems.filter(item => {
       const response = responses[item.id];
       if (item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') {
         return response === true;
@@ -254,7 +259,7 @@ export default function CompleteChecklist() {
       }
       return response !== undefined && response !== '' && response !== null;
     }).length;
-    setCompletionPercentage(Math.round(completedCount / items.length * 100));
+    setCompletionPercentage(Math.round(completedCount / answerableItems.length * 100));
   }, [responses, items, isMultiPhotoComplete]);
 
   // Create or get shared submission (daily for daily/weekly, monthly for monthly checklists)
@@ -1110,7 +1115,17 @@ export default function CompleteChecklist() {
             ? isMultiPhotoComplete(item, responses[item.id])
             : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
           const currentPhotos = isImageItem ? getPhotosForItem(item.id) : [];
-          
+
+          if (item.item_type === 'section_header') {
+            return (
+              <div key={item.id} className="pt-4 pb-1 first:pt-0">
+                <h2 className="text-base font-semibold tracking-tight border-b border-border pb-1.5">
+                  {item.question || 'Section'}
+                </h2>
+              </div>
+            );
+          }
+
           return (
             <div key={item.id}>
               {/* Position Section Header */}

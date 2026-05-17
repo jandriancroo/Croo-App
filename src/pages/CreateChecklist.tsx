@@ -20,7 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 
 interface ChecklistItem {
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header';
   options?: string[];
   is_required: boolean;
   temperature_alert_enabled?: boolean;
@@ -620,6 +620,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
             <SelectItem value="image">Photo</SelectItem>
             <SelectItem value="temperature">Temp Photo</SelectItem>
             <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+            <SelectItem value="section_header">— Section Header —</SelectItem>
           </SelectContent>
         </Select>
 
