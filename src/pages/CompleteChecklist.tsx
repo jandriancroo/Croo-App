@@ -244,7 +244,12 @@ export default function CompleteChecklist() {
   // Calculate completion percentage
   useEffect(() => {
     if (items.length === 0) return;
-    const completedCount = items.filter(item => {
+    const answerableItems = items.filter(item => item.item_type !== 'section_header');
+    if (answerableItems.length === 0) {
+      setCompletionPercentage(100);
+      return;
+    }
+    const completedCount = answerableItems.filter(item => {
       const response = responses[item.id];
       if (item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') {
         return response === true;
@@ -254,7 +259,7 @@ export default function CompleteChecklist() {
       }
       return response !== undefined && response !== '' && response !== null;
     }).length;
-    setCompletionPercentage(Math.round(completedCount / items.length * 100));
+    setCompletionPercentage(Math.round(completedCount / answerableItems.length * 100));
   }, [responses, items, isMultiPhotoComplete]);
 
   // Create or get shared submission (daily for daily/weekly, monthly for monthly checklists)

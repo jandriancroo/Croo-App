@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List, Hash } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List, Hash, Heading } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -22,7 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 interface ChecklistItem {
   id?: string;
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header';
   is_required: boolean;
   temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
@@ -102,6 +102,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               {item.item_type === 'image' && <Camera className="h-3.5 w-3.5" />}
               {item.item_type === 'temperature' && <Thermometer className="h-3.5 w-3.5" />}
               {item.item_type === 'multiple_choice' && <List className="h-3.5 w-3.5" />}
+              {item.item_type === 'section_header' && <Heading className="h-3.5 w-3.5" />}
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="confirmation"><span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" /> Check</span></SelectItem>
@@ -110,6 +111,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               <SelectItem value="image"><span className="flex items-center gap-2"><Camera className="h-3.5 w-3.5" /> Photo</span></SelectItem>
               <SelectItem value="temperature"><span className="flex items-center gap-2"><Thermometer className="h-3.5 w-3.5" /> Temp Photo</span></SelectItem>
               <SelectItem value="multiple_choice"><span className="flex items-center gap-2"><List className="h-3.5 w-3.5" /> Multiple Choice</span></SelectItem>
+              <SelectItem value="section_header"><span className="flex items-center gap-2"><Heading className="h-3.5 w-3.5" /> Section Header</span></SelectItem>
             </SelectContent>
           </Select>
 
