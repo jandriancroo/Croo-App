@@ -52,7 +52,11 @@ interface SortableChecklistItemProps {
   onBlur?: () => void;
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur }: SortableChecklistItemProps) {
+interface SortableChecklistItemPropsExt extends SortableChecklistItemProps {
+  belongsToSection?: boolean;
+}
+
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur, belongsToSection }: SortableChecklistItemPropsExt) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [showReference, setShowReference] = useState(false);
@@ -62,7 +66,13 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex gap-1.5 p-2 border rounded-lg bg-background transition-colors ${isDragging ? 'opacity-50 z-50' : ''} ${isFocused ? 'border-primary ring-1 ring-primary/30' : ''}`}
+      className={`flex gap-1.5 p-2 border rounded-lg transition-colors ${
+        isSection
+          ? 'bg-primary/5 border-primary/30 font-semibold mt-3'
+          : belongsToSection
+            ? 'bg-background ml-5 border-l-2 border-l-primary/40'
+            : 'bg-background'
+      } ${isDragging ? 'opacity-50 z-50' : ''} ${isFocused ? 'border-primary ring-1 ring-primary/30' : ''}`}
     >
       <button
         className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-2 shrink-0"
