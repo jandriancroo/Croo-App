@@ -782,24 +782,53 @@ export default function EditChecklist() {
           <CardContent className="space-y-3 px-4">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={items.map((_, i) => `item-${i}`)} strategy={verticalListSortingStrategy}>
-                {items.map((item, index) => (
-                  <SortableChecklistItem
-                    key={`item-${index}`}
-                    id={`item-${index}`}
-                    item={item}
-                    index={index}
-                    updateItem={updateItem}
-                    removeItem={removeItem}
-                    handleReferenceImageUpload={handleReferenceImageUpload}
-                    showAmPmSelector={enableAmPmDivision}
-                    showPositionSelector={positionFilteringEnabled}
-                    availablePositions={availablePositions}
-                    onEnterKey={(idx) => addItem(idx)}
-                    isFocused={focusedItemIndex === index}
-                    onFocus={(idx) => setFocusedItemIndex(idx)}
-                    onBlur={() => setFocusedItemIndex(null)}
-                  />
-                ))}
+                {(() => {
+                  // Compute which items are children of a preceding section header
+                  let currentSection = false;
+                  return items.map((item, index) => {
+                    if (item.item_type === 'section_header') {
+                      currentSection = true;
+                      return (
+                        <SortableChecklistItem
+                          key={`item-${index}`}
+                          id={`item-${index}`}
+                          item={item}
+                          index={index}
+                          updateItem={updateItem}
+                          removeItem={removeItem}
+                          handleReferenceImageUpload={handleReferenceImageUpload}
+                          showAmPmSelector={enableAmPmDivision}
+                          showPositionSelector={positionFilteringEnabled}
+                          availablePositions={availablePositions}
+                          onEnterKey={(idx) => addItem(idx)}
+                          isFocused={focusedItemIndex === index}
+                          onFocus={(idx) => setFocusedItemIndex(idx)}
+                          onBlur={() => setFocusedItemIndex(null)}
+                          belongsToSection={false}
+                        />
+                      );
+                    }
+                    return (
+                      <SortableChecklistItem
+                        key={`item-${index}`}
+                        id={`item-${index}`}
+                        item={item}
+                        index={index}
+                        updateItem={updateItem}
+                        removeItem={removeItem}
+                        handleReferenceImageUpload={handleReferenceImageUpload}
+                        showAmPmSelector={enableAmPmDivision}
+                        showPositionSelector={positionFilteringEnabled}
+                        availablePositions={availablePositions}
+                        onEnterKey={(idx) => addItem(idx)}
+                        isFocused={focusedItemIndex === index}
+                        onFocus={(idx) => setFocusedItemIndex(idx)}
+                        onBlur={() => setFocusedItemIndex(null)}
+                        belongsToSection={currentSection}
+                      />
+                    );
+                  });
+                })()}
               </SortableContext>
             </DndContext>
           </CardContent>
