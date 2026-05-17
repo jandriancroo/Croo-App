@@ -139,7 +139,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
         </div>
 
         {/* Conditional row: shift + min photos + temp alert */}
-        {(showAmPmSelector || item.item_type === 'image' || item.item_type === 'temperature') && (
+        {!isSection && (showAmPmSelector || item.item_type === 'image' || item.item_type === 'temperature') && (
           <div className="flex items-center gap-1.5 flex-wrap">
             {showAmPmSelector && (
               <Select
