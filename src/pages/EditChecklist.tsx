@@ -18,6 +18,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from '@dnd-kit/utilities';
 import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 
 interface ChecklistItem {
   id?: string;
@@ -204,9 +205,9 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1.5">
-            <Textarea
+            <NotesTextarea
               value={item.reference_notes || ''}
-              onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
+              onChange={(v) => updateItem(index, 'reference_notes', v)}
               placeholder="Instructions / notes (optional)"
               rows={2}
               className="text-xs w-full"
