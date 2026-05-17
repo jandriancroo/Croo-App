@@ -3,11 +3,12 @@ import { Layout } from "@/components/Layout";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { DateNavigator } from "@/components/ui/date-navigator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, addDays, subDays } from "date-fns";
+import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek } from "date-fns";
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
 import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
+import { ChecklistHeatmap } from '@/components/history/ChecklistHeatmap';
 import { useTasksData } from '@/hooks/useTasksData';
-import { Layers, LayoutList } from 'lucide-react';
+import { Layers, Grid3x3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
 
