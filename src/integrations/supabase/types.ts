@@ -1438,6 +1438,7 @@ export type Database = {
           item_name: string
           location_id: string | null
           on_hand: number | null
+          pan_key: string | null
           par_at_time: number | null
           prep_amount: number | null
           prep_row_id: string | null
@@ -1455,6 +1456,7 @@ export type Database = {
           item_name: string
           location_id?: string | null
           on_hand?: number | null
+          pan_key?: string | null
           par_at_time?: number | null
           prep_amount?: number | null
           prep_row_id?: string | null
@@ -1472,6 +1474,7 @@ export type Database = {
           item_name?: string
           location_id?: string | null
           on_hand?: number | null
+          pan_key?: string | null
           par_at_time?: number | null
           prep_amount?: number | null
           prep_row_id?: string | null
@@ -1518,6 +1521,7 @@ export type Database = {
           inventory_item_id: string | null
           item_name: string
           order_index: number
+          pan_key: string | null
           par: number | null
           unit: string | null
           updated_at: string
@@ -1529,6 +1533,7 @@ export type Database = {
           inventory_item_id?: string | null
           item_name: string
           order_index?: number
+          pan_key?: string | null
           par?: number | null
           unit?: string | null
           updated_at?: string
@@ -1540,6 +1545,7 @@ export type Database = {
           inventory_item_id?: string | null
           item_name?: string
           order_index?: number
+          pan_key?: string | null
           par?: number | null
           unit?: string | null
           updated_at?: string

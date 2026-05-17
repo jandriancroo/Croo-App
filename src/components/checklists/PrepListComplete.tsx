@@ -4,12 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ALL_CONTAINERS } from '@/components/inventory/PanSizesSection';
 
 export interface PrepRowDef {
   id: string;
   inventory_item_id: string | null;
   item_name: string;
   unit: string | null;
+  pan_key: string | null;
   par: number | null;
   order_index: number;
 }
@@ -125,6 +127,7 @@ export function PrepListComplete({
         location_id: locationId,
         item_name: row.item_name,
         unit: row.unit,
+        pan_key: row.pan_key,
         par_at_time: row.par,
         on_hand: onHand,
         prep_amount: prep,
@@ -224,9 +227,15 @@ export function PrepListComplete({
           >
             <div className="min-w-0">
               <div className="text-xs font-medium truncate">{row.item_name}</div>
-              {row.unit && (
-                <div className="text-[10px] text-muted-foreground truncate">{row.unit}</div>
-              )}
+              {(() => {
+                const panLabel = row.pan_key
+                  ? (ALL_CONTAINERS.find((c) => c.key === row.pan_key)?.label || row.pan_key)
+                  : null;
+                const label = panLabel || row.unit;
+                return label ? (
+                  <div className="text-[10px] text-muted-foreground truncate">{label}</div>
+                ) : null;
+              })()}
             </div>
             <Input
               type="number"

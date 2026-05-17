@@ -2,16 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, X, Plus, Link2, Unlink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ALL_CONTAINERS } from '@/components/inventory/PanSizesSection';
 
 export interface PrepRow {
   id?: string;
   inventory_item_id?: string | null;
   item_name: string;
   unit?: string | null;
+  pan_key?: string | null;
   par?: number | null;
   order_index: number;
+  // transient: enabled pan keys for the linked inventory item (not persisted as a column)
+  _enabled_pan_keys?: string[] | null;
 }
 
 interface InvItem {
@@ -22,7 +27,9 @@ interface InvItem {
   par_level: number | null;
   brand: string | null;
   pack_size: string | null;
+  pan_sizes: any;
 }
+
 
 interface Props {
   rows: PrepRow[];
@@ -47,7 +54,7 @@ export function PrepListEditor({ rows, onChange, locationId }: Props) {
 
   return (
     <div className="space-y-1.5 rounded-md border border-dashed p-2 bg-muted/20">
-      <div className="grid grid-cols-[1fr_70px_70px_28px] gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1">
+      <div className="grid grid-cols-[1fr_110px_60px_28px] gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1">
         <span>Item</span>
         <span>Unit</span>
         <span>Par</span>
@@ -97,7 +104,7 @@ function PrepRowEditor({
     const handle = setTimeout(async () => {
       let q = supabase
         .from('inventory_items')
-        .select('id, name, unit, count_unit, par_level, brand, pack_size')
+        .select('id, name, unit, count_unit, par_level, brand, pack_size, pan_sizes')
         .eq('location_id', locationId)
         .eq('is_active', true)
         .order('name')
@@ -123,21 +130,31 @@ function PrepRowEditor({
   }, [open]);
 
   const pickItem = (item: InvItem) => {
+    const panCfg = item.pan_sizes && typeof item.pan_sizes === 'object' ? item.pan_sizes : null;
+    const enabledKeys: string[] = panCfg?.enabled
+      ? (Array.isArray(panCfg.enabled_keys) ? panCfg.enabled_keys : [])
+      : [];
+    const baselineKey: string | null = panCfg?.enabled ? (panCfg.baseline_key || null) : null;
+    const defaultPan = baselineKey && enabledKeys.includes(baselineKey)
+      ? baselineKey
+      : (enabledKeys[0] || null);
     onChange({
       inventory_item_id: item.id,
       item_name: item.name,
       unit: item.count_unit || item.unit || '',
+      pan_key: defaultPan,
       par: item.par_level ?? row.par ?? null,
+      _enabled_pan_keys: enabledKeys.length ? enabledKeys : null,
     });
     setOpen(false);
   };
 
   const unlink = () => {
-    onChange({ inventory_item_id: null });
+    onChange({ inventory_item_id: null, pan_key: null, _enabled_pan_keys: null });
   };
 
   return (
-    <div className="grid grid-cols-[1fr_70px_70px_28px] gap-1 items-center">
+    <div className="grid grid-cols-[1fr_110px_60px_28px] gap-1 items-center">
       <div ref={wrapperRef} className="relative flex gap-1 items-center min-w-0">
         <div className="relative flex-1">
           <Input
@@ -197,13 +214,31 @@ function PrepRowEditor({
           </div>
         )}
       </div>
-      <Input
-        value={row.unit || ''}
-        onChange={(e) => onChange({ unit: e.target.value })}
-        placeholder="ea"
-        className="h-7 text-xs px-1.5"
-        disabled={isLinked}
-      />
+      {isLinked && row._enabled_pan_keys && row._enabled_pan_keys.length > 0 ? (
+        <Select value={row.pan_key || ''} onValueChange={(v) => onChange({ pan_key: v })}>
+          <SelectTrigger className="h-7 text-xs px-1.5">
+            <SelectValue placeholder="Pan" />
+          </SelectTrigger>
+          <SelectContent>
+            {row._enabled_pan_keys.map((k) => {
+              const c = ALL_CONTAINERS.find((x) => x.key === k);
+              return (
+                <SelectItem key={k} value={k} className="text-xs">
+                  {c?.label || k}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Input
+          value={row.unit || ''}
+          onChange={(e) => onChange({ unit: e.target.value, pan_key: null })}
+          placeholder={isLinked ? '—' : 'ea'}
+          className="h-7 text-xs px-1.5"
+          disabled={isLinked}
+        />
+      )}
       <Input
         type="number"
         inputMode="decimal"
