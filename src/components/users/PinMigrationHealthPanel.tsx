@@ -43,15 +43,14 @@ export function PinMigrationHealthPanel() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["pin-migration-health"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("profiles")
-        .select(`
-          id, full_name, pin_pending, pin_pending_set_at, pin_pending_set_by,
-          user_locations(location_id, locations(id, name))
-        `)
+        .select(
+          "id, full_name, pin_pending, pin_pending_set_at, pin_pending_set_by, user_locations(location_id, locations(id, name))"
+        )
         .order("full_name", { ascending: true });
       if (error) throw error;
-      return (data || []) as unknown as RowUser[];
+      return (data || []) as RowUser[];
     },
     staleTime: 30 * 1000,
   });
