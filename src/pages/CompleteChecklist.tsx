@@ -24,6 +24,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { useUserPosition } from '@/hooks/useUserPosition';
+import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 interface ChecklistItem {
   id: string;
   question: string;
@@ -1126,6 +1127,48 @@ export default function CompleteChecklist() {
                 <h2 className="text-base font-semibold tracking-tight border-b border-border pb-1.5">
                   {item.question || 'Section'}
                 </h2>
+              </div>
+            );
+          }
+
+          if (item.item_type === 'prep_list') {
+            const businessDate = dateParam || (() => {
+              const y = viewDate.getFullYear();
+              const m = String(viewDate.getMonth() + 1).padStart(2, '0');
+              const d = String(viewDate.getDate()).padStart(2, '0');
+              return `${y}-${m}-${d}`;
+            })();
+            return (
+              <div key={item.id} className="space-y-2">
+                <div className="px-1">
+                  <h3 className="text-sm font-medium">
+                    {item.question}
+                    {item.is_required && <span className="text-destructive ml-1">*</span>}
+                  </h3>
+                </div>
+                <div className="border-t border-border" />
+                <Card>
+                  <CardContent className="p-2">
+                    <PrepListComplete
+                      itemId={item.id}
+                      submissionId={submissionId}
+                      locationId={currentLocation?.id || checklist?.location_id || null}
+                      businessDate={businessDate}
+                      userId={user?.id || null}
+                      onAllFilledChange={(filled) => {
+                        setResponses(prev => {
+                          const cur = prev[item.id];
+                          const next = filled ? 'prep_list_complete' : undefined;
+                          if (cur === next) return prev;
+                          const copy = { ...prev };
+                          if (filled) copy[item.id] = 'prep_list_complete';
+                          else delete copy[item.id];
+                          return copy;
+                        });
+                      }}
+                    />
+                  </CardContent>
+                </Card>
               </div>
             );
           }

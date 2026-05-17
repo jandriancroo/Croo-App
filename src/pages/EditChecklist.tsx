@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List, Hash, Heading } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List, Hash, Heading, ClipboardList } from 'lucide-react';
+import { PrepListEditor, type PrepRow } from '@/components/checklists/PrepListEditor';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -23,7 +24,7 @@ import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 interface ChecklistItem {
   id?: string;
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header' | 'prep_list';
   is_required: boolean;
   temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
@@ -34,6 +35,7 @@ interface ChecklistItem {
   order_index: number;
   manager_shift?: 'am' | 'pm' | null;
   position?: string | null;
+  prep_rows?: PrepRow[];
 }
 
 interface SortableChecklistItemProps {
@@ -50,13 +52,14 @@ interface SortableChecklistItemProps {
   isFocused?: boolean;
   onFocus?: (index: number) => void;
   onBlur?: () => void;
+  locationId?: string | null;
 }
 
 interface SortableChecklistItemPropsExt extends SortableChecklistItemProps {
   belongsToSection?: boolean;
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur, belongsToSection }: SortableChecklistItemPropsExt) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur, belongsToSection, locationId }: SortableChecklistItemPropsExt) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [showReference, setShowReference] = useState(false);
@@ -115,6 +118,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               {item.item_type === 'temperature' && <Thermometer className="h-3.5 w-3.5" />}
               {item.item_type === 'multiple_choice' && <List className="h-3.5 w-3.5" />}
               {item.item_type === 'section_header' && <Heading className="h-3.5 w-3.5" />}
+              {item.item_type === 'prep_list' && <ClipboardList className="h-3.5 w-3.5" />}
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="confirmation"><span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" /> Check</span></SelectItem>
@@ -123,6 +127,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               <SelectItem value="image"><span className="flex items-center gap-2"><Camera className="h-3.5 w-3.5" /> Photo</span></SelectItem>
               <SelectItem value="temperature"><span className="flex items-center gap-2"><Thermometer className="h-3.5 w-3.5" /> Temp Photo</span></SelectItem>
               <SelectItem value="multiple_choice"><span className="flex items-center gap-2"><List className="h-3.5 w-3.5" /> Multiple Choice</span></SelectItem>
+              <SelectItem value="prep_list"><span className="flex items-center gap-2"><ClipboardList className="h-3.5 w-3.5" /> Prep List</span></SelectItem>
               <SelectItem value="section_header"><span className="flex items-center gap-2"><Heading className="h-3.5 w-3.5" /> Section Header</span></SelectItem>
             </SelectContent>
           </Select>
@@ -204,6 +209,14 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             }
             placeholder="Options (comma-separated)"
             className="text-xs h-7"
+          />
+        )}
+
+        {!isSection && item.item_type === 'prep_list' && (
+          <PrepListEditor
+            rows={item.prep_rows || []}
+            onChange={(rows) => updateItem(index, 'prep_rows', rows)}
+            locationId={locationId}
           />
         )}
 
@@ -290,6 +303,7 @@ export default function EditChecklist() {
   const [enableAmPmDivision, setEnableAmPmDivision] = useState(false);
   const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
   const [availablePositions, setAvailablePositions] = useState<string[]>([]);
+  const [checklistLocationId, setChecklistLocationId] = useState<string | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [focusedItemIndex, setFocusedItemIndex] = useState<number | null>(null);
 
@@ -372,6 +386,7 @@ export default function EditChecklist() {
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
       setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
+      setChecklistLocationId(checklist.location_id || null);
 
       // Fetch available positions
       if (checklist.location_id) {
@@ -398,6 +413,31 @@ export default function EditChecklist() {
         }
       }
 
+      // Load prep_rows for any prep_list items
+      const prepItemIds = (checklistItems || [])
+        .filter((it: any) => it.item_type === 'prep_list')
+        .map((it: any) => it.id);
+      let prepRowsByItem: Record<string, PrepRow[]> = {};
+      if (prepItemIds.length > 0) {
+        const { data: prepRows } = await supabase
+          .from('checklist_prep_rows')
+          .select('*')
+          .in('checklist_item_id', prepItemIds)
+          .order('order_index');
+        (prepRows || []).forEach((r: any) => {
+          const list = prepRowsByItem[r.checklist_item_id] || [];
+          list.push({
+            id: r.id,
+            inventory_item_id: r.inventory_item_id,
+            item_name: r.item_name,
+            unit: r.unit,
+            par: r.par != null ? Number(r.par) : null,
+            order_index: r.order_index,
+          });
+          prepRowsByItem[r.checklist_item_id] = list;
+        });
+      }
+
       setItems((checklistItems || []).map(item => {
         // temperature is now a first-class type — also migrate old image+requires_temp items
         let itemType = item.item_type as string;
@@ -419,6 +459,7 @@ export default function EditChecklist() {
           order_index: item.order_index,
           manager_shift: (item as any).manager_shift || null,
           position: (item as any).position || null,
+          prep_rows: itemType === 'prep_list' ? (prepRowsByItem[item.id] || []) : undefined,
         };
       }));
     } catch (error: any) {
@@ -514,6 +555,7 @@ export default function EditChecklist() {
           position: positionFilteringEnabled ? (item.position || null) : null,
         };
 
+        let savedItemId = item.id;
         if (item.id) {
           const { error: updateError } = await supabase
             .from('checklist_items')
@@ -521,10 +563,34 @@ export default function EditChecklist() {
             .eq('id', item.id);
           if (updateError) throw updateError;
         } else {
-          const { error: insertError } = await supabase
+          const { data: inserted, error: insertError } = await supabase
             .from('checklist_items')
-            .insert(itemData);
+            .insert(itemData)
+            .select('id')
+            .single();
           if (insertError) throw insertError;
+          savedItemId = inserted?.id;
+        }
+
+        // Sync prep_rows for prep_list items (replace-all strategy)
+        if (item.item_type === 'prep_list' && savedItemId) {
+          await supabase.from('checklist_prep_rows').delete().eq('checklist_item_id', savedItemId);
+          const rowsToInsert = (item.prep_rows || [])
+            .filter(r => r.item_name.trim() !== '')
+            .map((r, i) => ({
+              checklist_item_id: savedItemId,
+              inventory_item_id: r.inventory_item_id || null,
+              item_name: r.item_name.trim(),
+              unit: r.unit || null,
+              par: r.par,
+              order_index: i,
+            }));
+          if (rowsToInsert.length > 0) {
+            const { error: prepErr } = await supabase
+              .from('checklist_prep_rows')
+              .insert(rowsToInsert);
+            if (prepErr) throw prepErr;
+          }
         }
       }
 
@@ -805,6 +871,7 @@ export default function EditChecklist() {
                           onFocus={(idx) => setFocusedItemIndex(idx)}
                           onBlur={() => setFocusedItemIndex(null)}
                           belongsToSection={false}
+                          locationId={checklistLocationId}
                         />
                       );
                     }
@@ -825,6 +892,7 @@ export default function EditChecklist() {
                         onFocus={(idx) => setFocusedItemIndex(idx)}
                         onBlur={() => setFocusedItemIndex(null)}
                         belongsToSection={currentSection}
+                        locationId={checklistLocationId}
                       />
                     );
                   });
