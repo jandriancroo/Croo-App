@@ -204,97 +204,181 @@ export function PinMigrationHealthPanel() {
           </div>
         </div>
 
-        {allDone ? (
+        {/* Location filter — always visible */}
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground shrink-0">
+            Location
+          </Label>
+          <Select value={locationFilter} onValueChange={setLocationFilter}>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>
+                All locations ({users.length})
+              </SelectItem>
+              {locations.map((l) => {
+                const count = users.filter((u) =>
+                  (u.location_ids || []).includes(l.id)
+                ).length;
+                return (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name} ({count})
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {allDone && (
           <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-md px-3 py-2">
             <CheckCircle2 className="h-4 w-4" />
             All users migrated. Flip night is ready when you are.
           </div>
-        ) : (
-          <>
-            {/* Location filter */}
-            <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground shrink-0">
-                Location
-              </Label>
-              <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>
-                    All locations ({pending.length})
-                  </SelectItem>
-                  {locations.map((l) => {
-                    const count = pending.filter((u) =>
-                      (u.location_ids || []).includes(l.id)
-                    ).length;
-                    return (
-                      <SelectItem key={l.id} value={l.id}>
-                        {l.name} ({count})
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
+        )}
 
-            {/* Flat list */}
-            {filteredPending.length === 0 ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground border rounded-md px-3 py-4 justify-center">
-                <Users className="h-4 w-4" />
-                No pending users at this location.
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {filteredPending.map((u) => {
-                  const locNames = (u.location_names || []).join(", ");
-                  return (
-                    <div
-                      key={u.id}
-                      className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-card"
+        {/* PENDING — needs to set PIN */}
+        {filteredPending.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Pending ({filteredPending.length})
+            </p>
+            {filteredPending.map((u) => {
+              const locNames = (u.location_names || []).join(", ");
+              return (
+                <div
+                  key={u.id}
+                  className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-card"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {u.full_name || "(no name)"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {locNames || "Unassigned"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleNudge(u.id)}
+                      disabled={nudging === u.id}
+                      className="gap-1.5"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {u.full_name || "(no name)"}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {locNames || "Unassigned"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      {nudging === u.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Bell className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden sm:inline">Nudge</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSetOnBehalfFor(u);
+                        setGeneratedPin(null);
+                      }}
+                      className="gap-1.5"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Set on behalf</span>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* SET — view PIN to share with user. Disappears on flip night. */}
+        {filteredSet.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Set ({filteredSet.length}) — tap eye to reveal &amp; share
+            </p>
+            {filteredSet.map((u) => {
+              const locNames = (u.location_names || []).join(", ");
+              const isOpen = revealed.has(u.id);
+              const pinPlain = u.pin_pending_plaintext;
+              return (
+                <div
+                  key={u.id}
+                  className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-card"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {u.full_name || "(no name)"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {locNames || "Unassigned"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {pinPlain ? (
+                      <>
+                        <div className="font-mono text-sm tracking-[0.25em] px-2.5 py-1 rounded-md border bg-background min-w-[6.5rem] text-center">
+                          {isOpen ? pinPlain : "••••••"}
+                        </div>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleNudge(u.id)}
-                          disabled={nudging === u.id}
-                          className="gap-1.5"
+                          onClick={() => toggleReveal(u.id)}
+                          className="px-2"
+                          aria-label={isOpen ? "Hide" : "Reveal"}
                         >
-                          {nudging === u.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          {isOpen ? (
+                            <EyeOff className="h-3.5 w-3.5" />
                           ) : (
-                            <Bell className="h-3.5 w-3.5" />
+                            <Eye className="h-3.5 w-3.5" />
                           )}
-                          <span className="hidden sm:inline">Nudge</span>
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSetOnBehalfFor(u);
-                            setGeneratedPin(null);
-                          }}
-                          className="gap-1.5"
-                        >
-                          <KeyRound className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Set on behalf</span>
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
+                        {isOpen && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              navigator.clipboard.writeText(pinPlain);
+                              toast.success("PIN copied");
+                            }}
+                            className="px-2"
+                            aria-label="Copy"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">
+                        Set pre-reveal · reset to view
+                      </span>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSetOnBehalfFor(u);
+                        setGeneratedPin(null);
+                      }}
+                      className="gap-1.5"
+                      title="Reset PIN"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {filteredPending.length === 0 && filteredSet.length === 0 && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground border rounded-md px-3 py-4 justify-center">
+            <Users className="h-4 w-4" />
+            No users at this location.
+          </div>
         )}
       </div>
 
