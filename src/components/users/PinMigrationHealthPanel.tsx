@@ -28,6 +28,8 @@ import {
   CheckCircle2,
   Copy,
   Users,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 
