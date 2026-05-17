@@ -38,6 +38,9 @@ const CloneLocationSettings = lazy(() =>
 const DataStreamStatus = lazy(() =>
   import('@/components/settings/DataStreamStatus').then(m => ({ default: m.DataStreamStatus }))
 );
+const PinMigrationHealthPanel = lazy(() =>
+  import('@/components/users/PinMigrationHealthPanel').then(m => ({ default: m.PinMigrationHealthPanel }))
+);
 
 const PanelFallback = () => (
   <div className="flex items-center justify-center py-8">
@@ -66,7 +69,7 @@ const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inve
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'reporting', 'org-members', 'org-roles'];
 // Sections only super admins see
-const SUPER_ADMIN_SECTIONS = ['live-alerts', 'clone-settings', 'brands', 'organizations', 'maintenance', 'data-streams'];
+const SUPER_ADMIN_SECTIONS = ['pin-migration', 'live-alerts', 'clone-settings', 'brands', 'organizations', 'maintenance', 'data-streams'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
@@ -87,6 +90,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   organizations: { title: 'All Organizations', icon: <Building2 className="h-4 w-4" /> },
   maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
   'data-streams': { title: 'Data Streams', icon: <Radio className="h-4 w-4" /> },
+  'pin-migration': { title: 'PIN Migration Health', icon: <ShieldCheck className="h-4 w-4" /> },
 };
 
 export default function Settings() {
@@ -405,6 +409,10 @@ export default function Settings() {
 
       case 'data-streams':
         return <DataStreamStatus />;
+
+      case 'pin-migration':
+        if (!isSuperAdmin) return null;
+        return <PinMigrationHealthPanel />;
 
       default:
         return null;
