@@ -32,7 +32,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
   // Compute date range
   const { startDate, endDate, gridDays } = useMemo(() => {
     if (range === 'week') {
-      const start = startOfWeek(anchorDate, { weekStartsOn: 0 });
+      const start = startOfWeek(anchorDate, { weekStartsOn: 1 });
       const end = addDays(start, 6);
       return {
         startDate: start,
@@ -42,8 +42,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
     } else {
       const monthStart = startOfMonth(anchorDate);
       const monthEnd = endOfMonth(anchorDate);
-      const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-      // Pad to 6 weeks for stable grid
+      const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
       const gridEnd = addDays(gridStart, 41);
       const allDays = eachDayOfInterval({ start: gridStart, end: gridEnd });
       return {
