@@ -570,6 +570,7 @@ interface ChecklistItemCardProps {
 
 function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, handleReferenceImageUpload, uploadingImage, positionFilteringEnabled, availablePositions }: ChecklistItemCardProps) {
   const [showReference, setShowReference] = useState(false);
+  const isSection = item.item_type === 'section_header';
 
   return (
     <Card>
@@ -580,11 +581,11 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
             <Input
               value={item.question}
               onChange={(e) => updateItem(index, 'question', e.target.value)}
-              placeholder="Question / task name"
+              placeholder={isSection ? 'Section heading' : 'Question / task name'}
               required
             />
           </div>
-          {positionFilteringEnabled && availablePositions.length > 0 && (
+          {!isSection && positionFilteringEnabled && availablePositions.length > 0 && (
             <Select
               value={item.position || 'none'}
               onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
@@ -625,7 +626,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
           </SelectContent>
         </Select>
 
-        {item.item_type === 'multiple_choice' && (
+        {!isSection && item.item_type === 'multiple_choice' && (
           <Input
             value={item.options?.join(', ') || ''}
             onChange={(e) => updateItem(index, 'options', e.target.value.split(',').map((opt) => opt.trim()))}
@@ -633,7 +634,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
           />
         )}
 
-        {item.item_type === 'temperature' && (
+        {!isSection && item.item_type === 'temperature' && (
           <div className="flex items-center space-x-2">
             <Checkbox
               id={`temp-alert-${index}`}
@@ -646,14 +647,16 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
           </div>
         )}
 
-        {/* Reference notes - always visible for all types */}
-        <NotesTextarea
-          value={item.reference_notes || ''}
-          onChange={(v) => updateItem(index, 'reference_notes', v)}
-          placeholder="Instructions / notes (optional)"
-          rows={2}
-          className="text-sm"
-        />
+        {!isSection && (
+          <>
+            {/* Reference notes - always visible for non-section types */}
+            <NotesTextarea
+              value={item.reference_notes || ''}
+              onChange={(v) => updateItem(index, 'reference_notes', v)}
+              placeholder="Instructions / notes (optional)"
+              rows={2}
+              className="text-sm"
+            />
 
         {/* Collapsible reference materials */}
         <Collapsible open={showReference} onOpenChange={setShowReference}>
@@ -702,6 +705,8 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
             </div>
           </CollapsibleContent>
         </Collapsible>
+          </>
+        )}
       </CardContent>
     </Card>
   );

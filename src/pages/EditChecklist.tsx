@@ -57,6 +57,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [showReference, setShowReference] = useState(false);
 
+  const isSection = item.item_type === 'section_header';
   return (
     <div
       ref={setNodeRef}
@@ -86,7 +87,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             }}
             onFocus={() => onFocus?.(index)}
             onBlur={() => onBlur?.()}
-            placeholder="Task name"
+            placeholder={isSection ? 'Section heading' : 'Task name'}
             rows={1}
             className="flex-1 min-w-0 min-h-[32px] text-sm resize-none py-1.5"
           />
@@ -116,7 +117,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             </SelectContent>
           </Select>
 
-          {showPositionSelector && availablePositions && availablePositions.length > 0 && (
+          {!isSection && showPositionSelector && availablePositions && availablePositions.length > 0 && (
             <Select
               value={item.position || 'none'}
               onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
@@ -138,7 +139,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
         </div>
 
         {/* Conditional row: shift + min photos + temp alert */}
-        {(showAmPmSelector || item.item_type === 'image' || item.item_type === 'temperature') && (
+        {!isSection && (showAmPmSelector || item.item_type === 'image' || item.item_type === 'temperature') && (
           <div className="flex items-center gap-1.5 flex-wrap">
             {showAmPmSelector && (
               <Select
@@ -185,7 +186,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
           </div>
         )}
 
-        {item.item_type === 'multiple_choice' && (
+        {!isSection && item.item_type === 'multiple_choice' && (
           <Input
             value={Array.isArray(item.options) ? item.options.join(', ') : ''}
             onChange={(e) =>
@@ -197,6 +198,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
         )}
 
         {/* Collapsible notes + reference materials */}
+        {!isSection && (
         <Collapsible open={showReference} onOpenChange={setShowReference}>
           <CollapsibleTrigger asChild>
             <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1">
@@ -253,6 +255,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             </div>
           </CollapsibleContent>
         </Collapsible>
+        )}
       </div>
     </div>
   );
