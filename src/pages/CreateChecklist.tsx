@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 
 interface ChecklistItem {
   question: string;
@@ -646,9 +647,9 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
         )}
 
         {/* Reference notes - always visible for all types */}
-        <Textarea
+        <NotesTextarea
           value={item.reference_notes || ''}
-          onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
+          onChange={(v) => updateItem(index, 'reference_notes', v)}
           placeholder="Instructions / notes (optional)"
           rows={2}
           className="text-sm"
