@@ -4,12 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ALL_CONTAINERS } from '@/components/inventory/PanSizesSection';
 
 export interface PrepRowDef {
   id: string;
   inventory_item_id: string | null;
   item_name: string;
   unit: string | null;
+  pan_key: string | null;
   par: number | null;
   order_index: number;
 }
