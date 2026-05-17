@@ -35,6 +35,7 @@ type RowUser = {
   id: string;
   full_name: string | null;
   pin_pending: string | null;
+  pin_pending_plaintext: string | null;
   pin_pending_set_at: string | null;
   location_ids: string[];
   location_names: string[];
