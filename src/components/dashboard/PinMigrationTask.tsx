@@ -31,7 +31,6 @@ export function PinMigrationTask() {
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [revealed, setRevealed] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ["pin-migration-status", user?.id],
@@ -39,7 +38,7 @@ export function PinMigrationTask() {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("pin_pending, pin_pending_plaintext, pin_pending_set_at, created_at")
+        .select("pin_pending, pin_pending_set_at, created_at")
         .eq("id", user.id)
         .maybeSingle();
       if (error) throw error;
@@ -50,48 +49,7 @@ export function PinMigrationTask() {
   });
 
   if (!profile) return null;
-
-  // ✅ Already set — show a quiet reminder card with reveal of their own PIN
-  if (profile.pin_pending) {
-    const pinPlain = (profile as any).pin_pending_plaintext as string | null;
-    return (
-      <Card className="border-emerald-500/40 bg-emerald-500/5 relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-500/80 to-emerald-500" />
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            Your new 6-digit punch PIN is set
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            You'll start using this PIN at the punch clock on flip night. Tap
-            below to view it if you forget — it disappears after the migration.
-          </p>
-          {pinPlain ? (
-            <div className="flex items-center gap-2">
-              <div className="flex-1 text-center font-mono text-lg tracking-[0.4em] py-2 rounded-md border bg-background">
-                {revealed ? pinPlain : "••••••"}
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setRevealed((r) => !r)}
-                aria-label={revealed ? "Hide PIN" : "Reveal PIN"}
-              >
-                {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground italic">
-              PIN was set before reveal was available. Ask your manager to reset
-              it if you forget.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
+  if (profile.pin_pending) return null; // already set — manage from My Profile
 
   // Age the card based on days since this task started being shown.
   // Use account created_at as a proxy until we track first-seen.
