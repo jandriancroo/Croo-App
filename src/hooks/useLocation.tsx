@@ -145,6 +145,23 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     fetchLocations();
   }, [user]);
 
+  // Only clear location state on an EXPLICIT sign-out event. Transient null-user
+  // states from token refresh / sleep-wake should never wipe the cached location.
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setLocations([]);
+        setCurrentLocationState(null);
+        setOrganizationId(null);
+        try {
+          localStorage.removeItem('currentLocationCache');
+          localStorage.removeItem('currentLocationId');
+        } catch {}
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   const setCurrentLocation = useCallback((location: Location, destination?: string, forceNavigate?: boolean) => {
     const previousId = currentLocation?.id;
     if (previousId === location.id && !forceNavigate) return; // No-op if same location (unless forced)
