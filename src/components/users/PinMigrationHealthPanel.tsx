@@ -36,7 +36,8 @@ type RowUser = {
   full_name: string | null;
   pin_pending: string | null;
   pin_pending_set_at: string | null;
-  user_locations: { location_id: string; locations: { id: string; name: string } | null }[];
+  location_ids: string[];
+  location_names: string[];
 };
 
 const ALL = "__all__";
@@ -57,12 +58,7 @@ export function PinMigrationHealthPanel() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["pin-migration-health"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("profiles")
-        .select(
-          "id, full_name, pin_pending, pin_pending_set_at, user_locations(location_id, locations(id, name))"
-        )
-        .order("full_name", { ascending: true });
+      const { data, error } = await supabase.rpc("get_pin_migration_health");
       if (error) throw error;
       return (data || []) as RowUser[];
     },
@@ -77,9 +73,11 @@ export function PinMigrationHealthPanel() {
     // Unique locations across all users (for the dropdown)
     const locMap = new Map<string, string>();
     for (const u of users) {
-      for (const ul of u.user_locations || []) {
-        if (ul.locations?.id) locMap.set(ul.locations.id, ul.locations.name);
-      }
+      const ids = u.location_ids || [];
+      const names = u.location_names || [];
+      ids.forEach((id, i) => {
+        if (id) locMap.set(id, names[i] || "Unknown");
+      });
     }
     const locations = Array.from(locMap.entries())
       .map(([id, name]) => ({ id, name }))
@@ -89,9 +87,7 @@ export function PinMigrationHealthPanel() {
       locationFilter === ALL
         ? pending
         : pending.filter((u) =>
-            (u.user_locations || []).some(
-              (ul) => ul.location_id === locationFilter
-            )
+            (u.location_ids || []).includes(locationFilter)
           );
 
     return { total, migrated, pending, locations, filteredPending };
@@ -216,9 +212,7 @@ export function PinMigrationHealthPanel() {
                   </SelectItem>
                   {locations.map((l) => {
                     const count = pending.filter((u) =>
-                      (u.user_locations || []).some(
-                        (ul) => ul.location_id === l.id
-                      )
+                      (u.location_ids || []).includes(l.id)
                     ).length;
                     return (
                       <SelectItem key={l.id} value={l.id}>
@@ -239,10 +233,7 @@ export function PinMigrationHealthPanel() {
             ) : (
               <div className="space-y-1.5">
                 {filteredPending.map((u) => {
-                  const locNames = (u.user_locations || [])
-                    .map((ul) => ul.locations?.name)
-                    .filter(Boolean)
-                    .join(", ");
+                  const locNames = (u.location_names || []).join(", ");
                   return (
                     <div
                       key={u.id}
