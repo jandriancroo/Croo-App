@@ -32,7 +32,8 @@ export default function Tasks() {
   } = useTasksData();
 
   const [selectedCompletedTask, setSelectedCompletedTask] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<'grouped' | 'timeline'>('grouped');
+  const [viewMode, setViewMode] = useState<'grouped' | 'heatmap'>('grouped');
+  const [heatmapRange, setHeatmapRange] = useState<'week' | 'month'>('week');
 
   // Calculate completion percentage
   const completionPercent = useMemo(() => {
