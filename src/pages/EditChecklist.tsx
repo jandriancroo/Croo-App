@@ -24,7 +24,7 @@ import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 interface ChecklistItem {
   id?: string;
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header' | 'prep_list';
   is_required: boolean;
   temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
@@ -35,6 +35,7 @@ interface ChecklistItem {
   order_index: number;
   manager_shift?: 'am' | 'pm' | null;
   position?: string | null;
+  prep_rows?: PrepRow[];
 }
 
 interface SortableChecklistItemProps {
