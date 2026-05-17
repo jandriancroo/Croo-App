@@ -32,7 +32,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
   // Compute date range
   const { startDate, endDate, gridDays } = useMemo(() => {
     if (range === 'week') {
-      const start = startOfWeek(anchorDate, { weekStartsOn: 0 });
+      const start = startOfWeek(anchorDate, { weekStartsOn: 1 });
       const end = addDays(start, 6);
       return {
         startDate: start,
@@ -42,8 +42,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
     } else {
       const monthStart = startOfMonth(anchorDate);
       const monthEnd = endOfMonth(anchorDate);
-      const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-      // Pad to 6 weeks for stable grid
+      const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
       const gridEnd = addDays(gridStart, 41);
       const allDays = eachDayOfInterval({ start: gridStart, end: gridEnd });
       return {
@@ -185,8 +184,11 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
     };
   });
 
-  const getColor = (pct: number | null, inRange: boolean) => {
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  const getColor = (pct: number | null, inRange: boolean, isFuture: boolean) => {
     if (!inRange) return 'bg-muted/20';
+    if (isFuture) return 'bg-muted/30';
     if (pct === null) return 'bg-muted/40';
     if (pct === 0) return 'bg-destructive/20';
     if (pct < 25) return 'bg-destructive/40';
@@ -196,17 +198,16 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
     return 'bg-emerald-500';
   };
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-  // Compute summary
+  // Compute summary (exclude future days)
   const summary = useMemo(() => {
-    const inRangeCells = cells.filter(c => c.inRange && c.completionPct !== null);
+    const inRangeCells = cells.filter(c => c.inRange && c.completionPct !== null && c.dateStr <= todayStr);
     if (inRangeCells.length === 0) return null;
     const avg = Math.round(inRangeCells.reduce((s, c) => s + (c.completionPct || 0), 0) / inRangeCells.length);
     const perfectDays = inRangeCells.filter(c => c.completionPct === 100).length;
     return { avg, perfectDays, total: inRangeCells.length };
-  }, [cells]);
+  }, [cells, todayStr]);
 
   return (
     <Card>
@@ -248,17 +249,19 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
           <div className="grid grid-cols-7 gap-1.5">
             {cells.map(cell => {
               const isToday = cell.dateStr === todayStr;
+              const isFuture = cell.dateStr > todayStr;
               return (
                 <Tooltip key={cell.dateStr}>
                   <TooltipTrigger asChild>
                     <div
                       className={cn(
                         'aspect-square rounded-md flex items-center justify-center text-[11px] font-medium transition-all cursor-default relative',
-                        getColor(cell.completionPct, cell.inRange),
+                        getColor(cell.completionPct, cell.inRange, isFuture),
                         !cell.inRange && 'opacity-30',
-                        cell.inRange && 'hover:ring-2 hover:ring-primary/40',
+                        isFuture && 'opacity-50',
+                        cell.inRange && !isFuture && 'hover:ring-2 hover:ring-primary/40',
                         isToday && 'ring-2 ring-primary',
-                        cell.completionPct !== null && cell.completionPct >= 50 ? 'text-foreground' : 'text-muted-foreground'
+                        !isFuture && cell.completionPct !== null && cell.completionPct >= 50 ? 'text-foreground' : 'text-muted-foreground'
                       )}
                     >
                       {format(cell.date, 'd')}
@@ -267,7 +270,9 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
                   <TooltipContent side="top">
                     <div className="text-xs">
                       <div className="font-semibold">{format(cell.date, 'EEE, MMM d')}</div>
-                      {cell.completionPct === null ? (
+                      {isFuture ? (
+                        <div className="text-muted-foreground">Upcoming</div>
+                      ) : cell.completionPct === null ? (
                         <div className="text-muted-foreground">No checklists scheduled</div>
                       ) : (
                         <>

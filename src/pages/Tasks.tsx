@@ -161,7 +161,7 @@ export default function Tasks() {
                           ? `Today, ${format(historyDate, 'MMM d')}`
                           : `${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`)
                       : heatmapRange === 'week'
-                        ? `Week of ${format(startOfWeek(historyDate, { weekStartsOn: 0 }), 'MMM d, yyyy')}`
+                        ? `Week of ${format(startOfWeek(historyDate, { weekStartsOn: 1 }), 'MMM d, yyyy')}`
                         : format(historyDate, 'MMMM yyyy')
                   }
                   canGoNext={
