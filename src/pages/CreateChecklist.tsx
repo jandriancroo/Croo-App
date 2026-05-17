@@ -647,14 +647,16 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
           </div>
         )}
 
-        {/* Reference notes - always visible for all types */}
-        <NotesTextarea
-          value={item.reference_notes || ''}
-          onChange={(v) => updateItem(index, 'reference_notes', v)}
-          placeholder="Instructions / notes (optional)"
-          rows={2}
-          className="text-sm"
-        />
+        {!isSection && (
+          <>
+            {/* Reference notes - always visible for non-section types */}
+            <NotesTextarea
+              value={item.reference_notes || ''}
+              onChange={(v) => updateItem(index, 'reference_notes', v)}
+              placeholder="Instructions / notes (optional)"
+              rows={2}
+              className="text-sm"
+            />
 
         {/* Collapsible reference materials */}
         <Collapsible open={showReference} onOpenChange={setShowReference}>
