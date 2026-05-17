@@ -9752,6 +9752,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_pin_migration_health: {
+        Args: never
+        Returns: {
+          full_name: string
+          id: string
+          location_ids: string[]
+          location_names: string[]
+          pin_pending: string
+          pin_pending_set_at: string
+        }[]
+      }
       get_publishable_locations: {
         Args: { _user_id: string }
         Returns: {
