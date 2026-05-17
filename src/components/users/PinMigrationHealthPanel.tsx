@@ -233,10 +233,7 @@ export function PinMigrationHealthPanel() {
             ) : (
               <div className="space-y-1.5">
                 {filteredPending.map((u) => {
-                  const locNames = (u.user_locations || [])
-                    .map((ul) => ul.locations?.name)
-                    .filter(Boolean)
-                    .join(", ");
+                  const locNames = (u.location_names || []).join(", ");
                   return (
                     <div
                       key={u.id}
