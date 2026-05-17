@@ -570,6 +570,7 @@ interface ChecklistItemCardProps {
 
 function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, handleReferenceImageUpload, uploadingImage, positionFilteringEnabled, availablePositions }: ChecklistItemCardProps) {
   const [showReference, setShowReference] = useState(false);
+  const isSection = item.item_type === 'section_header';
 
   return (
     <Card>
