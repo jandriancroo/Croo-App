@@ -38,6 +38,9 @@ const CloneLocationSettings = lazy(() =>
 const DataStreamStatus = lazy(() =>
   import('@/components/settings/DataStreamStatus').then(m => ({ default: m.DataStreamStatus }))
 );
+const PinMigrationHealthPanel = lazy(() =>
+  import('@/components/users/PinMigrationHealthPanel').then(m => ({ default: m.PinMigrationHealthPanel }))
+);
 
 const PanelFallback = () => (
   <div className="flex items-center justify-center py-8">
