@@ -326,7 +326,7 @@ async function handleNightlyMaintenance(
       ["email_queue", "prune_email_queue", 30],
       ["inventory_count_audit_log", "prune_inventory_count_audit_log", 90],
       ["pfg_refresh_audit", "prune_pfg_refresh_audit", 30],
-      ["punch_clock_attempts", "prune_punch_clock_attempts", 30],
+      ["punch_clock_attempts", "prune_punch_clock_attempts", 7],
       ["checklist_notification_logs", "prune_checklist_notification_logs", 30],
     ];
     for (const [name, fn, days] of tasks) {
@@ -1080,7 +1080,7 @@ async function handleRetentionJanitor(
     ["email_queue", "prune_email_queue", overrides.email_queue ?? 30],
     ["inventory_count_audit_log", "prune_inventory_count_audit_log", overrides.inventory_count_audit_log ?? 90],
     ["pfg_refresh_audit", "prune_pfg_refresh_audit", overrides.pfg_refresh_audit ?? 30],
-    ["punch_clock_attempts", "prune_punch_clock_attempts", overrides.punch_clock_attempts ?? 30],
+    ["punch_clock_attempts", "prune_punch_clock_attempts", overrides.punch_clock_attempts ?? 7],
     ["checklist_notification_logs", "prune_checklist_notification_logs", overrides.checklist_notification_logs ?? 30],
   ];
 
