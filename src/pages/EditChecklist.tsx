@@ -117,7 +117,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             </SelectContent>
           </Select>
 
-          {showPositionSelector && availablePositions && availablePositions.length > 0 && (
+          {!isSection && showPositionSelector && availablePositions && availablePositions.length > 0 && (
             <Select
               value={item.position || 'none'}
               onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
