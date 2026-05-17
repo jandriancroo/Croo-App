@@ -960,7 +960,11 @@ export default function PunchClock() {
     // CRITICAL: Fetch FRESH schedule data to avoid stale cache issues
     // This ensures we always validate against the latest schedule, even if
     // a manager just updated it seconds ago
-    const today = format(new Date(), 'yyyy-MM-dd');
+    // CRITICAL: Use the LOCATION's timezone for "today" and shift start.
+    // The kiosk device clock can be set to UTC or drift, which silently
+    // rolls the date past midnight and makes valid shifts disappear.
+    const tz = timezone || DEFAULT_TIMEZONE;
+    const today = getTodayInTimezone(tz);
     const { data: freshShifts } = await supabase
       .from('scheduled_shifts')
       .select('*, schedules!inner(location_id)')
@@ -988,7 +992,8 @@ export default function PunchClock() {
       } else {
         // Check if clocking in early for a scheduled shift
         const now = new Date();
-        const shiftStart = new Date(`${freshShift.shift_date}T${freshShift.start_time}`);
+        const startHHmm = String(freshShift.start_time).slice(0, 5);
+        const shiftStart = new Date(toISOStringInTimezone(freshShift.shift_date, startHHmm, tz));
         
         if (!laborRules?.allow_early_clock_in) {
           // Early clock-in disabled
