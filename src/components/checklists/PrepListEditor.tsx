@@ -130,17 +130,27 @@ function PrepRowEditor({
   }, [open]);
 
   const pickItem = (item: InvItem) => {
+    const panCfg = item.pan_sizes && typeof item.pan_sizes === 'object' ? item.pan_sizes : null;
+    const enabledKeys: string[] = panCfg?.enabled
+      ? (Array.isArray(panCfg.enabled_keys) ? panCfg.enabled_keys : [])
+      : [];
+    const baselineKey: string | null = panCfg?.enabled ? (panCfg.baseline_key || null) : null;
+    const defaultPan = baselineKey && enabledKeys.includes(baselineKey)
+      ? baselineKey
+      : (enabledKeys[0] || null);
     onChange({
       inventory_item_id: item.id,
       item_name: item.name,
       unit: item.count_unit || item.unit || '',
+      pan_key: defaultPan,
       par: item.par_level ?? row.par ?? null,
+      _enabled_pan_keys: enabledKeys.length ? enabledKeys : null,
     });
     setOpen(false);
   };
 
   const unlink = () => {
-    onChange({ inventory_item_id: null });
+    onChange({ inventory_item_id: null, pan_key: null, _enabled_pan_keys: null });
   };
 
   return (
