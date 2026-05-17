@@ -21,6 +21,7 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
   return (
     <div className="flex flex-col gap-2 w-full">
       <UnreadAnnouncementsAlert />
+      <PinMigrationTask />
       <PendingDocumentsCard />
       <I9UploadCard />
       <OpusBackgroundSync />
