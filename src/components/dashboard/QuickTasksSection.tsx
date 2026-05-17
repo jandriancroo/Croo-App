@@ -7,6 +7,7 @@ import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporary
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
+import { PinMigrationTask } from '@/components/dashboard/PinMigrationTask';
 
 interface QuickTasksSectionProps {
   locationSettings: { hours_open: string; hours_close: string } | null | undefined;
@@ -20,6 +21,7 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
   return (
     <div className="flex flex-col gap-2 w-full">
       <UnreadAnnouncementsAlert />
+      <PinMigrationTask />
       <PendingDocumentsCard />
       <I9UploadCard />
       <OpusBackgroundSync />

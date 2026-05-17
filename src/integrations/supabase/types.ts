@@ -6732,6 +6732,30 @@ export type Database = {
         }
         Relationships: []
       }
+      pin_pending_audit: {
+        Row: {
+          action: string
+          actor_user_id: string
+          created_at: string
+          id: string
+          target_user_id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          created_at?: string
+          id?: string
+          target_user_id: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          created_at?: string
+          id?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           all_locations_enabled: boolean
@@ -6755,6 +6779,9 @@ export type Database = {
           min_weekly_hours: number | null
           nickname: string | null
           phone_number: string | null
+          pin_pending: string | null
+          pin_pending_set_at: string | null
+          pin_pending_set_by: string | null
           profile_photo_url: string | null
           role: string | null
           updated_at: string | null
@@ -6782,6 +6809,9 @@ export type Database = {
           min_weekly_hours?: number | null
           nickname?: string | null
           phone_number?: string | null
+          pin_pending?: string | null
+          pin_pending_set_at?: string | null
+          pin_pending_set_by?: string | null
           profile_photo_url?: string | null
           role?: string | null
           updated_at?: string | null
@@ -6809,6 +6839,9 @@ export type Database = {
           min_weekly_hours?: number | null
           nickname?: string | null
           phone_number?: string | null
+          pin_pending?: string | null
+          pin_pending_set_at?: string | null
+          pin_pending_set_by?: string | null
           profile_photo_url?: string | null
           role?: string | null
           updated_at?: string | null
@@ -9614,6 +9647,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_set_pending_punch_pin: {
+        Args: { p_pin: string; p_target_user_id: string }
+        Returns: Json
+      }
       assign_user_to_location: {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
@@ -9800,6 +9837,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -9864,6 +9902,7 @@ export type Database = {
         }[]
       }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
+      set_pending_punch_pin: { Args: { p_pin: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       toggle_widget_hidden_for_self: {
@@ -9904,6 +9943,7 @@ export type Database = {
         }
         Returns: string
       }
+      validate_6_digit_pin: { Args: { p_pin: string }; Returns: string }
     }
     Enums: {
       app_role:

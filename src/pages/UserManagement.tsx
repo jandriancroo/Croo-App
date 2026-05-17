@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserManagementData } from '@/hooks/useUserManagementData';
 import { UserManagementTable } from '@/components/users/UserManagementTable';
 import { UserManagementDialogs } from '@/components/users/UserManagementDialogs';
+import { PinMigrationHealthPanel } from '@/components/users/PinMigrationHealthPanel';
 
 export default function UserManagement() {
   const data = useUserManagementData();
@@ -86,6 +87,8 @@ export default function UserManagement() {
             />
           </CardContent>
         </Card>
+
+        {data.isSuperAdmin && <PinMigrationHealthPanel />}
 
         {/* Certifications Section */}
         <div className="border-t pt-6">
