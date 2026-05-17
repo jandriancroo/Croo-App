@@ -424,6 +424,25 @@ export default function EditChecklist() {
           .select('*')
           .in('checklist_item_id', prepItemIds)
           .order('order_index');
+
+        // Hydrate _enabled_pan_keys for any linked inventory items so the UI can show the pan select
+        const linkedInvIds = Array.from(
+          new Set((prepRows || []).map((r: any) => r.inventory_item_id).filter(Boolean))
+        );
+        const panMap: Record<string, string[]> = {};
+        if (linkedInvIds.length > 0) {
+          const { data: invItems } = await supabase
+            .from('inventory_items')
+            .select('id, pan_sizes')
+            .in('id', linkedInvIds);
+          (invItems || []).forEach((it: any) => {
+            const ps = it.pan_sizes;
+            if (ps && ps.enabled && Array.isArray(ps.enabled_keys) && ps.enabled_keys.length > 0) {
+              panMap[it.id] = ps.enabled_keys;
+            }
+          });
+        }
+
         (prepRows || []).forEach((r: any) => {
           const list = prepRowsByItem[r.checklist_item_id] || [];
           list.push({
@@ -431,8 +450,10 @@ export default function EditChecklist() {
             inventory_item_id: r.inventory_item_id,
             item_name: r.item_name,
             unit: r.unit,
+            pan_key: (r as any).pan_key ?? null,
             par: r.par != null ? Number(r.par) : null,
             order_index: r.order_index,
+            _enabled_pan_keys: r.inventory_item_id ? (panMap[r.inventory_item_id] || null) : null,
           });
           prepRowsByItem[r.checklist_item_id] = list;
         });
