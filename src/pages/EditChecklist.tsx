@@ -892,6 +892,7 @@ export default function EditChecklist() {
                         onFocus={(idx) => setFocusedItemIndex(idx)}
                         onBlur={() => setFocusedItemIndex(null)}
                         belongsToSection={currentSection}
+                        locationId={checklistLocationId}
                       />
                     );
                   });
