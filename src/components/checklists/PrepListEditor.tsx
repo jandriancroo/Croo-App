@@ -54,7 +54,7 @@ export function PrepListEditor({ rows, onChange, locationId }: Props) {
 
   return (
     <div className="space-y-1.5 rounded-md border border-dashed p-2 bg-muted/20">
-      <div className="grid grid-cols-[1fr_70px_70px_28px] gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1">
+      <div className="grid grid-cols-[1fr_110px_60px_28px] gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1">
         <span>Item</span>
         <span>Unit</span>
         <span>Par</span>
