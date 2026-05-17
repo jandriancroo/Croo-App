@@ -585,7 +585,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
               required
             />
           </div>
-          {positionFilteringEnabled && availablePositions.length > 0 && (
+          {!isSection && positionFilteringEnabled && availablePositions.length > 0 && (
             <Select
               value={item.position || 'none'}
               onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
