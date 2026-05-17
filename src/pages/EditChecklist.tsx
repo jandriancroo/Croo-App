@@ -303,6 +303,7 @@ export default function EditChecklist() {
   const [enableAmPmDivision, setEnableAmPmDivision] = useState(false);
   const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
   const [availablePositions, setAvailablePositions] = useState<string[]>([]);
+  const [checklistLocationId, setChecklistLocationId] = useState<string | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [focusedItemIndex, setFocusedItemIndex] = useState<number | null>(null);
 
