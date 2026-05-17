@@ -255,6 +255,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             </div>
           </CollapsibleContent>
         </Collapsible>
+        )}
       </div>
     </div>
   );
