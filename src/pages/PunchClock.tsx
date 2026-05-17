@@ -728,7 +728,10 @@ export default function PunchClock() {
   const checkTodayShift = async () => {
     if (!currentUser) return;
 
-    const today = format(new Date(), 'yyyy-MM-dd');
+    // CRITICAL: Use location timezone, not device local time.
+    // Device clocks can drift to UTC and silently roll "today" past midnight,
+    // making valid shifts disappear from the kiosk.
+    const today = getTodayInTimezone(timezone || DEFAULT_TIMEZONE);
     const { data } = await supabase
       .from('scheduled_shifts')
       .select('*, schedules!inner(location_id)')
