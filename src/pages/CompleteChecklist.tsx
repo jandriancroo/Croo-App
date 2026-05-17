@@ -24,6 +24,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { useUserPosition } from '@/hooks/useUserPosition';
+import { PrepListComplete } from '@/components/checklists/PrepListComplete';
 interface ChecklistItem {
   id: string;
   question: string;
