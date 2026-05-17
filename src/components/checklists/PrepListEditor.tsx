@@ -154,7 +154,7 @@ function PrepRowEditor({
   };
 
   return (
-    <div className="grid grid-cols-[1fr_70px_70px_28px] gap-1 items-center">
+    <div className="grid grid-cols-[1fr_110px_60px_28px] gap-1 items-center">
       <div ref={wrapperRef} className="relative flex gap-1 items-center min-w-0">
         <div className="relative flex-1">
           <Input
