@@ -14,6 +14,7 @@ import { Camera, Loader2, Check, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
+import { MyPunchPinCard } from '@/components/users/MyPunchPinCard';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -320,6 +321,8 @@ const MyProfile = () => {
             </Button>
           </CardContent>
         </Card>
+
+        <MyPunchPinCard />
       </div>
 
       {/* Crop Dialog */}

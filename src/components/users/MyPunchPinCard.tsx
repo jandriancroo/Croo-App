@@ -2,9 +2,16 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -13,32 +20,36 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ShieldCheck, Loader2, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import {
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Copy,
+  Loader2,
+  KeyRound,
+} from "lucide-react";
 import { toast } from "sonner";
-import { differenceInDays } from "date-fns";
 
 /**
- * Quick Task — "Set your new 6-digit PIN"
- * Shows when the signed-in user has no pin_pending yet. Hashes server-side
- * via the set_pending_punch_pin RPC. Operational punch flow is untouched.
+ * Self-service punch PIN card for MyProfile.
+ * Only ever shows / changes the signed-in user's own PIN.
  */
-export function PinMigrationTask() {
+export function MyPunchPinCard() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const [revealed, setRevealed] = useState(false);
   const [open, setOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const { data: profile } = useQuery({
-    queryKey: ["pin-migration-status", user?.id],
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ["my-punch-pin", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("pin_pending, pin_pending_set_at, created_at")
+        .select("pin_pending, pin_pending_plaintext, pin_pending_set_at")
         .eq("id", user.id)
         .maybeSingle();
       if (error) throw error;
@@ -48,28 +59,8 @@ export function PinMigrationTask() {
     staleTime: 60 * 1000,
   });
 
-  if (!profile) return null;
-  if (profile.pin_pending) return null; // already set — manage from My Profile
-
-  // Age the card based on days since this task started being shown.
-  // Use account created_at as a proxy until we track first-seen.
-  const ageDays = profile.created_at
-    ? differenceInDays(new Date(), new Date(profile.created_at))
-    : 0;
-  const escalation: "normal" | "amber" | "red" =
-    ageDays >= 15 ? "red" : ageDays >= 8 ? "amber" : "normal";
-
-  const accentClasses = {
-    normal: "border-primary/50 bg-primary/5",
-    amber: "border-amber-500/60 bg-amber-500/10",
-    red: "border-destructive/60 bg-destructive/10",
-  }[escalation];
-
-  const stripClasses = {
-    normal: "from-primary via-primary/80 to-primary",
-    amber: "from-amber-500 via-amber-500/80 to-amber-500",
-    red: "from-destructive via-destructive/80 to-destructive",
-  }[escalation];
+  const hasPin = !!profile?.pin_pending;
+  const pinPlain = (profile as any)?.pin_pending_plaintext as string | null;
 
   const handleSubmit = async () => {
     if (pin !== confirm) {
@@ -80,7 +71,6 @@ export function PinMigrationTask() {
       toast.error("PIN must be exactly 6 digits.");
       return;
     }
-
     setSubmitting(true);
     try {
       const { data, error } = await supabase.rpc("set_pending_punch_pin", {
@@ -92,12 +82,12 @@ export function PinMigrationTask() {
         toast.error(result.error || "Couldn't save PIN.");
         return;
       }
-      toast.success("New 6-digit PIN saved", {
-        description: "You'll start using it on the next system update.",
-      });
+      toast.success(hasPin ? "PIN updated" : "PIN saved");
       setOpen(false);
       setPin("");
       setConfirm("");
+      setRevealed(false);
+      qc.invalidateQueries({ queryKey: ["my-punch-pin", user?.id] });
       qc.invalidateQueries({ queryKey: ["pin-migration-status", user?.id] });
       qc.invalidateQueries({ queryKey: ["pin-migration-health"] });
     } catch (err: any) {
@@ -109,56 +99,90 @@ export function PinMigrationTask() {
 
   return (
     <>
-      <Card className={`${accentClasses} relative overflow-hidden`}>
-        <div
-          className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${stripClasses}`}
-        />
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <div className="relative">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                <Lock className="h-2.5 w-2.5 text-primary absolute -bottom-0.5 -right-0.5" />
-              </div>
-              Set your new 6-digit punch PIN
-            </CardTitle>
-            {escalation !== "normal" && (
-              <Badge
-                variant="outline"
-                className={
-                  escalation === "red"
-                    ? "border-destructive/50 text-destructive text-[10px]"
-                    : "border-amber-500/50 text-amber-700 dark:text-amber-400 text-[10px]"
-                }
-              >
-                {escalation === "red" ? "Required" : "Due soon"}
-              </Badge>
-            )}
-          </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            New 6-digit punch PIN
+          </CardTitle>
+          <CardDescription>
+            You'll start using this at the punch clock on flip night. Only you
+            can see or change it here.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            We're upgrading punch security from 4 → 6 digits. Pick your new PIN
-            now — you'll keep using your current 4-digit one at the punch clock
-            until the system flips over.
-          </p>
-          <Button
-            className="w-full"
-            onClick={() => setOpen(true)}
-            variant={escalation === "red" ? "destructive" : "default"}
-          >
-            Set my 6-digit PIN
-          </Button>
+          {isLoading ? (
+            <div className="flex justify-center py-3">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : !hasPin ? (
+            <Button onClick={() => setOpen(true)} className="w-full">
+              <KeyRound className="h-4 w-4 mr-2" />
+              Set my 6-digit PIN
+            </Button>
+          ) : (
+            <>
+              <Label className="text-xs text-muted-foreground">Your PIN</Label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 text-center font-mono text-lg tracking-[0.4em] py-2 rounded-md border bg-background">
+                  {revealed && pinPlain ? pinPlain : "••••••"}
+                </div>
+                {pinPlain ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setRevealed((r) => !r)}
+                      aria-label={revealed ? "Hide" : "Reveal"}
+                    >
+                      {revealed ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                    {revealed && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          navigator.clipboard.writeText(pinPlain);
+                          toast.success("Copied");
+                        }}
+                        aria-label="Copy"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </>
+                ) : null}
+              </div>
+              {!pinPlain && (
+                <p className="text-xs text-muted-foreground italic">
+                  Set before reveal was available — change it below to view.
+                </p>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => setOpen(true)}
+                className="w-full"
+              >
+                Change PIN
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 
       <Dialog open={open} onOpenChange={(o) => !submitting && setOpen(o)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Set your new 6-digit PIN</DialogTitle>
+            <DialogTitle>
+              {hasPin ? "Change your 6-digit PIN" : "Set your 6-digit PIN"}
+            </DialogTitle>
             <DialogDescription>
               Pick something only you know. Avoid obvious patterns like 123456
-              or 000000. You'll use this at the punch clock after flip night.
+              or 000000.
             </DialogDescription>
           </DialogHeader>
 
@@ -179,7 +203,6 @@ export function PinMigrationTask() {
                 className="text-center tracking-[0.4em] font-mono text-lg"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="confirm-pin">Confirm PIN</Label>
               <Input
@@ -196,11 +219,6 @@ export function PinMigrationTask() {
                 className="text-center tracking-[0.4em] font-mono text-lg"
               />
             </div>
-
-            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-              <Lock className="h-3 w-3" />
-              Stored hashed. Never sent back to your device after this moment.
-            </p>
           </div>
 
           <DialogFooter>
@@ -209,7 +227,7 @@ export function PinMigrationTask() {
               onClick={() => setOpen(false)}
               disabled={submitting}
             >
-              Later
+              Cancel
             </Button>
             <Button
               onClick={handleSubmit}
