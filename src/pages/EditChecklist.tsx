@@ -57,6 +57,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [showReference, setShowReference] = useState(false);
 
+  const isSection = item.item_type === 'section_header';
   return (
     <div
       ref={setNodeRef}
