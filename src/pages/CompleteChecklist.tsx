@@ -1115,7 +1115,17 @@ export default function CompleteChecklist() {
             ? isMultiPhotoComplete(item, responses[item.id])
             : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
           const currentPhotos = isImageItem ? getPhotosForItem(item.id) : [];
-          
+
+          if (item.item_type === 'section_header') {
+            return (
+              <div key={item.id} className="pt-4 pb-1 first:pt-0">
+                <h2 className="text-base font-semibold tracking-tight border-b border-border pb-1.5">
+                  {item.question || 'Section'}
+                </h2>
+              </div>
+            );
+          }
+
           return (
             <div key={item.id}>
               {/* Position Section Header */}
