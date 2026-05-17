@@ -212,6 +212,14 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
           />
         )}
 
+        {!isSection && item.item_type === 'prep_list' && (
+          <PrepListEditor
+            rows={item.prep_rows || []}
+            onChange={(rows) => updateItem(index, 'prep_rows', rows)}
+            locationId={locationId}
+          />
+        )}
+
         {/* Collapsible notes + reference materials */}
         {!isSection && (
         <Collapsible open={showReference} onOpenChange={setShowReference}>
