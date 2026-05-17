@@ -227,9 +227,15 @@ export function PrepListComplete({
           >
             <div className="min-w-0">
               <div className="text-xs font-medium truncate">{row.item_name}</div>
-              {row.unit && (
-                <div className="text-[10px] text-muted-foreground truncate">{row.unit}</div>
-              )}
+              {(() => {
+                const panLabel = row.pan_key
+                  ? (ALL_CONTAINERS.find((c) => c.key === row.pan_key)?.label || row.pan_key)
+                  : null;
+                const label = panLabel || row.unit;
+                return label ? (
+                  <div className="text-[10px] text-muted-foreground truncate">{label}</div>
+                ) : null;
+              })()}
             </div>
             <Input
               type="number"
