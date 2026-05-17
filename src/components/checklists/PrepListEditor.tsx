@@ -104,7 +104,7 @@ function PrepRowEditor({
     const handle = setTimeout(async () => {
       let q = supabase
         .from('inventory_items')
-        .select('id, name, unit, count_unit, par_level, brand, pack_size')
+        .select('id, name, unit, count_unit, par_level, brand, pack_size, pan_sizes')
         .eq('location_id', locationId)
         .eq('is_active', true)
         .order('name')
