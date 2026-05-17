@@ -555,6 +555,7 @@ export default function EditChecklist() {
           position: positionFilteringEnabled ? (item.position || null) : null,
         };
 
+        let savedItemId = item.id;
         if (item.id) {
           const { error: updateError } = await supabase
             .from('checklist_items')
@@ -562,10 +563,34 @@ export default function EditChecklist() {
             .eq('id', item.id);
           if (updateError) throw updateError;
         } else {
-          const { error: insertError } = await supabase
+          const { data: inserted, error: insertError } = await supabase
             .from('checklist_items')
-            .insert(itemData);
+            .insert(itemData)
+            .select('id')
+            .single();
           if (insertError) throw insertError;
+          savedItemId = inserted?.id;
+        }
+
+        // Sync prep_rows for prep_list items (replace-all strategy)
+        if (item.item_type === 'prep_list' && savedItemId) {
+          await supabase.from('checklist_prep_rows').delete().eq('checklist_item_id', savedItemId);
+          const rowsToInsert = (item.prep_rows || [])
+            .filter(r => r.item_name.trim() !== '')
+            .map((r, i) => ({
+              checklist_item_id: savedItemId,
+              inventory_item_id: r.inventory_item_id || null,
+              item_name: r.item_name.trim(),
+              unit: r.unit || null,
+              par: r.par,
+              order_index: i,
+            }));
+          if (rowsToInsert.length > 0) {
+            const { error: prepErr } = await supabase
+              .from('checklist_prep_rows')
+              .insert(rowsToInsert);
+            if (prepErr) throw prepErr;
+          }
         }
       }
 
