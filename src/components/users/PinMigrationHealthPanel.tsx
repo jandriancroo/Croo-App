@@ -212,9 +212,7 @@ export function PinMigrationHealthPanel() {
                   </SelectItem>
                   {locations.map((l) => {
                     const count = pending.filter((u) =>
-                      (u.user_locations || []).some(
-                        (ul) => ul.location_id === l.id
-                      )
+                      (u.location_ids || []).includes(l.id)
                     ).length;
                     return (
                       <SelectItem key={l.id} value={l.id}>
