@@ -52,13 +52,14 @@ interface SortableChecklistItemProps {
   isFocused?: boolean;
   onFocus?: (index: number) => void;
   onBlur?: () => void;
+  locationId?: string | null;
 }
 
 interface SortableChecklistItemPropsExt extends SortableChecklistItemProps {
   belongsToSection?: boolean;
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur, belongsToSection }: SortableChecklistItemPropsExt) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur, belongsToSection, locationId }: SortableChecklistItemPropsExt) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [showReference, setShowReference] = useState(false);
