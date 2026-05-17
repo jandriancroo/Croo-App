@@ -603,6 +603,7 @@ export default function EditChecklist() {
               inventory_item_id: r.inventory_item_id || null,
               item_name: r.item_name.trim(),
               unit: r.unit || null,
+              pan_key: r.pan_key || null,
               par: r.par,
               order_index: i,
             }));
