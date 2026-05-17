@@ -621,13 +621,34 @@ export default function EditChecklist() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      setItems((items) => {
-        const oldIndex = items.findIndex((_, i) => `item-${i}` === active.id);
-        const newIndex = items.findIndex((_, i) => `item-${i}` === over.id);
+    if (!over || active.id === over.id) return;
+    setItems((items) => {
+      const oldIndex = items.findIndex((_, i) => `item-${i}` === active.id);
+      const newIndex = items.findIndex((_, i) => `item-${i}` === over.id);
+      if (oldIndex < 0 || newIndex < 0) return items;
+
+      const isHeader = items[oldIndex].item_type === 'section_header';
+      if (!isHeader) {
         return arrayMove(items, oldIndex, newIndex);
-      });
-    }
+      }
+
+      // Section header: move the whole block (header + items until next header)
+      let blockEnd = items.length;
+      for (let i = oldIndex + 1; i < items.length; i++) {
+        if (items[i].item_type === 'section_header') { blockEnd = i; break; }
+      }
+      // Don't allow dropping inside own block
+      if (newIndex > oldIndex && newIndex < blockEnd) return items;
+
+      const block = items.slice(oldIndex, blockEnd);
+      const rest = [...items.slice(0, oldIndex), ...items.slice(blockEnd)];
+      const targetItem = items[newIndex];
+      let insertAt = rest.indexOf(targetItem);
+      if (insertAt < 0) insertAt = rest.length;
+      // Moving down: insert after target so visual position matches drop
+      if (oldIndex < newIndex) insertAt += 1;
+      return [...rest.slice(0, insertAt), ...block, ...rest.slice(insertAt)];
+    });
   };
 
   if (roleLoading || loading) {
