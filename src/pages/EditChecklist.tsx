@@ -386,6 +386,7 @@ export default function EditChecklist() {
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
       setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
+      setChecklistLocationId(checklist.location_id || null);
 
       // Fetch available positions
       if (checklist.location_id) {
@@ -412,6 +413,31 @@ export default function EditChecklist() {
         }
       }
 
+      // Load prep_rows for any prep_list items
+      const prepItemIds = (checklistItems || [])
+        .filter((it: any) => it.item_type === 'prep_list')
+        .map((it: any) => it.id);
+      let prepRowsByItem: Record<string, PrepRow[]> = {};
+      if (prepItemIds.length > 0) {
+        const { data: prepRows } = await supabase
+          .from('checklist_prep_rows')
+          .select('*')
+          .in('checklist_item_id', prepItemIds)
+          .order('order_index');
+        (prepRows || []).forEach((r: any) => {
+          const list = prepRowsByItem[r.checklist_item_id] || [];
+          list.push({
+            id: r.id,
+            inventory_item_id: r.inventory_item_id,
+            item_name: r.item_name,
+            unit: r.unit,
+            par: r.par != null ? Number(r.par) : null,
+            order_index: r.order_index,
+          });
+          prepRowsByItem[r.checklist_item_id] = list;
+        });
+      }
+
       setItems((checklistItems || []).map(item => {
         // temperature is now a first-class type — also migrate old image+requires_temp items
         let itemType = item.item_type as string;
@@ -433,6 +459,7 @@ export default function EditChecklist() {
           order_index: item.order_index,
           manager_shift: (item as any).manager_shift || null,
           position: (item as any).position || null,
+          prep_rows: itemType === 'prep_list' ? (prepRowsByItem[item.id] || []) : undefined,
         };
       }));
     } catch (error: any) {
