@@ -581,7 +581,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
             <Input
               value={item.question}
               onChange={(e) => updateItem(index, 'question', e.target.value)}
-              placeholder="Question / task name"
+              placeholder={isSection ? 'Section heading' : 'Question / task name'}
               required
             />
           </div>
