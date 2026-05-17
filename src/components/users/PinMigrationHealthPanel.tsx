@@ -57,6 +57,14 @@ export function PinMigrationHealthPanel() {
   const [generatedPin, setGeneratedPin] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [nudging, setNudging] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+
+  const toggleReveal = (id: string) =>
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["pin-migration-health"],
