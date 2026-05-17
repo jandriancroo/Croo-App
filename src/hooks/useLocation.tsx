@@ -51,9 +51,11 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchLocations = useCallback(async () => {
     if (!user) {
-      setLocations([]);
-      setCurrentLocationState(null);
-      try { localStorage.removeItem('currentLocationCache'); } catch {}
+      // Transient null user (token refresh blip, iPad sleep/wake, brief network
+      // hiccup) — do NOT wipe currentLocation or the localStorage cache. Doing
+      // so causes the punch-clock to flash "Location not loaded" + false
+      // "Not scheduled today" toasts for anyone who PINs during that window.
+      // An explicit sign-out is handled by the SIGNED_OUT listener below.
       setLoading(false);
       return;
     }
@@ -142,6 +144,23 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     fetchLocations();
   }, [user]);
+
+  // Only clear location state on an EXPLICIT sign-out event. Transient null-user
+  // states from token refresh / sleep-wake should never wipe the cached location.
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setLocations([]);
+        setCurrentLocationState(null);
+        setOrganizationId(null);
+        try {
+          localStorage.removeItem('currentLocationCache');
+          localStorage.removeItem('currentLocationId');
+        } catch {}
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   const setCurrentLocation = useCallback((location: Location, destination?: string, forceNavigate?: boolean) => {
     const previousId = currentLocation?.id;
