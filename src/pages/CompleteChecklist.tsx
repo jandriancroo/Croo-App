@@ -1075,10 +1075,13 @@ export default function CompleteChecklist() {
             }
 
             // If AM/PM division is enabled, sort and group items
+            // BUT: if the checklist uses section headers, respect the user's manual order
+            // (headers already define the grouping — auto-sort would break it)
             const hasAmPmDivision = checklist?.enable_am_pm_division;
+            const hasSectionHeaders = filteredItems.some(i => i.item_type === 'section_header');
             let sortedItems = filteredItems;
             
-            if (hasAmPmDivision) {
+            if (hasAmPmDivision && !hasSectionHeaders) {
               sortedItems = [...filteredItems].sort((a, b) => {
                 const shiftOrder = { 'am': 0, 'pm': 1, null: 2, undefined: 2 };
                 const aOrder = shiftOrder[a.manager_shift as keyof typeof shiftOrder] ?? 2;
