@@ -90,6 +90,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   organizations: { title: 'All Organizations', icon: <Building2 className="h-4 w-4" /> },
   maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
   'data-streams': { title: 'Data Streams', icon: <Radio className="h-4 w-4" /> },
+  'pin-migration': { title: 'PIN Migration Health', icon: <ShieldCheck className="h-4 w-4" /> },
 };
 
 export default function Settings() {
