@@ -626,7 +626,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
           </SelectContent>
         </Select>
 
-        {item.item_type === 'multiple_choice' && (
+        {!isSection && item.item_type === 'multiple_choice' && (
           <Input
             value={item.options?.join(', ') || ''}
             onChange={(e) => updateItem(index, 'options', e.target.value.split(',').map((opt) => opt.trim()))}
