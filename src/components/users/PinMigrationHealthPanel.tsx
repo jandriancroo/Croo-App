@@ -66,12 +66,12 @@ export function PinMigrationHealthPanel() {
     staleTime: 30 * 1000,
   });
 
-  const { total, migrated, pending, locations, filteredPending } = useMemo(() => {
+  const { total, migrated, pending, locations, filteredPending, filteredSet } = useMemo(() => {
     const total = users.length;
     const migrated = users.filter((u) => !!u.pin_pending).length;
     const pending = users.filter((u) => !u.pin_pending);
+    const set = users.filter((u) => !!u.pin_pending);
 
-    // Unique locations across all users (for the dropdown)
     const locMap = new Map<string, string>();
     for (const u of users) {
       const ids = u.location_ids || [];
@@ -84,14 +84,17 @@ export function PinMigrationHealthPanel() {
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    const filteredPending =
-      locationFilter === ALL
-        ? pending
-        : pending.filter((u) =>
-            (u.location_ids || []).includes(locationFilter)
-          );
+    const byLoc = (u: RowUser) =>
+      locationFilter === ALL || (u.location_ids || []).includes(locationFilter);
 
-    return { total, migrated, pending, locations, filteredPending };
+    return {
+      total,
+      migrated,
+      pending,
+      locations,
+      filteredPending: pending.filter(byLoc),
+      filteredSet: set.filter(byLoc),
+    };
   }, [users, locationFilter]);
 
   const pct = total > 0 ? Math.round((migrated / total) * 100) : 0;
