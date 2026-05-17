@@ -200,14 +200,14 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
 
   const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-  // Compute summary
+  // Compute summary (exclude future days)
   const summary = useMemo(() => {
-    const inRangeCells = cells.filter(c => c.inRange && c.completionPct !== null);
+    const inRangeCells = cells.filter(c => c.inRange && c.completionPct !== null && c.dateStr <= todayStr);
     if (inRangeCells.length === 0) return null;
     const avg = Math.round(inRangeCells.reduce((s, c) => s + (c.completionPct || 0), 0) / inRangeCells.length);
     const perfectDays = inRangeCells.filter(c => c.completionPct === 100).length;
     return { avg, perfectDays, total: inRangeCells.length };
-  }, [cells]);
+  }, [cells, todayStr]);
 
   return (
     <Card>
