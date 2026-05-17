@@ -14,7 +14,7 @@ import crooLogoInverted from '/croo-logo-inverted-transparent.png';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
-import { getTodayInTimezone } from '@/utils/timezoneUtils';
+import { getTodayInTimezone, toISOStringInTimezone, DEFAULT_TIMEZONE } from '@/utils/timezoneUtils';
 import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
 import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
 import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay';
@@ -728,7 +728,10 @@ export default function PunchClock() {
   const checkTodayShift = async () => {
     if (!currentUser) return;
 
-    const today = format(new Date(), 'yyyy-MM-dd');
+    // CRITICAL: Use location timezone, not device local time.
+    // Device clocks can drift to UTC and silently roll "today" past midnight,
+    // making valid shifts disappear from the kiosk.
+    const today = getTodayInTimezone(timezone || DEFAULT_TIMEZONE);
     const { data } = await supabase
       .from('scheduled_shifts')
       .select('*, schedules!inner(location_id)')
@@ -908,17 +911,21 @@ export default function PunchClock() {
     
     // Check if early clock-in is allowed
     const now = new Date();
-    const shiftStart = new Date(`${todayShift.shift_date}T${todayShift.start_time}`);
-    
+    // CRITICAL: build shiftStart in the location's timezone so a device clock
+    // set to UTC (or any other zone) cannot shift the comparison window.
+    const tz = timezone || DEFAULT_TIMEZONE;
+    const startHHmm = String(todayShift.start_time).slice(0, 5);
+    const shiftStart = new Date(toISOStringInTimezone(todayShift.shift_date, startHHmm, tz));
+
     if (!laborRules?.allow_early_clock_in) {
       // Early clock-in disabled - can only clock in at or after shift start
       return now >= shiftStart;
     }
-    
+
     // Early clock-in allowed - use configured minutes
     const earlyMinutes = laborRules?.early_clock_in_minutes ?? 30;
     const earliestClockIn = new Date(shiftStart.getTime() - earlyMinutes * 60000);
-    
+
     return now >= earliestClockIn;
   };
 
@@ -953,7 +960,11 @@ export default function PunchClock() {
     // CRITICAL: Fetch FRESH schedule data to avoid stale cache issues
     // This ensures we always validate against the latest schedule, even if
     // a manager just updated it seconds ago
-    const today = format(new Date(), 'yyyy-MM-dd');
+    // CRITICAL: Use the LOCATION's timezone for "today" and shift start.
+    // The kiosk device clock can be set to UTC or drift, which silently
+    // rolls the date past midnight and makes valid shifts disappear.
+    const tz = timezone || DEFAULT_TIMEZONE;
+    const today = getTodayInTimezone(tz);
     const { data: freshShifts } = await supabase
       .from('scheduled_shifts')
       .select('*, schedules!inner(location_id)')
@@ -981,7 +992,8 @@ export default function PunchClock() {
       } else {
         // Check if clocking in early for a scheduled shift
         const now = new Date();
-        const shiftStart = new Date(`${freshShift.shift_date}T${freshShift.start_time}`);
+        const startHHmm = String(freshShift.start_time).slice(0, 5);
+        const shiftStart = new Date(toISOStringInTimezone(freshShift.shift_date, startHHmm, tz));
         
         if (!laborRules?.allow_early_clock_in) {
           // Early clock-in disabled
