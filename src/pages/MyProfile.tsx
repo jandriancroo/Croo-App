@@ -321,6 +321,8 @@ const MyProfile = () => {
             </Button>
           </CardContent>
         </Card>
+
+        <MyPunchPinCard />
       </div>
 
       {/* Crop Dialog */}
