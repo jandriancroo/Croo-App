@@ -87,7 +87,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             }}
             onFocus={() => onFocus?.(index)}
             onBlur={() => onBlur?.()}
-            placeholder="Task name"
+            placeholder={isSection ? 'Section heading' : 'Task name'}
             rows={1}
             className="flex-1 min-w-0 min-h-[32px] text-sm resize-none py-1.5"
           />
