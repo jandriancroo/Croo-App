@@ -410,6 +410,10 @@ export default function Settings() {
       case 'data-streams':
         return <DataStreamStatus />;
 
+      case 'pin-migration':
+        if (!isSuperAdmin) return null;
+        return <PinMigrationHealthPanel />;
+
       default:
         return null;
     }
