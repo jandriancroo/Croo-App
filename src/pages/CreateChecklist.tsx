@@ -705,6 +705,8 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
             </div>
           </CollapsibleContent>
         </Collapsible>
+          </>
+        )}
       </CardContent>
     </Card>
   );
