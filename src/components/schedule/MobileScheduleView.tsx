@@ -216,7 +216,7 @@ export function MobileScheduleView({
       
       const scheduledQuery = supabase
         .from('scheduled_shifts')
-        .select('id, user_id, start_time, end_time, day_of_week, shift_date')
+        .select('id, user_id, start_time, end_time, day_of_week, shift_date, is_phantom')
         .eq('shift_date', punchDateStr);
       
       const isToday = punchDateStr === todayStr;
