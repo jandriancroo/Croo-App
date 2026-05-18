@@ -72,16 +72,12 @@ export function calculateCountItemValue(
   forceLiveData: boolean = false
 ): number {
   // Phase 1 — forceLiveData ignores snapshots and uses live cost / live pack chain.
-  // Default (false): STRICT snapshot mode. If cost_at_count is NULL on a historical
-  // row, return 0 instead of falling back to live cost_per_unit. The live-cost
-  // fallback caused historical periods (e.g. Palm Springs Mar 31 / Apr 12) to
-  // silently revalue whenever a product's unit/cost was edited. Backfill the
-  // snapshot via the repair migration rather than reintroducing the fallback.
+  // Default behaviour (false) preserves the post-Apr-28 snapshot-first lock.
   const costPerCase = forceLiveData
     ? Number(item?.cost_per_unit) || 0
     : (ci.cost_at_count != null
         ? Number(ci.cost_at_count) || 0
-        : 0);
+        : Number(item?.cost_per_unit) || 0);
 
   if (costPerCase === 0) return 0;
 
