@@ -53,7 +53,54 @@ export default function OrderReconciliationPicker({
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [initialized, setInitialized] = useState(false);
+  const [isRescanning, setIsRescanning] = useState(false);
   const isPalmSpringsDiagnostics = locationId === PALM_SPRINGS_LOCATION_ID;
+
+  /**
+   * Manual rescan: hits PFG with the period date window to pull any orders
+   * that were missing from the last background sync (TRACS lag, late promotion
+   * to Azure, etc.). Invoices are intentionally ignored — only true orders
+   * (4-prefix from TRACS, or invoice-source from Azure) get persisted by the
+   * edge function. After completion, the picker query is invalidated so any
+   * newly-arrived orders appear inline.
+   */
+  const handleRescanPfg = async () => {
+    if (isRescanning) return;
+    setIsRescanning(true);
+    try {
+      const beforeCount = (orders || []).filter((o) => o.sourceType === "pfg").length;
+      const { data, error } = await supabase.functions.invoke("pfg-service", {
+        body: { action: "sync_orders", locationId },
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({
+        queryKey: ["order-reconciliation-v2", locationId],
+      });
+      // Small delay to let the query refetch before diffing
+      setTimeout(async () => {
+        const refreshed = queryClient.getQueryData<VendorOrder[]>([
+          "order-reconciliation-v2",
+          locationId,
+          countId,
+          currentPeriodType,
+          periodStartDate,
+          periodEndDate,
+        ]);
+        const afterCount = (refreshed || []).filter((o) => o.sourceType === "pfg").length;
+        const diff = Math.max(0, afterCount - beforeCount);
+        if (diff > 0) {
+          toast.success(`Found ${diff} new PFG order${diff === 1 ? "" : "s"}`);
+        } else {
+          toast(data?.results?.[0]?.error ?? "No new PFG orders");
+        }
+      }, 600);
+    } catch (err: any) {
+      console.error("[PFG Rescan] failed:", err);
+      toast.error(`Rescan failed: ${err?.message ?? "unknown error"}`);
+    } finally {
+      setIsRescanning(false);
+    }
+  };
 
   const serializeOrdersForAudit = (sourceOrders: VendorOrder[]) =>
     sourceOrders.map((order) => ({
