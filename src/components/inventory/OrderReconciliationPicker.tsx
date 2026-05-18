@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Check, Truck, Lock, UtensilsCrossed, Carrot, Receipt } from "lucide-react";
+import { Loader2, Check, Truck, Lock, UtensilsCrossed, Carrot, Receipt, RefreshCw } from "lucide-react";
 import { format, subDays, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -53,7 +53,54 @@ export default function OrderReconciliationPicker({
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [initialized, setInitialized] = useState(false);
+  const [isRescanning, setIsRescanning] = useState(false);
   const isPalmSpringsDiagnostics = locationId === PALM_SPRINGS_LOCATION_ID;
+
+  /**
+   * Manual rescan: hits PFG with the period date window to pull any orders
+   * that were missing from the last background sync (TRACS lag, late promotion
+   * to Azure, etc.). Invoices are intentionally ignored — only true orders
+   * (4-prefix from TRACS, or invoice-source from Azure) get persisted by the
+   * edge function. After completion, the picker query is invalidated so any
+   * newly-arrived orders appear inline.
+   */
+  const handleRescanPfg = async () => {
+    if (isRescanning) return;
+    setIsRescanning(true);
+    try {
+      const beforeCount = (orders || []).filter((o) => o.sourceType === "pfg").length;
+      const { data, error } = await supabase.functions.invoke("pfg-service", {
+        body: { action: "sync_orders", locationId },
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({
+        queryKey: ["order-reconciliation-v2", locationId],
+      });
+      // Small delay to let the query refetch before diffing
+      setTimeout(async () => {
+        const refreshed = queryClient.getQueryData<VendorOrder[]>([
+          "order-reconciliation-v2",
+          locationId,
+          countId,
+          currentPeriodType,
+          periodStartDate,
+          periodEndDate,
+        ]);
+        const afterCount = (refreshed || []).filter((o) => o.sourceType === "pfg").length;
+        const diff = Math.max(0, afterCount - beforeCount);
+        if (diff > 0) {
+          toast.success(`Found ${diff} new PFG order${diff === 1 ? "" : "s"}`);
+        } else {
+          toast(data?.results?.[0]?.error ?? "No new PFG orders");
+        }
+      }, 600);
+    } catch (err: any) {
+      console.error("[PFG Rescan] failed:", err);
+      toast.error(`Rescan failed: ${err?.message ?? "unknown error"}`);
+    } finally {
+      setIsRescanning(false);
+    }
+  };
 
   const serializeOrdersForAudit = (sourceOrders: VendorOrder[]) =>
     sourceOrders.map((order) => ({
@@ -569,9 +616,21 @@ export default function OrderReconciliationPicker({
 
   if (!orders || orders.length === 0) {
     return (
-      <div className="py-6 text-center">
-        <Truck className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+      <div className="py-6 text-center space-y-3">
+        <Truck className="h-8 w-8 text-muted-foreground mx-auto" />
         <p className="text-sm text-muted-foreground">No vendor orders found for this period window.</p>
+        {editable && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRescanPfg}
+            disabled={isRescanning}
+            className="gap-1.5"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", isRescanning && "animate-spin")} />
+            {isRescanning ? "Rescanning..." : "Rescan PFG"}
+          </Button>
+        )}
       </div>
     );
   }
@@ -583,13 +642,28 @@ export default function OrderReconciliationPicker({
           Period: {format(new Date(periodStartDate + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodEndDate + "T12:00:00"), "EEE, MMM d, yyyy")}
         </p>
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium">
           {selectedIds.size} of {selectableOrderCount} orders selected
         </p>
-        <p className="text-sm font-semibold">
-          ${selectedTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-        </p>
+        <div className="flex items-center gap-2">
+          {editable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRescanPfg}
+              disabled={isRescanning}
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+              title="Re-fetch PFG orders for this period — catches late TRACS syncs"
+            >
+              <RefreshCw className={cn("h-3 w-3", isRescanning && "animate-spin")} />
+              {isRescanning ? "Rescanning..." : "Rescan PFG"}
+            </Button>
+          )}
+          <p className="text-sm font-semibold">
+            ${selectedTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          </p>
+        </div>
       </div>
 
       <div className={cn("space-y-0", compact ? "max-h-60 overflow-y-auto" : "max-h-96 overflow-y-auto")}>
