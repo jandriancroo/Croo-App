@@ -630,13 +630,28 @@ export default function OrderReconciliationPicker({
           Period: {format(new Date(periodStartDate + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodEndDate + "T12:00:00"), "EEE, MMM d, yyyy")}
         </p>
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium">
           {selectedIds.size} of {selectableOrderCount} orders selected
         </p>
-        <p className="text-sm font-semibold">
-          ${selectedTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-        </p>
+        <div className="flex items-center gap-2">
+          {editable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRescanPfg}
+              disabled={isRescanning}
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+              title="Re-fetch PFG orders for this period — catches late TRACS syncs"
+            >
+              <RefreshCw className={cn("h-3 w-3", isRescanning && "animate-spin")} />
+              {isRescanning ? "Rescanning..." : "Rescan PFG"}
+            </Button>
+          )}
+          <p className="text-sm font-semibold">
+            ${selectedTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          </p>
+        </div>
       </div>
 
       <div className={cn("space-y-0", compact ? "max-h-60 overflow-y-auto" : "max-h-96 overflow-y-auto")}>
