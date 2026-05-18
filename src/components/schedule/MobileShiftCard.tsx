@@ -60,6 +60,7 @@ export function MobileShiftCard({
   isPublished = true,
   scheduledStart,
   scheduledEnd,
+  isPhantom = false,
   clockInTime,
   clockOutTime,
   breakStartTime,
