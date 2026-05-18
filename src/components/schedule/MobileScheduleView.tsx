@@ -235,7 +235,7 @@ export function MobileScheduleView({
       ]);
 
       const allPunches = punchesRes.data || [];
-      const todayScheduledShifts = (scheduledRes.data || []) as { id: string; user_id: string; start_time: string; end_time: string; day_of_week: number; shift_date: string }[];
+      const todayScheduledShifts = (scheduledRes.data || []) as { id: string; user_id: string; start_time: string; end_time: string; day_of_week: number; shift_date: string; is_phantom?: boolean }[];
       const eventsData = (eventsRes as any).data || [];
       
       // Filter events for today only
