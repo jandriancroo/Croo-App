@@ -22,6 +22,9 @@ interface MobileShiftCardProps {
   // Optional schedule info
   scheduledStart?: string;
   scheduledEnd?: string;
+  // When true, the scheduled shift is a phantom auto-generated placeholder
+  // (clock-in + 8h) — its end_time is not real, so hide it in the UI.
+  isPhantom?: boolean;
   
   // Optional punch info (for Today view)
   clockInTime?: string;
