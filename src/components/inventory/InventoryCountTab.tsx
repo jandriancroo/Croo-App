@@ -129,7 +129,7 @@ export default function InventoryCountTab({
     el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [safeIdx]);
 
-  if (!filteredCounts.length && !currentPeriodEntry) {
+  if (!filteredCounts.length) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
