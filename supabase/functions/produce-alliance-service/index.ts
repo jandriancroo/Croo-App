@@ -1601,21 +1601,27 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     console.warn('[PA Sync] Item update failures:', updateFailures.slice(0, 20));
   }
 
-  // Write gap alerts for unmatched items via RPC (atomic location-merge)
+  // Write gap alerts for unmatched items via RPC (atomic location-merge).
+  // Parallelized in chunks of 20 — single-threaded JS keeps the dedup map safe,
+  // and each RPC keys on (brand_id, vendor_source, item_number) so even racing
+  // calls converge to the same row. Drops ~20 sequential roundtrips → 1 round.
   if (gapAlerts.length > 0) {
-    for (const gap of gapAlerts) {
-      const { error } = await supabase.rpc('upsert_vendor_gap_with_location', {
-        _brand_id: gap.brand_id,
-        _vendor_source: gap.vendor_source,
-        _item_number: gap.item_number,
-        _vendor_name: gap.vendor_name,
-        _vendor_description: gap.vendor_description,
-        _pack_size: gap.pack_size,
-        _category_name: gap.category_name,
-        _location_id: locationId,
-        _location_name: locationName,
-      });
-      if (error) console.warn('[PA Sync] Gap alert write error:', error.message);
+    for (let i = 0; i < gapAlerts.length; i += 20) {
+      const batch = gapAlerts.slice(i, i + 20);
+      await Promise.all(batch.map(async (gap) => {
+        const { error } = await supabase.rpc('upsert_vendor_gap_with_location', {
+          _brand_id: gap.brand_id,
+          _vendor_source: gap.vendor_source,
+          _item_number: gap.item_number,
+          _vendor_name: gap.vendor_name,
+          _vendor_description: gap.vendor_description,
+          _pack_size: gap.pack_size,
+          _category_name: gap.category_name,
+          _location_id: locationId,
+          _location_name: locationName,
+        });
+        if (error) console.warn('[PA Sync] Gap alert write error:', error.message);
+      }));
     }
     console.log(`[PA Sync] Routed ${gapAlerts.length} unmatched items to vendor_gap_alerts`);
   }
