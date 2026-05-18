@@ -59,6 +59,11 @@ export default function InventoryCountTab({
   const { getTodayInTimezone } = useLocationTimezone();
   const { config: periodConfig } = useInventoryPeriodSettings(locationId);
   const currentPeriodEntry = useMemo(() => {
+    // Wait until recentCounts has actually loaded before injecting a synthetic
+    // "upcoming" placeholder — otherwise we'd briefly show "Count not started yet"
+    // for a period that already has a real in-progress count in the DB.
+    if (recentCounts === undefined) return null;
+
     const todayStr = getTodayInTimezone();
     const weekEndStr = computePeriodEndDate(todayStr, periodConfig.periodEndDay);
 
