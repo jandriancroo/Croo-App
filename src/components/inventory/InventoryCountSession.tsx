@@ -1936,8 +1936,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           
           // Determine which counting inputs to show based on count_by override
           const countBy = item.count_by || 'inherit';
-          const showCases = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'cases_only';
-          const showUnits = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'units_only';
+          // Bucket 3b rule: truly 1-per-case items (pack_quantity=1 AND no inner pack)
+          // have no real "case" — hide the Case lane unless an explicit override demands it.
+          const rawPackQty = (item as any)._rawPackQuantityOverride ?? (item as any)._rawPackQuantity ?? item.pack_quantity ?? 1;
+          const rawInnerPackQty = (item as any).inner_pack_quantity ?? null;
+          const isTrueSingleUnit = Number(rawPackQty) <= 1 && (!rawInnerPackQty || Number(rawInnerPackQty) <= 1);
+          let showCases = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'cases_only';
+          let showUnits = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'units_only';
+          if (isTrueSingleUnit && countBy === 'inherit') {
+            showCases = false;
+            showUnits = true;
+          }
           
           return (
             <div 
