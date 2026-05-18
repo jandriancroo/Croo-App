@@ -424,6 +424,7 @@ export function MobileScheduleView({
                 end_time: scheduledShift.end_time,
                 day_of_week: scheduledShift.day_of_week,
                 shift_date: scheduledShift.shift_date,
+                is_phantom: scheduledShift.is_phantom,
               }
             : null,
         });
