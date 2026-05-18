@@ -616,9 +616,21 @@ export default function OrderReconciliationPicker({
 
   if (!orders || orders.length === 0) {
     return (
-      <div className="py-6 text-center">
-        <Truck className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+      <div className="py-6 text-center space-y-3">
+        <Truck className="h-8 w-8 text-muted-foreground mx-auto" />
         <p className="text-sm text-muted-foreground">No vendor orders found for this period window.</p>
+        {editable && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRescanPfg}
+            disabled={isRescanning}
+            className="gap-1.5"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", isRescanning && "animate-spin")} />
+            {isRescanning ? "Rescanning..." : "Rescan PFG"}
+          </Button>
+        )}
       </div>
     );
   }
