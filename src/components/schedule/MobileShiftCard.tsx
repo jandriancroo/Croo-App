@@ -149,7 +149,10 @@ export function MobileShiftCard({
                 <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
                 {scheduledStart && scheduledEnd ? (
                   <span>
-                    {formatTime12Hour(scheduledStart)} - {formatTime12Hour(scheduledEnd)}
+                    {formatTime12Hour(scheduledStart)} - {isPhantom && !clockOutTime ? <span className="italic text-muted-foreground/70">in progress</span> : formatTime12Hour(scheduledEnd)}
+                    {isPhantom && (
+                      <span className="ml-1 text-[10px] uppercase tracking-wide text-amber-600">unscheduled</span>
+                    )}
                     {positionLabel && (
                       <span style={{ color: positionColor || undefined }}> · {positionLabel}</span>
                     )}
