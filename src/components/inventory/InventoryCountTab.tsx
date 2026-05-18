@@ -58,30 +58,45 @@ export default function InventoryCountTab({
   // Compute current weekly period end date using configured end day
   const { getTodayInTimezone } = useLocationTimezone();
   const { config: periodConfig } = useInventoryPeriodSettings(locationId);
-  const currentPeriodEntry = useMemo(() => {
-    // Wait until recentCounts has actually loaded before injecting a synthetic
-    // "upcoming" placeholder — otherwise we'd briefly show "Count not started yet"
-    // for a period that already has a real in-progress count in the DB.
-    if (recentCounts === undefined) return null;
+  // Generate synthetic "upcoming/not-counted" entries for the last N weeks
+  // (including current). Past weeks without a real count row still render
+  // as tabs so they can be backfilled — fixing the asymmetric picker bug
+  // where past weeks would silently disappear if no one started a count.
+  const WEEKS_TO_RENDER = 8;
+  const upcomingWeeklyEntries = useMemo(() => {
+    if (recentCounts === undefined) return [];
 
     const todayStr = getTodayInTimezone();
-    const weekEndStr = computePeriodEndDate(todayStr, periodConfig.periodEndDay);
-
+    const currentWeekEnd = computePeriodEndDate(todayStr, periodConfig.periodEndDay);
     const allCounts = recentCounts || [];
-    const exists = allCounts.some(
-      (c) => c.period_type === "weekly" && c.period_end_date === weekEndStr
-    );
-    if (exists) return null;
 
-    return {
-      id: `_upcoming_weekly_${weekEndStr}`,
-      status: "upcoming",
-      period_type: "weekly",
-      period_end_date: weekEndStr,
-      count_date: todayStr,
-      _isUpcoming: true,
-      _stats: { totalItems: 0, countedItems: 0, totalCost: 0 },
-    };
+    const entries: any[] = [];
+    // Walk backwards N weeks from the current period end
+    const base = new Date(currentWeekEnd + "T12:00:00");
+    for (let i = 0; i < WEEKS_TO_RENDER; i++) {
+      const d = new Date(base);
+      d.setDate(d.getDate() - i * 7);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const weekEndStr = `${y}-${m}-${day}`;
+
+      const exists = allCounts.some(
+        (c) => c.period_type === "weekly" && c.period_end_date === weekEndStr
+      );
+      if (exists) continue;
+
+      entries.push({
+        id: `_upcoming_weekly_${weekEndStr}`,
+        status: "upcoming",
+        period_type: "weekly",
+        period_end_date: weekEndStr,
+        count_date: weekEndStr,
+        _isUpcoming: true,
+        _stats: { totalItems: 0, countedItems: 0, totalCost: 0 },
+      });
+    }
+    return entries;
   }, [recentCounts, getTodayInTimezone, periodConfig.periodEndDay]);
 
   const filteredCounts = useMemo(() => {
@@ -89,9 +104,10 @@ export default function InventoryCountTab({
       ? completedCounts
       : completedCounts.filter((c) => c.period_type === typeFilter);
 
-    const combined = currentPeriodEntry && (typeFilter === "all" || typeFilter === "weekly")
-      ? [currentPeriodEntry, ...base]
-      : [...base];
+    const upcoming = (typeFilter === "all" || typeFilter === "weekly")
+      ? upcomingWeeklyEntries
+      : [];
+    const combined = [...upcoming, ...base];
 
     // Sort by effective period_end_date descending (newest first)
     // Uses the monthly close safeguard so ME counts sort by their real month
@@ -100,7 +116,7 @@ export default function InventoryCountTab({
       const bEnd = getEffectivePeriodEndDate(b) || b.period_end_date || "";
       return bEnd.localeCompare(aEnd);
     });
-  }, [completedCounts, typeFilter, currentPeriodEntry]);
+  }, [completedCounts, typeFilter, upcomingWeeklyEntries]);
 
   const safeIdx = Math.min(selectedIdx, Math.max(filteredCounts.length - 1, 0));
   const selectedCount = filteredCounts[safeIdx] || null;
