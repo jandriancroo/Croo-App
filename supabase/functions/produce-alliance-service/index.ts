@@ -1570,8 +1570,8 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   // Existing local items only: use UPDATE, not UPSERT.
   // UPSERT can hit the trigger path with a partial NEW row and null out brand_item_id.
   const updateFailures: Array<{ id: string; message: string }> = [];
-  for (let i = 0; i < toUpsert.length; i += 25) {
-    const chunk = toUpsert.slice(i, i + 25);
+  for (let i = 0; i < toUpsert.length; i += 50) {
+    const chunk = toUpsert.slice(i, i + 50);
     const results = await Promise.all(
       chunk.map(async ({ id, __innerPackQty, ...payload }: any) => {
         const { error } = await supabase
