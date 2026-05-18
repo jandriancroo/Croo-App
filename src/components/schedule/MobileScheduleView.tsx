@@ -110,6 +110,7 @@ interface DayPunch {
     end_time: string;
     day_of_week: number;
     shift_date: string;
+    is_phantom?: boolean;
   } | null;
 }
 
