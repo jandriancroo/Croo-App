@@ -22,6 +22,9 @@ interface MobileShiftCardProps {
   // Optional schedule info
   scheduledStart?: string;
   scheduledEnd?: string;
+  // When true, the scheduled shift is a phantom auto-generated placeholder
+  // (clock-in + 8h) — its end_time is not real, so hide it in the UI.
+  isPhantom?: boolean;
   
   // Optional punch info (for Today view)
   clockInTime?: string;
@@ -57,6 +60,7 @@ export function MobileShiftCard({
   isPublished = true,
   scheduledStart,
   scheduledEnd,
+  isPhantom = false,
   clockInTime,
   clockOutTime,
   breakStartTime,
@@ -145,7 +149,10 @@ export function MobileShiftCard({
                 <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
                 {scheduledStart && scheduledEnd ? (
                   <span>
-                    {formatTime12Hour(scheduledStart)} - {formatTime12Hour(scheduledEnd)}
+                    {formatTime12Hour(scheduledStart)} - {isPhantom && !clockOutTime ? <span className="italic text-muted-foreground/70">in progress</span> : formatTime12Hour(scheduledEnd)}
+                    {isPhantom && (
+                      <span className="ml-1 text-[10px] uppercase tracking-wide text-amber-600">unscheduled</span>
+                    )}
                     {positionLabel && (
                       <span style={{ color: positionColor || undefined }}> · {positionLabel}</span>
                     )}

@@ -110,6 +110,7 @@ interface DayPunch {
     end_time: string;
     day_of_week: number;
     shift_date: string;
+    is_phantom?: boolean;
   } | null;
 }
 
@@ -215,7 +216,7 @@ export function MobileScheduleView({
       
       const scheduledQuery = supabase
         .from('scheduled_shifts')
-        .select('id, user_id, start_time, end_time, day_of_week, shift_date')
+        .select('id, user_id, start_time, end_time, day_of_week, shift_date, is_phantom')
         .eq('shift_date', punchDateStr);
       
       const isToday = punchDateStr === todayStr;
@@ -234,7 +235,7 @@ export function MobileScheduleView({
       ]);
 
       const allPunches = punchesRes.data || [];
-      const todayScheduledShifts = (scheduledRes.data || []) as { id: string; user_id: string; start_time: string; end_time: string; day_of_week: number; shift_date: string }[];
+      const todayScheduledShifts = (scheduledRes.data || []) as { id: string; user_id: string; start_time: string; end_time: string; day_of_week: number; shift_date: string; is_phantom?: boolean }[];
       const eventsData = (eventsRes as any).data || [];
       
       // Filter events for today only
@@ -423,6 +424,7 @@ export function MobileScheduleView({
                 end_time: scheduledShift.end_time,
                 day_of_week: scheduledShift.day_of_week,
                 shift_date: scheduledShift.shift_date,
+                is_phantom: scheduledShift.is_phantom,
               }
             : null,
         });
@@ -966,6 +968,7 @@ export function MobileScheduleView({
                             statusIndicator={punch.isOnBreak ? 'break' : 'active'}
                             scheduledStart={punch.scheduledShift?.start_time}
                             scheduledEnd={punch.scheduledShift?.end_time}
+                            isPhantom={punch.scheduledShift?.is_phantom}
                             clockInTime={punch.clockInTime}
                             clockOutTime={punch.clockOutTime}
                             breakStartTime={punch.breakStartTime}
@@ -1148,6 +1151,7 @@ export function MobileScheduleView({
                             statusIndicator="none"
                             scheduledStart={punch.scheduledShift?.start_time}
                             scheduledEnd={punch.scheduledShift?.end_time}
+                            isPhantom={punch.scheduledShift?.is_phantom}
                             clockInTime={punch.clockInTime}
                             clockOutTime={punch.clockOutTime}
                             breakStartTime={punch.breakStartTime}
@@ -1245,6 +1249,7 @@ export function MobileScheduleView({
                       statusIndicator="none"
                       scheduledStart={punch.scheduledShift?.start_time}
                       scheduledEnd={punch.scheduledShift?.end_time}
+                      isPhantom={punch.scheduledShift?.is_phantom}
                       clockInTime={punch.clockInTime}
                       clockOutTime={punch.clockOutTime}
                       breakStartTime={punch.breakStartTime}
