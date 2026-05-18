@@ -1151,6 +1151,7 @@ export function MobileScheduleView({
                             statusIndicator="none"
                             scheduledStart={punch.scheduledShift?.start_time}
                             scheduledEnd={punch.scheduledShift?.end_time}
+                            isPhantom={punch.scheduledShift?.is_phantom}
                             clockInTime={punch.clockInTime}
                             clockOutTime={punch.clockOutTime}
                             breakStartTime={punch.breakStartTime}
