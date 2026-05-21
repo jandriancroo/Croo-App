@@ -120,12 +120,24 @@ const Inventory = () => {
       if (error) throw error;
       if (!data || data.length === 0) return [];
 
-      // Fetch stats for all counts from count_items (source of truth)
+      // Fetch stats for all counts from count_items (source of truth).
+      // Paginated to bypass Supabase/PostgREST default 1000-row cap — without this,
+      // locations with >~5 counts silently drop rows and counts appear "not started".
       const countIds = data.map(c => c.id);
-      const { data: countItems } = await supabase
-        .from("inventory_count_items")
-        .select("count_id, item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs")
-        .in("count_id", countIds);
+      const PAGE_SIZE = 1000;
+      const countItems: any[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data: page, error: pageErr } = await supabase
+          .from("inventory_count_items")
+          .select("count_id, item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs")
+          .in("count_id", countIds)
+          .order("count_id")
+          .range(from, from + PAGE_SIZE - 1);
+        if (pageErr) throw pageErr;
+        if (!page || page.length === 0) break;
+        countItems.push(...page);
+        if (page.length < PAGE_SIZE) break;
+      }
 
       // Get unique item IDs for cost lookup (include inner_pack_quantity + is_recipe)
       const itemIds = [...new Set((countItems || []).map(ci => ci.item_id))];
