@@ -16,7 +16,12 @@ const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // silently desynchronize Period view, Review view, COGS report, and AI answers.
 // ─────────────────────────────────────────────────────────────────────────────
 function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveData: boolean = false): number {
-  const costPerCase = forceLiveData
+  // Snapshot-wins guard — submitted counts are frozen forever, even if a caller
+  // opts into live data. Mirror of src/utils/countItemValue.ts.
+  const hasSnapshot = ci?.pack_quantity_at_count != null || ci?.cost_at_count != null;
+  const useLive = forceLiveData && !hasSnapshot;
+
+  const costPerCase = useLive
     ? Number(item?.cost_per_unit) || 0
     : (ci?.cost_at_count != null
         ? Number(ci.cost_at_count) || 0
@@ -69,13 +74,13 @@ function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveD
   // (item_conversions) are for cost-per-oz math, NOT for count quantity
   // reconstruction. Using them here breaks case-level counting for items
   // where pack_quantity = 1 is genuinely correct (e.g., olive oil sold by case).
-  const packQtyRaw = forceLiveData
+  const packQtyRaw = useLive
     ? (item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1)
     : (ci?.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1);
 
   const packQty = Number(packQtyRaw);
   const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;
-  const innerPackQtyRaw = forceLiveData
+  const innerPackQtyRaw = useLive
     ? (item?.inner_pack_quantity ?? null)
     : (ci?.inner_pack_quantity_at_count ?? item?.inner_pack_quantity ?? null);
   const innerPackQty = Number(innerPackQtyRaw);

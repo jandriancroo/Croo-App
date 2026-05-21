@@ -29,6 +29,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 import { calculateCountItemValue } from "@/utils/countItemValue";
+import { getEffectivePackQty } from "@/utils/getEffectivePackQty";
 import VarianceReport from "./VarianceReport";
 import InvoiceUploadDialog from "./InvoiceUploadDialog";
 import SalesDateEditor from "./SalesDateEditor";
@@ -442,7 +443,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       const getLivePerUnitCost = (itemId: string) => {
         const item = itemMap.get(itemId);
-        const packQty = Number(item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+        const packQty = getEffectivePackQty(item || {});
         return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
       }
 
