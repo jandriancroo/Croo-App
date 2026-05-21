@@ -86,7 +86,38 @@ export function calculateCountItemValue(
         : Number(item?.cost_per_unit) || 0);
 
   if (costPerCase === 0) return 0;
-...
+
+  // Recipe items: cost_per_unit is the cost to make ONE BATCH that produces
+  // recipe_yield_qty of recipe_yield_unit. Convert counted qty to yield unit
+  // via the oz bridge when count unit differs from yield unit.
+  if (item?.is_recipe) {
+    const qty = ci.quantity != null
+      ? Number(ci.quantity) || 0
+      : (Number(ci.entered_cases || 0) + Number(ci.entered_units || 0) + Number(ci.entered_inner_packs || 0));
+    const yieldQty = Number(item?.recipe_yield_qty) || 0;
+    if (yieldQty > 0) {
+      const yieldUnit = item?.recipe_yield_unit || null;
+      const countUnit = item?.unit || null;
+      let qtyInYield: number | null = qty;
+      if (countUnit && yieldUnit && normalizeUnit(countUnit) !== normalizeUnit(yieldUnit)) {
+        qtyInYield = convertUnits(qty, countUnit, yieldUnit);
+      }
+      if (qtyInYield != null && Number.isFinite(qtyInYield)) {
+        return qtyInYield * (costPerCase / yieldQty);
+      }
+    }
+    return qty * costPerCase;
+  }
+
+  const enteredCasesNum = Number(ci.entered_cases || 0);
+  const enteredUnitsNum = Number(ci.entered_units || 0);
+  const enteredInnerPacksNum = Number(ci.entered_inner_packs || 0);
+  const quantityNum = Number(ci.quantity || 0);
+
+  const pipeline1PackQty = conversion
+    ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
+    : null;
+
   // Pack qty resolution via shared helper (snapshot-first by priority).
   // When useLive=true and no snapshot exists, strip the snapshot field so the
   // helper falls through to live override → pack_quantity → Pipeline 1 fallback.
