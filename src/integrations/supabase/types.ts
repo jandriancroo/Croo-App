@@ -8384,6 +8384,45 @@ export type Database = {
           },
         ]
       }
+      snapshot_backfill_log: {
+        Row: {
+          count_id: string
+          id: string
+          item_id: string
+          location_id: string | null
+          new_cost: number | null
+          new_pack_qty: number | null
+          old_cost: number | null
+          old_pack_qty: number | null
+          run_at: string
+          source: string
+        }
+        Insert: {
+          count_id: string
+          id?: string
+          item_id: string
+          location_id?: string | null
+          new_cost?: number | null
+          new_pack_qty?: number | null
+          old_cost?: number | null
+          old_pack_qty?: number | null
+          run_at?: string
+          source?: string
+        }
+        Update: {
+          count_id?: string
+          id?: string
+          item_id?: string
+          location_id?: string | null
+          new_cost?: number | null
+          new_pack_qty?: number | null
+          old_cost?: number | null
+          old_pack_qty?: number | null
+          run_at?: string
+          source?: string
+        }
+        Relationships: []
+      }
       support_messages: {
         Row: {
           content: string | null
