@@ -15,6 +15,7 @@ import { useInventoryTransfers, getTransferTotalsForPeriod } from "@/hooks/useIn
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { calculateCountItemValue } from "@/utils/countItemValue";
+import { getEffectivePackQty } from "@/utils/getEffectivePackQty";
 export const COGSReportContent = ({ locationId }: { locationId: string }) => {
   
   // Resolve brand for Pipeline 1 conversion fallback
