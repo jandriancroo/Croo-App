@@ -1,4 +1,6 @@
 import { convertUnits, normalizeUnit } from "./unitConversion";
+import { getEffectivePackQty } from "./getEffectivePackQty";
+
 
 /**
  * Single source of truth for valuing a count item in inventory reports.
@@ -69,63 +71,36 @@ export function calculateCountItemValue(
   ci: CountItemForValue,
   item: ItemForValue | undefined,
   conversion: ConversionForValue | null | undefined,
-  forceLiveData: boolean = false
+  forceLiveData: boolean // REQUIRED — no default. Pass false to honor snapshots; true only for in-progress counts being recomputed live.
 ): number {
-  // Phase 1 — forceLiveData ignores snapshots and uses live cost / live pack chain.
-  // Default behaviour (false) preserves the post-Apr-28 snapshot-first lock.
-  const costPerCase = forceLiveData
+  // ── Snapshot-wins guard ──
+  // If a snapshot exists on the row, it ALWAYS wins for both cost and pack qty,
+  // regardless of forceLiveData. Submitted counts are frozen forever.
+  const hasSnapshot = ci.pack_quantity_at_count != null || ci.cost_at_count != null;
+  const useLive = forceLiveData && !hasSnapshot;
+
+  const costPerCase = useLive
     ? Number(item?.cost_per_unit) || 0
     : (ci.cost_at_count != null
         ? Number(ci.cost_at_count) || 0
         : Number(item?.cost_per_unit) || 0);
 
   if (costPerCase === 0) return 0;
-
-  // Recipe items: cost_per_unit is the cost to make ONE BATCH that produces
-  // recipe_yield_qty of recipe_yield_unit. The operator typically counts in
-  // the yield unit (e.g., qt of Red Sauce), so we must divide the batch cost
-  // by yield qty to get cost per counted unit. If the count unit differs from
-  // the yield unit, convert via the oz bridge. If conversion isn't possible
-  // (e.g., counted in "ea"/batches), fall back to treating qty as batches.
-  if (item?.is_recipe) {
-    const qty = ci.quantity != null
-      ? Number(ci.quantity) || 0
-      : (Number(ci.entered_cases || 0) + Number(ci.entered_units || 0) + Number(ci.entered_inner_packs || 0));
-    const yieldQty = Number(item?.recipe_yield_qty) || 0;
-    if (yieldQty > 0) {
-      const yieldUnit = item?.recipe_yield_unit || null;
-      const countUnit = item?.unit || null;
-      let qtyInYield: number | null = qty;
-      if (countUnit && yieldUnit && normalizeUnit(countUnit) !== normalizeUnit(yieldUnit)) {
-        qtyInYield = convertUnits(qty, countUnit, yieldUnit);
-      }
-      if (qtyInYield != null && Number.isFinite(qtyInYield)) {
-        return qtyInYield * (costPerCase / yieldQty);
-      }
-    }
-    return qty * costPerCase;
+...
+  // Pack qty resolution via shared helper (snapshot-first by priority).
+  // When useLive=true and no snapshot exists, strip the snapshot field so the
+  // helper falls through to live override → pack_quantity → Pipeline 1 fallback.
+  const packSource = useLive
+    ? { pack_quantity_override: item?.pack_quantity_override, pack_quantity: item?.pack_quantity }
+    : { pack_quantity_at_count: ci.pack_quantity_at_count, pack_quantity_override: item?.pack_quantity_override, pack_quantity: item?.pack_quantity };
+  let safePackQty = getEffectivePackQty(packSource);
+  // Pipeline 1 fallback applies only when nothing else resolved (helper returned 1 with no inputs).
+  if (safePackQty === 1 && pipeline1PackQty != null && Number.isFinite(pipeline1PackQty) && pipeline1PackQty > 0
+      && !ci.pack_quantity_at_count && !item?.pack_quantity_override && !item?.pack_quantity) {
+    safePackQty = Number(pipeline1PackQty);
   }
 
-  const enteredCasesNum = Number(ci.entered_cases || 0);
-  const enteredUnitsNum = Number(ci.entered_units || 0);
-  const enteredInnerPacksNum = Number(ci.entered_inner_packs || 0);
-  const quantityNum = Number(ci.quantity || 0);
-
-  const pipeline1PackQty = conversion
-    ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
-    : null;
-
-  // Pack quantity wins over Pipeline 1 always — Pipeline 1 conversions
-  // (item_conversions) are for cost-per-oz math, NOT for count quantity
-  // reconstruction. Using them here breaks case-level counting for items
-  // where pack_quantity = 1 is genuinely correct (e.g., olive oil sold by case).
-  const packQtyRaw = forceLiveData
-    ? (item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1)
-    : (ci.pack_quantity_at_count ?? item?.pack_quantity_override ?? item?.pack_quantity ?? pipeline1PackQty ?? 1);
-
-  const packQty = Number(packQtyRaw);
-  const safePackQty = Number.isFinite(packQty) && packQty > 0 ? packQty : 1;
-  const innerPackQtyRaw = forceLiveData
+  const innerPackQtyRaw = useLive
     ? (item?.inner_pack_quantity ?? null)
     : (ci.inner_pack_quantity_at_count ?? item?.inner_pack_quantity ?? null);
   const innerPackQty = Number(innerPackQtyRaw);
