@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
     const pageSize = 1000;
     for (let offset = 0; ; offset += pageSize) {
       const { data, error } = await supabase
-        .from("count_items")
+        .from("inventory_count_items")
         .select("id, count_id, item_id, pack_quantity_at_count, cost_at_count")
         .in("count_id", countIds)
         .or("pack_quantity_at_count.is.null,cost_at_count.is.null")
@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
 
       if (!dryRun) {
         const { error: upErr } = await supabase
-          .from("count_items")
+          .from("inventory_count_items")
           .update(patch)
           .eq("id", row.id);
         if (upErr) {
