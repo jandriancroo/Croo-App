@@ -64,7 +64,8 @@ describe('calculateCountItemValue', () => {
     const result = calculateCountItemValue(
       { quantity: 9, entered_cases: 0, entered_units: 9, cost_at_count: 50.70, pack_quantity_at_count: 36 },
       { pack_quantity: 1 }, // legacy says 1, snapshot wins
-      { outer_qty: 1, canonical_qty_per_inner: 12 } // pipeline says 12, snapshot wins
+      { outer_qty: 1, canonical_qty_per_inner: 12 }, // pipeline says 12, snapshot wins
+      false
     );
     expect(result).toBeCloseTo(12.68, 2);
   });
