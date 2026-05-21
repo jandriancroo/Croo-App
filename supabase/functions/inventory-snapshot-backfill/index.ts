@@ -124,8 +124,8 @@ Deno.serve(async (req) => {
     // 2. Load all referenced inventory_items once.
     const uniqueItemIds = Array.from(new Set(nullRows.map((r) => r.item_id)));
     const itemMap = new Map<string, any>();
-    for (let i = 0; i < uniqueItemIds.length; i += 500) {
-      const slice = uniqueItemIds.slice(i, i + 500);
+    for (let i = 0; i < uniqueItemIds.length; i += 100) {
+      const slice = uniqueItemIds.slice(i, i + 100);
       const { data, error } = await supabase
         .from("inventory_items")
         .select(
