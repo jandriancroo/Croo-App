@@ -217,7 +217,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     const itemMap = new Map(inventoryItems.map(i => [i.id, i]));
     const getLivePerUnitCost = (itemId: string) => {
       const item = itemMap.get(itemId) as any;
-      const packQty = Number(item?.pack_quantity_override ?? item?.pack_quantity ?? 1);
+      const packQty = getEffectivePackQty(item || {});
       return (Number(item?.cost_per_unit) || 0) / Math.max(packQty, 1);
     };
     // Single source of truth — see src/utils/countItemValue.ts
