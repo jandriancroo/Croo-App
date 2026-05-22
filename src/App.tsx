@@ -90,6 +90,7 @@ const TheoPlacementPreview = lazyWithRetry(() => import("./pages/TheoPlacementPr
 const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const BrandInventory = lazyWithRetry(() => import("./pages/BrandInventory"));
 const BrandUnpricedIngredients = lazyWithRetry(() => import("./pages/BrandUnpricedIngredients"));
+const BrandPackConfigApprovals = lazyWithRetry(() => import("./pages/BrandPackConfigApprovals"));
 const BrandAutoDeployLog = lazyWithRetry(() => import("./pages/BrandAutoDeployLog"));
 const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 const KDSBoard = lazyWithRetry(() => import("./pages/KDSBoard"));
@@ -196,6 +197,7 @@ const AppContent = () => {
         <Route path="/brands" element={<ProtectedRoute><BrandManagement /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory" element={<ProtectedRoute><BrandInventory /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory/unpriced" element={<ProtectedRoute><BrandUnpricedIngredients /></ProtectedRoute>} />
+        <Route path="/brand/:brandId/inventory/pack-configs" element={<ProtectedRoute><BrandPackConfigApprovals /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory/auto-deploy-log" element={<ProtectedRoute><BrandAutoDeployLog /></ProtectedRoute>} />
         <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
         <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
