@@ -120,6 +120,21 @@ export default function BrandInventory() {
     enabled: !!brandId,
   });
 
+  // Proposed pack config count
+  const { data: proposalCount = 0 } = useQuery({
+    queryKey: ['pack-config-proposal-count', brandId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('brand_pack_configs')
+        .select('*', { count: 'exact', head: true })
+        .eq('brand_id', brandId!)
+        .eq('status', 'proposed');
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!brandId,
+  });
+
   // Brand categories (dynamic, reorderable)
   const { data: brandCategories = [] } = useQuery({
     queryKey: ['brand-categories', brandId],
