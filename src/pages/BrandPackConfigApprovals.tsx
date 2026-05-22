@@ -316,19 +316,29 @@ export default function BrandPackConfigApprovals() {
   // ---- Approve ----
   const approve = useMutation({
     mutationFn: async (r: ProposalRow) => {
+      const tag = `[Approve ${r.template?.product_name ?? r.id}]`;
+      console.groupCollapsed(`${tag} start`);
+      console.log("proposal row:", r);
+
       const d = getDraft(r);
       const outer = Number(d.outer_qty) || 0;
       const inner = d.inner_qty == null || d.inner_qty === ("" as any) ? null : Number(d.inner_qty);
       const count_units_per_case = outer * (inner ?? 1);
+      console.log("draft values:", { outer, inner, count_units_per_case, outer_type: d.outer_type, common_unit: d.common_unit, cost_per_common_unit: d.cost_per_common_unit, label: d.label });
+
       if (!outer || !d.outer_type || !d.common_unit) {
+        console.error(`${tag} validation failed — missing outer_qty/outer_type/common_unit`);
+        console.groupEnd();
         throw new Error("outer_qty, outer_type, and common_unit are required");
       }
 
       const { data: userRes } = await supabase.auth.getUser();
       const uid = userRes.user?.id ?? null;
+      console.log("approver uid:", uid);
 
       // (1) finalize the config row
-      const { error: updErr } = await supabase
+      console.log(`${tag} STEP 1: updating brand_pack_configs row ${r.id} → status=approved`);
+      const { error: updErr, data: updData } = await supabase
         .from("brand_pack_configs")
         .update({
           outer_qty: outer,
@@ -344,17 +354,26 @@ export default function BrandPackConfigApprovals() {
           approved_at: new Date().toISOString(),
         })
         .eq("id", r.id)
-        .eq("status", "proposed");
-      if (updErr) throw updErr;
+        .eq("status", "proposed")
+        .select();
+      if (updErr) {
+        console.error(`${tag} brand_pack_configs update FAILED:`, updErr);
+        console.groupEnd();
+        throw updErr;
+      }
+      console.log(`${tag} brand_pack_configs updated:`, updData);
 
       // (2) find locations that ACTUALLY carry this proposal's vendor SKU
-      // (must match the "Synced at" chip logic: vendor identifier populated AND last_synced_at non-null)
-      const locIds = locationsForProposal(r).map((l) => l.id);
+      const locs = locationsForProposal(r);
+      const locIds = locs.map((l) => l.id);
+      console.log(`${tag} STEP 2: ${locIds.length} location(s) qualify (synced + has SKU):`, locs.map(l => l.name));
 
       // (3) for each location, check if a default already exists for this (location, template)
       let inserted = 0;
       let defaulted = 0;
+      let skipped = 0;
       for (const location_id of locIds) {
+        const locName = locs.find(l => l.id === location_id)?.name ?? location_id;
         const { data: existing } = await supabase
           .from("location_pack_selections")
           .select("active_pack_config_id, is_default")
@@ -362,8 +381,13 @@ export default function BrandPackConfigApprovals() {
           .eq("brand_template_id", r.brand_template_id);
         const hasDefault = (existing ?? []).some((e: any) => e.is_default);
         const alreadyHere = (existing ?? []).some((e: any) => e.active_pack_config_id === r.id);
-        if (alreadyHere) continue;
+        if (alreadyHere) {
+          console.log(`${tag}   • ${locName}: already has this pack selection — skip`);
+          skipped += 1;
+          continue;
+        }
         const is_default = !hasDefault;
+        console.log(`${tag}   • ${locName}: inserting selection (is_default=${is_default}, existing rows=${(existing ?? []).length})`);
         const { error: insErr } = await supabase.from("location_pack_selections").insert({
           location_id,
           brand_template_id: r.brand_template_id,
@@ -371,10 +395,17 @@ export default function BrandPackConfigApprovals() {
           is_default,
           selected_by: uid,
         });
-        if (insErr) throw insErr;
+        if (insErr) {
+          console.error(`${tag}   • ${locName}: INSERT failed:`, insErr);
+          console.groupEnd();
+          throw insErr;
+        }
         inserted += 1;
         if (is_default) defaulted += 1;
       }
+      console.log(`${tag} DONE — inserted=${inserted}, defaulted=${defaulted}, skipped=${skipped}, locCount=${locIds.length}`);
+      console.log(`${tag} NOTE: inventory_items.cost_per_unit is NOT touched by approval. Per-location cost is rewritten only by the next PFG sync.`);
+      console.groupEnd();
       return { inserted, defaulted, locCount: locIds.length };
     },
     onSuccess: (res, r) => {
