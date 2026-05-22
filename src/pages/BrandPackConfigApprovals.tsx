@@ -6,8 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Check, Archive, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Archive, Save, Loader2, X, Search } from "lucide-react";
 
 type ProposalRow = {
   id: string;
@@ -161,9 +169,74 @@ export default function BrandPackConfigApprovals() {
     return locByTplVendor.get(`${r.brand_template_id}::${vendor}`) ?? [];
   };
 
+  // ---- Filters + bulk select state ----
+  const [vendorFilter, setVendorFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [query, setQuery] = useState<string>("");
+  const [competingOnly, setCompetingOnly] = useState<boolean>(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState<null | "approve" | "reject">(null);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const proposalVendor = (r: ProposalRow): string => {
+    const ev = (r.source_evidence || {}) as any;
+    const v =
+      (ev.vendor ? String(ev.vendor) : null) ||
+      (r.source?.startsWith("vendor_sync:") ? r.source.split(":")[1] : null) ||
+      (r.source?.startsWith("invoice:") ? r.source.split(":")[1] : null);
+    if (!v) return "unknown";
+    const s = v.toLowerCase();
+    return s === "produce_alliance" ? "pa" : s;
+  };
+
+  const vendorOptions = useMemo(() => {
+    const s = new Set<string>();
+    proposalRows.forEach((r) => s.add(proposalVendor(r)));
+    return Array.from(s).sort();
+  }, [proposalRows]);
+
+  const categoryOptions = useMemo(() => {
+    const s = new Set<string>();
+    proposalRows.forEach((r) => {
+      if (r.template?.category) s.add(r.template.category);
+    });
+    return Array.from(s).sort();
+  }, [proposalRows]);
+
+  // Count proposals per template (for "competing only" filter)
+  const proposalCountByTpl = useMemo(() => {
+    const m = new Map<string, number>();
+    proposalRows.forEach((r) => m.set(r.brand_template_id, (m.get(r.brand_template_id) ?? 0) + 1));
+    return m;
+  }, [proposalRows]);
+
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return proposalRows.filter((r) => {
+      if (vendorFilter !== "all" && proposalVendor(r) !== vendorFilter) return false;
+      if (categoryFilter !== "all" && (r.template?.category ?? "") !== categoryFilter) return false;
+      if (competingOnly && (proposalCountByTpl.get(r.brand_template_id) ?? 0) < 2) return false;
+      if (q) {
+        const ev = (r.source_evidence || {}) as any;
+        const hay = [
+          r.template?.product_name,
+          r.template?.item_number,
+          ev.sku,
+          ev.packString,
+          r.template?.category,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [proposalRows, vendorFilter, categoryFilter, competingOnly, query, proposalCountByTpl]);
+
   const grouped = useMemo(() => {
     const m = new Map<string, { template: ProposalRow["template"]; rows: ProposalRow[] }>();
-    proposalRows.forEach((r) => {
+    filteredRows.forEach((r) => {
       const k = r.brand_template_id;
       if (!m.has(k)) m.set(k, { template: r.template, rows: [] });
       m.get(k)!.rows.push(r);
@@ -171,7 +244,24 @@ export default function BrandPackConfigApprovals() {
     return Array.from(m.values()).sort((a, b) =>
       (a.template?.product_name || "").localeCompare(b.template?.product_name || "")
     );
-  }, [proposalRows]);
+  }, [filteredRows]);
+
+  // Trim selection to currently visible rows
+  const visibleIds = useMemo(() => new Set(filteredRows.map((r) => r.id)), [filteredRows]);
+  const effectiveSelected = useMemo(() => {
+    const s = new Set<string>();
+    selected.forEach((id) => { if (visibleIds.has(id)) s.add(id); });
+    return s;
+  }, [selected, visibleIds]);
+
+  const toggleSelect = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  const selectAllVisible = () => setSelected(new Set(visibleIds));
+  const clearSelection = () => setSelected(new Set());
 
   const getDraft = (r: ProposalRow): Draft =>
     drafts[r.id] ?? {
@@ -319,8 +409,46 @@ export default function BrandPackConfigApprovals() {
     onError: (e: any) => toast({ title: "Reject failed", description: e.message, variant: "destructive" }),
   });
 
+  // ---- Bulk runner ----
+  const runBulk = async (action: "approve" | "reject") => {
+    const ids = Array.from(effectiveSelected);
+    if (ids.length === 0) return;
+    const verb = action === "approve" ? "approve" : "reject";
+    if (!confirm(`${verb[0].toUpperCase()}${verb.slice(1)} ${ids.length} proposal(s)?`)) return;
+    const rowsById = new Map(proposalRows.map((r) => [r.id, r]));
+    setBulkBusy(action);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    let fail = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const r = rowsById.get(ids[i]);
+      if (!r) { fail++; setBulkProgress({ done: i + 1, total: ids.length }); continue; }
+      try {
+        if (action === "approve") await approve.mutateAsync(r);
+        else await reject.mutateAsync(r);
+        ok++;
+      } catch (e: any) {
+        fail++;
+        console.warn("[bulk]", action, "failed for", r.id, e?.message);
+      }
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    setBulkBusy(null);
+    setBulkProgress(null);
+    clearSelection();
+    toast({
+      title: `Bulk ${action} complete`,
+      description: `${ok} succeeded, ${fail} failed.`,
+      variant: fail > 0 ? "destructive" : undefined,
+    });
+    qc.invalidateQueries({ queryKey: ["pack-config-proposals", brandId] });
+  };
+
+  const allVisibleSelected =
+    filteredRows.length > 0 && effectiveSelected.size === filteredRows.length;
+
   return (
-    <div className="container mx-auto p-4 space-y-4 max-w-5xl">
+    <div className="container mx-auto p-4 space-y-4 max-w-5xl pb-24">
       <div className="flex items-center gap-3">
         <Button asChild variant="ghost" size="sm">
           <Link to={`/brand/${brandId}/inventory`}>
@@ -329,7 +457,7 @@ export default function BrandPackConfigApprovals() {
         </Button>
         <h1 className="text-2xl font-semibold">Pack Config Approvals</h1>
         <Badge variant="outline" className="ml-2">
-          {proposalRows.length} proposals
+          {filteredRows.length} of {proposalRows.length}
         </Badge>
       </div>
 
@@ -337,6 +465,66 @@ export default function BrandPackConfigApprovals() {
         Approving writes to <code>brand_pack_configs</code> and <code>location_pack_selections</code> only.
         Counts, items, and templates are not touched.
       </p>
+
+      {!isLoading && proposalRows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-muted/30">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search name, SKU, pack..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-8 h-9"
+            />
+          </div>
+          <Select value={vendorFilter} onValueChange={setVendorFilter}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Vendor" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All vendors</SelectItem>
+              {vendorOptions.map((v) => (
+                <SelectItem key={v} value={v}>{v.toUpperCase()}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categoryOptions.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none px-2">
+            <Checkbox
+              checked={competingOnly}
+              onCheckedChange={(c) => setCompetingOnly(c === true)}
+            />
+            Competing only
+          </label>
+          {(vendorFilter !== "all" || categoryFilter !== "all" || query || competingOnly) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setVendorFilter("all");
+                setCategoryFilter("all");
+                setQuery("");
+                setCompetingOnly(false);
+              }}
+            >
+              <X className="h-4 w-4" /> Clear
+            </Button>
+          )}
+          <label className="ml-auto flex items-center gap-2 text-xs cursor-pointer select-none">
+            <Checkbox
+              checked={allVisibleSelected}
+              onCheckedChange={(c) => (c === true ? selectAllVisible() : clearSelection())}
+            />
+            Select all visible
+          </label>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -346,7 +534,9 @@ export default function BrandPackConfigApprovals() {
 
       {!isLoading && grouped.length === 0 && (
         <Card>
-          <CardContent className="p-6 text-center text-muted-foreground">No pending proposals.</CardContent>
+          <CardContent className="p-6 text-center text-muted-foreground">
+            {proposalRows.length === 0 ? "No pending proposals." : "No proposals match your filters."}
+          </CardContent>
         </Card>
       )}
 
@@ -395,6 +585,11 @@ export default function BrandPackConfigApprovals() {
               return (
                 <div key={r.id} className="rounded-lg border p-3 space-y-3 bg-muted/30">
                   <div className="flex items-center gap-2 flex-wrap">
+                    <Checkbox
+                      checked={effectiveSelected.has(r.id)}
+                      onCheckedChange={() => toggleSelect(r.id)}
+                      aria-label="Select proposal"
+                    />
                     <Badge variant={sourceVariant(r.source)}>{sourceLabel(r.source)}</Badge>
                     {ev.vendor && <span className="text-xs text-muted-foreground">vendor: <b>{ev.vendor}</b></span>}
                     {ev.territory && <span className="text-xs text-muted-foreground">territory: {ev.territory}</span>}
@@ -484,6 +679,45 @@ export default function BrandPackConfigApprovals() {
           </CardContent>
         </Card>
       );})}
+
+      {/* Floating bulk action bar */}
+      {effectiveSelected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full border bg-background/95 backdrop-blur px-3 py-2 shadow-lg">
+          <Badge variant="secondary" className="rounded-full">
+            {effectiveSelected.size} selected
+          </Badge>
+          {bulkProgress && (
+            <span className="text-xs text-muted-foreground px-1">
+              {bulkProgress.done}/{bulkProgress.total}
+            </span>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={clearSelection}
+            disabled={!!bulkBusy}
+          >
+            <X className="h-4 w-4" /> Clear
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => runBulk("reject")}
+            disabled={!!bulkBusy}
+          >
+            {bulkBusy === "reject" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+            Reject {effectiveSelected.size}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => runBulk("approve")}
+            disabled={!!bulkBusy}
+          >
+            {bulkBusy === "approve" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+            Approve {effectiveSelected.size}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
