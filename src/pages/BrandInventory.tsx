@@ -376,6 +376,20 @@ export default function BrandInventory() {
             variant="outline"
             size="sm"
             className="gap-1.5 shrink-0"
+            onClick={() => navigate(`/brand/${brandId}/inventory/pack-configs`)}
+          >
+            <Package className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Pack Configs</span>
+            {proposalCount > 0 && (
+              <Badge variant="default" className="text-[10px] tabular-nums ml-0.5 h-5 px-1.5">
+                {proposalCount}
+              </Badge>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
             onClick={() => navigate(`/brand/${brandId}/inventory/unpriced`)}
           >
             <HelpCircle className="h-3.5 w-3.5" />
