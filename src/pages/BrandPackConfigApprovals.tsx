@@ -351,8 +351,6 @@ export default function BrandPackConfigApprovals() {
       )}
 
       {grouped.map(({ template, rows }) => {
-        const tplId = template?.id ?? "";
-        const locations = (tplId && locByTpl.get(tplId)) || [];
         const vendorSkus = Array.from(
           new Set(
             rows
@@ -379,24 +377,12 @@ export default function BrandPackConfigApprovals() {
                 <Badge variant="secondary" className="text-xs">{rows.length} proposals</Badge>
               )}
             </CardTitle>
-            {(vendorSkus.length > 0 || locations.length > 0) && (
-              <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs">
-                {vendorSkus.length > 0 && (
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <span className="text-muted-foreground">Vendor SKUs:</span>
-                    {vendorSkus.map((s) => (
-                      <Badge key={s} variant="outline" className="font-mono text-[10px]">{s}</Badge>
-                    ))}
-                  </div>
-                )}
-                {locations.length > 0 && (
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <span className="text-muted-foreground">Carried by:</span>
-                    {locations.map((l) => (
-                      <Badge key={l.id} variant="secondary" className="text-[10px]">{l.name}</Badge>
-                    ))}
-                  </div>
-                )}
+            {vendorSkus.length > 0 && (
+              <div className="flex items-center gap-1 flex-wrap text-xs">
+                <span className="text-muted-foreground">Vendor SKUs:</span>
+                {vendorSkus.map((s) => (
+                  <Badge key={s} variant="outline" className="font-mono text-[10px]">{s}</Badge>
+                ))}
               </div>
             )}
           </CardHeader>
@@ -405,6 +391,7 @@ export default function BrandPackConfigApprovals() {
               const d = getDraft(r);
               const ev = r.source_evidence || {};
               const isBusy = !!busy[r.id];
+              const proposalLocs = locationsForProposal(r);
               return (
                 <div key={r.id} className="rounded-lg border p-3 space-y-3 bg-muted/30">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -417,6 +404,14 @@ export default function BrandPackConfigApprovals() {
                       <span className="text-xs text-muted-foreground">case ${Number(ev.costPerCase).toFixed(2)}</span>
                     )}
                   </div>
+                  {proposalLocs.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap text-xs">
+                      <span className="text-muted-foreground">Synced at:</span>
+                      {proposalLocs.map((l) => (
+                        <Badge key={l.id} variant="secondary" className="text-[10px]">{l.name}</Badge>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                     <Field label="Outer qty">
