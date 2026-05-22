@@ -318,9 +318,23 @@ export default function BrandPackConfigApprovals() {
         </Card>
       )}
 
-      {grouped.map(({ template, rows }) => (
+      {grouped.map(({ template, rows }) => {
+        const tplId = template?.id ?? "";
+        const locations = (tplId && locByTpl.get(tplId)) || [];
+        const vendorSkus = Array.from(
+          new Set(
+            rows
+              .map((r) => {
+                const ev = (r.source_evidence || {}) as any;
+                const vendor = ev.vendor ? String(ev.vendor).toUpperCase() : null;
+                return ev.sku ? (vendor ? `${vendor} #${ev.sku}` : `#${ev.sku}`) : null;
+              })
+              .filter(Boolean) as string[]
+          )
+        );
+        return (
         <Card key={template?.id ?? "x"}>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 space-y-2">
             <CardTitle className="text-base flex items-center gap-2 flex-wrap">
               <span>{template?.product_name ?? "(unknown template)"}</span>
               {template?.category && (
@@ -333,6 +347,26 @@ export default function BrandPackConfigApprovals() {
                 <Badge variant="secondary" className="text-xs">{rows.length} proposals</Badge>
               )}
             </CardTitle>
+            {(vendorSkus.length > 0 || locations.length > 0) && (
+              <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs">
+                {vendorSkus.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-muted-foreground">Vendor SKUs:</span>
+                    {vendorSkus.map((s) => (
+                      <Badge key={s} variant="outline" className="font-mono text-[10px]">{s}</Badge>
+                    ))}
+                  </div>
+                )}
+                {locations.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-muted-foreground">Carried by:</span>
+                    {locations.map((l) => (
+                      <Badge key={l.id} variant="secondary" className="text-[10px]">{l.name}</Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-3">
             {rows.map((r) => {
