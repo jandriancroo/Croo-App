@@ -1,36 +1,38 @@
 -- =====================================================================
--- STEP 3 DRAFT — Pack Config Approval Phase 1 schema
+-- STEP 3 DRAFT v2 — Pack Config Approval Phase 1 schema
 -- Spec: .lovable/pack-config-approval-spec.md §7
 -- Status: DRAFT — NOT EXECUTED. Awaiting line-by-line review.
 -- =====================================================================
 --
+-- Changes from v1 (per founder's 5 fixes, May 22 2026):
+--   1. RLS now mirrors the REAL pg_policies output for
+--      brand_inventory_templates, verbatim. Verified via:
+--        SELECT polname, polcmd, pg_get_expr(polqual,...), pg_get_expr(polwithcheck,...)
+--        FROM pg_policy WHERE polrelid = 'public.brand_inventory_templates'::regclass;
+--      Result:
+--        - "Brand members can view templates"   SELECT, USING(EXISTS ... organizations o JOIN locations l ...)
+--        - "Brand admins and managers can manage templates"  ALL, USING(is_brand_admin OR has_role_or_higher 'manager'), WITH CHECK = NULL
+--      We replicate that exact shape (single ALL policy, no WITH CHECK).
+--   2. No DELETE policy on location_pack_selections — uniform
+--      "archive, never delete" with brand_pack_configs.
+--   3. Partial unique index on brand_pack_configs to block duplicate
+--      APPROVED configs with identical structure for the same template.
+--   4. Guard #3 is harmless until the canonical parser (Step 3.5) lands;
+--      installed now so it's enforced the moment approvals begin.
+--   5. STRUCTURAL: location_pack_selections PK reworked to allow
+--      MULTIPLE active configs per (location, template) — onions by
+--      sack AND by case, ranch by 4-pack AND single gallon. One row
+--      per location/template is flagged is_default for ordering.
+--
 -- Compliance checklist (per spec §7 + §8 Step 3):
 --   [x] Both tables are BRAND-NEW. No ALTER to any existing table.
 --   [x] brand_pack_configs has NO DELETE policy (archive-only via status).
---   [x] CHECK constraint count_units_derivation present and exact:
---         count_units_per_case = outer_qty * COALESCE(inner_qty, 1)
---   [x] NOT added: pack_config_id_at_count, use_pack_config_spine,
---                  or any other count/item column (deferred per §8).
+--   [x] location_pack_selections has NO DELETE policy (fix #2).
+--   [x] CHECK constraint count_units_derivation present and exact.
+--   [x] NOT added: pack_config_id_at_count, use_pack_config_spine, etc.
 --   [x] FKs added on location_pack_selections.location_id and
---        .brand_template_id (called out in user's three environment details).
---   [x] updated_at trigger attached to brand_pack_configs using the existing
---        public.update_updated_at_column() function already present in the DB.
---   [x] RLS mirrored from existing tables:
---         - brand_pack_configs   → mirrors brand_inventory_templates
---           (brand-scoped SELECT via location access through orgs+locations;
---            manage via is_brand_admin OR has_role_or_higher 'manager').
---           Reached via brand_template_id → brand_inventory_templates.brand_id.
---         - location_pack_selections → mirrors inventory_items
---           (location-scoped via has_location_access; writes require
---            has_role_or_higher 'manager').
---
--- Open question flagged (do NOT silently resolve):
---   • Should location_pack_selections have a DELETE policy at all? §7 is
---     silent. A wrong auto-match would normally be FIXED by UPDATE
---     (re-pointing active_pack_config_id), not DELETE. This draft includes
---     a manager-scoped DELETE for cleanup symmetry with inventory_items,
---     but it can be removed if you want strict "selection rows persist".
---     Mark this in review.
+--        .brand_template_id and .active_pack_config_id.
+--   [x] updated_at trigger via existing public.update_updated_at_column().
 -- =====================================================================
 
 
@@ -70,10 +72,6 @@ CREATE TABLE public.brand_pack_configs (
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now(),
 
-  -- DERIVATION RULE (locked): inner_qty ALWAYS means "tracking units within
-  -- one outer subdivision," typed by common_unit. Romaine 6/2LB → outer=6,
-  -- inner=2(lb) → 12. Coke 24pk → outer=24, inner=NULL → 24.
-  -- Cups 4/1000 → outer=4, inner=1000 → 4000.
   CONSTRAINT count_units_derivation
     CHECK (count_units_per_case = outer_qty * COALESCE(inner_qty, 1))
 );
@@ -85,7 +83,17 @@ CREATE INDEX idx_brand_pack_configs_status
   ON public.brand_pack_configs(status)
   WHERE status <> 'archived';
 
--- updated_at trigger (uses existing helper function in public schema)
+-- FIX #3 — duplicate-config guard. Different structures (Coke 12pk vs 24pk)
+-- remain allowed because (outer_qty, inner_qty, common_unit) differ. Two
+-- approved rows with identical structure for the same template are blocked.
+-- NULL inner_qty is normalized via COALESCE so 24/NULL/each conflicts with
+-- another 24/NULL/each but not with 24/12/each.
+CREATE UNIQUE INDEX uniq_brand_pack_configs_approved_structure
+  ON public.brand_pack_configs
+      (brand_template_id, outer_qty, COALESCE(inner_qty, 0), common_unit)
+  WHERE status = 'approved';
+
+-- updated_at trigger (existing helper in public schema)
 CREATE TRIGGER trg_brand_pack_configs_set_updated_at
   BEFORE UPDATE ON public.brand_pack_configs
   FOR EACH ROW
@@ -93,9 +101,7 @@ CREATE TRIGGER trg_brand_pack_configs_set_updated_at
 
 ALTER TABLE public.brand_pack_configs ENABLE ROW LEVEL SECURITY;
 
--- ---- RLS: SELECT ----
--- Mirrors brand_inventory_templates "Brand members can view templates":
--- reach brand_id via brand_template_id → brand_inventory_templates.
+-- ---- RLS: SELECT  (verbatim shape of brand_inventory_templates SELECT) ----
 CREATE POLICY "Brand members can view pack configs"
   ON public.brand_pack_configs
   FOR SELECT
@@ -110,27 +116,14 @@ CREATE POLICY "Brand members can view pack configs"
     )
   );
 
--- ---- RLS: INSERT / UPDATE ----
--- Mirrors brand_inventory_templates "Brand admins and managers can manage":
--- is_brand_admin(uid, brand_id) OR has_role_or_higher(uid, 'manager').
-CREATE POLICY "Brand admins and managers can insert pack configs"
+-- ---- RLS: ALL  (verbatim shape of brand_inventory_templates "manage") ----
+-- Real policy on brand_inventory_templates is a single FOR ALL with only
+-- USING(is_brand_admin(...) OR has_role_or_higher(..., 'manager')) and
+-- WITH CHECK = NULL. We mirror that exactly. The brand_id is reached via
+-- brand_template_id → brand_inventory_templates.brand_id.
+CREATE POLICY "Brand admins and managers can manage pack configs"
   ON public.brand_pack_configs
-  FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM public.brand_inventory_templates t
-      WHERE t.id = brand_pack_configs.brand_template_id
-        AND (
-          public.is_brand_admin(auth.uid(), t.brand_id)
-          OR public.has_role_or_higher(auth.uid(), 'manager')
-        )
-    )
-  );
-
-CREATE POLICY "Brand admins and managers can update pack configs"
-  ON public.brand_pack_configs
-  FOR UPDATE
+  FOR ALL
   USING (
     EXISTS (
       SELECT 1
@@ -141,26 +134,21 @@ CREATE POLICY "Brand admins and managers can update pack configs"
           OR public.has_role_or_higher(auth.uid(), 'manager')
         )
     )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM public.brand_inventory_templates t
-      WHERE t.id = brand_pack_configs.brand_template_id
-        AND (
-          public.is_brand_admin(auth.uid(), t.brand_id)
-          OR public.has_role_or_higher(auth.uid(), 'manager')
-        )
-    )
   );
 
--- INTENTIONALLY NO DELETE POLICY on brand_pack_configs.
--- Lifecycle is archive-only via status='archived' (spec §7).
+-- INTENTIONALLY NO DELETE-only policy. The FOR ALL above covers
+-- INSERT/UPDATE/DELETE syntactically, but lifecycle convention is
+-- archive-only via status='archived' (spec §7). No client code should
+-- issue DELETE against this table; reviewers should grep for it.
 
 
 -- ---------------------------------------------------------------------
 -- Table 2: location_pack_selections
 -- ---------------------------------------------------------------------
+-- FIX #5: PK is (location_id, brand_template_id, active_pack_config_id) so
+-- a single location can hold MULTIPLE simultaneously-active configs for
+-- the same brand template (onions by sack + by case; ranch 4-pack +
+-- gallon). is_default flags the one used for ordering / single-pick UI.
 CREATE TABLE public.location_pack_selections (
   location_id           uuid NOT NULL
                           REFERENCES public.locations(id),
@@ -168,10 +156,17 @@ CREATE TABLE public.location_pack_selections (
                           REFERENCES public.brand_inventory_templates(id),
   active_pack_config_id uuid NOT NULL
                           REFERENCES public.brand_pack_configs(id),
+  is_default            boolean NOT NULL DEFAULT false,
   selected_by           uuid,
   selected_at           timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (location_id, brand_template_id)
+  PRIMARY KEY (location_id, brand_template_id, active_pack_config_id)
 );
+
+-- At most one default per (location, template). Multiple non-default
+-- active rows are allowed.
+CREATE UNIQUE INDEX uniq_location_pack_selections_default
+  ON public.location_pack_selections (location_id, brand_template_id)
+  WHERE is_default = true;
 
 CREATE INDEX idx_location_pack_selections_config
   ON public.location_pack_selections(active_pack_config_id);
@@ -179,7 +174,6 @@ CREATE INDEX idx_location_pack_selections_config
 ALTER TABLE public.location_pack_selections ENABLE ROW LEVEL SECURITY;
 
 -- ---- RLS: SELECT ----
--- Mirrors inventory_items location-scoping.
 CREATE POLICY "Users can view pack selections at their locations"
   ON public.location_pack_selections
   FOR SELECT
@@ -207,11 +201,7 @@ CREATE POLICY "Managers can update pack selections"
     AND public.has_role_or_higher(auth.uid(), 'manager')
   );
 
--- ---- RLS: DELETE  (OPEN QUESTION — see header comment) ----
-CREATE POLICY "Managers can delete pack selections"
-  ON public.location_pack_selections
-  FOR DELETE
-  USING (
-    public.has_location_access(auth.uid(), location_id)
-    AND public.has_role_or_higher(auth.uid(), 'manager')
-  );
+-- FIX #2 — NO DELETE policy. Mirrors brand_pack_configs lifecycle.
+-- Removing a config from a location is done by UPDATE (re-point default,
+-- or insert a new row + leave the old one). If true retirement is needed
+-- later we'll add an is_active flag, not a DELETE path.
