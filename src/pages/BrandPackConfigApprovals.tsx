@@ -86,13 +86,16 @@ export default function BrandPackConfigApprovals() {
         template: tplMap.get(r.brand_template_id),
       })) as ProposalRow[];
 
-      // Derive which locations carry each brand template (active inventory_items)
+      // Derive which locations have synced each (template, vendor) pair.
+      // A location only "carries" a vendor's SKU when both:
+      //   1. the vendor-specific identifier is populated (item_number=PFG, pa_item_id=PA, else vendor_source match)
+      //   2. last_synced_at is non-null (i.e., a real sync actually ran)
       const proposedTplIds = Array.from(new Set(rows.map((r) => r.brand_template_id)));
-      const locByTpl = new Map<string, { id: string; name: string }[]>();
+      const locByTplVendor = new Map<string, { id: string; name: string }[]>();
       if (proposedTplIds.length > 0) {
         const { data: items } = await supabase
           .from("inventory_items")
-          .select("brand_item_id, location_id, last_synced_at")
+          .select("brand_item_id, location_id, last_synced_at, item_number, pa_item_id, vendor_source")
           .in("brand_item_id", proposedTplIds)
           .eq("is_active", true)
           .not("last_synced_at", "is", null);
@@ -108,27 +111,55 @@ export default function BrandPackConfigApprovals() {
           (locs ?? []).forEach((l: any) => locNameMap.set(l.id, l.name));
         }
         const grouped = new Map<string, Map<string, string>>();
+        const addPair = (tplId: string, vendor: string, locId: string) => {
+          const key = `${tplId}::${vendor}`;
+          if (!grouped.has(key)) grouped.set(key, new Map());
+          grouped.get(key)!.set(locId, locNameMap.get(locId) ?? "Unknown");
+        };
         (items ?? []).forEach((i: any) => {
           if (!i.brand_item_id || !i.location_id) return;
-          if (!grouped.has(i.brand_item_id)) grouped.set(i.brand_item_id, new Map());
-          grouped.get(i.brand_item_id)!.set(i.location_id, locNameMap.get(i.location_id) ?? "Unknown");
+          if (i.item_number) addPair(i.brand_item_id, "pfg", i.location_id);
+          if (i.pa_item_id) addPair(i.brand_item_id, "pa", i.location_id);
+          if (i.vendor_source) {
+            const v = String(i.vendor_source).toLowerCase();
+            if (v !== "pfg" && v !== "pa" && v !== "produce_alliance") {
+              addPair(i.brand_item_id, v, i.location_id);
+            }
+          }
         });
-        grouped.forEach((m, tplId) => {
-          locByTpl.set(
-            tplId,
+        grouped.forEach((m, key) => {
+          locByTplVendor.set(
+            key,
             Array.from(m.entries())
               .map(([id, name]) => ({ id, name }))
               .sort((a, b) => a.name.localeCompare(b.name))
           );
         });
       }
-      return { rows, locByTpl };
+      return { rows, locByTplVendor };
     },
     enabled: !!brandId,
   });
 
   const proposalRows = data?.rows ?? [];
-  const locByTpl = data?.locByTpl ?? new Map<string, { id: string; name: string }[]>();
+  const locByTplVendor = data?.locByTplVendor ?? new Map<string, { id: string; name: string }[]>();
+
+  const normalizeVendor = (v: string | null | undefined): string | null => {
+    if (!v) return null;
+    const s = String(v).toLowerCase();
+    if (s === "produce_alliance") return "pa";
+    return s;
+  };
+
+  const locationsForProposal = (r: ProposalRow): { id: string; name: string }[] => {
+    const ev = (r.source_evidence || {}) as any;
+    const vendor =
+      normalizeVendor(ev.vendor) ||
+      normalizeVendor(r.source?.startsWith("vendor_sync:") ? r.source.split(":")[1] : null) ||
+      normalizeVendor(r.source?.startsWith("invoice:") ? r.source.split(":")[1] : null);
+    if (!vendor) return [];
+    return locByTplVendor.get(`${r.brand_template_id}::${vendor}`) ?? [];
+  };
 
   const grouped = useMemo(() => {
     const m = new Map<string, { template: ProposalRow["template"]; rows: ProposalRow[] }>();
