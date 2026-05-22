@@ -679,6 +679,45 @@ export default function BrandPackConfigApprovals() {
           </CardContent>
         </Card>
       );})}
+
+      {/* Floating bulk action bar */}
+      {effectiveSelected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full border bg-background/95 backdrop-blur px-3 py-2 shadow-lg">
+          <Badge variant="secondary" className="rounded-full">
+            {effectiveSelected.size} selected
+          </Badge>
+          {bulkProgress && (
+            <span className="text-xs text-muted-foreground px-1">
+              {bulkProgress.done}/{bulkProgress.total}
+            </span>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={clearSelection}
+            disabled={!!bulkBusy}
+          >
+            <X className="h-4 w-4" /> Clear
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => runBulk("reject")}
+            disabled={!!bulkBusy}
+          >
+            {bulkBusy === "reject" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+            Reject {effectiveSelected.size}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => runBulk("approve")}
+            disabled={!!bulkBusy}
+          >
+            {bulkBusy === "approve" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+            Approve {effectiveSelected.size}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
