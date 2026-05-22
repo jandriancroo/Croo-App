@@ -116,15 +116,21 @@ CREATE POLICY "Brand members can view pack configs"
     )
   );
 
--- ---- RLS: ALL  (verbatim shape of brand_inventory_templates "manage") ----
--- Real policy on brand_inventory_templates is a single FOR ALL with only
--- USING(is_brand_admin(...) OR has_role_or_higher(..., 'manager')) and
--- WITH CHECK = NULL. We mirror that exactly. The brand_id is reached via
--- brand_template_id → brand_inventory_templates.brand_id.
-CREATE POLICY "Brand admins and managers can manage pack configs"
+-- ---- RLS: INSERT + UPDATE  (DELETE intentionally omitted) ----
+-- FIX #6 (founder override of fix #1's "mirror verbatim" rule, May 22 2026):
+-- The source policy on brand_inventory_templates is FOR ALL, which
+-- syntactically permits DELETE. We deliberately split it into separate
+-- INSERT and UPDATE policies and add NO delete policy. Because RLS is
+-- ENABLED and no DELETE policy exists, every DELETE against this table
+-- is denied for non-superuser roles (authenticated, anon, AND
+-- service_role -- service_role is subject to RLS unless explicitly
+-- bypassed). This is the load-bearing DB-level guarantee for spec §0:
+-- a frozen count's referenced pack_config row can never vanish out
+-- from under it. Retirement = UPDATE status='archived'.
+CREATE POLICY "Brand admins and managers can insert pack configs"
   ON public.brand_pack_configs
-  FOR ALL
-  USING (
+  FOR INSERT
+  WITH CHECK (
     EXISTS (
       SELECT 1
       FROM public.brand_inventory_templates t
@@ -136,10 +142,33 @@ CREATE POLICY "Brand admins and managers can manage pack configs"
     )
   );
 
--- INTENTIONALLY NO DELETE-only policy. The FOR ALL above covers
--- INSERT/UPDATE/DELETE syntactically, but lifecycle convention is
--- archive-only via status='archived' (spec §7). No client code should
--- issue DELETE against this table; reviewers should grep for it.
+CREATE POLICY "Brand admins and managers can update pack configs"
+  ON public.brand_pack_configs
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.brand_inventory_templates t
+      WHERE t.id = brand_pack_configs.brand_template_id
+        AND (
+          public.is_brand_admin(auth.uid(), t.brand_id)
+          OR public.has_role_or_higher(auth.uid(), 'manager')
+        )
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.brand_inventory_templates t
+      WHERE t.id = brand_pack_configs.brand_template_id
+        AND (
+          public.is_brand_admin(auth.uid(), t.brand_id)
+          OR public.has_role_or_higher(auth.uid(), 'manager')
+        )
+    )
+  );
+
+-- NO DELETE POLICY — intentional. Do not add one without founder approval.
 
 
 -- ---------------------------------------------------------------------
