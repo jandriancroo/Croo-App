@@ -126,9 +126,9 @@ export default function BrandInventory() {
     queryFn: async () => {
       const { count, error } = await supabase
         .from('brand_pack_configs' as any)
-        .select('*', { count: 'exact', head: true })
-        .eq('brand_id', brandId!)
-        .eq('status', 'proposed');
+        .select('id, brand_inventory_templates!inner(brand_id)', { count: 'exact', head: true })
+        .eq('status', 'proposed')
+        .eq('brand_inventory_templates.brand_id', brandId!);
       if (error) throw error;
       return count || 0;
     },
