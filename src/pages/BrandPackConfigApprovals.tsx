@@ -169,9 +169,74 @@ export default function BrandPackConfigApprovals() {
     return locByTplVendor.get(`${r.brand_template_id}::${vendor}`) ?? [];
   };
 
+  // ---- Filters + bulk select state ----
+  const [vendorFilter, setVendorFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [query, setQuery] = useState<string>("");
+  const [competingOnly, setCompetingOnly] = useState<boolean>(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState<null | "approve" | "reject">(null);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const proposalVendor = (r: ProposalRow): string => {
+    const ev = (r.source_evidence || {}) as any;
+    const v =
+      (ev.vendor ? String(ev.vendor) : null) ||
+      (r.source?.startsWith("vendor_sync:") ? r.source.split(":")[1] : null) ||
+      (r.source?.startsWith("invoice:") ? r.source.split(":")[1] : null);
+    if (!v) return "unknown";
+    const s = v.toLowerCase();
+    return s === "produce_alliance" ? "pa" : s;
+  };
+
+  const vendorOptions = useMemo(() => {
+    const s = new Set<string>();
+    proposalRows.forEach((r) => s.add(proposalVendor(r)));
+    return Array.from(s).sort();
+  }, [proposalRows]);
+
+  const categoryOptions = useMemo(() => {
+    const s = new Set<string>();
+    proposalRows.forEach((r) => {
+      if (r.template?.category) s.add(r.template.category);
+    });
+    return Array.from(s).sort();
+  }, [proposalRows]);
+
+  // Count proposals per template (for "competing only" filter)
+  const proposalCountByTpl = useMemo(() => {
+    const m = new Map<string, number>();
+    proposalRows.forEach((r) => m.set(r.brand_template_id, (m.get(r.brand_template_id) ?? 0) + 1));
+    return m;
+  }, [proposalRows]);
+
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return proposalRows.filter((r) => {
+      if (vendorFilter !== "all" && proposalVendor(r) !== vendorFilter) return false;
+      if (categoryFilter !== "all" && (r.template?.category ?? "") !== categoryFilter) return false;
+      if (competingOnly && (proposalCountByTpl.get(r.brand_template_id) ?? 0) < 2) return false;
+      if (q) {
+        const ev = (r.source_evidence || {}) as any;
+        const hay = [
+          r.template?.product_name,
+          r.template?.item_number,
+          ev.sku,
+          ev.packString,
+          r.template?.category,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [proposalRows, vendorFilter, categoryFilter, competingOnly, query, proposalCountByTpl]);
+
   const grouped = useMemo(() => {
     const m = new Map<string, { template: ProposalRow["template"]; rows: ProposalRow[] }>();
-    proposalRows.forEach((r) => {
+    filteredRows.forEach((r) => {
       const k = r.brand_template_id;
       if (!m.has(k)) m.set(k, { template: r.template, rows: [] });
       m.get(k)!.rows.push(r);
@@ -179,7 +244,24 @@ export default function BrandPackConfigApprovals() {
     return Array.from(m.values()).sort((a, b) =>
       (a.template?.product_name || "").localeCompare(b.template?.product_name || "")
     );
-  }, [proposalRows]);
+  }, [filteredRows]);
+
+  // Trim selection to currently visible rows
+  const visibleIds = useMemo(() => new Set(filteredRows.map((r) => r.id)), [filteredRows]);
+  const effectiveSelected = useMemo(() => {
+    const s = new Set<string>();
+    selected.forEach((id) => { if (visibleIds.has(id)) s.add(id); });
+    return s;
+  }, [selected, visibleIds]);
+
+  const toggleSelect = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  const selectAllVisible = () => setSelected(new Set(visibleIds));
+  const clearSelection = () => setSelected(new Set());
 
   const getDraft = (r: ProposalRow): Draft =>
     drafts[r.id] ?? {
