@@ -69,7 +69,7 @@ export default function BrandPackConfigApprovals() {
           "id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, label, source, source_evidence, status, template:brand_inventory_templates!inner(id, brand_id, product_name, category, item_number)"
         )
         .eq("status", "proposed")
-        .eq("template.brand_id", brandId!)
+        .eq("brand_inventory_templates.brand_id", brandId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as ProposalRow[];
