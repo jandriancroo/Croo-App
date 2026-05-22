@@ -456,7 +456,7 @@ export default function BrandPackConfigApprovals() {
             })}
           </CardContent>
         </Card>
-      ))}
+      );})}
     </div>
   );
 }
