@@ -368,6 +368,28 @@ export default function BrandPackConfigApprovals() {
       const locIds = locs.map((l) => l.id);
       console.log(`${tag} STEP 2: ${locIds.length} location(s) qualify (synced + has SKU):`, locs.map(l => l.name));
 
+      // (2a) BEFORE snapshot — inventory_items.cost_per_unit for these locations + this SKU
+      const vendorSku = (r as any).vendor_item_number ?? (r as any).item_number ?? r.template?.item_number ?? null;
+      console.log(`${tag} STEP 2a: BEFORE snapshot for vendor SKU=${vendorSku}`);
+      let beforeSnap: any[] = [];
+      if (vendorSku && locIds.length) {
+        const { data: snap, error: snapErr } = await supabase
+          .from("inventory_items")
+          .select("location_id, item_number, name, cost_per_unit, last_synced_at, updated_at")
+          .in("location_id", locIds)
+          .eq("item_number", vendorSku);
+        if (snapErr) console.warn(`${tag}   BEFORE snapshot query failed:`, snapErr);
+        beforeSnap = snap ?? [];
+        console.table(beforeSnap.map(row => ({
+          location: locs.find(l => l.id === row.location_id)?.name ?? row.location_id,
+          cost_per_unit: row.cost_per_unit,
+          last_synced_at: row.last_synced_at,
+          updated_at: row.updated_at,
+        })));
+      } else {
+        console.log(`${tag}   skipping BEFORE snapshot (no vendor SKU or no locations)`);
+      }
+
       // (3) for each location, check if a default already exists for this (location, template)
       let inserted = 0;
       let defaulted = 0;
@@ -404,9 +426,35 @@ export default function BrandPackConfigApprovals() {
         if (is_default) defaulted += 1;
       }
       console.log(`${tag} DONE — inserted=${inserted}, defaulted=${defaulted}, skipped=${skipped}, locCount=${locIds.length}`);
+
+      // (4) AFTER snapshot — same query, diff per location
+      if (vendorSku && locIds.length) {
+        const { data: after } = await supabase
+          .from("inventory_items")
+          .select("location_id, item_number, cost_per_unit, last_synced_at, updated_at")
+          .in("location_id", locIds)
+          .eq("item_number", vendorSku);
+        const afterSnap = after ?? [];
+        const diff = afterSnap.map(a => {
+          const b = beforeSnap.find(x => x.location_id === a.location_id);
+          return {
+            location: locs.find(l => l.id === a.location_id)?.name ?? a.location_id,
+            before_cost: b?.cost_per_unit ?? null,
+            after_cost: a.cost_per_unit,
+            cost_changed: (b?.cost_per_unit ?? null) !== a.cost_per_unit,
+            before_updated_at: b?.updated_at ?? null,
+            after_updated_at: a.updated_at,
+          };
+        });
+        console.log(`${tag} STEP 4: AFTER snapshot — diff per location:`);
+        console.table(diff);
+        const anyChanged = diff.some(d => d.cost_changed);
+        console.log(`${tag} VERDICT: cost_per_unit changed by approve? → ${anyChanged ? "YES (unexpected)" : "NO (expected — approve does not rewrite cost)"}`);
+      }
       console.log(`${tag} NOTE: inventory_items.cost_per_unit is NOT touched by approval. Per-location cost is rewritten only by the next PFG sync.`);
       console.groupEnd();
       return { inserted, defaulted, locCount: locIds.length };
+
     },
     onSuccess: (res, r) => {
       toast({
