@@ -585,6 +585,11 @@ export default function BrandPackConfigApprovals() {
               return (
                 <div key={r.id} className="rounded-lg border p-3 space-y-3 bg-muted/30">
                   <div className="flex items-center gap-2 flex-wrap">
+                    <Checkbox
+                      checked={effectiveSelected.has(r.id)}
+                      onCheckedChange={() => toggleSelect(r.id)}
+                      aria-label="Select proposal"
+                    />
                     <Badge variant={sourceVariant(r.source)}>{sourceLabel(r.source)}</Badge>
                     {ev.vendor && <span className="text-xs text-muted-foreground">vendor: <b>{ev.vendor}</b></span>}
                     {ev.territory && <span className="text-xs text-muted-foreground">territory: {ev.territory}</span>}
