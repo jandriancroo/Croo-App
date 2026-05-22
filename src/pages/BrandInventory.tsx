@@ -125,7 +125,7 @@ export default function BrandInventory() {
     queryKey: ['pack-config-proposal-count', brandId],
     queryFn: async () => {
       const { count, error } = await supabase
-        .from('brand_pack_configs')
+        .from('brand_pack_configs' as any)
         .select('*', { count: 'exact', head: true })
         .eq('brand_id', brandId!)
         .eq('status', 'proposed');
