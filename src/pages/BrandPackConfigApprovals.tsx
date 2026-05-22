@@ -347,14 +347,9 @@ export default function BrandPackConfigApprovals() {
         .eq("status", "proposed");
       if (updErr) throw updErr;
 
-      // (2) find locations actively using this brand template
-      const { data: items, error: itemsErr } = await supabase
-        .from("inventory_items")
-        .select("location_id")
-        .eq("brand_item_id", r.brand_template_id)
-        .eq("is_active", true);
-      if (itemsErr) throw itemsErr;
-      const locIds = Array.from(new Set((items ?? []).map((i: any) => i.location_id).filter(Boolean)));
+      // (2) find locations that ACTUALLY carry this proposal's vendor SKU
+      // (must match the "Synced at" chip logic: vendor identifier populated AND last_synced_at non-null)
+      const locIds = locationsForProposal(r).map((l) => l.id);
 
       // (3) for each location, check if a default already exists for this (location, template)
       let inserted = 0;
