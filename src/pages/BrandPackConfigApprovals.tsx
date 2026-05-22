@@ -409,8 +409,46 @@ export default function BrandPackConfigApprovals() {
     onError: (e: any) => toast({ title: "Reject failed", description: e.message, variant: "destructive" }),
   });
 
+  // ---- Bulk runner ----
+  const runBulk = async (action: "approve" | "reject") => {
+    const ids = Array.from(effectiveSelected);
+    if (ids.length === 0) return;
+    const verb = action === "approve" ? "approve" : "reject";
+    if (!confirm(`${verb[0].toUpperCase()}${verb.slice(1)} ${ids.length} proposal(s)?`)) return;
+    const rowsById = new Map(proposalRows.map((r) => [r.id, r]));
+    setBulkBusy(action);
+    setBulkProgress({ done: 0, total: ids.length });
+    let ok = 0;
+    let fail = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const r = rowsById.get(ids[i]);
+      if (!r) { fail++; setBulkProgress({ done: i + 1, total: ids.length }); continue; }
+      try {
+        if (action === "approve") await approve.mutateAsync(r);
+        else await reject.mutateAsync(r);
+        ok++;
+      } catch (e: any) {
+        fail++;
+        console.warn("[bulk]", action, "failed for", r.id, e?.message);
+      }
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    setBulkBusy(null);
+    setBulkProgress(null);
+    clearSelection();
+    toast({
+      title: `Bulk ${action} complete`,
+      description: `${ok} succeeded, ${fail} failed.`,
+      variant: fail > 0 ? "destructive" : undefined,
+    });
+    qc.invalidateQueries({ queryKey: ["pack-config-proposals", brandId] });
+  };
+
+  const allVisibleSelected =
+    filteredRows.length > 0 && effectiveSelected.size === filteredRows.length;
+
   return (
-    <div className="container mx-auto p-4 space-y-4 max-w-5xl">
+    <div className="container mx-auto p-4 space-y-4 max-w-5xl pb-24">
       <div className="flex items-center gap-3">
         <Button asChild variant="ghost" size="sm">
           <Link to={`/brand/${brandId}/inventory`}>
@@ -419,7 +457,7 @@ export default function BrandPackConfigApprovals() {
         </Button>
         <h1 className="text-2xl font-semibold">Pack Config Approvals</h1>
         <Badge variant="outline" className="ml-2">
-          {proposalRows.length} proposals
+          {filteredRows.length} of {proposalRows.length}
         </Badge>
       </div>
 
@@ -427,6 +465,66 @@ export default function BrandPackConfigApprovals() {
         Approving writes to <code>brand_pack_configs</code> and <code>location_pack_selections</code> only.
         Counts, items, and templates are not touched.
       </p>
+
+      {!isLoading && proposalRows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-muted/30">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search name, SKU, pack..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-8 h-9"
+            />
+          </div>
+          <Select value={vendorFilter} onValueChange={setVendorFilter}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Vendor" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All vendors</SelectItem>
+              {vendorOptions.map((v) => (
+                <SelectItem key={v} value={v}>{v.toUpperCase()}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categoryOptions.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none px-2">
+            <Checkbox
+              checked={competingOnly}
+              onCheckedChange={(c) => setCompetingOnly(c === true)}
+            />
+            Competing only
+          </label>
+          {(vendorFilter !== "all" || categoryFilter !== "all" || query || competingOnly) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setVendorFilter("all");
+                setCategoryFilter("all");
+                setQuery("");
+                setCompetingOnly(false);
+              }}
+            >
+              <X className="h-4 w-4" /> Clear
+            </Button>
+          )}
+          <label className="ml-auto flex items-center gap-2 text-xs cursor-pointer select-none">
+            <Checkbox
+              checked={allVisibleSelected}
+              onCheckedChange={(c) => (c === true ? selectAllVisible() : clearSelection())}
+            />
+            Select all visible
+          </label>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -436,7 +534,9 @@ export default function BrandPackConfigApprovals() {
 
       {!isLoading && grouped.length === 0 && (
         <Card>
-          <CardContent className="p-6 text-center text-muted-foreground">No pending proposals.</CardContent>
+          <CardContent className="p-6 text-center text-muted-foreground">
+            {proposalRows.length === 0 ? "No pending proposals." : "No proposals match your filters."}
+          </CardContent>
         </Card>
       )}
 
