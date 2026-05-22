@@ -297,7 +297,7 @@ export default function BrandPackConfigApprovals() {
         </Button>
         <h1 className="text-2xl font-semibold">Pack Config Approvals</h1>
         <Badge variant="outline" className="ml-2">
-          {data?.length ?? 0} proposals
+          {proposalRows.length} proposals
         </Badge>
       </div>
 
