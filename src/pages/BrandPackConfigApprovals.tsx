@@ -49,6 +49,14 @@ type Draft = {
   label: string | null;
 };
 
+type ApprovalLogEntry = {
+  id: string;
+  level: "info" | "warn" | "error";
+  message: string;
+  data?: unknown;
+  timestamp: string;
+};
+
 const sourceLabel = (s: string | null) => {
   if (!s) return "unknown";
   if (s.startsWith("vendor_sync:")) return `Sync · ${s.split(":")[1].toUpperCase()}`;
@@ -67,6 +75,24 @@ export default function BrandPackConfigApprovals() {
   const qc = useQueryClient();
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [busy, setBusy] = useState<Record<string, string | null>>({});
+  const [approvalLog, setApprovalLog] = useState<ApprovalLogEntry[]>([]);
+
+  const pushApprovalLog = (
+    level: ApprovalLogEntry["level"],
+    message: string,
+    data?: unknown
+  ) => {
+    setApprovalLog((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        level,
+        message,
+        data,
+        timestamp: new Date().toLocaleTimeString(),
+      },
+    ]);
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["pack-config-proposals", brandId],
@@ -317,27 +343,43 @@ export default function BrandPackConfigApprovals() {
   const approve = useMutation({
     mutationFn: async (r: ProposalRow) => {
       const tag = `[Approve ${r.template?.product_name ?? r.id}]`;
+      setApprovalLog([]);
+      const log = (level: ApprovalLogEntry["level"], message: string, data?: unknown) => {
+        if (level === "error") console.error(message, data);
+        else if (level === "warn") console.warn(message, data);
+        else console.log(message, data);
+        pushApprovalLog(level, message, data);
+      };
+
       console.groupCollapsed(`${tag} start`);
-      console.log("proposal row:", r);
+      log("info", `${tag} start`, r);
 
       const d = getDraft(r);
       const outer = Number(d.outer_qty) || 0;
       const inner = d.inner_qty == null || d.inner_qty === ("" as any) ? null : Number(d.inner_qty);
       const count_units_per_case = outer * (inner ?? 1);
-      console.log("draft values:", { outer, inner, count_units_per_case, outer_type: d.outer_type, common_unit: d.common_unit, cost_per_common_unit: d.cost_per_common_unit, label: d.label });
+      log("info", `${tag} draft values`, {
+        outer,
+        inner,
+        count_units_per_case,
+        outer_type: d.outer_type,
+        common_unit: d.common_unit,
+        cost_per_common_unit: d.cost_per_common_unit,
+        label: d.label,
+      });
 
       if (!outer || !d.outer_type || !d.common_unit) {
-        console.error(`${tag} validation failed — missing outer_qty/outer_type/common_unit`);
+        log("error", `${tag} validation failed — missing outer_qty/outer_type/common_unit`);
         console.groupEnd();
         throw new Error("outer_qty, outer_type, and common_unit are required");
       }
 
       const { data: userRes } = await supabase.auth.getUser();
       const uid = userRes.user?.id ?? null;
-      console.log("approver uid:", uid);
+      log("info", `${tag} approver uid`, uid);
 
       // (1) finalize the config row
-      console.log(`${tag} STEP 1: updating brand_pack_configs row ${r.id} → status=approved`);
+      log("info", `${tag} STEP 1: updating brand_pack_configs row ${r.id} → status=approved`);
       const { error: updErr, data: updData } = await supabase
         .from("brand_pack_configs")
         .update({
@@ -357,20 +399,20 @@ export default function BrandPackConfigApprovals() {
         .eq("status", "proposed")
         .select();
       if (updErr) {
-        console.error(`${tag} brand_pack_configs update FAILED:`, updErr);
+        log("error", `${tag} brand_pack_configs update FAILED`, updErr);
         console.groupEnd();
         throw updErr;
       }
-      console.log(`${tag} brand_pack_configs updated:`, updData);
+      log("info", `${tag} brand_pack_configs updated`, updData);
 
       // (2) find locations that ACTUALLY carry this proposal's vendor SKU
       const locs = locationsForProposal(r);
       const locIds = locs.map((l) => l.id);
-      console.log(`${tag} STEP 2: ${locIds.length} location(s) qualify (synced + has SKU):`, locs.map(l => l.name));
+      log("info", `${tag} STEP 2: ${locIds.length} location(s) qualify (synced + has SKU)`, locs.map(l => l.name));
 
       // (2a) BEFORE snapshot — inventory_items.cost_per_unit for these locations + this SKU
       const vendorSku = (r as any).vendor_item_number ?? (r as any).item_number ?? r.template?.item_number ?? null;
-      console.log(`${tag} STEP 2a: BEFORE snapshot for vendor SKU=${vendorSku}`);
+      log("info", `${tag} STEP 2a: BEFORE snapshot for vendor SKU=${vendorSku}`);
       let beforeSnap: any[] = [];
       if (vendorSku && locIds.length) {
         const { data: snap, error: snapErr } = await supabase
@@ -378,16 +420,18 @@ export default function BrandPackConfigApprovals() {
           .select("location_id, item_number, name, cost_per_unit, last_synced_at, updated_at")
           .in("location_id", locIds)
           .eq("item_number", vendorSku);
-        if (snapErr) console.warn(`${tag}   BEFORE snapshot query failed:`, snapErr);
+        if (snapErr) log("warn", `${tag} BEFORE snapshot query failed`, snapErr);
         beforeSnap = snap ?? [];
-        console.table(beforeSnap.map(row => ({
+        const beforeTable = beforeSnap.map(row => ({
           location: locs.find(l => l.id === row.location_id)?.name ?? row.location_id,
           cost_per_unit: row.cost_per_unit,
           last_synced_at: row.last_synced_at,
           updated_at: row.updated_at,
-        })));
+        }));
+        console.table(beforeTable);
+        log("info", `${tag} BEFORE snapshot rows`, beforeTable);
       } else {
-        console.log(`${tag}   skipping BEFORE snapshot (no vendor SKU or no locations)`);
+        log("warn", `${tag} skipping BEFORE snapshot (no vendor SKU or no locations)`);
       }
 
       // (3) for each location, check if a default already exists for this (location, template)
@@ -404,12 +448,15 @@ export default function BrandPackConfigApprovals() {
         const hasDefault = (existing ?? []).some((e: any) => e.is_default);
         const alreadyHere = (existing ?? []).some((e: any) => e.active_pack_config_id === r.id);
         if (alreadyHere) {
-          console.log(`${tag}   • ${locName}: already has this pack selection — skip`);
+          log("info", `${tag} ${locName}: already has this pack selection — skip`);
           skipped += 1;
           continue;
         }
         const is_default = !hasDefault;
-        console.log(`${tag}   • ${locName}: inserting selection (is_default=${is_default}, existing rows=${(existing ?? []).length})`);
+        log("info", `${tag} ${locName}: inserting selection`, {
+          is_default,
+          existing_rows: (existing ?? []).length,
+        });
         const { error: insErr } = await supabase.from("location_pack_selections").insert({
           location_id,
           brand_template_id: r.brand_template_id,
@@ -418,14 +465,14 @@ export default function BrandPackConfigApprovals() {
           selected_by: uid,
         });
         if (insErr) {
-          console.error(`${tag}   • ${locName}: INSERT failed:`, insErr);
+          log("error", `${tag} ${locName}: INSERT failed`, insErr);
           console.groupEnd();
           throw insErr;
         }
         inserted += 1;
         if (is_default) defaulted += 1;
       }
-      console.log(`${tag} DONE — inserted=${inserted}, defaulted=${defaulted}, skipped=${skipped}, locCount=${locIds.length}`);
+      log("info", `${tag} DONE — inserted=${inserted}, defaulted=${defaulted}, skipped=${skipped}, locCount=${locIds.length}`);
 
       // (4) AFTER snapshot — same query, diff per location
       if (vendorSku && locIds.length) {
@@ -446,12 +493,12 @@ export default function BrandPackConfigApprovals() {
             after_updated_at: a.updated_at,
           };
         });
-        console.log(`${tag} STEP 4: AFTER snapshot — diff per location:`);
         console.table(diff);
+        log("info", `${tag} STEP 4: AFTER snapshot — diff per location`, diff);
         const anyChanged = diff.some(d => d.cost_changed);
-        console.log(`${tag} VERDICT: cost_per_unit changed by approve? → ${anyChanged ? "YES (unexpected)" : "NO (expected — approve does not rewrite cost)"}`);
+        log("info", `${tag} VERDICT: cost_per_unit changed by approve? → ${anyChanged ? "YES (unexpected)" : "NO (expected — approve does not rewrite cost)"}`);
       }
-      console.log(`${tag} NOTE: inventory_items.cost_per_unit is NOT touched by approval. Per-location cost is rewritten only by the next PFG sync.`);
+      log("info", `${tag} NOTE: inventory_items.cost_per_unit is NOT touched by approval. Per-location cost is rewritten only by the next PFG sync.`);
       console.groupEnd();
       return { inserted, defaulted, locCount: locIds.length };
 
@@ -539,6 +586,56 @@ export default function BrandPackConfigApprovals() {
         Approving writes to <code>brand_pack_configs</code> and <code>location_pack_selections</code> only.
         Counts, items, and templates are not touched.
       </p>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base">Approval trace</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setApprovalLog([])}
+              disabled={approvalLog.length === 0}
+            >
+              <X className="h-4 w-4" /> Clear log
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {approvalLog.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              Hit <b>Approve</b> on a proposal and the full before/after trace will show here.
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
+              {approvalLog.map((entry) => (
+                <div key={entry.id} className="rounded-md border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge
+                      variant={
+                        entry.level === "error"
+                          ? "destructive"
+                          : entry.level === "warn"
+                            ? "secondary"
+                            : "outline"
+                      }
+                    >
+                      {entry.level}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground font-mono">{entry.timestamp}</span>
+                  </div>
+                  <div className="text-sm">{entry.message}</div>
+                  {entry.data !== undefined && (
+                    <pre className="overflow-x-auto rounded-md border bg-background p-3 text-xs text-muted-foreground whitespace-pre-wrap break-all">
+                      {typeof entry.data === "string" ? entry.data : JSON.stringify(entry.data, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {!isLoading && proposalRows.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-muted/30">
