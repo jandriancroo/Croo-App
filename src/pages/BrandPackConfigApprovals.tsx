@@ -69,7 +69,8 @@ export default function BrandPackConfigApprovals() {
         .eq("brand_id", brandId!);
       if (tErr) throw tErr;
       const tplIds = (tpls ?? []).map((t: any) => t.id);
-      if (tplIds.length === 0) return [] as ProposalRow[];
+      if (tplIds.length === 0)
+        return { rows: [] as ProposalRow[], locByTpl: new Map<string, { id: string; name: string }[]>() };
       const tplMap = new Map((tpls ?? []).map((t: any) => [t.id, t]));
       const { data, error } = await supabase
         .from("brand_pack_configs")
@@ -80,14 +81,57 @@ export default function BrandPackConfigApprovals() {
         .in("brand_template_id", tplIds)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return ((data ?? []) as any[]).map((r) => ({ ...r, template: tplMap.get(r.brand_template_id) })) as ProposalRow[];
+      const rows = ((data ?? []) as any[]).map((r) => ({
+        ...r,
+        template: tplMap.get(r.brand_template_id),
+      })) as ProposalRow[];
+
+      // Derive which locations carry each brand template (active inventory_items)
+      const proposedTplIds = Array.from(new Set(rows.map((r) => r.brand_template_id)));
+      const locByTpl = new Map<string, { id: string; name: string }[]>();
+      if (proposedTplIds.length > 0) {
+        const { data: items } = await supabase
+          .from("inventory_items")
+          .select("brand_item_id, location_id")
+          .in("brand_item_id", proposedTplIds)
+          .eq("is_active", true);
+        const locIds = Array.from(
+          new Set((items ?? []).map((i: any) => i.location_id).filter(Boolean))
+        );
+        const locNameMap = new Map<string, string>();
+        if (locIds.length > 0) {
+          const { data: locs } = await supabase
+            .from("locations")
+            .select("id, name")
+            .in("id", locIds);
+          (locs ?? []).forEach((l: any) => locNameMap.set(l.id, l.name));
+        }
+        const grouped = new Map<string, Map<string, string>>();
+        (items ?? []).forEach((i: any) => {
+          if (!i.brand_item_id || !i.location_id) return;
+          if (!grouped.has(i.brand_item_id)) grouped.set(i.brand_item_id, new Map());
+          grouped.get(i.brand_item_id)!.set(i.location_id, locNameMap.get(i.location_id) ?? "Unknown");
+        });
+        grouped.forEach((m, tplId) => {
+          locByTpl.set(
+            tplId,
+            Array.from(m.entries())
+              .map(([id, name]) => ({ id, name }))
+              .sort((a, b) => a.name.localeCompare(b.name))
+          );
+        });
+      }
+      return { rows, locByTpl };
     },
     enabled: !!brandId,
   });
 
+  const proposalRows = data?.rows ?? [];
+  const locByTpl = data?.locByTpl ?? new Map<string, { id: string; name: string }[]>();
+
   const grouped = useMemo(() => {
     const m = new Map<string, { template: ProposalRow["template"]; rows: ProposalRow[] }>();
-    (data ?? []).forEach((r) => {
+    proposalRows.forEach((r) => {
       const k = r.brand_template_id;
       if (!m.has(k)) m.set(k, { template: r.template, rows: [] });
       m.get(k)!.rows.push(r);
@@ -95,7 +139,7 @@ export default function BrandPackConfigApprovals() {
     return Array.from(m.values()).sort((a, b) =>
       (a.template?.product_name || "").localeCompare(b.template?.product_name || "")
     );
-  }, [data]);
+  }, [proposalRows]);
 
   const getDraft = (r: ProposalRow): Draft =>
     drafts[r.id] ?? {
