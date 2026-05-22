@@ -1,7 +1,15 @@
 -- =====================================================================
--- STEP 3 DRAFT v2 — Pack Config Approval Phase 1 schema
+-- STEP 3 DRAFT v3 — Pack Config Approval Phase 1 schema
 -- Spec: .lovable/pack-config-approval-spec.md §7
--- Status: DRAFT — NOT EXECUTED. Awaiting line-by-line review.
+-- Status: DRAFT — NOT EXECUTED. Awaiting final green-light.
+--
+-- v3 change (founder, May 22 2026):
+--   FIX #6 — brand_pack_configs is now un-deletable at the DB level.
+--   The single FOR ALL "manage" policy from v2 is replaced with
+--   separate INSERT and UPDATE policies. No DELETE policy exists, so
+--   RLS denies all DELETE attempts on this table. Frozen-count
+--   immutability (spec §0) is now enforced in the database, not just
+--   by convention.
 -- =====================================================================
 --
 -- Changes from v1 (per founder's 5 fixes, May 22 2026):
