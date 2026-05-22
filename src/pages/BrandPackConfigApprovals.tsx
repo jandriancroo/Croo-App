@@ -587,6 +587,56 @@ export default function BrandPackConfigApprovals() {
         Counts, items, and templates are not touched.
       </p>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base">Approval trace</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setApprovalLog([])}
+              disabled={approvalLog.length === 0}
+            >
+              <X className="h-4 w-4" /> Clear log
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {approvalLog.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              Hit <b>Approve</b> on a proposal and the full before/after trace will show here.
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
+              {approvalLog.map((entry) => (
+                <div key={entry.id} className="rounded-md border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge
+                      variant={
+                        entry.level === "error"
+                          ? "destructive"
+                          : entry.level === "warn"
+                            ? "secondary"
+                            : "outline"
+                      }
+                    >
+                      {entry.level}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground font-mono">{entry.timestamp}</span>
+                  </div>
+                  <div className="text-sm">{entry.message}</div>
+                  {entry.data !== undefined && (
+                    <pre className="overflow-x-auto rounded-md border bg-background p-3 text-xs text-muted-foreground whitespace-pre-wrap break-all">
+                      {typeof entry.data === "string" ? entry.data : JSON.stringify(entry.data, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {!isLoading && proposalRows.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-muted/30">
           <div className="relative flex-1 min-w-[200px]">
