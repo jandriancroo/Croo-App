@@ -922,6 +922,74 @@ export type Database = {
           },
         ]
       }
+      brand_pack_configs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          brand_template_id: string
+          common_unit: string
+          cost_per_common_unit: number | null
+          count_units_per_case: number
+          created_at: string
+          id: string
+          inner_qty: number | null
+          inner_type: string | null
+          label: string | null
+          outer_qty: number
+          outer_type: string
+          source: string | null
+          source_evidence: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          brand_template_id: string
+          common_unit: string
+          cost_per_common_unit?: number | null
+          count_units_per_case: number
+          created_at?: string
+          id?: string
+          inner_qty?: number | null
+          inner_type?: string | null
+          label?: string | null
+          outer_qty: number
+          outer_type: string
+          source?: string | null
+          source_evidence?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          brand_template_id?: string
+          common_unit?: string
+          cost_per_common_unit?: number | null
+          count_units_per_case?: number
+          created_at?: string
+          id?: string
+          inner_qty?: number | null
+          inner_type?: string | null
+          label?: string | null
+          outer_qty?: number
+          outer_type?: string
+          source?: string | null
+          source_evidence?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_pack_configs_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_vendor_mappings: {
         Row: {
           brand_template_id: string
@@ -5359,6 +5427,55 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "location_integrations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_pack_selections: {
+        Row: {
+          active_pack_config_id: string
+          brand_template_id: string
+          is_default: boolean
+          location_id: string
+          selected_at: string
+          selected_by: string | null
+        }
+        Insert: {
+          active_pack_config_id: string
+          brand_template_id: string
+          is_default?: boolean
+          location_id: string
+          selected_at?: string
+          selected_by?: string | null
+        }
+        Update: {
+          active_pack_config_id?: string
+          brand_template_id?: string
+          is_default?: boolean
+          location_id?: string
+          selected_at?: string
+          selected_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_pack_selections_active_pack_config_id_fkey"
+            columns: ["active_pack_config_id"]
+            isOneToOne: false
+            referencedRelation: "brand_pack_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_pack_selections_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_pack_selections_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
