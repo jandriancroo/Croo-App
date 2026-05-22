@@ -2103,12 +2103,21 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
                   // PFG line item.price; we only write to THIS location since
                   // pricing varies by territory/contract.
                   if (meta?.price && meta.price > 0) {
+                    const nowIso = new Date().toISOString();
                     const { error: priceErr, count } = await supabase
                       .from('inventory_items')
-                      .update({ cost_per_unit: meta.price, updated_at: new Date().toISOString() }, { count: 'exact' })
+                      .update({ cost_per_unit: meta.price, last_synced_at: nowIso, updated_at: nowIso }, { count: 'exact' })
                       .eq('brand_item_id', t.id)
                       .eq('location_id', integration.location_id);
                     if (!priceErr && count) priceWrites += count;
+                  } else if (meta) {
+                    // SKU returned by PFG for this location but no price line — still stamp sync evidence
+                    const nowIso = new Date().toISOString();
+                    await supabase
+                      .from('inventory_items')
+                      .update({ last_synced_at: nowIso, updated_at: nowIso })
+                      .eq('brand_item_id', t.id)
+                      .eq('location_id', integration.location_id);
                   }
                 }
                 if (cascadeWrites > 0) {
