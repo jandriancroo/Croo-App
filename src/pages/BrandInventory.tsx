@@ -124,11 +124,18 @@ export default function BrandInventory() {
   const { data: proposalCount = 0 } = useQuery({
     queryKey: ['pack-config-proposal-count', brandId],
     queryFn: async () => {
+      const { data: tpls, error: tErr } = await supabase
+        .from('brand_inventory_templates' as any)
+        .select('id')
+        .eq('brand_id', brandId!);
+      if (tErr) throw tErr;
+      const ids = (tpls ?? []).map((t: any) => t.id);
+      if (ids.length === 0) return 0;
       const { count, error } = await supabase
         .from('brand_pack_configs' as any)
-        .select('id, brand_inventory_templates!inner(brand_id)', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'proposed')
-        .eq('brand_inventory_templates.brand_id', brandId!);
+        .in('brand_template_id', ids);
       if (error) throw error;
       return count || 0;
     },

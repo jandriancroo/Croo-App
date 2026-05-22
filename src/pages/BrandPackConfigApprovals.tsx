@@ -63,16 +63,24 @@ export default function BrandPackConfigApprovals() {
   const { data, isLoading } = useQuery({
     queryKey: ["pack-config-proposals", brandId],
     queryFn: async () => {
+      const { data: tpls, error: tErr } = await supabase
+        .from("brand_inventory_templates")
+        .select("id, brand_id, product_name, category, item_number")
+        .eq("brand_id", brandId!);
+      if (tErr) throw tErr;
+      const tplIds = (tpls ?? []).map((t: any) => t.id);
+      if (tplIds.length === 0) return [] as ProposalRow[];
+      const tplMap = new Map((tpls ?? []).map((t: any) => [t.id, t]));
       const { data, error } = await supabase
         .from("brand_pack_configs")
         .select(
-          "id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, label, source, source_evidence, status, template:brand_inventory_templates!inner(id, brand_id, product_name, category, item_number)"
+          "id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, label, source, source_evidence, status"
         )
         .eq("status", "proposed")
-        .eq("brand_inventory_templates.brand_id", brandId!)
+        .in("brand_template_id", tplIds)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as unknown as ProposalRow[];
+      return ((data ?? []) as any[]).map((r) => ({ ...r, template: tplMap.get(r.brand_template_id) })) as ProposalRow[];
     },
     enabled: !!brandId,
   });
