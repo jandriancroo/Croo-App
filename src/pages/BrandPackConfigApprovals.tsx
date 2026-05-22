@@ -92,9 +92,10 @@ export default function BrandPackConfigApprovals() {
       if (proposedTplIds.length > 0) {
         const { data: items } = await supabase
           .from("inventory_items")
-          .select("brand_item_id, location_id")
+          .select("brand_item_id, location_id, last_synced_at")
           .in("brand_item_id", proposedTplIds)
-          .eq("is_active", true);
+          .eq("is_active", true)
+          .not("last_synced_at", "is", null);
         const locIds = Array.from(
           new Set((items ?? []).map((i: any) => i.location_id).filter(Boolean))
         );
