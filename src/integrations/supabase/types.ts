@@ -3529,6 +3529,7 @@ export type Database = {
           display_order: number | null
           id: string
           image_url: string | null
+          inner_pack_label: string | null
           inner_pack_quantity: number | null
           is_active: boolean | null
           is_daily_tracked: boolean
@@ -3577,6 +3578,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           image_url?: string | null
+          inner_pack_label?: string | null
           inner_pack_quantity?: number | null
           is_active?: boolean | null
           is_daily_tracked?: boolean
@@ -3625,6 +3627,7 @@ export type Database = {
           display_order?: number | null
           id?: string
           image_url?: string | null
+          inner_pack_label?: string | null
           inner_pack_quantity?: number | null
           is_active?: boolean | null
           is_daily_tracked?: boolean
