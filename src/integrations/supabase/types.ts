@@ -6661,6 +6661,78 @@ export type Database = {
           },
         ]
       }
+      pack_config_seed_log: {
+        Row: {
+          brand_template_id: string | null
+          common_unit: string | null
+          cost_per_common_unit: number | null
+          count_units_per_case: number | null
+          created_at: string
+          dry_run: boolean
+          existing_config_id: string | null
+          id: string
+          inner_qty: number | null
+          inner_type: string | null
+          outer_qty: number | null
+          pack_string: string | null
+          run_id: string
+          status: string
+          vendor: string | null
+          vendor_item_id: string | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          common_unit?: string | null
+          cost_per_common_unit?: number | null
+          count_units_per_case?: number | null
+          created_at?: string
+          dry_run?: boolean
+          existing_config_id?: string | null
+          id?: string
+          inner_qty?: number | null
+          inner_type?: string | null
+          outer_qty?: number | null
+          pack_string?: string | null
+          run_id: string
+          status?: string
+          vendor?: string | null
+          vendor_item_id?: string | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          common_unit?: string | null
+          cost_per_common_unit?: number | null
+          count_units_per_case?: number | null
+          created_at?: string
+          dry_run?: boolean
+          existing_config_id?: string | null
+          id?: string
+          inner_qty?: number | null
+          inner_type?: string | null
+          outer_qty?: number | null
+          pack_string?: string | null
+          run_id?: string
+          status?: string
+          vendor?: string | null
+          vendor_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_config_seed_log_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pack_config_seed_log_existing_config_id_fkey"
+            columns: ["existing_config_id"]
+            isOneToOne: false
+            referencedRelation: "brand_pack_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pay_periods: {
         Row: {
           closed_at: string | null
