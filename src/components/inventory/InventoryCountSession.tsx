@@ -343,6 +343,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             pack_quantity_override: null,
             // Phase 3: brand-level inner pack tier (NULL = no inner-pack input shown)
             inner_pack_quantity: (item as any).inner_pack_quantity ?? null,
+            inner_pack_label: (item as any).inner_pack_label ?? null,
             brand_item_id: (item as any).brand_item_id ?? null,
             item_number: item.item_number,
             brand: item.brand,
