@@ -120,10 +120,13 @@ export default function BrandPackConfigApprovals() {
         template: tplMap.get(r.brand_template_id),
       })) as ProposalRow[];
 
-      // Derive which locations have synced each (template, vendor) pair.
-      // A location only "carries" a vendor's SKU when both:
-      //   1. the vendor-specific identifier is populated (item_number=PFG, pa_item_id=PA, else vendor_source match)
-      //   2. last_synced_at is non-null (i.e., a real sync actually ran)
+      // Derive which locations carry each (template, vendor) pair.
+      // A location qualifies when it has the item in its active catalog with a
+      // vendor-specific identifier (item_number=PFG, pa_item_id=PA, else vendor_source match).
+      // We do NOT gate on last_synced_at: PA never stamps it, and invoice-upload paths
+      // (Heimark + manual PFG photos) populate real cost/pack data without touching it.
+      // The right qualifying signal is "the location carries this item," which is exactly
+      // what location_pack_selections is for.
       const proposedTplIds = Array.from(new Set(rows.map((r) => r.brand_template_id)));
       const locByTplVendor = new Map<string, { id: string; name: string }[]>();
       if (proposedTplIds.length > 0) {
@@ -131,8 +134,7 @@ export default function BrandPackConfigApprovals() {
           .from("inventory_items")
           .select("brand_item_id, location_id, last_synced_at, item_number, pa_item_id, vendor_source")
           .in("brand_item_id", proposedTplIds)
-          .eq("is_active", true)
-          .not("last_synced_at", "is", null);
+          .eq("is_active", true);
         const locIds = Array.from(
           new Set((items ?? []).map((i: any) => i.location_id).filter(Boolean))
         );
