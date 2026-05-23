@@ -47,10 +47,10 @@ function parsePackString(packString: string | null | undefined): ParsedPack | nu
     return { outer_qty, inner_qty, inner_type, common_unit };
   }
 
-  // Format: "3 CT" (no slash — single pack, outer=1)
-  const noSlashMatch = trimmed.match(/^\s*(\d+)\s*([A-Za-z]+)\s*$/);
+  // Format: "3 CT" or "2.5 KG" (no slash — single pack, outer=1)
+  const noSlashMatch = trimmed.match(/^\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$/);
   if (noSlashMatch) {
-    const inner_qty = parseInt(noSlashMatch[1], 10);
+    const inner_qty = parseFloat(noSlashMatch[1]);
     const rawUnit = noSlashMatch[2].toLowerCase();
     if (!Number.isFinite(inner_qty) || inner_qty <= 0) return null;
     const { inner_type, common_unit } = normalizeUnit(rawUnit);
