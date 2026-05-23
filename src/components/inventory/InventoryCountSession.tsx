@@ -174,6 +174,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           pack_quantity,
           pack_quantity_override,
           inner_pack_quantity,
+          inner_pack_label,
           brand_item_id,
           item_number,
           brand,
