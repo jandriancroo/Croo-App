@@ -120,7 +120,17 @@ Deno.serve(async (req) => {
   });
 
   try {
-    // ── 1. Load all brand_vendor_mappings ──
+    // ── 0. Load archived brand_inventory_templates so we never seed against them.
+    // Matches vendor-gap-scan's `.neq('status','archived')` filter — keeps the
+    // approval queue clean and prevents zombie proposals after a template is retired.
+    const { data: archivedTemplates, error: archErr } = await supabase
+      .from("brand_inventory_templates")
+      .select("id")
+      .eq("status", "archived");
+    if (archErr) throw archErr;
+    const archivedTemplateIds = new Set<string>((archivedTemplates || []).map((t: any) => t.id));
+
+    // ── 1. Load all brand_vendor_mappings (skip ones pointing at archived templates) ──
     const { data: mappings, error: mapErr } = await supabase
       .from("brand_vendor_mappings")
       .select("id, brand_template_id, vendor, vendor_item_id, territory, source_location_id");
@@ -128,9 +138,11 @@ Deno.serve(async (req) => {
 
     const mappingByVendorSku = new Map<string, any>();
     for (const m of (mappings || [])) {
+      if (!m.brand_template_id || archivedTemplateIds.has(m.brand_template_id)) continue;
       const key = `${(m.vendor || '').toLowerCase()}::${(m.vendor_item_id || '').toLowerCase()}`;
       mappingByVendorSku.set(key, m);
     }
+
 
     // ── 2. Gather traceable source records ──
     const candidates: SeedCandidate[] = [];
