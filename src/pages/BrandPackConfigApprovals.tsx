@@ -301,7 +301,22 @@ export default function BrandPackConfigApprovals() {
     };
 
   const patchDraft = (id: string, patch: Partial<Draft>) =>
-    setDrafts((d) => ({ ...d, [id]: { ...getDraft({ id, ...d[id] } as any), ...patch } as Draft }));
+    setDrafts((d) => {
+      const row = proposalRows.find((r) => r.id === id);
+      const base: Draft = d[id] ?? (row ? {
+        outer_qty: row.outer_qty,
+        outer_type: row.outer_type,
+        inner_qty: row.inner_qty,
+        inner_type: row.inner_type,
+        common_unit: row.common_unit,
+        cost_per_common_unit: row.cost_per_common_unit,
+        label: row.label,
+      } : {
+        outer_qty: null, outer_type: null, inner_qty: null, inner_type: null,
+        common_unit: null, cost_per_common_unit: null, label: null,
+      });
+      return { ...d, [id]: { ...base, ...patch } };
+    });
 
   const setRowBusy = (id: string, label: string | null) =>
     setBusy((b) => ({ ...b, [id]: label }));
