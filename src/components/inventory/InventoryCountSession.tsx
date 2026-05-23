@@ -174,6 +174,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           pack_quantity,
           pack_quantity_override,
           inner_pack_quantity,
+          inner_pack_label,
           brand_item_id,
           item_number,
           brand,
@@ -342,6 +343,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             pack_quantity_override: null,
             // Phase 3: brand-level inner pack tier (NULL = no inner-pack input shown)
             inner_pack_quantity: (item as any).inner_pack_quantity ?? null,
+            inner_pack_label: (item as any).inner_pack_label ?? null,
             brand_item_id: (item as any).brand_item_id ?? null,
             item_number: item.item_number,
             brand: item.brand,
@@ -2101,8 +2103,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     {showInnerPacks && (
                     <div>
                       <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
-                        Packs
-                        <span className="ml-1 normal-case tracking-normal">({innerPackQty} units/pack)</span>
+                        {(item as any).inner_pack_label ? `${(item as any).inner_pack_label}s` : 'Packs'}
+                        <span className="ml-1 normal-case tracking-normal">({innerPackQty} {item.unit || 'units'}/{(item as any).inner_pack_label || 'pack'})</span>
                       </p>
                       <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
