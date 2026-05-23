@@ -120,10 +120,13 @@ export default function BrandPackConfigApprovals() {
         template: tplMap.get(r.brand_template_id),
       })) as ProposalRow[];
 
-      // Derive which locations have synced each (template, vendor) pair.
-      // A location only "carries" a vendor's SKU when both:
-      //   1. the vendor-specific identifier is populated (item_number=PFG, pa_item_id=PA, else vendor_source match)
-      //   2. last_synced_at is non-null (i.e., a real sync actually ran)
+      // Derive which locations carry each (template, vendor) pair.
+      // A location qualifies when it has the item in its active catalog with a
+      // vendor-specific identifier (item_number=PFG, pa_item_id=PA, else vendor_source match).
+      // We do NOT gate on last_synced_at: PA never stamps it, and invoice-upload paths
+      // (Heimark + manual PFG photos) populate real cost/pack data without touching it.
+      // The right qualifying signal is "the location carries this item," which is exactly
+      // what location_pack_selections is for.
       const proposedTplIds = Array.from(new Set(rows.map((r) => r.brand_template_id)));
       const locByTplVendor = new Map<string, { id: string; name: string }[]>();
       if (proposedTplIds.length > 0) {
@@ -131,8 +134,7 @@ export default function BrandPackConfigApprovals() {
           .from("inventory_items")
           .select("brand_item_id, location_id, last_synced_at, item_number, pa_item_id, vendor_source")
           .in("brand_item_id", proposedTplIds)
-          .eq("is_active", true)
-          .not("last_synced_at", "is", null);
+          .eq("is_active", true);
         const locIds = Array.from(
           new Set((items ?? []).map((i: any) => i.location_id).filter(Boolean))
         );
@@ -457,35 +459,100 @@ export default function BrandPackConfigApprovals() {
         const locName = locs.find(l => l.id === location_id)?.name ?? location_id;
         const { data: existing } = await supabase
           .from("location_pack_selections")
-          .select("active_pack_config_id, is_default")
+          .select("active_pack_config_id, is_default, selected_at")
           .eq("location_id", location_id)
           .eq("brand_template_id", r.brand_template_id);
-        const hasDefault = (existing ?? []).some((e: any) => e.is_default);
-        const alreadyHere = (existing ?? []).some((e: any) => e.active_pack_config_id === r.id);
+        const rows = existing ?? [];
+        const alreadyHere = rows.find((e: any) => e.active_pack_config_id === r.id);
+
+        // CASE A — exact config already present. Ensure it's the default
+        // (a prior reset may have demoted it). Idempotent.
         if (alreadyHere) {
-          log("info", `${tag} ${locName}: already has this pack selection — skip`);
-          skipped += 1;
+          if (!(alreadyHere as any).is_default) {
+            // Demote any other default first (uniq index allows only one default per (location, template)).
+            await supabase
+              .from("location_pack_selections")
+              .update({ is_default: false })
+              .eq("location_id", location_id)
+              .eq("brand_template_id", r.brand_template_id)
+              .eq("is_default", true);
+            const { error: upErr } = await supabase
+              .from("location_pack_selections")
+              .update({ is_default: true, selected_by: uid, selected_at: new Date().toISOString() })
+              .eq("location_id", location_id)
+              .eq("brand_template_id", r.brand_template_id)
+              .eq("active_pack_config_id", r.id);
+            if (upErr) {
+              log("error", `${tag} ${locName}: promote-to-default failed`, upErr);
+              console.groupEnd();
+              throw upErr;
+            }
+            log("info", `${tag} ${locName}: existing row re-promoted to default`);
+            defaulted += 1;
+          } else {
+            log("info", `${tag} ${locName}: already default — no-op`);
+            skipped += 1;
+          }
           continue;
         }
-        const is_default = !hasDefault;
-        log("info", `${tag} ${locName}: inserting selection`, {
-          is_default,
-          existing_rows: (existing ?? []).length,
-        });
-        const { error: insErr } = await supabase.from("location_pack_selections").insert({
-          location_id,
-          brand_template_id: r.brand_template_id,
-          active_pack_config_id: r.id,
-          is_default,
-          selected_by: uid,
-        });
-        if (insErr) {
-          log("error", `${tag} ${locName}: INSERT failed`, insErr);
-          console.groupEnd();
-          throw insErr;
+
+        // CASE B — no row exists for this (location, template). Plain INSERT as default.
+        if (rows.length === 0) {
+          const { error: insErr } = await supabase.from("location_pack_selections").insert({
+            location_id,
+            brand_template_id: r.brand_template_id,
+            active_pack_config_id: r.id,
+            is_default: true,
+            selected_by: uid,
+          });
+          if (insErr) {
+            log("error", `${tag} ${locName}: INSERT failed`, insErr);
+            console.groupEnd();
+            throw insErr;
+          }
+          inserted += 1;
+          defaulted += 1;
+          log("info", `${tag} ${locName}: inserted fresh default selection`);
+          continue;
         }
-        inserted += 1;
-        if (is_default) defaulted += 1;
+
+        // CASE C — exactly ONE existing row with a different config_id. Repoint in place.
+        // This is what prevents ghost-row accumulation; no DELETE needed.
+        if (rows.length === 1) {
+          const old = rows[0] as any;
+          const { error: upErr } = await supabase
+            .from("location_pack_selections")
+            .update({
+              active_pack_config_id: r.id,
+              is_default: true,
+              selected_by: uid,
+              selected_at: new Date().toISOString(),
+            })
+            .eq("location_id", location_id)
+            .eq("brand_template_id", r.brand_template_id)
+            .eq("active_pack_config_id", old.active_pack_config_id);
+          if (upErr) {
+            log("error", `${tag} ${locName}: repoint failed`, upErr);
+            console.groupEnd();
+            throw upErr;
+          }
+          inserted += 1;
+          defaulted += 1;
+          log("info", `${tag} ${locName}: repointed existing row`, {
+            from: old.active_pack_config_id,
+            to: r.id,
+            was_default: old.is_default,
+          });
+          continue;
+        }
+
+        // CASE D — multiple existing rows (legit multi-config: sack + case, 4-pack + gallon).
+        // Refuse to auto-pick which one to overwrite. Loud warn + skip; a human chooses via a future UI.
+        log("warn", `${tag} ${locName}: ${rows.length} existing selections for this template — refusing to auto-repoint. Skipping.`, {
+          existing: rows.map((x: any) => ({ config_id: x.active_pack_config_id, is_default: x.is_default })),
+          incoming: r.id,
+        });
+        skipped += 1;
       }
       log("info", `${tag} DONE — inserted=${inserted}, defaulted=${defaulted}, skipped=${skipped}, locCount=${locIds.length}`);
 
