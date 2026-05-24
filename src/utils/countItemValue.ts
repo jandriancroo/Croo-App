@@ -88,15 +88,31 @@ export function calculateCountItemValue(
 ): number {
   // ── Snapshot-wins guard ──
   // If a snapshot exists on the row, it ALWAYS wins for both cost and pack qty,
-  // regardless of forceLiveData. Submitted counts are frozen forever.
+  // regardless of forceLiveData or lens. Submitted counts are frozen forever.
   const hasSnapshot = ci.pack_quantity_at_count != null || ci.cost_at_count != null;
   const useLive = forceLiveData && !hasSnapshot;
 
-  const costPerCase = useLive
-    ? Number(item?.cost_per_unit) || 0
-    : (ci.cost_at_count != null
-        ? Number(ci.cost_at_count) || 0
-        : Number(item?.cost_per_unit) || 0);
+  // ── Lens (brand_pack_configs approved) ──
+  // Owns valuation when present + valid + no snapshot + not a recipe.
+  // Fails CLOSED to local when invalid (null/zero cost) so an "owned" item is
+  // never silently $0. Recipes have their own yield-based math path.
+  const lensProvided = item?.lens != null;
+  const useLens = !hasSnapshot && !item?.is_recipe && isLensValid(item?.lens);
+  if (lensProvided && !useLens && !hasSnapshot && !item?.is_recipe) {
+    // eslint-disable-next-line no-console
+    console.warn('[calculateCountItemValue] lens present but invalid (null/zero cost) — falling back to local', {
+      brand_item_id: item?.brand_item_id,
+      lens: item?.lens,
+    });
+  }
+
+  const costPerCase = useLens
+    ? Number(item!.lens!.cost_per_common_unit) * Number(item!.lens!.count_units_per_case)
+    : useLive
+      ? Number(item?.cost_per_unit) || 0
+      : (ci.cost_at_count != null
+          ? Number(ci.cost_at_count) || 0
+          : Number(item?.cost_per_unit) || 0);
 
   if (costPerCase === 0) return 0;
 
