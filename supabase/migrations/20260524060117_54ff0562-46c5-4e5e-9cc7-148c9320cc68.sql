@@ -1,0 +1,1 @@
+UPDATE public.locations SET lens_enabled = true WHERE id = '12c977c7-1786-4131-90f5-1eef3f96e2c6';
