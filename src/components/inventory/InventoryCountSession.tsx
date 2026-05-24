@@ -697,6 +697,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // Standard contract: pass entered_cases / entered_units (no synthesized quantity);
     // pass full item shape; pass Pipeline 1 conversion lookup.
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+    const lens = item.brand_item_id ? packLensMap?.get(item.brand_item_id) ?? null : null;
 
     const result = calculateCountItemValue(
       {
@@ -720,13 +721,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         unit: (item as any).unit,
         recipe_yield_qty: (item as any).recipe_yield_qty,
         recipe_yield_unit: (item as any).recipe_yield_unit,
+        lens, // approved brand_pack_configs entry; resolver fails closed to local when invalid
       },
       conversion || null,
       true
     );
 
     return result;
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap]);
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap]);
+
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
