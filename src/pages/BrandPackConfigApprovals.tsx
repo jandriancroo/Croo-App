@@ -391,6 +391,16 @@ export default function BrandPackConfigApprovals() {
         throw new Error("outer_qty, outer_type, and common_unit are required");
       }
 
+      // Null-cost guard (fail-closed): never approve a config that would silently
+      // value at $0. Resolver also falls back to local if this somehow slips through,
+      // but the approval flow blocks it up-front so it never reaches the read path.
+      const lensCost = d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit);
+      if (lensCost == null || !Number.isFinite(lensCost) || lensCost <= 0) {
+        log("error", `${tag} validation failed — cost_per_common_unit must be > 0 (got ${d.cost_per_common_unit})`);
+        console.groupEnd();
+        throw new Error("cost_per_common_unit must be greater than 0 before approving. Fix the cost, save the draft, then approve.");
+      }
+
       const { data: userRes } = await supabase.auth.getUser();
       const uid = userRes.user?.id ?? null;
       log("info", `${tag} approver uid`, uid);

@@ -1,5 +1,5 @@
 import { convertUnits, normalizeUnit } from "./unitConversion";
-import { getEffectivePackQty } from "./getEffectivePackQty";
+import { getEffectivePackQty, isLensValid, type PackConfigLens } from "./getEffectivePackQty";
 
 
 /**
@@ -59,6 +59,19 @@ export interface ItemForValue {
   unit?: string | null;
   recipe_yield_qty?: number | null;
   recipe_yield_unit?: string | null;
+  /**
+   * Optional brand-approved pack config. When present AND valid
+   * (count_units_per_case > 0 AND cost_per_common_unit > 0), the lens
+   * OWNS valuation for this item: cost-per-case = cost_per_common_unit ×
+   * count_units_per_case, pack qty = count_units_per_case, and local
+   * cost_per_unit / pack_quantity are ignored.
+   *
+   * Null/zero cost on the lens fails CLOSED — falls back to local behavior
+   * and logs a one-line warning so the gap is visible.
+   *
+   * Snapshots still win absolutely on already-saved counts.
+   */
+  lens?: PackConfigLens | null;
 }
 
 export interface ConversionForValue {
@@ -75,15 +88,31 @@ export function calculateCountItemValue(
 ): number {
   // ── Snapshot-wins guard ──
   // If a snapshot exists on the row, it ALWAYS wins for both cost and pack qty,
-  // regardless of forceLiveData. Submitted counts are frozen forever.
+  // regardless of forceLiveData or lens. Submitted counts are frozen forever.
   const hasSnapshot = ci.pack_quantity_at_count != null || ci.cost_at_count != null;
   const useLive = forceLiveData && !hasSnapshot;
 
-  const costPerCase = useLive
-    ? Number(item?.cost_per_unit) || 0
-    : (ci.cost_at_count != null
-        ? Number(ci.cost_at_count) || 0
-        : Number(item?.cost_per_unit) || 0);
+  // ── Lens (brand_pack_configs approved) ──
+  // Owns valuation when present + valid + no snapshot + not a recipe.
+  // Fails CLOSED to local when invalid (null/zero cost) so an "owned" item is
+  // never silently $0. Recipes have their own yield-based math path.
+  const lensProvided = item?.lens != null;
+  const useLens = !hasSnapshot && !item?.is_recipe && isLensValid(item?.lens);
+  if (lensProvided && !useLens && !hasSnapshot && !item?.is_recipe) {
+    // eslint-disable-next-line no-console
+    console.warn('[calculateCountItemValue] lens present but invalid (null/zero cost) — falling back to local', {
+      brand_item_id: item?.brand_item_id,
+      lens: item?.lens,
+    });
+  }
+
+  const costPerCase = useLens
+    ? Number(item!.lens!.cost_per_common_unit) * Number(item!.lens!.count_units_per_case)
+    : useLive
+      ? Number(item?.cost_per_unit) || 0
+      : (ci.cost_at_count != null
+          ? Number(ci.cost_at_count) || 0
+          : Number(item?.cost_per_unit) || 0);
 
   if (costPerCase === 0) return 0;
 
@@ -118,15 +147,17 @@ export function calculateCountItemValue(
     ? Number(conversion.outer_qty) * Number(conversion.canonical_qty_per_inner ?? 1)
     : null;
 
-  // Pack qty resolution via shared helper (snapshot-first by priority).
+  // Pack qty resolution via shared helper (snapshot-first, then lens, then local).
   // When useLive=true and no snapshot exists, strip the snapshot field so the
-  // helper falls through to live override → pack_quantity → Pipeline 1 fallback.
+  // helper falls through to lens → live override → pack_quantity → Pipeline 1.
+  const lensForPackHelper = useLens ? item?.lens : null;
   const packSource = useLive
-    ? { pack_quantity_override: item?.pack_quantity_override, pack_quantity: item?.pack_quantity }
-    : { pack_quantity_at_count: ci.pack_quantity_at_count, pack_quantity_override: item?.pack_quantity_override, pack_quantity: item?.pack_quantity };
+    ? { lens: lensForPackHelper, pack_quantity_override: item?.pack_quantity_override, pack_quantity: item?.pack_quantity }
+    : { pack_quantity_at_count: ci.pack_quantity_at_count, lens: lensForPackHelper, pack_quantity_override: item?.pack_quantity_override, pack_quantity: item?.pack_quantity };
   let safePackQty = getEffectivePackQty(packSource);
   // Pipeline 1 fallback applies only when nothing else resolved (helper returned 1 with no inputs).
-  if (safePackQty === 1 && pipeline1PackQty != null && Number.isFinite(pipeline1PackQty) && pipeline1PackQty > 0
+  // Skip entirely when lens owns the valuation — lens count_units_per_case is authoritative.
+  if (!useLens && safePackQty === 1 && pipeline1PackQty != null && Number.isFinite(pipeline1PackQty) && pipeline1PackQty > 0
       && !ci.pack_quantity_at_count && !item?.pack_quantity_override && !item?.pack_quantity) {
     safePackQty = Number(pipeline1PackQty);
   }

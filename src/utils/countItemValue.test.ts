@@ -144,4 +144,95 @@ describe('calculateCountItemValue', () => {
     , false);
     expect(result).toBe(20);
   });
+
+  // ── Lens (brand_pack_configs approved) read-path ──
+
+  it('lens owns valuation: Tiramisu 1 case + 4 loose, lens=16ea @ $1.84/ea, local ignored', () => {
+    const result = calculateCountItemValue(
+      { quantity: null, entered_cases: 1, entered_units: 4, cost_at_count: null, pack_quantity_at_count: null },
+      {
+        // Local values that MUST be ignored when lens is valid
+        cost_per_unit: 999,
+        pack_quantity: 1,
+        // Approved lens
+        lens: { count_units_per_case: 16, cost_per_common_unit: 1.84, common_unit: 'ea' },
+      },
+      null,
+      true
+    );
+    // costPerCase = 16 × $1.84 = $29.44 ; case=$29.44 ; 4 loose × $29.44/16 = $7.36 ; total $36.80
+    expect(result).toBeCloseTo(36.80, 2);
+  });
+
+  it('lens with null cost fails closed to local (no silent $0)', () => {
+    const result = calculateCountItemValue(
+      { quantity: null, entered_cases: 1, entered_units: 0, cost_at_count: null, pack_quantity_at_count: null },
+      {
+        cost_per_unit: 50,
+        pack_quantity: 10,
+        lens: { count_units_per_case: 16, cost_per_common_unit: null, common_unit: 'ea' },
+      },
+      null,
+      true
+    );
+    // Falls back to local: 1 case × $50 = $50
+    expect(result).toBe(50);
+  });
+
+  it('lens with zero cost fails closed to local', () => {
+    const result = calculateCountItemValue(
+      { quantity: null, entered_cases: 2, entered_units: 0, cost_at_count: null, pack_quantity_at_count: null },
+      {
+        cost_per_unit: 25,
+        pack_quantity: 5,
+        lens: { count_units_per_case: 16, cost_per_common_unit: 0, common_unit: 'ea' },
+      },
+      null,
+      true
+    );
+    expect(result).toBe(50);
+  });
+
+  it('snapshot still wins over lens for already-saved counts', () => {
+    const result = calculateCountItemValue(
+      { quantity: null, entered_cases: 1, entered_units: 0, cost_at_count: 25.66, pack_quantity_at_count: 100 },
+      {
+        cost_per_unit: 999,
+        pack_quantity: 1,
+        lens: { count_units_per_case: 16, cost_per_common_unit: 1.84, common_unit: 'ea' },
+      },
+      null,
+      false
+    );
+    // Snapshot wins: 1 case × $25.66 = $25.66
+    expect(result).toBeCloseTo(25.66, 2);
+  });
+
+  it('no lens attached → byte-for-byte today\'s behavior', () => {
+    const result = calculateCountItemValue(
+      { quantity: 1020, entered_cases: 7, entered_units: 320, cost_at_count: 25.66, pack_quantity_at_count: null },
+      { pack_quantity: 100 },
+      null,
+      false
+    );
+    expect(result).toBeCloseTo(261.73, 2);
+  });
+
+  it('recipe items ignore lens (recipe yield math wins)', () => {
+    const result = calculateCountItemValue(
+      { quantity: 1, entered_cases: null, entered_units: null, cost_at_count: 24.41, pack_quantity_at_count: null },
+      {
+        is_recipe: true,
+        cost_per_unit: 24.41,
+        unit: 'qt',
+        recipe_yield_qty: 16,
+        recipe_yield_unit: 'qt',
+        lens: { count_units_per_case: 999, cost_per_common_unit: 999, common_unit: 'ea' },
+      },
+      null,
+      false
+    );
+    expect(result).toBeCloseTo(1.53, 2);
+  });
 });
+

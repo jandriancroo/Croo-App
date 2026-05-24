@@ -397,6 +397,31 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   });
   const { conversionMap } = useBrandConversions(brandId);
 
+  // Lens (approved brand_pack_configs) — keyed by brand_item_id (= brand_template_id).
+  // Read-path only; resolver falls back to local when missing. Snapshots still win.
+  const { data: packLensMap } = useQuery({
+    queryKey: ["pack-config-lens", brandId],
+    enabled: !!brandId,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("brand_pack_configs" as any)
+        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, status")
+        .eq("status", "approved");
+      if (error) throw error;
+      const map = new Map<string, { count_units_per_case: number | null; cost_per_common_unit: number | null; common_unit: string | null }>();
+      for (const row of (data as any[]) || []) {
+        if (!row?.brand_template_id) continue;
+        map.set(row.brand_template_id, {
+          count_units_per_case: row.count_units_per_case,
+          cost_per_common_unit: row.cost_per_common_unit,
+          common_unit: row.common_unit,
+        });
+      }
+      return map;
+    },
+  });
+
   // Fetch existing duration for resumed counts
   const { data: countRecord } = useQuery({
     queryKey: ["inventory-count-duration", countId],
@@ -672,6 +697,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // Standard contract: pass entered_cases / entered_units (no synthesized quantity);
     // pass full item shape; pass Pipeline 1 conversion lookup.
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+    const lens = item.brand_item_id ? packLensMap?.get(item.brand_item_id) ?? null : null;
 
     const result = calculateCountItemValue(
       {
@@ -695,13 +721,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         unit: (item as any).unit,
         recipe_yield_qty: (item as any).recipe_yield_qty,
         recipe_yield_unit: (item as any).recipe_yield_unit,
+        lens, // approved brand_pack_configs entry; resolver fails closed to local when invalid
       },
       conversion || null,
       true
     );
 
     return result;
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap]);
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap]);
+
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
