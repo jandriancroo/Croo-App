@@ -895,7 +895,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Diff math uses the LIVE effective pack qty so the baseline (computed from
       // the current entered_cases × current caseUnits) and the new value share
       // the same multiplier. Snapshots are stamped on save below for history.
-      const effectivePackQty = item.pack_quantity;
+      // Lens-aware: when an approved brand_pack_config is in effect, its
+      // count_units_per_case is authoritative — matches valuation precedence.
+      const effectivePackQty = resolveItemPackQty(item);
       const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, innerPackQty);
       const originalQuantity = originalCounts.current[key] ?? 0;
       
