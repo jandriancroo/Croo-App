@@ -397,6 +397,31 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   });
   const { conversionMap } = useBrandConversions(brandId);
 
+  // Lens (approved brand_pack_configs) — keyed by brand_item_id (= brand_template_id).
+  // Read-path only; resolver falls back to local when missing. Snapshots still win.
+  const { data: packLensMap } = useQuery({
+    queryKey: ["pack-config-lens", brandId],
+    enabled: !!brandId,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("brand_pack_configs" as any)
+        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, status")
+        .eq("status", "approved");
+      if (error) throw error;
+      const map = new Map<string, { count_units_per_case: number | null; cost_per_common_unit: number | null; common_unit: string | null }>();
+      for (const row of (data as any[]) || []) {
+        if (!row?.brand_template_id) continue;
+        map.set(row.brand_template_id, {
+          count_units_per_case: row.count_units_per_case,
+          cost_per_common_unit: row.cost_per_common_unit,
+          common_unit: row.common_unit,
+        });
+      }
+      return map;
+    },
+  });
+
   // Fetch existing duration for resumed counts
   const { data: countRecord } = useQuery({
     queryKey: ["inventory-count-duration", countId],
