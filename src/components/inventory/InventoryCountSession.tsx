@@ -624,6 +624,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }, 0);
   }, [panCounts]);
 
+  // Lens-aware pack-quantity resolver. Mirrors valuation precedence
+  // (getEffectivePackQty): snapshot > valid lens > local override > local pack.
+  // This is what the unit-total math should consult so the "X units" badge
+  // matches what the dollars are valued against. Without this, an approved
+  // lens of 1/250 with a stale local pack_quantity=1 would value $ correctly
+  // but render "1 unit" per case — a wrong on-hand count.
+  const resolveItemPackQty = useCallback((item: any): number => {
+    if (!item) return 1;
+    const lens = (lensEnabledForLocation === true && item.brand_item_id)
+      ? packLensMap?.get(item.brand_item_id) ?? null
+      : null;
+    return getEffectivePackQty({
+      pack_quantity_at_count: (item as any).pack_quantity_at_count ?? null,
+      pack_quantity_override: (item as any)._rawPackQuantityOverride ?? (item as any).pack_quantity_override ?? null,
+      pack_quantity: (item as any)._rawPackQuantity ?? item.pack_quantity ?? null,
+      lens,
+    });
+  }, [packLensMap, lensEnabledForLocation]);
+
   // Calculate total quantity for an item:
   //   cases × (pack_quantity × inner_pack_quantity when present, else pack_quantity)
   //   + inner_packs × inner_pack_quantity + units + pan_units
