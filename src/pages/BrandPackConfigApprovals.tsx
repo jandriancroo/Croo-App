@@ -146,8 +146,46 @@ export default function BrandPackConfigApprovals() {
             .in("id", locIds);
           (locs ?? []).forEach((l: any) => locNameMap.set(l.id, l.name));
         }
+
+        // Real-store gate: a location qualifies for a vendor's proposal ONLY when
+        // it has an ACTIVE location_integrations row whose integration_type matches
+        // the proposal's vendor. Stops location_pack_selections from being written
+        // to dead/test stores that got a deploy stamp but never connected to the
+        // vendor. Independent from locations.lens_enabled (the READ gate) —
+        // selections are the permanent record, lens_enabled is the temporary
+        // rollout switch.
+        //
+        // vendor key (short form, used in locByTplVendor key) → integration_type
+        //   "pfg"   → "pfg"
+        //   "pa"    → "produce_alliance"
+        //   <other> → passthrough (matches integration_type as-is)
+        const vendorKeyToIntegrationType = (v: string): string =>
+          v === "pa" ? "produce_alliance" : v;
+
+        const activeIntegrationLocs = new Map<string, Set<string>>(); // integration_type → set<location_id>
+        if (locIds.length > 0) {
+          const { data: ints } = await supabase
+            .from("location_integrations")
+            .select("location_id, integration_type, is_active")
+            .in("location_id", locIds)
+            .eq("is_active", true);
+          (ints ?? []).forEach((row: any) => {
+            const t = String(row.integration_type || "").toLowerCase();
+            if (!t) return;
+            if (!activeIntegrationLocs.has(t)) activeIntegrationLocs.set(t, new Set());
+            activeIntegrationLocs.get(t)!.add(row.location_id);
+          });
+        }
+        const locationHasVendor = (locId: string, vendorKey: string): boolean => {
+          const t = vendorKeyToIntegrationType(vendorKey);
+          return activeIntegrationLocs.get(t)?.has(locId) === true;
+        };
+
         const grouped = new Map<string, Map<string, string>>();
         const addPair = (tplId: string, vendor: string, locId: string) => {
+          // Vendor-gate: only add when this location actually has an active
+          // integration of the proposal's vendor type.
+          if (!locationHasVendor(locId, vendor)) return;
           const key = `${tplId}::${vendor}`;
           if (!grouped.has(key)) grouped.set(key, new Map());
           grouped.get(key)!.set(locId, locNameMap.get(locId) ?? "Unknown");
