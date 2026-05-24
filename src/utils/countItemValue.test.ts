@@ -234,5 +234,40 @@ describe('calculateCountItemValue', () => {
     );
     expect(result).toBeCloseTo(1.53, 2);
   });
+
+  // ── Per-location gate (locations.lens_enabled) ──
+  // The gate lives at the caller (InventoryCountSession): when lens_enabled=false
+  // the caller passes lens=null. This test pins the resolver-side contract: the
+  // exact same item shape, once with a valid lens attached and once with lens=null
+  // (gate-off), produces TWO different values — proving the gate is the single
+  // switch that flips behavior. With lens=null the result must equal pure local
+  // resolution, byte-for-byte.
+  it('lens_enabled=false (caller passes lens=null) → byte-for-byte local behavior even when an approved-style config exists', () => {
+    const ci = { quantity: null, entered_cases: 1, entered_units: 4, cost_at_count: null, pack_quantity_at_count: null };
+    const localItem = { cost_per_unit: 50, pack_quantity: 10 };
+
+    // Gate ON: lens attached → lens owns valuation (1 case + 4 loose, lens=16ea @ $1.84)
+    const gateOn = calculateCountItemValue(
+      ci,
+      { ...localItem, lens: { count_units_per_case: 16, cost_per_common_unit: 1.84, common_unit: 'ea' } },
+      null,
+      true
+    );
+    // 16 × $1.84 = $29.44 ; case=$29.44 ; 4 × $29.44/16 = $7.36 ; total $36.80
+    expect(gateOn).toBeCloseTo(36.80, 2);
+
+    // Gate OFF: caller passes lens=null → pure local resolution
+    const gateOff = calculateCountItemValue(ci, { ...localItem, lens: null }, null, true);
+    // 1 case × $50 + 4 × $50/10 = $50 + $20 = $70
+    expect(gateOff).toBeCloseTo(70, 2);
+
+    // And: identical to passing no lens field at all (true byte-for-byte vs today)
+    const noLensField = calculateCountItemValue(ci, localItem, null, true);
+    expect(gateOff).toBe(noLensField);
+
+    // Sanity: gate flips the answer
+    expect(gateOn).not.toBeCloseTo(gateOff, 2);
+  });
 });
+
 
