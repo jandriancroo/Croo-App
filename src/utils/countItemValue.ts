@@ -1,5 +1,5 @@
 import { convertUnits, normalizeUnit } from "./unitConversion";
-import { getEffectivePackQty } from "./getEffectivePackQty";
+import { getEffectivePackQty, isLensValid, type PackConfigLens } from "./getEffectivePackQty";
 
 
 /**
