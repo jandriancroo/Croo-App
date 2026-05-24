@@ -717,7 +717,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // Standard contract: pass entered_cases / entered_units (no synthesized quantity);
     // pass full item shape; pass Pipeline 1 conversion lookup.
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-    const lens = item.brand_item_id ? packLensMap?.get(item.brand_item_id) ?? null : null;
+    // Per-location gate: only attach lens when the store has opted in.
+    // Defense-in-depth — the query is also disabled when the flag is off,
+    // but checking here too means a stale map can never leak through.
+    const lens = (lensEnabledForLocation === true && item.brand_item_id)
+      ? packLensMap?.get(item.brand_item_id) ?? null
+      : null;
 
     const result = calculateCountItemValue(
       {
