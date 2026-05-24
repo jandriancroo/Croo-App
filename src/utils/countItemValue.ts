@@ -59,6 +59,19 @@ export interface ItemForValue {
   unit?: string | null;
   recipe_yield_qty?: number | null;
   recipe_yield_unit?: string | null;
+  /**
+   * Optional brand-approved pack config. When present AND valid
+   * (count_units_per_case > 0 AND cost_per_common_unit > 0), the lens
+   * OWNS valuation for this item: cost-per-case = cost_per_common_unit ×
+   * count_units_per_case, pack qty = count_units_per_case, and local
+   * cost_per_unit / pack_quantity are ignored.
+   *
+   * Null/zero cost on the lens fails CLOSED — falls back to local behavior
+   * and logs a one-line warning so the gap is visible.
+   *
+   * Snapshots still win absolutely on already-saved counts.
+   */
+  lens?: PackConfigLens | null;
 }
 
 export interface ConversionForValue {
