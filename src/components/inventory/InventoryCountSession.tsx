@@ -1991,11 +1991,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           
           // Determine which counting inputs to show based on count_by override
           const countBy = item.count_by || 'inherit';
-          // Bucket 3b rule: truly 1-per-case items (pack_quantity=1 AND no inner pack)
-          // have no real "case" — hide the Case lane unless an explicit override demands it.
+          // Lens-driven default: when a per-location lens is active AND an approved
+          // brand_pack_config exists for this item with a real case tier
+          // (count_units_per_case > 1), the case lane reflects the lens — not the
+          // local pack_quantity. This fixes the Toilet Seat Covers bug where a
+          // store's stale local pack_quantity=1 suppressed the Cases lane even
+          // though the approved config was clearly 1/250.
+          const lensForItem = (lensEnabledForLocation === true && item.brand_item_id)
+            ? packLensMap?.get(item.brand_item_id) ?? null
+            : null;
+          const lensHasCaseTier = !!lensForItem && Number(lensForItem.count_units_per_case ?? 0) > 1;
+          // Local signals (legacy default path when no lens applies).
           const rawPackQty = (item as any)._rawPackQuantityOverride ?? (item as any)._rawPackQuantity ?? item.pack_quantity ?? 1;
           const rawInnerPackQty = (item as any).inner_pack_quantity ?? null;
-          const isTrueSingleUnit = Number(rawPackQty) <= 1 && (!rawInnerPackQty || Number(rawInnerPackQty) <= 1);
+          const localTrueSingleUnit = Number(rawPackQty) <= 1 && (!rawInnerPackQty || Number(rawInnerPackQty) <= 1);
+          // Lens, when present, is authoritative for case-tier visibility.
+          const isTrueSingleUnit = lensForItem
+            ? !lensHasCaseTier
+            : localTrueSingleUnit;
           let showCases = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'cases_only';
           let showUnits = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'units_only';
           if (isTrueSingleUnit && countBy === 'inherit') {
