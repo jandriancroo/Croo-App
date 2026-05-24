@@ -753,7 +753,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     );
 
     return result;
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap]);
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap, lensEnabledForLocation]);
 
 
   // Calculate total running cost
