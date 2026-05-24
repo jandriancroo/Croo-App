@@ -397,11 +397,31 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   });
   const { conversionMap } = useBrandConversions(brandId);
 
+  // Per-location lens gate. Default false on every store. The lens read path
+  // activates ONLY when this is true AND an approved config exists for the item.
+  // When false/null, lens is never attached → resolver behaves byte-for-byte
+  // like today regardless of how many approved configs exist brand-wide.
+  const { data: lensEnabledForLocation } = useQuery({
+    queryKey: ["location-lens-enabled", locationId],
+    enabled: !!locationId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("locations" as any)
+        .select("lens_enabled")
+        .eq("id", locationId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any)?.lens_enabled === true;
+    },
+  });
+
   // Lens (approved brand_pack_configs) — keyed by brand_item_id (= brand_template_id).
   // Read-path only; resolver falls back to local when missing. Snapshots still win.
+  // Skipped entirely when the location gate is off.
   const { data: packLensMap } = useQuery({
-    queryKey: ["pack-config-lens", brandId],
-    enabled: !!brandId,
+    queryKey: ["pack-config-lens", brandId, lensEnabledForLocation],
+    enabled: !!brandId && lensEnabledForLocation === true,
     staleTime: 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -697,7 +717,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // Standard contract: pass entered_cases / entered_units (no synthesized quantity);
     // pass full item shape; pass Pipeline 1 conversion lookup.
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-    const lens = item.brand_item_id ? packLensMap?.get(item.brand_item_id) ?? null : null;
+    // Per-location gate: only attach lens when the store has opted in.
+    // Defense-in-depth — the query is also disabled when the flag is off,
+    // but checking here too means a stale map can never leak through.
+    const lens = (lensEnabledForLocation === true && item.brand_item_id)
+      ? packLensMap?.get(item.brand_item_id) ?? null
+      : null;
 
     const result = calculateCountItemValue(
       {
@@ -728,7 +753,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     );
 
     return result;
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap]);
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap, lensEnabledForLocation]);
 
 
   // Calculate total running cost

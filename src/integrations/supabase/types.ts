@@ -5589,6 +5589,7 @@ export type Database = {
           is_active: boolean
           last_deployed_at: string | null
           latitude: number | null
+          lens_enabled: boolean
           location_type: string
           longitude: number | null
           name: string
@@ -5607,6 +5608,7 @@ export type Database = {
           is_active?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
+          lens_enabled?: boolean
           location_type?: string
           longitude?: number | null
           name: string
@@ -5625,6 +5627,7 @@ export type Database = {
           is_active?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
+          lens_enabled?: boolean
           location_type?: string
           longitude?: number | null
           name?: string
