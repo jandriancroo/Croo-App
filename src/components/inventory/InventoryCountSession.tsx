@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { calculateCountItemValue } from "@/utils/countItemValue";
+import { getEffectivePackQty } from "@/utils/getEffectivePackQty";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
@@ -623,6 +624,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }, 0);
   }, [panCounts]);
 
+  // Lens-aware pack-quantity resolver. Mirrors valuation precedence
+  // (getEffectivePackQty): snapshot > valid lens > local override > local pack.
+  // This is what the unit-total math should consult so the "X units" badge
+  // matches what the dollars are valued against. Without this, an approved
+  // lens of 1/250 with a stale local pack_quantity=1 would value $ correctly
+  // but render "1 unit" per case — a wrong on-hand count.
+  const resolveItemPackQty = useCallback((item: any): number => {
+    if (!item) return 1;
+    const lens = (lensEnabledForLocation === true && item.brand_item_id)
+      ? packLensMap?.get(item.brand_item_id) ?? null
+      : null;
+    return getEffectivePackQty({
+      pack_quantity_at_count: (item as any).pack_quantity_at_count ?? null,
+      pack_quantity_override: (item as any)._rawPackQuantityOverride ?? (item as any).pack_quantity_override ?? null,
+      pack_quantity: (item as any)._rawPackQuantity ?? item.pack_quantity ?? null,
+      lens,
+    });
+  }, [packLensMap, lensEnabledForLocation]);
+
   // Calculate total quantity for an item:
   //   cases × (pack_quantity × inner_pack_quantity when present, else pack_quantity)
   //   + inner_packs × inner_pack_quantity + units + pan_units
@@ -875,7 +895,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Diff math uses the LIVE effective pack qty so the baseline (computed from
       // the current entered_cases × current caseUnits) and the new value share
       // the same multiplier. Snapshots are stamped on save below for history.
-      const effectivePackQty = item.pack_quantity;
+      // Lens-aware: when an approved brand_pack_config is in effect, its
+      // count_units_per_case is authoritative — matches valuation precedence.
+      const effectivePackQty = resolveItemPackQty(item);
       const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, innerPackQty);
       const originalQuantity = originalCounts.current[key] ?? 0;
       
@@ -947,7 +969,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const innerPackQty = (item as any).inner_pack_quantity ?? null;
         return {
           item_id: item.item_id,
-          quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes, innerPackQty),
+          quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, innerPackQty),
           storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
           entered_cases: countState.cases,
           entered_units: countState.units,
@@ -1390,7 +1412,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const innerPackQty = (item as any).inner_pack_quantity ?? null;
       return {
         item_id: item.item_id,
-        quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes, innerPackQty),
+        quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, innerPackQty),
         storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
         entered_cases: casesVal,
         entered_units: unitsVal,
@@ -2032,7 +2054,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
                 <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
                 <p className="text-[9px] text-accent-foreground/70 text-center">
-                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : item.pack_quantity, item.pan_sizes, innerPackQty)} {item.is_recipe ? (item.unit || 'ea') : 'units'}
+                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : resolveItemPackQty(item), item.pan_sizes, innerPackQty)} {item.is_recipe ? (item.unit || 'ea') : 'units'}
                 </p>
               </div>
 
