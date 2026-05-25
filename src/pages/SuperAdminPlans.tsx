@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus, Pencil, Trash2, Save, Copy, Loader2, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, Save, Copy, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +48,7 @@ export default function SuperAdminPlans() {
   const [editing, setEditing] = useState<PlanRow | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [grantsForEditing, setGrantsForEditing] = useState<Set<string>>(new Set());
+  const [bulletsText, setBulletsText] = useState('');
   const [saving, setSaving] = useState(false);
 
   const { data: catalogs = [] } = useQuery({
@@ -130,6 +131,7 @@ export default function SuperAdminPlans() {
     if (p) {
       setEditing({ ...p });
       setGrantsForEditing(new Set(grantsByPlan.get(p.id) ?? []));
+      setBulletsText((p.feature_bullets ?? []).join('\n'));
     } else {
       setEditing({
         id: '',
@@ -150,6 +152,7 @@ export default function SuperAdminPlans() {
         feature_bullets: [],
       });
       setGrantsForEditing(new Set());
+      setBulletsText('');
     }
     setDialogOpen(true);
   };
@@ -173,7 +176,7 @@ export default function SuperAdminPlans() {
         sort_order: Number(editing.sort_order) || 0,
         is_visible: editing.is_visible,
         tier_rank: Number(editing.tier_rank) || 0,
-        feature_bullets: editing.feature_bullets,
+        feature_bullets: bulletsText.split('\n').map((s) => s.trim()).filter(Boolean),
       };
 
       let planId = editing.id;
@@ -220,6 +223,21 @@ export default function SuperAdminPlans() {
     }
     toast.success('Plan deleted');
     qc.invalidateQueries({ queryKey: ['admin-plans'] });
+    refetchPlans();
+  };
+
+  const toggleVisibility = async (p: PlanRow) => {
+    const { error } = await supabase
+      .from('plans')
+      .update({ is_visible: !p.is_visible })
+      .eq('id', p.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(p.is_visible ? `Hidden "${p.display_name}"` : `Showing "${p.display_name}"`);
+    qc.invalidateQueries({ queryKey: ['admin-plans'] });
+    qc.invalidateQueries({ queryKey: ['plans'] });
     refetchPlans();
   };
 
@@ -418,11 +436,19 @@ export default function SuperAdminPlans() {
                           <div className="text-xs text-destructive mt-1">⚠ No Stripe price ID set</div>
                         )}
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleVisibility(p)}
+                        title={p.is_visible ? 'Hide from billing page' : 'Show on billing page'}
+                      >
+                        {p.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Edit">
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deletePlan(p)}>
-                        <Trash2 className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" onClick={() => deletePlan(p)} title="Delete (permanent)">
+                        <Trash2 className="h-4 w-4 text-destructive/70" />
                       </Button>
                     </div>
                   );
@@ -567,15 +593,14 @@ export default function SuperAdminPlans() {
               <div>
                 <Label>Feature bullets (one per line)</Label>
                 <Textarea
-                  rows={5}
-                  value={editing.feature_bullets.join('\n')}
-                  onChange={(e) =>
-                    setEditing({
-                      ...editing,
-                      feature_bullets: e.target.value.split('\n').map((s) => s.trimEnd()).filter(Boolean),
-                    })
-                  }
+                  rows={6}
+                  value={bulletsText}
+                  onChange={(e) => setBulletsText(e.target.value)}
+                  placeholder={'Everything in Core\nInventory management\nAdvanced reporting'}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Empty lines are ignored on save. Spaces and punctuation are preserved.
+                </p>
               </div>
 
               <div>
