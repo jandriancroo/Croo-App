@@ -168,7 +168,7 @@ export default function SuperAdminPlans() {
         stripe_price_id: editing.stripe_price_id || null,
         stripe_product_id: editing.stripe_product_id || null,
         badge_label: editing.badge_label || null,
-        badge_style: editing.badge_style || null,
+        badge_style: editing.badge_style && editing.badge_style !== 'none' ? editing.badge_style : null,
         icon_key: editing.icon_key || null,
         sort_order: Number(editing.sort_order) || 0,
         is_visible: editing.is_visible,
