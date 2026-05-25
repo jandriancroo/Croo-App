@@ -67,6 +67,7 @@ function fallbackPlans(): PlanRow[] {
       sort_order: (i + 1) * 10,
       is_visible: true,
       tier_rank: rankByKey[k],
+      feature_bullets: [...t.features],
       capabilities: capByKey[k],
     };
   });
