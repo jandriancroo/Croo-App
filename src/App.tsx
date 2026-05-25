@@ -196,6 +196,7 @@ const AppContent = () => {
         <Route path="/location/:locationId/punch-clock" element={<ProtectedRoute><PunchClockCustomization /></ProtectedRoute>} />
         <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
         <Route path="/brands" element={<ProtectedRoute><BrandManagement /></ProtectedRoute>} />
+        <Route path="/super-admin/plans" element={<ProtectedRoute><SuperAdminPlans /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory" element={<ProtectedRoute><BrandInventory /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory/unpriced" element={<ProtectedRoute><BrandUnpricedIngredients /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory/pack-configs" element={<ProtectedRoute><BrandPackConfigApprovals /></ProtectedRoute>} />
