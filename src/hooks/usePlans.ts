@@ -98,21 +98,28 @@ export function usePlans(): UsePlansResult {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch the brand catalog (or global default) + capability grants
+  // Fetch the catalog (org > brand > global default) + capability grants
   const { data, isLoading } = useQuery({
-    queryKey: ['plans', 'catalog', brandId ?? 'global'],
+    queryKey: ['plans', 'catalog', organizationId ?? 'none', brandId ?? 'global'],
     queryFn: async (): Promise<PlanRow[]> => {
-      // 1. Resolve catalog: brand-specific OR global default
+      // 1. Resolve catalog: org > brand > global default (full replacement)
+      const orFilters: string[] = ['and(brand_id.is.null,organization_id.is.null)'];
+      if (brandId) orFilters.push(`and(brand_id.eq.${brandId},organization_id.is.null)`);
+      if (organizationId) orFilters.push(`organization_id.eq.${organizationId}`);
+
       const { data: catalogs, error: catErr } = await supabase
         .from('plan_catalogs')
-        .select('id, brand_id, is_active')
+        .select('id, brand_id, organization_id, is_active')
         .eq('is_active', true)
-        .or(brandId ? `brand_id.eq.${brandId},brand_id.is.null` : 'brand_id.is.null');
+        .or(orFilters.join(','));
       if (catErr) throw catErr;
       if (!catalogs || catalogs.length === 0) return [];
 
-      // Prefer the brand-specific catalog; fall back to global default
-      const chosen = catalogs.find((c) => c.brand_id === brandId) ?? catalogs.find((c) => c.brand_id === null);
+      // Priority: org-scoped wins, then brand-scoped, then global default
+      const chosen =
+        (organizationId ? catalogs.find((c: any) => c.organization_id === organizationId) : undefined) ??
+        (brandId ? catalogs.find((c: any) => c.brand_id === brandId && !c.organization_id) : undefined) ??
+        catalogs.find((c: any) => c.brand_id === null && !c.organization_id);
       if (!chosen) return [];
 
       // 2. Fetch plans
