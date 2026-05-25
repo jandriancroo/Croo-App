@@ -26,6 +26,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { calculateCountItemValue } from "@/utils/countItemValue";
 import { getEffectivePackQty } from "@/utils/getEffectivePackQty";
+import { computeCountLanes } from "@/utils/computeCountLanes";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
