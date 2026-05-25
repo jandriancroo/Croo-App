@@ -69,22 +69,58 @@ serve(async (req) => {
       logStep("Org-scoped check", { organizationId });
 
       if (isSuperAdmin) {
-        // Search Stripe directly by metadata.organization_id
+        // Super admin: search by org_id AND by each location_id in this org
+        // (some subs may have a different organization_id metadata if billing was set up under another org)
+        const seen = new Set<string>();
+        const pushUnique = (subs: any[]) => {
+          for (const s of subs) {
+            if (!seen.has(s.id)) {
+              seen.add(s.id);
+              allSubs.push(s);
+            }
+          }
+        };
+
         try {
           const search = await stripe.subscriptions.search({
             query: `metadata['organization_id']:'${organizationId}' AND (status:'active' OR status:'trialing')`,
             limit: 100,
           });
-          allSubs.push(...search.data);
-          if (search.data.length > 0) {
-            const firstCust = search.data[0].customer;
-            customerId = typeof firstCust === "string" ? firstCust : firstCust?.id ?? null;
-          }
-          logStep("Super admin Stripe search", { found: search.data.length });
+          pushUnique(search.data);
+          logStep("Super admin org search", { found: search.data.length });
         } catch (e) {
-          logStep("Stripe search failed", { error: String(e) });
+          logStep("Stripe org search failed", { error: String(e) });
         }
+
+        // Fetch this org's location IDs and search by metadata.location_id
+        const { data: locs } = await supabase
+          .from("locations")
+          .select("id")
+          .eq("organization_id", organizationId)
+          .eq("is_active", true);
+
+        const locationIds = (locs || []).map((l: any) => l.id);
+        logStep("Super admin location search", { count: locationIds.length });
+
+        for (const lid of locationIds) {
+          try {
+            const locSearch = await stripe.subscriptions.search({
+              query: `metadata['location_id']:'${lid}' AND (status:'active' OR status:'trialing')`,
+              limit: 10,
+            });
+            pushUnique(locSearch.data);
+          } catch (e) {
+            logStep("Stripe location search failed", { lid, error: String(e) });
+          }
+        }
+
+        if (allSubs.length > 0) {
+          const firstCust = allSubs[0].customer;
+          customerId = typeof firstCust === "string" ? firstCust : firstCust?.id ?? null;
+        }
+        logStep("Super admin total subs", { found: allSubs.length });
       } else {
+
         const { data: orgAdmins } = await supabase
           .from("organization_members")
           .select("user_id")
