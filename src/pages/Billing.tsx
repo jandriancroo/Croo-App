@@ -33,6 +33,8 @@ export default function Billing() {
     locationSubscriptions, isLocationSubscribed, getLocationTier,
   } = useSubscription();
   const { locations, organizationId: currentOrgId } = useAppLocation();
+  const { plans } = usePlans();
+  const visiblePlans: PlanRow[] = plans.filter((p) => p.is_visible);
   const [searchParams] = useSearchParams();
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
 
