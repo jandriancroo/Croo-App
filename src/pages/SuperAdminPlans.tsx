@@ -56,7 +56,7 @@ export default function SuperAdminPlans() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('plan_catalogs')
-        .select('id, brand_id, name, is_active, brands(id, name)')
+        .select('id, brand_id, organization_id, name, is_active, brands(id, name), organizations(id, name)')
         .order('brand_id', { nullsFirst: true });
       if (error) throw error;
       return data as any[];
@@ -69,6 +69,18 @@ export default function SuperAdminPlans() {
       const { data, error } = await supabase.from('brands').select('id, name').order('name');
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: organizations = [] } = useQuery({
+    queryKey: ['admin-plans-orgs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id, name, brand_id, brands(name)')
+        .order('name');
+      if (error) throw error;
+      return data as any[];
     },
   });
 
