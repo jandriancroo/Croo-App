@@ -253,54 +253,51 @@ export default function SuperAdminPlans() {
     refetchPlans();
   };
 
+  const cloneFromGlobal = async (newCatalogId: string) => {
+    const globalCat = catalogs.find((c) => !c.brand_id && !c.organization_id);
+    if (!globalCat) return;
+    const { data: srcPlans } = await supabase
+      .from('plans')
+      .select('*')
+      .eq('catalog_id', globalCat.id);
+    if (!srcPlans || srcPlans.length === 0) return;
+    const { data: srcGrants } = await supabase
+      .from('plan_capability_grants')
+      .select('*')
+      .in('plan_id', srcPlans.map((p) => p.id));
+    for (const sp of srcPlans) {
+      const { id: oldId, created_at, updated_at, ...rest } = sp as any;
+      const { data: newPlan, error: pErr } = await supabase
+        .from('plans')
+        .insert({ ...rest, catalog_id: newCatalogId })
+        .select('id')
+        .single();
+      if (pErr) throw pErr;
+      const myGrants = (srcGrants ?? []).filter((g) => g.plan_id === oldId);
+      if (myGrants.length > 0) {
+        await supabase.from('plan_capability_grants').insert(
+          myGrants.map((g) => ({ plan_id: newPlan.id, capability_key: g.capability_key }))
+        );
+      }
+    }
+  };
+
   const createBrandCatalog = async (brandId: string) => {
     const brand = brands.find((b) => b.id === brandId);
     if (!brand) return;
-    if (catalogs.some((c) => c.brand_id === brandId)) {
+    if (catalogs.some((c) => c.brand_id === brandId && !c.organization_id)) {
       toast.error('This brand already has a catalog');
       return;
     }
     setSaving(true);
     try {
-      // Create catalog
       const { data: cat, error: catErr } = await supabase
         .from('plan_catalogs')
         .insert({ brand_id: brandId, name: `${brand.name} Plans`, is_active: true })
         .select('id')
         .single();
       if (catErr) throw catErr;
-
-      // Clone plans + grants from global default
-      const globalCat = catalogs.find((c) => !c.brand_id);
-      if (globalCat) {
-        const { data: srcPlans } = await supabase
-          .from('plans')
-          .select('*')
-          .eq('catalog_id', globalCat.id);
-        if (srcPlans && srcPlans.length > 0) {
-          const { data: srcGrants } = await supabase
-            .from('plan_capability_grants')
-            .select('*')
-            .in('plan_id', srcPlans.map((p) => p.id));
-
-          for (const sp of srcPlans) {
-            const { id: oldId, created_at, updated_at, ...rest } = sp as any;
-            const { data: newPlan, error: pErr } = await supabase
-              .from('plans')
-              .insert({ ...rest, catalog_id: cat.id })
-              .select('id')
-              .single();
-            if (pErr) throw pErr;
-            const myGrants = (srcGrants ?? []).filter((g) => g.plan_id === oldId);
-            if (myGrants.length > 0) {
-              await supabase.from('plan_capability_grants').insert(
-                myGrants.map((g) => ({ plan_id: newPlan.id, capability_key: g.capability_key }))
-              );
-            }
-          }
-        }
-      }
-
+      await cloneFromGlobal(cat.id);
       toast.success(`Created catalog for ${brand.name}`);
       qc.invalidateQueries({ queryKey: ['admin-plan-catalogs'] });
       setSelectedCatalogId(cat.id);
@@ -311,9 +308,36 @@ export default function SuperAdminPlans() {
     }
   };
 
+  const createOrgCatalog = async (orgId: string) => {
+    const org = organizations.find((o) => o.id === orgId);
+    if (!org) return;
+    if (catalogs.some((c) => c.organization_id === orgId)) {
+      toast.error('This org already has a catalog');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: cat, error: catErr } = await supabase
+        .from('plan_catalogs')
+        .insert({ organization_id: orgId, brand_id: null, name: `${org.name} Plans`, is_active: true })
+        .select('id')
+        .single();
+      if (catErr) throw catErr;
+      await cloneFromGlobal(cat.id);
+      toast.success(`Created catalog for ${org.name}`);
+      qc.invalidateQueries({ queryKey: ['admin-plan-catalogs'] });
+      setSelectedCatalogId(cat.id);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to create catalog');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const deleteCatalog = async () => {
-    if (!activeCatalog || !activeCatalog.brand_id) return;
-    if (!confirm(`Delete catalog "${activeCatalog.name}"? Locations on this brand will fall back to the global default.`)) return;
+    if (!activeCatalog || (!activeCatalog.brand_id && !activeCatalog.organization_id)) return;
+    const scopeLabel = activeCatalog.organization_id ? 'org' : 'brand';
+    if (!confirm(`Delete catalog "${activeCatalog.name}"? This ${scopeLabel} will fall back to the ${activeCatalog.organization_id ? 'brand catalog or ' : ''}global default.`)) return;
     const { error } = await supabase.from('plan_catalogs').delete().eq('id', activeCatalog.id);
     if (error) {
       toast.error(error.message);
