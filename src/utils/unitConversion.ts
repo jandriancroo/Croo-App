@@ -33,6 +33,7 @@ export const TO_OZ: Record<string, number> = {
   // ─── Passthrough ───
   ea: 1,
   cn: 1, // can — treated as each (1 can = 1 each); embedded-size variants like "can(8.4oz-fl)" handled by expandEmbeddedUnit
+  rl: 1, // roll — passthrough countable (paper towels, cling wrap, receipt rolls)
 };
 
 /** Industry-standard #N can sizes in fluid ounces */
