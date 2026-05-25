@@ -171,7 +171,17 @@ export default function Billing() {
                 <h2 className="text-lg font-semibold">
                   Choose a plan for {billableLocations.find(l => l.id === selectedLocationId)?.name}
                 </h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div
+                  className={`grid gap-4 justify-center mx-auto ${
+                    visiblePlans.length === 1
+                      ? 'grid-cols-1 max-w-sm'
+                      : visiblePlans.length === 2
+                      ? 'grid-cols-1 md:grid-cols-2 max-w-2xl'
+                      : visiblePlans.length === 3
+                      ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-4xl'
+                      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
+                  }`}
+                >
                   {visiblePlans.map((plan) => {
                     const isFounder = plan.badge_style === 'founder';
                     const isPopular = plan.badge_style === 'primary' && plan.key === 'pro';
