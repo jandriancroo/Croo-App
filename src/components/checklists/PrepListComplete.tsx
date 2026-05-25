@@ -302,14 +302,32 @@ export function PrepListComplete({
                 ) : null;
               })()}
             </div>
-            <Input
-              type="number"
-              inputMode="decimal"
-              value={v.on_hand}
-              onChange={(e) => handleOnHand(row, e.target.value)}
-              placeholder="0"
-              className="h-8 text-sm text-center px-1"
-            />
+            <div className="flex flex-col items-stretch">
+              <div className="relative">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={v.on_hand}
+                  onChange={(e) => handleOnHand(row, e.target.value)}
+                  placeholder="0"
+                  className={cn(
+                    'h-8 text-sm text-center px-1',
+                    filled && 'pr-5 border-primary/40',
+                  )}
+                />
+                {filled && (
+                  <Check
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-primary pointer-events-none"
+                    aria-label="entered"
+                  />
+                )}
+              </div>
+              {filled && meta[row.id]?.by_name && (
+                <div className="mt-0.5 text-[9px] leading-tight text-muted-foreground text-center truncate">
+                  {meta[row.id]!.by_name}
+                </div>
+              )}
+            </div>
             <div className="text-center text-xs text-muted-foreground">
               {row.par != null ? row.par : '—'}
             </div>
@@ -319,6 +337,7 @@ export function PrepListComplete({
               ) : prep == null ? (
                 <span className="text-xs text-muted-foreground">—</span>
               ) : prep === 0 ? (
+
                 <Badge variant="secondary" className="text-[10px] h-5">
                   {overPar ? 'over' : '✓'}
                 </Badge>
