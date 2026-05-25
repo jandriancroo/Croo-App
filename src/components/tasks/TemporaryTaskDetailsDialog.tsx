@@ -349,14 +349,7 @@ export function TemporaryTaskDetailsDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture={isIOS ? "environment" : undefined}
-          className="hidden"
-          onChange={handleFileChange}
-        />
+        {/* Camera input handled per-subtask via PhotoPickerButton below */}
 
         <div className="space-y-4 py-2">
           {/* Description */}
