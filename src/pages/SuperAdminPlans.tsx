@@ -436,11 +436,19 @@ export default function SuperAdminPlans() {
                           <div className="text-xs text-destructive mt-1">⚠ No Stripe price ID set</div>
                         )}
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleVisibility(p)}
+                        title={p.is_visible ? 'Hide from billing page' : 'Show on billing page'}
+                      >
+                        {p.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Edit">
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deletePlan(p)}>
-                        <Trash2 className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" onClick={() => deletePlan(p)} title="Delete (permanent)">
+                        <Trash2 className="h-4 w-4 text-destructive/70" />
                       </Button>
                     </div>
                   );
