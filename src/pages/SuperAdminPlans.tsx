@@ -570,15 +570,14 @@ export default function SuperAdminPlans() {
               <div>
                 <Label>Feature bullets (one per line)</Label>
                 <Textarea
-                  rows={5}
-                  value={editing.feature_bullets.join('\n')}
-                  onChange={(e) =>
-                    setEditing({
-                      ...editing,
-                      feature_bullets: e.target.value.split('\n').map((s) => s.trimEnd()).filter(Boolean),
-                    })
-                  }
+                  rows={6}
+                  value={bulletsText}
+                  onChange={(e) => setBulletsText(e.target.value)}
+                  placeholder={'Everything in Core\nInventory management\nAdvanced reporting'}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Empty lines are ignored on save. Spaces and punctuation are preserved.
+                </p>
               </div>
 
               <div>
