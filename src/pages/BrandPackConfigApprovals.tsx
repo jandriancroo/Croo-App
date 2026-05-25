@@ -171,6 +171,8 @@ function InnerTypeSelect({
     </Select>
   );
 }
+
+type ProposalRow = {
   id: string;
   brand_template_id: string;
   outer_qty: number;
