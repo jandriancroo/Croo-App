@@ -52,6 +52,8 @@ export function PrepListComplete({
   const [rows, setRows] = useState<PrepRowDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, { on_hand: string; note: string }>>({});
+  const [meta, setMeta] = useState<Record<string, RowMeta>>({});
+  const [currentUserName, setCurrentUserName] = useState<string | null>(null);
 
   // Load row config
   useEffect(() => {
@@ -72,25 +74,70 @@ export function PrepListComplete({
     };
   }, [itemId]);
 
-  // Load existing completions
+  // Load current user's display name once
+  useEffect(() => {
+    if (!userId) return;
+    let cancel = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .maybeSingle();
+      if (cancel) return;
+      const name = (data?.full_name || '').trim().split(/\s+/)[0] || 'You';
+      setCurrentUserName(name);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [userId]);
+
+  // Load existing completions (+ who entered them)
   useEffect(() => {
     if (!submissionId) return;
     let cancel = false;
     (async () => {
       const { data } = await supabase
         .from('checklist_prep_completions')
-        .select('prep_row_id, on_hand, prep_amount')
+        .select('prep_row_id, on_hand, prep_amount, completed_by, updated_at')
         .eq('submission_id', submissionId)
         .eq('checklist_item_id', itemId);
       if (cancel) return;
       const next: Record<string, { on_hand: string; note: string }> = {};
+      const nextMeta: Record<string, RowMeta> = {};
+      const completerIds = new Set<string>();
       (data || []).forEach((c: any) => {
         next[c.prep_row_id] = {
           on_hand: c.on_hand != null ? String(c.on_hand) : '',
-          note: c.prep_amount == null && c.on_hand != null ? '' : '',
+          note: '',
         };
+        nextMeta[c.prep_row_id] = {
+          by_id: c.completed_by || null,
+          by_name: null,
+          at: c.updated_at || null,
+        };
+        if (c.completed_by) completerIds.add(c.completed_by);
       });
       setValues(next);
+
+      // Resolve display names for everyone who entered a value
+      if (completerIds.size > 0) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', Array.from(completerIds));
+        const nameById: Record<string, string> = {};
+        (profs || []).forEach((p: any) => {
+          nameById[p.id] =
+            ((p.full_name || '').trim().split(/\s+/)[0]) || 'User';
+        });
+        Object.keys(nextMeta).forEach((rid) => {
+          const m = nextMeta[rid];
+          if (m.by_id) m.by_name = nameById[m.by_id] || 'User';
+        });
+      }
+      setMeta(nextMeta);
     })();
     return () => {
       cancel = true;
@@ -104,6 +151,7 @@ export function PrepListComplete({
       return v && v.on_hand !== '' && !Number.isNaN(Number(v.on_hand));
     });
   }, [rows, values]);
+
 
   useEffect(() => {
     onAllFilledChange(allFilled);
