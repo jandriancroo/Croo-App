@@ -2,9 +2,16 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ALL_CONTAINERS } from '@/components/inventory/PanSizesSection';
+
+interface RowMeta {
+  by_id: string | null;
+  by_name: string | null;
+  at: string | null;
+}
+
 
 export interface PrepRowDef {
   id: string;
