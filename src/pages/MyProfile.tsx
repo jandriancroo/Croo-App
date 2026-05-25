@@ -205,23 +205,22 @@ const MyProfile = () => {
                   )}
                 </AvatarFallback>
               </Avatar>
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoSelect}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => photoInputRef.current?.click()}
+              <PhotoPickerButton
+                onFileSelected={(file) =>
+                  handlePhotoSelect({ target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+                }
                 disabled={uploadingPhoto}
               >
-                <Camera className="mr-2 h-4 w-4" />
-                {profilePhotoUrl ? 'Change Photo' : 'Add Photo'}
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingPhoto}
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  {profilePhotoUrl ? 'Change Photo' : 'Add Photo'}
+                </Button>
+              </PhotoPickerButton>
             </div>
 
             {/* Full Name */}
