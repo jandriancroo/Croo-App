@@ -2,9 +2,16 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ALL_CONTAINERS } from '@/components/inventory/PanSizesSection';
+
+interface RowMeta {
+  by_id: string | null;
+  by_name: string | null;
+  at: string | null;
+}
+
 
 export interface PrepRowDef {
   id: string;
@@ -45,6 +52,8 @@ export function PrepListComplete({
   const [rows, setRows] = useState<PrepRowDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, { on_hand: string; note: string }>>({});
+  const [meta, setMeta] = useState<Record<string, RowMeta>>({});
+  const [currentUserName, setCurrentUserName] = useState<string | null>(null);
 
   // Load row config
   useEffect(() => {
@@ -65,25 +74,70 @@ export function PrepListComplete({
     };
   }, [itemId]);
 
-  // Load existing completions
+  // Load current user's display name once
+  useEffect(() => {
+    if (!userId) return;
+    let cancel = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .maybeSingle();
+      if (cancel) return;
+      const name = (data?.full_name || '').trim().split(/\s+/)[0] || 'You';
+      setCurrentUserName(name);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [userId]);
+
+  // Load existing completions (+ who entered them)
   useEffect(() => {
     if (!submissionId) return;
     let cancel = false;
     (async () => {
       const { data } = await supabase
         .from('checklist_prep_completions')
-        .select('prep_row_id, on_hand, prep_amount')
+        .select('prep_row_id, on_hand, prep_amount, completed_by, updated_at')
         .eq('submission_id', submissionId)
         .eq('checklist_item_id', itemId);
       if (cancel) return;
       const next: Record<string, { on_hand: string; note: string }> = {};
+      const nextMeta: Record<string, RowMeta> = {};
+      const completerIds = new Set<string>();
       (data || []).forEach((c: any) => {
         next[c.prep_row_id] = {
           on_hand: c.on_hand != null ? String(c.on_hand) : '',
-          note: c.prep_amount == null && c.on_hand != null ? '' : '',
+          note: '',
         };
+        nextMeta[c.prep_row_id] = {
+          by_id: c.completed_by || null,
+          by_name: null,
+          at: c.updated_at || null,
+        };
+        if (c.completed_by) completerIds.add(c.completed_by);
       });
       setValues(next);
+
+      // Resolve display names for everyone who entered a value
+      if (completerIds.size > 0) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', Array.from(completerIds));
+        const nameById: Record<string, string> = {};
+        (profs || []).forEach((p: any) => {
+          nameById[p.id] =
+            ((p.full_name || '').trim().split(/\s+/)[0]) || 'User';
+        });
+        Object.keys(nextMeta).forEach((rid) => {
+          const m = nextMeta[rid];
+          if (m.by_id) m.by_name = nameById[m.by_id] || 'User';
+        });
+      }
+      setMeta(nextMeta);
     })();
     return () => {
       cancel = true;
@@ -97,6 +151,7 @@ export function PrepListComplete({
       return v && v.on_hand !== '' && !Number.isNaN(Number(v.on_hand));
     });
   }, [rows, values]);
+
 
   useEffect(() => {
     onAllFilledChange(allFilled);
@@ -178,10 +233,20 @@ export function PrepListComplete({
 
   const handleOnHand = (row: PrepRowDef, raw: string) => {
     setValues((prev) => ({ ...prev, [row.id]: { on_hand: raw, note: prev[row.id]?.note || '' } }));
+    // Immediately tag this row with the current user — they touched it now.
+    setMeta((prev) => ({
+      ...prev,
+      [row.id]: {
+        by_id: userId,
+        by_name: currentUserName || 'You',
+        at: new Date().toISOString(),
+      },
+    }));
     const key = `${itemId}_${row.id}`;
     if (debouncers[key]) clearTimeout(debouncers[key]);
     debouncers[key] = setTimeout(() => persist(row, raw), 600);
   };
+
 
   if (loading) {
     return (
@@ -237,14 +302,32 @@ export function PrepListComplete({
                 ) : null;
               })()}
             </div>
-            <Input
-              type="number"
-              inputMode="decimal"
-              value={v.on_hand}
-              onChange={(e) => handleOnHand(row, e.target.value)}
-              placeholder="0"
-              className="h-8 text-sm text-center px-1"
-            />
+            <div className="flex flex-col items-stretch">
+              <div className="relative">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  value={v.on_hand}
+                  onChange={(e) => handleOnHand(row, e.target.value)}
+                  placeholder="0"
+                  className={cn(
+                    'h-8 text-sm text-center px-1',
+                    filled && 'pr-5 border-primary/40',
+                  )}
+                />
+                {filled && (
+                  <Check
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-primary pointer-events-none"
+                    aria-label="entered"
+                  />
+                )}
+              </div>
+              {filled && meta[row.id]?.by_name && (
+                <div className="mt-0.5 text-[9px] leading-tight text-muted-foreground text-center truncate">
+                  {meta[row.id]!.by_name}
+                </div>
+              )}
+            </div>
             <div className="text-center text-xs text-muted-foreground">
               {row.par != null ? row.par : '—'}
             </div>
@@ -254,6 +337,7 @@ export function PrepListComplete({
               ) : prep == null ? (
                 <span className="text-xs text-muted-foreground">—</span>
               ) : prep === 0 ? (
+
                 <Badge variant="secondary" className="text-[10px] h-5">
                   {overPar ? 'over' : '✓'}
                 </Badge>
