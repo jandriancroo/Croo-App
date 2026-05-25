@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Camera, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +12,11 @@ interface PhotoPickerButtonProps {
 }
 
 /**
- * Reusable photo picker that, on tap, opens a small popover above the trigger
- * with "Take Photo" (camera) and "From Library" (gallery) options. This works
- * around Android 14+ ignoring `<input accept="image/*">` without `capture` —
- * which routes straight to the gallery and hides the camera.
+ * Reusable photo picker. On tap shows a small popover with "Take Photo" and
+ * "From Library". Uses real <label htmlFor> elements so the OS file picker /
+ * camera opens reliably inside WebViews (Lovable mobile preview, PWA, etc.) —
+ * a programmatic `inputRef.click()` would lose the user-gesture token and the
+ * camera would silently refuse to open.
  */
 export function PhotoPickerButton({
   onFileSelected,
@@ -27,17 +28,16 @@ export function PhotoPickerButton({
   const [open, setOpen] = useState(false);
   const [flipDown, setFlipDown] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const libraryInputRef = useRef<HTMLInputElement>(null);
+  const uid = useId().replace(/:/g, "");
+  const cameraId = `ppb-cam-${uid}`;
+  const libraryId = `ppb-lib-${uid}`;
 
-  // Close on outside tap (touch + mouse)
+  // Close on outside tap
   useEffect(() => {
     if (!open) return;
     const handler = (e: Event) => {
       if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (!wrapperRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     document.addEventListener("touchstart", handler);
@@ -51,21 +51,14 @@ export function PhotoPickerButton({
     if (disabled) return;
     e.preventDefault();
     e.stopPropagation();
-
-    // Decide flip direction based on space above
     const rect = wrapperRef.current?.getBoundingClientRect();
-    if (rect) {
-      const spaceAbove = rect.top;
-      setFlipDown(spaceAbove < 140);
-    }
+    if (rect) setFlipDown(rect.top < 140);
     setOpen((o) => !o);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    // Reset both so same file can be re-picked
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
-    if (libraryInputRef.current) libraryInputRef.current.value = "";
+    e.target.value = ""; // allow re-picking same file
     setOpen(false);
     if (file) onFileSelected(file);
   };
@@ -83,47 +76,40 @@ export function PhotoPickerButton({
           role="menu"
         >
           {!libraryOnly && (
-            <button
-              type="button"
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent cursor-pointer text-sm text-popover-foreground"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                cameraInputRef.current?.click();
-              }}
+            <label
+              htmlFor={cameraId}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent cursor-pointer text-sm text-popover-foreground select-none"
+              role="menuitem"
             >
               <Camera className="h-4 w-4" />
               Take Photo
-            </button>
+            </label>
           )}
-          <button
-            type="button"
-            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent cursor-pointer text-sm text-popover-foreground"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              libraryInputRef.current?.click();
-            }}
+          <label
+            htmlFor={libraryId}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent cursor-pointer text-sm text-popover-foreground select-none"
+            role="menuitem"
           >
             <ImageIcon className="h-4 w-4" />
             From Library
-          </button>
+          </label>
         </div>
       )}
 
+      {/* Inputs are always mounted so labels can target them even after popover closes */}
       <input
-        ref={cameraInputRef}
+        id={cameraId}
         type="file"
         accept="image/*"
         capture="environment"
-        className="hidden"
+        className="sr-only"
         onChange={handleChange}
       />
       <input
-        ref={libraryInputRef}
+        id={libraryId}
         type="file"
         accept="image/*"
-        className="hidden"
+        className="sr-only"
         onChange={handleChange}
       />
     </div>
