@@ -48,6 +48,7 @@ export default function SuperAdminPlans() {
   const [editing, setEditing] = useState<PlanRow | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [grantsForEditing, setGrantsForEditing] = useState<Set<string>>(new Set());
+  const [bulletsText, setBulletsText] = useState('');
   const [saving, setSaving] = useState(false);
 
   const { data: catalogs = [] } = useQuery({
