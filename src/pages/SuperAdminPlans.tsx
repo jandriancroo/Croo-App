@@ -226,6 +226,21 @@ export default function SuperAdminPlans() {
     refetchPlans();
   };
 
+  const toggleVisibility = async (p: PlanRow) => {
+    const { error } = await supabase
+      .from('plans')
+      .update({ is_visible: !p.is_visible })
+      .eq('id', p.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(p.is_visible ? `Hidden "${p.display_name}"` : `Showing "${p.display_name}"`);
+    qc.invalidateQueries({ queryKey: ['admin-plans'] });
+    qc.invalidateQueries({ queryKey: ['plans'] });
+    refetchPlans();
+  };
+
   const createBrandCatalog = async (brandId: string) => {
     const brand = brands.find((b) => b.id === brandId);
     if (!brand) return;
