@@ -311,24 +311,30 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
             {cells.map(cell => {
               const isToday = cell.dateStr === todayStr;
               const isFuture = cell.dateStr > todayStr;
+              const isSelected = cell.dateStr === selectedDate;
+              const clickable = cell.inRange && !isFuture;
               return (
                 <Tooltip key={cell.dateStr}>
                   <TooltipTrigger asChild>
-                    <div
+                    <button
+                      type="button"
+                      disabled={!clickable}
+                      onClick={() => clickable && setSelectedDate(prev => (prev === cell.dateStr ? null : cell.dateStr))}
                       className={cn(
-                        'aspect-square rounded-md flex items-center justify-center text-[11px] font-medium transition-all cursor-default relative',
+                        'aspect-square w-full rounded-md flex items-center justify-center text-[11px] font-medium transition-all relative',
                         getColor(cell.completionPct, cell.inRange, isFuture),
                         !cell.inRange && 'opacity-30',
                         isFuture && 'opacity-50',
-                        cell.inRange && !isFuture && 'hover:ring-2 hover:ring-primary/40',
-                        isToday && 'ring-2 ring-primary',
+                        clickable && 'cursor-pointer hover:ring-2 hover:ring-primary/40 active:scale-95',
+                        isToday && !isSelected && 'ring-2 ring-primary',
+                        isSelected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
                         !isFuture && cell.completionPct !== null && cell.completionPct >= 50 ? 'text-foreground' : 'text-muted-foreground'
                       )}
                     >
                       {format(cell.date, 'd')}
-                    </div>
+                    </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top">
+                  <TooltipContent side="top" className="hidden md:block">
                     <div className="text-xs">
                       <div className="font-semibold">{format(cell.date, 'EEE, MMM d')}</div>
                       {isFuture ? (
@@ -354,6 +360,99 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
         {isLoading && (
           <p className="text-xs text-muted-foreground mt-3 text-center">Loading completion data...</p>
         )}
+
+        {/* Day Details Panel */}
+        {selectedDate && (() => {
+          const cell = cells.find(c => c.dateStr === selectedDate);
+          if (!cell) return null;
+          const sl = salesLaborByDate?.[selectedDate];
+          const sales = sl?.netSales ?? 0;
+          const goal = sl?.goal ?? null;
+          const variance = goal !== null ? sales - goal : null;
+          const goalPct = goal && goal > 0 ? Math.round((sales / goal) * 100) : null;
+          const splh = sl && sl.laborHours > 0 ? sales / sl.laborHours : null;
+          const fmt$ = (n: number) =>
+            `$${Math.round(n).toLocaleString('en-US')}`;
+          return (
+            <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="text-sm font-semibold">{format(cell.date, 'EEEE, MMM d')}</div>
+                  {cell.completionPct !== null ? (
+                    <div className="text-[11px] text-muted-foreground">
+                      {cell.completedChecklists}/{cell.totalChecklists} checklists complete
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-muted-foreground">No checklists scheduled</div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="text-muted-foreground hover:text-foreground p-1 -m-1"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {/* Sales vs Goal */}
+                <div className="rounded-md bg-background/60 p-2.5">
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                    <DollarSign className="w-3 h-3" /> Sales
+                  </div>
+                  <div className="text-sm font-semibold leading-tight">{fmt$(sales)}</div>
+                  {goal !== null ? (
+                    <>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Goal {fmt$(goal)}</div>
+                      {variance !== null && (
+                        <div
+                          className={cn(
+                            'text-[11px] font-medium mt-1 flex items-center gap-0.5',
+                            variance >= 0 ? 'text-emerald-500' : 'text-destructive'
+                          )}
+                        >
+                          {variance >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                          {variance >= 0 ? '+' : '-'}{fmt$(Math.abs(variance))}
+                          {goalPct !== null && <span className="text-muted-foreground ml-0.5">({goalPct}%)</span>}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-[10px] text-muted-foreground mt-0.5">No goal set</div>
+                  )}
+                </div>
+
+                {/* Task completion */}
+                <div className="rounded-md bg-background/60 p-2.5">
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                    <CheckCircle2 className="w-3 h-3" /> Tasks
+                  </div>
+                  <div className="text-sm font-semibold leading-tight">
+                    {cell.completionPct !== null ? `${cell.completionPct}%` : '—'}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    {cell.completionPct !== null
+                      ? `${cell.completedChecklists}/${cell.totalChecklists} done`
+                      : 'None scheduled'}
+                  </div>
+                </div>
+
+                {/* SPLH */}
+                <div className="rounded-md bg-background/60 p-2.5">
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                    <Clock className="w-3 h-3" /> SPLH
+                  </div>
+                  <div className="text-sm font-semibold leading-tight">
+                    {splh !== null ? `$${splh.toFixed(0)}` : '—'}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    {sl && sl.laborHours > 0 ? `${sl.laborHours.toFixed(1)} hrs` : 'No labor data'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );
