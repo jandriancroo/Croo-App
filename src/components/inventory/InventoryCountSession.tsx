@@ -2012,32 +2012,31 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const isHighlighted = highlightedItemId === splitKey;
           const isErrorHighlighted = errorHighlightedItemId === splitKey;
           
-          // Determine which counting inputs to show based on count_by override
-          const countBy = item.count_by || 'inherit';
-          // Lens-driven default: when a per-location lens is active AND an approved
-          // brand_pack_config exists for this item with a real case tier
-          // (count_units_per_case > 1), the case lane reflects the lens — not the
-          // local pack_quantity. This fixes the Toilet Seat Covers bug where a
-          // store's stale local pack_quantity=1 suppressed the Cases lane even
-          // though the approved config was clearly 1/250.
+          // Lane decision delegated to computeCountLanes — single source of
+          // truth shared with the BrandPackConfigApprovals preview. See
+          // src/utils/computeCountLanes.ts. The visibility rule (lens-driven
+          // case tier, true-single-unit suppression, count_by overrides) and
+          // the inner-lane label resolution all live there.
           const lensForItem = (lensEnabledForLocation === true && item.brand_item_id)
             ? packLensMap?.get(item.brand_item_id) ?? null
             : null;
-          const lensHasCaseTier = !!lensForItem && Number(lensForItem.count_units_per_case ?? 0) > 1;
-          // Local signals (legacy default path when no lens applies).
-          const rawPackQty = (item as any)._rawPackQuantityOverride ?? (item as any)._rawPackQuantity ?? item.pack_quantity ?? 1;
-          const rawInnerPackQty = (item as any).inner_pack_quantity ?? null;
-          const localTrueSingleUnit = Number(rawPackQty) <= 1 && (!rawInnerPackQty || Number(rawInnerPackQty) <= 1);
-          // Lens, when present, is authoritative for case-tier visibility.
-          const isTrueSingleUnit = lensForItem
-            ? !lensHasCaseTier
-            : localTrueSingleUnit;
-          let showCases = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'cases_only';
-          let showUnits = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'units_only';
-          if (isTrueSingleUnit && countBy === 'inherit') {
-            showCases = false;
-            showUnits = true;
-          }
+          const lanes = computeCountLanes({
+            item: {
+              is_recipe: item.is_recipe,
+              pack_quantity: item.pack_quantity,
+              _rawPackQuantityOverride: (item as any)._rawPackQuantityOverride,
+              _rawPackQuantity: (item as any)._rawPackQuantity,
+              inner_pack_quantity: (item as any).inner_pack_quantity,
+              inner_pack_label: (item as any).inner_pack_label,
+              unit: item.unit,
+              cost_per_unit: item.cost_per_unit,
+              count_by: (item.count_by ?? 'inherit') as any,
+            },
+            lens: lensForItem,
+            lensEnabled: lensEnabledForLocation === true && !!item.brand_item_id,
+          });
+          const showCases = lanes.showCases;
+          const showUnits = lanes.showUnits;
           
           return (
             <div 
