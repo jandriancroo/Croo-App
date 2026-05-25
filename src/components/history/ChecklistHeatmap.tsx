@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
@@ -9,6 +9,7 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getDateDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DollarSign, TrendingUp, TrendingDown, CheckCircle2, Clock, X } from 'lucide-react';
 
 interface Props {
   anchorDate: Date;
@@ -22,6 +23,12 @@ interface DayCell {
   completionPct: number | null; // null = no checklists scheduled
   completedChecklists: number;
   totalChecklists: number;
+}
+
+interface DaySalesLabor {
+  netSales: number;
+  goal: number | null;
+  laborHours: number;
 }
 
 export function ChecklistHeatmap({ anchorDate, range }: Props) {
