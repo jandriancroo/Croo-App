@@ -12,9 +12,9 @@ interface PhotoPickerButtonProps {
 }
 
 /**
- * Photo picker popover. Uses <label htmlFor> (so the native file picker /
- * camera fires inside WebViews) and renders the popover via a portal to
- * <body> so it escapes any ancestor stacking context.
+ * Photo picker popover. Uses button + programmatic input.click() (works in
+ * normal browsers and Lovable web preview) and renders the popover via a
+ * portal to <body> so it escapes any ancestor stacking context.
  */
 export function PhotoPickerButton({
   onFileSelected,
@@ -27,9 +27,8 @@ export function PhotoPickerButton({
   const [pos, setPos] = useState<{ top: number; left: number; placeAbove: boolean } | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const uid = useId().replace(/:/g, "");
-  const cameraId = `ppb-cam-${uid}`;
-  const libraryId = `ppb-lib-${uid}`;
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
 
   // Outside-tap close (must ignore the portal popover itself)
   useEffect(() => {
@@ -83,6 +82,16 @@ export function PhotoPickerButton({
     if (file) onFileSelected(file);
   };
 
+  const pickCamera = () => {
+    setOpen(false);
+    cameraInputRef.current?.click();
+  };
+
+  const pickLibrary = () => {
+    setOpen(false);
+    libraryInputRef.current?.click();
+  };
+
   return (
     <div ref={wrapperRef} className={cn("relative inline-block", className)}>
       <div onClickCapture={handleTriggerClick}>{children}</div>
@@ -102,29 +111,31 @@ export function PhotoPickerButton({
             role="menu"
           >
             {!libraryOnly && (
-              <label
-                htmlFor={cameraId}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent active:bg-accent cursor-pointer text-sm text-popover-foreground select-none"
+              <button
+                type="button"
+                onClick={pickCamera}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent active:bg-accent cursor-pointer text-sm text-popover-foreground select-none text-left"
                 role="menuitem"
               >
                 <Camera className="h-4 w-4" />
                 Take Photo
-              </label>
+              </button>
             )}
-            <label
-              htmlFor={libraryId}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent active:bg-accent cursor-pointer text-sm text-popover-foreground select-none"
+            <button
+              type="button"
+              onClick={pickLibrary}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent active:bg-accent cursor-pointer text-sm text-popover-foreground select-none text-left"
               role="menuitem"
             >
               <ImageIcon className="h-4 w-4" />
               From Library
-            </label>
+            </button>
           </div>,
           document.body,
         )}
 
       <input
-        id={cameraId}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
@@ -132,7 +143,7 @@ export function PhotoPickerButton({
         onChange={handleChange}
       />
       <input
-        id={libraryId}
+        ref={libraryInputRef}
         type="file"
         accept="image/*"
         className="sr-only"
@@ -141,5 +152,6 @@ export function PhotoPickerButton({
     </div>
   );
 }
+
 
 export default PhotoPickerButton;
