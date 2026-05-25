@@ -1468,36 +1468,16 @@ export default function CompleteChecklist() {
                         {!isComplete && (
                           <div className={`grid gap-2 ${isMultiPhoto && photosNeeded > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                             {Array.from({ length: isMultiPhoto ? photosNeeded : 1 }).map((_, idx) => {
-                              const slotNumber = currentPhotos.length + idx + 1;
-                              const cameraId = `image-camera-${item.id}-${slotNumber}`;
-
                               return (
                                 <div key={idx}>
-                                  <Label 
-                                    htmlFor={cameraId} 
-                                    className="cursor-pointer"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      document.getElementById(cameraId)?.click();
-                                    }}
+                                  <PhotoPickerButton
+                                    onFileSelected={(file) => handleImageUpload(item.id, file)}
+                                    className="block w-full"
                                   >
-                                    <div className="flex items-center justify-center min-h-[60px]">
+                                    <div className="flex items-center justify-center min-h-[60px] cursor-pointer">
                                       <Camera className="h-8 w-8 text-muted-foreground" />
                                     </div>
-                                  </Label>
-                                  <Input
-                                    id={cameraId}
-                                    type="file"
-                                    accept="image/*"
-                                    capture={isIOS ? "environment" : undefined}
-                                    className="hidden"
-                                    onChange={e => {
-                                      const file = e.target.files?.[0];
-                                      if (file) handleImageUpload(item.id, file);
-                                      e.target.value = '';
-                                    }}
-                                    required={item.is_required && !isComplete}
-                                  />
+                                  </PhotoPickerButton>
                                 </div>
                               );
                             })}
