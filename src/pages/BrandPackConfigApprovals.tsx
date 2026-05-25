@@ -1075,7 +1075,7 @@ export default function BrandPackConfigApprovals() {
                       <Input type="number" value={d.inner_qty ?? ""} onChange={(e) => patchDraft(r.id, { inner_qty: e.target.value === "" ? null : Number(e.target.value) })} />
                     </Field>
                     <Field label="Inner type">
-                      <UnitSelect value={d.inner_type} allowNone onChange={(v) => patchDraft(r.id, { inner_type: v })} />
+                      <InnerTypeSelect value={d.inner_type} onChange={(v) => patchDraft(r.id, { inner_type: v })} />
                     </Field>
                     <Field label="Common unit">
                       <UnitSelect value={d.common_unit} onChange={(v) => patchDraft(r.id, { common_unit: v ?? "" })} />
@@ -1093,6 +1093,44 @@ export default function BrandPackConfigApprovals() {
                       count_units_per_case = {(Number(d.outer_qty) || 0) * ((d.inner_qty ?? 1) || 1)}
                     </div>
                   </div>
+
+                  {/* Live count-screen preview — driven by the SAME computeCountLanes()
+                      the real count screen uses. If a rule changes there, this moves
+                      with it. Approve when the lanes/labels look right. */}
+                  {(() => {
+                    const outer = Number(d.outer_qty) || 0;
+                    const inner = d.inner_qty == null ? null : Number(d.inner_qty);
+                    const cupc = outer * (inner ?? 1);
+                    const cost = d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit);
+                    // Build a synthetic item that approximates how the real count
+                    // screen would see this template once it lands at a location.
+                    // The lens is the draft itself (what approval will write).
+                    const previewLanes = computeCountLanes({
+                      item: {
+                        is_recipe: false,
+                        pack_quantity: outer || 1,
+                        inner_pack_quantity: inner && inner > 0 ? inner : null,
+                        inner_pack_label: null, // intentionally null so the lens label wins
+                        unit: d.common_unit || "ea",
+                        cost_per_unit: cost != null && cupc > 0 ? cost * cupc : null,
+                        count_by: "inherit",
+                      },
+                      lens: {
+                        count_units_per_case: cupc > 0 ? cupc : null,
+                        cost_per_common_unit: cost,
+                        common_unit: d.common_unit || null,
+                        // inner_type drives the middle-lane label (e.g. "sleeve" → "Sleeves")
+                        inner_type: d.inner_type || null,
+                      } as any,
+                      lensEnabled: true,
+                    });
+                    return (
+                      <CountLanesPreview
+                        lanes={previewLanes}
+                        itemName={r.template?.product_name}
+                      />
+                    );
+                  })()}
 
                   <div className="flex gap-2 justify-end pt-1">
                     <Button
