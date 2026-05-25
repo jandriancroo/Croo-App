@@ -366,7 +366,18 @@ export default function SuperAdminPlans() {
     );
   }
 
-  const brandsWithoutCatalog = brands.filter((b) => !catalogs.some((c) => c.brand_id === b.id));
+  const brandsWithoutCatalog = brands.filter((b) => !catalogs.some((c) => c.brand_id === b.id && !c.organization_id));
+  const orgsWithoutCatalog = organizations.filter((o) => !catalogs.some((c) => c.organization_id === o.id));
+
+  const globalCatalogs = catalogs.filter((c) => !c.brand_id && !c.organization_id);
+  const brandCatalogs = catalogs.filter((c) => c.brand_id && !c.organization_id);
+  const orgCatalogs = catalogs.filter((c) => c.organization_id);
+
+  const labelFor = (c: any) => {
+    if (c.organization_id) return `🏢 ${c.organizations?.name ?? 'Org'} — ${c.name}`;
+    if (c.brand_id) return `${c.brands?.name ?? 'Brand'} — ${c.name}`;
+    return `🌐 ${c.name}`;
+  };
 
   return (
     <Layout>
@@ -378,7 +389,7 @@ export default function SuperAdminPlans() {
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl sm:text-3xl font-bold">Plan Catalogs</h1>
             <p className="text-muted-foreground text-sm">
-              Customize subscription plans per brand. Brands without a catalog fall back to the Global Default.
+              Customize plans per brand or per org. Resolution: org → brand → Global Default.
             </p>
           </div>
         </div>
@@ -386,7 +397,7 @@ export default function SuperAdminPlans() {
         <Card>
           <CardHeader>
             <CardTitle>Catalog</CardTitle>
-            <CardDescription>Pick a catalog to edit, or create one for a brand.</CardDescription>
+            <CardDescription>Pick a catalog to edit, or create one for a brand or org.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -394,44 +405,76 @@ export default function SuperAdminPlans() {
                 value={activeCatalog?.id ?? ''}
                 onValueChange={(v) => setSelectedCatalogId(v)}
               >
-                <SelectTrigger className="sm:w-80">
+                <SelectTrigger className="sm:w-96">
                   <SelectValue placeholder="Select catalog" />
                 </SelectTrigger>
                 <SelectContent>
-                  {catalogs.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.brand_id ? `${c.brands?.name ?? 'Brand'} — ${c.name}` : `🌐 ${c.name}`}
-                    </SelectItem>
+                  {globalCatalogs.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{labelFor(c)}</SelectItem>
+                  ))}
+                  {brandCatalogs.length > 0 && (
+                    <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Brand catalogs</div>
+                  )}
+                  {brandCatalogs.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{labelFor(c)}</SelectItem>
+                  ))}
+                  {orgCatalogs.length > 0 && (
+                    <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Org catalogs</div>
+                  )}
+                  {orgCatalogs.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{labelFor(c)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              {activeCatalog?.brand_id && (
+              {(activeCatalog?.brand_id || activeCatalog?.organization_id) && (
                 <Button variant="outline" onClick={deleteCatalog}>
                   <Trash2 className="h-4 w-4 mr-2" /> Delete catalog
                 </Button>
               )}
             </div>
 
-            {brandsWithoutCatalog.length > 0 && (
-              <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t">
-                <Select onValueChange={(v) => createBrandCatalog(v)} disabled={saving}>
-                  <SelectTrigger className="sm:w-80">
-                    <SelectValue placeholder="Create catalog for brand…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {brandsWithoutCatalog.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground self-center flex items-center gap-1">
-                  <Copy className="h-3 w-3" /> Clones plans from the Global Default
-                </p>
-              </div>
-            )}
+            <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t">
+              {brandsWithoutCatalog.length > 0 && (
+                <div className="space-y-1">
+                  <Select onValueChange={(v) => createBrandCatalog(v)} disabled={saving}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="+ New catalog for brand…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brandsWithoutCatalog.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Copy className="h-3 w-3" /> Applies to all orgs in this brand
+                  </p>
+                </div>
+              )}
+              {orgsWithoutCatalog.length > 0 && (
+                <div className="space-y-1">
+                  <Select onValueChange={(v) => createOrgCatalog(v)} disabled={saving}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="+ New catalog for org…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {orgsWithoutCatalog.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.name}{o.brands?.name ? ` (${o.brands.name})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Copy className="h-3 w-3" /> Overrides brand catalog for this org only
+                  </p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
+
 
         {activeCatalog && (
           <Card>
