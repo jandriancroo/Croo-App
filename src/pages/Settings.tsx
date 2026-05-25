@@ -497,7 +497,7 @@ export default function Settings() {
               'billing': () => navigate('/billing'),
               'reporting': () => navigate('/reporting'),
               'kds-board': () => navigate('/kds'),
-              'live-alerts': () => navigate('/alerts'),
+              'plan-catalogs': () => navigate('/super-admin/plans'),
             };
 
             if (navLinks[sectionId]) {
