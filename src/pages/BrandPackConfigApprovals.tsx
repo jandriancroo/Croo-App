@@ -17,8 +17,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Check, Archive, Save, Loader2, X, Search } from "lucide-react";
 import { TO_OZ } from "@/utils/unitConversion";
+import { CountLanesPreview } from "@/components/inventory/CountLanesPreview";
+import { computeCountLanes } from "@/utils/computeCountLanes";
 
 const CANONICAL_UNITS = Object.keys(TO_OZ).sort();
+const PACKAGING_NOUNS = ["sleeve", "bag", "box", "pack", "ea"];
 const OUTER_TYPE_PRESETS = ["case", "sleeve", "bag", "box", "pack", "ea"];
 const NONE_SENTINEL = "__none__";
 const OTHER_SENTINEL = "__other__";
@@ -93,6 +96,75 @@ function OuterTypeSelect({
       <SelectContent>
         {OUTER_TYPE_PRESETS.map((t) => (
           <SelectItem key={t} value={t}>{t}</SelectItem>
+        ))}
+        <SelectItem value={OTHER_SENTINEL}>Add other…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+/**
+ * Hybrid inner_type picker. Inner tier can be EITHER a packaging noun
+ * (sleeve, bag, box, pack, ea — describes the actual inner container) OR a
+ * converter unit (oz, lb, kg, ml… — used when the inner tier IS the measure,
+ * e.g. "case of 12 × 1 lb"). Includes a "— none —" option for two-tier items
+ * and an "Add other…" escape hatch for unusual nouns.
+ *
+ * The chosen string drives the count-screen middle-lane label (via
+ * computeCountLanes' resolveInnerLabel: e.g. "sleeve" → "Sleeves").
+ */
+function InnerTypeSelect({
+  value,
+  onChange,
+}: {
+  value: string | null | undefined;
+  onChange: (v: string | null) => void;
+}) {
+  const v = value ?? "";
+  const isKnown =
+    v === "" || PACKAGING_NOUNS.includes(v) || CANONICAL_UNITS.includes(v);
+  const [otherMode, setOtherMode] = useState(!!v && !isKnown);
+  if (otherMode) {
+    return (
+      <div className="flex gap-1">
+        <Input
+          value={v}
+          autoFocus
+          placeholder="custom inner…"
+          onChange={(e) => onChange(e.target.value || null)}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-8 shrink-0"
+          onClick={() => { setOtherMode(false); onChange(null); }}
+          title="Back to presets"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <Select
+      value={v === "" ? NONE_SENTINEL : v}
+      onValueChange={(next) => {
+        if (next === NONE_SENTINEL) { onChange(null); return; }
+        if (next === OTHER_SENTINEL) { setOtherMode(true); onChange(null); return; }
+        onChange(next);
+      }}
+    >
+      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE_SENTINEL}>— none (single tier) —</SelectItem>
+        <div className="px-2 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Packaging</div>
+        {PACKAGING_NOUNS.map((n) => (
+          <SelectItem key={`pkg-${n}`} value={n}>{n}</SelectItem>
+        ))}
+        <div className="px-2 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Units</div>
+        {CANONICAL_UNITS.filter((u) => !PACKAGING_NOUNS.includes(u)).map((u) => (
+          <SelectItem key={`unit-${u}`} value={u}>{u}</SelectItem>
         ))}
         <SelectItem value={OTHER_SENTINEL}>Add other…</SelectItem>
       </SelectContent>
@@ -1003,7 +1075,7 @@ export default function BrandPackConfigApprovals() {
                       <Input type="number" value={d.inner_qty ?? ""} onChange={(e) => patchDraft(r.id, { inner_qty: e.target.value === "" ? null : Number(e.target.value) })} />
                     </Field>
                     <Field label="Inner type">
-                      <UnitSelect value={d.inner_type} allowNone onChange={(v) => patchDraft(r.id, { inner_type: v })} />
+                      <InnerTypeSelect value={d.inner_type} onChange={(v) => patchDraft(r.id, { inner_type: v })} />
                     </Field>
                     <Field label="Common unit">
                       <UnitSelect value={d.common_unit} onChange={(v) => patchDraft(r.id, { common_unit: v ?? "" })} />
@@ -1021,6 +1093,44 @@ export default function BrandPackConfigApprovals() {
                       count_units_per_case = {(Number(d.outer_qty) || 0) * ((d.inner_qty ?? 1) || 1)}
                     </div>
                   </div>
+
+                  {/* Live count-screen preview — driven by the SAME computeCountLanes()
+                      the real count screen uses. If a rule changes there, this moves
+                      with it. Approve when the lanes/labels look right. */}
+                  {(() => {
+                    const outer = Number(d.outer_qty) || 0;
+                    const inner = d.inner_qty == null ? null : Number(d.inner_qty);
+                    const cupc = outer * (inner ?? 1);
+                    const cost = d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit);
+                    // Build a synthetic item that approximates how the real count
+                    // screen would see this template once it lands at a location.
+                    // The lens is the draft itself (what approval will write).
+                    const previewLanes = computeCountLanes({
+                      item: {
+                        is_recipe: false,
+                        pack_quantity: outer || 1,
+                        inner_pack_quantity: inner && inner > 0 ? inner : null,
+                        inner_pack_label: null, // intentionally null so the lens label wins
+                        unit: d.common_unit || "ea",
+                        cost_per_unit: cost != null && cupc > 0 ? cost * cupc : null,
+                        count_by: "inherit",
+                      },
+                      lens: {
+                        count_units_per_case: cupc > 0 ? cupc : null,
+                        cost_per_common_unit: cost,
+                        common_unit: d.common_unit || null,
+                        // inner_type drives the middle-lane label (e.g. "sleeve" → "Sleeves")
+                        inner_type: d.inner_type || null,
+                      } as any,
+                      lensEnabled: true,
+                    });
+                    return (
+                      <CountLanesPreview
+                        lanes={previewLanes}
+                        itemName={r.template?.product_name}
+                      />
+                    );
+                  })()}
 
                   <div className="flex gap-2 justify-end pt-1">
                     <Button
