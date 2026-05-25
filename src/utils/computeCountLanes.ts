@@ -198,10 +198,12 @@ export function computeCountLanes({
     ? Number(lens!.count_units_per_case ?? 1) || 1
     : Number(rawPackQty) || 1;
 
-  const innerLabel = resolveInnerLabel(item.inner_pack_label, lens?.common_unit && lens.inner_type ? lens.inner_type : (lens as any)?.inner_type ?? null);
+  const lensInnerType =
+    typeof (lens as any)?.inner_type === "string" ? (lens as any).inner_type : null;
+  const innerLabel = resolveInnerLabel(item.inner_pack_label, lensInnerType);
   const innerNounSingular =
     (item.inner_pack_label ?? "").trim() ||
-    ((lens as any)?.inner_type ?? "").trim() ||
+    (lensInnerType ?? "").trim() ||
     "pack";
   const innerSubLabel = showInnerPacks
     ? `(${innerPackQty} ${item.unit ?? "units"}/${innerNounSingular})`
