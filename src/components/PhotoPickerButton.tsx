@@ -107,32 +107,62 @@ export function PhotoPickerButton({
               transform: pos.placeAbove ? "translate(-50%, -100%)" : "translate(-50%, 0)",
               zIndex: 2147483647,
             }}
-            className="min-w-[180px] rounded-lg border bg-popover shadow-2xl overflow-hidden animate-in fade-in zoom-in-95"
-            role="menu"
           >
-            {!libraryOnly && (
-              <button
-                type="button"
-                onClick={pickCamera}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent active:bg-accent cursor-pointer text-sm text-popover-foreground select-none text-left"
-                role="menuitem"
-              >
-                <Camera className="h-4 w-4" />
-                Take Photo
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={pickLibrary}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent active:bg-accent cursor-pointer text-sm text-popover-foreground select-none text-left"
-              role="menuitem"
+            <div
+              style={{
+                transformOrigin: pos.placeAbove ? "50% 100%" : "50% 0%",
+                animation: "ppb-pop 160ms cubic-bezier(0.16, 1, 0.3, 1)",
+              }}
+              className="relative min-w-[180px] rounded-xl border bg-popover shadow-2xl"
+              role="menu"
             >
-              <ImageIcon className="h-4 w-4" />
-              From Library
-            </button>
+              {/* Chat-bubble tail pointing at the trigger */}
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  [pos.placeAbove ? "bottom" : "top"]: -6,
+                  width: 12,
+                  height: 12,
+                  transform: "translateX(-50%) rotate(45deg)",
+                }}
+                className="bg-popover border-r border-b"
+                /* When placed below the trigger, flip which borders show so the tail looks like it's emerging upward */
+              />
+              <div className="relative overflow-hidden rounded-xl">
+                {!libraryOnly && (
+                  <button
+                    type="button"
+                    onClick={pickCamera}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent active:bg-accent cursor-pointer text-sm text-popover-foreground select-none text-left"
+                    role="menuitem"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Take Photo
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={pickLibrary}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent active:bg-accent cursor-pointer text-sm text-popover-foreground select-none text-left"
+                  role="menuitem"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  From Library
+                </button>
+              </div>
+            </div>
+            <style>{`
+              @keyframes ppb-pop {
+                0% { opacity: 0; transform: scale(0.9); }
+                100% { opacity: 1; transform: scale(1); }
+              }
+            `}</style>
           </div>,
           document.body,
         )}
+
 
       <input
         ref={cameraInputRef}
