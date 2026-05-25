@@ -131,6 +131,7 @@ export default function SuperAdminPlans() {
     if (p) {
       setEditing({ ...p });
       setGrantsForEditing(new Set(grantsByPlan.get(p.id) ?? []));
+      setBulletsText((p.feature_bullets ?? []).join('\n'));
     } else {
       setEditing({
         id: '',
@@ -151,6 +152,7 @@ export default function SuperAdminPlans() {
         feature_bullets: [],
       });
       setGrantsForEditing(new Set());
+      setBulletsText('');
     }
     setDialogOpen(true);
   };
