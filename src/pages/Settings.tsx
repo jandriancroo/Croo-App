@@ -437,10 +437,6 @@ export default function Settings() {
         return <PinMigrationHealthPanel />;
 
 
-      case 'pin-migration':
-        if (!isSuperAdmin) return null;
-        return <PinMigrationHealthPanel />;
-
       default:
         return null;
     }
