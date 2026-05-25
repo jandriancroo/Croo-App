@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { MyPunchPinCard } from '@/components/users/MyPunchPinCard';
+import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -205,23 +206,22 @@ const MyProfile = () => {
                   )}
                 </AvatarFallback>
               </Avatar>
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoSelect}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => photoInputRef.current?.click()}
+              <PhotoPickerButton
+                onFileSelected={(file) =>
+                  handlePhotoSelect({ target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+                }
                 disabled={uploadingPhoto}
               >
-                <Camera className="mr-2 h-4 w-4" />
-                {profilePhotoUrl ? 'Change Photo' : 'Add Photo'}
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingPhoto}
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  {profilePhotoUrl ? 'Change Photo' : 'Add Photo'}
+                </Button>
+              </PhotoPickerButton>
             </div>
 
             {/* Full Name */}

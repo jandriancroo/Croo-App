@@ -14,6 +14,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { compressImage, uploadWithRetry } from "@/utils/imageCompression";
 import { WriteUpSignatureView } from "@/components/logbook/WriteUpSignatureView";
 import { getAlarmIntervalKey, DEFAULT_TIMEZONE } from "@/utils/timezoneUtils";
+import { PhotoPickerButton } from "@/components/PhotoPickerButton";
 
 interface TemporaryTaskDetailsDialogProps {
   open: boolean;
@@ -349,14 +350,7 @@ export function TemporaryTaskDetailsDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture={isIOS ? "environment" : undefined}
-          className="hidden"
-          onChange={handleFileChange}
-        />
+        {/* Camera input handled per-subtask via PhotoPickerButton below */}
 
         <div className="space-y-4 py-2">
           {/* Description */}
@@ -445,24 +439,29 @@ export function TemporaryTaskDetailsDialog({
                             </div>
                           ) : (
                             // Show upload button
-                            <Button
-                              variant="outline"
-                              className="w-full gap-2"
-                              onClick={() => triggerFileInput(subtask.id)}
+                            <PhotoPickerButton
+                              onFileSelected={(file) => handlePhotoUpload(subtask.id, file)}
                               disabled={uploadingSubtaskId === subtask.id}
+                              className="w-full block"
                             >
-                              {uploadingSubtaskId === subtask.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Uploading...
-                                </>
-                              ) : (
-                                <>
-                                  <Camera className="h-4 w-4" />
-                                  Take Photo
-                                </>
-                              )}
-                            </Button>
+                              <Button
+                                variant="outline"
+                                className="w-full gap-2"
+                                disabled={uploadingSubtaskId === subtask.id}
+                              >
+                                {uploadingSubtaskId === subtask.id ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Uploading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Camera className="h-4 w-4" />
+                                    Take Photo
+                                  </>
+                                )}
+                              </Button>
+                            </PhotoPickerButton>
                           )}
                         </div>
                       ) : (
