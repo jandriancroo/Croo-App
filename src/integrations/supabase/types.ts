@@ -7231,6 +7231,7 @@ export type Database = {
           currency: string
           description: string | null
           display_name: string
+          feature_bullets: string[]
           icon_key: string | null
           id: string
           is_visible: boolean
@@ -7250,6 +7251,7 @@ export type Database = {
           currency?: string
           description?: string | null
           display_name: string
+          feature_bullets?: string[]
           icon_key?: string | null
           id?: string
           is_visible?: boolean
@@ -7269,6 +7271,7 @@ export type Database = {
           currency?: string
           description?: string | null
           display_name?: string
+          feature_bullets?: string[]
           icon_key?: string | null
           id?: string
           is_visible?: boolean
