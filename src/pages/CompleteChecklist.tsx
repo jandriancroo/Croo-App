@@ -25,6 +25,7 @@ import { formatTime12Hour } from '@/lib/utils';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { useUserPosition } from '@/hooks/useUserPosition';
 import { PrepListComplete } from '@/components/checklists/PrepListComplete';
+import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 interface ChecklistItem {
   id: string;
   question: string;
