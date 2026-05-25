@@ -17,8 +17,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Check, Archive, Save, Loader2, X, Search } from "lucide-react";
 import { TO_OZ } from "@/utils/unitConversion";
+import { CountLanesPreview } from "@/components/inventory/CountLanesPreview";
+import { computeCountLanes } from "@/utils/computeCountLanes";
 
 const CANONICAL_UNITS = Object.keys(TO_OZ).sort();
+const PACKAGING_NOUNS = ["sleeve", "bag", "box", "pack", "ea"];
 const OUTER_TYPE_PRESETS = ["case", "sleeve", "bag", "box", "pack", "ea"];
 const NONE_SENTINEL = "__none__";
 const OTHER_SENTINEL = "__other__";
