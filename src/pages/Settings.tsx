@@ -402,11 +402,40 @@ export default function Settings() {
                 Diagnostics
               </Button>
             )}
+            {isSuperAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => navigate('/alerts')}
+              >
+                <Radio className="w-4 h-4 mr-2" />
+                Live Alerts
+              </Button>
+            )}
+            {isSuperAdmin && (
+              <div className="pt-3 border-t space-y-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <Radio className="h-3 w-3" /> Data Streams
+                </div>
+                <DataStreamStatus />
+              </div>
+            )}
+            {isSuperAdmin && (
+              <div className="pt-3 border-t space-y-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <Copy className="h-3 w-3" /> Clone Location Settings
+                </div>
+                <CloneLocationSettings />
+              </div>
+            )}
           </div>
         );
 
-      case 'data-streams':
-        return <DataStreamStatus />;
+      case 'pin-migration':
+        if (!isSuperAdmin) return null;
+        return <PinMigrationHealthPanel />;
+
 
       case 'pin-migration':
         if (!isSuperAdmin) return null;
