@@ -51,6 +51,16 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
+    // Super admin bypass: query Stripe directly by org metadata, ignoring email match
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "super_admin")
+      .maybeSingle();
+    const isSuperAdmin = !!roleRow;
+    logStep("Role check", { isSuperAdmin });
+
     // Collect all subscriptions from org admin emails
     let allSubs: any[] = [];
     let customerId: string | null = null;
@@ -58,42 +68,60 @@ serve(async (req) => {
     if (organizationId) {
       logStep("Org-scoped check", { organizationId });
 
-      const { data: orgAdmins } = await supabase
-        .from("organization_members")
-        .select("user_id")
-        .eq("organization_id", organizationId);
+      if (isSuperAdmin) {
+        // Search Stripe directly by metadata.organization_id
+        try {
+          const search = await stripe.subscriptions.search({
+            query: `metadata['organization_id']:'${organizationId}' AND (status:'active' OR status:'trialing')`,
+            limit: 100,
+          });
+          allSubs.push(...search.data);
+          if (search.data.length > 0) {
+            const firstCust = search.data[0].customer;
+            customerId = typeof firstCust === "string" ? firstCust : firstCust?.id ?? null;
+          }
+          logStep("Super admin Stripe search", { found: search.data.length });
+        } catch (e) {
+          logStep("Stripe search failed", { error: String(e) });
+        }
+      } else {
+        const { data: orgAdmins } = await supabase
+          .from("organization_members")
+          .select("user_id")
+          .eq("organization_id", organizationId);
 
-      const adminUserIds = new Set<string>();
-      if (orgAdmins) {
-        for (const m of orgAdmins) adminUserIds.add(m.user_id);
-      }
-      adminUserIds.add(user.id);
+        const adminUserIds = new Set<string>();
+        if (orgAdmins) {
+          for (const m of orgAdmins) adminUserIds.add(m.user_id);
+        }
+        adminUserIds.add(user.id);
 
-      const { data: adminProfiles } = await supabase
-        .from("profiles")
-        .select("id, email")
-        .in("id", Array.from(adminUserIds));
+        const { data: adminProfiles } = await supabase
+          .from("profiles")
+          .select("id, email")
+          .in("id", Array.from(adminUserIds));
 
-      const emails = (adminProfiles || []).map((p: any) => p.email).filter(Boolean);
-      logStep("Checking org admin emails", { emails: emails.length });
+        const emails = (adminProfiles || []).map((p: any) => p.email).filter(Boolean);
+        logStep("Checking org admin emails", { emails: emails.length });
 
-      for (const email of emails) {
-        const customers = await stripe.customers.list({ email, limit: 1 });
-        if (customers.data.length === 0) continue;
+        for (const email of emails) {
+          const customers = await stripe.customers.list({ email, limit: 1 });
+          if (customers.data.length === 0) continue;
 
-        const cid = customers.data[0].id;
-        const activeSubs = await stripe.subscriptions.list({ customer: cid, status: "active", limit: 50 });
-        const trialingSubs = await stripe.subscriptions.list({ customer: cid, status: "trialing", limit: 50 });
+          const cid = customers.data[0].id;
+          const activeSubs = await stripe.subscriptions.list({ customer: cid, status: "active", limit: 50 });
+          const trialingSubs = await stripe.subscriptions.list({ customer: cid, status: "trialing", limit: 50 });
 
-        const matchingSubs = [...activeSubs.data, ...trialingSubs.data].filter((sub) => {
-          const subOrgId = sub.metadata?.organization_id;
-          return subOrgId === organizationId;
-        });
+          const matchingSubs = [...activeSubs.data, ...trialingSubs.data].filter((sub) => {
+            const subOrgId = sub.metadata?.organization_id;
+            return subOrgId === organizationId;
+          });
 
-        if (matchingSubs.length > 0) {
-          allSubs.push(...matchingSubs);
-          customerId = cid;
-          logStep("Found org subscriptions", { customerId: cid, email, subCount: matchingSubs.length });
+          if (matchingSubs.length > 0) {
+            allSubs.push(...matchingSubs);
+            customerId = cid;
+            logStep("Found org subscriptions", { customerId: cid, email, subCount: matchingSubs.length });
+          }
         }
       }
     } else {
@@ -107,6 +135,7 @@ serve(async (req) => {
         allSubs = [...activeSubs.data, ...trialingSubs.data];
       }
     }
+
 
     if (allSubs.length === 0) {
       logStep("No active or trialing subscriptions");
