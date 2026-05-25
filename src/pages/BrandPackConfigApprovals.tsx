@@ -16,6 +16,89 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Check, Archive, Save, Loader2, X, Search } from "lucide-react";
+import { TO_OZ } from "@/utils/unitConversion";
+
+const CANONICAL_UNITS = Object.keys(TO_OZ).sort();
+const OUTER_TYPE_PRESETS = ["case", "sleeve", "bag", "box", "pack", "ea"];
+const NONE_SENTINEL = "__none__";
+const OTHER_SENTINEL = "__other__";
+
+function UnitSelect({
+  value,
+  onChange,
+  allowNone = false,
+}: {
+  value: string | null | undefined;
+  onChange: (v: string | null) => void;
+  allowNone?: boolean;
+}) {
+  const v = value ?? "";
+  return (
+    <Select
+      value={v === "" && allowNone ? NONE_SENTINEL : v}
+      onValueChange={(next) => onChange(next === NONE_SENTINEL ? null : next)}
+    >
+      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+      <SelectContent>
+        {allowNone && <SelectItem value={NONE_SENTINEL}>— none (single tier) —</SelectItem>}
+        {CANONICAL_UNITS.map((u) => (
+          <SelectItem key={u} value={u}>{u}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function OuterTypeSelect({
+  value,
+  onChange,
+}: {
+  value: string | null | undefined;
+  onChange: (v: string) => void;
+}) {
+  const v = value ?? "";
+  const isPreset = OUTER_TYPE_PRESETS.includes(v);
+  const [otherMode, setOtherMode] = useState(!!v && !isPreset);
+  if (otherMode) {
+    return (
+      <div className="flex gap-1">
+        <Input
+          value={v}
+          autoFocus
+          placeholder="custom…"
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-8 shrink-0"
+          onClick={() => { setOtherMode(false); onChange(""); }}
+          title="Back to presets"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <Select
+      value={v || undefined}
+      onValueChange={(next) => {
+        if (next === OTHER_SENTINEL) { setOtherMode(true); onChange(""); return; }
+        onChange(next);
+      }}
+    >
+      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+      <SelectContent>
+        {OUTER_TYPE_PRESETS.map((t) => (
+          <SelectItem key={t} value={t}>{t}</SelectItem>
+        ))}
+        <SelectItem value={OTHER_SENTINEL}>Add other…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
 
 type ProposalRow = {
   id: string;
@@ -914,16 +997,16 @@ export default function BrandPackConfigApprovals() {
                       <Input type="number" value={d.outer_qty ?? ""} onChange={(e) => patchDraft(r.id, { outer_qty: Number(e.target.value) })} />
                     </Field>
                     <Field label="Outer type">
-                      <Input value={d.outer_type ?? ""} onChange={(e) => patchDraft(r.id, { outer_type: e.target.value })} />
+                      <OuterTypeSelect value={d.outer_type} onChange={(v) => patchDraft(r.id, { outer_type: v })} />
                     </Field>
                     <Field label="Inner qty">
                       <Input type="number" value={d.inner_qty ?? ""} onChange={(e) => patchDraft(r.id, { inner_qty: e.target.value === "" ? null : Number(e.target.value) })} />
                     </Field>
                     <Field label="Inner type">
-                      <Input value={d.inner_type ?? ""} onChange={(e) => patchDraft(r.id, { inner_type: e.target.value })} />
+                      <UnitSelect value={d.inner_type} allowNone onChange={(v) => patchDraft(r.id, { inner_type: v })} />
                     </Field>
                     <Field label="Common unit">
-                      <Input value={d.common_unit ?? ""} onChange={(e) => patchDraft(r.id, { common_unit: e.target.value })} />
+                      <UnitSelect value={d.common_unit} onChange={(v) => patchDraft(r.id, { common_unit: v ?? "" })} />
                     </Field>
                     <Field label="$ / common unit">
                       <Input type="number" step="0.0001" value={d.cost_per_common_unit ?? ""} onChange={(e) => patchDraft(r.id, { cost_per_common_unit: e.target.value === "" ? null : Number(e.target.value) })} />
