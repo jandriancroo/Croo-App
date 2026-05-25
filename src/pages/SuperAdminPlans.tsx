@@ -176,7 +176,7 @@ export default function SuperAdminPlans() {
         sort_order: Number(editing.sort_order) || 0,
         is_visible: editing.is_visible,
         tier_rank: Number(editing.tier_rank) || 0,
-        feature_bullets: editing.feature_bullets,
+        feature_bullets: bulletsText.split('\n').map((s) => s.trim()).filter(Boolean),
       };
 
       let planId = editing.id;
