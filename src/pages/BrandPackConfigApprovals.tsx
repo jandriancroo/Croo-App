@@ -398,6 +398,10 @@ export default function BrandPackConfigApprovals() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState<null | "approve" | "reject">(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  // Per-row override for middle-tier visibility in the preview.
+  // null = follow heuristic (3-tier iff outer>1 AND inner>1). true/false = force.
+  const [middleTierOverride, setMiddleTierOverride] = useState<Record<string, boolean>>({});
+
 
   const proposalVendor = (r: ProposalRow): string => {
     const ev = (r.source_evidence || {}) as any;
