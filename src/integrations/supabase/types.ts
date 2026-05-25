@@ -7194,6 +7194,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          organization_id: string | null
           updated_at: string
         }
         Insert: {
@@ -7202,6 +7203,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          organization_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -7210,6 +7212,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          organization_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -7218,6 +7221,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_catalogs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
