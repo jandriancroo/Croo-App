@@ -233,10 +233,20 @@ export function PrepListComplete({
 
   const handleOnHand = (row: PrepRowDef, raw: string) => {
     setValues((prev) => ({ ...prev, [row.id]: { on_hand: raw, note: prev[row.id]?.note || '' } }));
+    // Immediately tag this row with the current user — they touched it now.
+    setMeta((prev) => ({
+      ...prev,
+      [row.id]: {
+        by_id: userId,
+        by_name: currentUserName || 'You',
+        at: new Date().toISOString(),
+      },
+    }));
     const key = `${itemId}_${row.id}`;
     if (debouncers[key]) clearTimeout(debouncers[key]);
     debouncers[key] = setTimeout(() => persist(row, raw), 600);
   };
+
 
   if (loading) {
     return (
