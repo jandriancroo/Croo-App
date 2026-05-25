@@ -407,12 +407,12 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
                       {variance !== null && (
                         <div
                           className={cn(
-                            'text-[11px] font-medium mt-1 flex items-center gap-0.5',
+                            'text-[11px] font-medium mt-1 flex items-center gap-0.5 whitespace-nowrap',
                             variance >= 0 ? 'text-emerald-500' : 'text-destructive'
                           )}
                         >
-                          {variance >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          {variance >= 0 ? '+' : '-'}{fmt$(Math.abs(variance))}
+                          {variance >= 0 ? <TrendingUp className="w-3 h-3 shrink-0" /> : <TrendingDown className="w-3 h-3 shrink-0" />}
+                          <span>{variance >= 0 ? '+' : '−'}{fmt$(Math.abs(variance))}</span>
                           {goalPct !== null && <span className="text-muted-foreground ml-0.5">({goalPct}%)</span>}
                         </div>
                       )}
