@@ -438,24 +438,29 @@ export function TemporaryTaskDetailsDialog({
                             </div>
                           ) : (
                             // Show upload button
-                            <Button
-                              variant="outline"
-                              className="w-full gap-2"
-                              onClick={() => triggerFileInput(subtask.id)}
+                            <PhotoPickerButton
+                              onFileSelected={(file) => handlePhotoUpload(subtask.id, file)}
                               disabled={uploadingSubtaskId === subtask.id}
+                              className="w-full block"
                             >
-                              {uploadingSubtaskId === subtask.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Uploading...
-                                </>
-                              ) : (
-                                <>
-                                  <Camera className="h-4 w-4" />
-                                  Take Photo
-                                </>
-                              )}
-                            </Button>
+                              <Button
+                                variant="outline"
+                                className="w-full gap-2"
+                                disabled={uploadingSubtaskId === subtask.id}
+                              >
+                                {uploadingSubtaskId === subtask.id ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Uploading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Camera className="h-4 w-4" />
+                                    Take Photo
+                                  </>
+                                )}
+                              </Button>
+                            </PhotoPickerButton>
                           )}
                         </div>
                       ) : (
