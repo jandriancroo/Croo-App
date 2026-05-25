@@ -2191,8 +2191,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     {showInnerPacks && (
                     <div>
                       <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
-                        {(item as any).inner_pack_label ? `${(item as any).inner_pack_label}s` : 'Packs'}
-                        <span className="ml-1 normal-case tracking-normal">({innerPackQty} {item.unit || 'units'}/{(item as any).inner_pack_label || 'pack'})</span>
+                        {lanes.innerLabel}
+                        {lanes.innerSubLabel && (
+                          <span className="ml-1 normal-case tracking-normal">{lanes.innerSubLabel}</span>
+                        )}
                       </p>
                       <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
