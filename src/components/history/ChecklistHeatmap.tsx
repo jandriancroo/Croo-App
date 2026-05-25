@@ -178,6 +178,58 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
     },
   });
 
+  // Fetch per-day sales & labor for the range
+  const { data: salesLaborByDate } = useQuery({
+    queryKey: ['heatmap-sales-labor', currentLocation?.id, rangeKey],
+    staleTime: 5 * 60 * 1000,
+    enabled: !!currentLocation?.id,
+    queryFn: async (): Promise<Record<string, DaySalesLabor>> => {
+      const startStr = format(startDate, 'yyyy-MM-dd');
+      const endStr = format(endDate, 'yyyy-MM-dd');
+      const [salesRes, laborRes] = await Promise.all([
+        supabase
+          .from('sales_cache')
+          .select('sale_date, net_sales, projected_sales, initial_projection, override_projection')
+          .eq('location_id', currentLocation!.id)
+          .gte('sale_date', startStr)
+          .lte('sale_date', endStr),
+        supabase
+          .from('labor_cache')
+          .select('labor_date, labor_hours, source')
+          .eq('location_id', currentLocation!.id)
+          .gte('labor_date', startStr)
+          .lte('labor_date', endStr),
+      ]);
+
+      const out: Record<string, DaySalesLabor> = {};
+      (salesRes.data || []).forEach((r: any) => {
+        out[r.sale_date] = {
+          netSales: Number(r.net_sales) || 0,
+          goal:
+            Number(r.override_projection) ||
+            Number(r.initial_projection) ||
+            Number(r.projected_sales) ||
+            null,
+          laborHours: 0,
+        };
+      });
+      // group labor by date, prefer punch_clock over qubeyond
+      const laborByDate: Record<string, any[]> = {};
+      (laborRes.data || []).forEach((r: any) => {
+        (laborByDate[r.labor_date] = laborByDate[r.labor_date] || []).push(r);
+      });
+      Object.entries(laborByDate).forEach(([d, rows]) => {
+        const punch = rows.find(r => r.source === 'punch_clock' && Number(r.labor_hours) > 0);
+        const qu = rows.find(r => r.source === 'qubeyond');
+        const preferred = punch || qu;
+        const hours = preferred ? Number(preferred.labor_hours) || 0 : 0;
+        if (!out[d]) out[d] = { netSales: 0, goal: null, laborHours: hours };
+        else out[d].laborHours = hours;
+      });
+      return out;
+    },
+  });
+
   const cells: DayCell[] = gridDays.map(({ date, inRange }) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const d = heatmapData?.[dateStr];
@@ -190,6 +242,8 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
       totalChecklists: d?.totalChecklists ?? 0,
     };
   });
+
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
