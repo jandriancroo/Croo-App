@@ -81,16 +81,21 @@ serve(async (req) => {
           }
         };
 
-        try {
-          const search = await stripe.subscriptions.search({
-            query: `metadata['organization_id']:'${organizationId}' AND (status:'active' OR status:'trialing')`,
-            limit: 100,
-          });
-          pushUnique(search.data);
-          logStep("Super admin org search", { found: search.data.length });
-        } catch (e) {
-          logStep("Stripe org search failed", { error: String(e) });
-        }
+        const runSearch = async (query: string, limit: number) => {
+          try {
+            const r = await stripe.subscriptions.search({ query, limit });
+            pushUnique(r.data);
+            return r.data.length;
+          } catch (e) {
+            logStep("Stripe search failed", { query, error: String(e) });
+            return 0;
+          }
+        };
+
+        // Stripe search doesn't allow mixing AND and OR -> run separate queries per status
+        const orgActive = await runSearch(`metadata['organization_id']:'${organizationId}' AND status:'active'`, 100);
+        const orgTrial = await runSearch(`metadata['organization_id']:'${organizationId}' AND status:'trialing'`, 100);
+        logStep("Super admin org search", { active: orgActive, trialing: orgTrial });
 
         // Fetch this org's location IDs and search by metadata.location_id
         const { data: locs } = await supabase
@@ -103,16 +108,10 @@ serve(async (req) => {
         logStep("Super admin location search", { count: locationIds.length });
 
         for (const lid of locationIds) {
-          try {
-            const locSearch = await stripe.subscriptions.search({
-              query: `metadata['location_id']:'${lid}' AND (status:'active' OR status:'trialing')`,
-              limit: 10,
-            });
-            pushUnique(locSearch.data);
-          } catch (e) {
-            logStep("Stripe location search failed", { lid, error: String(e) });
-          }
+          await runSearch(`metadata['location_id']:'${lid}' AND status:'active'`, 10);
+          await runSearch(`metadata['location_id']:'${lid}' AND status:'trialing'`, 10);
         }
+
 
         if (allSubs.length > 0) {
           const firstCust = allSubs[0].customer;
