@@ -61,6 +61,7 @@ const MyTeam = lazyWithRetry(() => import("./pages/MyTeam"));
 
 const OrganizationProfile = lazyWithRetry(() => import("./pages/OrganizationProfile"));
 const BrandManagement = lazyWithRetry(() => import("./pages/BrandManagement"));
+const SuperAdminPlans = lazyWithRetry(() => import("./pages/SuperAdminPlans"));
 const Hiring = lazyWithRetry(() => import("./pages/Hiring"));
 const PublicApplication = lazyWithRetry(() => import("./pages/PublicApplication"));
 const PublicJobs = lazyWithRetry(() => import("./pages/PublicJobs"));
