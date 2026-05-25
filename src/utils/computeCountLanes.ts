@@ -217,7 +217,12 @@ export function computeCountLanes({
     casesLabel: "Cases",
     innerLabel,
     innerSubLabel,
-    unitsLabel: "Units",
+    unitsLabel: (() => {
+      const u = (item.unit ?? "").trim().toLowerCase();
+      if (!u || u === "ea" || u === "each" || u === "unit" || u === "units") return "Units";
+      // Weight/volume atomic units render as their own plural (LBS, OZ, KG, ML, GAL…)
+      return u.endsWith("s") ? u.toUpperCase() : `${u.toUpperCase()}S`;
+    })(),
     unitsSubLabel: "(individual)",
     packQty: effectivePackQty,
     innerPackQty,
