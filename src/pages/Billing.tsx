@@ -5,22 +5,26 @@ import { Badge } from '@/components/ui/badge';
 
 import { toast } from '@/components/ui/sonner';
 import { useSubscription } from '@/hooks/useSubscription';
+import { usePlans, type PlanRow } from '@/hooks/usePlans';
 
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { SUBSCRIPTION_TIERS, type TierKey } from '@/config/subscriptionTiers';
+import { SUBSCRIPTION_TIERS } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard, MapPin } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
 
-const TIER_ICONS: Record<TierKey, React.ReactNode> = {
-  core: <Zap className="h-5 w-5" />,
-  pro: <Rocket className="h-5 w-5" />,
-  ludicrous: <Star className="h-5 w-5" />,
-  founder: <Crown className="h-5 w-5" />,
+const ICONS_BY_KEY: Record<string, React.ReactNode> = {
+  zap: <Zap className="h-5 w-5" />,
+  rocket: <Rocket className="h-5 w-5" />,
+  star: <Star className="h-5 w-5" />,
+  crown: <Crown className="h-5 w-5" />,
 };
 
-const TIER_ORDER: TierKey[] = ['core', 'pro', 'ludicrous', 'founder'];
+function renderIcon(key: string | null | undefined) {
+  if (key && ICONS_BY_KEY[key]) return ICONS_BY_KEY[key];
+  return <Zap className="h-5 w-5" />;
+}
 
 export default function Billing() {
   const {
@@ -29,6 +33,8 @@ export default function Billing() {
     locationSubscriptions, isLocationSubscribed, getLocationTier,
   } = useSubscription();
   const { locations, organizationId: currentOrgId } = useAppLocation();
+  const { plans } = usePlans();
+  const visiblePlans: PlanRow[] = plans.filter((p) => p.is_visible);
   const [searchParams] = useSearchParams();
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
 
@@ -166,44 +172,45 @@ export default function Billing() {
                   Choose a plan for {billableLocations.find(l => l.id === selectedLocationId)?.name}
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  {TIER_ORDER.map((key) => {
-                    const tier = SUBSCRIPTION_TIERS[key];
-                    const isPopular = key === 'pro';
-                    const isFounder = key === 'founder';
+                  {visiblePlans.map((plan) => {
+                    const isFounder = plan.badge_style === 'founder';
+                    const isPopular = plan.badge_style === 'primary' && plan.key === 'pro';
+                    const isHighlighted = plan.badge_style === 'primary';
+                    const priceDollars = Math.round(plan.price_cents / 100);
 
                     return (
-                      <div key={key} className="relative flex flex-col">
-                        {isFounder && (
+                      <div key={plan.id} className="relative flex flex-col">
+                        {plan.badge_label && isFounder && (
                           <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                            <Badge className="founder-badge-label text-xs px-3 whitespace-nowrap">Exclusive</Badge>
+                            <Badge className="founder-badge-label text-xs px-3 whitespace-nowrap">{plan.badge_label}</Badge>
                           </div>
                         )}
-                        {(isPopular || key === 'ludicrous') && !isFounder && (
+                        {plan.badge_label && !isFounder && (
                           <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                             <Badge className="bg-primary text-primary-foreground text-xs px-3 whitespace-nowrap">
-                              {isPopular ? 'Most Popular' : "Industry's Best Value"}
+                              {plan.badge_label}
                             </Badge>
                           </div>
                         )}
                         <Card className={`flex-1 flex flex-col transition-all ${
-                          isFounder ? 'founder-card' : isPopular ? 'border-primary/50' : ''
+                          isFounder ? 'founder-card' : isHighlighted ? 'border-primary/50' : ''
                         }`}>
                           <CardHeader className="pb-2">
                             <div className="flex items-center gap-2">
-                              <span className={isFounder ? 'founder-icon' : 'text-primary'}>{TIER_ICONS[key]}</span>
-                              <CardTitle className={`text-lg ${isFounder ? 'founder-text' : ''}`}>{tier.name}</CardTitle>
+                              <span className={isFounder ? 'founder-icon' : 'text-primary'}>{renderIcon(plan.icon_key)}</span>
+                              <CardTitle className={`text-lg ${isFounder ? 'founder-text' : ''}`}>{plan.display_name}</CardTitle>
                             </div>
                             <CardDescription className={`text-xs ${isFounder ? 'founder-desc' : ''}`}>
-                              {tier.description}
+                              {plan.description}
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="flex-1 flex flex-col">
                             <div className="mb-4">
-                              <span className={`text-3xl font-bold ${isFounder ? 'founder-text' : ''}`}>${tier.price}</span>
+                              <span className={`text-3xl font-bold ${isFounder ? 'founder-text' : ''}`}>${priceDollars}</span>
                               <span className={`text-sm ${isFounder ? 'founder-desc' : 'text-muted-foreground'}`}>/mo per location</span>
                             </div>
                             <ul className="space-y-2 mb-6 flex-1">
-                              {tier.features.map((f) => (
+                              {plan.feature_bullets.map((f) => (
                                 <li key={f} className="flex items-start gap-2 text-sm">
                                   <Check className={`h-4 w-4 mt-0.5 flex-shrink-0 ${isFounder ? 'founder-icon' : 'text-primary'}`} />
                                   <span className={isFounder ? 'founder-feature' : ''}>{f}</span>
@@ -215,7 +222,8 @@ export default function Billing() {
                                 isFounder ? 'founder-btn' : !isPopular ? 'text-foreground border-border' : ''
                               }`}
                               variant={isPopular ? 'default' : 'outline'}
-                              onClick={() => handleCheckout(tier.price_id, selectedLocationId)}
+                              disabled={!plan.stripe_price_id}
+                              onClick={() => plan.stripe_price_id && handleCheckout(plan.stripe_price_id, selectedLocationId)}
                             >
                               {isFounder ? 'Claim Founder Rate' : 'Start Trial'}
                               <ExternalLink className="h-3 w-3 ml-1 flex-shrink-0" />
@@ -227,6 +235,7 @@ export default function Billing() {
                   })}
                 </div>
               </div>
+
             )}
 
 
