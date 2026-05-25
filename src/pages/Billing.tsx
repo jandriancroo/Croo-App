@@ -5,22 +5,26 @@ import { Badge } from '@/components/ui/badge';
 
 import { toast } from '@/components/ui/sonner';
 import { useSubscription } from '@/hooks/useSubscription';
+import { usePlans, type PlanRow } from '@/hooks/usePlans';
 
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { SUBSCRIPTION_TIERS, type TierKey } from '@/config/subscriptionTiers';
+import { SUBSCRIPTION_TIERS } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard, MapPin } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
 
-const TIER_ICONS: Record<TierKey, React.ReactNode> = {
-  core: <Zap className="h-5 w-5" />,
-  pro: <Rocket className="h-5 w-5" />,
-  ludicrous: <Star className="h-5 w-5" />,
-  founder: <Crown className="h-5 w-5" />,
+const ICONS_BY_KEY: Record<string, React.ReactNode> = {
+  zap: <Zap className="h-5 w-5" />,
+  rocket: <Rocket className="h-5 w-5" />,
+  star: <Star className="h-5 w-5" />,
+  crown: <Crown className="h-5 w-5" />,
 };
 
-const TIER_ORDER: TierKey[] = ['core', 'pro', 'ludicrous', 'founder'];
+function renderIcon(key: string | null | undefined) {
+  if (key && ICONS_BY_KEY[key]) return ICONS_BY_KEY[key];
+  return <Zap className="h-5 w-5" />;
+}
 
 export default function Billing() {
   const {
