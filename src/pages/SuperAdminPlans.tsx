@@ -481,9 +481,7 @@ export default function SuperAdminPlans() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>
-                  {activeCatalog.brand_id
-                    ? `${activeCatalog.brands?.name ?? 'Brand'} — ${activeCatalog.name}`
-                    : activeCatalog.name}
+                  {labelFor(activeCatalog)}
                 </CardTitle>
                 <CardDescription>{plans.length} plan(s)</CardDescription>
               </div>
