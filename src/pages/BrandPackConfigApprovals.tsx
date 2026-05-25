@@ -103,7 +103,74 @@ function OuterTypeSelect({
   );
 }
 
-type ProposalRow = {
+/**
+ * Hybrid inner_type picker. Inner tier can be EITHER a packaging noun
+ * (sleeve, bag, box, pack, ea — describes the actual inner container) OR a
+ * converter unit (oz, lb, kg, ml… — used when the inner tier IS the measure,
+ * e.g. "case of 12 × 1 lb"). Includes a "— none —" option for two-tier items
+ * and an "Add other…" escape hatch for unusual nouns.
+ *
+ * The chosen string drives the count-screen middle-lane label (via
+ * computeCountLanes' resolveInnerLabel: e.g. "sleeve" → "Sleeves").
+ */
+function InnerTypeSelect({
+  value,
+  onChange,
+}: {
+  value: string | null | undefined;
+  onChange: (v: string | null) => void;
+}) {
+  const v = value ?? "";
+  const isKnown =
+    v === "" || PACKAGING_NOUNS.includes(v) || CANONICAL_UNITS.includes(v);
+  const [otherMode, setOtherMode] = useState(!!v && !isKnown);
+  if (otherMode) {
+    return (
+      <div className="flex gap-1">
+        <Input
+          value={v}
+          autoFocus
+          placeholder="custom inner…"
+          onChange={(e) => onChange(e.target.value || null)}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-10 w-8 shrink-0"
+          onClick={() => { setOtherMode(false); onChange(null); }}
+          title="Back to presets"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <Select
+      value={v === "" ? NONE_SENTINEL : v}
+      onValueChange={(next) => {
+        if (next === NONE_SENTINEL) { onChange(null); return; }
+        if (next === OTHER_SENTINEL) { setOtherMode(true); onChange(null); return; }
+        onChange(next);
+      }}
+    >
+      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE_SENTINEL}>— none (single tier) —</SelectItem>
+        <div className="px-2 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Packaging</div>
+        {PACKAGING_NOUNS.map((n) => (
+          <SelectItem key={`pkg-${n}`} value={n}>{n}</SelectItem>
+        ))}
+        <div className="px-2 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Units</div>
+        {CANONICAL_UNITS.filter((u) => !PACKAGING_NOUNS.includes(u)).map((u) => (
+          <SelectItem key={`unit-${u}`} value={u}>{u}</SelectItem>
+        ))}
+        <SelectItem value={OTHER_SENTINEL}>Add other…</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
   id: string;
   brand_template_id: string;
   outer_qty: number;
