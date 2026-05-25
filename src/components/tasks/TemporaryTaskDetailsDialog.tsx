@@ -14,6 +14,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { compressImage, uploadWithRetry } from "@/utils/imageCompression";
 import { WriteUpSignatureView } from "@/components/logbook/WriteUpSignatureView";
 import { getAlarmIntervalKey, DEFAULT_TIMEZONE } from "@/utils/timezoneUtils";
+import { PhotoPickerButton } from "@/components/PhotoPickerButton";
 
 interface TemporaryTaskDetailsDialogProps {
   open: boolean;
