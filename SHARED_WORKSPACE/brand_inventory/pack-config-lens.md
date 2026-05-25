@@ -34,4 +34,5 @@ Living state doc for the pack-config approval workstream. Pairs with:
 
 ## History
 
+- [2026-05-25 · Claude/Jordan] SEEDER BUG FOUND AND RESOLVED: double-division error (case price divided by `count_units_per_case × outer_qty` instead of `count_units_per_case` alone) affected 3 configs. Fixed: Large Salad Bowls #796943 ($7.84→$47.04), Multifold Hand Towels #914697 ($1.49→$23.77), Water Bottle 16.9oz #916863 ($0.32→$7.61). Chit Paper Rolls #688796 broken duplicate (`eafe488e…`, $0.08/case) archived; correct duplicate (`244581a2…`, $147.04/case) retained. Scan of all 140 proposed configs with PFG invoice history confirmed only these 3 affected — not systemic. Remaining 48 "other_mismatch" rows are price drift (0.83–0.99 ratio of computed vs invoice), not bugs.
 - [2026-05-25 · Lovable] Initial seed of this lens doc as part of shared-workspace bootstrap.
