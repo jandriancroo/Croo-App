@@ -1417,33 +1417,16 @@ export default function CompleteChecklist() {
                                   </button>
                                 </div>
                               ) : (
-                                <Label 
-                                  htmlFor={`image-camera-${item.id}-1`}
-                                  className="cursor-pointer"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    document.getElementById(`image-camera-${item.id}-1`)?.click();
-                                  }}
+                                <PhotoPickerButton
+                                  onFileSelected={(file) => handleImageUpload(item.id, file)}
+                                  className="block w-full"
                                 >
-                                  <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/10 hover:bg-muted/20 transition-colors">
+                                  <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer">
                                     <Camera className="h-8 w-8 text-muted-foreground mb-1" />
                                     <span className="text-[10px] text-muted-foreground">Tap to snap</span>
                                   </div>
-                                </Label>
+                                </PhotoPickerButton>
                               )}
-                              <Input
-                                id={`image-camera-${item.id}-1`}
-                                type="file"
-                                accept="image/*"
-                                capture={isIOS ? "environment" : undefined}
-                                className="hidden"
-                                onChange={e => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleImageUpload(item.id, file);
-                                  e.target.value = '';
-                                }}
-                                required={item.is_required && !isComplete}
-                              />
                             </div>
                           </div>
                         ) : (
