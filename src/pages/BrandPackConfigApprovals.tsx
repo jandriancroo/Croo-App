@@ -1051,9 +1051,19 @@ export default function BrandPackConfigApprovals() {
                     {ev.territory && <span className="text-xs text-muted-foreground">territory: {ev.territory}</span>}
                     {ev.sku && <span className="text-xs font-mono text-muted-foreground">SKU {ev.sku}</span>}
                     {ev.packString && <span className="text-xs text-muted-foreground">pack: <code>{ev.packString}</code></span>}
-                    {ev.costPerCase != null && (
-                      <span className="text-xs text-muted-foreground">case ${Number(ev.costPerCase).toFixed(2)}</span>
-                    )}
+                    {(() => {
+                      const outer = Number(d.outer_qty) || 0;
+                      const inner = Number(d.inner_qty) || 1;
+                      const cpcu = Number(d.cost_per_common_unit) || 0;
+                      const liveCase = outer * inner * cpcu;
+                      if (liveCase > 0) {
+                        return <span className="text-xs text-muted-foreground">case ${liveCase.toFixed(2)}</span>;
+                      }
+                      if (ev.costPerCase != null) {
+                        return <span className="text-xs text-muted-foreground">case ${Number(ev.costPerCase).toFixed(2)}</span>;
+                      }
+                      return null;
+                    })()}
                   </div>
                   {proposalLocs.length > 0 && (
                     <div className="flex items-center gap-1 flex-wrap text-xs">
