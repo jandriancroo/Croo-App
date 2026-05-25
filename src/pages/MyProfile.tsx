@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { MyPunchPinCard } from '@/components/users/MyPunchPinCard';
+import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
