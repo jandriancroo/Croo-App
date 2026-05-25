@@ -61,4 +61,5 @@ ORDER BY 1,2;
 
 ## History
 
+- [2026-05-25 · Author: Claude (via Jordan)] DIAGNOSTIC CLUE from reading pfg-service code: there's a `maybeCreateChainBrokenTicket()` function that auto-files a `support_tickets` row (marker `[pfg-chain-broken:<location_id>]`) when a location's PFG token refresh chain fully breaks (standard refresh AND ROPC password fallback both fail). FIRST diagnostic step: query `support_tickets` for an open chain-broken marker on Palm Desert — its 5-week-dark period is likely a broken auth token the system already self-reported, possibly fixable by reconnecting in Settings → Integrations rather than a code change. IMPORTANT: Palm Desert (dark/auth) and Tuscaloosa (sync runs but `items[]` empty) are probably DIFFERENT root causes — don't assume one fix covers both. Tuscaloosa/Rowlett empty-shell pattern is line-item population, not auth.
 - [2026-05-25 · Lovable] Logged during Cold Cup Lids cleanup — discovered while sanity-checking why vendor-gap signals diverged across stores.
