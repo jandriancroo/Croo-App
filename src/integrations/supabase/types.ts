@@ -5486,6 +5486,48 @@ export type Database = {
           },
         ]
       }
+      location_plan_overrides: {
+        Row: {
+          created_at: string
+          forced_plan_id: string | null
+          is_hidden_from_chooser: boolean
+          location_id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          forced_plan_id?: string | null
+          is_hidden_from_chooser?: boolean
+          location_id: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          forced_plan_id?: string | null
+          is_hidden_from_chooser?: boolean
+          location_id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_plan_overrides_forced_plan_id_fkey"
+            columns: ["forced_plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_plan_overrides_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_settings: {
         Row: {
           am_safe_count_window_minutes: number
@@ -7090,6 +7132,163 @@ export type Database = {
           target_user_id?: string
         }
         Relationships: []
+      }
+      plan_capabilities_lookup: {
+        Row: {
+          created_at: string
+          description: string | null
+          key: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          key: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          key?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      plan_capability_grants: {
+        Row: {
+          capability_key: string
+          plan_id: string
+        }
+        Insert: {
+          capability_key: string
+          plan_id: string
+        }
+        Update: {
+          capability_key?: string
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_capability_grants_capability_key_fkey"
+            columns: ["capability_key"]
+            isOneToOne: false
+            referencedRelation: "plan_capabilities_lookup"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "plan_capability_grants_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_catalogs: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_catalogs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          badge_label: string | null
+          badge_style: string | null
+          catalog_id: string
+          created_at: string
+          currency: string
+          description: string | null
+          display_name: string
+          icon_key: string | null
+          id: string
+          is_visible: boolean
+          key: string
+          price_cents: number
+          sort_order: number
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          tier_rank: number
+          updated_at: string
+        }
+        Insert: {
+          badge_label?: string | null
+          badge_style?: string | null
+          catalog_id: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          display_name: string
+          icon_key?: string | null
+          id?: string
+          is_visible?: boolean
+          key: string
+          price_cents?: number
+          sort_order?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          tier_rank?: number
+          updated_at?: string
+        }
+        Update: {
+          badge_label?: string | null
+          badge_style?: string | null
+          catalog_id?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          display_name?: string
+          icon_key?: string | null
+          id?: string
+          is_visible?: boolean
+          key?: string
+          price_cents?: number
+          sort_order?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          tier_rank?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plans_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "plan_catalogs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
