@@ -1112,14 +1112,15 @@ export default function BrandPackConfigApprovals() {
                     const inner = d.inner_qty == null ? null : Number(d.inner_qty);
                     const cupc = outer * (inner ?? 1);
                     const cost = d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit);
-                    // Build a synthetic item that approximates how the real count
-                    // screen would see this template once it lands at a location.
-                    // The lens is the draft itself (what approval will write).
+                    // Two-tier vs three-tier: middle lane only when BOTH
+                    // outer_qty > 1 AND inner_qty > 1. Single-outer items
+                    // (e.g. 1/200 ea) collapse to Cases → Units.
+                    const isThreeTier = outer > 1 && (inner ?? 0) > 1;
                     const previewLanes = computeCountLanes({
                       item: {
                         is_recipe: false,
-                        pack_quantity: outer || 1,
-                        inner_pack_quantity: inner && inner > 0 ? inner : null,
+                        pack_quantity: isThreeTier ? outer : (cupc || 1),
+                        inner_pack_quantity: isThreeTier ? inner : null,
                         inner_pack_label: null, // intentionally null so the lens label wins
                         unit: d.common_unit || "ea",
                         cost_per_unit: cost != null && cupc > 0 ? cost * cupc : null,
@@ -1129,11 +1130,12 @@ export default function BrandPackConfigApprovals() {
                         count_units_per_case: cupc > 0 ? cupc : null,
                         cost_per_common_unit: cost,
                         common_unit: d.common_unit || null,
-                        // inner_type drives the middle-lane label (e.g. "sleeve" → "Sleeves")
-                        inner_type: d.inner_type || null,
+                        // inner_type drives the middle-lane label (only relevant in 3-tier)
+                        inner_type: isThreeTier ? (d.inner_type || null) : null,
                       } as any,
                       lensEnabled: true,
                     });
+
                     return (
                       <CountLanesPreview
                         lanes={previewLanes}
