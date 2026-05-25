@@ -1103,8 +1103,26 @@ export default function BrandPackConfigApprovals() {
                     <Field label="Label (optional)">
                       <Input value={d.label ?? ""} onChange={(e) => patchDraft(r.id, { label: e.target.value })} placeholder="e.g. case, sack, 4-pack" />
                     </Field>
-                    <div className="flex items-end text-xs text-muted-foreground">
-                      count_units_per_case = {(Number(d.outer_qty) || 0) * ((d.inner_qty ?? 1) || 1)}
+                    <div className="flex items-end justify-between text-xs text-muted-foreground gap-2">
+                      <span>count_units_per_case = {(Number(d.outer_qty) || 0) * ((d.inner_qty ?? 1) || 1)}</span>
+                      {(() => {
+                        const outer = Number(d.outer_qty) || 0;
+                        const inner = d.inner_qty == null ? null : Number(d.inner_qty);
+                        const heuristic = outer > 1 && (inner ?? 0) > 1;
+                        const override = middleTierOverride[r.id];
+                        const checked = override ?? heuristic;
+                        return (
+                          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) =>
+                                setMiddleTierOverride((prev) => ({ ...prev, [r.id]: !!v }))
+                              }
+                            />
+                            <span>Show middle pack tier (3-lane)</span>
+                          </label>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1116,10 +1134,10 @@ export default function BrandPackConfigApprovals() {
                     const inner = d.inner_qty == null ? null : Number(d.inner_qty);
                     const cupc = outer * (inner ?? 1);
                     const cost = d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit);
-                    // Two-tier vs three-tier: middle lane only when BOTH
-                    // outer_qty > 1 AND inner_qty > 1. Single-outer items
-                    // (e.g. 1/200 ea) collapse to Cases → Units.
-                    const isThreeTier = outer > 1 && (inner ?? 0) > 1;
+                    // Middle-tier visibility: explicit per-row override wins;
+                    // fallback heuristic = 3-tier iff outer>1 AND inner>1.
+                    const heuristic = outer > 1 && (inner ?? 0) > 1;
+                    const isThreeTier = middleTierOverride[r.id] ?? heuristic;
                     const previewLanes = computeCountLanes({
                       item: {
                         is_recipe: false,
@@ -1147,6 +1165,7 @@ export default function BrandPackConfigApprovals() {
                       />
                     );
                   })()}
+
 
                   <div className="flex gap-2 justify-end pt-1">
                     <Button
