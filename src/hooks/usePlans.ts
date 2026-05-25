@@ -19,6 +19,7 @@ export interface PlanRow {
   sort_order: number;
   is_visible: boolean;
   tier_rank: number;
+  feature_bullets: string[];
   capabilities: string[];
 }
 
