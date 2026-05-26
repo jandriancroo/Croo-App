@@ -33,7 +33,7 @@ import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
-import { OvationScorePopover, OvationScoreTab, OvationExpandedPanel, OvationTriggerWithPanel } from '@/components/dashboard/OvationScorePopover';
+import { OvationScorePopover, OvationScoreTab, OvationExpandedPanel, OvationTriggerWithPanel, useOvationData } from '@/components/dashboard/OvationScorePopover';
 
 interface LayoutProps {
   children: ReactNode;
@@ -377,6 +377,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     return () => clearTimeout(t);
   }, [isMobile, canViewSalesAndLabor]);
   const [ovationExpanded, setOvationExpanded] = useState(false);
+  const { displayScore: ovationDisplayScore, isLoading: ovationLoading } = useOvationData();
+  const ovationHasContent = !!ovationDisplayScore || ovationLoading;
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');
   const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
@@ -963,7 +965,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               )}
               
               {/* Desktop Ovation Score - only on dashboard */}
-              {canViewOvation !== false && location.pathname === '/dashboard' && (
+              {canViewOvation !== false && location.pathname === '/dashboard' && ovationHasContent && (
                 <OvationScorePopover key={`ovation-desktop-${currentLocation?.id ?? 'pending'}`} />
               )}
 
@@ -1054,7 +1056,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </div>
           
           {(() => {
-            const showOvation = canViewOvation !== false && location.pathname === '/dashboard';
+            const showOvation = canViewOvation !== false && location.pathname === '/dashboard' && ovationHasContent;
             const showLocation = !!(currentLocation || isOnOrgDash);
             if (!showLocation && !showOvation) return null;
 
