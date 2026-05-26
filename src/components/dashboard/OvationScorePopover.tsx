@@ -428,7 +428,7 @@ export function OvationTriggerWithPanel({
 
   return (
     <>
-      <div ref={triggerRef} className="relative">
+      <div ref={triggerRef} className={`relative ${expanded ? 'z-[70]' : ''}`}>
         <OvationScoreTab
           bare={bare}
           desktop={desktop}
@@ -446,7 +446,7 @@ export function OvationTriggerWithPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/60"
+            className="fixed inset-0 z-[60] bg-black/60"
             onClick={onToggle}
           />
         )}
@@ -454,7 +454,7 @@ export function OvationTriggerWithPanel({
       {/* Centered review panel */}
       <div
         ref={panelRef}
-        className="fixed left-1/2 -translate-x-1/2 z-50"
+        className="fixed left-1/2 -translate-x-1/2 z-[70]"
         style={{ top: 'calc(env(safe-area-inset-top) + 3.5rem)' }}
       >
         <OvationExpandedPanel expanded={expanded} triggerRef={triggerRef} />
