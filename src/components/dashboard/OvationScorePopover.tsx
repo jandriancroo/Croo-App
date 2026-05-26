@@ -408,6 +408,24 @@ export function OvationTriggerWithPanel({
   className?: string;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        panelRef.current?.contains(target)
+      ) {
+        return;
+      }
+      onToggle();
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [expanded, onToggle]);
+
   return (
     <>
       <div ref={triggerRef} className="relative">
@@ -435,6 +453,7 @@ export function OvationTriggerWithPanel({
       </AnimatePresence>
       {/* Centered review panel */}
       <div
+        ref={panelRef}
         className="fixed left-1/2 -translate-x-1/2 z-50"
         style={{ top: 'calc(env(safe-area-inset-top) + 3.5rem)' }}
       >
