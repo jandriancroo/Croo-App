@@ -183,51 +183,36 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     refetchInterval: isExpanded ? 60000 : false,
   });
 
-  // Fetch live labor — prefer fetch-qubeyond-sales (live punch calc), fall back to labor_cache.
-  // Shared query key with Dashboard/ManagerDashboardOverlay for deduplication.
-  const { data: liveLabor } = useQuery({
-    queryKey: ['qubeyond-sales', locationId, todayStr],
-    queryFn: async () => {
-      if (!locationId) return null;
-      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
-        body: { locationId, targetDate: todayStr },
-      });
-      if (error) return null;
-      return {
-        laborCost: data?.labor?.laborCost || 0,
-        laborHours: data?.labor?.hoursWorked || 0,
-      };
-    },
-    enabled: !!locationId && isExpanded,
-    staleTime: 3 * 60 * 1000,
-    refetchInterval: isExpanded ? 60000 : false,
-  });
-
-  const { data: laborCacheFallback } = useQuery({
+  // Fetch labor — match Dashboard SalesSummary logic exactly:
+  // prioritize punch_clock source over qubeyond (do NOT aggregate sources).
+  const { data: laborData } = useQuery({
     queryKey: ['labor-cache-today', locationId, todayStr],
     queryFn: async () => {
       if (!locationId) return null;
       const { data, error } = await supabase
         .from('labor_cache')
-        .select('labor_hours, labor_cost')
+        .select('labor_hours, labor_cost, source')
         .eq('location_id', locationId)
         .eq('labor_date', todayStr);
 
       if (error) throw error;
       if (!data || data.length === 0) return null;
 
-      const totalCost = data.reduce((sum, row) => sum + (row.labor_cost || 0), 0);
-      const totalHours = data.reduce((sum, row) => sum + (row.labor_hours || 0), 0);
-      return { labor_cost: totalCost, labor_hours: totalHours };
+      const punchClockRow = data.find(
+        (r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0)
+      );
+      const qubeyondRow = data.find((r: any) => r.source === 'qubeyond');
+      const preferred = punchClockRow || qubeyondRow || data[0];
+
+      return {
+        labor_cost: Number(preferred.labor_cost) || 0,
+        labor_hours: Number(preferred.labor_hours) || 0,
+      };
     },
     enabled: !!locationId && isExpanded,
     refetchInterval: isExpanded ? 60000 : false,
   });
 
-  // Prefer live punch-based labor; fall back to cache only if live unavailable.
-  const laborData = liveLabor && (liveLabor.laborCost > 0 || liveLabor.laborHours > 0)
-    ? { labor_cost: liveLabor.laborCost, labor_hours: liveLabor.laborHours }
-    : laborCacheFallback;
 
 
   // Fetch labor target
