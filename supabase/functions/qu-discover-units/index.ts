@@ -13,65 +13,75 @@ Deno.serve(async (req) => {
   const token = (await tr.json()).access_token;
 
   const headers = {
+    'Content-Type': 'application/json',
     'Accept': 'application/json',
     'Authorization': `Bearer ${token}`,
     'x-integration': Deno.env.get('QU_INTEGRATION_USER_ID') || '',
   };
 
-  const probeUrls = [
-    'https://gateway-api.qubeyond.com/api/v4/data/locations',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?pageSize=1000',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?PageSize=1000',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?page=2',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?Page=2',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?pageNumber=2',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?PageNumber=2',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?skip=20&take=500',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?$top=500',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?limit=500',
-    'https://gateway-api.qubeyond.com/api/v4/data/locations?offset=20&limit=500',
+  const probes: Array<{ name: string; method: string; url: string; body?: any }> = [
+    // Try other versions / scopes
+    { name: 'v3-locations', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v3/data/locations' },
+    { name: 'v2-locations', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v2/data/locations' },
+    { name: 'v4-data-brands', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/brands' },
+    { name: 'v4-data-companies', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/companies' },
+    { name: 'v4-data-organizations', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/organizations' },
+    { name: 'v4-data-menu-groups', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/menu-groups' },
+    { name: 'v4-data-price-groups', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/price-groups' },
+    { name: 'v4-data-stores', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/stores' },
+    { name: 'v4-data-locations-all', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/locations/all' },
+    { name: 'v4-data-locations-search', method: 'POST', url: 'https://gateway-api.qubeyond.com/api/v4/data/locations/search', body: { q: q || 'akers' } },
+    // Try the same report endpoint our sales-service uses — with NO operationalUnit filter to see what comes back
+    {
+      name: 'hourly-sales-no-filter',
+      method: 'POST',
+      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main',
+      body: { filters: { date: { from: null, to: null, values: [new Date().toISOString().slice(0,10)], type: 'custom' } } },
+    },
+    // Hourly sales for "all locations" via empty operationalUnits
+    {
+      name: 'hourly-sales-empty-units',
+      method: 'POST',
+      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main',
+      body: { filters: { date: { from: null, to: null, values: [new Date().toISOString().slice(0,10)], type: 'custom' }, location: { operationalUnits: [] } } },
+    },
   ];
-  const probe: any[] = [];
-  for (const u of probeUrls) {
-    const r = await fetch(u, { headers });
-    const txt = await r.text();
-    let firstIds: any[] = [];
-    let count = 0;
-    let totalCount: any = null;
+
+  const results: any[] = [];
+  for (const p of probes) {
     try {
-      const j = JSON.parse(txt);
-      const arr = j?.value?.items || j?.items || [];
-      count = arr.length;
-      firstIds = arr.slice(0, 3).map((x: any) => ({ id: x.id, storeNumber: x.storeNumber }));
-      totalCount = j?.value?.totalCount ?? j?.totalCount ?? j?.value?.count ?? null;
-    } catch {}
-    probe.push({ url: u, status: r.status, count, totalCount, firstIds });
+      const r = await fetch(p.url, {
+        method: p.method,
+        headers,
+        body: p.body !== undefined ? JSON.stringify(p.body) : undefined,
+      });
+      const txt = await r.text();
+      // Try to extract any item array & count + matches against q
+      let arrLen = 0;
+      let matches: any[] = [];
+      try {
+        const j = JSON.parse(txt);
+        const arr = j?.value?.items || j?.items || j?.value || j?.data || j;
+        if (Array.isArray(arr)) {
+          arrLen = arr.length;
+          if (q) {
+            matches = arr.filter((x: any) => JSON.stringify(x).toLowerCase().includes(q)).slice(0, 5);
+          }
+        }
+      } catch {}
+      results.push({
+        name: p.name,
+        status: r.status,
+        len: arrLen,
+        matches,
+        sample: txt.substring(0, 800),
+      });
+    } catch (e) {
+      results.push({ name: p.name, error: String(e) });
+    }
   }
-  const items: any[] = [];
-  const totalReported = 0;
 
-  const matches = q
-    ? items.filter((i: any) =>
-        (i.marketingName || '').toLowerCase().includes(q) ||
-        (i.businessName || '').toLowerCase().includes(q) ||
-        (i.fiscalName || '').toLowerCase().includes(q) ||
-        (i.address1 || '').toLowerCase().includes(q) ||
-        (i.city || '').toLowerCase().includes(q) ||
-        String(i.storeNumber || '').toLowerCase().includes(q))
-    : items;
-
-  return new Response(JSON.stringify({
-    probe,
-    total: items.length,
-    totalReported,
-    matchCount: matches.length,
-    matches: matches.map((i: any) => ({
-      id: i.id,
-      storeNumber: i.storeNumber,
-      marketingName: i.marketingName,
-      businessName: i.businessName,
-      address: `${i.address1 || ''} ${i.address2 || ''}, ${i.city || ''}, ${i.state?.stateCode || ''} ${i.postalCode || ''}`.trim(),
-      timezone: i.localTimeZone?.timeZoneId,
-    })),
-  }, null, 2), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ q, results }, null, 2), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 });
