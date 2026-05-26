@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({
     total: items.length,
+    totalReported,
     matchCount: matches.length,
     matches: matches.map((i: any) => ({
       id: i.id,
