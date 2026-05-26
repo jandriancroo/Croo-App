@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface TheoOrbProps {
@@ -7,24 +7,127 @@ interface TheoOrbProps {
   className?: string;
   /** Adds a slow pulsing nudge ring (used during onboarding week). */
   nudge?: boolean;
-  /** Aria label override */
   label?: string;
   'data-tour'?: string;
 }
 
+// Pre-generated unit-sphere points using a Fibonacci spiral.
+function makeSpherePoints(n: number) {
+  const pts: { x: number; y: number; z: number }[] = [];
+  const phi = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (i / (n - 1)) * 2;
+    const r = Math.sqrt(1 - y * y);
+    const theta = phi * i;
+    pts.push({ x: Math.cos(theta) * r, y, z: Math.sin(theta) * r });
+  }
+  return pts;
+}
+
+// Wispy outer-halo particles: slightly outside the sphere radius with jitter.
+function makeHaloPoints(n: number) {
+  const pts: { x: number; y: number; z: number; jitter: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const radius = 1.02 + Math.random() * 0.18;
+    pts.push({
+      x: Math.sin(phi) * Math.cos(theta) * radius,
+      y: Math.sin(phi) * Math.sin(theta) * radius,
+      z: Math.cos(phi) * radius,
+      jitter: Math.random(),
+    });
+  }
+  return pts;
+}
+
 /**
- * TheoOrb — Jarvis-style animated orb that replaces the user avatar in the
- * manager dash. Slow swirling conic gradient + breathing scale + soft halo.
- * Tap to open Theo.
+ * TheoOrb — particle-sphere orb (Jarvis / point-cloud globe vibe).
+ * Renders into a small canvas; rotates slowly with a wispy halo.
  */
 export function TheoOrb({
-  size = 48,
+  size = 56,
   onClick,
   className,
   nudge = false,
   label = 'Open Theo',
   ...rest
 }: TheoOrbProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+
+    const cx = size / 2;
+    const cy = size / 2;
+    const radius = size * 0.38;
+
+    const sphere = makeSpherePoints(900);
+    const halo = makeHaloPoints(180);
+
+    let start = performance.now();
+
+    const render = (now: number) => {
+      const t = (now - start) / 1000;
+      ctx.clearRect(0, 0, size, size);
+
+      // Subtle breathing
+      const breath = 1 + Math.sin(t * 1.8) * 0.025;
+      const rotY = t * 0.55;
+      const rotX = Math.sin(t * 0.4) * 0.25;
+      const cosY = Math.cos(rotY);
+      const sinY = Math.sin(rotY);
+      const cosX = Math.cos(rotX);
+      const sinX = Math.sin(rotX);
+
+      // Wispy halo (background layer)
+      for (const p of halo) {
+        const x1 = p.x * cosY - p.z * sinY;
+        const z1 = p.x * sinY + p.z * cosY;
+        const y1 = p.y * cosX - z1 * sinX;
+        const sx = cx + x1 * radius * breath;
+        const sy = cy + y1 * radius * breath;
+        const alpha = 0.08 + p.jitter * 0.18;
+        ctx.fillStyle = `rgba(220,235,255,${alpha})`;
+        ctx.fillRect(sx, sy, 1, 1);
+      }
+
+      // Sphere points
+      for (const p of sphere) {
+        // rotate Y then X
+        const x1 = p.x * cosY - p.z * sinY;
+        const z1 = p.x * sinY + p.z * cosY;
+        const y1 = p.y * cosX - z1 * sinX;
+        const z2 = p.y * sinX + z1 * cosX;
+
+        const sx = cx + x1 * radius * breath;
+        const sy = cy + y1 * radius * breath;
+
+        // Depth: -1 (back) .. 1 (front)
+        const depth = (z2 + 1) / 2;
+        const alpha = 0.15 + depth * 0.85;
+        const dotSize = depth > 0.5 ? 1.2 : 1;
+        ctx.fillStyle = `rgba(240,248,255,${alpha})`;
+        ctx.fillRect(sx, sy, dotSize, dotSize);
+      }
+
+      rafRef.current = requestAnimationFrame(render);
+    };
+
+    rafRef.current = requestAnimationFrame(render);
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [size]);
+
   return (
     <button
       type="button"
@@ -33,83 +136,28 @@ export function TheoOrb({
       data-tour={rest['data-tour']}
       className={cn(
         'relative inline-flex items-center justify-center shrink-0 rounded-full',
+        'bg-black/90 overflow-hidden',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-foreground/40',
+        'transition-transform active:scale-95',
         className,
       )}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        boxShadow:
+          '0 0 24px rgba(125,211,252,0.35), inset 0 0 12px rgba(0,0,0,0.6)',
+      }}
     >
-      {/* Outer breathing halo */}
-      <motion.span
-        aria-hidden
-        className="absolute inset-0 rounded-full"
-        style={{
-          background:
-            'radial-gradient(circle at 50% 50%, rgba(125, 211, 252, 0.55), rgba(99, 102, 241, 0.25) 55%, transparent 75%)',
-          filter: 'blur(6px)',
-        }}
-        animate={{ scale: [1, 1.18, 1], opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-      />
-
-      {/* Onboarding-week nudge ring */}
       {nudge && (
-        <motion.span
+        <span
           aria-hidden
-          className="absolute inset-[-6px] rounded-full border-2 border-accent-foreground/60"
-          animate={{ scale: [1, 1.25, 1], opacity: [0.9, 0, 0.9] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+          className="absolute inset-[-4px] rounded-full border border-accent-foreground/60 animate-ping"
         />
       )}
-
-      {/* Rotating swirl (conic gradient) */}
-      <motion.span
+      <canvas
+        ref={canvasRef}
+        style={{ width: size, height: size, display: 'block' }}
         aria-hidden
-        className="absolute inset-[3px] rounded-full"
-        style={{
-          background:
-            'conic-gradient(from 0deg, #7dd3fc, #818cf8, #c084fc, #67e8f9, #7dd3fc)',
-          filter: 'blur(2px)',
-        }}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-      />
-
-      {/* Counter-rotating inner shimmer */}
-      <motion.span
-        aria-hidden
-        className="absolute inset-[6px] rounded-full"
-        style={{
-          background:
-            'conic-gradient(from 180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.1), rgba(255,255,255,0.7), rgba(255,255,255,0.1))',
-          mixBlendMode: 'overlay',
-        }}
-        animate={{ rotate: -360 }}
-        transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}
-      />
-
-      {/* Glass core */}
-      <motion.span
-        aria-hidden
-        className="absolute inset-[8px] rounded-full bg-slate-950/70 backdrop-blur"
-        animate={{ scale: [1, 0.94, 1] }}
-        transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
-        style={{
-          boxShadow:
-            'inset 0 1px 6px rgba(255,255,255,0.35), inset 0 -4px 10px rgba(0,0,0,0.4)',
-        }}
-      />
-
-      {/* Highlight speck */}
-      <span
-        aria-hidden
-        className="absolute rounded-full bg-white/80"
-        style={{
-          width: size * 0.12,
-          height: size * 0.12,
-          top: size * 0.22,
-          left: size * 0.28,
-          filter: 'blur(1px)',
-        }}
       />
     </button>
   );
