@@ -729,7 +729,12 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                         className="relative flex justify-center"
                         style={{ width: hasUnreadTheo ? 180 : 58 }}
                       >
-                        <div className="relative px-3 py-2 rounded-2xl bg-accent-foreground text-accent shadow-lg">
+                        <button
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-theo'))}
+                          className="relative px-3 py-2 rounded-2xl bg-accent-foreground text-accent shadow-lg text-left transition-transform active:scale-[0.97] hover:brightness-110"
+                          aria-label="Open Theo"
+                        >
                           {/* Tail pointing up to the orb above */}
                           <div className="absolute -top-1 right-[15px] w-3 h-3 rotate-45 bg-accent-foreground" />
                           {hasUnreadTheo ? (
@@ -754,7 +759,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                               </p>
                             </>
                           )}
-                        </div>
+                        </button>
+
                       </div>
                     </div>
                   )}
