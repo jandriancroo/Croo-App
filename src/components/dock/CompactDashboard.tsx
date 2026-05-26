@@ -152,6 +152,10 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     if (nick?.trim()) return nick.trim();
     return userProfile.full_name.split(' ')[0];
   }, [userProfile]);
+
+  // Theo unread state — drives the red dot on the orb + speech bubble swap.
+  const { count: theoUnreadCount, preview: theoUnreadPreview } = useTheoUnread();
+  const hasUnreadTheo = theoUnreadCount > 0;
   
   // Format time in location timezone (no seconds)
   const formattedTime = useMemo(() => {
