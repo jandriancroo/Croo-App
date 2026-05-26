@@ -453,28 +453,32 @@ export function MobileScheduleView({
     refetchInterval: punchDateStr === todayStr ? 60 * 1000 : false,
   });
 
-  // Fetch sales + labor for Day Insights (V2)
+  // Day Insights — uses the SAME source of truth as the Dashboard SalesSummary
+  // and ManagerDashboardOverlay: fetch-qubeyond-sales returns live labor
+  // calculated from open punches. labor_cache is history-only (excludes today)
+  // so querying it here returned $0. Shared query key dedupes with dashboard.
   const { data: dayInsightsData } = useQuery({
-    queryKey: ['day-insights', currentLocation?.id, todayStr],
+    queryKey: ['qubeyond-sales', currentLocation?.id, todayStr],
     queryFn: async () => {
       if (!currentLocation?.id || !todayStr) return null;
-      const [salesRes, laborRes] = await Promise.all([
-        supabase.from('sales_cache').select('net_sales').eq('location_id', currentLocation.id).eq('sale_date', todayStr).maybeSingle(),
-        supabase.from('labor_cache').select('labor_cost, labor_hours, source').eq('location_id', currentLocation.id).eq('labor_date', todayStr),
-      ]);
-      const sales = salesRes.data?.net_sales || 0;
-      // Prefer punch_clock source over qubeyond
-      const laborRows = laborRes.data || [];
-      const punchClockRow = laborRows.find(r => r.source === 'punch_clock');
-      const best = punchClockRow || laborRows[0];
-      const laborCost = best?.labor_cost || 0;
-      const laborHours = best?.labor_hours || 0;
+      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+        body: { locationId: currentLocation.id, targetDate: todayStr },
+      });
+      if (error) return null;
+      // Treat unauthenticated/not-configured response as no data
+      if (data && typeof data === 'object' && 'authenticated' in data && (data as any).authenticated === false) {
+        return null;
+      }
+      const sales = data?.daily || 0;
+      const laborCost = data?.labor?.laborCost || 0;
+      const laborHours = data?.labor?.hoursWorked || 0;
       return { sales, laborCost, laborHours };
     },
     enabled: !!currentLocation?.id && !!todayStr,
-    staleTime: 60 * 1000,
-    refetchInterval: 120 * 1000,
+    staleTime: 3 * 60 * 1000,
+    refetchInterval: 60 * 1000,
   });
+
 
 
   // Get week label relative to current week (using timezone-aware calculation)
