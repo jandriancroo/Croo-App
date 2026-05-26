@@ -432,20 +432,23 @@ export function OvationTriggerWithPanel({
 
   return (
     <>
-      {/* Backdrop fade — click to dismiss. Rendered BEFORE the trigger so the pill stays lit on top. */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            key="ovation-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[60] bg-black/60"
-            onClick={onToggle}
-          />
-        )}
-      </AnimatePresence>
+      {/* Backdrop fade — portaled to body so it escapes the header's stacking context */}
+      {createPortal(
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              key="ovation-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[60] bg-black/60"
+              onClick={onToggle}
+            />
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
       <div ref={triggerRef} className={cn('relative', expanded && 'z-[70]')}>
         <OvationScoreTab
           bare={bare}
