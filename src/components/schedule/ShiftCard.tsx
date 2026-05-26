@@ -38,11 +38,18 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   const bgColor = template?.color || shiftData.color || "#ef4444";
   const position = template?.position || template?.template_name;
 
+  const hasConflictDetails = hasTimeOffConflict && conflictingTimeOff && conflictingTimeOff.length > 0;
+
   const handleCardClick = (e: React.MouseEvent) => {
-    if (!shift.isTemplate && onEdit) {
-      e.stopPropagation();
-      onEdit();
+    if (shift.isTemplate) return;
+    e.stopPropagation();
+    // Smart-tap: first click shows time-off info, second click opens shift editor
+    if (hasConflictDetails && !conflictPopoverOpen) {
+      setConflictPopoverOpen(true);
+      return;
     }
+    setConflictPopoverOpen(false);
+    onEdit?.();
   };
 
   // Draft styling: reduced opacity, dashed border, and grayscale filter for unpublished shifts
