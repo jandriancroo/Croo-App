@@ -370,14 +370,22 @@ export function AiAssistantBubble() {
             manager dash. Auto-disappears 7 days after first sight. No manual
             dismiss so it can't be accidentally swiped away. ── */}
       <AnimatePresence initial={false}>
-        {!open && teachingVisible && (
+        {!open && (!isMobile || teachingVisible) && (
           <motion.button
             type="button"
             initial={{ x: 80 }}
             animate={{ x: 0 }}
             exit={{ x: 80 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            onClick={() => { openDockForTour(); }}
+            onClick={() => {
+              if (isMobile) {
+                // Mobile: nudge the user toward the dock where Theo now lives.
+                openDockForTour();
+              } else {
+                // Tablet/desktop: there's no dock — open Theo directly.
+                setOpen(true);
+              }
+            }}
             className="fixed right-0 z-[55] bg-accent text-white flex flex-col items-center justify-center gap-1 px-2 py-3 border-l border-y border-white/15"
             style={{
               top: '50%',
@@ -388,7 +396,7 @@ export function AiAssistantBubble() {
               borderBottomLeftRadius: 12,
               boxShadow: '-6px 0 20px rgba(0,0,0,0.3), -2px 0 6px rgba(0,0,0,0.15)',
             }}
-            aria-label="Theo moved — open the manager dash to find him"
+            aria-label={isMobile ? 'Theo moved — open the manager dash to find him' : 'Ask Theo'}
           >
             <Star4 size={4} />
             <Star4 size={7} />
@@ -396,7 +404,7 @@ export function AiAssistantBubble() {
               className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/95 mt-1"
               style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
             >
-              Theo moved ↓
+              {isMobile ? 'Theo moved ↓' : 'Ask Theo'}
             </span>
             {hasUnreadBriefing && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
