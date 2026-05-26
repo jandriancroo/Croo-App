@@ -362,6 +362,19 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     registerDockControl(setShowCompactDashboard);
     return () => unregisterDockControl();
   }, []);
+
+  // First-time Theo discovery: auto-peek the dock once so managers see Theo's new home.
+  useEffect(() => {
+    if (!isMobile || !canViewSalesAndLabor) return;
+    try {
+      if (localStorage.getItem('theo-welcome-autopeek-v1')) return;
+    } catch { /* ignore */ }
+    const t = setTimeout(() => {
+      setShowCompactDashboard(true);
+      try { localStorage.setItem('theo-welcome-autopeek-v1', String(Date.now())); } catch { /* ignore */ }
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [isMobile, canViewSalesAndLabor]);
   const [ovationExpanded, setOvationExpanded] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');
