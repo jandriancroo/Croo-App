@@ -170,6 +170,16 @@ export function TheoOrb({
         style={{ width: size, height: size, display: 'block', position: 'relative' }}
         aria-hidden
       />
+      {unread && (
+        <span
+          aria-hidden
+          className="absolute top-0 right-0 flex items-center justify-center"
+          style={{ width: Math.max(10, size * 0.22), height: Math.max(10, size * 0.22) }}
+        >
+          <span className="absolute inset-0 rounded-full bg-red-500/60 animate-ping" />
+          <span className="relative rounded-full bg-red-500 ring-2 ring-background" style={{ width: '100%', height: '100%' }} />
+        </span>
+      )}
     </button>
   );
 }
