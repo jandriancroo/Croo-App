@@ -33,7 +33,7 @@ import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
-import { OvationScorePopover, OvationScoreTab, OvationExpandedPanel, OvationTriggerWithPanel } from '@/components/dashboard/OvationScorePopover';
+import { OvationScorePopover, OvationScoreTab, OvationExpandedPanel, OvationTriggerWithPanel, useOvationData } from '@/components/dashboard/OvationScorePopover';
 
 interface LayoutProps {
   children: ReactNode;
