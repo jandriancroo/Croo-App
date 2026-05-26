@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Pin } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { X, Send, Loader2, Sparkles, Mic, MicOff, RotateCcw, ThumbsUp } from 'lucide-react';
-import theoAvatar from '@/assets/theo-avatar.png';
+import { TheoOrb } from '@/components/dock/TheoOrb';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -440,8 +440,8 @@ export function AiAssistantBubble() {
               {/* Header — orange gradient matching dock */}
               <div className="relative flex items-center justify-between px-4 py-3 border-b border-white/10 bg-accent">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl overflow-hidden ring-2 ring-white/20">
-                    <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
+                  <div className="h-9 w-9 rounded-xl overflow-hidden ring-2 ring-white/20 flex items-center justify-center bg-accent">
+                    <TheoOrb size={32} className="text-white pointer-events-none" />
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
@@ -478,8 +478,8 @@ export function AiAssistantBubble() {
                 {messages.length === 0 && (
                   <div className="px-5 pt-10 pb-4 space-y-5">
                     <div className="text-center space-y-2">
-                      <div className="mx-auto h-14 w-14 rounded-2xl overflow-hidden mb-3">
-                        <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
+                      <div className="mx-auto h-14 w-14 rounded-2xl overflow-hidden mb-3 flex items-center justify-center">
+                        <TheoOrb size={56} className="pointer-events-none" />
                       </div>
                       <p className="text-base font-semibold text-foreground">What can I help with?</p>
                       <p className="text-xs text-muted-foreground leading-relaxed max-w-[260px] mx-auto">
@@ -515,8 +515,8 @@ export function AiAssistantBubble() {
                         className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
                       >
                         {msg.role === 'assistant' && (
-                        <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0">
-                            <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
+                        <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0 flex items-center justify-center">
+                            <TheoOrb size={24} className="pointer-events-none" />
                           </div>
                         )}
                         <div
@@ -575,8 +575,8 @@ export function AiAssistantBubble() {
                         animate={{ opacity: 1, y: 0 }}
                         className="flex justify-start"
                       >
-                        <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0">
-                          <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
+                        <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0 flex items-center justify-center">
+                          <TheoOrb size={24} className="pointer-events-none" />
                         </div>
                         <div className="crooai-ai-bubble rounded-2xl rounded-bl-md px-4 py-3">
                           <div className="flex items-center gap-1.5">

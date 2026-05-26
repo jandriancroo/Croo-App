@@ -92,7 +92,7 @@ export function TheoOrb({
       const t = (now - start) / 1000;
       ctx.clearRect(0, 0, size, size);
 
-      const breath = 1 + Math.sin(t * 1.8) * 0.025;
+      const breath = 1 + Math.sin(t * 1.4) * 0.06;
       const rotY = t * 0.55;
       const rotX = Math.sin(t * 0.4) * 0.25;
       const cosY = Math.cos(rotY);
@@ -124,7 +124,7 @@ export function TheoOrb({
 
         const depth = (z2 + 1) / 2;
         const alpha = 0.18 + depth * 0.78;
-        const dotSize = depth > 0.55 ? 1.3 : 1;
+        const dotSize = depth > 0.55 ? 1.9 : 1.4;
         ctx.fillStyle = `rgba(${dotRGB},${alpha})`;
         ctx.fillRect(sx, sy, dotSize, dotSize);
       }

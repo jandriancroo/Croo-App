@@ -675,60 +675,63 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           <div className="px-4 pb-safe overflow-y-auto" style={{ maxHeight: 'calc(75vh - 60px)' }}>
             {/* Row 1: small time above greeting, THEO orb pinned right.
                 Tapping the orb opens Theo (listened for in AiAssistantBubble). */}
-            <div className="flex items-start gap-3 mb-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-accent-foreground/70 tabular-nums leading-none mb-1">
-                  {formattedTime}
-                </p>
-                <h2 className="text-2xl font-bold text-accent-foreground truncate leading-tight">
-                  Hey {firstName}
-                </h2>
-                {paceStatus && (
-                  <p className="text-sm font-medium text-accent-foreground/90 mt-1 leading-snug">
-                    {paceStatus.greeting}
-                  </p>
-                )}
-              </div>
-              {(() => {
-                // Show speech bubble during the 7-day teaching window.
-                let teaching = false;
-                try {
-                  const raw = localStorage.getItem('theo-tab-teaching-v1');
-                  const firstSeen = raw ? parseInt(raw, 10) : NaN;
-                  if (firstSeen && !Number.isNaN(firstSeen)) {
-                    teaching = (Date.now() - firstSeen) / (1000 * 60 * 60 * 24) < 7;
-                  }
-                } catch { /* ignore */ }
-                return (
-                  <div className="relative mr-10 shrink-0">
-                    <TheoOrb
-                      size={58}
-                      data-tour="theo-orb"
-                      label="Open Theo"
-                      nudge={false}
-                      onClick={() => {
-                        window.dispatchEvent(new CustomEvent('open-theo'));
-                      }}
-                    />
-                    {teaching && (
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-10 animate-scale-in">
-                        <div className="relative px-3 py-2 rounded-2xl bg-accent-foreground text-accent shadow-lg w-[150px]">
-                          {/* Tail pointing up to the orb */}
-                          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-accent-foreground" />
-                          <p className="text-[11px] font-semibold leading-tight">
-                            Hey {firstName} 👋
-                          </p>
-                          <p className="text-[10px] font-medium leading-tight opacity-90 mt-0.5">
-                            I'm Theo — tap me anytime!
-                          </p>
-                        </div>
-                      </div>
-                    )}
+            {(() => {
+              // Compute once for both the orb + speech-bubble row.
+              let teaching = false;
+              try {
+                const raw = localStorage.getItem('theo-tab-teaching-v1');
+                const firstSeen = raw ? parseInt(raw, 10) : NaN;
+                if (firstSeen && !Number.isNaN(firstSeen)) {
+                  teaching = (Date.now() - firstSeen) / (1000 * 60 * 60 * 24) < 7;
+                }
+              } catch { /* ignore */ }
+              return (
+                <>
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-accent-foreground/70 tabular-nums leading-none mb-1">
+                        {formattedTime}
+                      </p>
+                      <h2 className="text-2xl font-bold text-accent-foreground truncate leading-tight">
+                        Hey {firstName}
+                      </h2>
+                      {paceStatus && (
+                        <p className="text-sm font-medium text-accent-foreground/90 mt-1 leading-snug">
+                          {paceStatus.greeting}
+                        </p>
+                      )}
+                    </div>
+                    <div className="mr-10 shrink-0">
+                      <TheoOrb
+                        size={58}
+                        data-tour="theo-orb"
+                        label="Open Theo"
+                        nudge={false}
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('open-theo'));
+                        }}
+                      />
+                    </div>
                   </div>
-                );
-              })()}
 
-            </div>
+                  {/* Theo speech bubble — in-flow so it pushes cards down */}
+                  {teaching && (
+                    <div className="flex justify-end mr-10 mb-4 animate-scale-in">
+                      <div className="relative px-3 py-2 rounded-2xl bg-accent-foreground text-accent shadow-lg w-[170px]">
+                        {/* Tail pointing up to the orb above */}
+                        <div className="absolute -top-1 right-5 w-3 h-3 rotate-45 bg-accent-foreground" />
+                        <p className="text-[11px] font-semibold leading-tight">
+                          Hey {firstName} 👋
+                        </p>
+                        <p className="text-[10px] font-medium leading-tight opacity-90 mt-0.5">
+                          I'm Theo — tap me anytime!
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {/* Sales & Pace Cards */}
             <div className="grid grid-cols-2 gap-3 mb-4">
