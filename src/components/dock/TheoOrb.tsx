@@ -92,7 +92,7 @@ export function TheoOrb({
       const t = (now - start) / 1000;
       ctx.clearRect(0, 0, size, size);
 
-      const breath = 1 + Math.sin(t * 1.8) * 0.025;
+      const breath = 1 + Math.sin(t * 1.4) * 0.06;
       const rotY = t * 0.55;
       const rotX = Math.sin(t * 0.4) * 0.25;
       const cosY = Math.cos(rotY);
