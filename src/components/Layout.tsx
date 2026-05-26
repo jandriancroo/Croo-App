@@ -377,6 +377,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     return () => clearTimeout(t);
   }, [isMobile, canViewSalesAndLabor]);
   const [ovationExpanded, setOvationExpanded] = useState(false);
+  const { displayScore: ovationDisplayScore, isLoading: ovationLoading } = useOvationData();
+  const ovationHasContent = !!ovationDisplayScore || ovationLoading;
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');
   const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
