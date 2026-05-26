@@ -18,9 +18,20 @@ Deno.serve(async (req) => {
     'x-integration': Deno.env.get('QU_INTEGRATION_USER_ID') || '',
   };
 
-  const r = await fetch('https://gateway-api.qubeyond.com/api/v4/data/locations', { headers });
-  const data = await r.json();
-  const items = data?.value?.items || [];
+  const items: any[] = [];
+  let page = 1;
+  let totalReported = 0;
+  while (true) {
+    const r = await fetch(`https://gateway-api.qubeyond.com/api/v4/data/locations?pageSize=500&pageNumber=${page}`, { headers });
+    if (!r.ok) break;
+    const data = await r.json();
+    const batch = data?.value?.items || [];
+    totalReported = data?.value?.totalCount ?? data?.value?.total ?? totalReported;
+    items.push(...batch);
+    if (batch.length < 500 || items.length >= (totalReported || items.length)) break;
+    page += 1;
+    if (page > 20) break;
+  }
 
   const matches = q
     ? items.filter((i: any) =>
