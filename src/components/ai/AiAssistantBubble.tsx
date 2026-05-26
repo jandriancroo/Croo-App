@@ -515,8 +515,8 @@ export function AiAssistantBubble() {
                         className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
                       >
                         {msg.role === 'assistant' && (
-                        <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0">
-                            <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
+                        <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0 flex items-center justify-center">
+                            <TheoOrb size={24} className="pointer-events-none" />
                           </div>
                         )}
                         <div
