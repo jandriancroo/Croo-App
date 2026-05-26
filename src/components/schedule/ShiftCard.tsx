@@ -86,8 +86,8 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${m} ${ampm}`;
   };
-    )`
-  } : {};
+
+
 
   return (
     <Card
