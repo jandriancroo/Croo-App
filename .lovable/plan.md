@@ -1,109 +1,64 @@
-## Inner-Pack Counting Tier — Cleanup & Build Plan
+# Theo Unread Message Notifications
 
-Picks up the deferred brief (`/mnt/documents/inner-pack-counting-tier.md`). Scope: add a third counting tier (Case → Inner Pack → Unit), fix the hydration drift it would otherwise amplify, and backfill 15 brand-catalog items.
+Notify users when Theo has a new message they haven't seen — daily proactive message, Theo-initiated alerts, or responses they navigated away from.
 
-### Goals
-- Operators can count partial cases as sleeves/inner packs/bundles instead of "0 cases" or 3,000 individual liners.
-- Zero regression for items where `inner_pack_quantity IS NULL` (today's behavior).
-- Kill the Apr 30 Palm Springs $270 pan reverse-derivation drift as part of the same work.
-- Costing, vendor ordering, PFG sync, AvT, pan layer all untouched.
+## How "unread" is detected
 
----
+All three message types land in the existing `theo_chat_messages` table with `role='assistant'`. So:
 
-### Phase 1 — Hydration Contract Refactor (do this FIRST, ship alone)
+> **Unread = any `assistant` message where `created_at > user's last_read_at`** (scoped to current `user_id` + `location_id`).
 
-This is the unlock. Inner packs cannot land safely on top of a hydration path that reverse-derives `entered_units` from `quantity − cases × pack_qty`.
+No new message-type column needed.
 
-**Rule:** `entered_cases`, `entered_units`, `pan_units` (and later `entered_inner_packs`) are the source of truth. `quantity` is a derived denormalized total, recomputed only on save, never read at hydrate.
+## Database changes
 
-Changes:
-- `src/components/inventory/InventoryCountSession.tsx` + `InventoryCountView.tsx`: load each input field directly from `inventory_count_items` and `pan_inputs`. Remove any `quantity − …` math from the load path.
-- `src/utils/countItemValue.ts`: confirm valuation reads explicit fields; only `quantity` math at save time.
-- Add a one-time validator (dev-only console log behind a flag) that recomputes expected `quantity` on hydrate and warns on mismatch. Use it to sweep existing 2-tier counts before Phase 2.
+New table: `theo_read_state`
+- `user_id` (uuid) — fk to profiles
+- `location_id` (uuid) — fk to locations
+- `last_read_at` (timestamptz, default `'epoch'`)
+- `last_read_message_id` (uuid, nullable)
+- unique on `(user_id, location_id)`
+- RLS: user can select/insert/update only their own row
 
-**Acceptance:** Apr 30 Palm Springs Edit Count opens with $270 drift gone, all other location counts unchanged.
+New RPC: `get_theo_unread_count(p_location_id uuid)` → returns `{ count, latest_preview, latest_message_id }`
+- Counts assistant messages in today's `chat_date` for the user/location where `created_at > last_read_at`
+- Returns the latest unread's first ~70 chars for the bubble preview
 
----
+New RPC: `mark_theo_read(p_location_id uuid, p_message_id uuid)` → upserts `last_read_at` to that message's `created_at`
 
-### Phase 2 — Schema
+## Frontend pieces
 
-Single migration:
-- `inventory_items.inner_pack_quantity INT NULL` (brand catalog + local mirror — same dual-scope as `pack_quantity`).
-- `inventory_count_items.entered_inner_packs INT NULL`
-- `inventory_count_items.inner_pack_quantity_at_count INT NULL` (Phase 3 snapshot lock pattern, mirrors `pack_quantity_at_count`).
+### 1. `useTheoUnread()` hook (new)
+- Wraps the RPC with React Query
+- Subscribes to realtime inserts on `theo_chat_messages` filtered by user/location, invalidates on new assistant rows
+- Returns `{ count, preview, latestId, markRead }`
 
-No backfill in this migration — values stay null, behavior unchanged.
+### 2. Red dot + "NEW" on Theo orb
+- **Mobile dock** (`TheoOrb` or its container in `CompactDashboard`): small red dot top-right of orb when `count > 0`; gentle one-time pulse on the orb when count increases.
+- **Tablet/desktop side tab** (`AiAssistantBubble`): same dot on the pull tab.
 
----
+### 3. Speech bubble swap (mobile manager dash)
+In `CompactDashboard` greeting area:
+- `count === 0` → existing "Hey, I'm Theo 👋 / Tap me anytime!" (during 7-day teaching window only, current behavior).
+- `count > 0` → always show bubble with **"NEW MESSAGE"** small label + 1-line preview ("Sales pacing 12% behind…"). Bubble stays sticky until read — overrides the 7-day teaching window timeout.
 
-### Phase 3 — Save-Time Formula + Snapshot
+### 4. Mark-as-read on scroll into view
+In `AiAssistantBubble` chat sheet:
+- IntersectionObserver attached to each assistant message bubble.
+- When an unread message becomes visible (≥50% in viewport for ~400ms), call `markRead(messageId)` — server-side guarded to only advance `last_read_at` forward, never backward.
+- Auto-scroll to bottom on open still works; if newest message is already in view it gets marked instantly.
 
-In count save path:
-```
-quantity = entered_cases × pack_quantity
-         + entered_inner_packs × inner_pack_quantity
-         + entered_units
-         + pan_units
-```
-Write `inner_pack_quantity_at_count = inner_pack_quantity` at save (same place `pack_quantity_at_count` is captured). Null-safe: if `inner_pack_quantity IS NULL`, the inner-pack term is 0 and the formula collapses to today's behavior.
+## Files touched
 
----
+- `supabase/migrations/<new>.sql` — new table, RPCs, RLS
+- `src/hooks/useTheoUnread.ts` — new
+- `src/components/dock/TheoOrb.tsx` — accept `unread` prop, render dot + pulse
+- `src/components/dock/CompactDashboard.tsx` — wire hook, swap bubble content, pass unread to orb
+- `src/components/ai/AiAssistantBubble.tsx` — dot on side tab; IntersectionObserver on assistant messages calling `markRead`
 
-### Phase 4 — Count UI: Third Input
+## Out of scope (for now)
 
-Conditionally render a third numeric input in the count session row when `inner_pack_quantity IS NOT NULL`. Contextual label driven by item category / common name:
-- Cups, lids → "Sleeves"
-- Pizza boxes, to-go bags, napkins → "Bundles"
-- Gloves, condiment packets → "Inner Boxes"
-- Default fallback → "Inner Packs"
+- Push notifications / haptics (you didn't pick that)
+- @mentions / cross-user pings (you didn't pick that)
+- Per-message read receipts beyond the last_read watermark
 
-Place between Cases and Units. Mobile-first: same pill styling as existing inputs, no layout regression on iPhone widths. Field hidden entirely for null items so the 95% case stays a 2-tier UI.
-
----
-
-### Phase 5 — Brand-Catalog Backfill (15 items)
-
-Backfill at brand level so all locations inherit (per the brand-centric manifesto). Confirmed values from the brief:
-
-| Item | inner_pack_quantity |
-|---|---|
-| Regular Paper Cups (24 oz) | 50 |
-| Small Paper Cups (16 oz) | 50 |
-| 1/2 Pizza Boxes | 50 |
-| 11" Pizza Boxes | 25 |
-| 14" Pizza Boxes | 25 |
-| Portion Cups (2500) | 250 |
-| Gloves S/M/L/XL | 100 |
-
-TBD (need physical confirmation before writing): Sugar / Red Pepper / Parmesan packets, To-Go Bags, 24 oz Coke Cups, Water Cups, Cold Cup Lids, Napkins, Pizza Liners.
-
-Excluded: beer/wine 24-packs (SKU concern, not a counting concern).
-
-Done as a SQL migration (idempotent, matches by brand + canonical item name).
-
----
-
-### Phase 6 — Verification
-
-- Apr 30 Palm Springs Edit Count: drift is gone (already validated in Phase 1, re-verify post-Phase 4).
-- Run inventory-reconciliation-scan for Palm Springs current period — counts in line, no orphan rows.
-- Take one fresh count at a backfilled item using all three tiers; confirm `quantity` math + valuation + AvT are all correct.
-
----
-
-### Memory updates (after build)
-- New: `mem://architecture/inventory/count-input-tier-contract` — explicit-fields-only hydration rule.
-- Update: `mem://architecture/inventory/count-history-integrity-standards` — add `inner_pack_quantity_at_count` to denormalized snapshot list.
-- Update: `mem://features/inventory/counting-session-logic` — third tier + conditional render rule.
-
----
-
-### Sequencing recommendation
-
-Ship **Phase 1 alone first** (hydration refactor is the highest-risk, lowest-visible change — needs a clean week of count sessions to validate). Then Phases 2–4 together as the inner-pack feature drop. Phase 5 backfill last so the UI is proven before items start showing the third input.
-
-### Out of scope
-- Vendor ordering / PFG sync changes
-- Cost-per-oz math
-- Pan / Cambro layer changes
-- Beer/wine 6-pack SKU restructuring
