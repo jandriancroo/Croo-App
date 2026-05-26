@@ -15,6 +15,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { openDockForTour } from '@/components/dock/dockBridge';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Teaching tab: shows for 7 days after first mount, then disappears.
 const TEACH_KEY = 'theo-tab-teaching-v1';
