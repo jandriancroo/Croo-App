@@ -1153,7 +1153,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
             </DialogContent>
           </Dialog>
         </motion.div>
+        </>
       )}
     </AnimatePresence>
+
   );
 };
