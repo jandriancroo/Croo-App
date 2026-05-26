@@ -130,7 +130,7 @@ export function useOvationData() {
 }
 
 /** The small fixed tab trigger */
-export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boolean; onToggle: () => void; desktop?: boolean }) {
+export function OvationScoreTab({ expanded, onToggle, desktop, bare, className }: { expanded: boolean; onToggle: () => void; desktop?: boolean; bare?: boolean; className?: string }) {
   const { isLoading, displayScore } = useOvationData();
 
   // Nothing to show and not loading — hide completely
@@ -142,9 +142,12 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
       <div
         className={cn(
           'flex items-center gap-2 px-3.5 py-1.5',
-          desktop
-            ? 'rounded-lg bg-white/15 border-0'
-            : 'min-h-10 bg-muted/85 shadow-sm border border-t-0 border-border/30 rounded-b-xl'
+          bare
+            ? 'border-0'
+            : desktop
+              ? 'rounded-lg bg-white/15 border-0'
+              : 'min-h-10 bg-muted/85 shadow-sm border border-t-0 border-border/30 rounded-b-xl',
+          className
         )}
       >
         <div className="h-4 w-4 rounded bg-muted-foreground/20 animate-pulse" />
@@ -163,19 +166,22 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
       onClick={onToggle}
       className={cn(
         'flex items-center gap-2 px-3.5 py-1.5 transition-all',
-        desktop
-          ? 'rounded-lg bg-white/15 hover:bg-white/25 border-0'
-          : 'min-h-10 bg-muted/85 shadow-sm hover:bg-muted border border-t-0 border-border/30 rounded-b-xl'
+        bare
+          ? 'hover:bg-white/10 border-0'
+          : desktop
+            ? 'rounded-lg bg-white/15 hover:bg-white/25 border-0'
+            : 'min-h-10 bg-muted/85 shadow-sm hover:bg-muted border border-t-0 border-border/30 rounded-b-xl',
+        className
       )}
     >
       <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 sm:h-4 sm:w-4 object-contain" />
-      <span className={cn('text-base sm:text-sm font-bold', desktop ? 'text-white' : scoreColor)}>
+      <span className={cn('text-base sm:text-sm font-bold', (desktop || bare) ? 'text-white' : scoreColor)}>
         {displayScore!.toFixed(1)}
       </span>
-      <span className={cn('hidden md:inline text-[11px] sm:text-[9px] font-medium', desktop ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
+      <span className={cn('hidden md:inline text-[11px] sm:text-[9px] font-medium', (desktop || bare) ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
       <ChevronDown className={cn(
         'h-3.5 w-3.5 transition-transform duration-300',
-        desktop ? 'text-white/60' : 'text-muted-foreground/60',
+        (desktop || bare) ? 'text-white/60' : 'text-muted-foreground/60',
         expanded ? 'rotate-180' : 'rotate-0'
       )} />
     </button>
