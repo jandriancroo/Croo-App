@@ -52,6 +52,7 @@ export function TheoOrb({
   onClick,
   className,
   nudge = false,
+  unread = false,
   label = 'Open Theo',
   ...rest
 }: TheoOrbProps) {
