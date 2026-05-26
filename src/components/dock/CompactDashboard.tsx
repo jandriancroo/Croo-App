@@ -718,45 +718,39 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
               </div>
             </div>
 
-            {/* Labor / Goal / Variance */}
-            <div className="bg-accent-foreground/10 rounded-2xl p-3 mb-4">
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <p className="text-accent-foreground/60 text-[10px] uppercase tracking-wide">Labor</p>
+            {/* Labor / Goal / Variance — data pill */}
+            <div className="bg-background rounded-2xl px-4 py-3 mb-4 shadow-sm">
+              <div className="grid grid-cols-3 divide-x divide-border">
+                <div className="flex flex-col items-center justify-center px-2">
                   <p className={cn(
-                    "text-lg font-bold mt-0.5",
-                    laborStatus === 'good' ? 'text-green-500' :
-                    laborStatus === 'warning' ? 'text-yellow-500' :
-                    'text-red-500'
+                    "text-xl font-bold leading-tight",
+                    laborStatus === 'good' ? 'text-green-600' :
+                    laborStatus === 'warning' ? 'text-yellow-600' :
+                    'text-red-600'
                   )}>
                     {laborPercentage.toFixed(1)}%
                   </p>
-                  <p className="text-accent-foreground/50 text-[10px] mt-0.5">
-                    {formatCurrency(laborCost)}
+                  <p className="text-muted-foreground text-xs mt-0.5">
+                    Labor
                   </p>
                 </div>
-                <div>
-                  <p className="text-accent-foreground/60 text-[10px] uppercase tracking-wide">Goal</p>
-                  <p className="text-lg font-bold text-accent-foreground mt-0.5">
+                <div className="flex flex-col items-center justify-center px-2">
+                  <p className="text-xl font-bold text-foreground leading-tight">
                     {laborTarget}%
                   </p>
-                  <p className="text-accent-foreground/50 text-[10px] mt-0.5">
-                    {formatCurrency(targetLaborCost)}
+                  <p className="text-muted-foreground text-xs mt-0.5">
+                    Goal
                   </p>
                 </div>
-                <div>
-                  <p className="text-accent-foreground/60 text-[10px] uppercase tracking-wide">Variance</p>
+                <div className="flex flex-col items-center justify-center px-2">
                   <p className={cn(
-                    "text-lg font-bold mt-0.5",
-                    laborSavings >= 0 ? 'text-green-500' : 'text-red-500'
+                    "text-xl font-bold leading-tight",
+                    laborSavings >= 0 ? 'text-green-600' : 'text-red-600'
                   )}>
                     {laborSavings >= 0 ? '−' : '+'}{formatCurrency(Math.abs(laborSavings))}
                   </p>
-                  <p className={cn(
-                    "text-[10px] mt-0.5",
-                    laborSavings >= 0 ? 'text-green-500/70' : 'text-red-500/70'
-                  )}>
-                    {laborSavings >= 0 ? 'under target' : 'over target'}
+                  <p className="text-muted-foreground text-xs mt-0.5">
+                    Variance
                   </p>
                 </div>
               </div>
