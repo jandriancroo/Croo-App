@@ -14,6 +14,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
+import { openDockForTour } from '@/components/dock/dockBridge';
+
+// Teaching tab: shows for 7 days after first mount, then disappears.
+const TEACH_KEY = 'theo-tab-teaching-v1';
+function useTheoTeachingTab() {
+  const [visible, setVisible] = useState(() => {
+    try {
+      const raw = localStorage.getItem(TEACH_KEY);
+      if (raw === 'dismissed') return false;
+      const firstSeen = raw ? parseInt(raw, 10) : NaN;
+      if (!firstSeen || Number.isNaN(firstSeen)) {
+        const now = Date.now();
+        localStorage.setItem(TEACH_KEY, String(now));
+        return true;
+      }
+      const days = (Date.now() - firstSeen) / (1000 * 60 * 60 * 24);
+      return days < 7;
+    } catch { return true; }
+  });
+  const dismiss = useCallback(() => {
+    try { localStorage.setItem(TEACH_KEY, 'dismissed'); } catch { /* ignore */ }
+    setVisible(false);
+  }, []);
+  return { visible, dismiss };
+}
 
 /* Clean 4-point star — no tiny accent dots */
 /* Clean 4-point star */
