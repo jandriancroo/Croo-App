@@ -183,9 +183,27 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     refetchInterval: isExpanded ? 60000 : false,
   });
 
-  // Fetch labor data — shared key with ManagerDashboard
-  // Sum multiple source rows (qubeyond + punch_clock) for accurate totals
-  const { data: laborData } = useQuery({
+  // Fetch live labor — prefer fetch-qubeyond-sales (live punch calc), fall back to labor_cache.
+  // Shared query key with Dashboard/ManagerDashboardOverlay for deduplication.
+  const { data: liveLabor } = useQuery({
+    queryKey: ['qubeyond-sales', locationId, todayStr],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+        body: { locationId, targetDate: todayStr },
+      });
+      if (error) return null;
+      return {
+        laborCost: data?.labor?.laborCost || 0,
+        laborHours: data?.labor?.hoursWorked || 0,
+      };
+    },
+    enabled: !!locationId && isExpanded,
+    staleTime: 3 * 60 * 1000,
+    refetchInterval: isExpanded ? 60000 : false,
+  });
+
+  const { data: laborCacheFallback } = useQuery({
     queryKey: ['labor-cache-today', locationId, todayStr],
     queryFn: async () => {
       if (!locationId) return null;
@@ -197,7 +215,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
       if (error) throw error;
       if (!data || data.length === 0) return null;
-      
+
       const totalCost = data.reduce((sum, row) => sum + (row.labor_cost || 0), 0);
       const totalHours = data.reduce((sum, row) => sum + (row.labor_hours || 0), 0);
       return { labor_cost: totalCost, labor_hours: totalHours };
@@ -205,6 +223,12 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     enabled: !!locationId && isExpanded,
     refetchInterval: isExpanded ? 60000 : false,
   });
+
+  // Prefer live punch-based labor; fall back to cache only if live unavailable.
+  const laborData = liveLabor && (liveLabor.laborCost > 0 || liveLabor.laborHours > 0)
+    ? { labor_cost: liveLabor.laborCost, labor_hours: liveLabor.laborHours }
+    : laborCacheFallback;
+
 
   // Fetch labor target
   const { data: locationSettings } = useQuery({
