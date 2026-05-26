@@ -73,6 +73,7 @@ export function AiAssistantBubble() {
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
   const { visible: teachingVisible, dismiss: dismissTeaching } = useTheoTeachingTab();
+  const { count: theoUnreadCount, latestId: theoUnreadLatestId, markRead: markTheoRead } = useTheoUnread();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
