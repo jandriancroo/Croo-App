@@ -712,7 +712,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                         data-tour="theo-orb"
                         label="Open Theo"
                         nudge={false}
-                        unread={hasUnreadTheo}
+                        unread={false}
                         onClick={() => {
                           window.dispatchEvent(new CustomEvent('open-theo'));
                         }}
