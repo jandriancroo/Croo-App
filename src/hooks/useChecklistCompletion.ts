@@ -107,10 +107,14 @@ export function useChecklistCompletion(
 
       for (const checklist of checklists) {
         const checklistItems = itemsByChecklist.get(checklist.id) || [];
-        let itemCount = checklistItems.length;
+        // Section headers are not answerable — they should not count toward the
+        // denominator (otherwise a list with 3 sections + 6 prep lists shows "0/9"
+        // when only 6 things can ever be completed).
+        const answerableItems = checklistItems.filter(item => item.item_type !== 'section_header');
+        let itemCount = answerableItems.length;
 
         if (checklist.template_type === 'dynamic') {
-          itemCount = checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
+          itemCount = answerableItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
         }
 
         const isMonthly = checklist.frequency === 'monthly';
@@ -123,7 +127,7 @@ export function useChecklistCompletion(
         });
 
         const todayItemIds = checklist.template_type === 'dynamic'
-          ? new Set(checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).map(item => item.id))
+          ? new Set(answerableItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).map(item => item.id))
           : null;
 
         const uniqueItemIds = new Set();
