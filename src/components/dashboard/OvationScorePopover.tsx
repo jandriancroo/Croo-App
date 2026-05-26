@@ -368,19 +368,22 @@ export function OvationScorePopover() {
 
   return (
     <div className="relative">
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            key="ovation-desktop-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/60"
-            onClick={() => setExpanded(false)}
-          />
-        )}
-      </AnimatePresence>
+      {createPortal(
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              key="ovation-desktop-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[60] bg-black/60"
+              onClick={() => setExpanded(false)}
+            />
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
       <div ref={triggerRef} className={cn('relative', expanded && 'z-50')}>
         <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
       </div>
