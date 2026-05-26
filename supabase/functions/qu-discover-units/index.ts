@@ -25,7 +25,8 @@ Deno.serve(async (req) => {
   for (let i = start; i <= end; i++) ids.push(i);
 
   const matches: any[] = [];
-  const stats = { ok: 0, notFound: 0, forbidden: 0, other: 0 };
+  const statusCounts: Record<string, number> = {};
+  const samples: Record<string, string> = {};
   let cursor = 0;
 
   async function worker() {
@@ -34,9 +35,11 @@ Deno.serve(async (req) => {
       const id = ids[myIdx];
       try {
         const r = await fetch(`https://gateway-api.qubeyond.com/api/v4/data/locations/${id}`, { headers });
+        const key = String(r.status);
+        statusCounts[key] = (statusCounts[key] || 0) + 1;
+        const txt = await r.text();
+        if (!samples[key]) samples[key] = txt.substring(0, 300);
         if (r.status === 200) {
-          stats.ok++;
-          const txt = await r.text();
           const lower = txt.toLowerCase();
           if (lower.includes(q)) {
             try {
@@ -55,18 +58,16 @@ Deno.serve(async (req) => {
               matches.push({ id, raw: txt.substring(0, 300) });
             }
           }
-        } else if (r.status === 404) stats.notFound++;
-        else if (r.status === 403) stats.forbidden++;
-        else stats.other++;
-      } catch {
-        stats.other++;
+        }
+      } catch (e) {
+        statusCounts['err'] = (statusCounts['err'] || 0) + 1;
       }
     }
   }
 
   await Promise.all(Array.from({ length: concurrency }, () => worker()));
 
-  return new Response(JSON.stringify({ q, start, end, stats, matchCount: matches.length, matches }, null, 2), {
+  return new Response(JSON.stringify({ q, start, end, statusCounts, samples, matchCount: matches.length, matches }, null, 2), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
