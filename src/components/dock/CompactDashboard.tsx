@@ -680,7 +680,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                 Hey {firstName}
               </h2>
               <TheoOrb
-                size={48}
+                size={58}
                 className="mr-10"
                 data-tour="theo-orb"
                 label="Open Theo"
