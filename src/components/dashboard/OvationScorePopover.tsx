@@ -66,6 +66,47 @@ function setCachedScore(locationId: string, wtdAverage: number, wtdCount: number
   } catch { /* ignore */ }
 }
 
+interface TriggerViewportRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  bottom: number;
+}
+
+function useTriggerViewportRect(expanded: boolean, triggerRef: RefObject<HTMLElement>) {
+  const [rect, setRect] = useState<TriggerViewportRect | null>(null);
+
+  useEffect(() => {
+    if (!expanded) {
+      setRect(null);
+      return;
+    }
+
+    const updateRect = () => {
+      const nextRect = triggerRef.current?.getBoundingClientRect();
+      setRect(nextRect ? {
+        top: nextRect.top,
+        left: nextRect.left,
+        width: nextRect.width,
+        height: nextRect.height,
+        bottom: nextRect.bottom,
+      } : null);
+    };
+
+    updateRect();
+    window.addEventListener('resize', updateRect);
+    window.addEventListener('scroll', updateRect, true);
+
+    return () => {
+      window.removeEventListener('resize', updateRect);
+      window.removeEventListener('scroll', updateRect, true);
+    };
+  }, [expanded, triggerRef]);
+
+  return rect;
+}
+
 /** Shared hook so tab + panel use the same data without duplicate fetches */
 export function useOvationData() {
   const { currentLocation } = useAppLocation();
@@ -349,6 +390,8 @@ export function OvationScorePopover() {
   const [expanded, setExpanded] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRect = useTriggerViewportRect(expanded, triggerRef);
+  const closePanel = useCallback(() => setExpanded(false), []);
 
   useEffect(() => {
     if (!expanded) return;
@@ -360,11 +403,11 @@ export function OvationScorePopover() {
       ) {
         return;
       }
-      setExpanded(false);
+      closePanel();
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [expanded]);
+  }, [expanded, closePanel]);
 
   return (
     <div className="relative">
@@ -377,8 +420,9 @@ export function OvationScorePopover() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[60] bg-black/60"
-              onClick={() => setExpanded(false)}
+              className="fixed inset-x-0 bottom-0 z-40 bg-black/60"
+              style={{ top: triggerRect?.bottom ?? 0 }}
+              onClick={closePanel}
             />
           )}
         </AnimatePresence>,
@@ -401,18 +445,21 @@ export function OvationScorePopover() {
 export function OvationTriggerWithPanel({
   expanded,
   onToggle,
+  onClose,
   bare,
   desktop,
   className,
 }: {
   expanded: boolean;
   onToggle: () => void;
+  onClose: () => void;
   bare?: boolean;
   desktop?: boolean;
   className?: string;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRect = useTriggerViewportRect(expanded, triggerRef);
 
   useEffect(() => {
     if (!expanded) return;
@@ -424,11 +471,11 @@ export function OvationTriggerWithPanel({
       ) {
         return;
       }
-      onToggle();
+      onClose();
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [expanded, onToggle]);
+  }, [expanded, onClose]);
 
   return (
     <>
@@ -442,8 +489,9 @@ export function OvationTriggerWithPanel({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[60] bg-black/60"
-              onClick={onToggle}
+              className="fixed inset-x-0 bottom-0 z-40 bg-black/60"
+              style={{ top: triggerRect?.bottom ?? 0 }}
+              onClick={onClose}
             />
           )}
         </AnimatePresence>,
