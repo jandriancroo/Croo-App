@@ -124,7 +124,7 @@ export function TheoOrb({
 
         const depth = (z2 + 1) / 2;
         const alpha = 0.18 + depth * 0.78;
-        const dotSize = depth > 0.55 ? 1.3 : 1;
+        const dotSize = depth > 0.55 ? 1.9 : 1.4;
         ctx.fillStyle = `rgba(${dotRGB},${alpha})`;
         ctx.fillRect(sx, sy, dotSize, dotSize);
       }
