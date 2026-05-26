@@ -3,6 +3,7 @@ import { Joyride, STATUS, EVENTS, ACTIONS, type EventData, type Controls, type S
 import { useUserRole } from '@/hooks/useUserRole';
 import { getTourStepsForRole } from './tourSteps';
 import { openMenuForTour, closeMenuForTour } from './tourMenuBridge';
+import { openDockForTour, closeDockForTour } from '@/components/dock/dockBridge';
 
 interface OnboardingTourProps {
   run: boolean;
@@ -11,12 +12,14 @@ interface OnboardingTourProps {
 
 const MENU_ANIMATION_MS = 350;
 const MENU_CLOSE_MS = 150;
+const DOCK_ANIMATION_MS = 450;
 
 export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
   const { role } = useUserRole();
   const steps = getTourStepsForRole(role) as Step[];
   const [stepIndex, setStepIndex] = useState(0);
   const menuOpenedByTour = useRef(false);
+  const dockOpenedByTour = useRef(false);
   const transitionTimer = useRef<number | null>(null);
 
   const clearTransitionTimer = () => {
@@ -31,6 +34,10 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
     if (menuOpenedByTour.current) {
       closeMenuForTour();
       menuOpenedByTour.current = false;
+    }
+    if (dockOpenedByTour.current) {
+      closeDockForTour();
+      dockOpenedByTour.current = false;
     }
   };
 
@@ -48,7 +55,24 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
 
     clearTransitionTimer();
 
-    const needsMenu = Boolean((steps[nextIndex] as Step & { data?: { requiresMenu?: boolean } }).data?.requiresMenu);
+    const stepData = (steps[nextIndex] as Step & { data?: { requiresMenu?: boolean; requiresDock?: boolean } }).data;
+    const needsMenu = Boolean(stepData?.requiresMenu);
+    const needsDock = Boolean(stepData?.requiresDock);
+
+    // Open dock (manager dash) if required, otherwise close it if we opened it earlier.
+    if (needsDock && !dockOpenedByTour.current) {
+      openDockForTour();
+      dockOpenedByTour.current = true;
+      transitionTimer.current = window.setTimeout(() => {
+        setStepIndex(nextIndex);
+        transitionTimer.current = null;
+      }, DOCK_ANIMATION_MS);
+      return;
+    }
+    if (!needsDock && dockOpenedByTour.current) {
+      closeDockForTour();
+      dockOpenedByTour.current = false;
+    }
 
     if (needsMenu) {
       openMenuForTour();

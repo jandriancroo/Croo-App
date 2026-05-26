@@ -23,6 +23,7 @@ import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { ProjectionIcon } from '@/components/ui/projection-tag';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { TheoOrb } from '@/components/dock/TheoOrb';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -672,17 +673,20 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
           {/* Content */}
           <div className="px-4 pb-safe overflow-y-auto" style={{ maxHeight: 'calc(75vh - 60px)' }}>
-            {/* Row 1: Profile pic left, "Hey Name" right filling space */}
+            {/* Row 1: "Hey Name" fills left, THEO orb pinned right.
+                Tapping the orb opens Theo (listened for in AiAssistantBubble). */}
             <div className="flex items-center gap-3 mb-2">
-              <Avatar className="h-12 w-12 flex-shrink-0 ring-2 ring-accent-foreground/20">
-                <AvatarImage src={userProfile?.profile_photo_url || undefined} />
-                <AvatarFallback className="bg-primary/20 text-primary text-lg">
-                  {firstName.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <h2 className="text-2xl font-bold text-accent-foreground flex-1">
+              <h2 className="text-2xl font-bold text-accent-foreground flex-1 min-w-0 truncate">
                 Hey {firstName}
               </h2>
+              <TheoOrb
+                size={48}
+                data-tour="theo-orb"
+                label="Open Theo"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('open-theo'));
+                }}
+              />
             </div>
             
             {/* Row 2: Pace status message (high contrast on orange bg) */}

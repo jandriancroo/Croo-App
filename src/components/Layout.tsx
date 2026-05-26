@@ -2,6 +2,7 @@ import { ReactNode, useRef } from 'react';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { registerMenuControl, unregisterMenuControl } from '@/components/onboarding/tourMenuBridge';
+import { registerDockControl, unregisterDockControl } from '@/components/dock/dockBridge';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -354,6 +355,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [showOrgBubble, setShowOrgBubble] = useState(false); // Popup bubble for long-press
   const [showCompactDashboard, setShowCompactDashboard] = useState(false); // Swipe-up compact dashboard
+
+  // Register dock control so the onboarding tour (and other features) can
+  // auto-open the manager dash to point at Theo.
+  useEffect(() => {
+    registerDockControl(setShowCompactDashboard);
+    return () => unregisterDockControl();
+  }, []);
   const [ovationExpanded, setOvationExpanded] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');

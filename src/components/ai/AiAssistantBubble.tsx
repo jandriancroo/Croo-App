@@ -201,6 +201,14 @@ export function AiAssistantBubble() {
     }
   }, [open]);
 
+  // Allow the manager-dash THEO orb (and other UI) to open Theo via a
+  // global window event. Keeps the bubble decoupled from its triggers.
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener('open-theo', handler);
+    return () => window.removeEventListener('open-theo', handler);
+  }, []);
+
   if (!isShiftManager) return null;
 
   const scrollToBottom = () => {
