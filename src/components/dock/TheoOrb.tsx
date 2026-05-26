@@ -136,18 +136,34 @@ export function TheoOrb({
       data-tour={rest['data-tour']}
       className={cn(
         'relative inline-flex items-center justify-center shrink-0 rounded-full',
-        'bg-black/90 overflow-hidden',
+        'overflow-visible',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-foreground/40',
         'transition-transform active:scale-95',
         className,
       )}
-      style={{
-        width: size,
-        height: size,
-        boxShadow:
-          '0 0 24px rgba(125,211,252,0.35), inset 0 0 12px rgba(0,0,0,0.6)',
-      }}
+      style={{ width: size, height: size }}
     >
+      {/* Soft radial backdrop so dots stay legible on any background
+          without an ugly black disc */}
+      <span
+        aria-hidden
+        className="absolute inset-[-25%] rounded-full pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 50%, rgba(10,20,40,0.55) 0%, rgba(10,20,40,0.25) 40%, rgba(10,20,40,0) 70%)',
+          filter: 'blur(2px)',
+        }}
+      />
+      {/* Outer glow */}
+      <span
+        aria-hidden
+        className="absolute inset-[-20%] rounded-full pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 50%, rgba(186,230,253,0.35) 0%, rgba(125,211,252,0.15) 45%, transparent 70%)',
+          filter: 'blur(6px)',
+        }}
+      />
       {nudge && (
         <span
           aria-hidden
@@ -156,7 +172,7 @@ export function TheoOrb({
       )}
       <canvas
         ref={canvasRef}
-        style={{ width: size, height: size, display: 'block' }}
+        style={{ width: size, height: size, display: 'block', position: 'relative' }}
         aria-hidden
       />
     </button>
