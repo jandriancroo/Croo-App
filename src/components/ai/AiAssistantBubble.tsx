@@ -70,6 +70,7 @@ export function AiAssistantBubble() {
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const isMobile = useIsMobile();
   const { visible: teachingVisible, dismiss: dismissTeaching } = useTheoTeachingTab();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
