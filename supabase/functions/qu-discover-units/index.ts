@@ -3,7 +3,10 @@ const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   const url = new URL(req.url);
-  const q = (url.searchParams.get('q') || '').toLowerCase();
+  const q = (url.searchParams.get('q') || 'akers').toLowerCase();
+  const start = parseInt(url.searchParams.get('start') || '1000');
+  const end = parseInt(url.searchParams.get('end') || '6000');
+  const concurrency = parseInt(url.searchParams.get('c') || '40');
 
   const fd = new FormData();
   fd.append('grant_type', 'client_credentials');
@@ -13,75 +16,57 @@ Deno.serve(async (req) => {
   const token = (await tr.json()).access_token;
 
   const headers = {
-    'Content-Type': 'application/json',
     'Accept': 'application/json',
     'Authorization': `Bearer ${token}`,
     'x-integration': Deno.env.get('QU_INTEGRATION_USER_ID') || '',
   };
 
-  const probes: Array<{ name: string; method: string; url: string; body?: any }> = [
-    // Try other versions / scopes
-    { name: 'v3-locations', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v3/data/locations' },
-    { name: 'v2-locations', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v2/data/locations' },
-    { name: 'v4-data-brands', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/brands' },
-    { name: 'v4-data-companies', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/companies' },
-    { name: 'v4-data-organizations', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/organizations' },
-    { name: 'v4-data-menu-groups', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/menu-groups' },
-    { name: 'v4-data-price-groups', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/price-groups' },
-    { name: 'v4-data-stores', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/stores' },
-    { name: 'v4-data-locations-all', method: 'GET', url: 'https://gateway-api.qubeyond.com/api/v4/data/locations/all' },
-    { name: 'v4-data-locations-search', method: 'POST', url: 'https://gateway-api.qubeyond.com/api/v4/data/locations/search', body: { q: q || 'akers' } },
-    // Try the same report endpoint our sales-service uses — with NO operationalUnit filter to see what comes back
-    {
-      name: 'hourly-sales-no-filter',
-      method: 'POST',
-      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main',
-      body: { filters: { date: { from: null, to: null, values: [new Date().toISOString().slice(0,10)], type: 'custom' } } },
-    },
-    // Hourly sales for "all locations" via empty operationalUnits
-    {
-      name: 'hourly-sales-empty-units',
-      method: 'POST',
-      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main',
-      body: { filters: { date: { from: null, to: null, values: [new Date().toISOString().slice(0,10)], type: 'custom' }, location: { operationalUnits: [] } } },
-    },
-  ];
+  const ids: number[] = [];
+  for (let i = start; i <= end; i++) ids.push(i);
 
-  const results: any[] = [];
-  for (const p of probes) {
-    try {
-      const r = await fetch(p.url, {
-        method: p.method,
-        headers,
-        body: p.body !== undefined ? JSON.stringify(p.body) : undefined,
-      });
-      const txt = await r.text();
-      // Try to extract any item array & count + matches against q
-      let arrLen = 0;
-      let matches: any[] = [];
+  const matches: any[] = [];
+  const stats = { ok: 0, notFound: 0, forbidden: 0, other: 0 };
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < ids.length) {
+      const myIdx = cursor++;
+      const id = ids[myIdx];
       try {
-        const j = JSON.parse(txt);
-        const arr = j?.value?.items || j?.items || j?.value || j?.data || j;
-        if (Array.isArray(arr)) {
-          arrLen = arr.length;
-          if (q) {
-            matches = arr.filter((x: any) => JSON.stringify(x).toLowerCase().includes(q)).slice(0, 5);
+        const r = await fetch(`https://gateway-api.qubeyond.com/api/v4/data/locations/${id}`, { headers });
+        if (r.status === 200) {
+          stats.ok++;
+          const txt = await r.text();
+          const lower = txt.toLowerCase();
+          if (lower.includes(q)) {
+            try {
+              const j = JSON.parse(txt);
+              const v = j?.value || j;
+              matches.push({
+                id: v.id,
+                storeNumber: v.storeNumber,
+                marketingName: v.marketingName,
+                businessName: v.businessName,
+                city: v.city,
+                state: v.state?.stateCode,
+                address: `${v.address1 || ''} ${v.address2 || ''}`.trim(),
+              });
+            } catch {
+              matches.push({ id, raw: txt.substring(0, 300) });
+            }
           }
-        }
-      } catch {}
-      results.push({
-        name: p.name,
-        status: r.status,
-        len: arrLen,
-        matches,
-        sample: txt.substring(0, 800),
-      });
-    } catch (e) {
-      results.push({ name: p.name, error: String(e) });
+        } else if (r.status === 404) stats.notFound++;
+        else if (r.status === 403) stats.forbidden++;
+        else stats.other++;
+      } catch {
+        stats.other++;
+      }
     }
   }
 
-  return new Response(JSON.stringify({ q, results }, null, 2), {
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+  return new Response(JSON.stringify({ q, start, end, stats, matchCount: matches.length, matches }, null, 2), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
