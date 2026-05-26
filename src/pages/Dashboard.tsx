@@ -563,7 +563,7 @@ export default function Dashboard() {
         cooldownMs={2 * 60 * 1000}
         onRefresh={handleRefresh}
       >
-        <div className="space-y-2.5">
+        <div className="space-y-1">
           <div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
