@@ -743,37 +743,37 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
             </div>
 
             {/* Labor / Goal / Variance — data pill */}
-            <div className="bg-background rounded-2xl px-4 py-3 mb-4 shadow-sm">
-              <div className="grid grid-cols-3 divide-x divide-border">
+            <div className="bg-accent-foreground/10 rounded-2xl px-4 py-3 mb-4">
+              <div className="grid grid-cols-3 divide-x divide-accent-foreground/20">
                 <div className="flex flex-col items-center justify-center px-2">
                   <p className={cn(
                     "text-xl font-bold leading-tight",
-                    laborStatus === 'good' ? 'text-green-600' :
-                    laborStatus === 'warning' ? 'text-yellow-600' :
-                    'text-red-600'
+                    laborStatus === 'good' ? 'text-green-500' :
+                    laborStatus === 'warning' ? 'text-yellow-500' :
+                    'text-red-500'
                   )}>
                     {laborPercentage.toFixed(1)}%
                   </p>
-                  <p className="text-muted-foreground text-xs mt-0.5">
+                  <p className="text-accent-foreground/70 text-xs mt-0.5">
                     Labor
                   </p>
                 </div>
                 <div className="flex flex-col items-center justify-center px-2">
-                  <p className="text-xl font-bold text-foreground leading-tight">
+                  <p className="text-xl font-bold text-accent-foreground leading-tight">
                     {laborTarget}%
                   </p>
-                  <p className="text-muted-foreground text-xs mt-0.5">
+                  <p className="text-accent-foreground/70 text-xs mt-0.5">
                     Goal
                   </p>
                 </div>
                 <div className="flex flex-col items-center justify-center px-2">
                   <p className={cn(
                     "text-xl font-bold leading-tight",
-                    laborSavings >= 0 ? 'text-green-600' : 'text-red-600'
+                    laborSavings >= 0 ? 'text-green-500' : 'text-red-500'
                   )}>
                     {laborSavings >= 0 ? '−' : '+'}{formatCurrency(Math.abs(laborSavings))}
                   </p>
-                  <p className="text-muted-foreground text-xs mt-0.5">
+                  <p className="text-accent-foreground/70 text-xs mt-0.5">
                     Variance
                   </p>
                 </div>
