@@ -25,6 +25,7 @@ interface TourStepDef {
   minRole: string;
   placement?: Step['placement'];
   requiresMenu?: boolean; // if true, the mobile menu must be open for this step
+  requiresDock?: boolean; // if true, the manager dash must be open for this step
 }
 
 // All possible tour steps — filtered at runtime by role
@@ -86,6 +87,15 @@ export const ALL_TOUR_STEPS: TourStepDef[] = [
     placement: 'top',
   },
   {
+    target: '[data-tour="theo-orb"]',
+    title: 'Meet THEO',
+    content: 'This is THEO — your AI co-pilot. Tap the glowing orb anytime in the manager dash to ask about sales, labor, schedule, or anything else.',
+    page: '/dashboard',
+    minRole: 'shift_manager',
+    placement: 'bottom',
+    requiresDock: true,
+  },
+  {
     target: '[data-tour="location-picker"]',
     title: 'Switch Locations',
     content: 'If you manage multiple locations, tap here to switch between them. All data updates instantly for the selected location.',
@@ -128,6 +138,6 @@ export function getTourStepsForRole(role: AppRole | null): Step[] {
       placement: step.placement || 'auto',
       disableBeacon: true,
       spotlightClicks: false,
-      data: { requiresMenu: !!step.requiresMenu },
+      data: { requiresMenu: !!step.requiresMenu, requiresDock: !!step.requiresDock },
     }));
 }
