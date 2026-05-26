@@ -428,16 +428,7 @@ export function OvationTriggerWithPanel({
 
   return (
     <>
-      <div ref={triggerRef} className="relative">
-        <OvationScoreTab
-          bare={bare}
-          desktop={desktop}
-          className={className}
-          expanded={expanded}
-          onToggle={onToggle}
-        />
-      </div>
-      {/* Backdrop fade — click to dismiss */}
+      {/* Backdrop fade — click to dismiss. Rendered BEFORE the trigger so the pill stays lit on top. */}
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -451,6 +442,15 @@ export function OvationTriggerWithPanel({
           />
         )}
       </AnimatePresence>
+      <div ref={triggerRef} className={cn('relative', expanded && 'z-[70]')}>
+        <OvationScoreTab
+          bare={bare}
+          desktop={desktop}
+          className={className}
+          expanded={expanded}
+          onToggle={onToggle}
+        />
+      </div>
       {/* Centered review panel */}
       <div
         ref={panelRef}
