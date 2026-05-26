@@ -144,11 +144,17 @@ export function PrepListComplete({
     };
   }, [submissionId, itemId]);
 
+  // A prep list section is "complete" only when every row's prep need is zero
+  // (i.e., on_hand >= par, or no par was set). Just entering a number is not enough —
+  // otherwise sections with rows still owing prep would count toward the master %.
   const allFilled = useMemo(() => {
     if (rows.length === 0) return false;
     return rows.every((r) => {
       const v = values[r.id];
-      return v && v.on_hand !== '' && !Number.isNaN(Number(v.on_hand));
+      if (!v || v.on_hand === '' || Number.isNaN(Number(v.on_hand))) return false;
+      const onHand = Number(v.on_hand);
+      if (r.par == null) return true; // no par target → entry alone is enough
+      return onHand >= Number(r.par);
     });
   }, [rows, values]);
 
