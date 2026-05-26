@@ -144,17 +144,15 @@ export function PrepListComplete({
     };
   }, [submissionId, itemId]);
 
-  // A prep list section is "complete" only when every row's prep need is zero
-  // (i.e., on_hand >= par, or no par was set). Just entering a number is not enough —
-  // otherwise sections with rows still owing prep would count toward the master %.
+  // A prep list section counts as complete once every row has an on_hand value
+  // entered. We intentionally don't require on_hand >= par — entering "1" for a
+  // par of "2" still means the user has done their count; the red prep number
+  // just communicates how much still needs to be made.
   const allFilled = useMemo(() => {
     if (rows.length === 0) return false;
     return rows.every((r) => {
       const v = values[r.id];
-      if (!v || v.on_hand === '' || Number.isNaN(Number(v.on_hand))) return false;
-      const onHand = Number(v.on_hand);
-      if (r.par == null) return true; // no par target → entry alone is enough
-      return onHand >= Number(r.par);
+      return v && v.on_hand !== '' && !Number.isNaN(Number(v.on_hand));
     });
   }, [rows, values]);
 
