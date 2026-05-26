@@ -172,7 +172,7 @@ export function OvationScoreTab({ expanded, onToggle, desktop }: { expanded: boo
       <span className={cn('text-base sm:text-sm font-bold', desktop ? 'text-white' : scoreColor)}>
         {displayScore!.toFixed(1)}
       </span>
-      <span className={cn('text-[11px] sm:text-[9px] font-medium', desktop ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
+      <span className={cn('hidden md:inline text-[11px] sm:text-[9px] font-medium', desktop ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
       <ChevronDown className={cn(
         'h-3.5 w-3.5 transition-transform duration-300',
         desktop ? 'text-white/60' : 'text-muted-foreground/60',

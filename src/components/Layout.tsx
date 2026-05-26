@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -1070,11 +1071,21 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             </div>
           )}
           
+          {/* Mobile Ovation Score - only on dashboard */}
+          {canViewOvation !== false && location.pathname === '/dashboard' && (
+            <div className="ml-auto mr-2">
+              <OvationScorePopover key={`ovation-mobile-${currentLocation?.id ?? 'pending'}`} />
+            </div>
+          )}
+
           {/* Mobile Menu - Profile Avatar */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className="ml-auto p-1 rounded-full transition-colors"
+                className={cn(
+                  "p-1 rounded-full transition-colors",
+                  !(canViewOvation !== false && location.pathname === '/dashboard') && "ml-auto"
+                )}
                 title="More options"
               >
                 <Avatar className="h-9 w-9 ring-2 ring-white/30">
@@ -1352,26 +1363,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         </div>
       </header>
       
-      {/* Ovation backdrop blur */}
-      {isMobile && ovationExpanded && (
-        <div 
-          className="fixed inset-0 z-[47] bg-black/20 backdrop-blur-sm"
-          style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)', bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}
-          onClick={() => setOvationExpanded(false)}
-        />
-      )}
-
-      {/* Ovation score tab + popover hanging below mobile header - only on dashboard */}
-      {isMobile && canViewOvation !== false && location.pathname === '/dashboard' && (
-        <div 
-          key={`ovation-mobile-${currentLocation?.id ?? 'pending'}`}
-          className="fixed left-1/2 -translate-x-1/2 z-[48] flex flex-col items-center"
-          style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)' }}
-        >
-          <OvationScoreTab expanded={ovationExpanded} onToggle={() => setOvationExpanded(prev => !prev)} />
-          <OvationExpandedPanel expanded={ovationExpanded} />
-        </div>
-      )}
       
       <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+3.25rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
         {children}
