@@ -189,9 +189,11 @@ export function OvationScoreTab({ expanded, onToggle, desktop, bare, className }
 }
 
 /** The expandable panel that goes in document flow */
-export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
+export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boolean; triggerRef?: RefObject<HTMLElement> }) {
   const { reviewsData, isLoading, displayScore, displayCount } = useOvationData();
   const [reviewIndex, setReviewIndex] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [tailLeftPct, setTailLeftPct] = useState<number | null>(null);
 
   const reviewsWithFeedback = reviewsData?.reviews?.filter(r => r.feedback) || [];
 
@@ -200,6 +202,25 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
       setReviewIndex(prev => (prev + 1) % reviewsWithFeedback.length);
     }
   }, [reviewsWithFeedback.length]);
+
+  // Measure tail offset so it points at the trigger (Ovation pill).
+  useEffect(() => {
+    if (!expanded || !triggerRef?.current || !panelRef.current) {
+      setTailLeftPct(null);
+      return;
+    }
+    const compute = () => {
+      const t = triggerRef.current?.getBoundingClientRect();
+      const p = panelRef.current?.getBoundingClientRect();
+      if (!t || !p || p.width === 0) return;
+      const triggerCenter = t.left + t.width / 2;
+      const offset = ((triggerCenter - p.left) / p.width) * 100;
+      setTailLeftPct(Math.max(8, Math.min(92, offset)));
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, [expanded, triggerRef]);
 
   // Show panel if we have fresh data OR cached score (so it doesn't return null while loading)
   if (!displayScore && !isLoading) return null;
@@ -217,7 +238,16 @@ export function OvationExpandedPanel({ expanded }: { expanded: boolean }) {
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
           className="overflow-hidden"
         >
-          <div className="w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 bg-white dark:bg-card border border-border/30 rounded-2xl shadow-lg mt-1">
+          <div ref={panelRef} className="relative w-[min(22rem,calc(100vw-1.5rem))] sm:w-72 bg-white dark:bg-card border border-border/30 rounded-2xl shadow-lg mt-2">
+            {/* Tail pointing up to the Ovation pill in the header */}
+            {tailLeftPct !== null && (
+              <div
+                aria-hidden
+                className="absolute -top-1.5 w-3 h-3 rotate-45 bg-white dark:bg-card border-l border-t border-border/30"
+                style={{ left: `${tailLeftPct}%`, transform: 'translateX(-50%) rotate(45deg)' }}
+              />
+            )}
+
             {/* Header */}
             <div className="px-4 sm:px-3 pt-3 sm:pt-2.5 pb-3 sm:pb-2 flex items-center justify-between gap-3 border-b border-border/20">
               <div className="flex items-center gap-2.5 min-w-0">
