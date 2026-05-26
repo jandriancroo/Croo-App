@@ -458,25 +458,19 @@ export function MobileScheduleView({
   // calculated from open punches. labor_cache is history-only (excludes today)
   // so querying it here returned $0. Shared query key dedupes with dashboard.
   const { data: dayInsightsData } = useQuery({
-    queryKey: ['qubeyond-sales', currentLocation?.id, todayStr],
-    queryFn: async () => {
-      if (!currentLocation?.id || !todayStr) return null;
-      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
-        body: { locationId: currentLocation.id, targetDate: todayStr },
-      });
-      if (error) return null;
-      // Treat unauthenticated/not-configured response as no data
-      if (data && typeof data === 'object' && 'authenticated' in data && (data as any).authenticated === false) {
-        return null;
-      }
-      const sales = data?.daily || 0;
-      const laborCost = data?.labor?.laborCost || 0;
-      const laborHours = data?.labor?.hoursWorked || 0;
+    queryKey: ['dashboard-sales-enriched', currentLocation?.id],
+    queryFn: () => {
+      const cached: any = queryClient.getQueryData(['dashboard-sales-enriched', currentLocation?.id]) ?? null;
+      if (!cached) return null;
+      const sales = cached?.daily || 0;
+      const laborCost = cached?.labor?.laborCost || 0;
+      const laborHours = cached?.labor?.hoursWorked || 0;
       return { sales, laborCost, laborHours };
     },
-    enabled: !!currentLocation?.id && !!todayStr,
-    staleTime: 3 * 60 * 1000,
-    refetchInterval: 60 * 1000,
+    enabled: !!currentLocation?.id,
+    staleTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
 
