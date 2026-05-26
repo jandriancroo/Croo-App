@@ -367,9 +367,6 @@ export function OvationScorePopover() {
 
   return (
     <div className="relative">
-      <div ref={triggerRef}>
-        <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
-      </div>
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -383,6 +380,9 @@ export function OvationScorePopover() {
           />
         )}
       </AnimatePresence>
+      <div ref={triggerRef} className={cn('relative', expanded && 'z-50')}>
+        <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
+      </div>
       <div ref={panelRef} className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50">
         <OvationExpandedPanel expanded={expanded} triggerRef={triggerRef} />
       </div>
@@ -428,16 +428,7 @@ export function OvationTriggerWithPanel({
 
   return (
     <>
-      <div ref={triggerRef} className="relative">
-        <OvationScoreTab
-          bare={bare}
-          desktop={desktop}
-          className={className}
-          expanded={expanded}
-          onToggle={onToggle}
-        />
-      </div>
-      {/* Backdrop fade — click to dismiss */}
+      {/* Backdrop fade — click to dismiss. Rendered BEFORE the trigger so the pill stays lit on top. */}
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -451,6 +442,15 @@ export function OvationTriggerWithPanel({
           />
         )}
       </AnimatePresence>
+      <div ref={triggerRef} className={cn('relative', expanded && 'z-[70]')}>
+        <OvationScoreTab
+          bare={bare}
+          desktop={desktop}
+          className={className}
+          expanded={expanded}
+          onToggle={onToggle}
+        />
+      </div>
       {/* Centered review panel */}
       <div
         ref={panelRef}
