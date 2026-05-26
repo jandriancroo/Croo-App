@@ -478,8 +478,8 @@ export function AiAssistantBubble() {
                 {messages.length === 0 && (
                   <div className="px-5 pt-10 pb-4 space-y-5">
                     <div className="text-center space-y-2">
-                      <div className="mx-auto h-14 w-14 rounded-2xl overflow-hidden mb-3">
-                        <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
+                      <div className="mx-auto h-14 w-14 rounded-2xl overflow-hidden mb-3 flex items-center justify-center">
+                        <TheoOrb size={56} className="pointer-events-none" />
                       </div>
                       <p className="text-base font-semibold text-foreground">What can I help with?</p>
                       <p className="text-xs text-muted-foreground leading-relaxed max-w-[260px] mx-auto">
