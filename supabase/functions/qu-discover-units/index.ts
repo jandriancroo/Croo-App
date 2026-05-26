@@ -4,9 +4,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   const url = new URL(req.url);
   const q = (url.searchParams.get('q') || 'akers').toLowerCase();
-  const start = parseInt(url.searchParams.get('start') || '1000');
+  const start = parseInt(url.searchParams.get('start') || '4000');
   const end = parseInt(url.searchParams.get('end') || '6000');
-  const concurrency = parseInt(url.searchParams.get('c') || '40');
+  const concurrency = parseInt(url.searchParams.get('c') || '8');
+  const maxRetries = parseInt(url.searchParams.get('retries') || '5');
 
   const fd = new FormData();
   fd.append('grant_type', 'client_credentials');
@@ -28,35 +29,45 @@ Deno.serve(async (req) => {
   const statusCounts: Record<string, number> = {};
   const samples: Record<string, string> = {};
   let cursor = 0;
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+  async function fetchOne(id: number) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const r = await fetch(`https://gateway-api.qubeyond.com/api/v4/data/locations/${id}`, { headers });
+      if (r.status === 429) {
+        await sleep(500 * Math.pow(2, attempt) + Math.random() * 200);
+        continue;
+      }
+      return r;
+    }
+    return null;
+  }
 
   async function worker() {
     while (cursor < ids.length) {
-      const myIdx = cursor++;
-      const id = ids[myIdx];
+      const id = ids[cursor++];
       try {
-        const r = await fetch(`https://gateway-api.qubeyond.com/api/v4/data/locations/${id}`, { headers });
+        const r = await fetchOne(id);
+        if (!r) { statusCounts['429_exhausted'] = (statusCounts['429_exhausted'] || 0) + 1; continue; }
         const key = String(r.status);
         statusCounts[key] = (statusCounts[key] || 0) + 1;
         const txt = await r.text();
         if (!samples[key]) samples[key] = txt.substring(0, 300);
-        if (r.status === 200) {
-          const lower = txt.toLowerCase();
-          if (lower.includes(q)) {
-            try {
-              const j = JSON.parse(txt);
-              const v = j?.value || j;
-              matches.push({
-                id: v.id,
-                storeNumber: v.storeNumber,
-                marketingName: v.marketingName,
-                businessName: v.businessName,
-                city: v.city,
-                state: v.state?.stateCode,
-                address: `${v.address1 || ''} ${v.address2 || ''}`.trim(),
-              });
-            } catch {
-              matches.push({ id, raw: txt.substring(0, 300) });
-            }
+        if (r.status === 200 && txt.toLowerCase().includes(q)) {
+          try {
+            const j = JSON.parse(txt);
+            const v = j?.value || j;
+            matches.push({
+              id: v.id,
+              storeNumber: v.storeNumber,
+              marketingName: v.marketingName,
+              businessName: v.businessName,
+              city: v.city,
+              state: v.state?.stateCode,
+              address: `${v.address1 || ''} ${v.address2 || ''}`.trim(),
+            });
+          } catch {
+            matches.push({ id, raw: txt.substring(0, 300) });
           }
         }
       } catch (e) {
