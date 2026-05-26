@@ -394,7 +394,7 @@ export function AiAssistantBubble() {
               className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/95 mt-1"
               style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
             >
-              Theo moved ↑
+              Theo moved ↓
             </span>
             {hasUnreadBriefing && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
