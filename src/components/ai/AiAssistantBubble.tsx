@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Pin } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { X, Send, Loader2, Sparkles, Mic, MicOff, RotateCcw, ThumbsUp } from 'lucide-react';
-import theoAvatar from '@/assets/theo-avatar.png';
+import { TheoOrb } from '@/components/dock/TheoOrb';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
