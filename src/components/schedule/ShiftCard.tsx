@@ -1,10 +1,11 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Card } from "@/components/ui/card";
-import { Scissors, Coffee } from "lucide-react";
+import { Scissors, Coffee, CalendarOff, Clock, AlertCircle } from "lucide-react";
 import { shiftHasBreak } from "@/utils/shiftUtils";
 import { formatTime12Hour } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface ShiftCardProps {
   shift: any;
@@ -14,6 +15,7 @@ interface ShiftCardProps {
   isPublished?: boolean;
   isCompactMode?: boolean;
   hasTimeOffConflict?: boolean;
+  conflictingTimeOff?: any[];
 }
 
 function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isCompactMode = false, hasTimeOffConflict = false }: ShiftCardProps) {
