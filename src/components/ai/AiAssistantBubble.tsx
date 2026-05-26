@@ -575,8 +575,8 @@ export function AiAssistantBubble() {
                         animate={{ opacity: 1, y: 0 }}
                         className="flex justify-start"
                       >
-                        <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0">
-                          <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
+                        <div className="h-6 w-6 rounded-lg overflow-hidden mr-2 mt-1 shrink-0 flex items-center justify-center">
+                          <TheoOrb size={24} className="pointer-events-none" />
                         </div>
                         <div className="crooai-ai-bubble rounded-2xl rounded-bl-md px-4 py-3">
                           <div className="flex items-center gap-1.5">
