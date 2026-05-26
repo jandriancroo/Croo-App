@@ -231,6 +231,18 @@ export function AiAssistantBubble() {
     }
   }, [open]);
 
+  // When the chat opens and there are unread Theo messages, mark them read
+  // once the panel has settled (chat auto-scrolls to the newest, which is the
+  // "scrolled into view" trigger the user requested).
+  useEffect(() => {
+    if (!open) return;
+    if (theoUnreadCount === 0 || !theoUnreadLatestId) return;
+    const t = setTimeout(() => {
+      markTheoRead(theoUnreadLatestId).catch(() => { /* ignore */ });
+    }, 450);
+    return () => clearTimeout(t);
+  }, [open, theoUnreadCount, theoUnreadLatestId, markTheoRead]);
+
   // Allow the manager-dash THEO orb (and other UI) to open Theo via a
   // global window event. Keeps the bubble decoupled from its triggers.
   useEffect(() => {
