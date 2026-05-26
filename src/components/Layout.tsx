@@ -1070,11 +1070,21 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             </div>
           )}
           
+          {/* Mobile Ovation Score - only on dashboard */}
+          {canViewOvation !== false && location.pathname === '/dashboard' && (
+            <div className="ml-auto mr-2">
+              <OvationScorePopover key={`ovation-mobile-${currentLocation?.id ?? 'pending'}`} />
+            </div>
+          )}
+
           {/* Mobile Menu - Profile Avatar */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className="ml-auto p-1 rounded-full transition-colors"
+                className={cn(
+                  "p-1 rounded-full transition-colors",
+                  !(canViewOvation !== false && location.pathname === '/dashboard') && "ml-auto"
+                )}
                 title="More options"
               >
                 <Avatar className="h-9 w-9 ring-2 ring-white/30">
