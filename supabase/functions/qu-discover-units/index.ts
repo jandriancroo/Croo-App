@@ -18,20 +18,37 @@ Deno.serve(async (req) => {
     'x-integration': Deno.env.get('QU_INTEGRATION_USER_ID') || '',
   };
 
-  const items: any[] = [];
-  let page = 1;
-  let totalReported = 0;
-  while (true) {
-    const r = await fetch(`https://gateway-api.qubeyond.com/api/v4/data/locations?pageSize=500&pageNumber=${page}`, { headers });
-    if (!r.ok) break;
-    const data = await r.json();
-    const batch = data?.value?.items || [];
-    totalReported = data?.value?.totalCount ?? data?.value?.total ?? totalReported;
-    items.push(...batch);
-    if (batch.length < 500 || items.length >= (totalReported || items.length)) break;
-    page += 1;
-    if (page > 20) break;
+  const probeUrls = [
+    'https://gateway-api.qubeyond.com/api/v4/data/locations',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?pageSize=1000',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?PageSize=1000',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?page=2',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?Page=2',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?pageNumber=2',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?PageNumber=2',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?skip=20&take=500',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?$top=500',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?limit=500',
+    'https://gateway-api.qubeyond.com/api/v4/data/locations?offset=20&limit=500',
+  ];
+  const probe: any[] = [];
+  for (const u of probeUrls) {
+    const r = await fetch(u, { headers });
+    const txt = await r.text();
+    let firstIds: any[] = [];
+    let count = 0;
+    let totalCount: any = null;
+    try {
+      const j = JSON.parse(txt);
+      const arr = j?.value?.items || j?.items || [];
+      count = arr.length;
+      firstIds = arr.slice(0, 3).map((x: any) => ({ id: x.id, storeNumber: x.storeNumber }));
+      totalCount = j?.value?.totalCount ?? j?.totalCount ?? j?.value?.count ?? null;
+    } catch {}
+    probe.push({ url: u, status: r.status, count, totalCount, firstIds });
   }
+  const items: any[] = [];
+  const totalReported = 0;
 
   const matches = q
     ? items.filter((i: any) =>
