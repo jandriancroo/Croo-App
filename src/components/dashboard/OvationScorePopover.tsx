@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -367,19 +368,22 @@ export function OvationScorePopover() {
 
   return (
     <div className="relative">
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            key="ovation-desktop-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/60"
-            onClick={() => setExpanded(false)}
-          />
-        )}
-      </AnimatePresence>
+      {createPortal(
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              key="ovation-desktop-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[60] bg-black/60"
+              onClick={() => setExpanded(false)}
+            />
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
       <div ref={triggerRef} className={cn('relative', expanded && 'z-50')}>
         <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
       </div>
@@ -428,20 +432,23 @@ export function OvationTriggerWithPanel({
 
   return (
     <>
-      {/* Backdrop fade — click to dismiss. Rendered BEFORE the trigger so the pill stays lit on top. */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            key="ovation-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[60] bg-black/60"
-            onClick={onToggle}
-          />
-        )}
-      </AnimatePresence>
+      {/* Backdrop fade — portaled to body so it escapes the header's stacking context */}
+      {createPortal(
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              key="ovation-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[60] bg-black/60"
+              onClick={onToggle}
+            />
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
       <div ref={triggerRef} className={cn('relative', expanded && 'z-[70]')}>
         <OvationScoreTab
           bare={bare}
