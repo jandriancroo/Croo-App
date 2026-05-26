@@ -68,14 +68,24 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   const templatePosition = shift.isTemplate ? (template?.position || template?.role) : null;
 
   // Warning border + stripe overlay for time-off conflicts
-  const conflictBorderClass = hasTimeOffConflict ? "ring-2 ring-amber-500 ring-offset-1 ring-offset-transparent" : "";
+  const conflictBorderClass = hasTimeOffConflict ? "ring-2 ring-red-500 ring-offset-1 ring-offset-transparent" : "";
   const stripeOverlayStyle = hasTimeOffConflict ? {
     backgroundImage: `repeating-linear-gradient(
       45deg,
       transparent,
-      transparent 10px,
-      rgba(0, 0, 0, 0.2) 10px,
-      rgba(0, 0, 0, 0.2) 20px
+      transparent 8px,
+      rgba(239, 68, 68, 0.28) 8px,
+      rgba(239, 68, 68, 0.28) 16px
+    )`
+  } : {};
+
+  const formatTime = (t: string) => {
+    const [h, m] = t.split(":");
+    const hour = parseInt(h);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${m} ${ampm}`;
+  };
     )`
   } : {};
 
