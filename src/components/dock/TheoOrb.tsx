@@ -7,6 +7,8 @@ interface TheoOrbProps {
   className?: string;
   /** Adds a slow pulsing nudge ring (used during onboarding week). */
   nudge?: boolean;
+  /** Show a red unread dot in the top-right corner of the orb. */
+  unread?: boolean;
   label?: string;
   'data-tour'?: string;
 }
