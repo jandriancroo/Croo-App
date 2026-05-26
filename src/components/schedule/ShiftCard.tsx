@@ -18,7 +18,8 @@ interface ShiftCardProps {
   conflictingTimeOff?: any[];
 }
 
-function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isCompactMode = false, hasTimeOffConflict = false }: ShiftCardProps) {
+function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isCompactMode = false, hasTimeOffConflict = false, conflictingTimeOff = [] }: ShiftCardProps) {
+  const [conflictPopoverOpen, setConflictPopoverOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: shift.isTemplate ? `template-${shift.template.id}` : `shift-${shift.id}`,
     data: shift,
