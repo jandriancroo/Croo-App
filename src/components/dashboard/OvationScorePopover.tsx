@@ -428,7 +428,7 @@ export function OvationTriggerWithPanel({
 
   return (
     <>
-      <div ref={triggerRef} className={`relative ${expanded ? 'z-[70]' : ''}`}>
+      <div ref={triggerRef} className="relative">
         <OvationScoreTab
           bare={bare}
           desktop={desktop}
