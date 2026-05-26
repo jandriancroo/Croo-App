@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useClock } from '@/hooks/useClock';
 import { getDisplayName } from '@/utils/displayName';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInMinutes } from 'date-fns';
 import { 
@@ -58,6 +58,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const { timezone, getTodayInTimezone: getTodayStr } = useLocationTimezone();
   const locationId = currentLocation?.id;
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   
   
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -183,24 +184,13 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     refetchInterval: isExpanded ? 60000 : false,
   });
 
-  // Fetch live labor — prefer fetch-qubeyond-sales (live punch calc, same source as Dashboard summary).
-  // Falls back to labor_cache only if the live response is unavailable.
-  const { data: liveLabor } = useQuery({
-    queryKey: ['qubeyond-sales', locationId, todayStr],
-    queryFn: async () => {
-      if (!locationId) return null;
-      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
-        body: { locationId, targetDate: todayStr },
-      });
-      if (error) return null;
-      return {
-        laborCost: data?.labor?.laborCost || 0,
-        laborHours: data?.labor?.hoursWorked || 0,
-      };
-    },
+  const { data: dashboardSalesData = null } = useQuery<any | null>({
+    queryKey: ['dashboard-sales-enriched', locationId],
+    queryFn: () => queryClient.getQueryData(['dashboard-sales-enriched', locationId]) ?? null,
     enabled: !!locationId && isExpanded,
-    staleTime: 3 * 60 * 1000,
-    refetchInterval: isExpanded ? 60000 : false,
+    staleTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const { data: laborCacheFallback } = useQuery({
@@ -231,9 +221,12 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     refetchInterval: isExpanded ? 60000 : false,
   });
 
-  // Prefer live punch-based labor; fall back to cache only if live unavailable.
-  const laborData = liveLabor && (liveLabor.laborCost > 0 || liveLabor.laborHours > 0)
-    ? { labor_cost: liveLabor.laborCost, labor_hours: liveLabor.laborHours }
+  // Use the exact labor payload produced by Dashboard SalesSummary when available.
+  const laborData = dashboardSalesData?.labor
+    ? {
+        labor_cost: Number(dashboardSalesData.labor.laborCost) || 0,
+        labor_hours: Number(dashboardSalesData.labor.hoursWorked) || 0,
+      }
     : laborCacheFallback;
 
 
