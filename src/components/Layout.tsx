@@ -1056,33 +1056,60 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           {(() => {
             const showOvation = canViewOvation !== false && location.pathname === '/dashboard';
             const showLocation = !!(currentLocation || isOnOrgDash);
-            const LocationBtn = showLocation ? (
-              <Button
-                variant="ghost"
-                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground px-2"
-                onClick={() => setLocationDialogOpen(true)}
-                data-tour="location-picker"
-              >
-                <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate max-w-[140px]">
-                  {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-              </Button>
-            ) : null;
+            if (!showLocation && !showOvation) return null;
+
+            const locationLabel = isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name;
 
             return (
               <div
-                className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2"
+                className="absolute left-1/2 -translate-x-1/2 flex items-center"
                 ref={headerLocationRef}
               >
-                {LocationBtn}
-                {showOvation && (
-                  <OvationScorePopover key={`ovation-mobile-${currentLocation?.id ?? 'pending'}`} />
-                )}
+                <div
+                  className={cn(
+                    'relative flex items-center',
+                    showOvation && showLocation && 'bg-white/15 rounded-lg'
+                  )}
+                >
+                  {showLocation && (
+                    <button
+                      type="button"
+                      onClick={() => setLocationDialogOpen(true)}
+                      data-tour="location-picker"
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-1.5 h-10 text-base font-medium text-primary-foreground transition-colors',
+                        showOvation
+                          ? 'rounded-l-lg hover:bg-white/10'
+                          : 'rounded-lg hover:bg-white/15'
+                      )}
+                    >
+                      <MapPin className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate max-w-[140px]">{locationLabel}</span>
+                      <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+                    </button>
+                  )}
+                  {showOvation && showLocation && (
+                    <span aria-hidden className="h-5 w-px bg-white/20" />
+                  )}
+                  {showOvation && (
+                    <div className="relative">
+                      <OvationScoreTab
+                        bare={showLocation}
+                        desktop={!showLocation}
+                        className={showLocation ? 'rounded-r-lg' : undefined}
+                        expanded={ovationExpanded}
+                        onToggle={() => setOvationExpanded(prev => !prev)}
+                      />
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50">
+                        <OvationExpandedPanel expanded={ovationExpanded} />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })()}
+
 
           {/* Mobile Menu - Profile Avatar */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
