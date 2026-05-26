@@ -346,13 +346,69 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
 /** Desktop export — inline in header bar */
 export function OvationScorePopover() {
   const [expanded, setExpanded] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
   return (
     <div className="relative">
-      <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
+      <div ref={triggerRef}>
+        <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
+      </div>
       <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50">
-        <OvationExpandedPanel expanded={expanded} />
+        <OvationExpandedPanel expanded={expanded} triggerRef={triggerRef} />
       </div>
     </div>
+  );
+}
 
+/**
+ * Mobile/header pill trigger + viewport-centered review panel with backdrop fade.
+ * The panel tail points up at the trigger.
+ */
+export function OvationTriggerWithPanel({
+  expanded,
+  onToggle,
+  bare,
+  desktop,
+  className,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  bare?: boolean;
+  desktop?: boolean;
+  className?: string;
+}) {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  return (
+    <>
+      <div ref={triggerRef} className="relative">
+        <OvationScoreTab
+          bare={bare}
+          desktop={desktop}
+          className={className}
+          expanded={expanded}
+          onToggle={onToggle}
+        />
+      </div>
+      {/* Backdrop fade — click to dismiss */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            key="ovation-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-black/60"
+            onClick={onToggle}
+          />
+        )}
+      </AnimatePresence>
+      {/* Centered review panel */}
+      <div
+        className="fixed left-1/2 -translate-x-1/2 z-50"
+        style={{ top: 'calc(env(safe-area-inset-top) + 3.5rem)' }}
+      >
+        <OvationExpandedPanel expanded={expanded} triggerRef={triggerRef} />
+      </div>
+    </>
   );
 }
