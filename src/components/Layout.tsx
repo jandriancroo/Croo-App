@@ -1056,7 +1056,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </div>
           
           {(() => {
-            const showOvation = canViewOvation !== false && location.pathname === '/dashboard';
+            const showOvation = canViewOvation !== false && location.pathname === '/dashboard' && ovationHasContent;
             const showLocation = !!(currentLocation || isOnOrgDash);
             if (!showLocation && !showOvation) return null;
 
