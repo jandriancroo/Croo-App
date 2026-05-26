@@ -14,6 +14,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
+import { openDockForTour } from '@/components/dock/dockBridge';
+
+// Teaching tab: shows for 7 days after first mount, then disappears.
+const TEACH_KEY = 'theo-tab-teaching-v1';
+function useTheoTeachingTab() {
+  const [visible, setVisible] = useState(() => {
+    try {
+      const raw = localStorage.getItem(TEACH_KEY);
+      if (raw === 'dismissed') return false;
+      const firstSeen = raw ? parseInt(raw, 10) : NaN;
+      if (!firstSeen || Number.isNaN(firstSeen)) {
+        const now = Date.now();
+        localStorage.setItem(TEACH_KEY, String(now));
+        return true;
+      }
+      const days = (Date.now() - firstSeen) / (1000 * 60 * 60 * 24);
+      return days < 7;
+    } catch { return true; }
+  });
+  const dismiss = useCallback(() => {
+    try { localStorage.setItem(TEACH_KEY, 'dismissed'); } catch { /* ignore */ }
+    setVisible(false);
+  }, []);
+  return { visible, dismiss };
+}
 
 /* Clean 4-point star — no tiny accent dots */
 /* Clean 4-point star */
@@ -44,6 +69,7 @@ export function AiAssistantBubble() {
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const { visible: teachingVisible, dismiss: dismissTeaching } = useTheoTeachingTab();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -338,34 +364,60 @@ export function AiAssistantBubble() {
 
   return createPortal(
     <>
-      {/* ── Side Tab (right edge) ── */}
+      {/* ── Teaching Tab (right edge) — points users to Theo's new home in the manager dash.
+            Auto-disappears after 7 days, or when the user taps the × to dismiss. ── */}
       <AnimatePresence initial={false}>
-        {!open && (
-          <motion.button
-            initial={{ x: 60 }}
+        {!open && teachingVisible && (
+          <motion.div
+            initial={{ x: 80 }}
             animate={{ x: 0 }}
-            exit={{ x: 60 }}
+            exit={{ x: 80 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            onClick={() => setOpen(true)}
-            className="fixed right-0 z-[55] flex flex-col items-center justify-center gap-1.5 bg-accent rounded-l-xl border-l border-y border-white/15"
+            className="fixed right-0 z-[55] flex items-stretch"
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
-              width: 36,
-              height: 110,
-              boxShadow: '-6px 0 20px rgba(0,0,0,0.3), -2px 0 6px rgba(0,0,0,0.15), inset 1px 0 0 rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.08)',
+              boxShadow: '-6px 0 20px rgba(0,0,0,0.3), -2px 0 6px rgba(0,0,0,0.15)',
+              borderTopLeftRadius: 12,
+              borderBottomLeftRadius: 12,
+              overflow: 'hidden',
             }}
-            aria-label="Open Theo"
           >
-            <Star4 size={4} />
-            <Star4 size={8} />
-            <Star4 size={3.5} />
-            {hasUnreadBriefing && (
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
-            )}
-          </motion.button>
+            <button
+              type="button"
+              onClick={() => {
+                openDockForTour();
+              }}
+              className="bg-accent text-white flex flex-col items-center justify-center gap-1 px-2 py-3 border-l border-y border-white/15"
+              style={{ width: 44, minHeight: 130 }}
+              aria-label="Theo moved — open the manager dash to find him"
+            >
+              <Star4 size={4} />
+              <Star4 size={7} />
+              <span
+                className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/95 mt-1"
+                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+              >
+                Theo moved ↑
+              </span>
+              {hasUnreadBriefing && (
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); dismissTeaching(); }}
+              className="bg-accent/90 hover:bg-accent text-white/80 hover:text-white border-y border-white/15 flex items-center justify-center"
+              style={{ width: 18 }}
+              aria-label="Dismiss"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
+
+
 
       {/* ── Backdrop + Panel ── */}
       <AnimatePresence>
