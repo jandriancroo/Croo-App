@@ -449,7 +449,7 @@ function DayCell({
           const isShiftDraft = !isPublished || isNewShiftAfterPublish || isShiftModified;
           
           // Check if shift overlaps with any time-off request
-          const hasTimeOffConflict = availabilityRequests.some(request => {
+          const conflictingTimeOff = availabilityRequests.filter(request => {
             // Full day time-off always conflicts
             if (request.time_scope !== "partial_day") return true;
             // Partial day: check time overlap
@@ -458,16 +458,16 @@ function DayCell({
               const shiftEnd = shift.end_time;
               const reqStart = request.start_time;
               const reqEnd = request.end_time;
-              // Check if ranges overlap
               return shiftStart < reqEnd && shiftEnd > reqStart;
             }
             return true;
           });
+          const hasTimeOffConflict = conflictingTimeOff.length > 0;
           
           // Also check weekly availability conflict
           const hasAvailabilityConflict = shiftConflictsWithAvailability(shift);
           
-          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict || hasAvailabilityConflict} />;
+          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict || hasAvailabilityConflict} conflictingTimeOff={conflictingTimeOff} />;
         })}
         {/* Only show time-off requests that don't have a conflicting shift covering them */}
         {availabilityRequests.filter(request => {
