@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
     : items;
 
   return new Response(JSON.stringify({
+    probe,
     total: items.length,
     totalReported,
     matchCount: matches.length,
