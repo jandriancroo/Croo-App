@@ -440,8 +440,8 @@ export function AiAssistantBubble() {
               {/* Header — orange gradient matching dock */}
               <div className="relative flex items-center justify-between px-4 py-3 border-b border-white/10 bg-accent">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl overflow-hidden ring-2 ring-white/20">
-                    <img src={theoAvatar} alt="Theo" className="h-full w-full object-cover" />
+                  <div className="h-9 w-9 rounded-xl overflow-hidden ring-2 ring-white/20 flex items-center justify-center bg-accent">
+                    <TheoOrb size={32} className="text-white pointer-events-none" />
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
