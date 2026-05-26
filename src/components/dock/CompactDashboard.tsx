@@ -733,39 +733,48 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
               </div>
             </div>
 
-            {/* Labor Status Bar */}
+            {/* Labor / Goal / Variance */}
             <div className="bg-accent-foreground/10 rounded-2xl p-3 mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-accent-foreground/70 text-xs font-medium">Labor</span>
-                <div className="flex items-center gap-2">
-                  <span className={cn(
-                    "text-sm font-bold",
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className="text-accent-foreground/60 text-[10px] uppercase tracking-wide">Labor</p>
+                  <p className={cn(
+                    "text-lg font-bold mt-0.5",
                     laborStatus === 'good' ? 'text-green-500' :
                     laborStatus === 'warning' ? 'text-yellow-500' :
                     'text-red-500'
                   )}>
                     {laborPercentage.toFixed(1)}%
-                  </span>
-                  <span className="text-accent-foreground/50 text-xs">/ {laborTarget}%</span>
+                  </p>
+                  <p className="text-accent-foreground/50 text-[10px] mt-0.5">
+                    {formatCurrency(laborCost)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-accent-foreground/60 text-[10px] uppercase tracking-wide">Goal</p>
+                  <p className="text-lg font-bold text-accent-foreground mt-0.5">
+                    {laborTarget}%
+                  </p>
+                  <p className="text-accent-foreground/50 text-[10px] mt-0.5">
+                    {formatCurrency(targetLaborCost)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-accent-foreground/60 text-[10px] uppercase tracking-wide">Variance</p>
+                  <p className={cn(
+                    "text-lg font-bold mt-0.5",
+                    laborSavings >= 0 ? 'text-green-500' : 'text-red-500'
+                  )}>
+                    {laborSavings >= 0 ? '−' : '+'}{formatCurrency(Math.abs(laborSavings))}
+                  </p>
+                  <p className={cn(
+                    "text-[10px] mt-0.5",
+                    laborSavings >= 0 ? 'text-green-500/70' : 'text-red-500/70'
+                  )}>
+                    {laborSavings >= 0 ? 'under target' : 'over target'}
+                  </p>
                 </div>
               </div>
-              <div className="h-2 bg-accent-foreground/20 rounded-full overflow-hidden">
-                <div 
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    laborStatus === 'good' ? 'bg-green-500' :
-                    laborStatus === 'warning' ? 'bg-yellow-500' :
-                    'bg-red-500'
-                  )}
-                  style={{ width: `${Math.min(laborPercentage / 40 * 100, 100)}%` }}
-                />
-              </div>
-              <p className="text-accent-foreground/50 text-[10px] mt-1 text-center">
-                {laborSavings >= 0 
-                  ? `🎯 Saving ${formatCurrency(laborSavings)}`
-                  : `🔥 ${formatCurrency(Math.abs(laborSavings))} over target`
-                }
-              </p>
             </div>
 
             {/* On The Clock - with cut options */}
