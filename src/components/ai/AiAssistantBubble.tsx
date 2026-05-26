@@ -420,8 +420,8 @@ export function AiAssistantBubble() {
             >
               {isMobile ? 'Theo moved ↓' : 'Ask Theo'}
             </span>
-            {hasUnreadBriefing && (
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
+            {(hasUnreadBriefing || theoUnreadCount > 0) && (
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse ring-2 ring-white/40" />
             )}
           </motion.button>
         )}
