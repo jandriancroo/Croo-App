@@ -651,6 +651,17 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   return (
     <AnimatePresence>
       {isExpanded && (
+        <>
+          {/* Backdrop fade behind the slide-up sheet */}
+          <motion.div
+            key="dock-dash-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[55] bg-black/60"
+            onClick={onClose}
+          />
         <motion.div
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
@@ -663,6 +674,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           className="fixed bottom-0 left-0 right-0 z-[60] bg-accent rounded-t-3xl"
           style={{ height: '75vh', touchAction: 'none' }}
         >
+
           {/* Drag Handle */}
           <div className="flex justify-center pt-3 pb-2">
             <div className="w-12 h-1.5 bg-accent-foreground/30 rounded-full" />
@@ -729,7 +741,12 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                         className="relative flex justify-center"
                         style={{ width: hasUnreadTheo ? 180 : 58 }}
                       >
-                        <div className="relative px-3 py-2 rounded-2xl bg-accent-foreground text-accent shadow-lg">
+                        <button
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-theo'))}
+                          className="relative px-3 py-2 rounded-2xl bg-accent-foreground text-accent shadow-lg text-left transition-transform active:scale-[0.97] hover:brightness-110"
+                          aria-label="Open Theo"
+                        >
                           {/* Tail pointing up to the orb above */}
                           <div className="absolute -top-1 right-[15px] w-3 h-3 rotate-45 bg-accent-foreground" />
                           {hasUnreadTheo ? (
@@ -754,7 +771,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                               </p>
                             </>
                           )}
-                        </div>
+                        </button>
+
                       </div>
                     </div>
                   )}
@@ -1135,7 +1153,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
             </DialogContent>
           </Dialog>
         </motion.div>
+        </>
       )}
     </AnimatePresence>
+
   );
 };

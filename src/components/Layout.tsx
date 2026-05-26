@@ -33,7 +33,7 @@ import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
-import { OvationScorePopover, OvationScoreTab, OvationExpandedPanel } from '@/components/dashboard/OvationScorePopover';
+import { OvationScorePopover, OvationScoreTab, OvationExpandedPanel, OvationTriggerWithPanel } from '@/components/dashboard/OvationScorePopover';
 
 interface LayoutProps {
   children: ReactNode;
@@ -1092,20 +1092,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <span aria-hidden className="h-5 w-px bg-white/20" />
                   )}
                   {showOvation && (
-                    <div className="relative">
-                      <OvationScoreTab
-                        bare={showLocation}
-                        desktop={!showLocation}
-                        className={showLocation ? 'rounded-r-lg' : undefined}
-                        expanded={ovationExpanded}
-                        onToggle={() => setOvationExpanded(prev => !prev)}
-                      />
-                      <div className="fixed left-1/2 -translate-x-1/2 z-50" style={{ top: 'calc(env(safe-area-inset-top) + 3.5rem)' }}>
-                        <OvationExpandedPanel expanded={ovationExpanded} />
-                      </div>
-
-                    </div>
+                    <OvationTriggerWithPanel
+                      bare={showLocation}
+                      desktop={!showLocation}
+                      className={showLocation ? 'rounded-r-lg' : undefined}
+                      expanded={ovationExpanded}
+                      onToggle={() => setOvationExpanded(prev => !prev)}
+                    />
                   )}
+
                 </div>
               </div>
             );
