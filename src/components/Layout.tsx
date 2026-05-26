@@ -1100,9 +1100,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         expanded={ovationExpanded}
                         onToggle={() => setOvationExpanded(prev => !prev)}
                       />
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50">
+                      <div className="fixed left-1/2 -translate-x-1/2 z-50" style={{ top: 'calc(env(safe-area-inset-top) + 3.5rem)' }}>
                         <OvationExpandedPanel expanded={ovationExpanded} />
                       </div>
+
                     </div>
                   )}
                 </div>
