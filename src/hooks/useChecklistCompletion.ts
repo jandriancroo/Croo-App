@@ -59,12 +59,12 @@ export function useChecklistCompletion(
                 id,
                 item_id,
                 created_at,
-                checklist_submissions!inner(id, checklist_id, location_id)
+                checklist_submissions!inner(id, checklist_id, location_id, submitted_at)
               `)
               .in('checklist_submissions.checklist_id', dailyChecklistIds)
               .eq('checklist_submissions.location_id', locationId)
-              .gte('created_at', periodStartBusiness.toISOString())
-              .lte('created_at', periodEndBusiness.toISOString())
+              .gte('checklist_submissions.submitted_at', periodStartBusiness.toISOString())
+              .lte('checklist_submissions.submitted_at', periodEndBusiness.toISOString())
           : Promise.resolve({ data: [] as any[] }),
         monthlyChecklistIds.length > 0
           ? supabase
@@ -73,13 +73,14 @@ export function useChecklistCompletion(
                 id,
                 item_id,
                 created_at,
-                checklist_submissions!inner(id, checklist_id, location_id)
+                checklist_submissions!inner(id, checklist_id, location_id, submitted_at)
               `)
               .in('checklist_submissions.checklist_id', monthlyChecklistIds)
               .eq('checklist_submissions.location_id', locationId)
-              .gte('created_at', monthStart.toISOString())
-              .lte('created_at', monthEnd.toISOString())
+              .gte('checklist_submissions.submitted_at', monthStart.toISOString())
+              .lte('checklist_submissions.submitted_at', monthEnd.toISOString())
           : Promise.resolve({ data: [] as any[] }),
+
       ]);
 
       const allResponses = [...(dailyResponses || []), ...(monthlyResponses || [])];
@@ -122,9 +123,10 @@ export function useChecklistCompletion(
         const periodEnd = isMonthly ? monthEnd : periodEndBusiness;
 
         const responses = (responsesByChecklist.get(checklist.id) || []).filter((r: any) => {
-          const createdAt = new Date(r.created_at);
-          return createdAt >= periodStart && createdAt <= periodEnd;
+          const submittedAt = new Date(r.checklist_submissions?.submitted_at);
+          return submittedAt >= periodStart && submittedAt <= periodEnd;
         });
+
 
         const todayItemIds = checklist.template_type === 'dynamic'
           ? new Set(answerableItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).map(item => item.id))
