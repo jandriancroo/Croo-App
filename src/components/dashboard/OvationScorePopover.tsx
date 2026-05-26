@@ -347,12 +347,43 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
 export function OvationScorePopover() {
   const [expanded, setExpanded] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        panelRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setExpanded(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [expanded]);
+
   return (
     <div className="relative">
       <div ref={triggerRef}>
         <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
       </div>
-      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50">
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            key="ovation-desktop-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-black/60"
+            onClick={() => setExpanded(false)}
+          />
+        )}
+      </AnimatePresence>
+      <div ref={panelRef} className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50">
         <OvationExpandedPanel expanded={expanded} triggerRef={triggerRef} />
       </div>
     </div>
@@ -377,6 +408,24 @@ export function OvationTriggerWithPanel({
   className?: string;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        panelRef.current?.contains(target)
+      ) {
+        return;
+      }
+      onToggle();
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [expanded, onToggle]);
+
   return (
     <>
       <div ref={triggerRef} className="relative">
@@ -404,6 +453,7 @@ export function OvationTriggerWithPanel({
       </AnimatePresence>
       {/* Centered review panel */}
       <div
+        ref={panelRef}
         className="fixed left-1/2 -translate-x-1/2 z-50"
         style={{ top: 'calc(env(safe-area-inset-top) + 3.5rem)' }}
       >
