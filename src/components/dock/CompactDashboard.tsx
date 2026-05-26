@@ -689,15 +689,37 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   </p>
                 )}
               </div>
-              <TheoOrb
-                size={58}
-                className="mr-10 shrink-0"
-                data-tour="theo-orb"
-                label="Open Theo"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('open-theo'));
-                }}
-              />
+              {(() => {
+                // Show "Ask Theo" label + pulsing nudge during the 7-day teaching window.
+                let teaching = false;
+                try {
+                  const raw = localStorage.getItem('theo-tab-teaching-v1');
+                  const firstSeen = raw ? parseInt(raw, 10) : NaN;
+                  if (firstSeen && !Number.isNaN(firstSeen)) {
+                    teaching = (Date.now() - firstSeen) / (1000 * 60 * 60 * 24) < 7;
+                  }
+                } catch { /* ignore */ }
+                return (
+                  <div className="flex items-center gap-1.5 mr-10 shrink-0">
+                    {teaching && (
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-accent-foreground/15 text-accent-foreground text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                        Ask Theo
+                        <span aria-hidden>→</span>
+                      </div>
+                    )}
+                    <TheoOrb
+                      size={58}
+                      data-tour="theo-orb"
+                      label="Open Theo"
+                      nudge={teaching}
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('open-theo'));
+                      }}
+                    />
+                  </div>
+                );
+              })()}
+
             </div>
 
             {/* Sales & Pace Cards */}
