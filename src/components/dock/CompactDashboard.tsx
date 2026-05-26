@@ -723,7 +723,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   {/* Theo speech bubble — centered under the orb, in-flow so cards push down.
                       Unread message always wins over the static greeting. */}
                   {(hasUnreadTheo || teaching) && (
-                    <div className="flex justify-end mr-10 mb-4 animate-scale-in">
+                    <div className="flex justify-end mr-10 -mt-2 mb-3 animate-scale-in">
                       {/* Wider when showing a message preview, tight when static greeting */}
                       <div
                         className="relative flex justify-center"
