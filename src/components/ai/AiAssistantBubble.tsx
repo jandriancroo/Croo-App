@@ -364,58 +364,45 @@ export function AiAssistantBubble() {
 
   return createPortal(
     <>
-      {/* ── Teaching Tab (right edge) — points users to Theo's new home in the manager dash.
-            Auto-disappears after 7 days, or when the user taps the × to dismiss. ── */}
+      {/* ── Teaching Tab (right edge) — points users to Theo's new home in the
+            manager dash. Auto-disappears 7 days after first sight. No manual
+            dismiss so it can't be accidentally swiped away. ── */}
       <AnimatePresence initial={false}>
         {!open && teachingVisible && (
-          <motion.div
+          <motion.button
+            type="button"
             initial={{ x: 80 }}
             animate={{ x: 0 }}
             exit={{ x: 80 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="fixed right-0 z-[55] flex items-stretch"
+            onClick={() => { openDockForTour(); }}
+            className="fixed right-0 z-[55] bg-accent text-white flex flex-col items-center justify-center gap-1 px-2 py-3 border-l border-y border-white/15"
             style={{
               top: '50%',
               transform: 'translateY(-50%)',
-              boxShadow: '-6px 0 20px rgba(0,0,0,0.3), -2px 0 6px rgba(0,0,0,0.15)',
+              width: 44,
+              minHeight: 130,
               borderTopLeftRadius: 12,
               borderBottomLeftRadius: 12,
-              overflow: 'hidden',
+              boxShadow: '-6px 0 20px rgba(0,0,0,0.3), -2px 0 6px rgba(0,0,0,0.15)',
             }}
+            aria-label="Theo moved — open the manager dash to find him"
           >
-            <button
-              type="button"
-              onClick={() => {
-                openDockForTour();
-              }}
-              className="bg-accent text-white flex flex-col items-center justify-center gap-1 px-2 py-3 border-l border-y border-white/15"
-              style={{ width: 44, minHeight: 130 }}
-              aria-label="Theo moved — open the manager dash to find him"
+            <Star4 size={4} />
+            <Star4 size={7} />
+            <span
+              className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/95 mt-1"
+              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
             >
-              <Star4 size={4} />
-              <Star4 size={7} />
-              <span
-                className="text-[9px] font-bold tracking-[0.18em] uppercase text-white/95 mt-1"
-                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-              >
-                Theo moved ↑
-              </span>
-              {hasUnreadBriefing && (
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); dismissTeaching(); }}
-              className="bg-accent/90 hover:bg-accent text-white/80 hover:text-white border-y border-white/15 flex items-center justify-center"
-              style={{ width: 18 }}
-              aria-label="Dismiss"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </motion.div>
+              Theo moved ↑
+            </span>
+            {hasUnreadBriefing && (
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
+            )}
+          </motion.button>
         )}
       </AnimatePresence>
+
 
 
 
