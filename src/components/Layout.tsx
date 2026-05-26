@@ -965,7 +965,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               )}
               
               {/* Desktop Ovation Score - only on dashboard */}
-              {canViewOvation !== false && location.pathname === '/dashboard' && (
+              {canViewOvation !== false && location.pathname === '/dashboard' && ovationHasContent && (
                 <OvationScorePopover key={`ovation-desktop-${currentLocation?.id ?? 'pending'}`} />
               )}
 
