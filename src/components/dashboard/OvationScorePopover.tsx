@@ -313,9 +313,10 @@ export function OvationScorePopover() {
   return (
     <div className="relative">
       <OvationScoreTab desktop expanded={expanded} onToggle={() => setExpanded(prev => !prev)} />
-      <div className="absolute top-full right-0 mt-1">
+      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50">
         <OvationExpandedPanel expanded={expanded} />
       </div>
     </div>
+
   );
 }
