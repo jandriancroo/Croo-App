@@ -1363,26 +1363,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         </div>
       </header>
       
-      {/* Ovation backdrop blur */}
-      {isMobile && ovationExpanded && (
-        <div 
-          className="fixed inset-0 z-[47] bg-black/20 backdrop-blur-sm"
-          style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)', bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}
-          onClick={() => setOvationExpanded(false)}
-        />
-      )}
-
-      {/* Ovation score tab + popover hanging below mobile header - only on dashboard */}
-      {isMobile && canViewOvation !== false && location.pathname === '/dashboard' && (
-        <div 
-          key={`ovation-mobile-${currentLocation?.id ?? 'pending'}`}
-          className="fixed left-1/2 -translate-x-1/2 z-[48] flex flex-col items-center"
-          style={{ top: 'calc(env(safe-area-inset-top) + 3.35rem)' }}
-        >
-          <OvationScoreTab expanded={ovationExpanded} onToggle={() => setOvationExpanded(prev => !prev)} />
-          <OvationExpandedPanel expanded={ovationExpanded} />
-        </div>
-      )}
       
       <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+3.25rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
         {children}
