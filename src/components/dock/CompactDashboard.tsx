@@ -24,6 +24,7 @@ import { ProjectionIcon } from '@/components/ui/projection-tag';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { TheoOrb } from '@/components/dock/TheoOrb';
+import { useTheoUnread } from '@/hooks/useTheoUnread';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
