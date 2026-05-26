@@ -16,6 +16,7 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { openDockForTour } from '@/components/dock/dockBridge';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTheoUnread } from '@/hooks/useTheoUnread';
 
 // Teaching tab: shows for 7 days after first mount, then disappears.
 const TEACH_KEY = 'theo-tab-teaching-v1';
@@ -72,6 +73,7 @@ export function AiAssistantBubble() {
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
   const { visible: teachingVisible, dismiss: dismissTeaching } = useTheoTeachingTab();
+  const { count: theoUnreadCount, latestId: theoUnreadLatestId, markRead: markTheoRead } = useTheoUnread();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -228,6 +230,18 @@ export function AiAssistantBubble() {
       setTimeout(() => inputRef.current?.focus(), 200);
     }
   }, [open]);
+
+  // When the chat opens and there are unread Theo messages, mark them read
+  // once the panel has settled (chat auto-scrolls to the newest, which is the
+  // "scrolled into view" trigger the user requested).
+  useEffect(() => {
+    if (!open) return;
+    if (theoUnreadCount === 0 || !theoUnreadLatestId) return;
+    const t = setTimeout(() => {
+      markTheoRead(theoUnreadLatestId).catch(() => { /* ignore */ });
+    }, 450);
+    return () => clearTimeout(t);
+  }, [open, theoUnreadCount, theoUnreadLatestId, markTheoRead]);
 
   // Allow the manager-dash THEO orb (and other UI) to open Theo via a
   // global window event. Keeps the bubble decoupled from its triggers.
@@ -406,8 +420,8 @@ export function AiAssistantBubble() {
             >
               {isMobile ? 'Theo moved ↓' : 'Ask Theo'}
             </span>
-            {hasUnreadBriefing && (
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white animate-pulse" />
+            {(hasUnreadBriefing || theoUnreadCount > 0) && (
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse ring-2 ring-white/40" />
             )}
           </motion.button>
         )}

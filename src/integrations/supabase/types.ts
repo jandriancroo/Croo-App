@@ -9377,6 +9377,48 @@ export type Database = {
           },
         ]
       }
+      theo_read_state: {
+        Row: {
+          id: string
+          last_read_at: string
+          last_read_message_id: string | null
+          location_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_read_at?: string
+          last_read_message_id?: string | null
+          location_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_read_at?: string
+          last_read_message_id?: string | null
+          location_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theo_read_state_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "theo_read_state_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       time_punches: {
         Row: {
           approved_at: string | null
@@ -10363,6 +10405,15 @@ export type Database = {
           organization_id: string
         }[]
       }
+      get_theo_unread: {
+        Args: { p_location_id: string }
+        Returns: {
+          latest_created_at: string
+          latest_message_id: string
+          latest_preview: string
+          unread_count: number
+        }[]
+      }
       get_tracker_ranking: {
         Args: {
           _end_date: string
@@ -10440,6 +10491,10 @@ export type Database = {
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
+      mark_theo_read: {
+        Args: { p_location_id: string; p_message_id: string }
+        Returns: undefined
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string

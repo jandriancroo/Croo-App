@@ -24,6 +24,7 @@ import { ProjectionIcon } from '@/components/ui/projection-tag';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { TheoOrb } from '@/components/dock/TheoOrb';
+import { useTheoUnread } from '@/hooks/useTheoUnread';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -151,6 +152,10 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     if (nick?.trim()) return nick.trim();
     return userProfile.full_name.split(' ')[0];
   }, [userProfile]);
+
+  // Theo unread state — drives the red dot on the orb + speech bubble swap.
+  const { count: theoUnreadCount, preview: theoUnreadPreview } = useTheoUnread();
+  const hasUnreadTheo = theoUnreadCount > 0;
   
   // Format time in location timezone (no seconds)
   const formattedTime = useMemo(() => {
@@ -707,6 +712,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                         data-tour="theo-orb"
                         label="Open Theo"
                         nudge={false}
+                        unread={hasUnreadTheo}
                         onClick={() => {
                           window.dispatchEvent(new CustomEvent('open-theo'));
                         }}
@@ -714,20 +720,40 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                     </div>
                   </div>
 
-                  {/* Theo speech bubble — centered under the orb, in-flow so cards push down */}
-                  {teaching && (
+                  {/* Theo speech bubble — centered under the orb, in-flow so cards push down.
+                      Unread message always wins over the static greeting. */}
+                  {(hasUnreadTheo || teaching) && (
                     <div className="flex justify-end mr-10 mb-4 animate-scale-in">
-                      {/* Match orb column width (58px) so inner bubble centers under it */}
-                      <div className="relative flex justify-center" style={{ width: 58 }}>
-                        <div className="relative px-3 py-2 rounded-2xl bg-accent-foreground text-accent shadow-lg whitespace-nowrap">
+                      {/* Wider when showing a message preview, tight when static greeting */}
+                      <div
+                        className="relative flex justify-center"
+                        style={{ width: hasUnreadTheo ? 180 : 58 }}
+                      >
+                        <div className="relative px-3 py-2 rounded-2xl bg-accent-foreground text-accent shadow-lg">
                           {/* Tail pointing up to the orb above */}
-                          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-accent-foreground" />
-                          <p className="text-[11px] font-semibold leading-tight">
-                            Hey, I'm Theo 👋
-                          </p>
-                          <p className="text-[10px] font-medium leading-tight opacity-90 mt-0.5">
-                            Tap me anytime!
-                          </p>
+                          <div className="absolute -top-1 right-[15px] w-3 h-3 rotate-45 bg-accent-foreground" />
+                          {hasUnreadTheo ? (
+                            <>
+                              <p className="text-[9px] font-bold tracking-[0.12em] uppercase text-red-500 leading-none mb-0.5">
+                                New message
+                              </p>
+                              <p className="text-[11px] font-semibold leading-snug line-clamp-2">
+                                {theoUnreadPreview || 'Theo has an update for you'}
+                              </p>
+                              <p className="text-[10px] font-medium leading-tight opacity-70 mt-0.5">
+                                Tap to read
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-[11px] font-semibold leading-tight whitespace-nowrap">
+                                Hey, I'm Theo 👋
+                              </p>
+                              <p className="text-[10px] font-medium leading-tight opacity-90 mt-0.5 whitespace-nowrap">
+                                Tap me anytime!
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
