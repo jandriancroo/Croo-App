@@ -1053,39 +1053,42 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             </div>
           </div>
           
-          {/* Mobile Location Picker - centered */}
-          {(currentLocation || isOnOrgDash) && (
-            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" ref={headerLocationRef}>
-              <Button 
-                variant="ghost" 
-                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+          {(() => {
+            const showOvation = canViewOvation !== false && location.pathname === '/dashboard';
+            const showLocation = !!(currentLocation || isOnOrgDash);
+            const LocationBtn = showLocation ? (
+              <Button
+                variant="ghost"
+                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground px-2"
                 onClick={() => setLocationDialogOpen(true)}
                 data-tour="location-picker"
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate max-w-[160px]">
+                <span className="truncate max-w-[140px]">
                   {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
               </Button>
-            </div>
-          )}
-          
-          {/* Mobile Ovation Score - only on dashboard */}
-          {canViewOvation !== false && location.pathname === '/dashboard' && (
-            <div className="ml-auto mr-2">
-              <OvationScorePopover key={`ovation-mobile-${currentLocation?.id ?? 'pending'}`} />
-            </div>
-          )}
+            ) : null;
+
+            return (
+              <div
+                className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2"
+                ref={headerLocationRef}
+              >
+                {LocationBtn}
+                {showOvation && (
+                  <OvationScorePopover key={`ovation-mobile-${currentLocation?.id ?? 'pending'}`} />
+                )}
+              </div>
+            );
+          })()}
 
           {/* Mobile Menu - Profile Avatar */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className={cn(
-                  "p-1 rounded-full transition-colors",
-                  !(canViewOvation !== false && location.pathname === '/dashboard') && "ml-auto"
-                )}
+                className="p-1 rounded-full transition-colors ml-auto"
                 title="More options"
               >
                 <Avatar className="h-9 w-9 ring-2 ring-white/30">
@@ -1094,6 +1097,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 </Avatar>
               </button>
             </SheetTrigger>
+
             <SheetContent side="bottom" className="h-auto">
               <SheetHeader>
                 <SheetTitle>Menu</SheetTitle>
