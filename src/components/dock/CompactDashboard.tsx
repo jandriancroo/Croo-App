@@ -673,15 +673,25 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
           {/* Content */}
           <div className="px-4 pb-safe overflow-y-auto" style={{ maxHeight: 'calc(75vh - 60px)' }}>
-            {/* Row 1: "Hey Name" fills left, THEO orb pinned right.
+            {/* Row 1: small time above greeting, THEO orb pinned right.
                 Tapping the orb opens Theo (listened for in AiAssistantBubble). */}
-            <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-2xl font-bold text-accent-foreground flex-1 min-w-0 truncate">
-                Hey {firstName}
-              </h2>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-accent-foreground/70 tabular-nums leading-none mb-1">
+                  {formattedTime}
+                </p>
+                <h2 className="text-2xl font-bold text-accent-foreground truncate leading-tight">
+                  Hey {firstName}
+                </h2>
+                {paceStatus && (
+                  <p className="text-sm font-medium text-accent-foreground/90 mt-1 leading-snug">
+                    {paceStatus.greeting}
+                  </p>
+                )}
+              </div>
               <TheoOrb
                 size={58}
-                className="mr-10"
+                className="mr-10 shrink-0"
                 data-tour="theo-orb"
                 label="Open Theo"
                 onClick={() => {
@@ -689,18 +699,6 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                 }}
               />
             </div>
-            
-            {/* Row 2: Pace status message (high contrast on orange bg) */}
-            {paceStatus && (
-              <p className="text-base font-medium text-accent-foreground/90 mb-2">
-                {paceStatus.greeting}
-              </p>
-            )}
-            
-            {/* Row 3: Clock */}
-            <h1 className="text-4xl font-bold text-accent-foreground tracking-tight tabular-nums mb-4">
-              {formattedTime}
-            </h1>
 
             {/* Sales & Pace Cards */}
             <div className="grid grid-cols-2 gap-3 mb-4">
