@@ -711,7 +711,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                       size={58}
                       data-tour="theo-orb"
                       label="Open Theo"
-                      nudge={teaching}
+                      nudge={false}
                       onClick={() => {
                         window.dispatchEvent(new CustomEvent('open-theo'));
                       }}
