@@ -651,6 +651,17 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   return (
     <AnimatePresence>
       {isExpanded && (
+        <>
+          {/* Backdrop fade behind the slide-up sheet */}
+          <motion.div
+            key="dock-dash-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[55] bg-black/60"
+            onClick={onClose}
+          />
         <motion.div
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
@@ -663,6 +674,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           className="fixed bottom-0 left-0 right-0 z-[60] bg-accent rounded-t-3xl"
           style={{ height: '75vh', touchAction: 'none' }}
         >
+
           {/* Drag Handle */}
           <div className="flex justify-center pt-3 pb-2">
             <div className="w-12 h-1.5 bg-accent-foreground/30 rounded-full" />
