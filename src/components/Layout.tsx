@@ -1098,6 +1098,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       className={showLocation ? 'rounded-r-lg' : undefined}
                       expanded={ovationExpanded}
                       onToggle={() => setOvationExpanded(prev => !prev)}
+                      onClose={() => setOvationExpanded(false)}
                     />
                   )}
 
