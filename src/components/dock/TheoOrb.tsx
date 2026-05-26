@@ -73,13 +73,25 @@ export function TheoOrb({
     const sphere = makeSpherePoints(900);
     const halo = makeHaloPoints(180);
 
+    // Pick dot color based on the theme — read the foreground token from
+    // the orb's nearest computed style so it inverts with light/dark mode.
+    const readDotRGB = () => {
+      const fg = getComputedStyle(canvas).color || 'rgb(20,20,20)';
+      const m = fg.match(/\d+(\.\d+)?/g);
+      if (!m || m.length < 3) return '20,20,20';
+      return `${Math.round(+m[0])},${Math.round(+m[1])},${Math.round(+m[2])}`;
+    };
+    let dotRGB = readDotRGB();
+
+    const themeObserver = new MutationObserver(() => { dotRGB = readDotRGB(); });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+
     let start = performance.now();
 
     const render = (now: number) => {
       const t = (now - start) / 1000;
       ctx.clearRect(0, 0, size, size);
 
-      // Subtle breathing
       const breath = 1 + Math.sin(t * 1.8) * 0.025;
       const rotY = t * 0.55;
       const rotX = Math.sin(t * 0.4) * 0.25;
@@ -88,21 +100,20 @@ export function TheoOrb({
       const cosX = Math.cos(rotX);
       const sinX = Math.sin(rotX);
 
-      // Wispy halo (background layer)
+      // Wispy halo
       for (const p of halo) {
         const x1 = p.x * cosY - p.z * sinY;
         const z1 = p.x * sinY + p.z * cosY;
         const y1 = p.y * cosX - z1 * sinX;
         const sx = cx + x1 * radius * breath;
         const sy = cy + y1 * radius * breath;
-        const alpha = 0.08 + p.jitter * 0.18;
-        ctx.fillStyle = `rgba(220,235,255,${alpha})`;
+        const alpha = 0.06 + p.jitter * 0.14;
+        ctx.fillStyle = `rgba(${dotRGB},${alpha})`;
         ctx.fillRect(sx, sy, 1, 1);
       }
 
       // Sphere points
       for (const p of sphere) {
-        // rotate Y then X
         const x1 = p.x * cosY - p.z * sinY;
         const z1 = p.x * sinY + p.z * cosY;
         const y1 = p.y * cosX - z1 * sinX;
@@ -111,11 +122,10 @@ export function TheoOrb({
         const sx = cx + x1 * radius * breath;
         const sy = cy + y1 * radius * breath;
 
-        // Depth: -1 (back) .. 1 (front)
         const depth = (z2 + 1) / 2;
-        const alpha = 0.15 + depth * 0.85;
-        const dotSize = depth > 0.5 ? 1.2 : 1;
-        ctx.fillStyle = `rgba(240,248,255,${alpha})`;
+        const alpha = 0.18 + depth * 0.78;
+        const dotSize = depth > 0.55 ? 1.3 : 1;
+        ctx.fillStyle = `rgba(${dotRGB},${alpha})`;
         ctx.fillRect(sx, sy, dotSize, dotSize);
       }
 
@@ -125,6 +135,7 @@ export function TheoOrb({
     rafRef.current = requestAnimationFrame(render);
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      themeObserver.disconnect();
     };
   }, [size]);
 
@@ -136,38 +147,19 @@ export function TheoOrb({
       data-tour={rest['data-tour']}
       className={cn(
         'relative inline-flex items-center justify-center shrink-0 rounded-full',
-        'overflow-visible',
+        // text color drives the canvas dot color (themed via parent).
+        // Default to current foreground; parent can override with text-* class.
+        'text-accent-foreground',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-foreground/40',
         'transition-transform active:scale-95',
         className,
       )}
       style={{ width: size, height: size }}
     >
-      {/* Soft radial backdrop so dots stay legible on any background
-          without an ugly black disc */}
-      <span
-        aria-hidden
-        className="absolute inset-[-25%] rounded-full pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(circle at 50% 50%, rgba(10,20,40,0.55) 0%, rgba(10,20,40,0.25) 40%, rgba(10,20,40,0) 70%)',
-          filter: 'blur(2px)',
-        }}
-      />
-      {/* Outer glow */}
-      <span
-        aria-hidden
-        className="absolute inset-[-20%] rounded-full pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(circle at 50% 50%, rgba(186,230,253,0.35) 0%, rgba(125,211,252,0.15) 45%, transparent 70%)',
-          filter: 'blur(6px)',
-        }}
-      />
       {nudge && (
         <span
           aria-hidden
-          className="absolute inset-[-4px] rounded-full border border-accent-foreground/60 animate-ping"
+          className="absolute inset-[-4px] rounded-full border border-current opacity-60 animate-ping"
         />
       )}
       <canvas
