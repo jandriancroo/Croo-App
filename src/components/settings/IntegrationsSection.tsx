@@ -1690,6 +1690,107 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Clover Dialog ── */}
+      <Dialog open={editingIntegration === 'clover'} onOpenChange={(open) => !open && setEditingIntegration(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plug className="h-5 w-5" /> Clover POS
+            </DialogTitle>
+            <DialogDescription>
+              Connect a Clover merchant to pull orders & payments. Create an API token in Clover under Setup → API Tokens.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Active</Label>
+              <Switch checked={cloverIsActive} onCheckedChange={setCloverIsActive} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="clover-merchant" className="text-sm">Merchant ID</Label>
+              <Input
+                id="clover-merchant"
+                value={cloverMerchantId}
+                onChange={(e) => setCloverMerchantId(e.target.value)}
+                placeholder="e.g. ABC123XYZ4567"
+                className="h-9 font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="clover-token" className="text-sm">API Token (Private)</Label>
+              <div className="relative">
+                <Input
+                  id="clover-token"
+                  type={cloverShowToken ? 'text' : 'password'}
+                  value={cloverApiToken}
+                  onChange={(e) => setCloverApiToken(e.target.value)}
+                  placeholder="Paste the private token from Clover"
+                  className="h-9 pr-10 font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setCloverShowToken((s) => !s)}
+                >
+                  {cloverShowToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">Environment</Label>
+              <Select value={cloverEnvironment} onValueChange={(v) => setCloverEnvironment(v as any)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="production">Production (api.clover.com)</SelectItem>
+                  <SelectItem value="sandbox">Sandbox (apisandbox.dev.clover.com)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {cloverTestMessage && (
+              <div className={`text-xs rounded-md p-2 ${cloverTestResult === 'success' ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'}`}>
+                {cloverTestMessage}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={testCloverConnection}
+                disabled={cloverIsTesting || !cloverApiToken || !cloverMerchantId}
+              >
+                {cloverIsTesting ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : cloverTestResult === 'success' ? (
+                  <Check className="h-4 w-4 mr-1.5 text-green-500" />
+                ) : cloverTestResult === 'error' ? (
+                  <X className="h-4 w-4 mr-1.5 text-red-500" />
+                ) : (
+                  <TestTube className="h-4 w-4 mr-1.5" />
+                )}
+                Test
+              </Button>
+              <Button
+                size="sm"
+                onClick={saveCloverCredentials}
+                disabled={cloverIsSaving || !cloverApiToken || !cloverMerchantId}
+              >
+                {cloverIsSaving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
