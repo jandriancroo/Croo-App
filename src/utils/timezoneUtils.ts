@@ -317,6 +317,9 @@ const DEFAULT_CUTOFF_HOUR = 5;
  * e.g., if close is midnight (24) and this is 3, business day resets at 3 AM.
  */
 const HOURS_AFTER_CLOSE = 3;
+// Cutoff only treated as "overnight rollback" when it lands in the early morning.
+// Above this hour, the cutoff value reflects a daytime close with no overnight ambiguity.
+const OVERNIGHT_CUTOFF_MAX = 12;
 
 /**
  * Calculate the business day cutoff hour based on location close time.
@@ -351,7 +354,7 @@ export const getBusinessDateInTimezone = (
 ): string => {
   const cutoffHour = calculateCutoffHour(closeTime);
   const now = new Date();
-  
+
   // Get current hour in the timezone
   const hourStr = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
@@ -359,14 +362,20 @@ export const getBusinessDateInTimezone = (
     hour12: false
   }).format(now);
   const currentHour = parseInt(hourStr, 10);
-  
-  // If before cutoff, use yesterday's date
-  if (currentHour < cutoffHour) {
+
+  // The cutoff only represents a "still yesterday" window when it lands in the
+  // early-morning hours (i.e., the store closed late and wraps past midnight).
+  // For daytime closes (e.g. 8 PM → cutoff 23), there is no overnight ambiguity
+  // and we must NOT roll back — otherwise nearly every hour of today is treated
+  // as yesterday's business day.
+  const isOvernightCutoff = cutoffHour > 0 && cutoffHour < OVERNIGHT_CUTOFF_MAX;
+
+  if (isOvernightCutoff && currentHour < cutoffHour) {
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     return getDateInTimezone(yesterday, timezone);
   }
-  
+
   return getTodayInTimezone(timezone);
 };
 
@@ -395,7 +404,8 @@ export const getBusinessDateForTimestamp = (
   }).format(date);
   const hour = parseInt(hourStr, 10);
 
-  if (hour < cutoffHour) {
+  const isOvernightCutoff = cutoffHour > 0 && cutoffHour < OVERNIGHT_CUTOFF_MAX;
+  if (isOvernightCutoff && hour < cutoffHour) {
     const prev = new Date(date);
     prev.setDate(prev.getDate() - 1);
     return getDateInTimezone(prev, timezone);
