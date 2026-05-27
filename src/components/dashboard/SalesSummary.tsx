@@ -463,11 +463,25 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return Array.from(map.entries()).map(([paymentType, amount]) => ({ paymentType, amount }));
     };
 
+    const normalizeProductMix = (rawMix: unknown): Array<{ name: string; quantity: number; sales: number; category: string }> => {
+      if (!Array.isArray(rawMix)) return [];
+
+      return rawMix
+        .map((item: any) => ({
+          name: String(item?.name ?? item?.itemName ?? item?.item_name ?? 'Item'),
+          quantity: Number(item?.quantity ?? item?.qty ?? 0) || 0,
+          sales: Number(item?.sales ?? item?.netSales ?? item?.gross ?? 0) || 0,
+          category: String(item?.category ?? item?.group ?? item?.itemGroup ?? 'Uncategorized'),
+        }))
+        .filter((item) => item.name && (item.quantity > 0 || item.sales > 0));
+    };
+
     const dailyPayments = cached?.payments_data && Array.isArray(cached.payments_data)
       ? (cached.payments_data as Array<{ paymentType: string; amount: number }>)
       : [];
     const weeklyPayments = aggregatePayments(weekPaymentsResult.data || []);
     const monthlyPayments = aggregatePayments(monthPaymentsResult.data || []);
+    const productMix = normalizeProductMix(cached?.product_mix);
 
     return {
       daily: cached ? (Number(cached.net_sales) || 0) : 0,
@@ -483,6 +497,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       },
       avgTicket: cached?.avg_ticket ? Number(cached.avg_ticket) : undefined,
       pizzaCount: cached?.pizza_count || 0,
+      productMix,
       payments: (dailyPayments.length > 0 || weeklyPayments.length > 0 || monthlyPayments.length > 0)
         ? { daily: dailyPayments, weekly: weeklyPayments, monthly: monthlyPayments }
         : null,
