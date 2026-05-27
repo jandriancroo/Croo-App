@@ -115,12 +115,15 @@ async function processTask(
       return await processLaborIntelligence(supabaseUrl, supabaseKey, task);
     case "backfill_sales":
       return await processBackfillSales(supabase, supabaseUrl, supabaseKey, task);
+    case "backfill_clover_sales":
+      return await processBackfillCloverSales(supabase, supabaseUrl, supabaseKey, task);
     case "opus_bulk_extract":
       return await processOpusBulkExtract(supabaseUrl, supabaseKey, task);
     default:
       throw new Error(`Unknown task type: ${task.task_type}`);
   }
 }
+
 
 // ============================================================================
 // DAILY SUMMARY — calls support-email-service
@@ -441,4 +444,72 @@ async function processOpusBulkExtract(supabaseUrl: string, supabaseKey: string, 
 
   if (result.error) throw new Error(result.error);
   return result;
+}
+
+// ============================================================================
+// BACKFILL CLOVER SALES — calls clover-sync sync_dates (Playa Bowls only)
+// Mirrors processBackfillSales but routes to the Clover mailroom path.
+// ============================================================================
+async function processBackfillCloverSales(
+  supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  supabaseKey: string,
+  task: any
+) {
+  const locationId = task.location_id;
+  const batchEndDate = new Date(task.target_date + "T12:00:00Z");
+
+  const dates: string[] = [];
+  for (let i = 0; i < BACKFILL_BATCH_DAYS; i++) {
+    const d = new Date(batchEndDate);
+    d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+
+  console.log(`[QUEUE] backfill_clover_sales: ${locationId} batch ending ${task.target_date}, ${dates.length} dates`);
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/clover-sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({ action: "sync_dates", locationId, dates }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
+
+  const result = await response.json();
+  const synced = Array.isArray(result?.results) ? result.results.filter((r: any) => !r.error).length : 0;
+  console.log(`[QUEUE] backfill_clover_sales batch done: ${synced}/${dates.length} days synced`);
+
+  const today = new Date();
+  const oldestDateInBatch = new Date(batchEndDate);
+  oldestDateInBatch.setDate(oldestDateInBatch.getDate() - (BACKFILL_BATCH_DAYS - 1));
+  const daysCovered = Math.floor((today.getTime() - oldestDateInBatch.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysCovered < BACKFILL_TOTAL_DAYS) {
+    const nextEndDate = new Date(oldestDateInBatch);
+    nextEndDate.setDate(nextEndDate.getDate() - 1);
+    const nextDateStr = nextEndDate.toISOString().slice(0, 10);
+
+    const { error: queueError } = await supabase
+      .from("maintenance_queue")
+      .insert({
+        task_type: "backfill_clover_sales",
+        location_id: locationId,
+        target_date: nextDateStr,
+        status: "pending",
+      });
+
+    if (queueError) {
+      console.error(`[QUEUE] Failed to queue next clover backfill batch:`, queueError);
+    } else {
+      console.log(`[QUEUE] Queued next clover backfill batch for ${locationId} ending ${nextDateStr} (${daysCovered}/${BACKFILL_TOTAL_DAYS} days covered)`);
+    }
+  } else {
+    console.log(`[QUEUE] ✓ Clover backfill complete for ${locationId}: ${daysCovered} days covered`);
+  }
+
+  return { synced, total: dates.length, dates };
 }

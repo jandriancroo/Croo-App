@@ -21,12 +21,14 @@ const BASE = (env: string) =>
   env === "sandbox" ? "https://apisandbox.dev.clover.com" : "https://api.clover.com";
 
 interface Body {
-  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_all_today";
-  locationId?: string;    // required except for sync_all_today
+  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_dates" | "sync_all_today" | "sync_all_yesterday";
+  locationId?: string;    // required except for sync_all_*
   date?: string;          // yyyy-MM-dd, for sync_date
   startDate?: string;     // for sync_range
   endDate?: string;       // for sync_range
+  dates?: string[];       // for sync_dates (batch)
 }
+
 
 interface CloverCreds {
   api_token: string;
@@ -322,6 +324,55 @@ async function syncOneDay(
     .upsert(mailRow, { onConflict: "location_id,sale_date" });
   if (mailErr) throw new Error(`sales_cache upsert failed for ${date}: ${mailErr.message}`);
 
+  // ── YOY projection seed (only if missing) ──────────────────────────────
+  // Pull same-day last year (-364 days to keep day-of-week aligned).
+  try {
+    const existingProj = existingMail ?? {};
+    const hasProjection =
+      (existingProj.living_projection ?? 0) > 0 ||
+      (existingProj.initial_projection ?? 0) > 0 ||
+      (existingProj.override_projection ?? 0) > 0;
+    if (!hasProjection) {
+      const yoyDate = addDays(date, -364);
+      const { data: yoy } = await supabase
+        .from("sales_cache")
+        .select("net_sales, hourly_data")
+        .eq("location_id", locationId)
+        .eq("sale_date", yoyDate)
+        .maybeSingle();
+      const yoyNet = Number(yoy?.net_sales ?? 0);
+      if (yoyNet > 0) {
+        await supabase.from("sales_cache").update({
+          initial_projection: yoyNet,
+          living_projection: yoyNet,
+          yoy_sale_date: yoyDate,
+          yoy_net_sales: yoyNet,
+          yoy_hourly_data: yoy?.hourly_data ?? null,
+        }).eq("location_id", locationId).eq("sale_date", date);
+      }
+    } else {
+      // Still backfill yoy_* reference fields if missing (cheap, read-only refs).
+      if (!existingProj.yoy_net_sales) {
+        const yoyDate = addDays(date, -364);
+        const { data: yoy } = await supabase
+          .from("sales_cache")
+          .select("net_sales, hourly_data")
+          .eq("location_id", locationId)
+          .eq("sale_date", yoyDate)
+          .maybeSingle();
+        if (yoy?.net_sales) {
+          await supabase.from("sales_cache").update({
+            yoy_sale_date: yoyDate,
+            yoy_net_sales: Number(yoy.net_sales),
+            yoy_hourly_data: yoy.hourly_data ?? null,
+          }).eq("location_id", locationId).eq("sale_date", date);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`[clover-sync] YOY seed skipped for ${date}:`, e);
+  }
+
   return {
     date,
     net_sales: agg.netSales,
@@ -330,6 +381,7 @@ async function syncOneDay(
     payments: payments.length,
   };
 }
+
 
 // ── Handler ─────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
@@ -345,8 +397,8 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // ── Fan-out: sync today for every active Playa Clover location ───────
-    if (action === "sync_all_today") {
+    // ── Fan-out: sync today/yesterday for every active Playa Clover location ──
+    if (action === "sync_all_today" || action === "sync_all_yesterday") {
       const { data: integrations, error } = await supabase
         .from("location_integrations")
         .select("location_id, locations!inner(id, name, organizations!inner(brand_id))")
@@ -358,16 +410,17 @@ Deno.serve(async (req) => {
         (i: any) => i.locations?.organizations?.brand_id === PLAYA_BOWLS_BRAND_ID,
       );
       const today = pstNow().date;
+      const target = action === "sync_all_today" ? today : addDays(today, -1);
       const results: any[] = [];
       for (const i of playaLocations) {
         const lid = i.location_id as string;
         const lname = i.locations?.name as string;
         try {
           const creds = await getCloverCreds(supabase, lid);
-          const r = await syncOneDay(supabase, lid, creds, today);
+          const r = await syncOneDay(supabase, lid, creds, target);
           results.push({ location: lname, ...r });
         } catch (e) {
-          console.error(`[clover-sync] fan-out ${lid} failed:`, e);
+          console.error(`[clover-sync] fan-out ${lid} ${target} failed:`, e);
           results.push({ location: lname, locationId: lid, error: e instanceof Error ? e.message : String(e) });
         }
       }
@@ -395,9 +448,16 @@ Deno.serve(async (req) => {
       let cur = body.startDate;
       while (cur <= body.endDate) { dates.push(cur); cur = addDays(cur, 1); }
       if (dates.length > 60) throw new Error("range too large (max 60 days)");
+    } else if (action === "sync_dates") {
+      if (!Array.isArray(body.dates) || body.dates.length === 0) {
+        throw new Error("dates[] required for sync_dates");
+      }
+      if (body.dates.length > 30) throw new Error("max 30 dates per sync_dates call");
+      dates = body.dates;
     } else {
       throw new Error(`unknown action: ${action}`);
     }
+
 
     const results: any[] = [];
     for (const d of dates) {
