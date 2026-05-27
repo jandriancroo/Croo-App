@@ -542,6 +542,46 @@ html[data-theme="playa"] body.playa-dashboard .glass-card {
 }
 
 
+/* Blaze Pizza background — dashboard only (toggled via .blaze-dashboard class on body) */
+html[data-theme="blaze"] body.blaze-dashboard {
+  background:
+    linear-gradient(180deg, hsl(32 52% 94% / 0.62) 0%, hsl(32 52% 94% / 0.62) 100%),
+    url('/images/blaze-pizza.jpg') center/cover no-repeat fixed !important;
+}
+
+html[data-theme="blaze"] body.blaze-dashboard::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: inherit;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+html[data-theme="blaze"] body.blaze-dashboard .bg-background {
+  background-color: transparent !important;
+}
+
+html[data-theme="blaze"] body.blaze-dashboard .bg-card {
+  background-color: hsl(0 0% 100% / 0.9) !important;
+}
+
+html[data-theme="blaze"] body.blaze-dashboard [data-radix-popper-content-wrapper] *,
+html[data-theme="blaze"] body.blaze-dashboard [role="listbox"],
+html[data-theme="blaze"] body.blaze-dashboard [role="menu"],
+html[data-theme="blaze"] body.blaze-dashboard [role="dialog"],
+html[data-theme="blaze"] body.blaze-dashboard [data-radix-menu-content],
+html[data-theme="blaze"] body.blaze-dashboard [vaul-drawer],
+html[data-theme="blaze"] body.blaze-dashboard .glass-card {
+  background-color: hsl(var(--popover)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+
+
 /* Beach mobile header — sky blue */
 [data-theme="beach"] header.bg-primary {
   background: hsl(205 65% 62%) !important;
