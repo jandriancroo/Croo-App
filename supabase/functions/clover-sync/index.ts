@@ -107,9 +107,13 @@ async function getCloverCreds(supabase: any, locationId: string): Promise<Clover
 }
 
 // ── Clover API ──────────────────────────────────────────────────────────────
-async function cloverFetch(creds: CloverCreds, path: string, qs: Record<string, string | number> = {}) {
+async function cloverFetch(
+  creds: CloverCreds,
+  path: string,
+  qs: Array<[string, string | number]> = [],
+) {
   const url = new URL(`${BASE(creds.environment ?? "production")}${path}`);
-  for (const [k, v] of Object.entries(qs)) url.searchParams.set(k, String(v));
+  for (const [k, v] of qs) url.searchParams.append(k, String(v));
   const r = await fetch(url, { headers: { Authorization: `Bearer ${creds.api_token}` } });
   if (!r.ok) {
     const text = await r.text();
@@ -123,20 +127,19 @@ async function fetchOrdersForWindow(creds: CloverCreds, startMs: number, endMs: 
   const all: any[] = [];
   const limit = 1000;
   let offset = 0;
-  // Expand line items + payments for full picture; "state=open" excluded — we only want paid.
   while (true) {
-    const filter = `clientCreatedTime>=${startMs} AND clientCreatedTime<${endMs}`;
-    const page = await cloverFetch(creds, `/v3/merchants/${creds.merchant_id}/orders`, {
-      filter,
-      expand: "lineItems,payments",
-      limit,
-      offset,
-    });
+    const page = await cloverFetch(creds, `/v3/merchants/${creds.merchant_id}/orders`, [
+      ["filter", `clientCreatedTime>=${startMs}`],
+      ["filter", `clientCreatedTime<${endMs}`],
+      ["expand", "lineItems,payments"],
+      ["limit", limit],
+      ["offset", offset],
+    ]);
     const items: any[] = page.elements ?? [];
     all.push(...items);
     if (items.length < limit) break;
     offset += limit;
-    if (offset > 20000) break; // safety
+    if (offset > 20000) break;
   }
   return all;
 }
@@ -146,13 +149,13 @@ async function fetchPaymentsForWindow(creds: CloverCreds, startMs: number, endMs
   const limit = 1000;
   let offset = 0;
   while (true) {
-    const filter = `createdTime>=${startMs} AND createdTime<${endMs}`;
-    const page = await cloverFetch(creds, `/v3/merchants/${creds.merchant_id}/payments`, {
-      filter,
-      expand: "tender",
-      limit,
-      offset,
-    });
+    const page = await cloverFetch(creds, `/v3/merchants/${creds.merchant_id}/payments`, [
+      ["filter", `createdTime>=${startMs}`],
+      ["filter", `createdTime<${endMs}`],
+      ["expand", "tender"],
+      ["limit", limit],
+      ["offset", offset],
+    ]);
     const items: any[] = page.elements ?? [];
     all.push(...items);
     if (items.length < limit) break;
