@@ -292,6 +292,36 @@ async function syncOneDay(
     .upsert(row, { onConflict: "location_id,sale_date" });
   if (error) throw new Error(`Upsert failed for ${date}: ${error.message}`);
 
+  // ── Dual-write: normalized row into the shared mailroom (sales_cache) ────
+  // Conditional spread protects projections/overrides set elsewhere.
+  const { data: existingMail } = await supabase
+    .from("sales_cache")
+    .select("projected_sales, living_projection, override_projection, override_at, override_by, initial_projection, validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data")
+    .eq("location_id", locationId)
+    .eq("sale_date", date)
+    .maybeSingle();
+
+  const mailRow = {
+    ...(existingMail ?? {}),
+    location_id: locationId,
+    sale_date: date,
+    pos_source: "clover",
+    net_sales: agg.netSales,
+    guest_count: agg.guestCount,
+    pizza_count: 0,
+    avg_ticket: agg.avgTicket,
+    hourly_data: agg.hourly,
+    product_mix: agg.productMix,
+    payments_data: paymentsData,
+    flagged_no_sales: agg.netSales === 0,
+    fetched_at: new Date().toISOString(),
+  };
+
+  const { error: mailErr } = await supabase
+    .from("sales_cache")
+    .upsert(mailRow, { onConflict: "location_id,sale_date" });
+  if (mailErr) throw new Error(`sales_cache upsert failed for ${date}: ${mailErr.message}`);
+
   return {
     date,
     net_sales: agg.netSales,
