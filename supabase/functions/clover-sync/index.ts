@@ -109,6 +109,8 @@ async function getCloverCreds(supabase: any, locationId: string): Promise<Clover
 }
 
 // ── Clover API ──────────────────────────────────────────────────────────────
+async function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+
 async function cloverFetch(
   creds: CloverCreds,
   path: string,
@@ -116,12 +118,26 @@ async function cloverFetch(
 ) {
   const url = new URL(`${BASE(creds.environment ?? "production")}${path}`);
   for (const [k, v] of qs) url.searchParams.append(k, String(v));
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${creds.api_token}` } });
-  if (!r.ok) {
+  // Retry on 429/5xx with exponential backoff.
+  const maxAttempts = 6;
+  let lastErr = "";
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${creds.api_token}` } });
+    if (r.ok) return r.json();
     const text = await r.text();
-    throw new Error(`Clover ${path} ${r.status}: ${text.slice(0, 300)}`);
+    lastErr = `Clover ${path} ${r.status}: ${text.slice(0, 300)}`;
+    if (r.status === 429 || r.status >= 500) {
+      // Honor Retry-After if present, else 500ms * 2^attempt + jitter.
+      const ra = parseInt(r.headers.get("retry-after") ?? "", 10);
+      const wait = Number.isFinite(ra) && ra > 0
+        ? ra * 1000
+        : 500 * Math.pow(2, attempt) + Math.floor(Math.random() * 250);
+      await sleep(Math.min(wait, 15000));
+      continue;
+    }
+    throw new Error(lastErr);
   }
-  return r.json();
+  throw new Error(`${lastErr} (after ${maxAttempts} attempts)`);
 }
 
 // Fetch all paid orders in the window. Clover paginates with offset/limit (max 1000).
