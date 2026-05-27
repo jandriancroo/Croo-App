@@ -324,6 +324,55 @@ async function syncOneDay(
     .upsert(mailRow, { onConflict: "location_id,sale_date" });
   if (mailErr) throw new Error(`sales_cache upsert failed for ${date}: ${mailErr.message}`);
 
+  // ── YOY projection seed (only if missing) ──────────────────────────────
+  // Pull same-day last year (-364 days to keep day-of-week aligned).
+  try {
+    const existingProj = existingMail ?? {};
+    const hasProjection =
+      (existingProj.living_projection ?? 0) > 0 ||
+      (existingProj.initial_projection ?? 0) > 0 ||
+      (existingProj.override_projection ?? 0) > 0;
+    if (!hasProjection) {
+      const yoyDate = addDays(date, -364);
+      const { data: yoy } = await supabase
+        .from("sales_cache")
+        .select("net_sales, hourly_data")
+        .eq("location_id", locationId)
+        .eq("sale_date", yoyDate)
+        .maybeSingle();
+      const yoyNet = Number(yoy?.net_sales ?? 0);
+      if (yoyNet > 0) {
+        await supabase.from("sales_cache").update({
+          initial_projection: yoyNet,
+          living_projection: yoyNet,
+          yoy_sale_date: yoyDate,
+          yoy_net_sales: yoyNet,
+          yoy_hourly_data: yoy?.hourly_data ?? null,
+        }).eq("location_id", locationId).eq("sale_date", date);
+      }
+    } else {
+      // Still backfill yoy_* reference fields if missing (cheap, read-only refs).
+      if (!existingProj.yoy_net_sales) {
+        const yoyDate = addDays(date, -364);
+        const { data: yoy } = await supabase
+          .from("sales_cache")
+          .select("net_sales, hourly_data")
+          .eq("location_id", locationId)
+          .eq("sale_date", yoyDate)
+          .maybeSingle();
+        if (yoy?.net_sales) {
+          await supabase.from("sales_cache").update({
+            yoy_sale_date: yoyDate,
+            yoy_net_sales: Number(yoy.net_sales),
+            yoy_hourly_data: yoy.hourly_data ?? null,
+          }).eq("location_id", locationId).eq("sale_date", date);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`[clover-sync] YOY seed skipped for ${date}:`, e);
+  }
+
   return {
     date,
     net_sales: agg.netSales,
@@ -332,6 +381,7 @@ async function syncOneDay(
     payments: payments.length,
   };
 }
+
 
 // ── Handler ─────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
