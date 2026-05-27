@@ -129,11 +129,29 @@ async function verifyAdminRole(supabaseAdmin: any, userId: string): Promise<void
   }
 }
 
-function getRedirectUrl(req: Request, supabaseUrl: string): string {
-  const origin = req.headers.get('origin') || 
-                 req.headers.get('referer')?.split('/').slice(0, 3).join('/') || 
-                 supabaseUrl;
-  return `${origin}/reset-password`;
+// Always send invite/reset links to the production app so users don't land on
+// the Lovable preview gate. Allow croohq.com subdomains (e.g. kiosk.croohq.com)
+// to keep their own origin, but ignore *.lovable.app / *.lovableproject.com /
+// localhost which would otherwise expire or be inaccessible to new hires.
+const PRODUCTION_APP_URL = 'https://croohq.com';
+
+function getRedirectUrl(req: Request, _supabaseUrl: string): string {
+  const origin =
+    req.headers.get('origin') ||
+    req.headers.get('referer')?.split('/').slice(0, 3).join('/') ||
+    '';
+
+  try {
+    const host = new URL(origin).hostname;
+    // Only honor the request origin if it's the production app or a croohq subdomain
+    if (host === 'croohq.com' || host.endsWith('.croohq.com')) {
+      return `${origin}/reset-password`;
+    }
+  } catch {
+    // fall through to production default
+  }
+
+  return `${PRODUCTION_APP_URL}/reset-password`;
 }
 
 // ============================================================================
