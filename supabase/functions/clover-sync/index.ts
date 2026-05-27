@@ -273,10 +273,10 @@ async function syncOneDay(
   date: string,
 ) {
   const { startMs, endMs } = businessDayWindowMs(date);
-  const [orders, payments] = await Promise.all([
-    fetchOrdersForWindow(creds, startMs, endMs),
-    fetchPaymentsForWindow(creds, startMs, endMs),
-  ]);
+  // Serialize to avoid Clover 429s; retry inside cloverFetch handles transient throttling.
+  const orders = await fetchOrdersForWindow(creds, startMs, endMs);
+  await sleep(150);
+  const payments = await fetchPaymentsForWindow(creds, startMs, endMs);
 
   const agg = aggregateOrders(orders, startMs);
   const paymentsData = aggregatePayments(payments);
