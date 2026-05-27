@@ -322,6 +322,82 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     }
   }, [opusIntegration]);
 
+  // Load Clover state from integration
+  useEffect(() => {
+    if (cloverIntegration) {
+      const creds = cloverIntegration.credentials as any;
+      setCloverApiToken(creds?.api_token || '');
+      setCloverMerchantId(creds?.merchant_id || '');
+      setCloverEnvironment(creds?.environment || 'production');
+      setCloverIsActive(cloverIntegration.is_active ?? true);
+    }
+  }, [cloverIntegration]);
+
+  const testCloverConnection = async () => {
+    if (!cloverApiToken || !cloverMerchantId) {
+      toast.error('Enter API token and Merchant ID');
+      return;
+    }
+    setCloverIsTesting(true);
+    setCloverTestResult(null);
+    setCloverTestMessage(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('clover-service', {
+        body: {
+          action: 'test',
+          apiToken: cloverApiToken.trim(),
+          merchantId: cloverMerchantId.trim(),
+          environment: cloverEnvironment,
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setCloverTestResult('success');
+        setCloverTestMessage(`Connected: ${data.merchant?.name || cloverMerchantId}`);
+        toast.success(`Clover connected: ${data.merchant?.name || cloverMerchantId}`);
+      } else {
+        setCloverTestResult('error');
+        setCloverTestMessage(data?.error || 'Authentication failed');
+        toast.error('Clover test failed: ' + (data?.error || 'invalid credentials'));
+      }
+    } catch (e) {
+      setCloverTestResult('error');
+      toast.error('Test failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally {
+      setCloverIsTesting(false);
+    }
+  };
+
+  const saveCloverCredentials = async () => {
+    if (!locationId || !cloverApiToken || !cloverMerchantId) {
+      toast.error('Enter API token and Merchant ID');
+      return;
+    }
+    setCloverIsSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('clover-service', {
+        body: {
+          action: 'save',
+          locationId,
+          apiToken: cloverApiToken.trim(),
+          merchantId: cloverMerchantId.trim(),
+          environment: cloverEnvironment,
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast.success('Clover credentials saved');
+        queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'clover'] });
+      } else {
+        toast.error(data?.error || 'Failed to save');
+      }
+    } catch (e) {
+      toast.error('Save failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally {
+      setCloverIsSaving(false);
+    }
+  };
+
   // Load Ovation active state from brand integration
   useEffect(() => {
     if (ovationIntegration) {
