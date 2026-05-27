@@ -35,9 +35,9 @@ const BASE = (env: string) =>
   env === "sandbox" ? "https://apisandbox.dev.clover.com" : "https://api.clover.com";
 
 interface Body {
-  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_dates" | "sync_all_today" | "sync_all_yesterday";
+  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_dates" | "sync_all_today" | "sync_all_yesterday" | "get_live_expected_cash";
   locationId?: string;    // required except for sync_all_*
-  date?: string;          // yyyy-MM-dd, for sync_date
+  date?: string;          // yyyy-MM-dd, for sync_date / get_live_expected_cash (defaults to today)
   startDate?: string;     // for sync_range
   endDate?: string;       // for sync_range
   dates?: string[];       // for sync_dates (batch)
@@ -470,6 +470,51 @@ Deno.serve(async (req) => {
     const tz = await getLocationTimezone(supabase, locationId);
 
     const today = todayInTz(tz);
+
+    // ── Live expected cash for drawer count (QU-parity behavior) ──
+    // Georgetown runs a single drawer; Clover has no shift/drawer object,
+    // so "expected cash" = sum of cash tenders − sum of cash refunds
+    // since start-of-business-day (store TZ) through right now.
+    if (action === "get_live_expected_cash") {
+      const targetDate = body.date || today;
+      const { startMs } = businessDayWindowMs(targetDate, tz);
+      const endMs = targetDate === today ? Date.now() : businessDayWindowMs(targetDate, tz).endMs;
+
+      const payments = await fetchPaymentsForWindow(creds, startMs, endMs);
+
+      let cashIn = 0;
+      let cashOut = 0;
+      let cashTxCount = 0;
+      for (const p of payments) {
+        const label = String(p?.tender?.label ?? p?.tender?.labelKey ?? "").toLowerCase();
+        const isCash = label.includes("cash");
+        if (!isCash) continue;
+        const amount = Number(p.amount ?? 0) / 100; // cents → dollars
+        const refunded = Number(p.refunded ?? 0); // boolean-ish in Clover, but guard
+        if (amount > 0 && !refunded) {
+          cashIn += amount;
+          cashTxCount += 1;
+        } else if (amount < 0) {
+          cashOut += Math.abs(amount);
+          cashTxCount += 1;
+        }
+      }
+      const expectedCash = Math.max(0, cashIn - cashOut);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          location: name,
+          date: targetDate,
+          tz,
+          expectedCash,
+          breakdown: { cashIn, cashOut, txCount: cashTxCount },
+          asOf: new Date().toISOString(),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     let dates: string[] = [];
     if (action === "sync_today") dates = [today];
     else if (action === "sync_yesterday") dates = [addDays(today, -1)];
