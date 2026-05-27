@@ -400,6 +400,37 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     }
   };
 
+  const runCloverSync = async (action: 'sync_today' | 'sync_yesterday') => {
+    if (!locationId) return;
+    setCloverIsSyncing(true);
+    setCloverSyncResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('clover-sync', {
+        body: { action, locationId },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        const r = data.results?.[0];
+        if (r?.error) {
+          setCloverSyncResult(`Error: ${r.error}`);
+          toast.error(`Clover sync failed: ${r.error}`);
+        } else {
+          const msg = `${r?.date}: $${(r?.net_sales ?? 0).toFixed(2)} · ${r?.orders ?? 0} orders · ${r?.payments ?? 0} payments`;
+          setCloverSyncResult(msg);
+          toast.success('Clover sync complete');
+        }
+      } else {
+        setCloverSyncResult(data?.error || 'Sync failed');
+        toast.error('Clover sync failed: ' + (data?.error || 'unknown'));
+      }
+    } catch (e) {
+      setCloverSyncResult(e instanceof Error ? e.message : String(e));
+      toast.error('Clover sync error: ' + (e instanceof Error ? e.message : 'Unknown'));
+    } finally {
+      setCloverIsSyncing(false);
+    }
+  };
+
   // Load Ovation active state from brand integration
   useEffect(() => {
     if (ovationIntegration) {
