@@ -216,7 +216,10 @@ function aggregateOrders(orders: any[], startMs: number) {
     if (o.state === "open" || o.state === "voided") continue;
     if (o.deletedTimestamp) continue;
 
-    const total = (o.total ?? 0) / 100; // cents → dollars
+    // Net sales = total − tax (matches Clover dashboard "Net Sales" and Blaze/QU convention)
+    const gross = (o.total ?? 0) / 100; // cents → dollars (tax-inclusive)
+    const tax = (o.taxAmount ?? 0) / 100;
+    const total = gross - tax;
     if (total <= 0) continue;
 
     netSales += total;
