@@ -755,6 +755,20 @@ export default function DynamicChecklistCalendar() {
     try {
       setSaving(true);
 
+      const trimmedTitle = (checklist.title ?? '').trim();
+      if (!trimmedTitle) {
+        toast.error('Please give the template a name');
+        setSaving(false);
+        return;
+      }
+
+      // Persist the template name
+      const { error: titleError } = await supabase
+        .from('checklists')
+        .update({ title: trimmedTitle })
+        .eq('id', checklist.id);
+      if (titleError) throw titleError;
+
       // Update all items with their day assignments
       for (const item of items) {
         const assignedDays: number[] = [];
