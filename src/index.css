@@ -475,6 +475,55 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   -webkit-backdrop-filter: none !important;
 }
 
+/* Playa background — dashboard only (toggled via .playa-dashboard class on body) */
+html[data-theme="playa"] body.playa-dashboard {
+  background:
+    linear-gradient(180deg, hsl(39 41% 93% / 0.55) 0%, hsl(39 41% 93% / 0.55) 100%),
+    url('/images/playa-bowls.jpg') center/cover no-repeat fixed !important;
+}
+
+html[data-theme="playa"] body.playa-dashboard::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: inherit;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+html[data-theme="playa"] body.playa-dashboard .bg-background {
+  background-color: transparent !important;
+}
+
+html[data-theme="playa"] body.playa-dashboard .bg-card {
+  background-color: hsl(210 17% 98% / 0.88) !important;
+}
+
+html[data-theme="playa"] body.playa-dashboard .dashboard-task-pill {
+  background-color: hsl(var(--card) / 0.94) !important;
+  border: 1px solid hsl(var(--border) / 0.45);
+  box-shadow: 0 8px 20px hsl(287 47% 25% / 0.18);
+}
+
+html[data-theme="playa"] body.playa-dashboard .dashboard-task-pill span {
+  text-shadow: 0 1px 2px hsl(0 0% 100% / 0.4);
+}
+
+html[data-theme="playa"] body.playa-dashboard [data-radix-popper-content-wrapper] *,
+html[data-theme="playa"] body.playa-dashboard [role="listbox"],
+html[data-theme="playa"] body.playa-dashboard [role="menu"],
+html[data-theme="playa"] body.playa-dashboard [role="dialog"],
+html[data-theme="playa"] body.playa-dashboard [data-radix-menu-content],
+html[data-theme="playa"] body.playa-dashboard [vaul-drawer],
+html[data-theme="playa"] body.playa-dashboard .glass-card {
+  background-color: hsl(var(--popover)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+
 /* Beach mobile header — sky blue */
 [data-theme="beach"] header.bg-primary {
   background: hsl(205 65% 62%) !important;
