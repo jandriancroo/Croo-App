@@ -1586,11 +1586,15 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     </div>
                   </div>
                 </div>
-                {lastFetchTimestamp && isToday && (
-                  <p className="text-[8px] text-white/50 mt-1 font-medium">
-                    Updated from QU at {format(lastFetchTimestamp, 'h:mm a')}
-                  </p>
-                )}
+                {lastFetchTimestamp && isToday && (() => {
+                  const pos = currentLocation?.id ? posSourceByLocation.current[currentLocation.id] : undefined;
+                  const label = pos === 'clover' ? 'Clover' : pos === 'qubeyond' ? 'QU' : 'POS';
+                  return (
+                    <p className="text-[8px] text-white/50 mt-1 font-medium">
+                      Updated from {label} at {format(lastFetchTimestamp, 'h:mm a')}
+                    </p>
+                  );
+                })()}
               </div>
 
               {/* Collapsed tab */}
