@@ -404,7 +404,8 @@ export const getBusinessDateForTimestamp = (
   }).format(date);
   const hour = parseInt(hourStr, 10);
 
-  if (hour < cutoffHour) {
+  const isOvernightCutoff = cutoffHour > 0 && cutoffHour < OVERNIGHT_CUTOFF_MAX;
+  if (isOvernightCutoff && hour < cutoffHour) {
     const prev = new Date(date);
     prev.setDate(prev.getDate() - 1);
     return getDateInTimezone(prev, timezone);
