@@ -537,6 +537,12 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
       if (pos !== 'qubeyond') {
         // Mailroom read for Clover (and future POSes). No QU call.
+        // Also kick off an immediate sync so the user doesn't wait for the 2-min cron.
+        if (pos === 'clover') {
+          supabase.functions.invoke('clover-sync', {
+            body: { action: 'sync_today', locationId: currentLocation.id },
+          }).catch((e) => console.warn('[SalesSummary] clover-sync kick failed:', e));
+        }
         const cachedData = await checkDatabaseCache(dateStr);
         return cachedData;
       }
