@@ -282,8 +282,9 @@ async function syncOneDay(
   locationId: string,
   creds: CloverCreds,
   date: string,
+  tz: string,
 ) {
-  const { startMs, endMs } = businessDayWindowMs(date);
+  const { startMs, endMs } = businessDayWindowMs(date, tz);
   // Serialize to avoid Clover 429s; retry inside cloverFetch handles transient throttling.
   const orders = await fetchOrdersForWindow(creds, startMs, endMs);
   await sleep(150);
