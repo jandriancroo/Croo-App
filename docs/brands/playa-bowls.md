@@ -44,6 +44,14 @@
 | `yoy_*` | ✅ | Seeded from `−364d` inside `syncOneDay` (full 365-day backfill complete for Georgetown 2026-05-27) |
 | `projected_sales` / `living_projection` | ✅ | YOY-seeded; uses shared projection hierarchy |
 
+### Live drawer cash (added 2026-05-27)
+- **Action:** `clover-sync` action `get_live_expected_cash` — returns current store-wide expected cash since start-of-business-day (store TZ → now).
+- **Formula:** `sum(cash tenders) − sum(cash refunds)` from `/v3/merchants/{mid}/payments?expand=tender`. Filters tender label containing "cash".
+- **Wired into:** `DrawerCountForm` — tries Clover first, falls back to `fetch-qubeyond-sales` for Blaze. No location-type detection needed.
+- **Caveat:** Store-wide only (Clover has no shift/drawer object at Georgetown). Single-drawer ops only — if Playa ever runs ≥2 simultaneous Minis, requires Clover Shifts discipline.
+- **Verified:** Georgetown 2026-05-27 returned `$9.73` mid-day, matched Clover dashboard "Cash collected".
+
+
 ---
 
 ## 3. Data Cubes & Widgets
@@ -60,6 +68,8 @@
 | **Labor % / Cost / Hours** | ❌ | No `labor_cache` rows — Clover doesn't push labor, no punch clock setup at Georgetown |
 | Tracker (Pizza/Category counts) | ❌ | No Clover item → brand category mapping yet |
 | Payment Breakdown | ✅ | |
+| **Drawer Count (live expected cash)** | ✅ | `clover-sync get_live_expected_cash`, auto-fills in LogBook drawer form |
+| Top Products (in SalesSummary) | ✅ | Reads `productMix`, sorted by quantity — Clover line-item modifiers may inflate counts |
 | KDS | ❌ | KDS is QU-streaming only |
 
 ---
@@ -97,4 +107,8 @@
 - [ ] **Voids / discounts / comps breakdown** — currently not extracted from order payload.
 - [ ] **Webhooks** — eventually replace 15-min polling with Clover webhooks for live views.
 
-**Last updated:** 2026-05-27 (after 429 retry fix + 365-day Georgetown backfill)
+**Last updated:** 2026-05-27 — added `get_live_expected_cash` action, wired Clover-first drawer count, confirmed Top Products renders from `product_mix` (collapsible at bottom of SalesSummary), Georgetown 365-day backfill complete, 429 retry fix verified.
+
+### Migration to QU (future)
+If/when Playa moves to QU: zero code changes required. Flip `location_integrations.is_active` (don't delete the Clover row — preserves backfill ability). Drawer form falls through to QU automatically. Sales/labor readers don't care about `pos_source`.
+
