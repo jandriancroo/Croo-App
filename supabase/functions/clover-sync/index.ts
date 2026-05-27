@@ -464,8 +464,9 @@ Deno.serve(async (req) => {
 
     const { name } = await assertPlayaLocation(supabase, locationId);
     const creds = await getCloverCreds(supabase, locationId);
+    const tz = await getLocationTimezone(supabase, locationId);
 
-    const today = pstNow().date;
+    const today = todayInTz(tz);
     let dates: string[] = [];
     if (action === "sync_today") dates = [today];
     else if (action === "sync_yesterday") dates = [addDays(today, -1)];
@@ -491,13 +492,14 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const d of dates) {
       try {
-        results.push(await syncOneDay(supabase, locationId, creds, d));
+        results.push(await syncOneDay(supabase, locationId, creds, d, tz));
       } catch (e) {
         console.error(`[clover-sync] ${locationId} ${d} failed:`, e);
         results.push({ date: d, error: e instanceof Error ? e.message : String(e) });
       }
       await sleep(200); // gentle pace between days
     }
+
 
     return new Response(
       JSON.stringify({ success: true, location: name, action, results }),
