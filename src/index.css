@@ -312,29 +312,29 @@ All colors MUST be HSL.
   --card-foreground: 20 10% 12%;
   --popover: 40 45% 96%;
   --popover-foreground: 20 10% 12%;
-  --primary: 18 75% 45%;
+  --primary: 22 18% 20%;
   --primary-foreground: 40 50% 96%;
-  --secondary: 32 45% 72%;
+  --secondary: 36 30% 82%;
   --secondary-foreground: 20 15% 15%;
-  --muted: 36 25% 85%;
-  --muted-foreground: 24 12% 38%;
-  --accent: 13 80% 52%;
+  --muted: 36 22% 86%;
+  --muted-foreground: 24 10% 38%;
+  --accent: 16 72% 48%;
   --accent-foreground: 40 50% 96%;
   --destructive: 8 65% 42%;
   --destructive-foreground: 40 50% 96%;
-  --border: 34 22% 75%;
-  --input: 36 28% 86%;
-  --ring: 18 75% 45%;
+  --border: 34 18% 78%;
+  --input: 36 24% 88%;
+  --ring: 16 72% 48%;
   --glass-background: 40 45% 96% / 0.85;
-  --glass-border: 18 60% 50% / 0.22;
+  --glass-border: 22 25% 30% / 0.18;
   --glass-shadow: 20 30% 15% / 0.10;
 
-  --chart-1: 18 75% 45%;
-  --chart-2: 13 80% 52%;
-  --chart-3: 32 45% 60%;
-  --chart-4: 145 30% 42%;
-  --chart-5: 38 65% 55%;
-  --chart-6: 20 15% 22%;
+  --chart-1: 16 72% 48%;
+  --chart-2: 32 55% 55%;
+  --chart-3: 145 25% 42%;
+  --chart-4: 200 30% 45%;
+  --chart-5: 38 50% 55%;
+  --chart-6: 22 18% 25%;
 }
 
 /* Playa Theme - Playa Bowls tropical: teal ocean, sunny yellow, açaí purple, sand */
