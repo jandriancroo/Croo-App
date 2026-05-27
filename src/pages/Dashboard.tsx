@@ -70,8 +70,8 @@ interface ChecklistStats {
 export default function Dashboard() {
   // Themed dashboard backgrounds (beach + playa)
   useEffect(() => {
-    document.body.classList.add('beach-dashboard', 'playa-dashboard');
-    return () => document.body.classList.remove('beach-dashboard', 'playa-dashboard');
+    document.body.classList.add('beach-dashboard', 'playa-dashboard', 'blaze-dashboard');
+    return () => document.body.classList.remove('beach-dashboard', 'playa-dashboard', 'blaze-dashboard');
   }, []);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
