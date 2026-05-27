@@ -20,8 +20,16 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
+      // Force production app for the reset link so users never land on the
+      // Lovable preview gate. Allow croohq.com subdomains to keep their host.
+      const host = window.location.hostname;
+      const base =
+        host === 'croohq.com' || host.endsWith('.croohq.com')
+          ? window.location.origin
+          : 'https://croohq.com';
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${base}/reset-password`,
       });
 
       if (error) {
