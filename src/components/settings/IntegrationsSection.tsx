@@ -74,7 +74,18 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const queryClient = useQueryClient();
 
   // Dialog state
-  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | null>(null);
+  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | 'clover' | null>(null);
+
+  // Clover state
+  const [cloverApiToken, setCloverApiToken] = useState('');
+  const [cloverMerchantId, setCloverMerchantId] = useState('');
+  const [cloverEnvironment, setCloverEnvironment] = useState<'production' | 'sandbox'>('production');
+  const [cloverIsActive, setCloverIsActive] = useState(true);
+  const [cloverShowToken, setCloverShowToken] = useState(false);
+  const [cloverIsTesting, setCloverIsTesting] = useState(false);
+  const [cloverTestResult, setCloverTestResult] = useState<'success' | 'error' | null>(null);
+  const [cloverTestMessage, setCloverTestMessage] = useState<string | null>(null);
+  const [cloverIsSaving, setCloverIsSaving] = useState(false);
 
   // QuBeyond state
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({ username: "", password: "", location_id: "", pull_labor: false });
@@ -182,6 +193,17 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     queryFn: async () => {
       if (!locationId) return null;
       const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'produce_alliance').maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
+
+  const { data: cloverIntegration, isLoading: cloverIsLoading } = useQuery({
+    queryKey: ['location-integration', locationId, 'clover'],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'clover').maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -299,6 +321,82 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setOpusIsActive(opusIntegration.is_active ?? true);
     }
   }, [opusIntegration]);
+
+  // Load Clover state from integration
+  useEffect(() => {
+    if (cloverIntegration) {
+      const creds = cloverIntegration.credentials as any;
+      setCloverApiToken(creds?.api_token || '');
+      setCloverMerchantId(creds?.merchant_id || '');
+      setCloverEnvironment(creds?.environment || 'production');
+      setCloverIsActive(cloverIntegration.is_active ?? true);
+    }
+  }, [cloverIntegration]);
+
+  const testCloverConnection = async () => {
+    if (!cloverApiToken || !cloverMerchantId) {
+      toast.error('Enter API token and Merchant ID');
+      return;
+    }
+    setCloverIsTesting(true);
+    setCloverTestResult(null);
+    setCloverTestMessage(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('clover-service', {
+        body: {
+          action: 'test',
+          apiToken: cloverApiToken.trim(),
+          merchantId: cloverMerchantId.trim(),
+          environment: cloverEnvironment,
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setCloverTestResult('success');
+        setCloverTestMessage(`Connected: ${data.merchant?.name || cloverMerchantId}`);
+        toast.success(`Clover connected: ${data.merchant?.name || cloverMerchantId}`);
+      } else {
+        setCloverTestResult('error');
+        setCloverTestMessage(data?.error || 'Authentication failed');
+        toast.error('Clover test failed: ' + (data?.error || 'invalid credentials'));
+      }
+    } catch (e) {
+      setCloverTestResult('error');
+      toast.error('Test failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally {
+      setCloverIsTesting(false);
+    }
+  };
+
+  const saveCloverCredentials = async () => {
+    if (!locationId || !cloverApiToken || !cloverMerchantId) {
+      toast.error('Enter API token and Merchant ID');
+      return;
+    }
+    setCloverIsSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('clover-service', {
+        body: {
+          action: 'save',
+          locationId,
+          apiToken: cloverApiToken.trim(),
+          merchantId: cloverMerchantId.trim(),
+          environment: cloverEnvironment,
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast.success('Clover credentials saved');
+        queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'clover'] });
+      } else {
+        toast.error(data?.error || 'Failed to save');
+      }
+    } catch (e) {
+      toast.error('Save failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally {
+      setCloverIsSaving(false);
+    }
+  };
 
   // Load Ovation active state from brand integration
   useEffect(() => {
@@ -602,6 +700,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           description="Training & learning modules"
           connected={!!opusIntegration?.is_active}
           onEdit={() => setEditingIntegration('opus')}
+        />
+        <IntegrationCard
+          title="Clover POS"
+          description="Orders & payments (Playa Bowls)"
+          connected={!!cloverIntegration?.is_active && !!(cloverIntegration?.credentials as any)?.api_token}
+          isLoading={cloverIsLoading}
+          onEdit={() => setEditingIntegration('clover')}
         />
       </div>
 
@@ -1582,6 +1687,107 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 </Button>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Clover Dialog ── */}
+      <Dialog open={editingIntegration === 'clover'} onOpenChange={(open) => !open && setEditingIntegration(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plug className="h-5 w-5" /> Clover POS
+            </DialogTitle>
+            <DialogDescription>
+              Connect a Clover merchant to pull orders & payments. Create an API token in Clover under Setup → API Tokens.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Active</Label>
+              <Switch checked={cloverIsActive} onCheckedChange={setCloverIsActive} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="clover-merchant" className="text-sm">Merchant ID</Label>
+              <Input
+                id="clover-merchant"
+                value={cloverMerchantId}
+                onChange={(e) => setCloverMerchantId(e.target.value)}
+                placeholder="e.g. ABC123XYZ4567"
+                className="h-9 font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="clover-token" className="text-sm">API Token (Private)</Label>
+              <div className="relative">
+                <Input
+                  id="clover-token"
+                  type={cloverShowToken ? 'text' : 'password'}
+                  value={cloverApiToken}
+                  onChange={(e) => setCloverApiToken(e.target.value)}
+                  placeholder="Paste the private token from Clover"
+                  className="h-9 pr-10 font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setCloverShowToken((s) => !s)}
+                >
+                  {cloverShowToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">Environment</Label>
+              <Select value={cloverEnvironment} onValueChange={(v) => setCloverEnvironment(v as any)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="production">Production (api.clover.com)</SelectItem>
+                  <SelectItem value="sandbox">Sandbox (apisandbox.dev.clover.com)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {cloverTestMessage && (
+              <div className={`text-xs rounded-md p-2 ${cloverTestResult === 'success' ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'}`}>
+                {cloverTestMessage}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={testCloverConnection}
+                disabled={cloverIsTesting || !cloverApiToken || !cloverMerchantId}
+              >
+                {cloverIsTesting ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : cloverTestResult === 'success' ? (
+                  <Check className="h-4 w-4 mr-1.5 text-green-500" />
+                ) : cloverTestResult === 'error' ? (
+                  <X className="h-4 w-4 mr-1.5 text-red-500" />
+                ) : (
+                  <TestTube className="h-4 w-4 mr-1.5" />
+                )}
+                Test
+              </Button>
+              <Button
+                size="sm"
+                onClick={saveCloverCredentials}
+                disabled={cloverIsSaving || !cloverApiToken || !cloverMerchantId}
+              >
+                {cloverIsSaving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                Save
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
