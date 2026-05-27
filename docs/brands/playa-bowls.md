@@ -44,6 +44,14 @@
 | `yoy_*` | ✅ | Seeded from `−364d` inside `syncOneDay` (full 365-day backfill complete for Georgetown 2026-05-27) |
 | `projected_sales` / `living_projection` | ✅ | YOY-seeded; uses shared projection hierarchy |
 
+### Live drawer cash (added 2026-05-27)
+- **Action:** `clover-sync` action `get_live_expected_cash` — returns current store-wide expected cash since start-of-business-day (store TZ → now).
+- **Formula:** `sum(cash tenders) − sum(cash refunds)` from `/v3/merchants/{mid}/payments?expand=tender`. Filters tender label containing "cash".
+- **Wired into:** `DrawerCountForm` — tries Clover first, falls back to `fetch-qubeyond-sales` for Blaze. No location-type detection needed.
+- **Caveat:** Store-wide only (Clover has no shift/drawer object at Georgetown). Single-drawer ops only — if Playa ever runs ≥2 simultaneous Minis, requires Clover Shifts discipline.
+- **Verified:** Georgetown 2026-05-27 returned `$9.73` mid-day, matched Clover dashboard "Cash collected".
+
+
 ---
 
 ## 3. Data Cubes & Widgets
