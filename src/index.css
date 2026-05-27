@@ -355,26 +355,6 @@ All colors MUST be HSL.
   --chart-6: 15 85% 58%;
 }
 
-/* Blaze: neutralize secondary date/labor pills to a soft grey so only the main header stays charcoal */
-[data-theme="blaze"] [data-pill="neutral"] {
-  background-color: hsl(30 4% 82%) !important;
-}
-[data-theme="blaze"] [data-pill="neutral"] .text-white {
-  color: hsl(0 0% 17%) !important;
-}
-[data-theme="blaze"] [data-pill="neutral"] .text-white\/60 {
-  color: hsl(0 0% 38%) !important;
-}
-[data-theme="blaze"] [data-pill="neutral"] .text-primary-foreground {
-  color: hsl(0 0% 17%) !important;
-}
-[data-theme="blaze"] [data-pill="neutral"] .hover\:bg-primary-foreground\/20:hover {
-  background-color: hsl(0 0% 17% / 0.12) !important;
-}
-[data-theme="blaze"] [data-pill="neutral"] .divide-white\/20 > * + * {
-  border-color: hsl(0 0% 17% / 0.18) !important;
-}
-
 /* Playa Theme - Playa Bowls tropical: teal ocean, sunny yellow, açaí purple, sand */
 [data-theme="playa"] {
   --background: 39 41% 93%;
