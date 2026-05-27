@@ -74,7 +74,18 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const queryClient = useQueryClient();
 
   // Dialog state
-  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | null>(null);
+  const [editingIntegration, setEditingIntegration] = useState<'qubeyond' | 'pfg' | 'pa' | 'kds' | 'ovation' | 'opus' | 'clover' | null>(null);
+
+  // Clover state
+  const [cloverApiToken, setCloverApiToken] = useState('');
+  const [cloverMerchantId, setCloverMerchantId] = useState('');
+  const [cloverEnvironment, setCloverEnvironment] = useState<'production' | 'sandbox'>('production');
+  const [cloverIsActive, setCloverIsActive] = useState(true);
+  const [cloverShowToken, setCloverShowToken] = useState(false);
+  const [cloverIsTesting, setCloverIsTesting] = useState(false);
+  const [cloverTestResult, setCloverTestResult] = useState<'success' | 'error' | null>(null);
+  const [cloverTestMessage, setCloverTestMessage] = useState<string | null>(null);
+  const [cloverIsSaving, setCloverIsSaving] = useState(false);
 
   // QuBeyond state
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({ username: "", password: "", location_id: "", pull_labor: false });
