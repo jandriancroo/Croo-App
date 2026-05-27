@@ -397,8 +397,8 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // ── Fan-out: sync today for every active Playa Clover location ───────
-    if (action === "sync_all_today") {
+    // ── Fan-out: sync today/yesterday for every active Playa Clover location ──
+    if (action === "sync_all_today" || action === "sync_all_yesterday") {
       const { data: integrations, error } = await supabase
         .from("location_integrations")
         .select("location_id, locations!inner(id, name, organizations!inner(brand_id))")
@@ -410,16 +410,17 @@ Deno.serve(async (req) => {
         (i: any) => i.locations?.organizations?.brand_id === PLAYA_BOWLS_BRAND_ID,
       );
       const today = pstNow().date;
+      const target = action === "sync_all_today" ? today : addDays(today, -1);
       const results: any[] = [];
       for (const i of playaLocations) {
         const lid = i.location_id as string;
         const lname = i.locations?.name as string;
         try {
           const creds = await getCloverCreds(supabase, lid);
-          const r = await syncOneDay(supabase, lid, creds, today);
+          const r = await syncOneDay(supabase, lid, creds, target);
           results.push({ location: lname, ...r });
         } catch (e) {
-          console.error(`[clover-sync] fan-out ${lid} failed:`, e);
+          console.error(`[clover-sync] fan-out ${lid} ${target} failed:`, e);
           results.push({ location: lname, locationId: lid, error: e instanceof Error ? e.message : String(e) });
         }
       }
@@ -447,9 +448,16 @@ Deno.serve(async (req) => {
       let cur = body.startDate;
       while (cur <= body.endDate) { dates.push(cur); cur = addDays(cur, 1); }
       if (dates.length > 60) throw new Error("range too large (max 60 days)");
+    } else if (action === "sync_dates") {
+      if (!Array.isArray(body.dates) || body.dates.length === 0) {
+        throw new Error("dates[] required for sync_dates");
+      }
+      if (body.dates.length > 30) throw new Error("max 30 dates per sync_dates call");
+      dates = body.dates;
     } else {
       throw new Error(`unknown action: ${action}`);
     }
+
 
     const results: any[] = [];
     for (const d of dates) {
