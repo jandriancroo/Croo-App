@@ -15,7 +15,21 @@ const corsHeaders = {
 };
 
 const PLAYA_BOWLS_BRAND_ID = "5fb4ef79-b0e4-4f06-9e88-1f88510dc4ab";
-const TZ = "America/Los_Angeles";
+const DEFAULT_TZ = "America/Los_Angeles";
+
+// Resolve the store-local IANA timezone (falls back to PST/PDT if unset).
+async function getLocationTimezone(supabase: any, locationId: string): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from("location_settings")
+      .select("timezone")
+      .eq("location_id", locationId)
+      .maybeSingle();
+    return (data?.timezone as string) || DEFAULT_TZ;
+  } catch {
+    return DEFAULT_TZ;
+  }
+}
 
 const BASE = (env: string) =>
   env === "sandbox" ? "https://apisandbox.dev.clover.com" : "https://api.clover.com";
