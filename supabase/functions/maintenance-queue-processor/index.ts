@@ -115,12 +115,15 @@ async function processTask(
       return await processLaborIntelligence(supabaseUrl, supabaseKey, task);
     case "backfill_sales":
       return await processBackfillSales(supabase, supabaseUrl, supabaseKey, task);
+    case "backfill_clover_sales":
+      return await processBackfillCloverSales(supabase, supabaseUrl, supabaseKey, task);
     case "opus_bulk_extract":
       return await processOpusBulkExtract(supabaseUrl, supabaseKey, task);
     default:
       throw new Error(`Unknown task type: ${task.task_type}`);
   }
 }
+
 
 // ============================================================================
 // DAILY SUMMARY — calls support-email-service
