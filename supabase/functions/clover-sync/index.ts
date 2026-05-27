@@ -437,18 +437,19 @@ Deno.serve(async (req) => {
       const playaLocations = (integrations ?? []).filter(
         (i: any) => i.locations?.organizations?.brand_id === PLAYA_BOWLS_BRAND_ID,
       );
-      const today = pstNow().date;
-      const target = action === "sync_all_today" ? today : addDays(today, -1);
       const results: any[] = [];
       for (const i of playaLocations) {
         const lid = i.location_id as string;
         const lname = i.locations?.name as string;
         try {
+          const tz = await getLocationTimezone(supabase, lid);
+          const todayLocal = todayInTz(tz);
+          const target = action === "sync_all_today" ? todayLocal : addDays(todayLocal, -1);
           const creds = await getCloverCreds(supabase, lid);
-          const r = await syncOneDay(supabase, lid, creds, target);
-          results.push({ location: lname, ...r });
+          const r = await syncOneDay(supabase, lid, creds, target, tz);
+          results.push({ location: lname, tz, ...r });
         } catch (e) {
-          console.error(`[clover-sync] fan-out ${lid} ${target} failed:`, e);
+          console.error(`[clover-sync] fan-out ${lid} failed:`, e);
           results.push({ location: lname, locationId: lid, error: e instanceof Error ? e.message : String(e) });
         }
       }
