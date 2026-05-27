@@ -317,6 +317,9 @@ const DEFAULT_CUTOFF_HOUR = 5;
  * e.g., if close is midnight (24) and this is 3, business day resets at 3 AM.
  */
 const HOURS_AFTER_CLOSE = 3;
+// Cutoff only treated as "overnight rollback" when it lands in the early morning.
+// Above this hour, the cutoff value reflects a daytime close with no overnight ambiguity.
+const OVERNIGHT_CUTOFF_MAX = 12;
 
 /**
  * Calculate the business day cutoff hour based on location close time.
