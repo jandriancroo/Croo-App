@@ -304,37 +304,55 @@ All colors MUST be HSL.
   --chart-6: 350 30% 48%;
 }
 
-/* Blaze Pizza Theme - Warm parchment, terracotta ember, charcoal (inspired by blazepizza.com) */
+/* Blaze Pizza Theme - Blaze Orange, Fire Red, Charcoal, Cream (official brand palette) */
 [data-theme="blaze"] {
-  --background: 36 38% 90%;
-  --foreground: 20 10% 12%;
-  --card: 40 45% 95%;
-  --card-foreground: 20 10% 12%;
-  --popover: 40 45% 96%;
-  --popover-foreground: 20 10% 12%;
-  --primary: 18 75% 45%;
-  --primary-foreground: 40 50% 96%;
-  --secondary: 32 45% 72%;
-  --secondary-foreground: 20 15% 15%;
-  --muted: 36 25% 85%;
-  --muted-foreground: 24 12% 38%;
-  --accent: 13 80% 52%;
-  --accent-foreground: 40 50% 96%;
-  --destructive: 8 65% 42%;
-  --destructive-foreground: 40 50% 96%;
-  --border: 34 22% 75%;
-  --input: 36 28% 86%;
-  --ring: 18 75% 45%;
-  --glass-background: 40 45% 96% / 0.85;
-  --glass-border: 18 60% 50% / 0.22;
-  --glass-shadow: 20 30% 15% / 0.10;
+  --background: 32 52% 94%;
+  --foreground: 0 0% 17%;
 
-  --chart-1: 18 75% 45%;
-  --chart-2: 13 80% 52%;
-  --chart-3: 32 45% 60%;
-  --chart-4: 145 30% 42%;
-  --chart-5: 38 65% 55%;
-  --chart-6: 20 15% 22%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 17%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 17%;
+
+  --primary: 23 100% 50%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 32 40% 88%;
+  --secondary-foreground: 0 0% 17%;
+
+  --muted: 32 30% 90%;
+  --muted-foreground: 0 0% 33%;
+
+  --accent: 5 79% 54%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 5 79% 54%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 32 30% 82%;
+  --input: 32 30% 88%;
+  --ring: 23 100% 50%;
+
+  --sidebar-background: 0 0% 17%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 23 100% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 5 79% 54%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 0 0% 25%;
+  --sidebar-ring: 23 100% 50%;
+
+  --glass-background: 0 0% 100% / 0.85;
+  --glass-border: 23 100% 50% / 0.22;
+  --glass-shadow: 0 0% 10% / 0.10;
+
+  --chart-1: 23 100% 50%;
+  --chart-2: 5 79% 54%;
+  --chart-3: 48 100% 50%;
+  --chart-4: 0 0% 17%;
+  --chart-5: 0 0% 33%;
+  --chart-6: 15 85% 58%;
 }
 
 /* Playa Theme - Playa Bowls tropical: teal ocean, sunny yellow, açaí purple, sand */
