@@ -55,6 +55,7 @@ const themes = [
   { value: 'beach', label: 'Beach' },
   { value: 'cupcake', label: 'Cupcake' },
   { value: 'blaze', label: 'Blaze Pizza' },
+  { value: 'playa', label: 'Playa Bowls' },
 ];
 
 const textSizes = [
