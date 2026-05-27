@@ -68,6 +68,8 @@
 | **Labor % / Cost / Hours** | ❌ | No `labor_cache` rows — Clover doesn't push labor, no punch clock setup at Georgetown |
 | Tracker (Pizza/Category counts) | ❌ | No Clover item → brand category mapping yet |
 | Payment Breakdown | ✅ | |
+| **Drawer Count (live expected cash)** | ✅ | `clover-sync get_live_expected_cash`, auto-fills in LogBook drawer form |
+| Top Products (in SalesSummary) | ✅ | Reads `productMix`, sorted by quantity — Clover line-item modifiers may inflate counts |
 | KDS | ❌ | KDS is QU-streaming only |
 
 ---
