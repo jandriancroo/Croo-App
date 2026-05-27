@@ -515,6 +515,32 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       // Return cached data (or null if no data exists for this period)
       return cachedData;
     }
+
+    // ── POS-agnostic routing ────────────────────────────────────────────
+    // QU locations: live fetch via fetch-qubeyond-sales (legacy behavior).
+    // Clover (or any non-QU) locations: read the shared sales_cache mailroom,
+    // which is kept fresh every 2 minutes by clover-sync.
+    if (currentLocation?.id) {
+      let pos = posSourceByLocation.current[currentLocation.id];
+      if (!pos) {
+        const { data: ints } = await supabase
+          .from('location_integrations')
+          .select('integration_type, is_active')
+          .eq('location_id', currentLocation.id)
+          .eq('is_active', true);
+        const types = (ints || []).map((i: any) => i.integration_type);
+        if (types.includes('qubeyond')) pos = 'qubeyond';
+        else if (types.includes('clover')) pos = 'clover';
+        else pos = 'none';
+        posSourceByLocation.current[currentLocation.id] = pos;
+      }
+
+      if (pos !== 'qubeyond') {
+        // Mailroom read for Clover (and future POSes). No QU call.
+        const cachedData = await checkDatabaseCache(dateStr);
+        return cachedData;
+      }
+    }
     
     // Check cache INSIDE the query function to get fresh values
     const cachedProjections = isTodayCheck && currentLocation?.id 
