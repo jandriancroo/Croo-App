@@ -437,6 +437,7 @@ export default function DynamicChecklistCalendar() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAdmin, loading: roleLoading } = useUserRole();
+  const { currentLocation } = useLocation();
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [unassignedItems, setUnassignedItems] = useState<ChecklistItem[]>([]);
