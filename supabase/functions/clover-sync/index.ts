@@ -64,6 +64,15 @@ function pstNow(): { date: string; hour: number } {
   };
 }
 
+function todayInTz(tz: string): string {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 function addDays(yyyyMmDd: string, n: number): string {
   const [y, m, d] = yyyyMmDd.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
@@ -74,15 +83,14 @@ function addDays(yyyyMmDd: string, n: number): string {
   return `${y2}-${m2}-${d2}`;
 }
 
-// Convert business date (PST midnight to next PST midnight) to UTC ms window.
-function businessDayWindowMs(date: string): { startMs: number; endMs: number } {
-  // Use Intl to find the UTC offset at this date in TZ.
+// Convert a yyyy-MM-dd business date to the UTC ms window for midnight→midnight
+// in the **store's** timezone. Self-corrects across DST boundaries.
+function businessDayWindowMs(date: string, tz: string): { startMs: number; endMs: number } {
   const [y, m, d] = date.split("-").map(Number);
-  // Build noon-local then derive midnight using the offset.
+  // Probe at noon UTC of the date — safely inside the calendar day for US zones.
   const probe = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  const offsetMin = -new Date(probe.toLocaleString("en-US", { timeZone: TZ })).getTimezoneOffset();
-  // Simpler & robust: start = 00:00 in TZ; build it via a UTC date offset by tz offset (in minutes).
-  const tzOffsetMs = (new Date(probe).getTime() - new Date(probe.toLocaleString("en-US", { timeZone: TZ })).getTime());
+  // Offset = (UTC wall) − (TZ wall) of the same instant. Positive west of UTC.
+  const tzOffsetMs = probe.getTime() - new Date(probe.toLocaleString("en-US", { timeZone: tz })).getTime();
   const startLocalUtc = Date.UTC(y, m - 1, d, 0, 0, 0);
   const startMs = startLocalUtc + tzOffsetMs;
   const endMs = startMs + 24 * 60 * 60 * 1000;
