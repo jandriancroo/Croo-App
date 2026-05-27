@@ -99,6 +99,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const isBackgroundRefreshing = useRef(false);
   const lastIntegrationErrorKey = useRef<string | null>(null);
   const lastSalesDataSentKey = useRef<string>("");
+  // POS-source cache: 'qubeyond' | 'clover' | 'none' | null (unknown).
+  // Determines whether to do the QU live fetch or read from the shared sales_cache mailroom.
+  const posSourceByLocation = useRef<Record<string, 'qubeyond' | 'clover' | 'none'>>({});
   const [lastFetchTimestamp, setLastFetchTimestamp] = useState<Date | null>(() => {
     try {
       const stored = localStorage.getItem('qu_last_fetch_timestamp');
