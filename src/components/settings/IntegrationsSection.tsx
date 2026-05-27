@@ -701,6 +701,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           connected={!!opusIntegration?.is_active}
           onEdit={() => setEditingIntegration('opus')}
         />
+        <IntegrationCard
+          title="Clover POS"
+          description="Orders & payments (Playa Bowls)"
+          connected={!!cloverIntegration?.is_active && !!(cloverIntegration?.credentials as any)?.api_token}
+          isLoading={cloverIsLoading}
+          onEdit={() => setEditingIntegration('clover')}
+        />
       </div>
 
       {/* ── QuBeyond Dialog ── */}
