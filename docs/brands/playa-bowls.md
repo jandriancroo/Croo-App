@@ -107,4 +107,8 @@
 - [ ] **Voids / discounts / comps breakdown** — currently not extracted from order payload.
 - [ ] **Webhooks** — eventually replace 15-min polling with Clover webhooks for live views.
 
-**Last updated:** 2026-05-27 (after 429 retry fix + 365-day Georgetown backfill)
+**Last updated:** 2026-05-27 — added `get_live_expected_cash` action, wired Clover-first drawer count, confirmed Top Products renders from `product_mix` (collapsible at bottom of SalesSummary), Georgetown 365-day backfill complete, 429 retry fix verified.
+
+### Migration to QU (future)
+If/when Playa moves to QU: zero code changes required. Flip `location_integrations.is_active` (don't delete the Clover row — preserves backfill ability). Drawer form falls through to QU automatically. Sales/labor readers don't care about `pos_source`.
+
