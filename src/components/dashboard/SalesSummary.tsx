@@ -1478,7 +1478,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           <div className="w-full">
             {/* Unified nav bar: chevrons navigate date, tapping label cycles view */}
             <div className="mb-2">
-              <div className="flex items-center justify-between bg-primary rounded-lg px-3 py-1.5 w-full">
+              <div data-pill="neutral" className="flex items-center justify-between bg-primary rounded-lg px-3 py-1.5 w-full">
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -1609,7 +1609,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     className="overflow-hidden"
                   >
                     <div
-                      className="mx-auto w-44 bg-primary rounded-b-xl px-4 py-2 flex items-center justify-center gap-2 cursor-pointer select-none shadow-md"
+                      data-pill="neutral" className="mx-auto w-44 bg-primary rounded-b-xl px-4 py-2 flex items-center justify-center gap-2 cursor-pointer select-none shadow-md"
                       onClick={() => setExpandedToday(true)}
                     >
                       <p className="text-sm font-bold text-white">
@@ -1634,7 +1634,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     className="origin-top overflow-hidden space-y-1"
                   >
                     {/* Labor strip */}
-                    <div className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                    <div data-pill="neutral" className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
                       <div className="flex items-center divide-x divide-white/20">
                         {[
                           { label: "Labor %", value: salesData?.labor ? `${salesData.labor.laborPercent.toFixed(1)}%` : '--' },
@@ -1844,7 +1844,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     className="overflow-hidden"
                   >
                     <div
-                      className="mx-auto w-44 bg-primary rounded-b-xl px-4 py-2 flex items-center justify-center gap-2 cursor-pointer select-none shadow-md"
+                      data-pill="neutral" className="mx-auto w-44 bg-primary rounded-b-xl px-4 py-2 flex items-center justify-center gap-2 cursor-pointer select-none shadow-md"
                       onClick={() => setExpandedWeek(true)}
                     >
                       <p className="text-sm font-bold text-white">
@@ -1868,7 +1868,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
                     className="origin-top overflow-hidden space-y-1"
                   >
-                    <div className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                    <div data-pill="neutral" className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
                       <div className="flex items-center divide-x divide-white/20">
                         {[
                           { label: "Labor %", value: salesData?.weeklyLabor ? `${salesData.weeklyLabor.laborPercent.toFixed(1)}%` : '--' },
@@ -2010,7 +2010,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     className="overflow-hidden"
                   >
                     <div
-                      className="mx-auto w-44 bg-primary rounded-b-xl px-4 py-2 flex items-center justify-center gap-2 cursor-pointer select-none shadow-md"
+                      data-pill="neutral" className="mx-auto w-44 bg-primary rounded-b-xl px-4 py-2 flex items-center justify-center gap-2 cursor-pointer select-none shadow-md"
                       onClick={() => setExpandedMonth(true)}
                     >
                       <p className="text-sm font-bold text-white">
@@ -2034,7 +2034,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
                     className="origin-top overflow-hidden space-y-1"
                   >
-                    <div className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                    <div data-pill="neutral" className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
                       <div className="flex items-center divide-x divide-white/20">
                         {[
                           { label: "Labor %", value: salesData?.monthlyLabor ? `${salesData.monthlyLabor.laborPercent.toFixed(1)}%` : '--' },
