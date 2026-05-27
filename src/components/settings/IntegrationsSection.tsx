@@ -86,6 +86,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [cloverTestResult, setCloverTestResult] = useState<'success' | 'error' | null>(null);
   const [cloverTestMessage, setCloverTestMessage] = useState<string | null>(null);
   const [cloverIsSaving, setCloverIsSaving] = useState(false);
+  const [cloverIsSyncing, setCloverIsSyncing] = useState(false);
+  const [cloverSyncResult, setCloverSyncResult] = useState<string | null>(null);
 
   // QuBeyond state
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({ username: "", password: "", location_id: "", pull_labor: false });
