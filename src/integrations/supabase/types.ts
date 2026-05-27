@@ -1845,6 +1845,84 @@ export type Database = {
           },
         ]
       }
+      clover_sales_cache: {
+        Row: {
+          avg_ticket: number
+          created_at: string
+          fetched_at: string
+          flagged_no_sales: boolean
+          guest_count: number
+          hourly_data: Json
+          id: string
+          initial_projection: number | null
+          living_projection: number | null
+          location_id: string
+          net_sales: number
+          override_at: string | null
+          override_by: string | null
+          override_projection: number | null
+          payments_data: Json | null
+          product_mix: Json | null
+          projected_sales: number | null
+          sale_date: string
+          validation_attempts: number
+          validation_status: string | null
+          yoy_hourly_data: Json | null
+          yoy_net_sales: number | null
+          yoy_sale_date: string | null
+        }
+        Insert: {
+          avg_ticket?: number
+          created_at?: string
+          fetched_at?: string
+          flagged_no_sales?: boolean
+          guest_count?: number
+          hourly_data?: Json
+          id?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id: string
+          net_sales?: number
+          override_at?: string | null
+          override_by?: string | null
+          override_projection?: number | null
+          payments_data?: Json | null
+          product_mix?: Json | null
+          projected_sales?: number | null
+          sale_date: string
+          validation_attempts?: number
+          validation_status?: string | null
+          yoy_hourly_data?: Json | null
+          yoy_net_sales?: number | null
+          yoy_sale_date?: string | null
+        }
+        Update: {
+          avg_ticket?: number
+          created_at?: string
+          fetched_at?: string
+          flagged_no_sales?: boolean
+          guest_count?: number
+          hourly_data?: Json
+          id?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id?: string
+          net_sales?: number
+          override_at?: string | null
+          override_by?: string | null
+          override_projection?: number | null
+          payments_data?: Json | null
+          product_mix?: Json | null
+          projected_sales?: number | null
+          sale_date?: string
+          validation_attempts?: number
+          validation_status?: string | null
+          yoy_hourly_data?: Json | null
+          yoy_net_sales?: number | null
+          yoy_sale_date?: string | null
+        }
+        Relationships: []
+      }
       croo_ai_briefing_reads: {
         Row: {
           briefing_id: string
