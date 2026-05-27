@@ -21,12 +21,14 @@ const BASE = (env: string) =>
   env === "sandbox" ? "https://apisandbox.dev.clover.com" : "https://api.clover.com";
 
 interface Body {
-  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_all_today";
-  locationId?: string;    // required except for sync_all_today
+  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_dates" | "sync_all_today" | "sync_all_yesterday";
+  locationId?: string;    // required except for sync_all_*
   date?: string;          // yyyy-MM-dd, for sync_date
   startDate?: string;     // for sync_range
   endDate?: string;       // for sync_range
+  dates?: string[];       // for sync_dates (batch)
 }
+
 
 interface CloverCreds {
   api_token: string;
