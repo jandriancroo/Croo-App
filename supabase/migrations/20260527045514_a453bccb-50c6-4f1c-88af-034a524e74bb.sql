@@ -1,0 +1,1 @@
+UPDATE public.checklists SET location_id = '79456db0-c817-464e-a849-bca44f8d6f34' WHERE id = '616dda9f-cdc8-4b59-90d0-3c4778512f6e' AND location_id IS NULL;
