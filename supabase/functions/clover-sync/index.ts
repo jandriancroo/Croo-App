@@ -50,19 +50,8 @@ interface CloverCreds {
   environment?: "production" | "sandbox";
 }
 
-// ── Date helpers (PST/PDT, yyyy-MM-dd strings) ──────────────────────────────
-function pstNow(): { date: string; hour: number } {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ,
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", hour12: false,
-  });
-  const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]));
-  return {
-    date: `${parts.year}-${parts.month}-${parts.day}`,
-    hour: parseInt(parts.hour, 10),
-  };
-}
+// ── Date helpers (store-local, yyyy-MM-dd strings) ──────────────────────────
+
 
 function todayInTz(tz: string): string {
   const fmt = new Intl.DateTimeFormat("en-CA", {
