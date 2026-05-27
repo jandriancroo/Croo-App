@@ -15,7 +15,21 @@ const corsHeaders = {
 };
 
 const PLAYA_BOWLS_BRAND_ID = "5fb4ef79-b0e4-4f06-9e88-1f88510dc4ab";
-const TZ = "America/Los_Angeles";
+const DEFAULT_TZ = "America/Los_Angeles";
+
+// Resolve the store-local IANA timezone (falls back to PST/PDT if unset).
+async function getLocationTimezone(supabase: any, locationId: string): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from("location_settings")
+      .select("timezone")
+      .eq("location_id", locationId)
+      .maybeSingle();
+    return (data?.timezone as string) || DEFAULT_TZ;
+  } catch {
+    return DEFAULT_TZ;
+  }
+}
 
 const BASE = (env: string) =>
   env === "sandbox" ? "https://apisandbox.dev.clover.com" : "https://api.clover.com";
@@ -36,18 +50,16 @@ interface CloverCreds {
   environment?: "production" | "sandbox";
 }
 
-// ── Date helpers (PST/PDT, yyyy-MM-dd strings) ──────────────────────────────
-function pstNow(): { date: string; hour: number } {
+// ── Date helpers (store-local, yyyy-MM-dd strings) ──────────────────────────
+
+
+function todayInTz(tz: string): string {
   const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ,
+    timeZone: tz,
     year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", hour12: false,
   });
   const parts = Object.fromEntries(fmt.formatToParts(new Date()).map(p => [p.type, p.value]));
-  return {
-    date: `${parts.year}-${parts.month}-${parts.day}`,
-    hour: parseInt(parts.hour, 10),
-  };
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function addDays(yyyyMmDd: string, n: number): string {
@@ -60,15 +72,14 @@ function addDays(yyyyMmDd: string, n: number): string {
   return `${y2}-${m2}-${d2}`;
 }
 
-// Convert business date (PST midnight to next PST midnight) to UTC ms window.
-function businessDayWindowMs(date: string): { startMs: number; endMs: number } {
-  // Use Intl to find the UTC offset at this date in TZ.
+// Convert a yyyy-MM-dd business date to the UTC ms window for midnight→midnight
+// in the **store's** timezone. Self-corrects across DST boundaries.
+function businessDayWindowMs(date: string, tz: string): { startMs: number; endMs: number } {
   const [y, m, d] = date.split("-").map(Number);
-  // Build noon-local then derive midnight using the offset.
+  // Probe at noon UTC of the date — safely inside the calendar day for US zones.
   const probe = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  const offsetMin = -new Date(probe.toLocaleString("en-US", { timeZone: TZ })).getTimezoneOffset();
-  // Simpler & robust: start = 00:00 in TZ; build it via a UTC date offset by tz offset (in minutes).
-  const tzOffsetMs = (new Date(probe).getTime() - new Date(probe.toLocaleString("en-US", { timeZone: TZ })).getTime());
+  // Offset = (UTC wall) − (TZ wall) of the same instant. Positive west of UTC.
+  const tzOffsetMs = probe.getTime() - new Date(probe.toLocaleString("en-US", { timeZone: tz })).getTime();
   const startLocalUtc = Date.UTC(y, m - 1, d, 0, 0, 0);
   const startMs = startLocalUtc + tzOffsetMs;
   const endMs = startMs + 24 * 60 * 60 * 1000;
@@ -271,8 +282,9 @@ async function syncOneDay(
   locationId: string,
   creds: CloverCreds,
   date: string,
+  tz: string,
 ) {
-  const { startMs, endMs } = businessDayWindowMs(date);
+  const { startMs, endMs } = businessDayWindowMs(date, tz);
   // Serialize to avoid Clover 429s; retry inside cloverFetch handles transient throttling.
   const orders = await fetchOrdersForWindow(creds, startMs, endMs);
   await sleep(150);
@@ -425,18 +437,19 @@ Deno.serve(async (req) => {
       const playaLocations = (integrations ?? []).filter(
         (i: any) => i.locations?.organizations?.brand_id === PLAYA_BOWLS_BRAND_ID,
       );
-      const today = pstNow().date;
-      const target = action === "sync_all_today" ? today : addDays(today, -1);
       const results: any[] = [];
       for (const i of playaLocations) {
         const lid = i.location_id as string;
         const lname = i.locations?.name as string;
         try {
+          const tz = await getLocationTimezone(supabase, lid);
+          const todayLocal = todayInTz(tz);
+          const target = action === "sync_all_today" ? todayLocal : addDays(todayLocal, -1);
           const creds = await getCloverCreds(supabase, lid);
-          const r = await syncOneDay(supabase, lid, creds, target);
-          results.push({ location: lname, ...r });
+          const r = await syncOneDay(supabase, lid, creds, target, tz);
+          results.push({ location: lname, tz, ...r });
         } catch (e) {
-          console.error(`[clover-sync] fan-out ${lid} ${target} failed:`, e);
+          console.error(`[clover-sync] fan-out ${lid} failed:`, e);
           results.push({ location: lname, locationId: lid, error: e instanceof Error ? e.message : String(e) });
         }
       }
@@ -451,8 +464,9 @@ Deno.serve(async (req) => {
 
     const { name } = await assertPlayaLocation(supabase, locationId);
     const creds = await getCloverCreds(supabase, locationId);
+    const tz = await getLocationTimezone(supabase, locationId);
 
-    const today = pstNow().date;
+    const today = todayInTz(tz);
     let dates: string[] = [];
     if (action === "sync_today") dates = [today];
     else if (action === "sync_yesterday") dates = [addDays(today, -1)];
@@ -478,13 +492,14 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const d of dates) {
       try {
-        results.push(await syncOneDay(supabase, locationId, creds, d));
+        results.push(await syncOneDay(supabase, locationId, creds, d, tz));
       } catch (e) {
         console.error(`[clover-sync] ${locationId} ${d} failed:`, e);
         results.push({ date: d, error: e instanceof Error ? e.message : String(e) });
       }
       await sleep(200); // gentle pace between days
     }
+
 
     return new Response(
       JSON.stringify({ success: true, location: name, action, results }),
