@@ -21,8 +21,8 @@ const BASE = (env: string) =>
   env === "sandbox" ? "https://apisandbox.dev.clover.com" : "https://api.clover.com";
 
 interface Body {
-  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range";
-  locationId: string;
+  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_all_today";
+  locationId?: string;    // required except for sync_all_today
   date?: string;          // yyyy-MM-dd, for sync_date
   startDate?: string;     // for sync_range
   endDate?: string;       // for sync_range
@@ -292,6 +292,36 @@ async function syncOneDay(
     .upsert(row, { onConflict: "location_id,sale_date" });
   if (error) throw new Error(`Upsert failed for ${date}: ${error.message}`);
 
+  // ── Dual-write: normalized row into the shared mailroom (sales_cache) ────
+  // Conditional spread protects projections/overrides set elsewhere.
+  const { data: existingMail } = await supabase
+    .from("sales_cache")
+    .select("projected_sales, living_projection, override_projection, override_at, override_by, initial_projection, validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data")
+    .eq("location_id", locationId)
+    .eq("sale_date", date)
+    .maybeSingle();
+
+  const mailRow = {
+    ...(existingMail ?? {}),
+    location_id: locationId,
+    sale_date: date,
+    pos_source: "clover",
+    net_sales: agg.netSales,
+    guest_count: agg.guestCount,
+    pizza_count: 0,
+    avg_ticket: agg.avgTicket,
+    hourly_data: agg.hourly,
+    product_mix: agg.productMix,
+    payments_data: paymentsData,
+    flagged_no_sales: agg.netSales === 0,
+    fetched_at: new Date().toISOString(),
+  };
+
+  const { error: mailErr } = await supabase
+    .from("sales_cache")
+    .upsert(mailRow, { onConflict: "location_id,sale_date" });
+  if (mailErr) throw new Error(`sales_cache upsert failed for ${date}: ${mailErr.message}`);
+
   return {
     date,
     net_sales: agg.netSales,
@@ -307,13 +337,48 @@ Deno.serve(async (req) => {
 
   try {
     const body = (await req.json()) as Body;
-    const { action, locationId } = body;
-    if (!action || !locationId) throw new Error("action and locationId required");
+    const { action } = body;
+    if (!action) throw new Error("action required");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // ── Fan-out: sync today for every active Playa Clover location ───────
+    if (action === "sync_all_today") {
+      const { data: integrations, error } = await supabase
+        .from("location_integrations")
+        .select("location_id, locations!inner(id, name, organizations!inner(brand_id))")
+        .eq("integration_type", "clover")
+        .eq("is_active", true);
+      if (error) throw new Error(`fan-out lookup failed: ${error.message}`);
+
+      const playaLocations = (integrations ?? []).filter(
+        (i: any) => i.locations?.organizations?.brand_id === PLAYA_BOWLS_BRAND_ID,
+      );
+      const today = pstNow().date;
+      const results: any[] = [];
+      for (const i of playaLocations) {
+        const lid = i.location_id as string;
+        const lname = i.locations?.name as string;
+        try {
+          const creds = await getCloverCreds(supabase, lid);
+          const r = await syncOneDay(supabase, lid, creds, today);
+          results.push({ location: lname, ...r });
+        } catch (e) {
+          console.error(`[clover-sync] fan-out ${lid} failed:`, e);
+          results.push({ location: lname, locationId: lid, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+      return new Response(
+        JSON.stringify({ success: true, action, count: results.length, results }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const locationId = body.locationId;
+    if (!locationId) throw new Error("locationId required");
 
     const { name } = await assertPlayaLocation(supabase, locationId);
     const creds = await getCloverCreds(supabase, locationId);
