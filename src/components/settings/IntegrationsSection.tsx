@@ -199,6 +199,17 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     enabled: !!locationId
   });
 
+  const { data: cloverIntegration, isLoading: cloverIsLoading } = useQuery({
+    queryKey: ['location-integration', locationId, 'clover'],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data, error } = await supabase.from('location_integrations').select('*').eq('location_id', locationId).eq('integration_type', 'clover').maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
+
   const { data: opusIntegration } = useQuery({
     queryKey: ['location-integration', locationId, 'opus'],
     queryFn: async () => {
