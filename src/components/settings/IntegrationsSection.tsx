@@ -1821,6 +1821,36 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 Save
               </Button>
             </div>
+
+            {cloverIntegration && (
+              <div className="space-y-2 pt-3 border-t">
+                <div className="text-xs font-medium text-muted-foreground">Sync sales from Clover</div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runCloverSync('sync_today')}
+                    disabled={cloverIsSyncing}
+                  >
+                    {cloverIsSyncing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
+                    Sync Today
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runCloverSync('sync_yesterday')}
+                    disabled={cloverIsSyncing}
+                  >
+                    Sync Yesterday
+                  </Button>
+                </div>
+                {cloverSyncResult && (
+                  <div className="text-xs rounded-md p-2 bg-muted text-muted-foreground">
+                    {cloverSyncResult}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
