@@ -86,6 +86,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [cloverTestResult, setCloverTestResult] = useState<'success' | 'error' | null>(null);
   const [cloverTestMessage, setCloverTestMessage] = useState<string | null>(null);
   const [cloverIsSaving, setCloverIsSaving] = useState(false);
+  const [cloverIsSyncing, setCloverIsSyncing] = useState(false);
+  const [cloverSyncResult, setCloverSyncResult] = useState<string | null>(null);
 
   // QuBeyond state
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({ username: "", password: "", location_id: "", pull_labor: false });
@@ -395,6 +397,37 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       toast.error('Save failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
     } finally {
       setCloverIsSaving(false);
+    }
+  };
+
+  const runCloverSync = async (action: 'sync_today' | 'sync_yesterday') => {
+    if (!locationId) return;
+    setCloverIsSyncing(true);
+    setCloverSyncResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('clover-sync', {
+        body: { action, locationId },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        const r = data.results?.[0];
+        if (r?.error) {
+          setCloverSyncResult(`Error: ${r.error}`);
+          toast.error(`Clover sync failed: ${r.error}`);
+        } else {
+          const msg = `${r?.date}: $${(r?.net_sales ?? 0).toFixed(2)} · ${r?.orders ?? 0} orders · ${r?.payments ?? 0} payments`;
+          setCloverSyncResult(msg);
+          toast.success('Clover sync complete');
+        }
+      } else {
+        setCloverSyncResult(data?.error || 'Sync failed');
+        toast.error('Clover sync failed: ' + (data?.error || 'unknown'));
+      }
+    } catch (e) {
+      setCloverSyncResult(e instanceof Error ? e.message : String(e));
+      toast.error('Clover sync error: ' + (e instanceof Error ? e.message : 'Unknown'));
+    } finally {
+      setCloverIsSyncing(false);
     }
   };
 
@@ -1788,6 +1821,36 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 Save
               </Button>
             </div>
+
+            {cloverIntegration && (
+              <div className="space-y-2 pt-3 border-t">
+                <div className="text-xs font-medium text-muted-foreground">Sync sales from Clover</div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runCloverSync('sync_today')}
+                    disabled={cloverIsSyncing}
+                  >
+                    {cloverIsSyncing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
+                    Sync Today
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runCloverSync('sync_yesterday')}
+                    disabled={cloverIsSyncing}
+                  >
+                    Sync Yesterday
+                  </Button>
+                </div>
+                {cloverSyncResult && (
+                  <div className="text-xs rounded-md p-2 bg-muted text-muted-foreground">
+                    {cloverSyncResult}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
