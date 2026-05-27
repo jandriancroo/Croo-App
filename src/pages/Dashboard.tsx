@@ -68,10 +68,10 @@ interface ChecklistStats {
   submissions_today: number;
 }
 export default function Dashboard() {
-  // Beach theme background — only on dashboard
+  // Themed dashboard backgrounds (beach + playa)
   useEffect(() => {
-    document.body.classList.add('beach-dashboard');
-    return () => document.body.classList.remove('beach-dashboard');
+    document.body.classList.add('beach-dashboard', 'playa-dashboard');
+    return () => document.body.classList.remove('beach-dashboard', 'playa-dashboard');
   }, []);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
