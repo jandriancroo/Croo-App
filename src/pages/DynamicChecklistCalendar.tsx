@@ -17,6 +17,7 @@ import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSe
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { useLocation } from "@/hooks/useLocation";
 
 interface ChecklistItem {
   id: string;
@@ -436,6 +437,7 @@ export default function DynamicChecklistCalendar() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAdmin, loading: roleLoading } = useUserRole();
+  const { currentLocation } = useLocation();
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [unassignedItems, setUnassignedItems] = useState<ChecklistItem[]>([]);
@@ -528,6 +530,11 @@ export default function DynamicChecklistCalendar() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+      if (!currentLocation?.id) {
+        toast.error('Pick a location before creating a template');
+        navigate('/tasks');
+        return;
+      }
 
       const { data, error } = await supabase
         .from('checklists')
@@ -537,6 +544,7 @@ export default function DynamicChecklistCalendar() {
           template_type: 'dynamic',
           frequency: 'weekly',
           created_by: user.id,
+          location_id: currentLocation.id,
         })
         .select()
         .single();
