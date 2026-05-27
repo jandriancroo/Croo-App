@@ -17,6 +17,7 @@ import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSe
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { useLocation } from "@/hooks/useLocation";
 
 interface ChecklistItem {
   id: string;
