@@ -530,6 +530,11 @@ export default function DynamicChecklistCalendar() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+      if (!currentLocation?.id) {
+        toast.error('Pick a location before creating a template');
+        navigate('/tasks');
+        return;
+      }
 
       const { data, error } = await supabase
         .from('checklists')
@@ -539,6 +544,7 @@ export default function DynamicChecklistCalendar() {
           template_type: 'dynamic',
           frequency: 'weekly',
           created_by: user.id,
+          location_id: currentLocation.id,
         })
         .select()
         .single();
