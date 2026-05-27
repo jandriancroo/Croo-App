@@ -8370,6 +8370,7 @@ export type Database = {
           override_projection: number | null
           payments_data: Json | null
           pizza_count: number
+          pos_source: string
           product_mix: Json | null
           projected_sales: number | null
           sale_date: string
@@ -8396,6 +8397,7 @@ export type Database = {
           override_projection?: number | null
           payments_data?: Json | null
           pizza_count?: number
+          pos_source?: string
           product_mix?: Json | null
           projected_sales?: number | null
           sale_date: string
@@ -8422,6 +8424,7 @@ export type Database = {
           override_projection?: number | null
           payments_data?: Json | null
           pizza_count?: number
+          pos_source?: string
           product_mix?: Json | null
           projected_sales?: number | null
           sale_date?: string
