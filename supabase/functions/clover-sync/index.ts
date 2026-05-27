@@ -483,6 +483,7 @@ Deno.serve(async (req) => {
         console.error(`[clover-sync] ${locationId} ${d} failed:`, e);
         results.push({ date: d, error: e instanceof Error ? e.message : String(e) });
       }
+      await sleep(200); // gentle pace between days
     }
 
     return new Response(
