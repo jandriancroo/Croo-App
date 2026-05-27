@@ -98,44 +98,54 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
     fetchUserName();
   }, []);
 
-  // Auto-fetch expected deposit from Qu tills on load
+  // Auto-fetch expected deposit from the active POS (Clover or Qu) on load.
   // Uses the businessDate prop to ensure we fetch for the correct business day
   // (e.g., if it's 12:30 AM but the store closed at midnight, we want Saturday's data not Sunday's)
   useEffect(() => {
-    const fetchQuExpectedDeposit = async () => {
+    const fetchExpectedDeposit = async () => {
       if (!currentLocation?.id || existingData?.expectedDeposit || quDepositLoaded) return;
-      
+
       setIsLoadingQuDeposit(true);
       try {
-        // Pass businessDate if provided, otherwise let the edge function use its default
-        const requestBody: { locationId: string; targetDate?: string } = { 
-          locationId: currentLocation.id 
+        // Try Clover first (Playa Bowls locations). If the location isn't on Clover,
+        // this returns a 500 with "No Clover integration..." and we fall back to Qu.
+        const cloverBody: { action: string; locationId: string; date?: string } = {
+          action: "get_live_expected_cash",
+          locationId: currentLocation.id,
         };
-        if (businessDate) {
-          requestBody.targetDate = businessDate;
+        if (businessDate) cloverBody.date = businessDate;
+        const cloverRes = await supabase.functions.invoke("clover-sync", { body: cloverBody });
+        if (!cloverRes.error && cloverRes.data?.success && typeof cloverRes.data?.expectedCash === "number") {
+          setExpectedDeposit(cloverRes.data.expectedCash.toFixed(2));
+          setQuDepositLoaded(true);
+          return;
         }
-        
+
+        // Fall back to Qu tills.
+        const requestBody: { locationId: string; targetDate?: string } = {
+          locationId: currentLocation.id,
+        };
+        if (businessDate) requestBody.targetDate = businessDate;
+
         const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-          body: requestBody
+          body: requestBody,
         });
-        
+
         if (!error && data?.tills?.expectedCash) {
-          // Use the "Expected Cash" (endingCash) from tills report
           setExpectedDeposit(data.tills.expectedCash.toFixed(2));
           setQuDepositLoaded(true);
         } else if (!error && data?.daily) {
-          // Fallback to daily sales if tills not available
           setExpectedDeposit(data.daily.toFixed(2));
           setQuDepositLoaded(true);
         }
       } catch (err) {
-        console.error("Failed to fetch Qu expected deposit:", err);
+        console.error("Failed to fetch expected deposit:", err);
       } finally {
         setIsLoadingQuDeposit(false);
       }
     };
 
-    fetchQuExpectedDeposit();
+    fetchExpectedDeposit();
   }, [currentLocation?.id, existingData?.expectedDeposit, quDepositLoaded, businessDate]);
   const [drawerSet, setDrawerSet] = useState(!!existingData);
 
