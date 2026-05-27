@@ -337,13 +337,48 @@ Deno.serve(async (req) => {
 
   try {
     const body = (await req.json()) as Body;
-    const { action, locationId } = body;
-    if (!action || !locationId) throw new Error("action and locationId required");
+    const { action } = body;
+    if (!action) throw new Error("action required");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // ── Fan-out: sync today for every active Playa Clover location ───────
+    if (action === "sync_all_today") {
+      const { data: integrations, error } = await supabase
+        .from("location_integrations")
+        .select("location_id, locations!inner(id, name, organizations!inner(brand_id))")
+        .eq("integration_type", "clover")
+        .eq("is_active", true);
+      if (error) throw new Error(`fan-out lookup failed: ${error.message}`);
+
+      const playaLocations = (integrations ?? []).filter(
+        (i: any) => i.locations?.organizations?.brand_id === PLAYA_BOWLS_BRAND_ID,
+      );
+      const today = pstNow().date;
+      const results: any[] = [];
+      for (const i of playaLocations) {
+        const lid = i.location_id as string;
+        const lname = i.locations?.name as string;
+        try {
+          const creds = await getCloverCreds(supabase, lid);
+          const r = await syncOneDay(supabase, lid, creds, today);
+          results.push({ location: lname, ...r });
+        } catch (e) {
+          console.error(`[clover-sync] fan-out ${lid} failed:`, e);
+          results.push({ location: lname, locationId: lid, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+      return new Response(
+        JSON.stringify({ success: true, action, count: results.length, results }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const locationId = body.locationId;
+    if (!locationId) throw new Error("locationId required");
 
     const { name } = await assertPlayaLocation(supabase, locationId);
     const creds = await getCloverCreds(supabase, locationId);
