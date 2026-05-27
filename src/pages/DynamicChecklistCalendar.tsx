@@ -755,6 +755,20 @@ export default function DynamicChecklistCalendar() {
     try {
       setSaving(true);
 
+      const trimmedTitle = (checklist.title ?? '').trim();
+      if (!trimmedTitle) {
+        toast.error('Please give the template a name');
+        setSaving(false);
+        return;
+      }
+
+      // Persist the template name
+      const { error: titleError } = await supabase
+        .from('checklists')
+        .update({ title: trimmedTitle })
+        .eq('id', checklist.id);
+      if (titleError) throw titleError;
+
       // Update all items with their day assignments
       for (const item of items) {
         const assignedDays: number[] = [];
@@ -803,9 +817,14 @@ export default function DynamicChecklistCalendar() {
             <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-3xl font-bold">{checklist?.title}</h1>
-              <p className="text-muted-foreground">Assign tasks to days of the week</p>
+            <div className="flex-1">
+              <Input
+                value={checklist?.title ?? ''}
+                onChange={(e) => setChecklist((c) => (c ? { ...c, title: e.target.value } : c))}
+                placeholder="Template name (e.g. Weekly Cleaning)"
+                className="text-3xl font-bold h-auto border-0 border-b border-transparent hover:border-border focus-visible:border-primary focus-visible:ring-0 px-0 bg-transparent shadow-none"
+              />
+              <p className="text-muted-foreground mt-1">Assign tasks to days of the week</p>
             </div>
           </div>
           <Button onClick={handleSave} disabled={saving}>
