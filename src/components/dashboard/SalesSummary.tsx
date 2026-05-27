@@ -99,6 +99,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const isBackgroundRefreshing = useRef(false);
   const lastIntegrationErrorKey = useRef<string | null>(null);
   const lastSalesDataSentKey = useRef<string>("");
+  // POS-source cache: 'qubeyond' | 'clover' | 'none' | null (unknown).
+  // Determines whether to do the QU live fetch or read from the shared sales_cache mailroom.
+  const posSourceByLocation = useRef<Record<string, 'qubeyond' | 'clover' | 'none'>>({});
   const [lastFetchTimestamp, setLastFetchTimestamp] = useState<Date | null>(() => {
     try {
       const stored = localStorage.getItem('qu_last_fetch_timestamp');
@@ -511,6 +514,38 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       const cachedData = await checkDatabaseCache(dateStr);
       // Return cached data (or null if no data exists for this period)
       return cachedData;
+    }
+
+    // ── POS-agnostic routing ────────────────────────────────────────────
+    // QU locations: live fetch via fetch-qubeyond-sales (legacy behavior).
+    // Clover (or any non-QU) locations: read the shared sales_cache mailroom,
+    // which is kept fresh every 2 minutes by clover-sync.
+    if (currentLocation?.id) {
+      let pos = posSourceByLocation.current[currentLocation.id];
+      if (!pos) {
+        const { data: ints } = await supabase
+          .from('location_integrations')
+          .select('integration_type, is_active')
+          .eq('location_id', currentLocation.id)
+          .eq('is_active', true);
+        const types = (ints || []).map((i: any) => i.integration_type);
+        if (types.includes('qubeyond')) pos = 'qubeyond';
+        else if (types.includes('clover')) pos = 'clover';
+        else pos = 'none';
+        posSourceByLocation.current[currentLocation.id] = pos;
+      }
+
+      if (pos !== 'qubeyond') {
+        // Mailroom read for Clover (and future POSes). No QU call.
+        // Also kick off an immediate sync so the user doesn't wait for the 2-min cron.
+        if (pos === 'clover') {
+          supabase.functions.invoke('clover-sync', {
+            body: { action: 'sync_today', locationId: currentLocation.id },
+          }).catch((e) => console.warn('[SalesSummary] clover-sync kick failed:', e));
+        }
+        const cachedData = await checkDatabaseCache(dateStr);
+        return cachedData;
+      }
     }
     
     // Check cache INSIDE the query function to get fresh values
