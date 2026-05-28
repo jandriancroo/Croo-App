@@ -662,8 +662,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // without double-multiplying.
   const resolveInnerPackQtyForTotal = useCallback((item: any): number | null => {
     if (!item) return null;
+    const lens = (lensEnabledForLocation === true && item.brand_item_id)
+      ? packLensMap?.get(item.brand_item_id) ?? null
+      : null;
+    const inner = Number((item as any).inner_pack_quantity ?? 0);
+    // Safety: if lens is active but its count_units_per_case is NOT divisible
+    // by inner_pack_quantity (misconfigured lens), suppress the inner tier so
+    // the caseUnits math doesn't double-multiply. resolveItemPackQty mirrors
+    // this guard and returns the lens total in that case.
+    if (isLensValid(lens) && inner > 0) {
+      const total = Number(lens!.count_units_per_case ?? 0);
+      if (!(total > 0 && total % inner === 0)) return null;
+    }
     return (item as any).inner_pack_quantity ?? null;
-  }, []);
+  }, [packLensMap, lensEnabledForLocation]);
 
   // Calculate total quantity for an item:
   //   cases × (pack_quantity × inner_pack_quantity when present, else pack_quantity)
