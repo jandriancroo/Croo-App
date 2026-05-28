@@ -609,18 +609,15 @@ export default function EditChecklist() {
             .filter((x: any) => typeof x === 'string' && x.length > 0);
 
           // Delete only rows the user removed from the editor.
-          if (keptIds.length > 0) {
-            await supabase
-              .from('checklist_prep_rows')
-              .delete()
-              .eq('checklist_item_id', savedItemId)
-              .not('id', 'in', `(${keptIds.map((id: string) => `"${id}"`).join(',')})`);
-          } else {
-            await supabase
-              .from('checklist_prep_rows')
-              .delete()
-              .eq('checklist_item_id', savedItemId);
-          }
+          const delQuery = supabase
+            .from('checklist_prep_rows')
+            .delete()
+            .eq('checklist_item_id', savedItemId);
+          const { error: delErr } =
+            keptIds.length > 0
+              ? await delQuery.not('id', 'in', `(${keptIds.join(',')})`)
+              : await delQuery;
+          if (delErr) throw delErr;
 
           // Upsert remaining rows in order.
 
