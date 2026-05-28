@@ -578,7 +578,8 @@ export default function BrandPackConfigApprovals() {
       if (n.has(id)) n.delete(id); else n.add(id);
       return n;
     });
-  const selectAllVisible = () => setSelected(new Set(visibleIds));
+  const selectAllVisible = () =>
+    setSelected(new Set(filteredRows.filter((r) => r.status === "proposed").map((r) => r.id)));
   const clearSelection = () => setSelected(new Set());
 
   const getDraft = (r: ProposalRow): Draft =>
