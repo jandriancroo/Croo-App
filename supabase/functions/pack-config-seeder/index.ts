@@ -273,21 +273,25 @@ Deno.serve(async (req) => {
     let newCount = 0;
     let skippedCount = 0;
 
-    // 5a. Walk every existing row — is it reproducible?
+    // 5a. Walk every existing proposed/approved row — is it reproducible?
     for (const existing of (existingProposed || [])) {
-      const k = `${existing.brand_template_id}::${existing.outer_qty}::${existing.inner_qty}::${existing.inner_type}::${existing.common_unit}::${existing.source || ''}`;
+      if (existing.status !== 'proposed' && existing.status !== 'approved') continue;
+      const k = `${existing.brand_template_id}::${existing.outer_qty}::${existing.inner_qty ?? 0}::${existing.common_unit}`;
       const candidate = deduped.get(k);
       if (!candidate) {
-        orphanCount++;
-        results.push({ existing_id: existing.id, status: 'orphan' });
-        if (!dryRun) {
-          await supabase.from("pack_config_seed_log").insert({
-            brand_template_id: existing.brand_template_id,
-            existing_config_id: existing.id,
-            status: 'orphan',
-            dry_run: false,
-            run_id: runId,
-          });
+        // Orphan tracking only applies to proposed rows — approved rows aren't expected to round-trip.
+        if (existing.status === 'proposed') {
+          orphanCount++;
+          results.push({ existing_id: existing.id, status: 'orphan' });
+          if (!dryRun) {
+            await supabase.from("pack_config_seed_log").insert({
+              brand_template_id: existing.brand_template_id,
+              existing_config_id: existing.id,
+              status: 'orphan',
+              dry_run: false,
+              run_id: runId,
+            });
+          }
         }
         continue;
       }
@@ -297,6 +301,20 @@ Deno.serve(async (req) => {
       if (existing.count_units_per_case !== candidate.count_units_per_case) diffs.push(`count_units_per_case: ${existing.count_units_per_case} vs ${candidate.count_units_per_case}`);
       if (Math.abs((existing.cost_per_common_unit || 0) - (candidate.cost_per_common_unit || 0)) > 0.0001) {
         diffs.push(`cost_per_common_unit: ${existing.cost_per_common_unit} vs ${candidate.cost_per_common_unit}`);
+      }
+
+      // Refresh price + evidence on the matched row regardless of status.
+      // Approved rows: snapshots are frozen, so historical counts aren't affected — only the live valuation lens picks up the new price.
+      // Proposed rows: keeps the most-recently-seen cost visible at approval time.
+      if (!dryRun && diffs.length > 0) {
+        await supabase
+          .from("brand_pack_configs")
+          .update({
+            cost_per_common_unit: candidate.cost_per_common_unit ?? existing.cost_per_common_unit,
+            source_evidence: candidate.source_evidence,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
       }
 
       if (diffs.length === 0) {
