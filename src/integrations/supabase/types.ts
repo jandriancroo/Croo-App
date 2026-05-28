@@ -8356,6 +8356,7 @@ export type Database = {
         Row: {
           avg_ticket: number | null
           created_at: string
+          external_event_id: string | null
           fetched_at: string
           flagged_no_sales: boolean | null
           guest_count: number
@@ -8383,6 +8384,7 @@ export type Database = {
         Insert: {
           avg_ticket?: number | null
           created_at?: string
+          external_event_id?: string | null
           fetched_at?: string
           flagged_no_sales?: boolean | null
           guest_count?: number
@@ -8410,6 +8412,7 @@ export type Database = {
         Update: {
           avg_ticket?: number | null
           created_at?: string
+          external_event_id?: string | null
           fetched_at?: string
           flagged_no_sales?: boolean | null
           guest_count?: number
