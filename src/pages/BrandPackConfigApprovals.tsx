@@ -1130,6 +1130,8 @@ export default function BrandPackConfigApprovals() {
               const ev = r.source_evidence || {};
               const isBusy = !!busy[r.id];
               const proposalLocs = locationsForProposal(r);
+              const sourceLocIds = sourceLocIdsForProposal(r);
+              const sourceLocNames = proposalLocs.filter((l) => sourceLocIds.has(l.id)).map((l) => l.name);
               return (
                 <div key={r.id} className="rounded-lg border p-3 space-y-3 bg-muted/30">
                   <div className="flex items-center gap-2 flex-wrap">
