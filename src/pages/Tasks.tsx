@@ -29,7 +29,6 @@ export default function Tasks() {
     logbookEntries,
     historyDate,
     setHistoryDate,
-    todayBusinessDateStr,
   } = useTasksData();
 
   const [selectedCompletedTask, setSelectedCompletedTask] = useState<any>(null);
