@@ -250,7 +250,7 @@ export default function BrandPackConfigApprovals() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["pack-config-proposals", brandId],
+    queryKey: ["pack-config-proposals", brandId, showApproved],
     queryFn: async () => {
       const { data: tpls, error: tErr } = await supabase
         .from("brand_inventory_templates")
@@ -261,12 +261,13 @@ export default function BrandPackConfigApprovals() {
       if (tplIds.length === 0)
         return { rows: [] as ProposalRow[], locByTpl: new Map<string, { id: string; name: string }[]>() };
       const tplMap = new Map((tpls ?? []).map((t: any) => [t.id, t]));
+      const statusFilter = showApproved ? ["proposed", "approved"] : ["proposed"];
       const { data, error } = await supabase
         .from("brand_pack_configs")
         .select(
           "id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, label, source, source_evidence, status"
         )
-        .eq("status", "proposed")
+        .in("status", statusFilter)
         .in("brand_template_id", tplIds)
         .order("created_at", { ascending: true });
       if (error) throw error;
