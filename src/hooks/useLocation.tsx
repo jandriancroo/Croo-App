@@ -214,7 +214,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
       setIsSwitching(false);
       setSwitchingTo(null);
     }, 1800);
-  }, [queryClient, navigate, currentLocation?.id]);
+  }, [queryClient, navigate, currentLocation?.id, locations]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
 
