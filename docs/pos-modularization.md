@@ -61,17 +61,18 @@ Two different conflict targets for two different write modes. This is intentiona
 | Clover daily pull upsert | `(location_id, sale_date)` | Unchanged |
 | Future webhook ingest | N/A | `(location_id, pos_source, external_event_id)` |
 
-## Phase 2 — Spec (next)
+## Phase 2 — Spec (shipped May 28, 2026)
 
-Write `docs/adding-a-new-pos.md` covering the 5 steps:
+See [`adding-a-new-pos.md`](./adding-a-new-pos.md) for the 5-step recipe. Summary:
 
-1. Add the source value to `pos_source` taxonomy
-2. Create the per-POS raw archive table (mirrors `clover_sales_cache` pattern)
-3. Implement the edge function (pull or webhook) that normalizes into `sales_cache`
-4. For webhooks: stamp `external_event_id` and upsert on the partial-unique key
+1. Register the `pos_source` slug
+2. Create the per-POS raw archive table (mirrors `clover_sales_cache`)
+3. Build the edge function (pull or webhook flavor)
+4. Webhook ingest stamps `external_event_id` and upserts on the partial-unique key
 5. Register the integration in `location_integrations`
 
-When the spec lands, confirm whether each Clover event type (orders, payments, refunds, voids) carries an event id on every payload — if some are missing, document them as "best-effort, not dedup-protected" rather than relying on the partial index alone.
+Open item tracked in that doc: confirm per-event-type whether Clover webhooks carry stable IDs; mark any that don't as best-effort.
+
 
 ## Phase 3 — Opportunistic Refactor
 
