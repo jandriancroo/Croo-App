@@ -518,10 +518,13 @@ export default function BrandPackConfigApprovals() {
     return Array.from(s).sort();
   }, [proposalRows]);
 
-  // Count proposals per template (for "competing only" filter)
+  // Count proposals per template (for "competing only" filter) — only count proposed rows
   const proposalCountByTpl = useMemo(() => {
     const m = new Map<string, number>();
-    proposalRows.forEach((r) => m.set(r.brand_template_id, (m.get(r.brand_template_id) ?? 0) + 1));
+    proposalRows.forEach((r) => {
+      if (r.status !== "proposed") return;
+      m.set(r.brand_template_id, (m.get(r.brand_template_id) ?? 0) + 1);
+    });
     return m;
   }, [proposalRows]);
 
