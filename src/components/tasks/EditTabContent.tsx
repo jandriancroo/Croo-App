@@ -91,18 +91,34 @@ export default function EditTabContent({
   };
 
   const handleDelete = async (checklistId: string) => {
-    const { error } = await supabase
-      .from('checklists')
-      .delete()
-      .eq('id', checklistId);
+    const attempt = async () => {
+      const { error } = await supabase
+        .from('checklists')
+        .delete()
+        .eq('id', checklistId);
+      if (error) throw error;
+    };
 
-    if (error) {
-      toast.error("Failed to delete checklist");
-      return;
+    try {
+      try {
+        await attempt();
+      } catch (err: any) {
+        // Retry once on transient Safari/Network "Load failed" / fetch failures
+        const msg = String(err?.message || err);
+        if (/Load failed|Failed to fetch|NetworkError/i.test(msg)) {
+          await new Promise((r) => setTimeout(r, 400));
+          await attempt();
+        } else {
+          throw err;
+        }
+      }
+      toast.success("Checklist deleted");
+      queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
+    } catch (err: any) {
+      console.error('[handleDelete] checklist delete failed', { checklistId, err });
+      const detail = err?.message || err?.error_description || 'Unknown error';
+      toast.error(`Failed to delete checklist: ${detail}`);
     }
-
-    toast.success("Checklist deleted");
-    queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
   };
 
   const handleCopyTo = (checklistId: string, checklistTitle: string) => {
