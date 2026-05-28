@@ -231,6 +231,7 @@ export default function BrandPackConfigApprovals() {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [busy, setBusy] = useState<Record<string, string | null>>({});
   const [approvalLog, setApprovalLog] = useState<ApprovalLogEntry[]>([]);
+  const [showApproved, setShowApproved] = useState<boolean>(false);
 
   const pushApprovalLog = (
     level: ApprovalLogEntry["level"],
@@ -250,7 +251,7 @@ export default function BrandPackConfigApprovals() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["pack-config-proposals", brandId],
+    queryKey: ["pack-config-proposals", brandId, showApproved],
     queryFn: async () => {
       const { data: tpls, error: tErr } = await supabase
         .from("brand_inventory_templates")
@@ -261,12 +262,13 @@ export default function BrandPackConfigApprovals() {
       if (tplIds.length === 0)
         return { rows: [] as ProposalRow[], locByTpl: new Map<string, { id: string; name: string }[]>() };
       const tplMap = new Map((tpls ?? []).map((t: any) => [t.id, t]));
+      const statusFilter = showApproved ? ["proposed", "approved"] : ["proposed"];
       const { data, error } = await supabase
         .from("brand_pack_configs")
         .select(
           "id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, label, source, source_evidence, status"
         )
-        .eq("status", "proposed")
+        .in("status", statusFilter)
         .in("brand_template_id", tplIds)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -516,10 +518,13 @@ export default function BrandPackConfigApprovals() {
     return Array.from(s).sort();
   }, [proposalRows]);
 
-  // Count proposals per template (for "competing only" filter)
+  // Count proposals per template (for "competing only" filter) — only count proposed rows
   const proposalCountByTpl = useMemo(() => {
     const m = new Map<string, number>();
-    proposalRows.forEach((r) => m.set(r.brand_template_id, (m.get(r.brand_template_id) ?? 0) + 1));
+    proposalRows.forEach((r) => {
+      if (r.status !== "proposed") return;
+      m.set(r.brand_template_id, (m.get(r.brand_template_id) ?? 0) + 1);
+    });
     return m;
   }, [proposalRows]);
 
@@ -573,7 +578,8 @@ export default function BrandPackConfigApprovals() {
       if (n.has(id)) n.delete(id); else n.add(id);
       return n;
     });
-  const selectAllVisible = () => setSelected(new Set(visibleIds));
+  const selectAllVisible = () =>
+    setSelected(new Set(filteredRows.filter((r) => r.status === "proposed").map((r) => r.id)));
   const clearSelection = () => setSelected(new Set());
 
   const getDraft = (r: ProposalRow): Draft =>
@@ -1050,6 +1056,16 @@ export default function BrandPackConfigApprovals() {
             />
             Competing only
           </label>
+          <label
+            className="flex items-center gap-2 text-sm cursor-pointer select-none px-2"
+            title="Include already-approved configs as read-only reference for consistency checks"
+          >
+            <Checkbox
+              checked={showApproved}
+              onCheckedChange={(c) => setShowApproved(c === true)}
+            />
+            Show approved
+          </label>
           {(vendorFilter !== "all" || categoryFilter !== "all" || query || competingOnly) && (
             <Button
               variant="ghost"
@@ -1129,17 +1145,24 @@ export default function BrandPackConfigApprovals() {
               const d = getDraft(r);
               const ev = r.source_evidence || {};
               const isBusy = !!busy[r.id];
+              const isApproved = r.status === "approved";
               const proposalLocs = locationsForProposal(r);
               const sourceLocIds = sourceLocIdsForProposal(r);
               const sourceLocNames = proposalLocs.filter((l) => sourceLocIds.has(l.id)).map((l) => l.name);
               return (
-                <div key={r.id} className="rounded-lg border p-3 space-y-3 bg-muted/30">
+                <div key={r.id} className={`rounded-lg border p-3 space-y-3 ${isApproved ? "bg-emerald-500/5 border-emerald-500/30" : "bg-muted/30"}`}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Checkbox
                       checked={effectiveSelected.has(r.id)}
                       onCheckedChange={() => toggleSelect(r.id)}
                       aria-label="Select proposal"
+                      disabled={isApproved}
                     />
+                    {isApproved && (
+                      <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600">
+                        <Check className="h-3 w-3 mr-1" /> Approved
+                      </Badge>
+                    )}
                     <Badge variant={sourceVariant(r.source)}>{sourceLabel(r.source)}</Badge>
                     {ev.vendor && <span className="text-xs text-muted-foreground">vendor: <b>{ev.vendor}</b></span>}
                     {ev.territory && <span className="text-xs text-muted-foreground">territory: {ev.territory}</span>}
@@ -1274,41 +1297,47 @@ export default function BrandPackConfigApprovals() {
                   })()}
 
 
-                  <div className="flex gap-2 justify-end pt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={isBusy}
-                      onClick={async () => {
-                        setRowBusy(r.id, "save");
-                        try { await saveDraft.mutateAsync(r); } finally { setRowBusy(r.id, null); }
-                      }}
-                    >
-                      <Save className="h-4 w-4" /> Save Draft
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={isBusy}
-                      onClick={async () => {
-                        if (!confirm("Reject this proposal? It will be archived.")) return;
-                        setRowBusy(r.id, "reject");
-                        try { await reject.mutateAsync(r); } finally { setRowBusy(r.id, null); }
-                      }}
-                    >
-                      <Archive className="h-4 w-4" /> Reject
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={isBusy}
-                      onClick={async () => {
-                        setRowBusy(r.id, "approve");
-                        try { await approve.mutateAsync(r); } finally { setRowBusy(r.id, null); }
-                      }}
-                    >
-                      {busy[r.id] === "approve" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Approve
-                    </Button>
-                  </div>
+                  {isApproved ? (
+                    <div className="flex items-center justify-end pt-1 text-xs text-muted-foreground italic">
+                      Read-only reference — already approved
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 justify-end pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isBusy}
+                        onClick={async () => {
+                          setRowBusy(r.id, "save");
+                          try { await saveDraft.mutateAsync(r); } finally { setRowBusy(r.id, null); }
+                        }}
+                      >
+                        <Save className="h-4 w-4" /> Save Draft
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={isBusy}
+                        onClick={async () => {
+                          if (!confirm("Reject this proposal? It will be archived.")) return;
+                          setRowBusy(r.id, "reject");
+                          try { await reject.mutateAsync(r); } finally { setRowBusy(r.id, null); }
+                        }}
+                      >
+                        <Archive className="h-4 w-4" /> Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={isBusy}
+                        onClick={async () => {
+                          setRowBusy(r.id, "approve");
+                          try { await approve.mutateAsync(r); } finally { setRowBusy(r.id, null); }
+                        }}
+                      >
+                        {busy[r.id] === "approve" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Approve
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}
