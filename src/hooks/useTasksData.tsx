@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -18,30 +18,10 @@ export function useTasksData() {
   const { currentLocation } = useAppLocation();
   const { timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
   const queryClient = useQueryClient();
-  const [historyDate, _setHistoryDate] = useState(new Date());
-  const userNavigatedRef = useRef(false);
-
-  // The "today" the user cares about is the location's BUSINESS date (respects
-  // the post-close cutoff), not the browser's calendar date. Re-anchor once the
-  // timezone/closeTime have loaded, unless the user has manually navigated.
-  const todayBusinessDateStr = !timezoneLoading
-    ? getBusinessDateInTimezone()
-    : format(new Date(), 'yyyy-MM-dd');
-  useEffect(() => {
-    if (timezoneLoading || userNavigatedRef.current) return;
-    if (format(historyDate, 'yyyy-MM-dd') === todayBusinessDateStr) return;
-    // Anchor to noon of the business date to avoid DST/TZ edge shifts.
-    _setHistoryDate(new Date(`${todayBusinessDateStr}T12:00:00`));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timezoneLoading, todayBusinessDateStr]);
-
-  const setHistoryDate = (d: Date) => {
-    userNavigatedRef.current = true;
-    _setHistoryDate(d);
-  };
+  const [historyDate, setHistoryDate] = useState(new Date());
 
   const historyDateStr = format(historyDate, 'yyyy-MM-dd');
-  const isHistoryToday = historyDateStr === todayBusinessDateStr;
+  const isHistoryToday = historyDateStr === format(new Date(), 'yyyy-MM-dd');
 
   // ─── Checklists ───────────────────────────────────────────────
   const { data: checklists = [], isLoading: checklistsLoading } = useQuery({
@@ -688,6 +668,5 @@ export function useTasksData() {
     historyDate,
     setHistoryDate,
     historyDateStr,
-    todayBusinessDateStr,
   };
 }

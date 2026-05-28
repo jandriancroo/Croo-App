@@ -415,10 +415,22 @@ export const getBusinessDateForTimestamp = (
 
 /**
  * Get the business day start and end for checklist completion tracking.
- * The business day runs from cutoff hour today to cutoff hour tomorrow.
- * This allows late-night submissions (after midnight) to count for the previous business day.
- * 
- * @param dateStr - The date in YYYY-MM-DD format
+ *
+ * Two regimes, matching getBusinessDateInTimezone / getBusinessDateForTimestamp:
+ *
+ *  1. OVERNIGHT CLOSE (cutoff lands in early-morning hours, 1–11):
+ *     The store closed late and wraps past midnight. Business day for `dateStr`
+ *     runs from `dateStr cutoffHour` (local) → `dateStr+1 cutoffHour` (local),
+ *     so post-midnight submissions still count for the previous business day.
+ *
+ *  2. DAYTIME CLOSE (cutoff >= 12, or cutoff == 0): there is no overnight
+ *     ambiguity. Business day == calendar day in the location's timezone:
+ *     `dateStr 00:00` (local) → `dateStr+1 00:00` (local).
+ *     Using the overnight formula here would shove most of the *current*
+ *     calendar day into the *previous* business day (the Georgetown bug:
+ *     close 20:00 → cutoff 23 → today's work shows under yesterday until 11 PM).
+ *
+ * @param dateStr - The business date in YYYY-MM-DD format
  * @param timezone - The location's timezone
  * @param closeTime - Optional close time in HH:MM format to calculate dynamic cutoff
  */
@@ -428,20 +440,22 @@ export const getBusinessDayRangeInTimezone = (
   closeTime?: string | null
 ): { start: Date; end: Date } => {
   const cutoffHour = calculateCutoffHour(closeTime);
-  const cutoffStr = cutoffHour.toString().padStart(2, '0');
-  
+  const isOvernightCutoff = cutoffHour > 0 && cutoffHour < OVERNIGHT_CUTOFF_MAX;
+
+  // Effective start-of-day hour in the location's local time.
+  const startHour = isOvernightCutoff ? cutoffHour : 0;
+  const startHourStr = startHour.toString().padStart(2, '0');
+
   const referenceDate = new Date(`${dateStr}T12:00:00Z`);
   const offset = getTimezoneOffset(timezone, referenceDate);
-  
-  // Business day starts at cutoff hour on the given date
-  const start = new Date(`${dateStr}T${cutoffStr}:00:00${offset}`);
-  
-  // Business day ends at cutoff hour the next day
+  const start = new Date(`${dateStr}T${startHourStr}:00:00${offset}`);
+
   const nextDay = new Date(referenceDate);
   nextDay.setDate(nextDay.getDate() + 1);
   const nextDateStr = getDateInTimezone(nextDay, timezone);
   const nextOffset = getTimezoneOffset(timezone, nextDay);
-  const end = new Date(`${nextDateStr}T${cutoffStr}:00:00${nextOffset}`);
-  
+  const end = new Date(`${nextDateStr}T${startHourStr}:00:00${nextOffset}`);
+
   return { start, end };
 };
+
