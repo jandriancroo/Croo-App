@@ -94,31 +94,77 @@ export function PrepListComplete({
   }, [userId]);
 
   // Load existing completions (+ who entered them)
+  // NOTE: We also key by item_name as a fallback because editing the prep list
+  // re-creates checklist_prep_rows with new IDs, and the FK on completions is
+  // ON DELETE SET NULL — so historical completions can have prep_row_id=null
+  // even though item_name is still preserved.
   useEffect(() => {
-    if (!submissionId) return;
+    if (!submissionId || rows.length === 0) return;
     let cancel = false;
     (async () => {
       const { data } = await supabase
         .from('checklist_prep_completions')
-        .select('prep_row_id, on_hand, prep_amount, completed_by, updated_at')
+        .select('prep_row_id, item_name, on_hand, prep_amount, completed_by, updated_at, created_at')
         .eq('submission_id', submissionId)
         .eq('checklist_item_id', itemId);
       if (cancel) return;
+
+      // Build lookup maps off the CURRENT prep rows
+      const rowById: Record<string, PrepRowDef> = {};
+      const rowsByName: Record<string, PrepRowDef[]> = {};
+      rows.forEach((r) => {
+        rowById[r.id] = r;
+        const key = (r.item_name || '').trim().toLowerCase();
+        if (!rowsByName[key]) rowsByName[key] = [];
+        rowsByName[key].push(r);
+      });
+
+      // Prefer entries with a real prep_row_id; within each group newest wins.
+      const sorted = [...(data || [])].sort((a: any, b: any) => {
+        const aHasId = a.prep_row_id && rowById[a.prep_row_id] ? 1 : 0;
+        const bHasId = b.prep_row_id && rowById[b.prep_row_id] ? 1 : 0;
+        if (aHasId !== bHasId) return bHasId - aHasId;
+        return (
+          new Date(b.updated_at || b.created_at || 0).getTime() -
+          new Date(a.updated_at || a.created_at || 0).getTime()
+        );
+      });
+
       const next: Record<string, { on_hand: string; note: string }> = {};
       const nextMeta: Record<string, RowMeta> = {};
       const completerIds = new Set<string>();
-      (data || []).forEach((c: any) => {
-        next[c.prep_row_id] = {
+      const usedFallbackRowIds = new Set<string>();
+
+      sorted.forEach((c: any) => {
+        let targetRow: PrepRowDef | undefined;
+        if (c.prep_row_id && rowById[c.prep_row_id]) {
+          targetRow = rowById[c.prep_row_id];
+        } else if (c.item_name) {
+          // Fallback: match by item_name. When duplicates exist (a stale bug
+          // produced multiple completions for the same logical row), pin each
+          // fallback to its own current row instance.
+          const key = c.item_name.trim().toLowerCase();
+          const candidates = rowsByName[key] || [];
+          targetRow =
+            candidates.find((r) => !usedFallbackRowIds.has(r.id)) ||
+            candidates[0];
+          if (targetRow) usedFallbackRowIds.add(targetRow.id);
+        }
+        if (!targetRow) return;
+        if (next[targetRow.id]) return; // already claimed by a higher-priority entry
+
+        next[targetRow.id] = {
           on_hand: c.on_hand != null ? String(c.on_hand) : '',
           note: '',
         };
-        nextMeta[c.prep_row_id] = {
+        nextMeta[targetRow.id] = {
           by_id: c.completed_by || null,
           by_name: null,
           at: c.updated_at || null,
         };
         if (c.completed_by) completerIds.add(c.completed_by);
       });
+
       setValues(next);
 
       // Resolve display names for everyone who entered a value
@@ -142,7 +188,7 @@ export function PrepListComplete({
     return () => {
       cancel = true;
     };
-  }, [submissionId, itemId]);
+  }, [submissionId, itemId, rows]);
 
   // A prep list section counts as complete once every row has an on_hand value
   // entered. We intentionally don't require on_hand >= par — entering "1" for a
