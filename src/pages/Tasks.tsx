@@ -29,6 +29,7 @@ export default function Tasks() {
     logbookEntries,
     historyDate,
     setHistoryDate,
+    todayBusinessDateStr,
   } = useTasksData();
 
   const [selectedCompletedTask, setSelectedCompletedTask] = useState<any>(null);
@@ -157,7 +158,7 @@ export default function Tasks() {
                   }}
                   label={
                     viewMode === 'grouped'
-                      ? (format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                      ? (format(historyDate, 'yyyy-MM-dd') === todayBusinessDateStr
                           ? `Today, ${format(historyDate, 'MMM d')}`
                           : `${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`)
                       : heatmapRange === 'week'
@@ -166,7 +167,7 @@ export default function Tasks() {
                   }
                   canGoNext={
                     viewMode === 'grouped'
-                      ? format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')
+                      ? format(historyDate, 'yyyy-MM-dd') < todayBusinessDateStr
                       : historyDate < new Date()
                   }
                   className="w-full"
