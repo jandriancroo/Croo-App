@@ -205,8 +205,12 @@ export function computeCountLanes({
     (item.inner_pack_label ?? "").trim() ||
     (lensInnerType ?? "").trim() ||
     "pack";
+  // The inner sublabel denominates "how many atomic units sit inside one
+  // inner pack." item.unit is the item's case-level label (often "cs"),
+  // which produces nonsense like "(50 cs/pack)". Use a stable "units" token
+  // (or recipe's own unit) instead.
   const innerSubLabel = showInnerPacks
-    ? `(${innerPackQty} ${item.unit ?? "units"}/${innerNounSingular})`
+    ? `(${innerPackQty} units/${innerNounSingular})`
     : null;
 
   return {

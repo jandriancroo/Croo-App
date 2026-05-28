@@ -167,7 +167,13 @@ export function calculateCountItemValue(
     : (ci.inner_pack_quantity_at_count ?? item?.inner_pack_quantity ?? null);
   const innerPackQty = Number(innerPackQtyRaw);
   const safeInnerPackQty = Number.isFinite(innerPackQty) && innerPackQty > 0 ? innerPackQty : 0;
-  const caseUnits = safeInnerPackQty > 0 ? safePackQty * safeInnerPackQty : safePackQty;
+  // Lens-aware: when an approved brand_pack_config drives valuation, its
+  // count_units_per_case ALREADY encodes total units per case (outer × inner
+  // collapsed). Multiplying by inner_pack_quantity again here would 50x the
+  // case-units denominator and silently inflate stored quantities through
+  // every downstream view. Suppress the inner tier on the lens path.
+  const effectiveInnerPackQty = useLens ? 0 : safeInnerPackQty;
+  const caseUnits = effectiveInnerPackQty > 0 ? safePackQty * effectiveInnerPackQty : safePackQty;
 
   const hasEntered = ci.entered_cases != null || ci.entered_units != null || ci.entered_inner_packs != null;
 
