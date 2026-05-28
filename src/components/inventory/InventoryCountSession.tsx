@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { calculateCountItemValue } from "@/utils/countItemValue";
-import { getEffectivePackQty } from "@/utils/getEffectivePackQty";
+import { getEffectivePackQty, isLensValid } from "@/utils/getEffectivePackQty";
 import { computeCountLanes } from "@/utils/computeCountLanes";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
@@ -644,6 +644,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     });
   }, [packLensMap, lensEnabledForLocation]);
 
+  // When an approved brand_pack_config is in effect, `count_units_per_case`
+  // already encodes TOTAL units per case (outer × inner collapsed into one
+  // scalar). Passing `inner_pack_quantity` to `getTotalQuantity` on top of
+  // that would double-multiply (e.g. lens 300 × inner 50 = 15,000 units for
+  // a single case of Small Salad Bowls). Suppress innerPackQty in that case
+  // so the lens scalar is the single source of truth. Non-lens items keep
+  // today's behavior byte-for-byte.
+  const resolveInnerPackQtyForTotal = useCallback((item: any): number | null => {
+    if (!item) return null;
+    const lens = (lensEnabledForLocation === true && item.brand_item_id)
+      ? packLensMap?.get(item.brand_item_id) ?? null
+      : null;
+    if (isLensValid(lens)) return null;
+    return (item as any).inner_pack_quantity ?? null;
+  }, [packLensMap, lensEnabledForLocation]);
+
   // Calculate total quantity for an item:
   //   cases × (pack_quantity × inner_pack_quantity when present, else pack_quantity)
   //   + inner_packs × inner_pack_quantity + units + pan_units
@@ -899,7 +915,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Lens-aware: when an approved brand_pack_config is in effect, its
       // count_units_per_case is authoritative — matches valuation precedence.
       const effectivePackQty = resolveItemPackQty(item);
-      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, innerPackQty);
+      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, resolveInnerPackQtyForTotal(item));
       const originalQuantity = originalCounts.current[key] ?? 0;
       
       if (newQuantity !== originalQuantity) {
@@ -970,7 +986,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const innerPackQty = (item as any).inner_pack_quantity ?? null;
         return {
           item_id: item.item_id,
-          quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, innerPackQty),
+          quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, resolveInnerPackQtyForTotal(item)),
           storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
           entered_cases: countState.cases,
           entered_units: countState.units,
@@ -1413,7 +1429,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const innerPackQty = (item as any).inner_pack_quantity ?? null;
       return {
         item_id: item.item_id,
-        quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, innerPackQty),
+        quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, resolveInnerPackQtyForTotal(item)),
         storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
         entered_cases: casesVal,
         entered_units: unitsVal,
@@ -2054,7 +2070,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
                 <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
                 <p className="text-[9px] text-accent-foreground/70 text-center">
-                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : resolveItemPackQty(item), item.pan_sizes, innerPackQty)} {item.is_recipe ? (item.unit || 'ea') : 'units'}
+                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : resolveItemPackQty(item), item.pan_sizes, item.is_recipe ? null : resolveInnerPackQtyForTotal(item))} {item.is_recipe ? (item.unit || 'ea') : 'units'}
                 </p>
               </div>
 
