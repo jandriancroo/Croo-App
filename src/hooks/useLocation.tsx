@@ -166,14 +166,22 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     const previousId = currentLocation?.id;
     if (previousId === location.id && !forceNavigate) return; // No-op if same location (unless forced)
 
+    // Enrich with organization_id from the locations roster if the caller
+    // didn't include it (LocationSelector/LocationPickerDialog often omit it).
+    // Without this, the org pill in Settings stays stuck on the previous org.
+    const enriched: Location = location.organization_id
+      ? location
+      : { ...location, organization_id: locations.find(l => l.id === location.id)?.organization_id };
+
     // Show the overlay immediately
-    setSwitchingTo(location);
+    setSwitchingTo(enriched);
     setIsSwitching(true);
 
     // Update location state + localStorage
-    setCurrentLocationState(location);
-    localStorage.setItem('currentLocationId', location.id);
-    try { localStorage.setItem('currentLocationCache', JSON.stringify(location)); } catch {}
+    setCurrentLocationState(enriched);
+    if (enriched.organization_id) setOrganizationId(enriched.organization_id);
+    localStorage.setItem('currentLocationId', enriched.id);
+    try { localStorage.setItem('currentLocationCache', JSON.stringify(enriched)); } catch {}
 
     const locationScopedKeys = [
       'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',
@@ -206,7 +214,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
       setIsSwitching(false);
       setSwitchingTo(null);
     }, 1800);
-  }, [queryClient, navigate, currentLocation?.id]);
+  }, [queryClient, navigate, currentLocation?.id, locations]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
 
