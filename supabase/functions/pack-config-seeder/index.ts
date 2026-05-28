@@ -234,9 +234,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 3. Deduplicate candidates (keep first for same template+structure) ──
-    const candidateKey = (c: SeedCandidate) =>
-      `${c.brand_template_id}::${c.outer_qty}::${c.inner_qty}::${c.inner_type}::${c.common_unit}::${c.source}`;
+    // ── 3. Deduplicate candidates by STRUCTURE ONLY ──
+    // Key matches the DB unique guard exactly:
+    //   (brand_template_id, outer_qty, COALESCE(inner_qty,0), common_unit)
+    // inner_type and source are label/provenance only — never part of structural identity.
+    const candidateKey = (c: Pick<SeedCandidate, 'brand_template_id' | 'outer_qty' | 'inner_qty' | 'common_unit'>) =>
+      `${c.brand_template_id}::${c.outer_qty}::${c.inner_qty ?? 0}::${c.common_unit}`;
     const deduped = new Map<string, SeedCandidate>();
     for (const c of candidates) {
       const k = candidateKey(c);
@@ -244,16 +247,22 @@ Deno.serve(async (req) => {
     }
     const uniqueCandidates = Array.from(deduped.values());
 
-    // ── 4. Load existing proposed rows for comparison ──
+    // ── 4. Load existing rows (proposed AND approved) for structural comparison ──
     const { data: existingProposed, error: existErr } = await supabase
       .from("brand_pack_configs")
       .select("id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, source, source_evidence, status");
     if (existErr) throw existErr;
 
+    // Build structure-only index of proposed + approved rows.
+    // Approved wins if both exist for the same structure (defensive — shouldn't happen post-cleanup).
     const existingByKey = new Map<string, any>();
     for (const row of (existingProposed || [])) {
-      const k = `${row.brand_template_id}::${row.outer_qty}::${row.inner_qty}::${row.inner_type}::${row.common_unit}::${row.source || ''}`;
-      existingByKey.set(k, row);
+      if (row.status !== 'proposed' && row.status !== 'approved') continue;
+      const k = `${row.brand_template_id}::${row.outer_qty}::${row.inner_qty ?? 0}::${row.common_unit}`;
+      const prior = existingByKey.get(k);
+      if (!prior || (prior.status === 'proposed' && row.status === 'approved')) {
+        existingByKey.set(k, row);
+      }
     }
 
     // ── 5. Compare and classify ──
@@ -264,21 +273,25 @@ Deno.serve(async (req) => {
     let newCount = 0;
     let skippedCount = 0;
 
-    // 5a. Walk every existing row — is it reproducible?
+    // 5a. Walk every existing proposed/approved row — is it reproducible?
     for (const existing of (existingProposed || [])) {
-      const k = `${existing.brand_template_id}::${existing.outer_qty}::${existing.inner_qty}::${existing.inner_type}::${existing.common_unit}::${existing.source || ''}`;
+      if (existing.status !== 'proposed' && existing.status !== 'approved') continue;
+      const k = `${existing.brand_template_id}::${existing.outer_qty}::${existing.inner_qty ?? 0}::${existing.common_unit}`;
       const candidate = deduped.get(k);
       if (!candidate) {
-        orphanCount++;
-        results.push({ existing_id: existing.id, status: 'orphan' });
-        if (!dryRun) {
-          await supabase.from("pack_config_seed_log").insert({
-            brand_template_id: existing.brand_template_id,
-            existing_config_id: existing.id,
-            status: 'orphan',
-            dry_run: false,
-            run_id: runId,
-          });
+        // Orphan tracking only applies to proposed rows — approved rows aren't expected to round-trip.
+        if (existing.status === 'proposed') {
+          orphanCount++;
+          results.push({ existing_id: existing.id, status: 'orphan' });
+          if (!dryRun) {
+            await supabase.from("pack_config_seed_log").insert({
+              brand_template_id: existing.brand_template_id,
+              existing_config_id: existing.id,
+              status: 'orphan',
+              dry_run: false,
+              run_id: runId,
+            });
+          }
         }
         continue;
       }
@@ -288,6 +301,20 @@ Deno.serve(async (req) => {
       if (existing.count_units_per_case !== candidate.count_units_per_case) diffs.push(`count_units_per_case: ${existing.count_units_per_case} vs ${candidate.count_units_per_case}`);
       if (Math.abs((existing.cost_per_common_unit || 0) - (candidate.cost_per_common_unit || 0)) > 0.0001) {
         diffs.push(`cost_per_common_unit: ${existing.cost_per_common_unit} vs ${candidate.cost_per_common_unit}`);
+      }
+
+      // Refresh price + evidence on the matched row regardless of status.
+      // Approved rows: snapshots are frozen, so historical counts aren't affected — only the live valuation lens picks up the new price.
+      // Proposed rows: keeps the most-recently-seen cost visible at approval time.
+      if (!dryRun && diffs.length > 0) {
+        await supabase
+          .from("brand_pack_configs")
+          .update({
+            cost_per_common_unit: candidate.cost_per_common_unit ?? existing.cost_per_common_unit,
+            source_evidence: candidate.source_evidence,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
       }
 
       if (diffs.length === 0) {
