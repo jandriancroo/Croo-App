@@ -688,5 +688,6 @@ export function useTasksData() {
     historyDate,
     setHistoryDate,
     historyDateStr,
+    todayBusinessDateStr,
   };
 }
