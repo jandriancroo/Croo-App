@@ -1056,6 +1056,16 @@ export default function BrandPackConfigApprovals() {
             />
             Competing only
           </label>
+          <label
+            className="flex items-center gap-2 text-sm cursor-pointer select-none px-2"
+            title="Include already-approved configs as read-only reference for consistency checks"
+          >
+            <Checkbox
+              checked={showApproved}
+              onCheckedChange={(c) => setShowApproved(c === true)}
+            />
+            Show approved
+          </label>
           {(vendorFilter !== "all" || categoryFilter !== "all" || query || competingOnly) && (
             <Button
               variant="ghost"
