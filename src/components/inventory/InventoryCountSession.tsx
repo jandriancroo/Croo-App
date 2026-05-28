@@ -636,29 +636,34 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const lens = (lensEnabledForLocation === true && item.brand_item_id)
       ? packLensMap?.get(item.brand_item_id) ?? null
       : null;
-    return getEffectivePackQty({
+    const effective = getEffectivePackQty({
       pack_quantity_at_count: (item as any).pack_quantity_at_count ?? null,
       pack_quantity_override: (item as any)._rawPackQuantityOverride ?? (item as any).pack_quantity_override ?? null,
       pack_quantity: (item as any)._rawPackQuantity ?? item.pack_quantity ?? null,
       lens,
     });
+    // When the lens collapses outer × inner into count_units_per_case AND the
+    // item has an inner-pack tier, treat the lens value as TOTAL units per case
+    // and back out the OUTER (packs-per-case) so the case-units math
+    //   caseUnits = outer × inner = lens.count_units_per_case
+    // matches the display badge AND lets the inner-pack lane add real units
+    // (e.g. 1 case + 1 pack of Cold Cup Lids 10/100CT = 1100 units, not 1000).
+    const inner = Number((item as any).inner_pack_quantity ?? 0);
+    if (isLensValid(lens) && inner > 0 && effective > 0 && effective % inner === 0) {
+      return effective / inner;
+    }
+    return effective;
   }, [packLensMap, lensEnabledForLocation]);
 
-  // When an approved brand_pack_config is in effect, `count_units_per_case`
-  // already encodes TOTAL units per case (outer × inner collapsed into one
-  // scalar). Passing `inner_pack_quantity` to `getTotalQuantity` on top of
-  // that would double-multiply (e.g. lens 300 × inner 50 = 15,000 units for
-  // a single case of Small Salad Bowls). Suppress innerPackQty in that case
-  // so the lens scalar is the single source of truth. Non-lens items keep
-  // today's behavior byte-for-byte.
+  // Inner-pack tier for total-unit math. Always returns the item's
+  // inner_pack_quantity (when present) — lens-collapse is handled in
+  // resolveItemPackQty above by returning the OUTER instead of the total,
+  // so caseUnits = outer × inner reconstructs to lens.count_units_per_case
+  // without double-multiplying.
   const resolveInnerPackQtyForTotal = useCallback((item: any): number | null => {
     if (!item) return null;
-    const lens = (lensEnabledForLocation === true && item.brand_item_id)
-      ? packLensMap?.get(item.brand_item_id) ?? null
-      : null;
-    if (isLensValid(lens)) return null;
     return (item as any).inner_pack_quantity ?? null;
-  }, [packLensMap, lensEnabledForLocation]);
+  }, []);
 
   // Calculate total quantity for an item:
   //   cases × (pack_quantity × inner_pack_quantity when present, else pack_quantity)
