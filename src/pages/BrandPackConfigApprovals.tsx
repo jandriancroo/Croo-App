@@ -1297,41 +1297,47 @@ export default function BrandPackConfigApprovals() {
                   })()}
 
 
-                  <div className="flex gap-2 justify-end pt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={isBusy}
-                      onClick={async () => {
-                        setRowBusy(r.id, "save");
-                        try { await saveDraft.mutateAsync(r); } finally { setRowBusy(r.id, null); }
-                      }}
-                    >
-                      <Save className="h-4 w-4" /> Save Draft
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={isBusy}
-                      onClick={async () => {
-                        if (!confirm("Reject this proposal? It will be archived.")) return;
-                        setRowBusy(r.id, "reject");
-                        try { await reject.mutateAsync(r); } finally { setRowBusy(r.id, null); }
-                      }}
-                    >
-                      <Archive className="h-4 w-4" /> Reject
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={isBusy}
-                      onClick={async () => {
-                        setRowBusy(r.id, "approve");
-                        try { await approve.mutateAsync(r); } finally { setRowBusy(r.id, null); }
-                      }}
-                    >
-                      {busy[r.id] === "approve" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Approve
-                    </Button>
-                  </div>
+                  {isApproved ? (
+                    <div className="flex items-center justify-end pt-1 text-xs text-muted-foreground italic">
+                      Read-only reference — already approved
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 justify-end pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isBusy}
+                        onClick={async () => {
+                          setRowBusy(r.id, "save");
+                          try { await saveDraft.mutateAsync(r); } finally { setRowBusy(r.id, null); }
+                        }}
+                      >
+                        <Save className="h-4 w-4" /> Save Draft
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={isBusy}
+                        onClick={async () => {
+                          if (!confirm("Reject this proposal? It will be archived.")) return;
+                          setRowBusy(r.id, "reject");
+                          try { await reject.mutateAsync(r); } finally { setRowBusy(r.id, null); }
+                        }}
+                      >
+                        <Archive className="h-4 w-4" /> Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={isBusy}
+                        onClick={async () => {
+                          setRowBusy(r.id, "approve");
+                          try { await approve.mutateAsync(r); } finally { setRowBusy(r.id, null); }
+                        }}
+                      >
+                        {busy[r.id] === "approve" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Approve
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}
