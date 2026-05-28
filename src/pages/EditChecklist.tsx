@@ -623,8 +623,7 @@ export default function EditChecklist() {
           }
 
           // Upsert remaining rows in order.
-          const updates = incoming.filter((r: any) => r.id);
-          const inserts = incoming.filter((r: any) => !r.id);
+
 
           for (let i = 0; i < incoming.length; i++) {
             const r = incoming[i];
