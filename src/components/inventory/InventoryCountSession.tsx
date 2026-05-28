@@ -915,7 +915,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Lens-aware: when an approved brand_pack_config is in effect, its
       // count_units_per_case is authoritative — matches valuation precedence.
       const effectivePackQty = resolveItemPackQty(item);
-      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, innerPackQty);
+      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, resolveInnerPackQtyForTotal(item));
       const originalQuantity = originalCounts.current[key] ?? 0;
       
       if (newQuantity !== originalQuantity) {
