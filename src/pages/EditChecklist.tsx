@@ -593,12 +593,38 @@ export default function EditChecklist() {
           savedItemId = inserted?.id;
         }
 
-        // Sync prep_rows for prep_list items (replace-all strategy)
+        // Sync prep_rows for prep_list items.
+        // IMPORTANT: do NOT delete-then-insert blindly — the FK on
+        // checklist_prep_completions.prep_row_id is ON DELETE SET NULL,
+        // which would nuke the linkage on every historical completion and
+        // make past days look empty in the UI. Instead, diff: update rows
+        // that still exist, insert new ones, and only delete rows the user
+        // actually removed.
         if (item.item_type === 'prep_list' && savedItemId) {
-          await supabase.from('checklist_prep_rows').delete().eq('checklist_item_id', savedItemId);
-          const rowsToInsert = (item.prep_rows || [])
-            .filter(r => r.item_name.trim() !== '')
-            .map((r, i) => ({
+          const incoming = (item.prep_rows || []).filter(
+            (r: any) => r.item_name && r.item_name.trim() !== ''
+          );
+          const keptIds = incoming
+            .map((r: any) => r.id)
+            .filter((x: any) => typeof x === 'string' && x.length > 0);
+
+          // Delete only rows the user removed from the editor.
+          const delQuery = supabase
+            .from('checklist_prep_rows')
+            .delete()
+            .eq('checklist_item_id', savedItemId);
+          const { error: delErr } =
+            keptIds.length > 0
+              ? await delQuery.not('id', 'in', `(${keptIds.join(',')})`)
+              : await delQuery;
+          if (delErr) throw delErr;
+
+          // Upsert remaining rows in order.
+
+
+          for (let i = 0; i < incoming.length; i++) {
+            const r = incoming[i];
+            const payload = {
               checklist_item_id: savedItemId,
               inventory_item_id: r.inventory_item_id || null,
               item_name: r.item_name.trim(),
@@ -606,12 +632,19 @@ export default function EditChecklist() {
               pan_key: r.pan_key || null,
               par: r.par,
               order_index: i,
-            }));
-          if (rowsToInsert.length > 0) {
-            const { error: prepErr } = await supabase
-              .from('checklist_prep_rows')
-              .insert(rowsToInsert);
-            if (prepErr) throw prepErr;
+            };
+            if (r.id) {
+              const { error: updErr } = await supabase
+                .from('checklist_prep_rows')
+                .update(payload)
+                .eq('id', r.id);
+              if (updErr) throw updErr;
+            } else {
+              const { error: insErr } = await supabase
+                .from('checklist_prep_rows')
+                .insert(payload);
+              if (insErr) throw insErr;
+            }
           }
         }
       }
