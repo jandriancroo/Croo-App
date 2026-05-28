@@ -483,6 +483,7 @@ export default function BrandPackConfigApprovals() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [query, setQuery] = useState<string>("");
   const [competingOnly, setCompetingOnly] = useState<boolean>(false);
+  const [showApproved, setShowApproved] = useState<boolean>(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState<null | "approve" | "reject">(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
