@@ -234,9 +234,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 3. Deduplicate candidates (keep first for same template+structure) ──
-    const candidateKey = (c: SeedCandidate) =>
-      `${c.brand_template_id}::${c.outer_qty}::${c.inner_qty}::${c.inner_type}::${c.common_unit}::${c.source}`;
+    // ── 3. Deduplicate candidates by STRUCTURE ONLY ──
+    // Key matches the DB unique guard exactly:
+    //   (brand_template_id, outer_qty, COALESCE(inner_qty,0), common_unit)
+    // inner_type and source are label/provenance only — never part of structural identity.
+    const candidateKey = (c: Pick<SeedCandidate, 'brand_template_id' | 'outer_qty' | 'inner_qty' | 'common_unit'>) =>
+      `${c.brand_template_id}::${c.outer_qty}::${c.inner_qty ?? 0}::${c.common_unit}`;
     const deduped = new Map<string, SeedCandidate>();
     for (const c of candidates) {
       const k = candidateKey(c);
@@ -244,16 +247,22 @@ Deno.serve(async (req) => {
     }
     const uniqueCandidates = Array.from(deduped.values());
 
-    // ── 4. Load existing proposed rows for comparison ──
+    // ── 4. Load existing rows (proposed AND approved) for structural comparison ──
     const { data: existingProposed, error: existErr } = await supabase
       .from("brand_pack_configs")
       .select("id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, source, source_evidence, status");
     if (existErr) throw existErr;
 
+    // Build structure-only index of proposed + approved rows.
+    // Approved wins if both exist for the same structure (defensive — shouldn't happen post-cleanup).
     const existingByKey = new Map<string, any>();
     for (const row of (existingProposed || [])) {
-      const k = `${row.brand_template_id}::${row.outer_qty}::${row.inner_qty}::${row.inner_type}::${row.common_unit}::${row.source || ''}`;
-      existingByKey.set(k, row);
+      if (row.status !== 'proposed' && row.status !== 'approved') continue;
+      const k = `${row.brand_template_id}::${row.outer_qty}::${row.inner_qty ?? 0}::${row.common_unit}`;
+      const prior = existingByKey.get(k);
+      if (!prior || (prior.status === 'proposed' && row.status === 'approved')) {
+        existingByKey.set(k, row);
+      }
     }
 
     // ── 5. Compare and classify ──
