@@ -1162,11 +1162,28 @@ export default function BrandPackConfigApprovals() {
                   {proposalLocs.length > 0 && (
                     <div className="flex items-center gap-1 flex-wrap text-xs">
                       <span className="text-muted-foreground">Synced at:</span>
-                      {proposalLocs.map((l) => (
-                        <Badge key={l.id} variant="secondary" className="text-[10px]">{l.name}</Badge>
-                      ))}
+                      {proposalLocs.map((l) => {
+                        const isSource = sourceLocIds.has(l.id);
+                        return (
+                          <Badge
+                            key={l.id}
+                            variant={isSource ? "default" : "secondary"}
+                            className="text-[10px]"
+                            title={isSource ? "Source: pack config originated from this location's vendor feed" : "Will use this pack config once approved"}
+                          >
+                            {l.name}
+                            {isSource && " ★"}
+                          </Badge>
+                        );
+                      })}
+                      {sourceLocNames.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground ml-1">
+                          (★ = source)
+                        </span>
+                      )}
                     </div>
                   )}
+
 
                   <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                     <Field label="Outer qty">
