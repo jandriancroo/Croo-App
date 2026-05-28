@@ -365,13 +365,92 @@ export default function BrandPackConfigApprovals() {
           );
         });
       }
-      return { rows, locByTplVendor };
+
+      // Source locations: where the pack-config ACTUALLY originated.
+      // PA  → pa_catalog_items.location_id (keyed by pa_item_id).
+      // PFG → pfg_orders.location_id whose items[].itemNumber matches.
+      // Different from locByTplVendor ("stores that will USE this config").
+      const sourceLocByTplVendor = new Map<string, Set<string>>();
+      const paSkusByTpl = new Map<string, Set<string>>();
+      const pfgSkusByTpl = new Map<string, Set<string>>();
+      for (const r of rows) {
+        const ev = (r.source_evidence || {}) as any;
+        const vendor = String(ev.vendor || "").toLowerCase();
+        const sku = ev.sku ? String(ev.sku) : null;
+        if (!sku) continue;
+        if (vendor === "pa" || vendor === "produce_alliance") {
+          if (!paSkusByTpl.has(r.brand_template_id)) paSkusByTpl.set(r.brand_template_id, new Set());
+          paSkusByTpl.get(r.brand_template_id)!.add(sku);
+        } else if (vendor === "pfg") {
+          if (!pfgSkusByTpl.has(r.brand_template_id)) pfgSkusByTpl.set(r.brand_template_id, new Set());
+          pfgSkusByTpl.get(r.brand_template_id)!.add(sku);
+        }
+      }
+      const allPaSkus = Array.from(new Set(Array.from(paSkusByTpl.values()).flatMap((s) => Array.from(s))));
+      if (allPaSkus.length > 0) {
+        const { data: paRows } = await supabase
+          .from("pa_catalog_items")
+          .select("pa_item_id, location_id")
+          .in("pa_item_id", allPaSkus);
+        const paLocBySku = new Map<string, Set<string>>();
+        (paRows ?? []).forEach((r: any) => {
+          if (!r.pa_item_id || !r.location_id) return;
+          if (!paLocBySku.has(r.pa_item_id)) paLocBySku.set(r.pa_item_id, new Set());
+          paLocBySku.get(r.pa_item_id)!.add(r.location_id);
+        });
+        paSkusByTpl.forEach((skus, tplId) => {
+          const set = new Set<string>();
+          skus.forEach((sku) => paLocBySku.get(sku)?.forEach((id) => set.add(id)));
+          if (set.size > 0) sourceLocByTplVendor.set(`${tplId}::pa`, set);
+        });
+      }
+      // PFG: scoped to the same locations the brand actually carries these items at.
+      // We don't have a brand→locations join, so reuse locIds derived from inventory_items.
+      if (pfgSkusByTpl.size > 0) {
+        const scopedLocIds = Array.from(
+          new Set(((rows ?? []) as any[]).flatMap(() => [])) // placeholder, replaced below
+        );
+        // Reuse locIds set from earlier query if available; otherwise derive from inventory_items again.
+        let pfgLocIds: string[] = [];
+        const { data: pfgScope } = await supabase
+          .from("inventory_items")
+          .select("location_id")
+          .in("brand_item_id", Array.from(pfgSkusByTpl.keys()))
+          .eq("is_active", true);
+        pfgLocIds = Array.from(new Set((pfgScope ?? []).map((r: any) => r.location_id).filter(Boolean)));
+        if (pfgLocIds.length > 0) {
+          const { data: orders } = await supabase
+            .from("pfg_orders")
+            .select("location_id, items")
+            .in("location_id", pfgLocIds)
+            .order("order_date", { ascending: false })
+            .limit(500);
+          const pfgLocBySku = new Map<string, Set<string>>();
+          (orders ?? []).forEach((o: any) => {
+            if (!o.location_id || !Array.isArray(o.items)) return;
+            for (const it of o.items) {
+              const num = it?.itemNumber ? String(it.itemNumber) : null;
+              if (!num) continue;
+              if (!pfgLocBySku.has(num)) pfgLocBySku.set(num, new Set());
+              pfgLocBySku.get(num)!.add(o.location_id);
+            }
+          });
+          pfgSkusByTpl.forEach((skus, tplId) => {
+            const set = new Set<string>();
+            skus.forEach((sku) => pfgLocBySku.get(sku)?.forEach((id) => set.add(id)));
+            if (set.size > 0) sourceLocByTplVendor.set(`${tplId}::pfg`, set);
+          });
+        }
+      }
+
+      return { rows, locByTplVendor, sourceLocByTplVendor };
     },
     enabled: !!brandId,
   });
 
   const proposalRows = data?.rows ?? [];
   const locByTplVendor = data?.locByTplVendor ?? new Map<string, { id: string; name: string }[]>();
+  const sourceLocByTplVendor = (data as any)?.sourceLocByTplVendor ?? new Map<string, Set<string>>();
 
   const normalizeVendor = (v: string | null | undefined): string | null => {
     if (!v) return null;
@@ -388,6 +467,15 @@ export default function BrandPackConfigApprovals() {
       normalizeVendor(r.source?.startsWith("invoice:") ? r.source.split(":")[1] : null);
     if (!vendor) return [];
     return locByTplVendor.get(`${r.brand_template_id}::${vendor}`) ?? [];
+  };
+
+  const sourceLocIdsForProposal = (r: ProposalRow): Set<string> => {
+    const ev = (r.source_evidence || {}) as any;
+    const vendor =
+      normalizeVendor(ev.vendor) ||
+      normalizeVendor(r.source?.startsWith("vendor_sync:") ? r.source.split(":")[1] : null);
+    if (!vendor) return new Set();
+    return sourceLocByTplVendor.get(`${r.brand_template_id}::${vendor}`) ?? new Set();
   };
 
   // ---- Filters + bulk select state ----
