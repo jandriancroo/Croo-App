@@ -231,6 +231,7 @@ export default function BrandPackConfigApprovals() {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [busy, setBusy] = useState<Record<string, string | null>>({});
   const [approvalLog, setApprovalLog] = useState<ApprovalLogEntry[]>([]);
+  const [showApproved, setShowApproved] = useState<boolean>(false);
 
   const pushApprovalLog = (
     level: ApprovalLogEntry["level"],
