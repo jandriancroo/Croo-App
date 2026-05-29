@@ -1400,6 +1400,92 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       failed = itemCounts.length;
     }
 
+    // 2b: leg writer pass. For items that have ≥2 selected pack configs at
+    // this location, re-fetch the parent count_item id (keyed off the SAME
+    // composite `${item_id}|${storage_location_id || ''}` the parent writer
+    // uses, so a collision is impossible by construction) and route each
+    // multi-config item through save_count_item_with_legs. Single-config
+    // items are intentionally not touched here — they keep the today writer.
+    // Submit-freeze is OUT of scope for 2b: we always pass freeze=false.
+    let legFailed = 0;
+    if (legsEnabledRef.current === true) {
+      const itemsNow = itemsRef.current || [];
+      const countsNow = countsRef.current || {};
+      const legsMapNow = legsConfigsMapRef.current;
+      const multi = itemCounts.filter((ic) => {
+        const it = itemsNow.find((i) => i.item_id === ic.item_id && (i.storage_location_id ?? null) === (ic.storage_location_id ?? null));
+        const bid = (it as any)?.brand_item_id;
+        return bid && ((legsMapNow?.get(bid)?.length ?? 0) >= 2);
+      });
+      if (multi.length > 0) {
+        try {
+          const { data: parentRows, error: parentErr } = await supabase
+            .from("inventory_count_items")
+            .select("id, item_id, storage_location_id")
+            .eq("count_id", countId);
+          if (parentErr) throw parentErr;
+          const parentMap = new Map<string, string>();
+          for (const r of (parentRows || []) as any[]) {
+            parentMap.set(`${r.item_id}|${r.storage_location_id || ''}`, r.id);
+          }
+          for (const ic of multi) {
+            const composite = `${ic.item_id}|${ic.storage_location_id || ''}`;
+            const countItemId = parentMap.get(composite);
+            const it = itemsNow.find((i) => i.item_id === ic.item_id && (i.storage_location_id ?? null) === (ic.storage_location_id ?? null));
+            const splitKey = (it as any)?._splitKey || ic.item_id;
+            const bid = (it as any)?.brand_item_id;
+            if (!countItemId || !bid) { legFailed++; continue; }
+            const configs = legsMapNow?.get(bid) ?? [];
+            const legsPayload = configs.map((cfg) => {
+              const legKey = cfg.is_default ? splitKey : `${splitKey}::leg::${cfg.pack_config_id}`;
+              const s = countsNow[legKey] || { cases: 0, units: 0, innerPacks: 0 };
+              const cu = Number(cfg.count_units_per_case ?? 0);
+              const ipq = Number(cfg.inner_qty ?? 0);
+              const qc = (Number(s.cases) || 0) * cu + (Number(s.innerPacks) || 0) * ipq + (Number(s.units) || 0);
+              return {
+                pack_config_id: cfg.pack_config_id,
+                entered_cases: Number(s.cases) || 0,
+                entered_inner_packs: Number(s.innerPacks) || 0,
+                entered_units: Number(s.units) || 0,
+                quantity_common: qc,
+              };
+            });
+            try {
+              const { error: rpcErr } = await (supabase as any).rpc('save_count_item_with_legs', {
+                p_count_item_id: countItemId,
+                p_legs: legsPayload,
+                p_freeze_snapshots: false,
+                p_rollup_blocked: false,
+              });
+              if (rpcErr) throw rpcErr;
+            } catch (e) {
+              legFailed++;
+              console.warn(`[Inventory] Leg RPC failed for item ${ic.item_id}:`, e);
+            }
+          }
+        } catch (e) {
+          // Parent re-fetch failed — count every multi-config item as a leg
+          // failure for this cycle so the autosave loop will retry.
+          legFailed += multi.length;
+          console.warn("[Inventory] Leg pass: parent re-fetch failed:", e);
+        }
+      }
+    }
+    failed += legFailed;
+
+    // Exit-path visibility: if the user is leaving the screen and any leg
+    // write failed this cycle, surface a toast AND re-throw so the
+    // flushSaveAsync catch can display its own error. Silent swallow on exit
+    // is how we'd corrupt a count without anyone noticing.
+    if (opts?.isExit && legFailed > 0) {
+      saveInProgressRef.current = false;
+      const msg = `Failed to save ${legFailed} multi-config leg${legFailed === 1 ? '' : 's'} on exit — reopen the count and resave.`;
+      toast.error(msg);
+      throw new Error(msg);
+    }
+
+
+
     // Save elapsed duration (separate try/catch so item failures don't block this)
     try {
       await supabase
