@@ -1,9 +1,18 @@
 # Per-Config Count Legs — Design Spec (Path B)
 
-Status: **PROPOSAL — review before code**
+Status: **APPROVED — build behind `legs_enabled`, Hemet canary only**
 Owner: Lovable
 Canary: **Hemet** (source store on both Baby Spinach configs)
 Pairs with: `.lovable/snapshot-immutability-spec.md`, `.lovable/pack-config-approval-spec.md`, `SHARED_WORKSPACE/brand_inventory/pack-config-lens.md`
+
+## Pre-flight check (recorded 2026-05-29)
+
+- Hemet in-progress count `240fe79f-3f51-433f-a054-daa980b51ec9` (started 2026-05-24)
+  has two Baby Spinach `inventory_count_items` rows. **Both fully zero** (no
+  `entered_cases` / `entered_inner_packs` / `entered_units` / `quantity`). No
+  operator input is at risk when `legs_enabled` flips at Hemet. GM should still
+  be told the 5-day-old count exists so they decide whether to discard or
+  continue — not because of legs, but because it's stale.
 
 ---
 
@@ -324,20 +333,65 @@ behavior. Parent row remains valid because §2 invariants were kept current.
 
 ---
 
-## 10. Open questions for your review
+## 10. Resolved decisions (folded in 2026-05-29)
 
-1. **Parent lane mirroring**: mirror the **default** config's leg into
-   parent.entered_*, or write zeros and rely solely on `quantity`? Default
-   chosen here for back-compat; flag if you'd rather null them out.
-2. **`quantity_rollup_blocked`**: new bool column on the parent, or sentinel
-   (`quantity IS NULL` + a warning row in a side table)? Bool is simpler.
-3. **RPC vs client-side transaction**: RPC chosen above to keep invariants
-   atomic. Confirm or push back.
-4. **Edit log schema**: add `pack_config_id` (nullable) to
-   `inventory_count_edit_log`, or write a sibling `inventory_count_leg_edit_log`?
-   Inline column is lighter; sibling is cleaner separation.
-5. **Step 4 Job A**: extend the existing function to sweep legs in the same
-   run, or ship a sibling function `legs-snapshot-backfill`? Extending is
-   one less moving part.
+1. **Parent lane mirroring.** `parent.quantity = SUM(all legs.quantity_common)`.
+   `parent.entered_cases / entered_inner_packs / entered_units` mirror the
+   **default leg only**. These two fields are sourced **differently on purpose**
+   — quantity is an aggregate, lane fields are a back-compat passthrough of the
+   default config. The RPC must enforce both rules and never trust a
+   client-passed parent sum.
+2. **Rollup-blocked marker.** Add `quantity_rollup_blocked BOOLEAN NOT NULL
+   DEFAULT false` to `inventory_count_items`. Do **not** overload `quantity IS NULL`
+   (which means "no count"). When true: `parent.quantity` is still written
+   (best-effort sum) but every downstream rollup must check the bool first.
+3. **RPC is the only writer for multi-leg items.** `save_count_item_with_legs`
+   is server-authoritative: it computes `parent.quantity` from the legs it
+   writes inside the same transaction. Client-passed sums are ignored.
+   Single-config items can still write parent directly.
+4. **Edit log.** Add nullable `pack_config_id` column to the existing
+   `inventory_count_edit_log` table. Keeps the audit trail unified — no
+   sibling table.
+5. **Step 4 Job A.** Extend the existing `inventory-snapshot-backfill` /
+   nightly job, but as a **clearly labeled separate leg-sweep pass** with its
+   own `snapshot_backfill_log` lines (`source = 'nightly_resnapshot_legs'`).
+   Not interleaved with the parent sweep.
 
-Answer these in review and I'll fold them in before any code lands.
+### 10a. COGS treatment of rollup-blocked items
+
+A multi-config item whose legs have mismatched `common_unit` has no honest
+single-number total. COGS / period rollup / variance:
+
+- **Exclude** the item from the rolled-up location total. Never silently
+  contribute $0 — that hides loss.
+- **List separately** in a "Needs attention — unit mismatch" section on the
+  COGS report, with each leg's quantity + $ shown individually so the operator
+  can see what was actually counted.
+- Once the configs are reconciled to a common unit, the next count rolls up
+  normally with no manual intervention.
+
+### 10b. Hemet pre-flight (verified 2026-05-29)
+
+In-progress count `240fe79f-...` at Hemet contains two Baby Spinach
+`inventory_count_items` rows, both with all-zero entries. **No operator data
+at risk** when `legs_enabled` flips. Recommend GM is told the 5-day-old count
+exists (for staleness reasons), not for legs-migration reasons.
+
+---
+
+## Build order (next step)
+
+1. Migration: `inventory_count_item_legs` table + RLS + grants, parent
+   `quantity_rollup_blocked` column, `inventory_count_edit_log.pack_config_id`,
+   `locations.legs_enabled` (default false).
+2. RPC `save_count_item_with_legs` (server-authoritative parent aggregation).
+3. Writer in `InventoryCountSession` routes multi-config items through RPC;
+   single-config path unchanged.
+4. Reader updates: `InventoryCountView`, `CountExportDialog`,
+   `CountEditHistory`, `PeriodDetailPanel`, COGS/variance — all add
+   `quantity_rollup_blocked` check + per-leg rendering when legs present.
+5. Snapshot freeze on submit (in RPC).
+6. Extend `inventory-snapshot-backfill` with leg-sweep pass.
+7. Flip Hemet `legs_enabled = true`. Run all four §7.3 verification checks.
+8. Promote Tuscaloosa → Palm Desert → Palm Springs one at a time.
+
