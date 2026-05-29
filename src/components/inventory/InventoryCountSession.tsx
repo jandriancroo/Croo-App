@@ -529,7 +529,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const { data: legsHydrationMap } = useQuery({
     queryKey: ["legs-hydration", countId, legsEnabledForLocation],
     enabled: !!countId && legsEnabledForLocation === true,
-    staleTime: 30 * 1000,
+    // 2b: a save→reopen cycle must never serve stale leg data. Keep zero
+    // cache so the next mount always re-reads inventory_count_item_legs.
+    staleTime: 0,
+    gcTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_count_item_legs" as any)
