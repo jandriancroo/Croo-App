@@ -40,7 +40,7 @@ interface CateringOrdersSectionProps {
 
 export function CateringOrdersSection({ showHeader: _showHeader = true, externalUploadOpen, onExternalUploadChange, searchQuery = "" }: CateringOrdersSectionProps) {
   const { currentLocation } = useLocation();
-  const { getTodayInTimezone } = useLocationTimezone();
+  const { getTodayInTimezone, timezone } = useLocationTimezone();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const [orders, setOrders] = useState<CateringOrder[]>([]);
   const [loading, setLoading] = useState(true);
