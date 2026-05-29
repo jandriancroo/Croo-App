@@ -1572,7 +1572,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, [isViewOnly, isEditing, countId]);
 
   // Async flush for unmount (component cleanup)
-  const flushSaveAsync = useCallback(async () => {
+  const flushSaveAsync = useCallback(async (opts?: { isExit?: boolean }) => {
     if (isViewOnly || isEditing) return;
     const builder = buildSnapshotRef.current;
     if (!builder) return;
@@ -1580,11 +1580,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
 
     try {
-      await saveItemsBatch(itemCounts);
+      const result = await saveItemsBatch(itemCounts, opts);
       lastAutosavedRef.current = snapshot;
+      // 2b: on exit, even a "soft" partial failure (parent saved but legs
+      // didn't) must be visible. The batch already toasts + throws for leg
+      // failures; this guards parent-only failures.
+      if (opts?.isExit && result.failed > 0) {
+        toast.error(`Failed to save ${result.failed} item${result.failed === 1 ? '' : 's'} on exit — reopen the count and resave.`);
+      }
       console.log("[Inventory] Flush save completed (async)");
     } catch (e) {
       console.warn("[Inventory] Flush save failed:", e);
+      if (opts?.isExit) {
+        toast.error("Failed to save count on exit — reopen and resave before continuing.");
+      }
     }
   }, [isViewOnly, isEditing, saveItemsBatch]);
 
@@ -1601,8 +1610,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   useEffect(() => { flushSaveAsyncRef.current = flushSaveAsync; }, [flushSaveAsync]);
   useEffect(() => {
     return () => {
-      // Fire async flush on unmount — also fire sync as safety net
-      flushSaveAsyncRef.current();
+      // Fire async flush on unmount — also fire sync as safety net.
+      // isExit:true so saveItemsBatch surfaces leg-write failures via toast
+      // instead of silently swallowing them.
+      flushSaveAsyncRef.current({ isExit: true });
     };
   }, []);
 
