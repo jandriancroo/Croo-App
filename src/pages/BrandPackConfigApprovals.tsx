@@ -817,32 +817,31 @@ export default function BrandPackConfigApprovals() {
           continue;
         }
 
-        // CASE C — exactly ONE existing row with a different config_id. Repoint in place.
-        // This is what prevents ghost-row accumulation; no DELETE needed.
+        // CASE C — exactly ONE existing row with a different config_id.
+        // INSERT alongside (do NOT repoint). The PK (location, template, config) explicitly
+        // allows multiple selections per template (e.g. case + single bag, 4-pack + gallon).
+        // Repointing was destructive — it erased the prior selection and any history.
+        // The existing default is preserved; new row enters as non-default.
         if (rows.length === 1) {
           const old = rows[0] as any;
-          const { error: upErr } = await supabase
+          const { error: insErr } = await supabase
             .from("location_pack_selections")
-            .update({
+            .insert({
+              location_id,
+              brand_template_id: r.brand_template_id,
               active_pack_config_id: r.id,
-              is_default: true,
+              is_default: false,
               selected_by: uid,
-              selected_at: new Date().toISOString(),
-            })
-            .eq("location_id", location_id)
-            .eq("brand_template_id", r.brand_template_id)
-            .eq("active_pack_config_id", old.active_pack_config_id);
-          if (upErr) {
-            log("error", `${tag} ${locName}: repoint failed`, upErr);
+            });
+          if (insErr) {
+            log("error", `${tag} ${locName}: secondary insert failed`, insErr);
             console.groupEnd();
-            throw upErr;
+            throw insErr;
           }
           inserted += 1;
-          defaulted += 1;
-          log("info", `${tag} ${locName}: repointed existing row`, {
-            from: old.active_pack_config_id,
-            to: r.id,
-            was_default: old.is_default,
+          log("info", `${tag} ${locName}: inserted secondary selection alongside existing default`, {
+            existing_default: old.active_pack_config_id,
+            added: r.id,
           });
           continue;
         }
