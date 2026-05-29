@@ -1,9 +1,18 @@
 # Per-Config Count Legs — Design Spec (Path B)
 
-Status: **PROPOSAL — review before code**
+Status: **APPROVED — build behind `legs_enabled`, Hemet canary only**
 Owner: Lovable
 Canary: **Hemet** (source store on both Baby Spinach configs)
 Pairs with: `.lovable/snapshot-immutability-spec.md`, `.lovable/pack-config-approval-spec.md`, `SHARED_WORKSPACE/brand_inventory/pack-config-lens.md`
+
+## Pre-flight check (recorded 2026-05-29)
+
+- Hemet in-progress count `240fe79f-3f51-433f-a054-daa980b51ec9` (started 2026-05-24)
+  has two Baby Spinach `inventory_count_items` rows. **Both fully zero** (no
+  `entered_cases` / `entered_inner_packs` / `entered_units` / `quantity`). No
+  operator input is at risk when `legs_enabled` flips at Hemet. GM should still
+  be told the 5-day-old count exists so they decide whether to discard or
+  continue — not because of legs, but because it's stale.
 
 ---
 
