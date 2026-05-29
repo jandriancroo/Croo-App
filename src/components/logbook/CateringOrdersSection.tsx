@@ -40,7 +40,7 @@ interface CateringOrdersSectionProps {
 
 export function CateringOrdersSection({ showHeader: _showHeader = true, externalUploadOpen, onExternalUploadChange, searchQuery = "" }: CateringOrdersSectionProps) {
   const { currentLocation } = useLocation();
-  const { getTodayInTimezone } = useLocationTimezone();
+  const { getTodayInTimezone, timezone } = useLocationTimezone();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const [orders, setOrders] = useState<CateringOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +124,7 @@ export function CateringOrdersSection({ showHeader: _showHeader = true, external
       
       const { data: parseResult, error: parseError } = await supabase.functions.invoke(
         "ai-extraction-service?action=parse-catering-order",
-        { body: { imageUrl: urlData.publicUrl } }
+        { body: { imageUrl: urlData.publicUrl, timezone } }
       );
 
       if (parseError) throw parseError;
