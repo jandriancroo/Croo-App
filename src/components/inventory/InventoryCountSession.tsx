@@ -2503,8 +2503,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               lens: legLens,
                               lensEnabled: true,
                             });
-                            const perCommon = cfg.cost_per_common_unit != null
-                              ? `${formatCurrency(cfg.cost_per_common_unit)}/${cfg.common_unit || 'ea'}`
+                            // Derive per-common cost from the LIVE vendor case cost
+                            // (item.cost_per_unit) — same source 2b's save_count_item_with_legs
+                            // will freeze into cost_at_count. The config's stored
+                            // cost_per_common_unit can drift and is intentionally not shown here.
+                            const liveUnits = cfg.count_units_per_case ?? null;
+                            const livePerCommon =
+                              item.cost_per_unit != null && liveUnits && liveUnits > 0
+                                ? item.cost_per_unit / liveUnits
+                                : null;
+                            const perCommon = livePerCommon != null
+                              ? `${formatCurrency(livePerCommon)}/${cfg.common_unit || 'ea'}`
                               : '—';
                             return (
                               <div
