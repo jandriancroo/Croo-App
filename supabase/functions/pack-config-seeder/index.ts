@@ -303,10 +303,11 @@ Deno.serve(async (req) => {
         diffs.push(`cost_per_common_unit: ${existing.cost_per_common_unit} vs ${candidate.cost_per_common_unit}`);
       }
 
-      // Refresh price + evidence on the matched row regardless of status.
-      // Approved rows: snapshots are frozen, so historical counts aren't affected — only the live valuation lens picks up the new price.
-      // Proposed rows: keeps the most-recently-seen cost visible at approval time.
-      if (!dryRun && diffs.length > 0) {
+      // Refresh price + evidence ONLY on proposed rows.
+      // Approved rows are the brand-wide live reference — a single location's invoice
+      // price must never overwrite them. Treat structural match against an approved
+      // row as a match (don't spawn a duplicate proposal), but leave the row untouched.
+      if (!dryRun && diffs.length > 0 && existing.status === 'proposed') {
         await supabase
           .from("brand_pack_configs")
           .update({
