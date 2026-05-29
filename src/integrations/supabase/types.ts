@@ -3221,6 +3221,7 @@ export type Database = {
           edited_by: string | null
           id: string
           new_quantity: number
+          pack_config_id: string | null
           previous_quantity: number
           reason: string | null
         }
@@ -3230,6 +3231,7 @@ export type Database = {
           edited_by?: string | null
           id?: string
           new_quantity: number
+          pack_config_id?: string | null
           previous_quantity: number
           reason?: string | null
         }
@@ -3239,6 +3241,7 @@ export type Database = {
           edited_by?: string | null
           id?: string
           new_quantity?: number
+          pack_config_id?: string | null
           previous_quantity?: number
           reason?: string | null
         }
@@ -3319,6 +3322,65 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_count_item_legs: {
+        Row: {
+          common_unit_at_count: string | null
+          cost_at_count: number | null
+          count_item_id: string
+          created_at: string
+          entered_cases: number | null
+          entered_inner_packs: number | null
+          entered_units: number | null
+          id: string
+          inner_pack_quantity_at_count: number | null
+          is_default: boolean
+          pack_config_id: string
+          pack_quantity_at_count: number | null
+          quantity_common: number | null
+          updated_at: string
+        }
+        Insert: {
+          common_unit_at_count?: string | null
+          cost_at_count?: number | null
+          count_item_id: string
+          created_at?: string
+          entered_cases?: number | null
+          entered_inner_packs?: number | null
+          entered_units?: number | null
+          id?: string
+          inner_pack_quantity_at_count?: number | null
+          is_default?: boolean
+          pack_config_id: string
+          pack_quantity_at_count?: number | null
+          quantity_common?: number | null
+          updated_at?: string
+        }
+        Update: {
+          common_unit_at_count?: string | null
+          cost_at_count?: number | null
+          count_item_id?: string
+          created_at?: string
+          entered_cases?: number | null
+          entered_inner_packs?: number | null
+          entered_units?: number | null
+          id?: string
+          inner_pack_quantity_at_count?: number | null
+          is_default?: boolean
+          pack_config_id?: string
+          pack_quantity_at_count?: number | null
+          quantity_common?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_count_item_legs_count_item_id_fkey"
+            columns: ["count_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_count_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_count_items: {
         Row: {
           cost_at_count: number | null
@@ -3335,6 +3397,7 @@ export type Database = {
           pan_inputs: Json | null
           pan_sizes_at_count: Json | null
           quantity: number
+          quantity_rollup_blocked: boolean | null
           storage_location_id: string | null
           theoretical_quantity: number | null
           unit_at_count: string | null
@@ -3356,6 +3419,7 @@ export type Database = {
           pan_inputs?: Json | null
           pan_sizes_at_count?: Json | null
           quantity?: number
+          quantity_rollup_blocked?: boolean | null
           storage_location_id?: string | null
           theoretical_quantity?: number | null
           unit_at_count?: string | null
@@ -3377,6 +3441,7 @@ export type Database = {
           pan_inputs?: Json | null
           pan_sizes_at_count?: Json | null
           quantity?: number
+          quantity_rollup_blocked?: boolean | null
           storage_location_id?: string | null
           theoretical_quantity?: number | null
           unit_at_count?: string | null
@@ -5709,6 +5774,7 @@ export type Database = {
           is_active: boolean
           last_deployed_at: string | null
           latitude: number | null
+          legs_enabled: boolean | null
           lens_enabled: boolean
           location_type: string
           longitude: number | null
@@ -5728,6 +5794,7 @@ export type Database = {
           is_active?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
+          legs_enabled?: boolean | null
           lens_enabled?: boolean
           location_type?: string
           longitude?: number | null
@@ -5747,6 +5814,7 @@ export type Database = {
           is_active?: boolean
           last_deployed_at?: string | null
           latitude?: number | null
+          legs_enabled?: boolean | null
           lens_enabled?: boolean
           location_type?: string
           longitude?: number | null
@@ -10632,6 +10700,15 @@ export type Database = {
       revise_read_and_sign_document: {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined
+      }
+      save_count_item_with_legs: {
+        Args: {
+          p_count_item_id: string
+          p_freeze_snapshots?: boolean
+          p_legs: Json
+          p_rollup_blocked?: boolean
+        }
+        Returns: Json
       }
       search_theo_knowledge: {
         Args: { p_embedding: string; p_limit?: number; p_location_id: string }
