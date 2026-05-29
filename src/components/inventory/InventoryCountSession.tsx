@@ -2509,28 +2509,26 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                   )}
 
-                  {/* Step 2a — read-only legs preview. Renders only when BOTH
-                      lens_enabled AND legs_enabled are true at this location
-                      AND the item has multiple selected pack configs. The top
-                      stepper grid above still drives the default leg via the
-                      existing writer; this block is purely a render check so
-                      the operator can verify pack qty / cost / lane labels for
-                      every selected config before Step 2b wires the RPC.
-                      Persistence for non-default legs is NOT wired in 2a. */}
+                  {/* 2b — Per-config legs. Renders only when BOTH lens_enabled
+                      AND legs_enabled are true at this location AND the item
+                      has multiple selected pack configs. The top stepper above
+                      still drives the DEFAULT leg via the existing writer; the
+                      default row here is read-only mirror. Non-default legs
+                      have their own steppers wired via per-leg keys and are
+                      persisted via save_count_item_with_legs (no submit-freeze
+                      in 2b — that ships separately). */}
                   {legsEnabledForLocation === true && lensEnabledForLocation === true && item.brand_item_id && (() => {
                     const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
                     if (configs.length < 2) return null;
                     return (
                       <div className="mt-3 pt-3 border-t border-dashed border-amber-500/40">
                         <p className="text-[9px] text-amber-600 dark:text-amber-400 uppercase tracking-widest font-bold mb-2">
-                          All pack configs · read-only preview (2a)
+                          All pack configs · per-leg counts
                         </p>
                         <div className="space-y-2">
                           {configs.map((cfg) => {
-                            const legKey = (item as any)._countItemId
-                              ? `${(item as any)._countItemId}|${cfg.pack_config_id}`
-                              : null;
-                            const leg = legKey ? legsHydrationMap?.get(legKey) : null;
+                            const legKeyUi = makeLegInputKey(splitKey, cfg.pack_config_id, cfg.is_default);
+                            const legState = counts[legKeyUi] || { cases: 0, units: 0, innerPacks: 0 };
                             const legLens = {
                               count_units_per_case: cfg.count_units_per_case,
                               cost_per_common_unit: cfg.cost_per_common_unit,
@@ -2550,10 +2548,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               lens: legLens,
                               lensEnabled: true,
                             });
-                            // Derive per-common cost from the LIVE vendor case cost
-                            // (item.cost_per_unit) — same source 2b's save_count_item_with_legs
-                            // will freeze into cost_at_count. The config's stored
-                            // cost_per_common_unit can drift and is intentionally not shown here.
+                            // Per-common cost derived from LIVE vendor case cost (same
+                            // source the RPC freezes into cost_at_count on submit).
                             const liveUnits = cfg.count_units_per_case ?? null;
                             const livePerCommon =
                               item.cost_per_unit != null && liveUnits && liveUnits > 0
@@ -2567,7 +2563,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 key={cfg.pack_config_id}
                                 className="rounded-md border border-border bg-muted/30 px-2 py-1.5"
                               >
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <span className="text-[10px] font-semibold text-foreground">
                                       {cfg.label || `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit}`}
@@ -2581,18 +2577,107 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                       · {cfg.count_units_per_case} {cfg.common_unit}/cs · {perCommon}
                                     </span>
                                   </div>
+                                </div>
+
+                                {cfg.is_default ? (
+                                  // Default leg: read-only mirror of the top stepper
+                                  // (which already owns counts[splitKey]).
                                   <div className="text-[9px] text-muted-foreground tabular-nums">
                                     {legLanes.showCases && (
-                                      <span className="mr-2">Cases <span className="font-semibold text-foreground">{leg?.entered_cases ?? 0}</span></span>
+                                      <span className="mr-2">Cases <span className="font-semibold text-foreground">{legState.cases ?? 0}</span></span>
                                     )}
                                     {legLanes.showInnerPacks && (
-                                      <span className="mr-2">{legLanes.innerLabel} <span className="font-semibold text-foreground">{leg?.entered_inner_packs ?? 0}</span></span>
+                                      <span className="mr-2">{legLanes.innerLabel} <span className="font-semibold text-foreground">{legState.innerPacks ?? 0}</span></span>
                                     )}
                                     {legLanes.showUnits && (
-                                      <span>{legLanes.unitsLabel} <span className="font-semibold text-foreground">{leg?.entered_units ?? 0}</span></span>
+                                      <span>{legLanes.unitsLabel} <span className="font-semibold text-foreground">{legState.units ?? 0}</span></span>
                                     )}
                                   </div>
-                                </div>
+                                ) : (
+                                  // Non-default leg: interactive steppers, wired
+                                  // to a per-leg key that won't collide with the
+                                  // existing `|`-delimited splitKey namespace.
+                                  <div className={cn("grid gap-2", legLanes.showInnerPacks ? "grid-cols-3" : (legLanes.showUnits && legLanes.showCases ? "grid-cols-2" : "grid-cols-1"))}>
+                                    {legLanes.showCases && (
+                                      <div>
+                                        <p className="text-[9px] text-muted-foreground font-semibold mb-1 uppercase tracking-wider">Cases</p>
+                                        <div className="flex items-center rounded-md overflow-hidden border border-foreground/20">
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
+                                              <Minus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={rawInputs[legKeyUi]?.cases ?? legState.cases}
+                                            onChange={(e) => handleCasesInput(legKeyUi, e.target.value)}
+                                            onBlur={() => handleCasesBlur(legKeyUi)}
+                                            disabled={isViewOnly}
+                                            className="flex-1 text-center text-lg font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                                          />
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
+                                              <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {legLanes.showInnerPacks && (
+                                      <div>
+                                        <p className="text-[9px] text-muted-foreground font-semibold mb-1 uppercase tracking-wider">{legLanes.innerLabel}</p>
+                                        <div className="flex items-center rounded-md overflow-hidden border border-foreground/20">
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
+                                              <Minus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={rawInputs[legKeyUi]?.innerPacks ?? legState.innerPacks}
+                                            onChange={(e) => handleInnerPacksInput(legKeyUi, e.target.value)}
+                                            onBlur={() => handleInnerPacksBlur(legKeyUi)}
+                                            disabled={isViewOnly}
+                                            className="flex-1 text-center text-lg font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                                          />
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
+                                              <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {legLanes.showUnits && (
+                                      <div>
+                                        <p className="text-[9px] text-muted-foreground font-semibold mb-1 uppercase tracking-wider">{legLanes.unitsLabel}</p>
+                                        <div className="flex items-center rounded-md overflow-hidden border border-foreground/20">
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
+                                              <Minus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={rawInputs[legKeyUi]?.units ?? legState.units}
+                                            onChange={(e) => handleUnitsInput(legKeyUi, e.target.value)}
+                                            onBlur={() => handleUnitsBlur(legKeyUi)}
+                                            disabled={isViewOnly}
+                                            className="flex-1 text-center text-lg font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                                          />
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
+                                              <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
