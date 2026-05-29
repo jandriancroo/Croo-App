@@ -689,6 +689,50 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   }, [items, isEditing]);
 
+  // 2b: per-leg input key. Default leg shares the bare _splitKey with the top
+  // stepper (so the existing UI keeps driving it). Non-default legs use a
+  // suffixed key that can't collide with the existing `|`-delimited splitKey
+  // namespace.
+  const makeLegInputKey = useCallback(
+    (splitKey: string, packConfigId: string, isDefault: boolean) =>
+      isDefault ? splitKey : `${splitKey}::leg::${packConfigId}`,
+    [],
+  );
+
+  // 2b: hydrate non-default leg inputs from inventory_count_item_legs once the
+  // legs hydration query lands. Runs once per mount; default-leg state stays
+  // owned by the existing init effect above.
+  const legsHydratedRef = useRef(false);
+  useEffect(() => {
+    if (legsHydratedRef.current) return;
+    if (!items || !legsHydrationMap) return;
+    if (legsEnabledForLocation !== true) return;
+    legsHydratedRef.current = true;
+    const additions: Record<string, ItemCount> = {};
+    const rawAdditions: Record<string, { cases: string; units: string; innerPacks: string }> = {};
+    for (const item of items) {
+      const countItemId = (item as any)._countItemId;
+      const splitKey = (item as any)._splitKey || item.item_id;
+      if (!countItemId || !item.brand_item_id) continue;
+      const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
+      if (configs.length < 2) continue;
+      for (const cfg of configs) {
+        if (cfg.is_default) continue;
+        const leg = legsHydrationMap.get(`${countItemId}|${cfg.pack_config_id}`);
+        if (!leg) continue;
+        const k = makeLegInputKey(splitKey, cfg.pack_config_id, false);
+        const c = leg.entered_cases ?? 0;
+        const u = leg.entered_units ?? 0;
+        const ip = leg.entered_inner_packs ?? 0;
+        additions[k] = { cases: c, units: u, innerPacks: ip };
+        rawAdditions[k] = { cases: String(c), units: String(u), innerPacks: String(ip) };
+      }
+    }
+    if (Object.keys(additions).length === 0) return;
+    setCounts(prev => ({ ...additions, ...prev }));
+    setRawInputs(prev => ({ ...rawAdditions, ...prev }));
+  }, [items, legsHydrationMap, legsConfigsMap, legsEnabledForLocation, makeLegInputKey]);
+
   // Initialize timer from existing duration (for resumed counts)
   useEffect(() => {
     if (countRecord?.duration_seconds != null) {
