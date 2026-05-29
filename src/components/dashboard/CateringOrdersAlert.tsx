@@ -136,39 +136,32 @@ export function CateringOrdersAlert() {
     return null;
   }
 
+  const renderPill = (order: CateringOrder, isTomorrow: boolean) => {
+    const color = isTomorrow ? AMBER_COLOR : ORANGE_COLOR;
+    const label = isTomorrow
+      ? `${order.customer_name} • Tomorrow`
+      : order.customer_name;
+    return (
+      <div
+        key={order.id}
+        onClick={() => handleOrderClick(order, isTomorrow)}
+        className="dashboard-task-pill flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-neumorphic-sm"
+        style={{ backgroundColor: `${color}10` }}
+      >
+        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+        <ChefHat className="h-3.5 w-3.5 shrink-0" style={{ color }} />
+        <span className="text-xs font-medium truncate flex-1">{label}</span>
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime(order.pickup_time)}</span>
+        <CircleCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+      </div>
+    );
+  };
+
   return (
     <>
-      {/* Today's orders */}
-      {todaysOrders.map((order) => (
-        <TemporaryTaskCard
-          key={order.id}
-          id={order.id}
-          title={`${order.customer_name} • Due @ ${formatTime(order.pickup_time)}`}
-          subtitle={`${order.items.length} items${order.headcount ? ` • ${order.headcount} guests` : ""}`}
-          icon={ChefHat}
-          accentColor={ORANGE_COLOR}
-          buttonLabel="Done"
-          onAction={() => handleOrderClick(order, false)}
-          badge={{ label: "CATERING", color: ORANGE_COLOR }}
-          shareDetails={`Catering: ${order.customer_name} • ${formatTime(order.pickup_time)} • ${order.items.length} items`}
-        />
-      ))}
-      
-      {/* Tomorrow's orders */}
-      {tomorrowsOrders.map((order) => (
-        <TemporaryTaskCard
-          key={order.id}
-          id={order.id}
-          title={`${order.customer_name} • Due Tomorrow @ ${formatTime(order.pickup_time)}`}
-          subtitle={`${order.items.length} items${order.headcount ? ` • ${order.headcount} guests` : ""}`}
-          icon={ChefHat}
-          accentColor={AMBER_COLOR}
-          buttonLabel="View"
-          onAction={() => handleOrderClick(order, true)}
-          badge={{ label: "CATERING", color: AMBER_COLOR }}
-          shareDetails={`Catering: ${order.customer_name} • Tomorrow ${formatTime(order.pickup_time)} • ${order.items.length} items`}
-        />
-      ))}
+      {todaysOrders.map((order) => renderPill(order, false))}
+      {tomorrowsOrders.map((order) => renderPill(order, true))}
+
 
       {/* Order Details Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
