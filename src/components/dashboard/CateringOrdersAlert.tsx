@@ -6,9 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { toast } from "sonner";
-import { ChefHat, Check, Eye } from "lucide-react";
+import { ChefHat, Check, Eye, CircleCheck } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
-import { TemporaryTaskCard } from "./TemporaryTaskCard";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface CateringOrder {
