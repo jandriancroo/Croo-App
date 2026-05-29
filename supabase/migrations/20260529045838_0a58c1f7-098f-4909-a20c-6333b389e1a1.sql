@@ -1,0 +1,1 @@
+UPDATE public.catering_orders SET pickup_date = '2026-05-29' WHERE id = '9b43d43e-3f55-4938-9ff4-2f777b71d3c7';

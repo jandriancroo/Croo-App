@@ -593,13 +593,22 @@ async function handleParseCateringOrder(payload: any) {
 
   const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
+  // Anchor date parsing to today in America/Los_Angeles to avoid year-guessing bugs
+  // (e.g. Gemini returning 2024 for an order created in 2026 when the year is ambiguous
+  // or when it accidentally grabs the "order received" date instead of pickup date).
+  const todayLA = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date());
+  const currentYearLA = todayLA.slice(0, 4);
+
   const data = await callAI(
     [
-      { role: 'system', content: 'You are a catering order parser. Extract order details from images/PDFs. For customer_name, use the "Deliver To" name (the person/company receiving the order), NOT the ordering platform.' },
+      { role: 'system', content: `You are a catering order parser. Extract order details from images/PDFs. For customer_name, use the "Deliver To" name (the person/company receiving the order), NOT the ordering platform. Today's date is ${todayLA} (America/Los_Angeles). The pickup_date is the date the food must be ready for the customer — it is always today or in the future, NEVER in the past. If the document does not show an explicit pickup year, assume ${currentYearLA} (or ${Number(currentYearLA) + 1} if the month/day has already passed this year). Do not copy the order-received / order-placed date into pickup_date.` },
       {
         role: 'user',
         content: [
-          { type: 'text', text: 'Parse this catering order. Extract customer name (use "Deliver To" name), order number, pickup date, pickup time, headcount, and all items with quantities. Dates are US format (MM/DD/YYYY).' },
+          { type: 'text', text: `Parse this catering order. Extract customer name (use "Deliver To" name), order number, pickup date, pickup time, headcount, and all items with quantities. Dates are US format (MM/DD/YYYY). Today is ${todayLA} — pickup_date must be today or later.` },
           { type: 'image_url', image_url: { url: dataUrl } }
         ]
       }
