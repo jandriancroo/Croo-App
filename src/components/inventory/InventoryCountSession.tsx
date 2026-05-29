@@ -529,7 +529,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const { data: legsHydrationMap } = useQuery({
     queryKey: ["legs-hydration", countId, legsEnabledForLocation],
     enabled: !!countId && legsEnabledForLocation === true,
-    staleTime: 30 * 1000,
+    // 2b: a save→reopen cycle must never serve stale leg data. Keep zero
+    // cache so the next mount always re-reads inventory_count_item_legs.
+    staleTime: 0,
+    gcTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_count_item_legs" as any)
@@ -685,6 +688,50 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       originalCounts.current = originals;
     }
   }, [items, isEditing]);
+
+  // 2b: per-leg input key. Default leg shares the bare _splitKey with the top
+  // stepper (so the existing UI keeps driving it). Non-default legs use a
+  // suffixed key that can't collide with the existing `|`-delimited splitKey
+  // namespace.
+  const makeLegInputKey = useCallback(
+    (splitKey: string, packConfigId: string, isDefault: boolean) =>
+      isDefault ? splitKey : `${splitKey}::leg::${packConfigId}`,
+    [],
+  );
+
+  // 2b: hydrate non-default leg inputs from inventory_count_item_legs once the
+  // legs hydration query lands. Runs once per mount; default-leg state stays
+  // owned by the existing init effect above.
+  const legsHydratedRef = useRef(false);
+  useEffect(() => {
+    if (legsHydratedRef.current) return;
+    if (!items || !legsHydrationMap) return;
+    if (legsEnabledForLocation !== true) return;
+    legsHydratedRef.current = true;
+    const additions: Record<string, ItemCount> = {};
+    const rawAdditions: Record<string, { cases: string; units: string; innerPacks: string }> = {};
+    for (const item of items) {
+      const countItemId = (item as any)._countItemId;
+      const splitKey = (item as any)._splitKey || item.item_id;
+      if (!countItemId || !item.brand_item_id) continue;
+      const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
+      if (configs.length < 2) continue;
+      for (const cfg of configs) {
+        if (cfg.is_default) continue;
+        const leg = legsHydrationMap.get(`${countItemId}|${cfg.pack_config_id}`);
+        if (!leg) continue;
+        const k = makeLegInputKey(splitKey, cfg.pack_config_id, false);
+        const c = leg.entered_cases ?? 0;
+        const u = leg.entered_units ?? 0;
+        const ip = leg.entered_inner_packs ?? 0;
+        additions[k] = { cases: c, units: u, innerPacks: ip };
+        rawAdditions[k] = { cases: String(c), units: String(u), innerPacks: String(ip) };
+      }
+    }
+    if (Object.keys(additions).length === 0) return;
+    setCounts(prev => ({ ...additions, ...prev }));
+    setRawInputs(prev => ({ ...rawAdditions, ...prev }));
+  }, [items, legsHydrationMap, legsConfigsMap, legsEnabledForLocation, makeLegInputKey]);
 
   // Initialize timer from existing duration (for resumed counts)
   useEffect(() => {
@@ -1174,7 +1221,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Resilient batch save: ONE bulk SELECT, then only UPDATE/INSERT changed items
   // Protected by mutex to prevent concurrent save operations (race condition)
-  const saveItemsBatch = useCallback(async (itemCounts: any[]): Promise<{ saved: number; failed: number }> => {
+  // 2b: refs let saveItemsBatch read current items/counts/legs maps without
+  // re-creating the callback on every keystroke (which would destabilize the
+  // autosave debounce).
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  const countsRef = useRef(counts);
+  useEffect(() => { countsRef.current = counts; }, [counts]);
+  const legsConfigsMapRef = useRef(legsConfigsMap);
+  useEffect(() => { legsConfigsMapRef.current = legsConfigsMap; }, [legsConfigsMap]);
+  const legsEnabledRef = useRef(legsEnabledForLocation);
+  useEffect(() => { legsEnabledRef.current = legsEnabledForLocation; }, [legsEnabledForLocation]);
+
+  const saveItemsBatch = useCallback(async (itemCounts: any[], opts?: { isExit?: boolean }): Promise<{ saved: number; failed: number }> => {
     // Mutex: if another save is in progress, skip this cycle
     if (saveInProgressRef.current) {
       console.log("[Inventory] Save skipped — another save is in progress");
@@ -1341,6 +1400,92 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       failed = itemCounts.length;
     }
 
+    // 2b: leg writer pass. For items that have ≥2 selected pack configs at
+    // this location, re-fetch the parent count_item id (keyed off the SAME
+    // composite `${item_id}|${storage_location_id || ''}` the parent writer
+    // uses, so a collision is impossible by construction) and route each
+    // multi-config item through save_count_item_with_legs. Single-config
+    // items are intentionally not touched here — they keep the today writer.
+    // Submit-freeze is OUT of scope for 2b: we always pass freeze=false.
+    let legFailed = 0;
+    if (legsEnabledRef.current === true) {
+      const itemsNow = itemsRef.current || [];
+      const countsNow = countsRef.current || {};
+      const legsMapNow = legsConfigsMapRef.current;
+      const multi = itemCounts.filter((ic) => {
+        const it = itemsNow.find((i) => i.item_id === ic.item_id && (i.storage_location_id ?? null) === (ic.storage_location_id ?? null));
+        const bid = (it as any)?.brand_item_id;
+        return bid && ((legsMapNow?.get(bid)?.length ?? 0) >= 2);
+      });
+      if (multi.length > 0) {
+        try {
+          const { data: parentRows, error: parentErr } = await supabase
+            .from("inventory_count_items")
+            .select("id, item_id, storage_location_id")
+            .eq("count_id", countId);
+          if (parentErr) throw parentErr;
+          const parentMap = new Map<string, string>();
+          for (const r of (parentRows || []) as any[]) {
+            parentMap.set(`${r.item_id}|${r.storage_location_id || ''}`, r.id);
+          }
+          for (const ic of multi) {
+            const composite = `${ic.item_id}|${ic.storage_location_id || ''}`;
+            const countItemId = parentMap.get(composite);
+            const it = itemsNow.find((i) => i.item_id === ic.item_id && (i.storage_location_id ?? null) === (ic.storage_location_id ?? null));
+            const splitKey = (it as any)?._splitKey || ic.item_id;
+            const bid = (it as any)?.brand_item_id;
+            if (!countItemId || !bid) { legFailed++; continue; }
+            const configs = legsMapNow?.get(bid) ?? [];
+            const legsPayload = configs.map((cfg) => {
+              const legKey = cfg.is_default ? splitKey : `${splitKey}::leg::${cfg.pack_config_id}`;
+              const s = countsNow[legKey] || { cases: 0, units: 0, innerPacks: 0 };
+              const cu = Number(cfg.count_units_per_case ?? 0);
+              const ipq = Number(cfg.inner_qty ?? 0);
+              const qc = (Number(s.cases) || 0) * cu + (Number(s.innerPacks) || 0) * ipq + (Number(s.units) || 0);
+              return {
+                pack_config_id: cfg.pack_config_id,
+                entered_cases: Number(s.cases) || 0,
+                entered_inner_packs: Number(s.innerPacks) || 0,
+                entered_units: Number(s.units) || 0,
+                quantity_common: qc,
+              };
+            });
+            try {
+              const { error: rpcErr } = await (supabase as any).rpc('save_count_item_with_legs', {
+                p_count_item_id: countItemId,
+                p_legs: legsPayload,
+                p_freeze_snapshots: false,
+                p_rollup_blocked: false,
+              });
+              if (rpcErr) throw rpcErr;
+            } catch (e) {
+              legFailed++;
+              console.warn(`[Inventory] Leg RPC failed for item ${ic.item_id}:`, e);
+            }
+          }
+        } catch (e) {
+          // Parent re-fetch failed — count every multi-config item as a leg
+          // failure for this cycle so the autosave loop will retry.
+          legFailed += multi.length;
+          console.warn("[Inventory] Leg pass: parent re-fetch failed:", e);
+        }
+      }
+    }
+    failed += legFailed;
+
+    // Exit-path visibility: if the user is leaving the screen and any leg
+    // write failed this cycle, surface a toast AND re-throw so the
+    // flushSaveAsync catch can display its own error. Silent swallow on exit
+    // is how we'd corrupt a count without anyone noticing.
+    if (opts?.isExit && legFailed > 0) {
+      saveInProgressRef.current = false;
+      const msg = `Failed to save ${legFailed} multi-config leg${legFailed === 1 ? '' : 's'} on exit — reopen the count and resave.`;
+      toast.error(msg);
+      throw new Error(msg);
+    }
+
+
+
     // Save elapsed duration (separate try/catch so item failures don't block this)
     try {
       await supabase
@@ -1427,7 +1572,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, [isViewOnly, isEditing, countId]);
 
   // Async flush for unmount (component cleanup)
-  const flushSaveAsync = useCallback(async () => {
+  const flushSaveAsync = useCallback(async (opts?: { isExit?: boolean }) => {
     if (isViewOnly || isEditing) return;
     const builder = buildSnapshotRef.current;
     if (!builder) return;
@@ -1435,11 +1580,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
 
     try {
-      await saveItemsBatch(itemCounts);
+      const result = await saveItemsBatch(itemCounts, opts);
       lastAutosavedRef.current = snapshot;
+      // 2b: on exit, even a "soft" partial failure (parent saved but legs
+      // didn't) must be visible. The batch already toasts + throws for leg
+      // failures; this guards parent-only failures.
+      if (opts?.isExit && result.failed > 0) {
+        toast.error(`Failed to save ${result.failed} item${result.failed === 1 ? '' : 's'} on exit — reopen the count and resave.`);
+      }
       console.log("[Inventory] Flush save completed (async)");
     } catch (e) {
       console.warn("[Inventory] Flush save failed:", e);
+      if (opts?.isExit) {
+        toast.error("Failed to save count on exit — reopen and resave before continuing.");
+      }
     }
   }, [isViewOnly, isEditing, saveItemsBatch]);
 
@@ -1456,8 +1610,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   useEffect(() => { flushSaveAsyncRef.current = flushSaveAsync; }, [flushSaveAsync]);
   useEffect(() => {
     return () => {
-      // Fire async flush on unmount — also fire sync as safety net
-      flushSaveAsyncRef.current();
+      // Fire async flush on unmount — also fire sync as safety net.
+      // isExit:true so saveItemsBatch surfaces leg-write failures via toast
+      // instead of silently swallowing them.
+      flushSaveAsyncRef.current({ isExit: true });
     };
   }, []);
 
@@ -2462,28 +2618,26 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                   )}
 
-                  {/* Step 2a — read-only legs preview. Renders only when BOTH
-                      lens_enabled AND legs_enabled are true at this location
-                      AND the item has multiple selected pack configs. The top
-                      stepper grid above still drives the default leg via the
-                      existing writer; this block is purely a render check so
-                      the operator can verify pack qty / cost / lane labels for
-                      every selected config before Step 2b wires the RPC.
-                      Persistence for non-default legs is NOT wired in 2a. */}
+                  {/* 2b — Per-config legs. Renders only when BOTH lens_enabled
+                      AND legs_enabled are true at this location AND the item
+                      has multiple selected pack configs. The top stepper above
+                      still drives the DEFAULT leg via the existing writer; the
+                      default row here is read-only mirror. Non-default legs
+                      have their own steppers wired via per-leg keys and are
+                      persisted via save_count_item_with_legs (no submit-freeze
+                      in 2b — that ships separately). */}
                   {legsEnabledForLocation === true && lensEnabledForLocation === true && item.brand_item_id && (() => {
                     const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
                     if (configs.length < 2) return null;
                     return (
                       <div className="mt-3 pt-3 border-t border-dashed border-amber-500/40">
                         <p className="text-[9px] text-amber-600 dark:text-amber-400 uppercase tracking-widest font-bold mb-2">
-                          All pack configs · read-only preview (2a)
+                          All pack configs · per-leg counts
                         </p>
                         <div className="space-y-2">
                           {configs.map((cfg) => {
-                            const legKey = (item as any)._countItemId
-                              ? `${(item as any)._countItemId}|${cfg.pack_config_id}`
-                              : null;
-                            const leg = legKey ? legsHydrationMap?.get(legKey) : null;
+                            const legKeyUi = makeLegInputKey(splitKey, cfg.pack_config_id, cfg.is_default);
+                            const legState = counts[legKeyUi] || { cases: 0, units: 0, innerPacks: 0 };
                             const legLens = {
                               count_units_per_case: cfg.count_units_per_case,
                               cost_per_common_unit: cfg.cost_per_common_unit,
@@ -2503,10 +2657,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               lens: legLens,
                               lensEnabled: true,
                             });
-                            // Derive per-common cost from the LIVE vendor case cost
-                            // (item.cost_per_unit) — same source 2b's save_count_item_with_legs
-                            // will freeze into cost_at_count. The config's stored
-                            // cost_per_common_unit can drift and is intentionally not shown here.
+                            // Per-common cost derived from LIVE vendor case cost (same
+                            // source the RPC freezes into cost_at_count on submit).
                             const liveUnits = cfg.count_units_per_case ?? null;
                             const livePerCommon =
                               item.cost_per_unit != null && liveUnits && liveUnits > 0
@@ -2520,7 +2672,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 key={cfg.pack_config_id}
                                 className="rounded-md border border-border bg-muted/30 px-2 py-1.5"
                               >
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <span className="text-[10px] font-semibold text-foreground">
                                       {cfg.label || `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit}`}
@@ -2534,18 +2686,107 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                       · {cfg.count_units_per_case} {cfg.common_unit}/cs · {perCommon}
                                     </span>
                                   </div>
+                                </div>
+
+                                {cfg.is_default ? (
+                                  // Default leg: read-only mirror of the top stepper
+                                  // (which already owns counts[splitKey]).
                                   <div className="text-[9px] text-muted-foreground tabular-nums">
                                     {legLanes.showCases && (
-                                      <span className="mr-2">Cases <span className="font-semibold text-foreground">{leg?.entered_cases ?? 0}</span></span>
+                                      <span className="mr-2">Cases <span className="font-semibold text-foreground">{legState.cases ?? 0}</span></span>
                                     )}
                                     {legLanes.showInnerPacks && (
-                                      <span className="mr-2">{legLanes.innerLabel} <span className="font-semibold text-foreground">{leg?.entered_inner_packs ?? 0}</span></span>
+                                      <span className="mr-2">{legLanes.innerLabel} <span className="font-semibold text-foreground">{legState.innerPacks ?? 0}</span></span>
                                     )}
                                     {legLanes.showUnits && (
-                                      <span>{legLanes.unitsLabel} <span className="font-semibold text-foreground">{leg?.entered_units ?? 0}</span></span>
+                                      <span>{legLanes.unitsLabel} <span className="font-semibold text-foreground">{legState.units ?? 0}</span></span>
                                     )}
                                   </div>
-                                </div>
+                                ) : (
+                                  // Non-default leg: interactive steppers, wired
+                                  // to a per-leg key that won't collide with the
+                                  // existing `|`-delimited splitKey namespace.
+                                  <div className={cn("grid gap-2", legLanes.showInnerPacks ? "grid-cols-3" : (legLanes.showUnits && legLanes.showCases ? "grid-cols-2" : "grid-cols-1"))}>
+                                    {legLanes.showCases && (
+                                      <div>
+                                        <p className="text-[9px] text-muted-foreground font-semibold mb-1 uppercase tracking-wider">Cases</p>
+                                        <div className="flex items-center rounded-md overflow-hidden border border-foreground/20">
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
+                                              <Minus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={rawInputs[legKeyUi]?.cases ?? legState.cases}
+                                            onChange={(e) => handleCasesInput(legKeyUi, e.target.value)}
+                                            onBlur={() => handleCasesBlur(legKeyUi)}
+                                            disabled={isViewOnly}
+                                            className="flex-1 text-center text-lg font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                                          />
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
+                                              <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {legLanes.showInnerPacks && (
+                                      <div>
+                                        <p className="text-[9px] text-muted-foreground font-semibold mb-1 uppercase tracking-wider">{legLanes.innerLabel}</p>
+                                        <div className="flex items-center rounded-md overflow-hidden border border-foreground/20">
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
+                                              <Minus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={rawInputs[legKeyUi]?.innerPacks ?? legState.innerPacks}
+                                            onChange={(e) => handleInnerPacksInput(legKeyUi, e.target.value)}
+                                            onBlur={() => handleInnerPacksBlur(legKeyUi)}
+                                            disabled={isViewOnly}
+                                            className="flex-1 text-center text-lg font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                                          />
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
+                                              <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {legLanes.showUnits && (
+                                      <div>
+                                        <p className="text-[9px] text-muted-foreground font-semibold mb-1 uppercase tracking-wider">{legLanes.unitsLabel}</p>
+                                        <div className="flex items-center rounded-md overflow-hidden border border-foreground/20">
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
+                                              <Minus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={rawInputs[legKeyUi]?.units ?? legState.units}
+                                            onChange={(e) => handleUnitsInput(legKeyUi, e.target.value)}
+                                            onBlur={() => handleUnitsBlur(legKeyUi)}
+                                            disabled={isViewOnly}
+                                            className="flex-1 text-center text-lg font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                                          />
+                                          {!isViewOnly && (
+                                            <button type="button" className="h-9 w-9 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
+                                              <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
