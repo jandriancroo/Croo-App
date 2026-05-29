@@ -1221,7 +1221,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Resilient batch save: ONE bulk SELECT, then only UPDATE/INSERT changed items
   // Protected by mutex to prevent concurrent save operations (race condition)
-  const saveItemsBatch = useCallback(async (itemCounts: any[]): Promise<{ saved: number; failed: number }> => {
+  // 2b: refs let saveItemsBatch read current items/counts/legs maps without
+  // re-creating the callback on every keystroke (which would destabilize the
+  // autosave debounce).
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  const countsRef = useRef(counts);
+  useEffect(() => { countsRef.current = counts; }, [counts]);
+  const legsConfigsMapRef = useRef(legsConfigsMap);
+  useEffect(() => { legsConfigsMapRef.current = legsConfigsMap; }, [legsConfigsMap]);
+  const legsEnabledRef = useRef(legsEnabledForLocation);
+  useEffect(() => { legsEnabledRef.current = legsEnabledForLocation; }, [legsEnabledForLocation]);
+
+  const saveItemsBatch = useCallback(async (itemCounts: any[], opts?: { isExit?: boolean }): Promise<{ saved: number; failed: number }> => {
     // Mutex: if another save is in progress, skip this cycle
     if (saveInProgressRef.current) {
       console.log("[Inventory] Save skipped — another save is in progress");
