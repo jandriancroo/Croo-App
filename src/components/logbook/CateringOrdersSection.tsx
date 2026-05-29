@@ -124,7 +124,7 @@ export function CateringOrdersSection({ showHeader: _showHeader = true, external
       
       const { data: parseResult, error: parseError } = await supabase.functions.invoke(
         "ai-extraction-service?action=parse-catering-order",
-        { body: { imageUrl: urlData.publicUrl } }
+        { body: { imageUrl: urlData.publicUrl, timezone } }
       );
 
       if (parseError) throw parseError;
