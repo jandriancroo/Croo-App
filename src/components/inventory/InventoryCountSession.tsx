@@ -418,6 +418,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     },
   });
 
+  // Per-location legs gate (Step 2a — render-only preview of multi-config legs).
+  // Default false on every store. Hemet is the canary. When false/null, the
+  // multi-config selections fetch and the read-only legs block below are both
+  // skipped → byte-for-byte identical render at every other store.
+  const { data: legsEnabledForLocation } = useQuery({
+    queryKey: ["location-legs-enabled", locationId],
+    enabled: !!locationId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("locations" as any)
+        .select("legs_enabled")
+        .eq("id", locationId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any)?.legs_enabled === true;
+    },
+  });
+
   // Lens (approved brand_pack_configs) — keyed by brand_item_id (= brand_template_id).
   // Read-path only; resolver falls back to local when missing. Snapshots still win.
   // Skipped entirely when the location gate is off.
@@ -438,6 +457,93 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           count_units_per_case: row.count_units_per_case,
           cost_per_common_unit: row.cost_per_common_unit,
           common_unit: row.common_unit,
+        });
+      }
+      return map;
+    },
+  });
+
+  // Multi-config selections for this location — used ONLY by the legs preview
+  // block below (Step 2a, read-only). Enabled only when both flags are on.
+  // Keyed by brand_template_id (= brand_item_id). Each value is the full list
+  // of selected configs at this location, ordered with default first.
+  type LegConfigRow = {
+    pack_config_id: string;
+    is_default: boolean;
+    label: string | null;
+    outer_qty: number | null;
+    outer_type: string | null;
+    inner_qty: number | null;
+    inner_type: string | null;
+    common_unit: string | null;
+    count_units_per_case: number | null;
+    cost_per_common_unit: number | null;
+  };
+  const { data: legsConfigsMap } = useQuery({
+    queryKey: ["legs-configs-map", locationId, legsEnabledForLocation, lensEnabledForLocation],
+    enabled: !!locationId && legsEnabledForLocation === true && lensEnabledForLocation === true,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("location_pack_selections" as any)
+        .select("brand_template_id, active_pack_config_id, is_default, brand_pack_configs!inner(id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, status)")
+        .eq("location_id", locationId);
+      if (error) throw error;
+      const map = new Map<string, LegConfigRow[]>();
+      for (const row of (data as any[]) || []) {
+        const bpc = row?.brand_pack_configs;
+        if (!row?.brand_template_id || !bpc) continue;
+        if (bpc.status && bpc.status !== "approved") continue;
+        const entry: LegConfigRow = {
+          pack_config_id: bpc.id,
+          is_default: !!row.is_default,
+          label: bpc.label ?? null,
+          outer_qty: bpc.outer_qty ?? null,
+          outer_type: bpc.outer_type ?? null,
+          inner_qty: bpc.inner_qty ?? null,
+          inner_type: bpc.inner_type ?? null,
+          common_unit: bpc.common_unit ?? null,
+          count_units_per_case: bpc.count_units_per_case ?? null,
+          cost_per_common_unit: bpc.cost_per_common_unit ?? null,
+        };
+        const list = map.get(row.brand_template_id) ?? [];
+        list.push(entry);
+        map.set(row.brand_template_id, list);
+      }
+      // Sort default first, then by label for stable order.
+      for (const [k, list] of map) {
+        list.sort((a, b) => {
+          if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
+          return (a.label ?? "").localeCompare(b.label ?? "");
+        });
+        map.set(k, list);
+      }
+      return map;
+    },
+  });
+
+  // Hydration map for existing leg rows on this count. Enabled when legs flag
+  // is on. Step 2a uses this only for read-only display — Step 2b will route
+  // writes through the save_count_item_with_legs RPC.
+  // Keyed by `${count_item_id}|${pack_config_id}` → { entered_cases, entered_inner_packs, entered_units, quantity_common }.
+  const { data: legsHydrationMap } = useQuery({
+    queryKey: ["legs-hydration", countId, legsEnabledForLocation],
+    enabled: !!countId && legsEnabledForLocation === true,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_count_item_legs" as any)
+        .select("count_item_id, pack_config_id, entered_cases, entered_inner_packs, entered_units, quantity_common, inventory_count_items!inner(count_id)")
+        .eq("inventory_count_items.count_id", countId);
+      if (error) throw error;
+      const map = new Map<string, { entered_cases: number | null; entered_inner_packs: number | null; entered_units: number | null; quantity_common: number | null }>();
+      for (const row of (data as any[]) || []) {
+        if (!row?.count_item_id || !row?.pack_config_id) continue;
+        map.set(`${row.count_item_id}|${row.pack_config_id}`, {
+          entered_cases: row.entered_cases,
+          entered_inner_packs: row.entered_inner_packs,
+          entered_units: row.entered_units,
+          quantity_common: row.quantity_common,
         });
       }
       return map;
@@ -2355,6 +2461,89 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       </div>
                     </div>
                   )}
+
+                  {/* Step 2a — read-only legs preview. Renders only when BOTH
+                      lens_enabled AND legs_enabled are true at this location
+                      AND the item has multiple selected pack configs. The top
+                      stepper grid above still drives the default leg via the
+                      existing writer; this block is purely a render check so
+                      the operator can verify pack qty / cost / lane labels for
+                      every selected config before Step 2b wires the RPC.
+                      Persistence for non-default legs is NOT wired in 2a. */}
+                  {legsEnabledForLocation === true && lensEnabledForLocation === true && item.brand_item_id && (() => {
+                    const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
+                    if (configs.length < 2) return null;
+                    return (
+                      <div className="mt-3 pt-3 border-t border-dashed border-amber-500/40">
+                        <p className="text-[9px] text-amber-600 dark:text-amber-400 uppercase tracking-widest font-bold mb-2">
+                          All pack configs · read-only preview (2a)
+                        </p>
+                        <div className="space-y-2">
+                          {configs.map((cfg) => {
+                            const legKey = (item as any)._countItemId
+                              ? `${(item as any)._countItemId}|${cfg.pack_config_id}`
+                              : null;
+                            const leg = legKey ? legsHydrationMap?.get(legKey) : null;
+                            const legLens = {
+                              count_units_per_case: cfg.count_units_per_case,
+                              cost_per_common_unit: cfg.cost_per_common_unit,
+                              common_unit: cfg.common_unit,
+                              inner_type: cfg.inner_type,
+                            } as any;
+                            const legLanes = computeCountLanes({
+                              item: {
+                                is_recipe: item.is_recipe,
+                                pack_quantity: cfg.count_units_per_case ?? item.pack_quantity,
+                                inner_pack_quantity: cfg.inner_qty ?? null,
+                                inner_pack_label: cfg.inner_type ?? null,
+                                unit: cfg.common_unit ?? item.unit,
+                                cost_per_unit: item.cost_per_unit,
+                                count_by: 'inherit',
+                              },
+                              lens: legLens,
+                              lensEnabled: true,
+                            });
+                            const perCommon = cfg.cost_per_common_unit != null
+                              ? `${formatCurrency(cfg.cost_per_common_unit)}/${cfg.common_unit || 'ea'}`
+                              : '—';
+                            return (
+                              <div
+                                key={cfg.pack_config_id}
+                                className="rounded-md border border-border bg-muted/30 px-2 py-1.5"
+                              >
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[10px] font-semibold text-foreground">
+                                      {cfg.label || `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit}`}
+                                    </span>
+                                    {cfg.is_default && (
+                                      <span className="text-[8px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1 py-0.5 rounded">
+                                        default
+                                      </span>
+                                    )}
+                                    <span className="text-[9px] text-muted-foreground">
+                                      · {cfg.count_units_per_case} {cfg.common_unit}/cs · {perCommon}
+                                    </span>
+                                  </div>
+                                  <div className="text-[9px] text-muted-foreground tabular-nums">
+                                    {legLanes.showCases && (
+                                      <span className="mr-2">Cases <span className="font-semibold text-foreground">{leg?.entered_cases ?? 0}</span></span>
+                                    )}
+                                    {legLanes.showInnerPacks && (
+                                      <span className="mr-2">{legLanes.innerLabel} <span className="font-semibold text-foreground">{leg?.entered_inner_packs ?? 0}</span></span>
+                                    )}
+                                    {legLanes.showUnits && (
+                                      <span>{legLanes.unitsLabel} <span className="font-semibold text-foreground">{leg?.entered_units ?? 0}</span></span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
