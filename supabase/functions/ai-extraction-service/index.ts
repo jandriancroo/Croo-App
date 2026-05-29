@@ -570,8 +570,9 @@ If you cannot find a date:
 }
 
 async function handleParseCateringOrder(payload: any) {
-  const { imageUrl } = payload;
+  const { imageUrl, timezone } = payload;
   if (!imageUrl) return errorResponse('Image URL is required', 400);
+  const tz = timezone || 'America/Los_Angeles';
 
   // Fetch and convert to base64
   const fileResponse = await fetch(imageUrl);
