@@ -2649,7 +2649,156 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                       </div>
                     </div>
-                  ) : hasMultipleLegConfigs ? null : (
+                  ) : hasMultipleLegConfigs ? (
+                  (() => {
+                    const configs = legsConfigsMap?.get(item.brand_item_id!) ?? [];
+                    return (
+                      <div className="space-y-4">
+                        {configs.map((cfg) => {
+                          const legKeyUi = cfg.is_default
+                            ? splitKey
+                            : makeLegInputKey(splitKey, cfg.pack_config_id, cfg.is_default);
+                          const legState = counts[legKeyUi] || { cases: 0, units: 0, innerPacks: 0 };
+                          const outerQty = Number(cfg.outer_qty ?? 1) || 1;
+                          const innerIsCommon =
+                            (cfg.inner_type ?? '').trim().toLowerCase() ===
+                            (cfg.common_unit ?? '').trim().toLowerCase();
+                          const hasInnerTier =
+                            !innerIsCommon && Number(cfg.inner_qty ?? 0) > 0;
+                          const baseLanes = computeCountLanes({
+                            item: {
+                              is_recipe: item.is_recipe,
+                              pack_quantity: outerQty,
+                              inner_pack_quantity: hasInnerTier ? (cfg.inner_qty ?? null) : null,
+                              inner_pack_label: cfg.inner_type ?? null,
+                              unit: cfg.common_unit ?? item.unit,
+                              cost_per_unit: item.cost_per_unit,
+                              count_by: 'inherit',
+                            },
+                            lens: null,
+                            lensEnabled: false,
+                          });
+                          const structuralShowCases = outerQty > 1;
+                          const structuralShowInner = hasInnerTier;
+                          const collapseUnits =
+                            !structuralShowCases && structuralShowInner;
+                          const legLanes = {
+                            ...baseLanes,
+                            showCases: structuralShowCases,
+                            showInnerPacks: structuralShowInner,
+                            showUnits: collapseUnits ? false : true,
+                          };
+                          const liveUnits = cfg.count_units_per_case ?? null;
+                          const livePerCommon =
+                            item.cost_per_unit != null && liveUnits && liveUnits > 0
+                              ? item.cost_per_unit / liveUnits
+                              : null;
+                          const perCommon = livePerCommon != null
+                            ? `${formatCurrency(livePerCommon)}/${cfg.common_unit || 'ea'}`
+                            : '—';
+                          const laneCount = [legLanes.showCases, legLanes.showInnerPacks, legLanes.showUnits].filter(Boolean).length;
+                          return (
+                            <div key={cfg.pack_config_id}>
+                              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                                <span className="text-[10px] font-semibold text-foreground">
+                                  {cfg.label || `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit}`}
+                                </span>
+                                {cfg.is_default && (
+                                  <span className="text-[8px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1 py-0.5 rounded">
+                                    default
+                                  </span>
+                                )}
+                                <span className="text-[9px] text-muted-foreground">
+                                  · {cfg.count_units_per_case} {cfg.common_unit}/cs · {perCommon}
+                                </span>
+                              </div>
+                              <div className={cn("grid gap-2", laneCount === 3 ? "grid-cols-3" : laneCount === 2 ? "grid-cols-2" : "grid-cols-1")}>
+                                {legLanes.showCases && (
+                                  <div>
+                                    <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Cases</p>
+                                    <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                                      {!isViewOnly && (
+                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
+                                          <Minus className="h-4 w-4" strokeWidth={2} />
+                                        </button>
+                                      )}
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={rawInputs[legKeyUi]?.cases ?? legState.cases}
+                                        onChange={(e) => handleCasesInput(legKeyUi, e.target.value)}
+                                        onBlur={() => handleCasesBlur(legKeyUi)}
+                                        disabled={isViewOnly}
+                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                                      />
+                                      {!isViewOnly && (
+                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
+                                          <Plus className="h-4 w-4" strokeWidth={2} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {legLanes.showInnerPacks && (
+                                  <div>
+                                    <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">{legLanes.innerLabel}</p>
+                                    <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                                      {!isViewOnly && (
+                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
+                                          <Minus className="h-4 w-4" strokeWidth={2} />
+                                        </button>
+                                      )}
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={rawInputs[legKeyUi]?.innerPacks ?? legState.innerPacks}
+                                        onChange={(e) => handleInnerPacksInput(legKeyUi, e.target.value)}
+                                        onBlur={() => handleInnerPacksBlur(legKeyUi)}
+                                        disabled={isViewOnly}
+                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                                      />
+                                      {!isViewOnly && (
+                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
+                                          <Plus className="h-4 w-4" strokeWidth={2} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {legLanes.showUnits && (
+                                  <div>
+                                    <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">{legLanes.unitsLabel}</p>
+                                    <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                                      {!isViewOnly && (
+                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
+                                          <Minus className="h-4 w-4" strokeWidth={2} />
+                                        </button>
+                                      )}
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={rawInputs[legKeyUi]?.units ?? legState.units}
+                                        onChange={(e) => handleUnitsInput(legKeyUi, e.target.value)}
+                                        onBlur={() => handleUnitsBlur(legKeyUi)}
+                                        disabled={isViewOnly}
+                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                                      />
+                                      {!isViewOnly && (
+                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
+                                          <Plus className="h-4 w-4" strokeWidth={2} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
+                  ) : (
                   <div className={cn("grid gap-2", showInnerPacks ? "grid-cols-3" : "grid-cols-2")}>
                     {/* Cases counter — hidden if count_by=units_only */}
                     {showCases && (
