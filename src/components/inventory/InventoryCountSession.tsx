@@ -137,6 +137,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
   const originalCounts = useRef<Record<string, number>>({});
 
+  const HEMET_LOCATION_ID = '12c977c7-1786-4131-90f5-1eef3f96e2c6';
+  const SPINACH_BRAND_ITEM_ID = 'bfa8d2a6-f544-4695-ae2b-f610a66d5c91';
+  const TRACE_ENABLED = import.meta.env.DEV && locationId === HEMET_LOCATION_ID;
+
+  const traceSpinach = useCallback((stage: string, payload: Record<string, unknown>) => {
+    if (!TRACE_ENABLED) return;
+    console.log(`[InventoryTrace:${stage}]`, payload);
+  }, [TRACE_ENABLED]);
+
   const exitEditMode = useCallback(() => {
     setShowEditConfirm(false);
     navigate(`/inventory/${locationId}/count/${countId}`);
