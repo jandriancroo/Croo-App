@@ -719,12 +719,34 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     legsHydratedRef.current = true;
     const additions: Record<string, ItemCount> = {};
     const rawAdditions: Record<string, { cases: string; units: string; innerPacks: string }> = {};
+    // Fix (A): for multi-leg items in edit mode, the parent-row baseline computed
+    // at lines 683-685 uses the parent's snapshotted pack_quantity_at_count, which
+    // for split items is outer_qty (not count_units_per_case) and produces phantom
+    // diffs in the edit dialog. The legs table is the source of truth for split
+    // quantities, so derive the baseline from SUM(legs.quantity_common) instead.
+    // Single-config items skip this branch (configs.length < 2) and keep the
+    // existing baseline formula unchanged. Edit-tracking only — write path is
+    // not touched.
+    const legBaselineOverrides: Record<string, number> = {};
     for (const item of items) {
       const countItemId = (item as any)._countItemId;
       const splitKey = (item as any)._splitKey || item.item_id;
       if (!countItemId || !item.brand_item_id) continue;
       const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
       if (configs.length < 2) continue;
+      if (isEditing) {
+        let legSum = 0;
+        let sawAnyLeg = false;
+        for (const cfg of configs) {
+          const legRow = legsHydrationMap.get(`${countItemId}|${cfg.pack_config_id}`);
+          if (!legRow) continue;
+          sawAnyLeg = true;
+          legSum += Number(legRow.quantity_common ?? 0) || 0;
+        }
+        if (sawAnyLeg) {
+          legBaselineOverrides[splitKey] = Math.round(legSum * 100) / 100;
+        }
+      }
       for (const cfg of configs) {
         if (cfg.is_default) continue;
         const leg = legsHydrationMap.get(`${countItemId}|${cfg.pack_config_id}`);
@@ -750,6 +772,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         rawAdditions[k] = { cases: String(c), units: String(u), innerPacks: String(ip) };
       }
     }
+    if (isEditing && Object.keys(legBaselineOverrides).length > 0) {
+      originalCounts.current = { ...originalCounts.current, ...legBaselineOverrides };
+    }
     if (Object.keys(additions).length === 0) return;
     traceSpinach('hydrate-leg-state-merge', {
       keys: Object.keys(additions).filter((key) => key.includes('::leg::')),
@@ -757,7 +782,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     });
     setCounts(prev => ({ ...additions, ...prev }));
     setRawInputs(prev => ({ ...rawAdditions, ...prev }));
-  }, [items, legsHydrationMap, legsConfigsMap, legsEnabledForLocation, makeLegInputKey]);
+  }, [items, legsHydrationMap, legsConfigsMap, legsEnabledForLocation, makeLegInputKey, isEditing]);
 
   // Initialize timer from existing duration (for resumed counts)
   useEffect(() => {
