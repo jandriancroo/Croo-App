@@ -911,6 +911,40 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     return Math.round((casesVal * caseUnits + innerVal * innerPackQty + unitsVal + panUnits) * 100) / 100;
   }, [counts, rawInputs, getPanUnitsTotal]);
 
+  // For multi-leg items, the parent's total quantity = default leg (via
+  // getTotalQuantity on the bare splitKey) + sum of every non-default leg's
+  // (cases × leg.count_units_per_case + innerPacks × leg.inner_qty + units).
+  // Mirrors the exact formula used when writing legs (line ~1546). Single-config
+  // items just return getTotalQuantity unchanged.
+  const getItemTotalIncludingLegs = useCallback((
+    item: CountItem,
+    splitKey: string,
+    defaultPackQty: number | null,
+    defaultInnerPackQty: number | null,
+  ): number => {
+    const base = getTotalQuantity(splitKey, defaultPackQty, item.pan_sizes, defaultInnerPackQty);
+    const bid = (item as any).brand_item_id;
+    if (legsEnabledForLocation !== true || !bid) return base;
+    const cfgs = legsConfigsMap?.get(bid) ?? [];
+    if (cfgs.length < 2) return base;
+    let extra = 0;
+    for (const cfg of cfgs) {
+      if (cfg.is_default) continue;
+      const legKey = `${splitKey}::leg::${cfg.pack_config_id}`;
+      const rawCases = parseFloat(rawInputs[legKey]?.cases ?? '');
+      const rawUnits = parseFloat(rawInputs[legKey]?.units ?? '');
+      const rawInner = parseFloat(rawInputs[legKey]?.innerPacks ?? '');
+      const committed = counts[legKey] || { cases: 0, units: 0, innerPacks: 0 };
+      const c = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
+      const u = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
+      const ip = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
+      const cu = Number(cfg.count_units_per_case ?? 0);
+      const ipq = Number(cfg.inner_qty ?? 0);
+      extra += c * cu + ip * ipq + u;
+    }
+    return Math.round((base + extra) * 100) / 100;
+  }, [getTotalQuantity, legsEnabledForLocation, legsConfigsMap, counts, rawInputs]);
+
   // Calculate cost for a single item (supports recipe cost trickle-down)
   // key param allows split-count items to be identified by splitKey
   // Uses the shared SOT formula from src/utils/countItemValue.ts so the running
@@ -1145,7 +1179,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Lens-aware: when an approved brand_pack_config is in effect, its
       // count_units_per_case is authoritative — matches valuation precedence.
       const effectivePackQty = resolveItemPackQty(item);
-      const newQuantity = getTotalQuantity(key, effectivePackQty, item.pan_sizes, resolveInnerPackQtyForTotal(item));
+      const newQuantity = getItemTotalIncludingLegs(item, key, effectivePackQty, resolveInnerPackQtyForTotal(item));
       const originalQuantity = originalCounts.current[key] ?? 0;
       
       if (newQuantity !== originalQuantity) {
@@ -1176,7 +1210,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
     
     return edits;
-  }, [isEditing, items, getTotalQuantity, counts, panCounts]);
+  }, [isEditing, items, getItemTotalIncludingLegs, counts, panCounts]);
 
   // Handle save for edit mode
   const handleSaveEdits = () => {
@@ -1243,7 +1277,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         }
         return {
           item_id: item.item_id,
-          quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, resolveInnerPackQtyForTotal(item)),
+          quantity: getItemTotalIncludingLegs(item, key, resolveItemPackQty(item), resolveInnerPackQtyForTotal(item)),
           storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
           entered_cases: countState.cases,
           entered_units: countState.units,
@@ -1269,7 +1303,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       });
       return { itemCounts, snapshot: JSON.stringify(itemCounts) };
     };
-  }, [items, counts, panCounts, getTotalQuantity, legsConfigsMap, legsEnabledForLocation]);
+  }, [items, counts, panCounts, getItemTotalIncludingLegs, legsConfigsMap, legsEnabledForLocation]);
 
   // === Palm Springs forensic audit log ===
   // Logs every save attempt with raw UI inputs (cases, units, pan inputs) verbatim
@@ -1834,7 +1868,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const innerPackQty = (item as any).inner_pack_quantity ?? null;
       return {
         item_id: item.item_id,
-        quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, resolveInnerPackQtyForTotal(item)),
+        quantity: getItemTotalIncludingLegs(item, key, resolveItemPackQty(item), resolveInnerPackQtyForTotal(item)),
         storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
         entered_cases: casesVal,
         entered_units: unitsVal,
@@ -2517,7 +2551,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
                 <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
                 <p className="text-[9px] text-accent-foreground/70 text-center">
-                  {getTotalQuantity(splitKey, item.is_recipe ? 1 : resolveItemPackQty(item), item.pan_sizes, item.is_recipe ? null : resolveInnerPackQtyForTotal(item))} {item.is_recipe ? (item.unit || 'ea') : 'units'}
+                  {item.is_recipe ? getTotalQuantity(splitKey, 1, item.pan_sizes, null) : getItemTotalIncludingLegs(item, splitKey, resolveItemPackQty(item), resolveInnerPackQtyForTotal(item))} {item.is_recipe ? (item.unit || 'ea') : 'units'}
                 </p>
               </div>
 
