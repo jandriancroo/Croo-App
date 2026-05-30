@@ -2832,8 +2832,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
                     if (configs.length < 2) return null;
                     return (
-                      <div className="mt-3 pt-3 border-t border-dashed border-amber-500/40">
-                        <p className="text-[9px] text-amber-600 dark:text-amber-400 uppercase tracking-widest font-bold mb-2">
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
                           All pack configs · per-leg counts
                         </p>
                         <div className="space-y-2">
