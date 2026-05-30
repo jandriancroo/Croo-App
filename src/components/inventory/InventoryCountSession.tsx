@@ -2772,25 +2772,38 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           {configs.map((cfg) => {
                             const legKeyUi = makeLegInputKey(splitKey, cfg.pack_config_id, cfg.is_default);
                             const legState = counts[legKeyUi] || { cases: 0, units: 0, innerPacks: 0 };
-                            const legLens = {
-                              count_units_per_case: cfg.count_units_per_case,
-                              cost_per_common_unit: cfg.cost_per_common_unit,
-                              common_unit: cfg.common_unit,
-                              inner_type: cfg.inner_type,
-                            } as any;
-                            const legLanes = computeCountLanes({
+                            // Lane visibility is driven by the leg's own structural
+                            // signals, not the lens:
+                            //   • showCases  ⇔ outer_qty > 1
+                            //   • showInner  ⇔ inner_type !== common_unit
+                            //     (when they match, the inner tier IS the case
+                            //     content — no separate middle lane)
+                            //   • Single-tier collapse: when there's no Cases lane
+                            //     and the inner IS the physical container being
+                            //     counted (e.g. a single 2.5 lb bag), suppress the
+                            //     atomic Units lane — the inner lane already
+                            //     represents the unit-of-count, and a third
+                            //     stepper would visually double-count.
+                            const innerIsCommon =
+                              (cfg.inner_type ?? '').trim().toLowerCase() ===
+                              (cfg.common_unit ?? '').trim().toLowerCase();
+                            const baseLanes = computeCountLanes({
                               item: {
                                 is_recipe: item.is_recipe,
-                                pack_quantity: cfg.count_units_per_case ?? item.pack_quantity,
-                                inner_pack_quantity: cfg.inner_qty ?? null,
+                                pack_quantity: cfg.outer_qty ?? 1,
+                                inner_pack_quantity: innerIsCommon ? null : (cfg.inner_qty ?? null),
                                 inner_pack_label: cfg.inner_type ?? null,
                                 unit: cfg.common_unit ?? item.unit,
                                 cost_per_unit: item.cost_per_unit,
                                 count_by: 'inherit',
                               },
-                              lens: legLens,
-                              lensEnabled: true,
+                              lens: null,
+                              lensEnabled: false,
                             });
+                            const legLanes =
+                              !baseLanes.showCases && baseLanes.showInnerPacks
+                                ? { ...baseLanes, showUnits: false }
+                                : baseLanes;
                             // Per-common cost derived from LIVE vendor case cost (same
                             // source the RPC freezes into cost_at_count on submit).
                             const liveUnits = cfg.count_units_per_case ?? null;
