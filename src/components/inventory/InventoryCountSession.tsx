@@ -772,6 +772,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         rawAdditions[k] = { cases: String(c), units: String(u), innerPacks: String(ip) };
       }
     }
+    if (isEditing && Object.keys(legBaselineOverrides).length > 0) {
+      originalCounts.current = { ...originalCounts.current, ...legBaselineOverrides };
+    }
     if (Object.keys(additions).length === 0) return;
     traceSpinach('hydrate-leg-state-merge', {
       keys: Object.keys(additions).filter((key) => key.includes('::leg::')),
@@ -779,7 +782,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     });
     setCounts(prev => ({ ...additions, ...prev }));
     setRawInputs(prev => ({ ...rawAdditions, ...prev }));
-  }, [items, legsHydrationMap, legsConfigsMap, legsEnabledForLocation, makeLegInputKey]);
+  }, [items, legsHydrationMap, legsConfigsMap, legsEnabledForLocation, makeLegInputKey, isEditing]);
 
   // Initialize timer from existing duration (for resumed counts)
   useEffect(() => {
