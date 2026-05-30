@@ -1277,7 +1277,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         }
         return {
           item_id: item.item_id,
-          quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, resolveInnerPackQtyForTotal(item)),
+          quantity: getItemTotalIncludingLegs(item, key, resolveItemPackQty(item), resolveInnerPackQtyForTotal(item)),
           storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
           entered_cases: countState.cases,
           entered_units: countState.units,
