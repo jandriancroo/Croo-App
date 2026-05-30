@@ -911,6 +911,40 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     return Math.round((casesVal * caseUnits + innerVal * innerPackQty + unitsVal + panUnits) * 100) / 100;
   }, [counts, rawInputs, getPanUnitsTotal]);
 
+  // For multi-leg items, the parent's total quantity = default leg (via
+  // getTotalQuantity on the bare splitKey) + sum of every non-default leg's
+  // (cases × leg.count_units_per_case + innerPacks × leg.inner_qty + units).
+  // Mirrors the exact formula used when writing legs (line ~1546). Single-config
+  // items just return getTotalQuantity unchanged.
+  const getItemTotalIncludingLegs = useCallback((
+    item: CountItem,
+    splitKey: string,
+    defaultPackQty: number | null,
+    defaultInnerPackQty: number | null,
+  ): number => {
+    const base = getTotalQuantity(splitKey, defaultPackQty, item.pan_sizes, defaultInnerPackQty);
+    const bid = (item as any).brand_item_id;
+    if (legsEnabledForLocation !== true || !bid) return base;
+    const cfgs = legsConfigsMap?.get(bid) ?? [];
+    if (cfgs.length < 2) return base;
+    let extra = 0;
+    for (const cfg of cfgs) {
+      if (cfg.is_default) continue;
+      const legKey = `${splitKey}::leg::${cfg.pack_config_id}`;
+      const rawCases = parseFloat(rawInputs[legKey]?.cases ?? '');
+      const rawUnits = parseFloat(rawInputs[legKey]?.units ?? '');
+      const rawInner = parseFloat(rawInputs[legKey]?.innerPacks ?? '');
+      const committed = counts[legKey] || { cases: 0, units: 0, innerPacks: 0 };
+      const c = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
+      const u = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
+      const ip = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
+      const cu = Number(cfg.count_units_per_case ?? 0);
+      const ipq = Number(cfg.inner_qty ?? 0);
+      extra += c * cu + ip * ipq + u;
+    }
+    return Math.round((base + extra) * 100) / 100;
+  }, [getTotalQuantity, legsEnabledForLocation, legsConfigsMap, counts, rawInputs]);
+
   // Calculate cost for a single item (supports recipe cost trickle-down)
   // key param allows split-count items to be identified by splitKey
   // Uses the shared SOT formula from src/utils/countItemValue.ts so the running
