@@ -2773,25 +2773,37 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             const legKeyUi = makeLegInputKey(splitKey, cfg.pack_config_id, cfg.is_default);
                             const legState = counts[legKeyUi] || { cases: 0, units: 0, innerPacks: 0 };
                             // Lane visibility is driven by the leg's own structural
-                            // signals, not the lens:
+                            // signals, computed directly here (not via
+                            // computeCountLanes' legacy heuristics, which gate
+                            // trueSingleUnit on inner_qty ≤ 1 and would keep all
+                            // three lanes visible for a 1/2.5 lb bag).
+                            //
+                            // Rules:
                             //   • showCases  ⇔ outer_qty > 1
                             //   • showInner  ⇔ inner_type !== common_unit
                             //     (when they match, the inner tier IS the case
                             //     content — no separate middle lane)
-                            //   • Single-tier collapse: when there's no Cases lane
-                            //     and the inner IS the physical container being
-                            //     counted (e.g. a single 2.5 lb bag), suppress the
-                            //     atomic Units lane — the inner lane already
-                            //     represents the unit-of-count, and a third
-                            //     stepper would visually double-count.
+                            //   • Single-tier collapse: when there's no Cases
+                            //     lane and the inner IS the physical container
+                            //     being counted (e.g. a single 2.5 lb bag),
+                            //     suppress the atomic Units lane — the inner
+                            //     lane already represents the unit-of-count.
+                            //   • Default-leg mirror: the parent's top stepper
+                            //     already owns Cases + Units for this config, so
+                            //     the middle (bags-per-case) tier here is
+                            //     visually redundant — skip it in the read-only
+                            //     mirror to keep "Cases X · LBS Y".
+                            const outerQty = Number(cfg.outer_qty ?? 1) || 1;
                             const innerIsCommon =
                               (cfg.inner_type ?? '').trim().toLowerCase() ===
                               (cfg.common_unit ?? '').trim().toLowerCase();
+                            const hasInnerTier =
+                              !innerIsCommon && Number(cfg.inner_qty ?? 0) > 0;
                             const baseLanes = computeCountLanes({
                               item: {
                                 is_recipe: item.is_recipe,
-                                pack_quantity: cfg.outer_qty ?? 1,
-                                inner_pack_quantity: innerIsCommon ? null : (cfg.inner_qty ?? null),
+                                pack_quantity: outerQty,
+                                inner_pack_quantity: hasInnerTier ? (cfg.inner_qty ?? null) : null,
                                 inner_pack_label: cfg.inner_type ?? null,
                                 unit: cfg.common_unit ?? item.unit,
                                 cost_per_unit: item.cost_per_unit,
@@ -2800,10 +2812,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               lens: null,
                               lensEnabled: false,
                             });
-                            const legLanes =
-                              !baseLanes.showCases && baseLanes.showInnerPacks
-                                ? { ...baseLanes, showUnits: false }
-                                : baseLanes;
+                            const structuralShowCases = outerQty > 1;
+                            const structuralShowInner = hasInnerTier;
+                            const collapseUnits =
+                              !structuralShowCases && structuralShowInner;
+                            const legLanes = {
+                              ...baseLanes,
+                              showCases: structuralShowCases,
+                              showInnerPacks: cfg.is_default ? false : structuralShowInner,
+                              showUnits: collapseUnits ? false : true,
+                            };
                             // Per-common cost derived from LIVE vendor case cost (same
                             // source the RPC freezes into cost_at_count on submit).
                             const liveUnits = cfg.count_units_per_case ?? null;
