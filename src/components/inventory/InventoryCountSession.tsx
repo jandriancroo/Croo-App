@@ -2534,6 +2534,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           });
           const showCases = lanes.showCases;
           const showUnits = lanes.showUnits;
+          const hasMultipleLegConfigs =
+            legsEnabledForLocation === true &&
+            lensEnabledForLocation === true &&
+            !!item.brand_item_id &&
+            (legsConfigsMap?.get(item.brand_item_id)?.length ?? 0) >= 2;
           
           return (
             <div 
@@ -2644,7 +2649,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                       </div>
                     </div>
-                  ) : (legsEnabledForLocation === true && lensEnabledForLocation === true && item.brand_item_id && (legsConfigsMap?.get(item.brand_item_id)?.length ?? 0) >= 2) ? null : (
+                  ) : hasMultipleLegConfigs ? null : (
                   <div className={cn("grid gap-2", showInnerPacks ? "grid-cols-3" : "grid-cols-2")}>
                     {/* Cases counter — hidden if count_by=units_only */}
                     {showCases && (
@@ -2822,12 +2827,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
                   {/* 2b — Per-config legs. Renders only when BOTH lens_enabled
                       AND legs_enabled are true at this location AND the item
-                      has multiple selected pack configs. The top stepper above
-                      still drives the DEFAULT leg via the existing writer; the
-                      default row here is read-only mirror. Non-default legs
-                      have their own steppers wired via per-leg keys and are
-                      persisted via save_count_item_with_legs (no submit-freeze
-                      in 2b — that ships separately). */}
+                      has multiple selected pack configs. When the legacy top
+                      stepper is hidden, the default row becomes the editable
+                      interface using the shared splitKey. Non-default legs use
+                      per-leg keys and persist via save_count_item_with_legs. */}
                   {legsEnabledForLocation === true && lensEnabledForLocation === true && item.brand_item_id && (() => {
                     const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
                     if (configs.length < 2) return null;
@@ -2921,9 +2924,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                   </div>
                                 </div>
 
-                                {cfg.is_default ? (
-                                  // Default leg: read-only mirror of the top stepper
-                                  // (which already owns counts[splitKey]).
+                                {cfg.is_default && !hasMultipleLegConfigs ? (
+                                  // Default leg: read-only mirror only while the
+                                  // legacy top stepper is the editable control.
                                   <div className="text-[9px] text-muted-foreground tabular-nums">
                                     {legLanes.showCases && (
                                       <span className="mr-2">Cases <span className="font-semibold text-foreground">{legState.cases ?? 0}</span></span>
