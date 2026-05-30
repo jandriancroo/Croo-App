@@ -1330,6 +1330,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const key = `${ic.item_id}|${ic.storage_location_id || ''}`;
         const existing = existingMap.get(key);
         const innerPacksVal = ic.entered_inner_packs ?? 0;
+        if (TRACE_ENABLED && ic.item_id && itemsRef.current?.some((it) => it.item_id === ic.item_id && (it as any).brand_item_id === SPINACH_BRAND_ITEM_ID)) {
+          traceSpinach('save-parent-row', {
+            key,
+            existingId: existing?.id ?? null,
+            quantity: ic.quantity,
+            entered_cases: ic.entered_cases,
+            entered_inner_packs: innerPacksVal,
+            entered_units: ic.entered_units,
+            legLanes: ic._legLanes ?? null,
+          });
+        }
         
         // Build a fingerprint to skip unchanged items (Phase 3: includes inner packs)
         const fingerprint = `${ic.quantity}|${ic.entered_cases}|${ic.entered_units}|${innerPacksVal}`;
@@ -1482,6 +1493,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           for (const r of (parentRows || []) as any[]) {
             parentMap.set(`${r.item_id}|${r.storage_location_id || ''}`, r.id);
           }
+          traceSpinach('leg-pass-parent-map', {
+            rows: (parentRows || []).filter((r: any) => itemsNow.some((it) => it.item_id === r.item_id && (it as any).brand_item_id === SPINACH_BRAND_ITEM_ID)),
+          });
           for (const ic of multi) {
             const composite = `${ic.item_id}|${ic.storage_location_id || ''}`;
             const countItemId = parentMap.get(composite);
@@ -1504,6 +1518,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 quantity_common: qc,
               };
             });
+            if (bid === SPINACH_BRAND_ITEM_ID) {
+              traceSpinach('leg-rpc-request', {
+                composite,
+                countItemId,
+                splitKey,
+                legsPayload,
+              });
+            }
             try {
               const { error: rpcErr } = await (supabase as any).rpc('save_count_item_with_legs', {
                 p_count_item_id: countItemId,
@@ -1512,8 +1534,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 p_rollup_blocked: false,
               });
               if (rpcErr) throw rpcErr;
+              if (bid === SPINACH_BRAND_ITEM_ID) {
+                traceSpinach('leg-rpc-success', {
+                  composite,
+                  countItemId,
+                  legsPayload,
+                });
+              }
             } catch (e) {
               legFailed++;
+              if (bid === SPINACH_BRAND_ITEM_ID) {
+                traceSpinach('leg-rpc-failure', {
+                  composite,
+                  countItemId,
+                  error: e instanceof Error ? e.message : String(e),
+                  legsPayload,
+                });
+              }
               console.warn(`[Inventory] Leg RPC failed for item ${ic.item_id}:`, e);
             }
           }
