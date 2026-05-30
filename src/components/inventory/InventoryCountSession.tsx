@@ -1154,6 +1154,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const storLocId = item.storage_location_id;
         const countState = counts[key] || { cases: 0, units: 0, innerPacks: 0 };
         const innerPackQty = (item as any).inner_pack_quantity ?? null;
+        // Fold raw per-leg lane triples into the snapshot so the diff guard fires
+        // when a non-default leg's cases/innerPacks/units change. Prefixed `_` so
+        // the RPC/insert path ignores it. Single-config items get null.
+        const bid = (item as any).brand_item_id;
+        const cfgs = (legsEnabledForLocation === true && bid) ? (legsConfigsMap?.get(bid) ?? []) : [];
+        let _legLanes: Array<{ pack_config_id: string; cases: number; innerPacks: number; units: number }> | null = null;
+        if (cfgs.length >= 2) {
+          _legLanes = cfgs.map((cfg: any) => {
+            const legKey = cfg.is_default ? key : `${key}::leg::${cfg.pack_config_id}`;
+            const s = counts[legKey] || { cases: 0, units: 0, innerPacks: 0 };
+            return {
+              pack_config_id: cfg.pack_config_id,
+              cases: Number(s.cases) || 0,
+              innerPacks: Number(s.innerPacks) || 0,
+              units: Number(s.units) || 0,
+            };
+          });
+        }
         return {
           item_id: item.item_id,
           quantity: getTotalQuantity(key, resolveItemPackQty(item), item.pan_sizes, resolveInnerPackQtyForTotal(item)),
@@ -1177,11 +1195,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           _inner_pack_quantity: innerPackQty,
           _pan_sizes: item.pan_sizes,
           _pan_inputs: panCounts[key] || null,
+          _legLanes,
         };
       });
       return { itemCounts, snapshot: JSON.stringify(itemCounts) };
     };
-  }, [items, counts, panCounts, getTotalQuantity]);
+  }, [items, counts, panCounts, getTotalQuantity, legsConfigsMap, legsEnabledForLocation]);
 
   // === Palm Springs forensic audit log ===
   // Logs every save attempt with raw UI inputs (cases, units, pan inputs) verbatim
