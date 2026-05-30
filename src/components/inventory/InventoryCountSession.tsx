@@ -1210,7 +1210,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
     
     return edits;
-  }, [isEditing, items, getTotalQuantity, counts, panCounts]);
+  }, [isEditing, items, getItemTotalIncludingLegs, counts, panCounts]);
 
   // Handle save for edit mode
   const handleSaveEdits = () => {
