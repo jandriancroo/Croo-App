@@ -716,6 +716,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (legsHydratedRef.current) return;
     if (!items || !legsHydrationMap) return;
     if (legsEnabledForLocation !== true) return;
+    if (!legsConfigsMap) return;
     legsHydratedRef.current = true;
     const additions: Record<string, ItemCount> = {};
     const rawAdditions: Record<string, { cases: string; units: string; innerPacks: string }> = {};
