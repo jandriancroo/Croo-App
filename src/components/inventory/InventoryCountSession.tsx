@@ -733,11 +733,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const c = leg.entered_cases ?? 0;
         const u = leg.entered_units ?? 0;
         const ip = leg.entered_inner_packs ?? 0;
+        if (item.brand_item_id === SPINACH_BRAND_ITEM_ID) {
+          traceSpinach('hydrate-leg-row', {
+            itemName: item.item_name,
+            splitKey,
+            legKey: k,
+            packConfigId: cfg.pack_config_id,
+            countItemId,
+            entered_cases: c,
+            entered_inner_packs: ip,
+            entered_units: u,
+            quantity_common: leg.quantity_common ?? null,
+          });
+        }
         additions[k] = { cases: c, units: u, innerPacks: ip };
         rawAdditions[k] = { cases: String(c), units: String(u), innerPacks: String(ip) };
       }
     }
     if (Object.keys(additions).length === 0) return;
+    traceSpinach('hydrate-leg-state-merge', {
+      keys: Object.keys(additions).filter((key) => key.includes('::leg::')),
+      additions,
+    });
     setCounts(prev => ({ ...additions, ...prev }));
     setRawInputs(prev => ({ ...rawAdditions, ...prev }));
   }, [items, legsHydrationMap, legsConfigsMap, legsEnabledForLocation, makeLegInputKey]);
@@ -1180,6 +1197,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               units: Number(s.units) || 0,
             };
           });
+          if (item.brand_item_id === SPINACH_BRAND_ITEM_ID) {
+            traceSpinach('snapshot-leg-fold', {
+              itemName: item.item_name,
+              splitKey: key,
+              storageLocationId: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
+              topLevel: countState,
+              _legLanes,
+            });
+          }
         }
         return {
           item_id: item.item_id,
@@ -1808,6 +1834,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const updateCases = (itemId: string, delta: number) => {
     setCounts(prev => {
       const newValue = Math.max(0, Math.round(((prev[itemId]?.cases || 0) + delta) * 100) / 100);
+      if (itemId.includes('::leg::')) {
+        traceSpinach('ui-update-cases-stepper', {
+          key: itemId,
+          prev: prev[itemId] || { cases: 0, units: 0, innerPacks: 0 },
+          nextCases: newValue,
+        });
+      }
       // Also update raw input to stay in sync
       setRawInputs(p => ({
         ...p,
@@ -1847,6 +1880,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const updateUnits = (itemId: string, delta: number) => {
     setCounts(prev => {
       const newValue = Math.max(0, Math.round(((prev[itemId]?.units || 0) + delta) * 100) / 100);
+      if (itemId.includes('::leg::')) {
+        traceSpinach('ui-update-units-stepper', {
+          key: itemId,
+          prev: prev[itemId] || { cases: 0, units: 0, innerPacks: 0 },
+          nextUnits: newValue,
+        });
+      }
       setRawInputs(p => ({
         ...p,
         [itemId]: { ...p[itemId], units: String(newValue) }
@@ -1865,6 +1905,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const updateInnerPacks = (itemId: string, delta: number) => {
     setCounts(prev => {
       const newValue = Math.max(0, Math.round(((prev[itemId]?.innerPacks || 0) + delta) * 100) / 100);
+      if (itemId.includes('::leg::')) {
+        traceSpinach('ui-update-inner-stepper', {
+          key: itemId,
+          prev: prev[itemId] || { cases: 0, units: 0, innerPacks: 0 },
+          nextInnerPacks: newValue,
+        });
+      }
       setRawInputs(p => ({
         ...p,
         [itemId]: { ...p[itemId], innerPacks: String(newValue) }
@@ -1893,6 +1940,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const value = parseFloat(rawValue);
     
     const finalValue = isNaN(value) ? 0 : Math.max(0, value);
+    if (itemId.includes('::leg::')) {
+      traceSpinach('ui-blur-cases', {
+        key: itemId,
+        rawValue,
+        finalValue,
+      });
+    }
     
     setCounts(prev => ({
       ...prev,
@@ -1922,6 +1976,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const value = parseFloat(rawValue);
     
     const finalValue = isNaN(value) ? 0 : Math.max(0, value);
+    if (itemId.includes('::leg::')) {
+      traceSpinach('ui-blur-units', {
+        key: itemId,
+        rawValue,
+        finalValue,
+      });
+    }
     
     setCounts(prev => ({
       ...prev,
@@ -1949,6 +2010,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const rawValue = rawInputs[itemId]?.innerPacks || '';
     const value = parseFloat(rawValue);
     const finalValue = isNaN(value) ? 0 : Math.max(0, value);
+    if (itemId.includes('::leg::')) {
+      traceSpinach('ui-blur-inner', {
+        key: itemId,
+        rawValue,
+        finalValue,
+      });
+    }
     setCounts(prev => ({
       ...prev,
       [itemId]: {
