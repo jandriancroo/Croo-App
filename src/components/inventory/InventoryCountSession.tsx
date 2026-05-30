@@ -748,19 +748,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           legBaselineOverrides[splitKey] = Math.round(legSum * 100) / 100;
         }
       }
+      // Default-leg override: for multi-leg items, the legs table is the source
+      // of truth for BOTH the default-leg stepper (bare splitKey) and non-default
+      // leg keys. The parent row's entered_cases/units may have drifted from a
+      // prior bad save, so hydrate the default-leg stepper from the default leg
+      // row's entered_* values instead of the parent row.
       for (const cfg of configs) {
-        if (cfg.is_default) continue;
         const leg = legsHydrationMap.get(`${countItemId}|${cfg.pack_config_id}`);
         if (!leg) continue;
-        const k = makeLegInputKey(splitKey, cfg.pack_config_id, false);
         const c = leg.entered_cases ?? 0;
         const u = leg.entered_units ?? 0;
         const ip = leg.entered_inner_packs ?? 0;
+        const k = cfg.is_default ? splitKey : makeLegInputKey(splitKey, cfg.pack_config_id, false);
         if (item.brand_item_id === SPINACH_BRAND_ITEM_ID) {
           traceSpinach('hydrate-leg-row', {
             itemName: item.item_name,
             splitKey,
             legKey: k,
+            isDefault: cfg.is_default,
             packConfigId: cfg.pack_config_id,
             countItemId,
             entered_cases: c,
@@ -778,11 +783,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
     if (Object.keys(additions).length === 0) return;
     traceSpinach('hydrate-leg-state-merge', {
-      keys: Object.keys(additions).filter((key) => key.includes('::leg::')),
+      keys: Object.keys(additions),
       additions,
     });
-    setCounts(prev => ({ ...additions, ...prev }));
-    setRawInputs(prev => ({ ...rawAdditions, ...prev }));
+    // For multi-leg items, additions (from legs table) must WIN over prev
+    // (parent-row hydration) on splitKey collisions — legs are source of truth.
+    // Non-default leg keys never collide with prev, so they're additive either way.
+    setCounts(prev => ({ ...prev, ...additions }));
+    setRawInputs(prev => ({ ...prev, ...rawAdditions }));
   }, [items, legsHydrationMap, legsConfigsMap, legsEnabledForLocation, makeLegInputKey, isEditing]);
 
   // Initialize timer from existing duration (for resumed counts)
