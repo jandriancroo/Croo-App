@@ -1512,6 +1512,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               const qc = (Number(s.cases) || 0) * cu + (Number(s.innerPacks) || 0) * ipq + (Number(s.units) || 0);
               return {
                 pack_config_id: cfg.pack_config_id,
+                is_default: !!cfg.is_default,
                 entered_cases: Number(s.cases) || 0,
                 entered_inner_packs: Number(s.innerPacks) || 0,
                 entered_units: Number(s.units) || 0,
