@@ -2644,7 +2644,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                       </div>
                     </div>
-                  ) : (
+                  ) : (legsEnabledForLocation === true && lensEnabledForLocation === true && item.brand_item_id && (legsConfigsMap?.get(item.brand_item_id)?.length ?? 0) >= 2) ? null : (
                   <div className={cn("grid gap-2", showInnerPacks ? "grid-cols-3" : "grid-cols-2")}>
                     {/* Cases counter — hidden if count_by=units_only */}
                     {showCases && (
