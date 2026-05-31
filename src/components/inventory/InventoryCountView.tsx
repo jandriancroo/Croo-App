@@ -594,6 +594,13 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                       const bid = item.item?.brand_item_id;
                                       const cfgs = bid ? (legsConfigsMap?.get(bid) ?? []) : [];
                                       const cfgById = new Map(cfgs.map(c => [c.pack_config_id, c]));
+                                      // Enriched per-leg payloads (default-leg cost derived from
+                                      // commonUnitCost so each sub-row prices with its own cfg).
+                                      const enrichedAll = buildLegsForValuation(item, legRows) ?? [];
+                                      const enrichedByCfg = new Map<string, any>();
+                                      legRows.forEach((lr, idx) => {
+                                        if (enrichedAll[idx]) enrichedByCfg.set(lr.pack_config_id, enrichedAll[idx]);
+                                      });
                                       const ordered = [...legRows].sort((a, b) => {
                                         const ca = cfgById.get(a.pack_config_id);
                                         const cb = cfgById.get(b.pack_config_id);
@@ -608,37 +615,32 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                           || (cfg?.outer_qty != null && cfg?.inner_qty != null
                                                 ? `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit ?? ""}`.trim()
                                                 : (leg.pack_quantity_at_count != null ? `${leg.pack_quantity_at_count} ${cfg?.common_unit ?? ""}`.trim() : "leg"));
-                                        const legValue = calculateCountItemValue(
-                                          {
-                                            quantity: null,
-                                            entered_cases: leg.entered_cases,
-                                            entered_units: leg.entered_units,
-                                            entered_inner_packs: leg.entered_inner_packs,
-                                            cost_at_count: null,
-                                            pack_quantity_at_count: null,
-                                            inner_pack_quantity_at_count: null,
-                                          } as any,
-                                          {
-                                            brand_item_id: item.item?.brand_item_id,
-                                            cost_per_unit: item.item?.cost_per_unit,
-                                            pack_quantity: item.item?.pack_quantity,
-                                            pack_quantity_override: (item.item as any)?.pack_quantity_override,
-                                            inner_pack_quantity: item.item?.inner_pack_quantity,
-                                            is_recipe: (item.item as any)?.is_recipe === true,
-                                            unit: item.item?.unit,
-                                          } as any,
-                                          null,
-                                          false,
-                                          [{
-                                            entered_cases: leg.entered_cases,
-                                            entered_units: leg.entered_units,
-                                            entered_inner_packs: leg.entered_inner_packs,
-                                            quantity_common: leg.quantity_common,
-                                            pack_quantity_at_count: leg.pack_quantity_at_count,
-                                            inner_pack_quantity_at_count: leg.inner_pack_quantity_at_count,
-                                            cost_at_count: leg.cost_at_count,
-                                          }],
-                                        );
+                                        const enrichedLeg = enrichedByCfg.get(leg.pack_config_id);
+                                        const legValue = enrichedLeg
+                                          ? calculateCountItemValue(
+                                              {
+                                                quantity: null,
+                                                entered_cases: leg.entered_cases,
+                                                entered_units: leg.entered_units,
+                                                entered_inner_packs: leg.entered_inner_packs,
+                                                cost_at_count: null,
+                                                pack_quantity_at_count: null,
+                                                inner_pack_quantity_at_count: null,
+                                              } as any,
+                                              {
+                                                brand_item_id: item.item?.brand_item_id,
+                                                cost_per_unit: item.item?.cost_per_unit,
+                                                pack_quantity: item.item?.pack_quantity,
+                                                pack_quantity_override: (item.item as any)?.pack_quantity_override,
+                                                inner_pack_quantity: item.item?.inner_pack_quantity,
+                                                is_recipe: (item.item as any)?.is_recipe === true,
+                                                unit: item.item?.unit,
+                                              } as any,
+                                              null,
+                                              false,
+                                              [enrichedLeg],
+                                            )
+                                          : 0;
                                         const entered: string[] = [];
                                         if ((leg.entered_cases ?? 0) > 0) entered.push(`${leg.entered_cases} cs`);
                                         if ((leg.entered_inner_packs ?? 0) > 0) entered.push(`${leg.entered_inner_packs} pk`);
