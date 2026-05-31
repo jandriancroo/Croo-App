@@ -231,7 +231,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
 
       const rows: any[][] = [];
       for (const ci of sortedItems) {
-        const item = ci.item || {};
+        const item: any = ci.item || {};
         const legs = legsByCountItemId?.get(ci.id) || [];
         const isMultiConfig = legs.length >= 2;
 
