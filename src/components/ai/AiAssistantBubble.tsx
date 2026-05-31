@@ -384,7 +384,7 @@ export function AiAssistantBubble() {
             manager dash. Auto-disappears 7 days after first sight. No manual
             dismiss so it can't be accidentally swiped away. ── */}
       <AnimatePresence initial={false}>
-        {!open && (!isMobile || teachingVisible) && (
+        {!open && !isMobile && (
           <motion.button
             type="button"
             initial={{ x: 80 }}
