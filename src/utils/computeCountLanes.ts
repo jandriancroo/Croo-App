@@ -210,7 +210,7 @@ export function computeCountLanes({
   // which produces nonsense like "(50 cs/pack)". Use a stable "units" token
   // (or recipe's own unit) instead.
   const innerSubLabel = showInnerPacks
-    ? `(${innerPackQty} units/${innerNounSingular})`
+    ? `(${innerPackQty}/pk)`
     : null;
 
   return {
@@ -227,7 +227,7 @@ export function computeCountLanes({
       // Weight/volume atomic units render as their own plural (LBS, OZ, KG, ML, GAL…)
       return u.endsWith("s") ? u.toUpperCase() : `${u.toUpperCase()}S`;
     })(),
-    unitsSubLabel: "(individual)",
+    unitsSubLabel: "(ea)",
     packQty: effectivePackQty,
     innerPackQty,
     costPerCase,

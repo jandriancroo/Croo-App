@@ -31,7 +31,7 @@ export function CountLanesPreview({
           Count-screen preview{itemName ? ` · ${itemName}` : ""}
         </p>
         <div className="max-w-xs mx-auto">
-          <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider text-center">
+          <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate text-center">
             {lanes.casesLabel}
           </p>
           <FakeStepper />
@@ -93,7 +93,7 @@ export function CountLanesPreview({
 function Lane({ label, sub }: { label: string; sub?: string }) {
   return (
     <div>
-      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
+      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
         {label}
         {sub && (
           <span className="ml-1 normal-case tracking-normal">{sub}</span>
