@@ -2752,23 +2752,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               )}
             >
               {/* Item header: name + subtitle + value badge */}
-              <div className="px-3.5 py-3 sm:px-5 sm:py-4 border-b border-border/60">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-[15px] sm:text-base font-bold text-foreground truncate leading-tight min-w-0 flex-1">{item.item_name}</p>
-                  <div
-                    className="flex-shrink-0 rounded-lg text-white text-center leading-tight"
-                    style={{ backgroundColor: '#e85d04', padding: '5px 10px' }}
-                  >
-                    <p className="text-[14px] sm:text-base font-medium tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
-                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                      {headerUnits} {headerUnitLabel}
-                    </p>
-                  </div>
+              <div className="relative px-3.5 py-3 sm:px-5 sm:py-4 border-b border-border/60">
+                <div
+                  className="absolute top-0 right-0 text-white text-center leading-tight"
+                  style={{ backgroundColor: '#e85d04', padding: '6px 12px', borderTopRightRadius: 'calc(0.5rem - 1px)', borderBottomLeftRadius: '0.5rem' }}
+                >
+                  <p className="text-[14px] sm:text-base font-medium tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                    {headerUnits} {headerUnitLabel}
+                  </p>
                 </div>
-                {headerSubtitle && (
-                  <p className="text-[11px] sm:text-xs text-muted-foreground mt-1.5">{headerSubtitle}</p>
-                )}
+                <div style={{ paddingRight: 88 }}>
+                  <p className="text-[15px] sm:text-base font-bold text-foreground truncate leading-tight">{item.item_name}</p>
+                  {headerSubtitle && (
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 truncate">{headerSubtitle}</p>
+                  )}
+                </div>
               </div>
+
 
 
               {/* ============ MOBILE LAYOUT (< 640px) ============ */}
