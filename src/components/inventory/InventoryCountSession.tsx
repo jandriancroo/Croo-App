@@ -476,95 +476,26 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     },
   });
 
-  // Multi-config selections for this location — used ONLY by the legs preview
-  // block below (Step 2a, read-only). Enabled only when both flags are on.
-  // Keyed by brand_template_id (= brand_item_id). Each value is the full list
-  // of selected configs at this location, ordered with default first.
-  type LegConfigRow = {
-    pack_config_id: string;
-    is_default: boolean;
-    label: string | null;
-    outer_qty: number | null;
-    outer_type: string | null;
-    inner_qty: number | null;
-    inner_type: string | null;
-    common_unit: string | null;
-    count_units_per_case: number | null;
-    cost_per_common_unit: number | null;
-  };
-  const { data: legsConfigsMap } = useQuery({
-    queryKey: ["legs-configs-map", locationId, legsEnabledForLocation, lensEnabledForLocation],
-    enabled: !!locationId && legsEnabledForLocation === true && lensEnabledForLocation === true,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("location_pack_selections" as any)
-        .select("brand_template_id, active_pack_config_id, is_default, brand_pack_configs!inner(id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, status)")
-        .eq("location_id", locationId);
-      if (error) throw error;
-      const map = new Map<string, LegConfigRow[]>();
-      for (const row of (data as any[]) || []) {
-        const bpc = row?.brand_pack_configs;
-        if (!row?.brand_template_id || !bpc) continue;
-        if (bpc.status && bpc.status !== "approved") continue;
-        const entry: LegConfigRow = {
-          pack_config_id: bpc.id,
-          is_default: !!row.is_default,
-          label: bpc.label ?? null,
-          outer_qty: bpc.outer_qty ?? null,
-          outer_type: bpc.outer_type ?? null,
-          inner_qty: bpc.inner_qty ?? null,
-          inner_type: bpc.inner_type ?? null,
-          common_unit: bpc.common_unit ?? null,
-          count_units_per_case: bpc.count_units_per_case ?? null,
-          cost_per_common_unit: bpc.cost_per_common_unit ?? null,
-        };
-        const list = map.get(row.brand_template_id) ?? [];
-        list.push(entry);
-        map.set(row.brand_template_id, list);
-      }
-      // Sort default first, then by label for stable order.
-      for (const [k, list] of map) {
-        list.sort((a, b) => {
-          if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
-          return (a.label ?? "").localeCompare(b.label ?? "");
+  // legsConfigsMap (configs by brand_template_id) and legsHydrationMap
+  // (entered values by `${count_item_id}|${pack_config_id}`) both derive
+  // from the shared useLegsValuation hook above — no duplicate queries.
+  const legsHydrationMap = useMemo(() => {
+    const map = new Map<string, { entered_cases: number | null; entered_inner_packs: number | null; entered_units: number | null; quantity_common: number | null }>();
+    for (const [countItemId, legs] of legsByCountItemId) {
+      for (const leg of legs) {
+        if (!leg.pack_config_id) continue;
+        map.set(`${countItemId}|${leg.pack_config_id}`, {
+          entered_cases: leg.entered_cases,
+          entered_inner_packs: leg.entered_inner_packs,
+          entered_units: leg.entered_units,
+          quantity_common: leg.quantity_common,
         });
-        map.set(k, list);
       }
-      return map;
-    },
-  });
+    }
+    return map;
+  }, [legsByCountItemId]);
 
-  // Hydration map for existing leg rows on this count. Enabled when legs flag
-  // is on. Step 2a uses this only for read-only display — Step 2b will route
-  // writes through the save_count_item_with_legs RPC.
-  // Keyed by `${count_item_id}|${pack_config_id}` → { entered_cases, entered_inner_packs, entered_units, quantity_common }.
-  const { data: legsHydrationMap } = useQuery({
-    queryKey: ["legs-hydration", countId, legsEnabledForLocation],
-    enabled: !!countId && legsEnabledForLocation === true,
-    // 2b: a save→reopen cycle must never serve stale leg data. Keep zero
-    // cache so the next mount always re-reads inventory_count_item_legs.
-    staleTime: 0,
-    gcTime: 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_count_item_legs" as any)
-        .select("count_item_id, pack_config_id, entered_cases, entered_inner_packs, entered_units, quantity_common, inventory_count_items!inner(count_id)")
-        .eq("inventory_count_items.count_id", countId);
-      if (error) throw error;
-      const map = new Map<string, { entered_cases: number | null; entered_inner_packs: number | null; entered_units: number | null; quantity_common: number | null }>();
-      for (const row of (data as any[]) || []) {
-        if (!row?.count_item_id || !row?.pack_config_id) continue;
-        map.set(`${row.count_item_id}|${row.pack_config_id}`, {
-          entered_cases: row.entered_cases,
-          entered_inner_packs: row.entered_inner_packs,
-          entered_units: row.entered_units,
-          quantity_common: row.quantity_common,
-        });
-      }
-      return map;
-    },
-  });
+
 
   // Fetch existing duration for resumed counts
   const { data: countRecord } = useQuery({
