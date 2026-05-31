@@ -339,6 +339,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
     const item: any = ci.item || {};
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+    const legs = legsByCountItemId?.get(ci.id) || [];
     return sum + calculateCountItemValue(
       ci,
       {
@@ -353,7 +354,8 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         recipe_yield_unit: item.recipe_yield_unit,
       },
       conversion || null,
-      false
+      false,
+      legs.length >= 2 ? legs : undefined
     );
   }, 0) || 0;
 
