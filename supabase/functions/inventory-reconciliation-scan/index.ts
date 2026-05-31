@@ -480,3 +480,79 @@ async function repointCountHistory(
     }
   }
 }
+
+/**
+ * Re-parent inventory_count_item_legs from a doomed parent row to the
+ * surviving parent. Honors the (count_item_id, pack_config_id) unique key:
+ * if the surviving parent already has a leg for the same pack_config_id,
+ * quantities are summed into it and the duplicate leg is deleted; otherwise
+ * the leg is simply re-pointed via UPDATE.
+ *
+ * MUST be called BEFORE deleting the source row — the FK has ON DELETE
+ * CASCADE, which would otherwise silently drop the source's legs.
+ */
+async function reparentLegsOnCollision(
+  admin: any,
+  fromCountItemId: string,
+  toCountItemId: string,
+  report: any
+) {
+  const { data: srcLegs, error: srcErr } = await admin
+    .from("inventory_count_item_legs")
+    .select("id, pack_config_id, is_default, entered_cases, entered_inner_packs, entered_units, quantity_common, pack_quantity_at_count, inner_pack_quantity_at_count, cost_at_count, common_unit_at_count")
+    .eq("count_item_id", fromCountItemId);
+
+  if (srcErr) {
+    report.errors.push(`legs fetch failed for ${fromCountItemId}: ${srcErr.message}`);
+    return;
+  }
+  if (!srcLegs || srcLegs.length === 0) return;
+
+  const { data: dstLegs } = await admin
+    .from("inventory_count_item_legs")
+    .select("id, pack_config_id, entered_cases, entered_inner_packs, entered_units, quantity_common")
+    .eq("count_item_id", toCountItemId);
+
+  const dstByPack = new Map<string, any>();
+  for (const l of dstLegs || []) dstByPack.set(l.pack_config_id, l);
+
+  for (const leg of srcLegs) {
+    const collision = dstByPack.get(leg.pack_config_id);
+    if (collision) {
+      const merged = {
+        entered_cases: (Number(collision.entered_cases) || 0) + (Number(leg.entered_cases) || 0),
+        entered_inner_packs: (Number(collision.entered_inner_packs) || 0) + (Number(leg.entered_inner_packs) || 0),
+        entered_units: (Number(collision.entered_units) || 0) + (Number(leg.entered_units) || 0),
+        quantity_common: (Number(collision.quantity_common) || 0) + (Number(leg.quantity_common) || 0),
+      };
+      const { error: upErr } = await admin
+        .from("inventory_count_item_legs")
+        .update(merged)
+        .eq("id", collision.id);
+      if (upErr) {
+        report.errors.push(`leg merge failed ${leg.id}→${collision.id}: ${upErr.message}`);
+        continue;
+      }
+      const { error: delErr } = await admin
+        .from("inventory_count_item_legs")
+        .delete()
+        .eq("id", leg.id);
+      if (delErr) {
+        report.errors.push(`leg delete failed ${leg.id}: ${delErr.message}`);
+        continue;
+      }
+      report.phase2_duplicate_cleanup.legs_merged_on_collision++;
+      console.log(`[Reconciliation] Merged leg ${leg.id} into ${collision.id} (pack_config ${leg.pack_config_id})`);
+    } else {
+      const { error: rpErr } = await admin
+        .from("inventory_count_item_legs")
+        .update({ count_item_id: toCountItemId })
+        .eq("id", leg.id);
+      if (rpErr) {
+        report.errors.push(`leg reparent failed ${leg.id}: ${rpErr.message}`);
+        continue;
+      }
+      report.phase2_duplicate_cleanup.legs_reparented++;
+    }
+  }
+}
