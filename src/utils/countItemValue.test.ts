@@ -268,6 +268,67 @@ describe('calculateCountItemValue', () => {
     // Sanity: gate flips the answer
     expect(gateOn).not.toBeCloseTo(gateOff, 2);
   });
+
+  // ── Multi-config legs (Path B) ──
+  // Spec: .lovable/pack-config-legs-spec.md §3.2/§3.3
+  // When legs[] is provided, valuation = Σ per-leg value. Each leg owns its
+  // own pack/inner snapshots; cost is shared across legs (parent cost_at_count).
+
+  it('legs: two-leg sum equals two independent single-row valuations', () => {
+    const parentCi = { quantity: null, entered_cases: null, entered_units: null, cost_at_count: 1.88, pack_quantity_at_count: null };
+    const item = { cost_per_unit: 1.88 };
+
+    // Leg A: 2 cases × 10 lb pack snapshot, leg cost = parent cost (1.88/lb)
+    const legA = { entered_cases: 2, entered_units: 0, quantity_common: 20, pack_quantity_at_count: 10, cost_at_count: 1.88 };
+    // Leg B: 3 bags × 2.5 lb pack snapshot
+    const legB = { entered_cases: 3, entered_units: 0, quantity_common: 7.5, pack_quantity_at_count: 2.5, cost_at_count: 1.88 };
+
+    const summed = calculateCountItemValue(parentCi, item, null, false, [legA, legB]);
+
+    const standaloneA = calculateCountItemValue(
+      { quantity: 20, entered_cases: 2, entered_units: 0, cost_at_count: 1.88, pack_quantity_at_count: 10 },
+      item, null, false
+    );
+    const standaloneB = calculateCountItemValue(
+      { quantity: 7.5, entered_cases: 3, entered_units: 0, cost_at_count: 1.88, pack_quantity_at_count: 2.5 },
+      item, null, false
+    );
+
+    expect(summed).toBeCloseTo(standaloneA + standaloneB, 2);
+  });
+
+  it('legs: Baby Spinach canary — 2 cs × 10 lb + 3 bags × 2.5 lb @ $1.88/lb ≈ $51.70', () => {
+    const parentCi = { quantity: null, entered_cases: null, entered_units: null, cost_at_count: 1.88, pack_quantity_at_count: null };
+    const item = { cost_per_unit: 1.88 };
+    const legs = [
+      { entered_cases: 2, entered_units: 0, quantity_common: 20, pack_quantity_at_count: 10, cost_at_count: 1.88 },
+      { entered_cases: 3, entered_units: 0, quantity_common: 7.5, pack_quantity_at_count: 2.5, cost_at_count: 1.88 },
+    ];
+    const result = calculateCountItemValue(parentCi, item, null, false, legs);
+    // 27.5 lb × $1.88 = $51.70
+    expect(result).toBeCloseTo(51.70, 2);
+  });
+
+  it('legs: empty array and undefined are no-ops — falls through to parent-row valuation', () => {
+    const ci = { quantity: 1020, entered_cases: 7, entered_units: 320, cost_at_count: 25.66, pack_quantity_at_count: null };
+    const item = { pack_quantity: 100 };
+    const baseline = calculateCountItemValue(ci, item, null, false);
+    expect(calculateCountItemValue(ci, item, null, false, undefined)).toBe(baseline);
+    expect(calculateCountItemValue(ci, item, null, false, null)).toBe(baseline);
+    expect(calculateCountItemValue(ci, item, null, false, [])).toBe(baseline);
+  });
+
+  it('legs: recipes ignore legs[] and use yield math', () => {
+    const ci = { quantity: 1, entered_cases: null, entered_units: null, cost_at_count: 24.41, pack_quantity_at_count: null };
+    const item = { is_recipe: true, cost_per_unit: 24.41, unit: 'qt', recipe_yield_qty: 16, recipe_yield_unit: 'qt' };
+    const bogusLegs = [
+      { entered_cases: 999, entered_units: 999, quantity_common: 9999, pack_quantity_at_count: 1, cost_at_count: 999 },
+    ];
+    const result = calculateCountItemValue(ci, item, null, false, bogusLegs);
+    // Same as no-legs recipe path: 1 qt of 16 qt batch @ $24.41 = $1.53
+    expect(result).toBeCloseTo(1.53, 2);
+  });
 });
+
 
 
