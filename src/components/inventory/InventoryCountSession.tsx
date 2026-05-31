@@ -2465,7 +2465,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       {/* Location navigation — sticky with progress indicator */}
       {locationKeys.length > 1 && (
-        <div className="sticky top-[calc(env(safe-area-inset-top)+3.25rem+0.5rem)] z-20 mt-2 bg-primary text-primary-foreground rounded-md px-2 py-3 shadow-md overflow-hidden">
+        <div className="sticky top-[calc(env(safe-area-inset-top)+3.25rem+0.5rem)] z-20 mt-2 bg-primary/70 backdrop-blur-md text-primary-foreground rounded-md px-2 py-3 shadow-md overflow-hidden border border-white/10">
           <div className="flex items-center justify-between">
             <button
               className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
