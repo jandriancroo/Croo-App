@@ -1628,6 +1628,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             const bid = (it as any)?.brand_item_id;
             if (!countItemId || !bid) { legFailed++; continue; }
             const configs = legsMapNow?.get(bid) ?? [];
+            // Per-leg cost stamp (interpretation (a), 2026-05-31): derive
+            // commonUnitCost from the default config; each leg's case cost =
+            // cfg.count_units_per_case × commonUnitCost. RPC only writes these
+            // snapshots when p_freeze_snapshots=true (submit). Autosave keeps
+            // them in the payload but they're ignored server-side.
+            const defaultCfg = configs.find((c: any) => c.is_default) ?? configs[0];
+            const defaultUnitsPerCase = Number((defaultCfg as any)?.count_units_per_case ?? 0);
+            const itemCostPerCase = Number((it as any)?.cost_per_unit ?? 0);
+            const commonUnitCost = (defaultUnitsPerCase > 0 && itemCostPerCase > 0)
+              ? itemCostPerCase / defaultUnitsPerCase
+              : null;
             const legsPayload = configs.map((cfg) => {
               const legKey = cfg.is_default ? splitKey : `${splitKey}::leg::${cfg.pack_config_id}`;
               const s = countsNow[legKey] || { cases: 0, units: 0, innerPacks: 0 };
@@ -1641,6 +1652,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 entered_inner_packs: Number(s.innerPacks) || 0,
                 entered_units: Number(s.units) || 0,
                 quantity_common: qc,
+                pack_quantity_at_count: cu > 0 ? cu : null,
+                inner_pack_quantity_at_count: ipq > 0 ? ipq : null,
+                cost_at_count: (commonUnitCost != null && cu > 0) ? cu * commonUnitCost : null,
+                common_unit_at_count: (cfg as any).common_unit ?? null,
               };
             });
             if (bid === SPINACH_BRAND_ITEM_ID) {
