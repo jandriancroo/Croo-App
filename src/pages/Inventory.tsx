@@ -451,7 +451,7 @@ const Inventory = () => {
     <Layout>
       <div className="space-y-4">
         {/* Page header */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 pt-4">
           <div className="min-w-0">
             <h1 className="text-3xl font-bold leading-tight">Inventory</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
@@ -475,11 +475,12 @@ const Inventory = () => {
               )}
             </Button>
             <Button
-              size="sm"
-              className="h-10 px-3 rounded-xl gap-1.5"
+              size="icon"
+              className="h-10 w-10 rounded-xl"
               onClick={handleStartCount}
+              title="New count"
             >
-              <Plus className="h-4 w-4" /> New count
+              <Plus className="h-5 w-5" />
             </Button>
             <Button
               variant="outline"
@@ -491,6 +492,7 @@ const Inventory = () => {
             </Button>
           </div>
         </div>
+
 
         <TransferDialog open={showTransferDialog} onClose={() => setShowTransferDialog(false)} locationId={locationId!} />
 
