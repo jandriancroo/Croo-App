@@ -211,6 +211,25 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     return getTransferTotalsForPeriod(transfers, locationId, weekStartStr, weekEndStr);
   }, [transfers, locationId, weekStartStr, weekEndStr]);
 
+  // Leg-aware valuation context — shared with Session / Review / Export /
+  // Inventory summary / PeriodDetailPanel. One fetch covers both the beginning
+  // and ending counts that bracket this week. When legs are off at this
+  // location the helper returns empty maps and getItemValueWithLegs cleanly
+  // falls through to the canonical parent-row path (no regression).
+  const beginCountId = counts?.beginning?.id;
+  const endCountId = counts?.ending?.id;
+  const { data: legsHelper } = useQuery({
+    queryKey: ["cogs-legs", locationId, beginCountId, endCountId],
+    queryFn: async () => {
+      const { fetchLegsValuationContext, makeGetItemValueWithLegs } = await import("@/hooks/useLegsValuation");
+      const ids = [beginCountId, endCountId].filter(Boolean) as string[];
+      const ctx = await fetchLegsValuationContext({ locationId, countIds: ids });
+      return makeGetItemValueWithLegs(ctx);
+    },
+    enabled: !!locationId && (!!beginCountId || !!endCountId),
+    staleTime: 60 * 1000,
+  });
+
   // Calculate COGS
   const cogs = useMemo(() => {
     if (!inventoryItems?.length) return null;
@@ -223,25 +242,30 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     };
     // Single source of truth — see src/utils/countItemValue.ts
     // PHASE 1: forceLiveData=true (recompute via live data; ignore snapshots).
+    // Recipes bypass legs (never multi-config) and stay on calculateCountItemValue
+    // directly. Non-recipes route through getItemValueWithLegs for leg awareness.
     const getCountItemLineValue = (ci: any) => {
       const item = itemMap.get(ci.item_id) as any;
       const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-      return calculateCountItemValue(
-        ci,
-        item ? {
-          brand_item_id: item.brand_item_id,
-          cost_per_unit: item.cost_per_unit,
-          pack_quantity: item.pack_quantity,
-          pack_quantity_override: item.pack_quantity_override,
-          inner_pack_quantity: item.inner_pack_quantity,
-          is_recipe: (item as any).is_recipe === true,
-          unit: (item as any).unit,
-          recipe_yield_qty: (item as any).recipe_yield_qty,
-          recipe_yield_unit: (item as any).recipe_yield_unit,
-        } : undefined,
-        conversion || null,
-        true
-      );
+      const itemForValue = item ? {
+        brand_item_id: item.brand_item_id,
+        cost_per_unit: item.cost_per_unit,
+        pack_quantity: item.pack_quantity,
+        pack_quantity_override: item.pack_quantity_override,
+        inner_pack_quantity: item.inner_pack_quantity,
+        is_recipe: (item as any).is_recipe === true,
+        unit: (item as any).unit,
+        recipe_yield_qty: (item as any).recipe_yield_qty,
+        recipe_yield_unit: (item as any).recipe_yield_unit,
+      } : undefined;
+      if ((item as any)?.is_recipe === true) {
+        return calculateCountItemValue(ci, itemForValue, conversion || null, true);
+      }
+      if (legsHelper) {
+        return legsHelper(ci, itemForValue, conversion || null, { forceLiveData: true });
+      }
+      // Fallback before legs context resolves — keeps numbers stable, no legs awareness yet.
+      return calculateCountItemValue(ci, itemForValue, conversion || null, true);
     };
 
     // Beginning inventory value
