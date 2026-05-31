@@ -155,7 +155,7 @@ export default function InventoryCountTab({
   const PAGE_SIZE = 4;
   const maxPage = Math.max(0, Math.ceil(filteredCounts.length / PAGE_SIZE) - 1);
 
-  useEffect(() => { setSelectedIdx(0); setPageIndex(0); }, [typeFilter]);
+  useEffect(() => { setSelectedIdx(-1); setPageIndex(0); }, [typeFilter]);
 
   // Follow the selection into its page so the active tab is always visible.
   useEffect(() => {
