@@ -2452,20 +2452,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       </Dialog>
 
 
-      {/* Progress bar with percentage */}
-      {!isViewOnly && (
-        <div className="flex items-center gap-3">
-          <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
-            <div 
-              className="bg-primary h-full rounded-full transition-all duration-300"
-              style={{ width: `${totalItems > 0 ? (countedItems / totalItems) * 100 : 0}%` }}
-            />
-          </div>
-          <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap">
-            {totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0}%
-          </span>
-        </div>
-      )}
+      {/* Progress bar moved into sticky top nav */}
+
 
       {/* Pending voice processing indicator */}
       {pendingVoiceText && isListening && (
