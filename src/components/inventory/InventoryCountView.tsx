@@ -98,7 +98,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
         .select("brand_template_id, is_default, brand_pack_configs!inner(id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, status)")
         .eq("location_id", locationId);
       if (error) throw error;
-      const map = new Map<string, Array<{ pack_config_id: string; is_default: boolean; label: string | null; outer_qty: number | null; outer_type: string | null; inner_qty: number | null; inner_type: string | null; common_unit: string | null }>>();
+      const map = new Map<string, Array<{ pack_config_id: string; is_default: boolean; label: string | null; outer_qty: number | null; outer_type: string | null; inner_qty: number | null; inner_type: string | null; common_unit: string | null; count_units_per_case: number | null }>>();
       for (const row of (data as any[]) || []) {
         const bpc = row?.brand_pack_configs;
         if (!row?.brand_template_id || !bpc) continue;
@@ -113,6 +113,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
           inner_qty: bpc.inner_qty ?? null,
           inner_type: bpc.inner_type ?? null,
           common_unit: bpc.common_unit ?? null,
+          count_units_per_case: bpc.count_units_per_case ?? null,
         });
         map.set(row.brand_template_id, list);
       }
