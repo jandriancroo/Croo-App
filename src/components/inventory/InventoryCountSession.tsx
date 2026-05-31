@@ -1662,7 +1662,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 entered_units: Number(s.units) || 0,
                 quantity_common: qc,
                 pack_quantity_at_count: cu > 0 ? cu : null,
-                inner_pack_quantity_at_count: ipq > 0 ? ipq : null,
+                // Skip inner snapshot when inner_qty == count_units_per_case
+                // (the "inner" lane IS the case for outer_qty=1 multi-configs).
+                // Storing both would inflate caseUnits on reload-time valuation.
+                inner_pack_quantity_at_count: (ipq > 0 && ipq !== cu) ? ipq : null,
                 cost_at_count: (commonUnitCost != null && cu > 0) ? cu * commonUnitCost : null,
                 common_unit_at_count: (cfg as any).common_unit ?? null,
               };
