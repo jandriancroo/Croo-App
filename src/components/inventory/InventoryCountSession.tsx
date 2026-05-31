@@ -1138,15 +1138,29 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const totalCost = useMemo(() => {
     if (!items) return 0;
     const total = items.reduce((sum, item) => sum + getItemCost(item), 0);
-    // TEMP DIAGNOSTIC — remove after $270 inflation investigation
+    // TEMP DIAGNOSTIC — remove after $5.74 gap investigation
+    const allNonZero = items
+      .map(i => ({
+        name: (i as any).item_name,
+        splitKey: (i as any)._splitKey,
+        existingQty: (i as any)._existingQuantity,
+        existingCases: (i as any)._existingCases,
+        existingUnits: (i as any)._existingUnits,
+        existingInner: (i as any)._existingInnerPacks,
+        costAtCount: (i as any)._costAtCount,
+        packAtCount: (i as any)._packQuantityAtCount,
+        innerPackQty: (i as any).inner_pack_quantity,
+        isRecipe: (i as any).is_recipe,
+        hasRawInput: !!rawInputs[(i as any)._splitKey || (i as any).item_id],
+        cost: getItemCost(i as any),
+      }))
+      .filter(r => r.cost > 0)
+      .sort((a, b) => b.cost - a.cost);
     console.log('[totalCost]', {
       total: Number(total.toFixed(2)),
       itemCount: items.length,
-      nonZeroItems: items.filter(i => getItemCost(i) > 0).length,
-      top5: [...items]
-        .map(i => ({ name: (i as any).item_name, splitKey: (i as any)._splitKey, cost: getItemCost(i) }))
-        .sort((a, b) => b.cost - a.cost)
-        .slice(0, 5),
+      nonZeroItems: allNonZero.length,
+      allNonZero,
     });
     return total;
   }, [items, getItemCost]);
