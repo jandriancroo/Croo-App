@@ -2956,11 +2956,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 {!isViewOnly && (
                                   <button
                                     type="button"
-                                    className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                                    className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                                     onClick={() => updatePanCount(splitKey, panKey, -0.5)}
                                   >
                                     <Minus className="h-3 w-3" />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                                    <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                   </button>
                                 )}
                                 <input
@@ -2975,10 +2975,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 {!isViewOnly && (
                                   <button
                                     type="button"
-                                    className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                                    className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                                     onClick={() => updatePanCount(splitKey, panKey, 0.5)}
                                   >
                                     <Plus className="h-3 w-3" />
+                                    <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                   </button>
                                 )}
                               </div>
