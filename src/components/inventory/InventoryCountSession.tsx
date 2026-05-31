@@ -2833,7 +2833,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 onChange={(e) => lane.onChange(e.target.value)}
                                 onBlur={lane.onBlur}
                                 disabled={isViewOnly}
-                                className="w-full text-center text-[32px] font-medium leading-none tabular-nums bg-transparent outline-none"
+                                className="w-full text-center text-[52px] font-semibold leading-none tabular-nums bg-transparent outline-none"
                               />
                               {renderBtns(lane, "h-9 w-9", "h-4 w-4", "gap-3")}
                             </div>
@@ -2874,7 +2874,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
                               onBlur={() => handlePanBlur(splitKey, panKey)}
                               disabled={isViewOnly}
-                              className="w-full text-center text-[26px] font-medium leading-none tabular-nums bg-transparent outline-none"
+                              className="w-full text-center text-[44px] font-semibold leading-none tabular-nums bg-transparent outline-none"
                             />
                             <div className="flex items-center gap-2.5">
                               {!isViewOnly && (
@@ -3004,7 +3004,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               onChange={(e) => lane.onChange(e.target.value)}
                               onBlur={lane.onBlur}
                               disabled={isViewOnly}
-                              className="w-full text-center text-[30px] font-medium leading-none tabular-nums bg-transparent outline-none"
+                              className="w-full text-center text-[48px] font-semibold leading-none tabular-nums bg-transparent outline-none"
                             />
                             {renderBtns(lane, "h-[34px] w-[34px]", "h-4 w-4", "gap-3")}
                           </div>
@@ -3058,7 +3058,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
                             onBlur={() => handlePanBlur(splitKey, panKey)}
                             disabled={isViewOnly}
-                            className="w-full text-center text-[26px] font-medium leading-none tabular-nums bg-transparent outline-none"
+                            className="w-full text-center text-[44px] font-semibold leading-none tabular-nums bg-transparent outline-none"
                           />
                           <div className="flex items-center gap-2">
                             {!isViewOnly && (
