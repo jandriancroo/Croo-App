@@ -6,7 +6,7 @@ import { registerDockControl, unregisterDockControl } from '@/components/dock/do
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type, GraduationCap } from 'lucide-react';
+import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, LogOut, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type, GraduationCap } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -1160,19 +1160,19 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     aria-label="Sign out"
                     className="h-auto w-14 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    <DoorOpen className="h-5 w-5" />
+                    <LogOut className="h-5 w-5" />
                   </Button>
                 </div>
 
 
 
-                {/* Time + Users row (2 columns) */}
-                <div className="grid grid-cols-1 gap-2">
-                  {mobileTimeItems.length > 0 && (
-                    <Button 
-                      variant="outline" 
+                {/* Time block (button + sub-items tinted together) */}
+                {mobileTimeItems.length > 0 && (
+                  <div className={`rounded-md overflow-hidden ${timeMenuExpanded ? 'border bg-muted/40' : ''}`}>
+                    <Button
+                      variant="outline"
                       onClick={() => setTimeMenuExpanded(!timeMenuExpanded)}
-                      className="justify-between h-9 px-3"
+                      className={`justify-between h-9 px-3 w-full ${timeMenuExpanded ? 'border-0 bg-transparent hover:bg-transparent rounded-none' : ''}`}
                     >
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4" />
@@ -1180,57 +1180,57 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       </div>
                       <ChevronDown className={`h-3.5 w-3.5 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
                     </Button>
-                  )}
-                  {mobileMenuItems.filter(i => i.path === '/users' || i.path === '/my-team').map(item => {
-                    const Icon = item.icon;
-                    const isActive = location.pathname === item.path;
-                    return (
-                      <Button 
-                        key={item.path} 
-                        variant={isActive ? 'secondary' : 'outline'} 
-                        onClick={() => {
-                          navigate(item.path);
-                          setMenuOpen(false);
-                        }}
-                        className="justify-start gap-2 h-9 px-3"
-                        data-tour={item.path === '/users' ? 'nav-users' : item.path === '/my-team' ? 'nav-users' : undefined}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <span className="text-sm">{item.label}</span>
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                {/* Time sub-items (expanded) */}
-                {timeMenuExpanded && mobileTimeItems.length > 0 && (
-                  <div className="pl-4 grid gap-1">
-                    {mobileTimeItems.map(item => {
-                      const Icon = item.icon;
-                      const isActive = location.pathname === item.path;
-                      return (
-                        <Button 
-                          key={item.path} 
-                          variant={isActive ? 'secondary' : 'ghost'} 
-                          onClick={() => {
-                            if (isOnOrgDash) {
-                              setPendingNavPath(item.path);
-                              setLocationDialogOpen(true);
-                              setMenuOpen(false);
-                            } else {
-                              navigate(item.path);
-                              setMenuOpen(false);
-                            }
-                          }}
-                          className="justify-start gap-2 h-8 w-full"
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                          <span className="text-xs">{item.label}</span>
-                        </Button>
-                      );
-                    })}
+                    {timeMenuExpanded && (
+                      <div className="px-2 pb-2 pt-1 grid gap-1 border-t">
+                        {mobileTimeItems.map(item => {
+                          const Icon = item.icon;
+                          const isActive = location.pathname === item.path;
+                          return (
+                            <Button
+                              key={item.path}
+                              variant={isActive ? 'secondary' : 'ghost'}
+                              onClick={() => {
+                                if (isOnOrgDash) {
+                                  setPendingNavPath(item.path);
+                                  setLocationDialogOpen(true);
+                                  setMenuOpen(false);
+                                } else {
+                                  navigate(item.path);
+                                  setMenuOpen(false);
+                                }
+                              }}
+                              className="justify-start gap-2 h-8 w-full"
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                              <span className="text-xs">{item.label}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
+
+                {/* Users / My Team */}
+                {mobileMenuItems.filter(i => i.path === '/users' || i.path === '/my-team').map(item => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Button
+                      key={item.path}
+                      variant={isActive ? 'secondary' : 'outline'}
+                      onClick={() => {
+                        navigate(item.path);
+                        setMenuOpen(false);
+                      }}
+                      className="justify-start gap-2 h-9 px-3"
+                      data-tour={item.path === '/users' ? 'nav-users' : item.path === '/my-team' ? 'nav-users' : undefined}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="text-sm">{item.label}</span>
+                    </Button>
+                  );
+                })}
 
                 {/* Hiring + Inventory row (2 columns) */}
                 {(() => {
