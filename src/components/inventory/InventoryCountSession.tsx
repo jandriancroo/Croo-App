@@ -2612,7 +2612,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 </div>
                 
                 {/* Count controls */}
-                <div className={hasMultipleLegConfigs ? "" : "p-3"}>
+                <div className={item.is_recipe ? "p-3" : ""}>
+
 
                   {item.is_recipe ? (
                     /* Single count stepper for recipe items */
