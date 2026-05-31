@@ -65,6 +65,12 @@ serve(async (req) => {
         rows_deactivated: 0,
         count_history_repointed: 0,
         count_history_merged: 0,
+        legs_reparented: 0,
+        legs_merged_on_collision: 0,
+      },
+      phase3_legs_audit: {
+        orphan_legs_found: 0,
+        orphan_leg_ids: [] as string[],
       },
       errors: [] as string[],
     };
