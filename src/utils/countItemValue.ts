@@ -80,12 +80,56 @@ export interface ConversionForValue {
   canonical_unit?: string | null;
 }
 
+/**
+ * Per-leg input for multi-config (Path B) valuation. One leg = one selected
+ * brand_pack_config on a multi-selection item. Each leg carries its own raw
+ * operator input + its own pack/inner snapshots. Per spec §3.3 cost is shared
+ * across legs (sourced from parent), so leg.cost_at_count is optional and
+ * falls back to ci.cost_at_count.
+ */
+export interface LegForValue {
+  entered_cases: number | null;
+  entered_units: number | null;
+  entered_inner_packs?: number | null;
+  quantity_common: number | null;
+  pack_quantity_at_count: number | null;
+  inner_pack_quantity_at_count?: number | null;
+  cost_at_count?: number | null;
+}
+
 export function calculateCountItemValue(
   ci: CountItemForValue,
   item: ItemForValue | undefined,
   conversion: ConversionForValue | null | undefined,
-  forceLiveData: boolean // REQUIRED — no default. Pass false to honor snapshots; true only for in-progress counts being recomputed live.
+  forceLiveData: boolean, // REQUIRED — no default. Pass false to honor snapshots; true only for in-progress counts being recomputed live.
+  legs?: LegForValue[] | null
 ): number {
+  // ── Multi-config (Path B) leg-aware branch ──
+  // When legs[] is provided AND non-empty AND item is not a recipe, value =
+  // Σ per-leg valuation. Each leg is fed back through this same function as a
+  // synthetic single-row CountItemForValue carrying that leg's own snapshots,
+  // with lens/conversion forced null per spec §3.2 (per-leg pack qty comes
+  // from the leg's own snapshot ladder, never from a lens or Pipeline 1).
+  // Cost per spec §3.3: leg.cost_at_count ?? ci.cost_at_count (shared across legs).
+  // Recipes never multi-config — guarded out so recipe yield math owns valuation.
+  if (legs && legs.length > 0 && !item?.is_recipe) {
+    const legItem: ItemForValue = { ...(item || {}), lens: null };
+    let total = 0;
+    for (const leg of legs) {
+      const legCi: CountItemForValue = {
+        quantity: leg.quantity_common,
+        entered_cases: leg.entered_cases,
+        entered_units: leg.entered_units,
+        entered_inner_packs: leg.entered_inner_packs ?? null,
+        cost_at_count: leg.cost_at_count ?? ci.cost_at_count,
+        pack_quantity_at_count: leg.pack_quantity_at_count,
+        inner_pack_quantity_at_count: leg.inner_pack_quantity_at_count ?? null,
+      };
+      total += calculateCountItemValue(legCi, legItem, null, forceLiveData);
+    }
+    return total;
+  }
+
   // ── Snapshot-wins guard ──
   // If a snapshot exists on the row, it ALWAYS wins for both cost and pack qty,
   // regardless of forceLiveData or lens. Submitted counts are frozen forever.
