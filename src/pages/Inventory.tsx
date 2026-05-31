@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, Upload, ArrowLeft, DollarSign, ArrowRightLeft, Plus } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, ArrowLeft, DollarSign, ArrowRightLeft, Plus } from "lucide-react";
 import TransferDialog from "@/components/inventory/TransferDialog";
 import { useInventoryTransfers } from "@/hooks/useInventoryTransfers";
 import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
@@ -28,7 +28,7 @@ import InventoryItemsManager from "@/components/inventory/InventoryItemsManager"
 
 const StartCountDialog = lazyWithRetry(() => import("@/components/inventory/StartCountDialog"));
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
-import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
+
 
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 
@@ -49,7 +49,7 @@ const Inventory = () => {
   const [preselectedPeriod, setPreselectedPeriod] = useState<{ type: string; endDate: string } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
-  const [showExportMaster, setShowExportMaster] = useState(false);
+  
   
   
   const [showDailyCount, setShowDailyCount] = useState(false);
@@ -551,15 +551,6 @@ const Inventory = () => {
             <h2 className="text-lg font-semibold">Settings</h2>
           </div>
           <div className="p-4 space-y-4">
-            {brandInfo && isBrandLevel && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Brand Tools</h3>
-                <Button variant="outline" size="sm" onClick={() => { setShowSettings(false); setShowExportMaster(true); }} className="w-full justify-start">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Export to Master
-                </Button>
-              </div>
-            )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
           </div>
         </SheetContent>
@@ -591,14 +582,8 @@ const Inventory = () => {
         countPeriod={countToDelete?.period || ""}
       />
 
-      {brandInfo && (
-        <ExportToMasterDialog
-          open={showExportMaster}
-          onOpenChange={setShowExportMaster}
-          locationId={locationId!}
-          brandId={brandInfo}
-        />
-      )}
+
+
 
 
       <Sheet open={showDailyCount} onOpenChange={setShowDailyCount}>

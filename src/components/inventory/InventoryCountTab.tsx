@@ -199,16 +199,13 @@ export default function InventoryCountTab({
               const purchases = upcoming._stats?.purchasesTotal;
 
               return (
-                <div
-                  className="rounded-xl px-4 py-3 text-white shadow-sm flex items-center justify-between gap-3"
-                  style={{ background: "#085041" }}
-                >
+                <div className="rounded-xl px-4 py-3 bg-primary text-primary-foreground shadow-sm flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-[9px] font-bold uppercase tracking-widest text-emerald-200/90">
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-primary-foreground/70">
                       Current period
                     </div>
                     <div className="text-sm font-bold leading-tight truncate">{periodLabel}</div>
-                    <div className="text-[11px] text-emerald-100/80 truncate">
+                    <div className="text-[11px] text-primary-foreground/75 truncate">
                       {rangeLabel}
                       {purchases != null && purchases > 0 && (
                         <> · ${Math.round(purchases).toLocaleString()}</>
@@ -217,8 +214,9 @@ export default function InventoryCountTab({
                   </div>
                   <Button
                     size="sm"
+                    variant="secondary"
                     onClick={onStartCount}
-                    className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-semibold shadow flex-shrink-0 h-8"
+                    className="font-semibold shadow flex-shrink-0 h-8"
                   >
                     Start count
                   </Button>
