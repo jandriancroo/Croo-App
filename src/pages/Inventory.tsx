@@ -460,10 +460,7 @@ const Inventory = () => {
         </div>
 
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Inventory</h1>
-            <p className="text-muted-foreground">Fast mobile counting</p>
-          </div>
+          <h1 className="text-2xl font-bold">Inventory</h1>
           <Button
             variant="outline"
             size="icon"
