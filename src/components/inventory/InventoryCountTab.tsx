@@ -316,7 +316,7 @@ export default function InventoryCountTab({
                             transition={{ duration: 0.2, ease: "easeOut" }}
                             className="overflow-hidden"
                           >
-                            <div className="px-3 pb-3 pt-1 [&_>div>.bg-card]:!border-0 [&_>div>.bg-card]:!shadow-none [&_>div>.bg-card]:!bg-transparent [&_>div>.bg-card]:!rounded-none">
+                            <div className="px-3 pb-3 pt-1 [&>div>.bg-card]:!border-0 [&>div>.bg-card]:!shadow-none [&>div>.bg-card]:!bg-transparent [&>div>.bg-card]:!rounded-none">
                               {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && count.id === inProgressWithStats.id && (
                                 <div className="mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
                                   <div className="flex items-center gap-2">
