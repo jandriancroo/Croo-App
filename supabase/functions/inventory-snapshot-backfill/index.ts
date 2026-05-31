@@ -239,6 +239,7 @@ Deno.serve(async (req) => {
           new_pack_qty: patch.pack_quantity_at_count ?? null,
           old_cost: row.cost_at_count,
           new_cost: patch.cost_at_count ?? null,
+          source: "null-snapshot-backfill",
         });
       }
 
@@ -247,18 +248,176 @@ Deno.serve(async (req) => {
       perLocation.set(locId, (perLocation.get(locId) ?? 0) + 1);
     }
 
+    // ─────────────────────────── PHASE 2: Legs companion pass ───────────────────────────
+    // Backfill NULL cost_at_count / pack_quantity_at_count on inventory_count_item_legs
+    // whose parent inventory_count_items row belongs to a completed count.
+    //
+    // pack_quantity (fail-closed ladder): cfg.count_units_per_case → item.pack_quantity → 1
+    // cost: cfg.count_units_per_case × (parent.cost_at_count / default_cfg.count_units_per_case)
+    //       Requires BOTH parent.cost_at_count and a valid default_cfg.count_units_per_case>0.
+    // Only touches legs that exist; never inserts.
+    const phase2 = {
+      total_null_legs: 0,
+      updated: 0,
+      skipped_no_parent: 0,
+      skipped_no_parent_cost: 0,
+      skipped_no_default_cfg: 0,
+      skipped_no_cfg: 0,
+    };
+
+    // Pull all NULL-snapshot legs (paginated) — filter by parent count_id in completed set below.
+    const allNullLegs: Array<{
+      id: string;
+      count_item_id: string;
+      pack_config_id: string;
+      is_default: boolean;
+      pack_quantity_at_count: number | null;
+      cost_at_count: number | null;
+    }> = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabase
+        .from("inventory_count_item_legs")
+        .select("id, count_item_id, pack_config_id, is_default, pack_quantity_at_count, cost_at_count")
+        .or("pack_quantity_at_count.is.null,cost_at_count.is.null")
+        .range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allNullLegs.push(...data);
+      if (data.length < pageSize) break;
+    }
+
+    if (allNullLegs.length > 0) {
+      // Load parent count_items for those legs (filter to completed counts only)
+      const parentIds = Array.from(new Set(allNullLegs.map((l) => l.count_item_id)));
+      const parentMap = new Map<string, { id: string; count_id: string; item_id: string; cost_at_count: number | null }>();
+      for (let i = 0; i < parentIds.length; i += 200) {
+        const slice = parentIds.slice(i, i + 200);
+        const { data, error } = await supabase
+          .from("inventory_count_items")
+          .select("id, count_id, item_id, cost_at_count")
+          .in("id", slice)
+          .in("count_id", countIds);
+        if (error) throw error;
+        for (const p of data || []) parentMap.set(p.id, p as any);
+      }
+
+      // Eligible legs = those whose parent is in a completed count
+      const eligibleLegs = allNullLegs.filter((l) => parentMap.has(l.count_item_id));
+      phase2.total_null_legs = eligibleLegs.length;
+
+      // Load all needed pack_config rows (the leg's cfg AND the parent's default cfg)
+      const cfgIds = new Set<string>(eligibleLegs.map((l) => l.pack_config_id));
+      // For each parent, fetch its default leg to know default cfg
+      const defaultCfgByParent = new Map<string, string>();
+      for (let i = 0; i < parentIds.length; i += 200) {
+        const slice = parentIds.slice(i, i + 200);
+        const { data, error } = await supabase
+          .from("inventory_count_item_legs")
+          .select("count_item_id, pack_config_id, is_default")
+          .in("count_item_id", slice)
+          .eq("is_default", true);
+        if (error) throw error;
+        for (const d of data || []) {
+          defaultCfgByParent.set(d.count_item_id, d.pack_config_id);
+          cfgIds.add(d.pack_config_id);
+        }
+      }
+
+      const cfgMap = new Map<string, { count_units_per_case: number }>();
+      const cfgIdArr = Array.from(cfgIds);
+      for (let i = 0; i < cfgIdArr.length; i += 200) {
+        const slice = cfgIdArr.slice(i, i + 200);
+        const { data, error } = await supabase
+          .from("brand_pack_configs")
+          .select("id, count_units_per_case")
+          .in("id", slice);
+        if (error) throw error;
+        for (const c of data || []) {
+          cfgMap.set(c.id, { count_units_per_case: Number(c.count_units_per_case) });
+        }
+      }
+
+      for (const leg of eligibleLegs) {
+        const parent = parentMap.get(leg.count_item_id);
+        if (!parent) { phase2.skipped_no_parent++; continue; }
+        const item = itemMap.get(parent.item_id);
+        const cfg = cfgMap.get(leg.pack_config_id);
+        if (!cfg || !Number.isFinite(cfg.count_units_per_case) || cfg.count_units_per_case <= 0) {
+          phase2.skipped_no_cfg++;
+          continue;
+        }
+
+        const patch: Record<string, number> = {};
+
+        // pack_quantity ladder: cfg.count_units_per_case → item.pack_quantity → 1
+        if (leg.pack_quantity_at_count == null) {
+          let pq: number = cfg.count_units_per_case;
+          if (!(Number.isFinite(pq) && pq > 0)) {
+            const ip = Number(item?.pack_quantity);
+            pq = Number.isFinite(ip) && ip > 0 ? ip : 1;
+          }
+          patch.pack_quantity_at_count = pq;
+        }
+
+        // cost: cfg.count_units_per_case × (parent.cost_at_count / default_cfg.count_units_per_case)
+        if (leg.cost_at_count == null) {
+          const parentCost = parent.cost_at_count == null ? null : Number(parent.cost_at_count);
+          if (parentCost == null || !Number.isFinite(parentCost)) {
+            phase2.skipped_no_parent_cost++;
+          } else {
+            const defCfgId = defaultCfgByParent.get(parent.id);
+            const defCfg = defCfgId ? cfgMap.get(defCfgId) : null;
+            if (!defCfg || !(defCfg.count_units_per_case > 0)) {
+              phase2.skipped_no_default_cfg++;
+            } else {
+              const cost = cfg.count_units_per_case * (parentCost / defCfg.count_units_per_case);
+              if (Number.isFinite(cost)) patch.cost_at_count = cost;
+            }
+          }
+        }
+
+        if (Object.keys(patch).length === 0) continue;
+
+        if (!dryRun) {
+          const { error: upErr } = await supabase
+            .from("inventory_count_item_legs")
+            .update(patch)
+            .eq("id", leg.id);
+          if (upErr) {
+            console.error("leg update failed", leg.id, upErr.message);
+            continue;
+          }
+          await supabase.from("snapshot_backfill_log").insert({
+            count_id: parent.count_id,
+            item_id: parent.item_id,
+            location_id: countLocMap.get(parent.count_id) ?? null,
+            old_pack_qty: leg.pack_quantity_at_count,
+            new_pack_qty: patch.pack_quantity_at_count ?? null,
+            old_cost: leg.cost_at_count,
+            new_cost: patch.cost_at_count ?? null,
+            source: "legs_backfill",
+          });
+        }
+        phase2.updated++;
+      }
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
         dry_run: dryRun,
-        total_null_rows: nullRows.length,
-        updated,
-        skipped_no_item: skippedNoItem,
-        skipped_no_resolvable_cost: skippedNoCost,
-        per_location: Object.fromEntries(perLocation),
+        phase1: {
+          total_null_rows: nullRows.length,
+          updated,
+          skipped_no_item: skippedNoItem,
+          skipped_no_resolvable_cost: skippedNoCost,
+          per_location: Object.fromEntries(perLocation),
+        },
+        phase2_legs: phase2,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+
   } catch (err) {
     console.error("backfill error", err);
     return new Response(
