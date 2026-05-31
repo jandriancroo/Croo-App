@@ -2,19 +2,16 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  Plus, ArrowRight, ChevronLeft, ChevronRight,
-  ArrowRightLeft, Check,
+  ChevronLeft, ChevronRight, Check,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getEffectivePeriodEndDate } from "@/utils/periodLabelUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
-import TransferDialog from "@/components/inventory/TransferDialog";
 import PendingTransfersSection from "@/components/inventory/PendingTransfersSection";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useInventoryPeriodSettings, computePeriodEndDate } from "@/hooks/useInventoryPeriodSettings";
-import { useInventoryTransfers } from "@/hooks/useInventoryTransfers";
 
 interface InventoryCountTabProps {
   locationId: string;
