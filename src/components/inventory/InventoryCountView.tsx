@@ -12,6 +12,7 @@ import VarianceReport from "./VarianceReport";
 import { calculateCountItemValue } from "@/utils/countItemValue";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
+import { useLegsValuation, buildLegsForValuation } from "@/hooks/useLegsValuation";
 
 
 
