@@ -2364,17 +2364,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           </div>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">Items:</span>
                 <span className="font-semibold">{countedItems}<span className="text-muted-foreground font-normal">/{totalItems}</span></span>
               </div>
               <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
                 <DollarSign className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-primary">{formatCurrency(totalCost)}</span>
               </div>
               <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="font-semibold font-mono">{Math.floor(elapsedSeconds / 60)} min</span>
               </div>
@@ -2408,7 +2408,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 </>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
               <Button 
                 onClick={isEditing ? handleSaveEdits : () => onClose()} 
                 disabled={isEditing ? saveEditMutation.isPending : isSaving}
@@ -2819,7 +2819,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             <div
                               key={lane.kind}
                               className={cn(
-                                "flex flex-col items-center gap-2.5 py-3 px-1",
+                                "flex flex-col items-center gap-1.5 py-2 px-1",
                                 i < active.length - 1 && "border-r border-border/60"
                               )}
                             >
@@ -2836,7 +2836,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 className="w-full text-center font-bold leading-none tabular-nums bg-transparent outline-none"
                               style={{ fontSize: 40, minHeight: 0 }}
                               />
-                              {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-2.5")}
+                              {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-4")}
                             </div>
                           ))}
                         </div>
@@ -2861,7 +2861,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <div
                             key={panKey}
                             className={cn(
-                              "flex flex-col items-center gap-2.5 py-3 px-1",
+                              "flex flex-col items-center gap-1.5 py-2 px-1",
                               !last && "border-r border-border/60"
                             )}
                           >
@@ -2878,7 +2878,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               className="w-full text-center font-bold leading-none tabular-nums bg-transparent outline-none"
                               style={{ fontSize: 40, minHeight: 0 }}
                             />
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-4">
                               {!isViewOnly && (
                                 <button
                                   type="button"
@@ -2997,7 +2997,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         return (
                           <div
                             key={`B-${slot}`}
-                            className="flex flex-col items-center gap-2.5 py-3 border-b border-border/60"
+                            className="flex flex-col items-center gap-1.5 py-2 border-b border-border/60"
                           >
                             <input
                               type="text"
@@ -3009,7 +3009,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               className="w-full text-center font-bold leading-none tabular-nums bg-transparent outline-none"
                               style={{ fontSize: 40, minHeight: 0 }}
                             />
-                            {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-2.5")}
+                            {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-4")}
                           </div>
                         );
                       })}
@@ -3053,7 +3053,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       if (!panKey) return <div key={`D-${slot}`} className="border-b border-border/60" />;
                       const panQty = panCounts[splitKey]?.[panKey] || 0;
                       return (
-                        <div key={`D-${slot}`} className="flex flex-col items-center gap-2.5 py-3 border-b border-border/60">
+                        <div key={`D-${slot}`} className="flex flex-col items-center gap-1.5 py-2 border-b border-border/60">
                           <input
                             type="text"
                             inputMode="decimal"
@@ -3064,7 +3064,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             className="w-full text-center font-bold leading-none tabular-nums bg-transparent outline-none"
                               style={{ fontSize: 40, minHeight: 0 }}
                           />
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-4">
                             {!isViewOnly && (
                               <button
                                 type="button"
