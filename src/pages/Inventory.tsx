@@ -551,15 +551,6 @@ const Inventory = () => {
             <h2 className="text-lg font-semibold">Settings</h2>
           </div>
           <div className="p-4 space-y-4">
-            {brandInfo && isBrandLevel && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Brand Tools</h3>
-                <Button variant="outline" size="sm" onClick={() => { setShowSettings(false); setShowExportMaster(true); }} className="w-full justify-start">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Export to Master
-                </Button>
-              </div>
-            )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
           </div>
         </SheetContent>
