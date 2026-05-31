@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  ChevronLeft, ChevronRight, Check,
+  ChevronLeft, ChevronRight, Check, ArrowRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getEffectivePeriodEndDate } from "@/utils/periodLabelUtils";
