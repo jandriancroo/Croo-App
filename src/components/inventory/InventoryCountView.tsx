@@ -307,6 +307,18 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   const getItemValue = (item: CountItem) => {
     const itm: any = item.item || {};
     const conversion = itm.brand_item_id ? conversionMap.get(itm.brand_item_id) : null;
+    const legRows = legsByCountItemId?.get(item.id) ?? [];
+    const legsForValuation = legRows.length >= 2
+      ? legRows.map(l => ({
+          entered_cases: l.entered_cases,
+          entered_units: l.entered_units,
+          entered_inner_packs: l.entered_inner_packs,
+          quantity_common: l.quantity_common,
+          pack_quantity_at_count: l.pack_quantity_at_count,
+          inner_pack_quantity_at_count: l.inner_pack_quantity_at_count,
+          cost_at_count: l.cost_at_count,
+        }))
+      : undefined;
     return calculateCountItemValue(
       item as any,
       {
@@ -321,7 +333,8 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
         recipe_yield_unit: itm.recipe_yield_unit,
       },
       conversion || null,
-      false
+      false,
+      legsForValuation,
     );
   };
 
