@@ -37,7 +37,7 @@ export default function InventoryCountTab({
 }: InventoryCountTabProps) {
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<"all" | "weekly" | "monthly">("all");
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [selectedIdx, setSelectedIdx] = useState(-1);
   const [pageIndex, setPageIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(6);
   // tabsRef removed — old horizontal tab strip replaced by Design D divider list.
