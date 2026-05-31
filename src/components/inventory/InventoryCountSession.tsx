@@ -3041,8 +3041,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   </div>
                   )}
 
-                  {/* Pan size rows */}
-                  {item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
+                  {/* Pan size rows — rendered inline above for multi-leg items */}
+                  {!hasMultipleLegConfigs && item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
+
                     <div className="mt-2 pt-2 border-t border-border">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
                         Pan / Cambro
