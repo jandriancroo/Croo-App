@@ -147,7 +147,7 @@ export default function InventoryCountTab({
   const safeIdx = Math.min(selectedIdx, Math.max(filteredCounts.length - 1, 0));
 
   // 4-at-a-time paging
-  const PAGE_SIZE = 4;
+  const PAGE_SIZE = 6;
   const maxPage = Math.max(0, Math.ceil(filteredCounts.length / PAGE_SIZE) - 1);
 
   useEffect(() => { setSelectedIdx(-1); setPageIndex(0); }, [typeFilter]);
