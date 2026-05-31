@@ -1317,14 +1317,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 })}
 
                 {/* Display Settings - Theme + Text Size */}
-                <div className="border rounded-md overflow-hidden">
+                <div className={`rounded-md overflow-hidden ${displaySettingsOpen ? 'border bg-muted/40' : ''}`}>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     onClick={() => setDisplaySettingsOpen(!displaySettingsOpen)}
-                    className="justify-between w-full h-9 px-3 rounded-none"
+                    className={`justify-between h-9 px-3 w-full ${displaySettingsOpen ? 'border-0 bg-transparent hover:bg-transparent rounded-none' : ''}`}
                   >
                     <div className="flex items-center gap-2">
-                      <Palette className="h-4 w-4 text-muted-foreground" />
+                      <Palette className="h-4 w-4" />
                       <span className="text-sm">Display</span>
                     </div>
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${displaySettingsOpen ? 'rotate-180' : ''}`} />
