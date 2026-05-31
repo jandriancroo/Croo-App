@@ -277,6 +277,7 @@ export const Layout = ({
   const mobileHeaderRef = useRef<HTMLElement>(null);
   const headerLocationRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
 
   // Register menu control so the onboarding tour can auto-open the menu
   useEffect(() => {
