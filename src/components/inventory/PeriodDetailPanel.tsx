@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 import { calculateCountItemValue } from "@/utils/countItemValue";
 import { getEffectivePackQty } from "@/utils/getEffectivePackQty";
-import VarianceReport from "./VarianceReport";
+// VarianceReport moved to Review screen tabs (InventoryCountView → Actual vs Theo).
 import InvoiceUploadDialog from "./InvoiceUploadDialog";
 import SalesDateEditor from "./SalesDateEditor";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
@@ -892,21 +892,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         </Card>
       )}
 
-      {/* Actual vs Theoretical Section */}
-      {!isUpcoming && count.status === "completed" && count.period_end_date && cogsData && !cogsData.isUpcoming && (
-        <VarianceReport
-          countId={count.id}
-          locationId={locationId}
-          periodEndDate={count.period_end_date}
-          provenCogs={{
-            beginningValue: cogsData.beginValue,
-            purchaseValue: cogsData.purchasesTotal,
-            endingValue: cogsData.endValue,
-            cogsTotal: cogsData.cogsTotal,
-            netSales: cogsData.netSales,
-          }}
-        />
-      )}
+      {/* Variance moved to Review screen (InventoryCountView → Actual vs Theo tab). */}
 
 
 
