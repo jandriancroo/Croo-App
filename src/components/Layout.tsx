@@ -1397,19 +1397,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             </SheetContent>
           </Sheet>
         </div>
-        {isCountRoute && layoutDockContent && (
-          <div className="px-4 pb-2 flex items-center gap-2">
-            <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-white rounded-full transition-all duration-300"
-                style={{ width: `${countProgress}%` }}
-              />
-            </div>
-            <span className="text-[11px] font-semibold text-white/90 tabular-nums whitespace-nowrap">
-              {layoutDockContent.countedItems}/{layoutDockContent.totalItems} · {countProgress}%
-            </span>
-          </div>
-        )}
       </header>
       
       
