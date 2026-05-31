@@ -2819,7 +2819,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             <div
                               key={lane.kind}
                               className={cn(
-                                "flex flex-col items-center gap-1.5 py-2.5 px-1",
+                                "flex flex-col items-center gap-2.5 py-3 px-1",
                                 i < active.length - 1 && "border-r border-border/60"
                               )}
                             >
@@ -2833,9 +2833,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 onChange={(e) => lane.onChange(e.target.value)}
                                 onBlur={lane.onBlur}
                                 disabled={isViewOnly}
-                                className="w-full text-center text-[32px] font-semibold leading-none tabular-nums bg-transparent outline-none"
+                                className="w-full text-center text-[40px] font-bold leading-none tabular-nums bg-transparent outline-none"
                               />
-                              {renderBtns(lane, "h-9 w-9", "h-4 w-4", "gap-2")}
+                              {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-2.5")}
                             </div>
                           ))}
                         </div>
@@ -2860,7 +2860,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <div
                             key={panKey}
                             className={cn(
-                              "flex flex-col items-center gap-1.5 py-2.5 px-1",
+                              "flex flex-col items-center gap-2.5 py-3 px-1",
                               !last && "border-r border-border/60"
                             )}
                           >
@@ -2874,14 +2874,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
                               onBlur={() => handlePanBlur(splitKey, panKey)}
                               disabled={isViewOnly}
-                              className="w-full text-center text-[32px] font-semibold leading-none tabular-nums bg-transparent outline-none"
+                              className="w-full text-center text-[40px] font-bold leading-none tabular-nums bg-transparent outline-none"
                             />
                             <div className="flex items-center gap-2.5">
                               {!isViewOnly && (
                                 <button
                                   type="button"
                                   onClick={() => updatePanCount(splitKey, panKey, -0.5)}
-                                  className="h-9 w-9 flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
+                                  className="h-[42px] w-[42px] flex items-center justify-center rounded-lg border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
                                 >
                                   <ArrowDown className="h-4 w-4" strokeWidth={2.25} />
                                 </button>
@@ -2890,7 +2890,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 <button
                                   type="button"
                                   onClick={() => updatePanCount(splitKey, panKey, 0.5)}
-                                  className="h-9 w-9 flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
+                                  className="h-[42px] w-[42px] flex items-center justify-center rounded-lg border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
                                 >
                                   <ArrowUp className="h-4 w-4" strokeWidth={2.25} />
                                 </button>
@@ -2995,7 +2995,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         return (
                           <div
                             key={`B-${slot}`}
-                            className="flex flex-col items-center gap-1.5 py-3 border-b border-border/60"
+                            className="flex flex-col items-center gap-2.5 py-3 border-b border-border/60"
                           >
                             <input
                               type="text"
@@ -3004,9 +3004,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               onChange={(e) => lane.onChange(e.target.value)}
                               onBlur={lane.onBlur}
                               disabled={isViewOnly}
-                              className="w-full text-center text-[32px] font-semibold leading-none tabular-nums bg-transparent outline-none"
+                              className="w-full text-center text-[40px] font-bold leading-none tabular-nums bg-transparent outline-none"
                             />
-                            {renderBtns(lane, "h-9 w-9", "h-4 w-4", "gap-2")}
+                            {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-2.5")}
                           </div>
                         );
                       })}
@@ -3050,7 +3050,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       if (!panKey) return <div key={`D-${slot}`} className="border-b border-border/60" />;
                       const panQty = panCounts[splitKey]?.[panKey] || 0;
                       return (
-                        <div key={`D-${slot}`} className="flex flex-col items-center gap-1.5 py-3 border-b border-border/60">
+                        <div key={`D-${slot}`} className="flex flex-col items-center gap-2.5 py-3 border-b border-border/60">
                           <input
                             type="text"
                             inputMode="decimal"
@@ -3058,14 +3058,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
                             onBlur={() => handlePanBlur(splitKey, panKey)}
                             disabled={isViewOnly}
-                            className="w-full text-center text-[32px] font-semibold leading-none tabular-nums bg-transparent outline-none"
+                            className="w-full text-center text-[40px] font-bold leading-none tabular-nums bg-transparent outline-none"
                           />
                           <div className="flex items-center gap-2">
                             {!isViewOnly && (
                               <button
                                 type="button"
                                 onClick={() => updatePanCount(splitKey, panKey, -0.5)}
-                                className="h-9 w-9 flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
+                                className="h-[42px] w-[42px] flex items-center justify-center rounded-lg border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
                               >
                                 <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.25} />
                               </button>
@@ -3074,7 +3074,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               <button
                                 type="button"
                                 onClick={() => updatePanCount(splitKey, panKey, 0.5)}
-                                className="h-9 w-9 flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
+                                className="h-[42px] w-[42px] flex items-center justify-center rounded-lg border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
                               >
                                 <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
                               </button>
