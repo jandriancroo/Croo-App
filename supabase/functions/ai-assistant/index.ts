@@ -15,7 +15,40 @@ const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // for the canonical test cases. Edits here without updating the TS twin will
 // silently desynchronize Period view, Review view, COGS report, and AI answers.
 // ─────────────────────────────────────────────────────────────────────────────
-function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveData: boolean = false): number {
+interface LegForValue {
+  entered_cases: number | null;
+  entered_units: number | null;
+  entered_inner_packs?: number | null;
+  quantity_common: number | null;
+  pack_quantity_at_count: number | null;
+  inner_pack_quantity_at_count?: number | null;
+  cost_at_count?: number | null;
+}
+
+function calculateCountItemValue(ci: any, item: any, conversion: any, forceLiveData: boolean = false, legs?: LegForValue[] | null): number {
+  // Multi-config leg-aware branch — mirror of src/utils/countItemValue.ts §3.2/3.3.
+  // When legs[] is non-empty AND item is not a recipe, value = Σ per-leg valuation.
+  // Each leg recurses as a synthetic single-row ci with lens/conversion null; cost
+  // falls back to ci.cost_at_count (shared across legs per §3.3).
+  // Recipes are guarded out — they never multi-config.
+  if (legs && legs.length > 0 && !item?.is_recipe) {
+    const legItem = { ...(item || {}), lens: null };
+    let total = 0;
+    for (const leg of legs) {
+      const legCi = {
+        quantity: leg.quantity_common,
+        entered_cases: leg.entered_cases,
+        entered_units: leg.entered_units,
+        entered_inner_packs: leg.entered_inner_packs ?? null,
+        cost_at_count: leg.cost_at_count ?? ci?.cost_at_count,
+        pack_quantity_at_count: leg.pack_quantity_at_count,
+        inner_pack_quantity_at_count: leg.inner_pack_quantity_at_count ?? null,
+      };
+      total += calculateCountItemValue(legCi, legItem, null, forceLiveData);
+    }
+    return total;
+  }
+
   // Snapshot-wins guard — submitted counts are frozen forever, even if a caller
   // opts into live data. Mirror of src/utils/countItemValue.ts.
   const hasSnapshot = ci?.pack_quantity_at_count != null || ci?.cost_at_count != null;
