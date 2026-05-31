@@ -12,6 +12,7 @@ import VarianceReport from "./VarianceReport";
 import { calculateCountItemValue } from "@/utils/countItemValue";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
+import { useLegsValuation, buildLegsForValuation } from "@/hooks/useLegsValuation";
 
 
 
@@ -69,104 +70,18 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   });
   const { conversionMap } = useBrandConversions(brandId);
 
-  // Step 3: legs-aware read path. Gate matches Session — when off, both
-  // follow-up queries are disabled and the view renders byte-identically.
-  const { data: legsEnabledForLocation } = useQuery({
-    queryKey: ["location-legs-enabled-view", locationId],
-    enabled: !!locationId,
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("locations" as any)
-        .select("legs_enabled")
-        .eq("id", locationId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as any)?.legs_enabled === true;
-    },
-  });
+  // Step 3: legs-aware read path. All three queries + the leg→value math
+  // live in the shared useLegsValuation hook — see src/hooks/useLegsValuation.ts.
+  // When the location's legs_enabled flag is off, the hook returns empty maps
+  // and getItemValueWithLegs falls through to the canonical parent-row path,
+  // so this view renders byte-identically.
+  const {
+    legsEnabled: legsEnabledForLocation,
+    legsByCountItemId,
+    legsConfigsByBrandItemId: legsConfigsMap,
+    getItemValueWithLegs,
+  } = useLegsValuation(countId, locationId);
 
-  // Selected pack configs for this location, keyed by brand_template_id.
-  // Used only to render leg labels. Math comes from per-leg snapshots.
-  const { data: legsConfigsMap } = useQuery({
-    queryKey: ["legs-configs-map-view", locationId, legsEnabledForLocation],
-    enabled: !!locationId && legsEnabledForLocation === true,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("location_pack_selections" as any)
-        .select("brand_template_id, is_default, brand_pack_configs!inner(id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, status)")
-        .eq("location_id", locationId);
-      if (error) throw error;
-      const map = new Map<string, Array<{ pack_config_id: string; is_default: boolean; label: string | null; outer_qty: number | null; outer_type: string | null; inner_qty: number | null; inner_type: string | null; common_unit: string | null; count_units_per_case: number | null }>>();
-      for (const row of (data as any[]) || []) {
-        const bpc = row?.brand_pack_configs;
-        if (!row?.brand_template_id || !bpc) continue;
-        if (bpc.status && bpc.status !== "approved") continue;
-        const list = map.get(row.brand_template_id) ?? [];
-        list.push({
-          pack_config_id: bpc.id,
-          is_default: !!row.is_default,
-          label: bpc.label ?? null,
-          outer_qty: bpc.outer_qty ?? null,
-          outer_type: bpc.outer_type ?? null,
-          inner_qty: bpc.inner_qty ?? null,
-          inner_type: bpc.inner_type ?? null,
-          common_unit: bpc.common_unit ?? null,
-          count_units_per_case: bpc.count_units_per_case ?? null,
-        });
-        map.set(row.brand_template_id, list);
-      }
-      for (const [k, list] of map) {
-        list.sort((a, b) => (a.is_default !== b.is_default) ? (a.is_default ? -1 : 1) : (a.label ?? "").localeCompare(b.label ?? ""));
-        map.set(k, list);
-      }
-      return map;
-    },
-  });
-
-  // Legs stamped on this count. Snapshot fields drive valuation via
-  // calculateCountItemValue(legs[]).
-  type LegRow = {
-    pack_config_id: string;
-    entered_cases: number | null;
-    entered_inner_packs: number | null;
-    entered_units: number | null;
-    quantity_common: number | null;
-    pack_quantity_at_count: number | null;
-    inner_pack_quantity_at_count: number | null;
-    cost_at_count: number | null;
-  };
-  const { data: legsByCountItemId } = useQuery({
-    queryKey: ["legs-by-count-item-view", countId, legsEnabledForLocation],
-    enabled: !!countId && legsEnabledForLocation === true,
-    staleTime: 0,
-    gcTime: 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_count_item_legs" as any)
-        .select("count_item_id, pack_config_id, entered_cases, entered_inner_packs, entered_units, quantity_common, pack_quantity_at_count, inner_pack_quantity_at_count, cost_at_count, inventory_count_items!inner(count_id)")
-        .eq("inventory_count_items.count_id", countId);
-      if (error) throw error;
-      const map = new Map<string, LegRow[]>();
-      for (const row of (data as any[]) || []) {
-        if (!row?.count_item_id) continue;
-        const list = map.get(row.count_item_id) ?? [];
-        list.push({
-          pack_config_id: row.pack_config_id,
-          entered_cases: row.entered_cases,
-          entered_inner_packs: row.entered_inner_packs,
-          entered_units: row.entered_units,
-          quantity_common: row.quantity_common,
-          pack_quantity_at_count: row.pack_quantity_at_count,
-          inner_pack_quantity_at_count: row.inner_pack_quantity_at_count,
-          cost_at_count: row.cost_at_count,
-        });
-        map.set(row.count_item_id, list);
-      }
-      return map;
-    },
-  });
 
   // Fetch storage locations in order
   const { data: storageLocations } = useQuery({
@@ -302,61 +217,13 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     }
   });
 
-  // Single source of truth — see src/utils/countItemValue.ts
-  // forceLiveData=false → honor snapshots (cost_at_count, pack_quantity_at_count).
-  // Review reads historical/in-progress counts as-stored.
-  // Build per-leg valuation payload mirroring InventoryCountSession's contract.
-  // Per spec §3.3 cost comes from a shared common-unit cost derived from the
-  // DEFAULT cfg + parent item.cost_per_unit. Snapshots (when present on the
-  // leg row) still win. Returns undefined when legs[] would not change math
-  // (single config or missing config data) so callers preserve today's path.
-  const buildLegsForValuation = (
-    item: CountItem,
-    legRows: Array<{ pack_config_id: string; entered_cases: number | null; entered_inner_packs: number | null; entered_units: number | null; quantity_common: number | null; pack_quantity_at_count: number | null; inner_pack_quantity_at_count: number | null; cost_at_count: number | null; }>,
-  ) => {
-    if (legRows.length < 2) return undefined;
-    const itm: any = item.item || {};
-    const bid = itm.brand_item_id;
-    if (!bid) return undefined;
-    const cfgs = legsConfigsMap?.get(bid) ?? [];
-    if (cfgs.length < 2) return undefined;
-    const cfgById = new Map(cfgs.map((c: any) => [c.pack_config_id, c]));
-    const defaultCfg: any = cfgs.find((c: any) => c.is_default) ?? cfgs[0];
-    const defaultUnitsPerCase = Number(defaultCfg?.count_units_per_case ?? 0);
-    const costPerCase = Number(itm.cost_per_unit ?? 0);
-    const commonUnitCost = (defaultUnitsPerCase > 0 && costPerCase > 0)
-      ? costPerCase / defaultUnitsPerCase
-      : null;
-    if (commonUnitCost == null) return undefined;
-    return legRows.map((leg) => {
-      const cfg: any = cfgById.get(leg.pack_config_id);
-      const cu = Number(cfg?.count_units_per_case ?? 0);
-      // Snapshot-wins on the leg row, else derive from the leg's cfg.
-      const pq = leg.pack_quantity_at_count != null ? Number(leg.pack_quantity_at_count) : (cu > 0 ? cu : null);
-      const legCost = leg.cost_at_count != null
-        ? Number(leg.cost_at_count)
-        : (pq != null && pq > 0 ? pq * commonUnitCost : null);
-      return {
-        entered_cases: leg.entered_cases,
-        entered_units: 0,
-        entered_inner_packs: 0,
-        quantity_common: leg.quantity_common,
-        pack_quantity_at_count: pq,
-        inner_pack_quantity_at_count: null,
-        cost_at_count: legCost,
-      };
-    });
-  };
-
-  // Single source of truth — see src/utils/countItemValue.ts
+  // Leg-aware valuation comes from useLegsValuation — single source of truth.
   // forceLiveData=false → honor snapshots (cost_at_count, pack_quantity_at_count).
   // Review reads historical/in-progress counts as-stored.
   const getItemValue = (item: CountItem) => {
     const itm: any = item.item || {};
     const conversion = itm.brand_item_id ? conversionMap.get(itm.brand_item_id) : null;
-    const legRows = legsByCountItemId?.get(item.id) ?? [];
-    const legsForValuation = buildLegsForValuation(item, legRows);
-    return calculateCountItemValue(
+    return getItemValueWithLegs(
       item as any,
       {
         brand_item_id: itm.brand_item_id,
@@ -370,10 +237,10 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
         recipe_yield_unit: itm.recipe_yield_unit,
       },
       conversion || null,
-      false,
-      legsForValuation,
+      { forceLiveData: false },
     );
   };
+
 
   // Build junction order map: "itemId|storLocId" -> display_order
   const junctionOrderMap = new Map<string, number>();
@@ -596,7 +463,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                       const cfgById = new Map(cfgs.map(c => [c.pack_config_id, c]));
                                       // Enriched per-leg payloads (default-leg cost derived from
                                       // commonUnitCost so each sub-row prices with its own cfg).
-                                      const enrichedAll = buildLegsForValuation(item, legRows) ?? [];
+                                      const enrichedAll = buildLegsForValuation(bid, item.item as any, legRows, legsConfigsMap) ?? [];
                                       const enrichedByCfg = new Map<string, any>();
                                       legRows.forEach((lr, idx) => {
                                         if (enrichedAll[idx]) enrichedByCfg.set(lr.pack_config_id, enrichedAll[idx]);

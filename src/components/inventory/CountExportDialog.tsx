@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { calculateCountItemValue } from "@/utils/countItemValue";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
+import { useLegsValuation } from "@/hooks/useLegsValuation";
 
 interface CountExportDialogProps {
   countId: string;
@@ -91,85 +92,16 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
     enabled: open,
   });
 
-  // Gate: only fetch legs data when location has opted in.
-  const { data: legsEnabledForLocation } = useQuery({
-    queryKey: ["export-location-legs-enabled", locationId],
-    enabled: !!locationId && open,
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("locations" as any)
-        .select("legs_enabled")
-        .eq("id", locationId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as any)?.legs_enabled === true;
-    },
-  });
+  // All leg fetching + valuation lives in useLegsValuation — see
+  // src/hooks/useLegsValuation.ts. One source of truth, shared with Review,
+  // Session, the period summary, and future COGS/Variance reports.
+  const {
+    legsByCountItemId,
+    legLabelById,
+    getItemValueWithLegs,
+  } = useLegsValuation(countId, locationId, { enabled: open });
 
-  // Pack config labels keyed by pack_config_id, used to label per-leg rows.
-  const { data: legLabelById } = useQuery({
-    queryKey: ["export-leg-labels", locationId, legsEnabledForLocation],
-    enabled: !!locationId && legsEnabledForLocation === true && open,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("location_pack_selections" as any)
-        .select("brand_pack_configs!inner(id, label, status)")
-        .eq("location_id", locationId);
-      if (error) throw error;
-      const m = new Map<string, string>();
-      for (const row of (data as any[]) || []) {
-        const bpc = row?.brand_pack_configs;
-        if (!bpc?.id) continue;
-        if (bpc.status && bpc.status !== "approved") continue;
-        m.set(bpc.id, bpc.label ?? "");
-      }
-      return m;
-    },
-  });
 
-  // Per-count-item legs (snapshot-driven valuation).
-  type ExportLegRow = {
-    pack_config_id: string;
-    entered_cases: number | null;
-    entered_inner_packs: number | null;
-    entered_units: number | null;
-    quantity_common: number | null;
-    pack_quantity_at_count: number | null;
-    inner_pack_quantity_at_count: number | null;
-    cost_at_count: number | null;
-  };
-  const { data: legsByCountItemId } = useQuery({
-    queryKey: ["export-legs-by-count-item", countId, legsEnabledForLocation],
-    enabled: !!countId && legsEnabledForLocation === true && open,
-    staleTime: 0,
-    gcTime: 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_count_item_legs" as any)
-        .select("count_item_id, pack_config_id, entered_cases, entered_inner_packs, entered_units, quantity_common, pack_quantity_at_count, inner_pack_quantity_at_count, cost_at_count, inventory_count_items!inner(count_id)")
-        .eq("inventory_count_items.count_id", countId);
-      if (error) throw error;
-      const map = new Map<string, ExportLegRow[]>();
-      for (const row of (data as any[]) || []) {
-        if (!row?.count_item_id) continue;
-        const list = map.get(row.count_item_id) ?? [];
-        list.push({
-          pack_config_id: row.pack_config_id,
-          entered_cases: row.entered_cases,
-          entered_inner_packs: row.entered_inner_packs,
-          entered_units: row.entered_units,
-          quantity_common: row.quantity_common,
-          pack_quantity_at_count: row.pack_quantity_at_count,
-          inner_pack_quantity_at_count: row.inner_pack_quantity_at_count,
-          cost_at_count: row.cost_at_count,
-        });
-        map.set(row.count_item_id, list);
-      }
-      return map;
-    },
-  });
 
   const handleExport = () => {
     if (!exportItems) return;
@@ -196,13 +128,14 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         "Unit Value",
       ];
 
-      // Single source of truth — see src/utils/countItemValue.ts.
-      // forceLiveData=false → exports honor snapshots so historical CSVs match the saved count.
-      // For multi-config items (≥2 legs), pass legs[] so per-leg snapshots drive the parent total.
-      const computeLineValue = (ci: any, item: any, legs?: ExportLegRow[]) => {
+      // Parent valuation flows through useLegsValuation — multi-config items
+      // (≥2 legs) get the leg-aware path; single-config falls through to the
+      // canonical parent-row math. Same function used by Review / Session /
+      // period summary so totals always agree.
+      const computeLineValue = (ci: any, item: any) => {
         const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-        return calculateCountItemValue(
-          ci,
+        return getItemValueWithLegs(
+          { ...ci, id: ci.id },
           {
             brand_item_id: item?.brand_item_id,
             cost_per_unit: item?.cost_per_unit,
@@ -215,10 +148,10 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             recipe_yield_unit: item?.recipe_yield_unit,
           },
           conversion || null,
-          false,
-          legs && legs.length >= 2 ? legs : undefined
+          { forceLiveData: false },
         );
       };
+
 
       // Sort parents first (storage → name), then emit per-leg detail lines under each parent.
       const sortedItems = [...exportItems].sort((a: any, b: any) => {
@@ -235,7 +168,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         const legs = legsByCountItemId?.get(ci.id) || [];
         const isMultiConfig = legs.length >= 2;
 
-        const parentValue = computeLineValue(ci, item, isMultiConfig ? legs : undefined);
+        const parentValue = computeLineValue(ci, item);
         const parentCostPerCase = ci.cost_at_count != null
           ? Number(ci.cost_at_count) || 0
           : Number(item?.cost_per_unit) || 0;
@@ -339,9 +272,8 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
     const item: any = ci.item || {};
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-    const legs = legsByCountItemId?.get(ci.id) || [];
-    return sum + calculateCountItemValue(
-      ci,
+    return sum + getItemValueWithLegs(
+      { ...ci, id: ci.id },
       {
         brand_item_id: item.brand_item_id,
         cost_per_unit: item.cost_per_unit,
@@ -354,10 +286,10 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         recipe_yield_unit: item.recipe_yield_unit,
       },
       conversion || null,
-      false,
-      legs.length >= 2 ? legs : undefined
+      { forceLiveData: false },
     );
   }, 0) || 0;
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
