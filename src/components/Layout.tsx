@@ -1160,7 +1160,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     aria-label="Sign out"
                     className="h-auto w-14 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    <DoorOpen className="h-5 w-5" />
+                    <LogOut className="h-5 w-5" />
                   </Button>
                 </div>
 
