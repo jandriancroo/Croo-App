@@ -1133,23 +1133,35 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="grid gap-2 py-4">
-                {/* Profile Section */}
-                <div 
-                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => {
-                    navigate('/my-profile');
-                    setMenuOpen(false);
-                  }}
-                >
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={userProfile?.profile_photo_url || ''} />
-                    <AvatarFallback>{initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{displayFullName || 'User'}</p>
-                    <p className="text-xs text-muted-foreground">Tap to edit profile</p>
+                {/* Profile + Sign Out row */}
+                <div className="grid grid-cols-[1fr_auto] gap-2 mb-2">
+                  <div
+                    className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors min-w-0"
+                    onClick={() => {
+                      navigate('/my-profile');
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={userProfile?.profile_photo_url || ''} />
+                      <AvatarFallback>{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{displayFullName || 'User'}</p>
+                      <p className="text-xs text-muted-foreground">Tap to edit profile</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSignOutConfirmOpen(true)}
+                    data-allow-during-count="logout"
+                    aria-label="Sign out"
+                    className="h-auto w-14 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <DoorOpen className="h-5 w-5" />
+                  </Button>
                 </div>
 
 
