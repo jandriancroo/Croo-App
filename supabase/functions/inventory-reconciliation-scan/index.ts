@@ -422,6 +422,11 @@ async function repointCountHistory(
         .update({ quantity: mergedQty, entered_cases: mergedCases, entered_units: mergedUnits })
         .eq("id", existing.id);
 
+      // Re-parent legs from srcRecord → existing BEFORE delete. Without this,
+      // the FK's ON DELETE CASCADE silently drops every leg attached to the
+      // duplicate row, corrupting multi-config valuation downstream.
+      await reparentLegsOnCollision(admin, srcRecord.id, existing.id, report);
+
       await admin
         .from("inventory_count_items")
         .delete()
@@ -430,7 +435,8 @@ async function repointCountHistory(
       report.phase2_duplicate_cleanup.count_history_merged++;
       console.log(`[Reconciliation] Merged count record ${srcRecord.id} into ${existing.id} (session collision)`);
     } else {
-      // No collision — simple re-point
+      // No collision — simple re-point. Row id is unchanged, so existing legs
+      // remain correctly parented (no leg action needed).
       await admin
         .from("inventory_count_items")
         .update({ item_id: toItemId })
