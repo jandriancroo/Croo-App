@@ -257,7 +257,7 @@ export default function InventoryCountTab({
 
             {/* Past periods — divider list with inline expansion */}
             {past.length > 0 && (
-              <div className="divide-y divide-border">
+              <div className="rounded-2xl border border-border bg-card overflow-hidden">
                 {pagedPast.map((count) => {
                   const idx = filteredCounts.indexOf(count);
                   const isActive = idx === safeIdx;
