@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useState, useEffect } from 'react';
 import crooLogo from '@/assets/croo-logo.webp';
 import { LocationSwitchOverlay } from './LocationSwitchOverlay';
@@ -276,6 +277,7 @@ export const Layout = ({
   const mobileHeaderRef = useRef<HTMLElement>(null);
   const headerLocationRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
 
   // Register menu control so the onboarding tour can auto-open the menu
   useEffect(() => {
@@ -1131,23 +1133,35 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="grid gap-2 py-4">
-                {/* Profile Section */}
-                <div 
-                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => {
-                    navigate('/my-profile');
-                    setMenuOpen(false);
-                  }}
-                >
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={userProfile?.profile_photo_url || ''} />
-                    <AvatarFallback>{initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{displayFullName || 'User'}</p>
-                    <p className="text-xs text-muted-foreground">Tap to edit profile</p>
+                {/* Profile + Sign Out row */}
+                <div className="grid grid-cols-[1fr_auto] gap-2 mb-2">
+                  <div
+                    className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors min-w-0"
+                    onClick={() => {
+                      navigate('/my-profile');
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={userProfile?.profile_photo_url || ''} />
+                      <AvatarFallback>{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{displayFullName || 'User'}</p>
+                      <p className="text-xs text-muted-foreground">Tap to edit profile</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSignOutConfirmOpen(true)}
+                    data-allow-during-count="logout"
+                    aria-label="Sign out"
+                    className="h-auto w-14 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <DoorOpen className="h-5 w-5" />
+                  </Button>
                 </div>
 
 
@@ -1368,30 +1382,44 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   </Button>
                 )}
 
-                {/* Update App + Sign Out row */}
-                <div className="grid grid-cols-1 gap-2">
-                  <Button variant="outline" onClick={() => {
-                    setMenuOpen(false);
-                    const prevVersion = getCurrentAppVersion();
-                    sessionStorage.setItem('pre_update_version', prevVersion);
-                    toast.info('Updating app...');
-                    setTimeout(() => window.location.reload(), 500);
-                  }} className="justify-start gap-2 h-9 px-3">
-                    <RefreshCw className="h-4 w-4" />
-                    <span className="text-sm">Update</span>
-                  </Button>
-
-                  <Button variant="outline" onClick={() => {
-                    signOut();
-                    setMenuOpen(false);
-                  }} data-allow-during-count="logout" className="justify-start gap-2 h-9 px-3 text-destructive hover:text-destructive">
-                    <DoorOpen className="h-4 w-4" />
-                    <span className="text-sm">Sign Out</span>
-                  </Button>
-                </div>
+                {/* Update App */}
+                <Button variant="outline" onClick={() => {
+                  setMenuOpen(false);
+                  const prevVersion = getCurrentAppVersion();
+                  sessionStorage.setItem('pre_update_version', prevVersion);
+                  toast.info('Updating app...');
+                  setTimeout(() => window.location.reload(), 500);
+                }} className="justify-start gap-2 h-9 px-3">
+                  <RefreshCw className="h-4 w-4" />
+                  <span className="text-sm">Update</span>
+                </Button>
               </div>
             </SheetContent>
           </Sheet>
+
+          <AlertDialog open={signOutConfirmOpen} onOpenChange={setSignOutConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Sign out of CrooHQ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You'll need to sign back in to access your locations, schedules, and inventory.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    setSignOutConfirmOpen(false);
+                    setMenuOpen(false);
+                    signOut();
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Sign out
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </header>
       
