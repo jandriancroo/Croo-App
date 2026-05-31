@@ -272,9 +272,8 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
     const item: any = ci.item || {};
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-    const legs = legsByCountItemId?.get(ci.id) || [];
-    return sum + calculateCountItemValue(
-      ci,
+    return sum + getItemValueWithLegs(
+      { ...ci, id: ci.id },
       {
         brand_item_id: item.brand_item_id,
         cost_per_unit: item.cost_per_unit,
@@ -287,10 +286,10 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         recipe_yield_unit: item.recipe_yield_unit,
       },
       conversion || null,
-      false,
-      legs.length >= 2 ? legs : undefined
+      { forceLiveData: false },
     );
   }, 0) || 0;
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
