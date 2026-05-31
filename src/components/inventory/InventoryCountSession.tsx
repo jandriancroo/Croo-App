@@ -2612,7 +2612,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 </div>
                 
                 {/* Count controls */}
-                <div className={hasMultipleLegConfigs ? "" : "p-3"}>
+                <div className={item.is_recipe ? "p-3" : ""}>
+
 
                   {item.is_recipe ? (
                     /* Single count stepper for recipe items */
@@ -2914,136 +2915,203 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   })()
 
                   ) : (
-                  <div className={cn("grid gap-2", showInnerPacks ? "grid-cols-3" : "grid-cols-2")}>
-                    {/* Cases counter — hidden if count_by=units_only */}
-                    {showCases && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
-                        Cases
-                      </p>
-                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateCases(splitKey, -1)}
-                          >
-                            <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={rawInputs[splitKey]?.cases ?? count.cases}
-                          onChange={(e) => handleCasesInput(splitKey, e.target.value)}
-                          onBlur={() => handleCasesBlur(splitKey)}
-                          disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                        />
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateCases(splitKey, 1)}
-                          >
-                            <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
+                  (() => {
+                    type Slot = {
+                      label: string;
+                      sub?: string;
+                      raw: string | number | undefined;
+                      value: number;
+                      onInput: (v: string) => void;
+                      onBlur: () => void;
+                      dec: () => void;
+                      inc: () => void;
+                    };
+                    const slots: (Slot | null)[] = [];
+                    if (showCases) slots.push({
+                      label: 'Cases',
+                      raw: rawInputs[splitKey]?.cases,
+                      value: count.cases,
+                      onInput: (v) => handleCasesInput(splitKey, v),
+                      onBlur: () => handleCasesBlur(splitKey),
+                      dec: () => updateCases(splitKey, -1),
+                      inc: () => updateCases(splitKey, 1),
+                    });
+                    if (showInnerPacks) slots.push({
+                      label: lanes.innerLabel,
+                      sub: lanes.innerSubLabel ?? undefined,
+                      raw: rawInputs[splitKey]?.innerPacks,
+                      value: count.innerPacks ?? 0,
+                      onInput: (v) => handleInnerPacksInput(splitKey, v),
+                      onBlur: () => handleInnerPacksBlur(splitKey),
+                      dec: () => updateInnerPacks(splitKey, -1),
+                      inc: () => updateInnerPacks(splitKey, 1),
+                    });
+                    if (showUnits) slots.push({
+                      label: 'Units',
+                      sub: '(individual)',
+                      raw: rawInputs[splitKey]?.units,
+                      value: count.units,
+                      onInput: (v) => handleUnitsInput(splitKey, v),
+                      onBlur: () => handleUnitsBlur(splitKey),
+                      dec: () => updateUnits(splitKey, -1),
+                      inc: () => updateUnits(splitKey, 1),
+                    });
+                    while (slots.length < 3) slots.push(null);
+                    const panEnabled = !!(item.pan_sizes?.enabled && (item.pan_sizes.enabled_keys?.length ?? 0) > 0);
+                    return (
+                      <div>
+                        {/* Column label row */}
+                        <div className="grid grid-cols-3 border-b border-border bg-muted/50">
+                          {slots.map((slot, i) => (
+                            <div
+                              key={i}
+                              className={cn(
+                                'py-1 text-center text-[8px] uppercase tracking-wider font-semibold text-muted-foreground',
+                                i > 0 && 'border-l border-border',
+                                !slot && 'opacity-15',
+                              )}
+                            >
+                              {slot ? slot.label : '—'}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Stepper row */}
+                        <div className="grid grid-cols-3">
+                          {slots.map((slot, i) => (
+                            <div
+                              key={i}
+                              className={cn(
+                                'h-[52px] flex items-center',
+                                i > 0 && 'border-l border-border',
+                                !slot && 'opacity-15',
+                              )}
+                            >
+                              {slot ? (
+                                <>
+                                  {!isViewOnly && (
+                                    <button
+                                      type="button"
+                                      className="w-9 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
+                                      onClick={slot.dec}
+                                    >
+                                      <ArrowDown className="h-4 w-4" strokeWidth={2.5} style={{ color: '#993C1D' }} />
+                                    </button>
+                                  )}
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={slot.raw ?? slot.value}
+                                    onChange={(e) => slot.onInput(e.target.value)}
+                                    onBlur={slot.onBlur}
+                                    disabled={isViewOnly}
+                                    className="flex-1 text-center text-[26px] font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0 leading-none"
+                                  />
+                                  {!isViewOnly && (
+                                    <button
+                                      type="button"
+                                      className="w-9 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
+                                      onClick={slot.inc}
+                                    >
+                                      <ArrowUp className="h-4 w-4" strokeWidth={2.5} style={{ color: '#0F6E56' }} />
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="flex-1 text-center text-muted-foreground text-sm">—</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Pan / Cambro — edge-to-edge, label row flows directly into column labels */}
+                        {panEnabled && (() => {
+                          const panKeys = item.pan_sizes!.enabled_keys.slice(0, 3);
+                          const padded: (string | null)[] = [...panKeys];
+                          while (padded.length < 3) padded.push(null);
+                          return (
+                            <div className="border-t border-border">
+                              <div className="px-[14px] py-[7px] bg-muted/50">
+                                <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
+                                  Pan / Cambro
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-3 bg-muted/50 border-b border-border">
+                                {padded.map((panKey, i) => {
+                                  const container = panKey ? ALL_CONTAINERS.find(c => c.key === panKey) : null;
+                                  const unitsEach = (panKey && container) ? getPanUnits(item.pan_sizes!, panKey) : null;
+                                  return (
+                                    <div
+                                      key={i}
+                                      className={cn(
+                                        'py-1 text-center text-[10px] font-medium text-muted-foreground',
+                                        i > 0 && 'border-l border-border',
+                                        !container && 'opacity-15',
+                                      )}
+                                    >
+                                      {container ? `${container.label}${unitsEach != null ? ` (${unitsEach})` : ''}` : '—'}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <div className="grid grid-cols-3">
+                                {padded.map((panKey, i) => {
+                                  const container = panKey ? ALL_CONTAINERS.find(c => c.key === panKey) : null;
+                                  const panQty = panKey ? (panCounts[splitKey]?.[panKey] || 0) : 0;
+                                  return (
+                                    <div
+                                      key={i}
+                                      className={cn(
+                                        'h-[44px] flex items-center',
+                                        i > 0 && 'border-l border-border',
+                                        !container && 'opacity-15',
+                                      )}
+                                    >
+                                      {container && panKey ? (
+                                        <>
+                                          {!isViewOnly && (
+                                            <button
+                                              type="button"
+                                              className="w-8 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
+                                              onClick={() => updatePanCount(splitKey, panKey, -0.5)}
+                                            >
+                                              <ArrowDown className="h-[13px] w-[13px]" strokeWidth={2.5} style={{ color: '#993C1D' }} />
+                                            </button>
+                                          )}
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={rawPanInputs[splitKey]?.[panKey] ?? panQty}
+                                            onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
+                                            onBlur={() => handlePanBlur(splitKey, panKey)}
+                                            disabled={isViewOnly}
+                                            className="flex-1 text-center text-base font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                          />
+                                          {!isViewOnly && (
+                                            <button
+                                              type="button"
+                                              className="w-8 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
+                                              onClick={() => updatePanCount(splitKey, panKey, 0.5)}
+                                            >
+                                              <ArrowUp className="h-[13px] w-[13px]" strokeWidth={2.5} style={{ color: '#0F6E56' }} />
+                                            </button>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <div className="flex-1 text-center text-muted-foreground text-sm">—</div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
-                    </div>
-                    )}
-
-                    {/* Phase 4: Pack counter — the middle tier between cases and individual units */}
-                    {showInnerPacks && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
-                        {lanes.innerLabel}
-                        {lanes.innerSubLabel && (
-                          <span className="ml-1 normal-case tracking-normal">{lanes.innerSubLabel}</span>
-                        )}
-                      </p>
-                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateInnerPacks(splitKey, -1)}
-                          >
-                            <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={rawInputs[splitKey]?.innerPacks ?? (count.innerPacks ?? 0)}
-                          onChange={(e) => handleInnerPacksInput(splitKey, e.target.value)}
-                          onBlur={() => handleInnerPacksBlur(splitKey)}
-                          disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                        />
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateInnerPacks(splitKey, 1)}
-                          >
-                            <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    )}
-
-                    {/* Units counter — hidden if count_by=cases_only */}
-                    {showUnits && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
-                        Units
-                        <span className="ml-1 normal-case tracking-normal">(individual)</span>
-                      </p>
-                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateUnits(splitKey, -1)}
-                          >
-                            <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={rawInputs[splitKey]?.units ?? count.units}
-                          onChange={(e) => handleUnitsInput(splitKey, e.target.value)}
-                          onBlur={() => handleUnitsBlur(splitKey)}
-                          disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                        />
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateUnits(splitKey, 1)}
-                          >
-                            <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    )}
-                  </div>
+                    );
+                  })()
                   )}
 
-                  {/* Pan size rows — rendered inline above for multi-leg items */}
-                  {!hasMultipleLegConfigs && item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
-
+                  {/* Pan size rows for recipe items only (single + multi rendered inline above) */}
+                  {item.is_recipe && item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-border">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
                         Pan / Cambro
@@ -3068,7 +3136,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                     onClick={() => updatePanCount(splitKey, panKey, -0.5)}
                                   >
                                     <Minus className="h-3 w-3" />
-                                    <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                   </button>
                                 )}
                                 <input
@@ -3087,7 +3154,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                     onClick={() => updatePanCount(splitKey, panKey, 0.5)}
                                   >
                                     <Plus className="h-3 w-3" />
-                                    <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                   </button>
                                 )}
                               </div>
@@ -3097,6 +3163,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       </div>
                     </div>
                   )}
+
 
                 </div>
               </div>
