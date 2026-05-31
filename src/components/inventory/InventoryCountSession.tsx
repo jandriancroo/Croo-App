@@ -2465,33 +2465,31 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       {/* Location navigation — sticky with progress indicator */}
       {locationKeys.length > 1 && (
-        <div className="sticky top-[calc(env(safe-area-inset-top)+3.25rem+0.5rem)] z-20 mt-2 bg-primary/95 backdrop-blur-md text-primary-foreground rounded-md px-2 py-3 shadow-md overflow-hidden border border-white/10">
-          <div className="flex items-center justify-between">
+        <div className="sticky top-[calc(env(safe-area-inset-top)+3.25rem+0.5rem)] z-20 mt-2 bg-primary/95 backdrop-blur-md text-primary-foreground rounded-md px-2 py-2 shadow-md overflow-hidden border border-white/10">
+          <div className="flex items-center gap-2">
             <button
-              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
+              className="h-9 w-9 shrink-0 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
               onClick={() => setCurrentLocationIndex(Math.max(0, currentLocationIndex - 1))}
               disabled={currentLocationIndex === 0}
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <div className="text-center flex-1 min-w-0">
-              <p className="font-semibold text-sm text-primary-foreground truncate">{itemsByLocation[currentLocation]?.name}</p>
-              <p className="text-xs text-primary-foreground/60">
-                {currentItems.length} items · {formatCurrency(currentItems.reduce((sum, i) => sum + getItemCost(i), 0))}
+              <p className="font-semibold text-sm text-primary-foreground truncate leading-tight">
+                {itemsByLocation[currentLocation]?.name}
+              </p>
+              <p className="text-[11px] text-primary-foreground/70 tabular-nums leading-tight">
+                {currentLocationIndex + 1}/{locationKeys.length} · {currentItems.length} items · {formatCurrency(currentItems.reduce((sum, i) => sum + getItemCost(i), 0))}
               </p>
             </div>
             <button
-              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
+              className="h-9 w-9 shrink-0 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
               onClick={() => setCurrentLocationIndex(Math.min(locationKeys.length - 1, currentLocationIndex + 1))}
               disabled={currentLocationIndex === locationKeys.length - 1}
             >
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
-          {/* Page indicator */}
-          <p className="mt-1 text-center text-[11px] font-medium text-primary-foreground/60 tabular-nums">
-            Page {currentLocationIndex + 1} / {locationKeys.length}
-          </p>
         </div>
       )}
 
