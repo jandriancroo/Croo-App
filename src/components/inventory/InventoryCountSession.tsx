@@ -2718,10 +2718,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 {legLanes.showCases && (
                                   <div>
                                     <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">Cases</p>
-                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
+                                    <div className="flex items-center gap-0.5 rounded-lg overflow-hidden border border-foreground/20">
                                       {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
-                                          <Minus className="h-4 w-4" strokeWidth={2} />
+                                        <button type="button" className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
+                                          <Minus className="h-3.5 w-3.5" strokeWidth={2} />
                           <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
@@ -2732,11 +2732,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         onChange={(e) => handleCasesInput(legKeyUi, e.target.value)}
                                         onBlur={() => handleCasesBlur(legKeyUi)}
                                         disabled={isViewOnly}
-                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                        className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                                       />
                                       {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
-                                          <Plus className="h-4 w-4" strokeWidth={2} />
+                                        <button type="button" className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
+                                          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
                           <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
@@ -2746,10 +2746,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 {legLanes.showInnerPacks && (
                                   <div>
                                     <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">{legLanes.innerLabel}</p>
-                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
+                                    <div className="flex items-center gap-0.5 rounded-lg overflow-hidden border border-foreground/20">
                                       {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
-                                          <Minus className="h-4 w-4" strokeWidth={2} />
+                                        <button type="button" className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
+                                          <Minus className="h-3.5 w-3.5" strokeWidth={2} />
                           <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
@@ -2760,11 +2760,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         onChange={(e) => handleInnerPacksInput(legKeyUi, e.target.value)}
                                         onBlur={() => handleInnerPacksBlur(legKeyUi)}
                                         disabled={isViewOnly}
-                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                        className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                                       />
                                       {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
-                                          <Plus className="h-4 w-4" strokeWidth={2} />
+                                        <button type="button" className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
+                                          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
                           <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
@@ -2774,10 +2774,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 {legLanes.showUnits && (
                                   <div>
                                     <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">{legLanes.unitsLabel}</p>
-                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
+                                    <div className="flex items-center gap-0.5 rounded-lg overflow-hidden border border-foreground/20">
                                       {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
-                                          <Minus className="h-4 w-4" strokeWidth={2} />
+                                        <button type="button" className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
+                                          <Minus className="h-3.5 w-3.5" strokeWidth={2} />
                           <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
@@ -2788,11 +2788,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         onChange={(e) => handleUnitsInput(legKeyUi, e.target.value)}
                                         onBlur={() => handleUnitsBlur(legKeyUi)}
                                         disabled={isViewOnly}
-                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                        className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                                       />
                                       {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
-                                          <Plus className="h-4 w-4" strokeWidth={2} />
+                                        <button type="button" className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
+                                          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
                           <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
