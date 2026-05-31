@@ -1126,7 +1126,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               </button>
             </SheetTrigger>
 
-            <SheetContent side="bottom" className="h-auto">
+            <SheetContent side="bottom" className="h-auto max-h-[90vh] overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
@@ -1153,7 +1153,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
 
                 {/* Time + Users row (2 columns) */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {mobileTimeItems.length > 0 && (
                     <Button 
                       variant="outline" 
@@ -1225,7 +1225,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   );
                   if (pairItems.length === 0) return null;
                   return (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                       {pairItems.map(item => {
                         const Icon = item.icon;
                         const isActive = location.pathname === item.path;
@@ -1369,7 +1369,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 )}
 
                 {/* Update App + Sign Out row */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <Button variant="outline" onClick={() => {
                     setMenuOpen(false);
                     const prevVersion = getCurrentAppVersion();
