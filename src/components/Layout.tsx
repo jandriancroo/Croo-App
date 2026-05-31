@@ -811,7 +811,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     {
       path: '/my-timecard',
       label: 'My Timecard',
-      icon: Clock
+      icon: DollarSign
     },
     {
       path: '/availability',
