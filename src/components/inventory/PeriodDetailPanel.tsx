@@ -657,15 +657,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
-                {count.status === "in_progress" && hasCountedItems && (
-                  <Button
-                    size="icon"
-                    className="h-9 w-9 rounded-full"
-                    onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?continue=true`)}
-                  >
-                    <Play className="h-4 w-4" />
-                  </Button>
-                )}
+                {/* Resume action is handled by the "Resume" button in the progress row above. */}
+
               </div>
             </div>
 
