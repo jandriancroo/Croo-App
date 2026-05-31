@@ -38,6 +38,8 @@ export default function InventoryCountTab({
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<"all" | "weekly" | "monthly">("all");
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(6);
   const tabsRef = useRef<HTMLDivElement>(null);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const { pendingIncoming } = useInventoryTransfers(locationId);
@@ -55,79 +57,114 @@ export default function InventoryCountTab({
     [recentCounts]
   );
 
-  // Compute current weekly period end date using configured end day
   const { getTodayInTimezone } = useLocationTimezone();
   const { config: periodConfig } = useInventoryPeriodSettings(locationId);
-  // Generate synthetic "upcoming/not-counted" entries for the last N weeks
-  // (including current). Past weeks without a real count row still render
-  // as tabs so they can be backfilled — fixing the asymmetric picker bug
-  // where past weeks would silently disappear if no one started a count.
-  const WEEKS_TO_RENDER = 8;
-  const upcomingWeeklyEntries = useMemo(() => {
+
+  // Only the nearest upcoming weekly + nearest upcoming monthly are surfaced.
+  // Past periods with no real count row are hidden (rule: hide past empty only).
+  const upcomingEntries = useMemo(() => {
     if (recentCounts === undefined) return [];
-
     const todayStr = getTodayInTimezone();
-    const currentWeekEnd = computePeriodEndDate(todayStr, periodConfig.periodEndDay);
     const allCounts = recentCounts || [];
+    const out: any[] = [];
 
-    const entries: any[] = [];
-    // Walk backwards N weeks from the current period end
-    const base = new Date(currentWeekEnd + "T12:00:00");
-    for (let i = 0; i < WEEKS_TO_RENDER; i++) {
-      const d = new Date(base);
-      d.setDate(d.getDate() - i * 7);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      const weekEndStr = `${y}-${m}-${day}`;
+    const mkUpcoming = (period_type: "weekly" | "monthly", end: string) => ({
+      id: `_upcoming_${period_type}_${end}`,
+      status: "upcoming",
+      period_type,
+      period_end_date: end,
+      count_date: end,
+      _isUpcoming: true,
+      _stats: { totalItems: 0, countedItems: 0, totalCost: 0 },
+    });
 
-      const exists = allCounts.some(
-        (c) => c.period_type === "weekly" && c.period_end_date === weekEndStr
-      );
-      if (exists) continue;
-
-      entries.push({
-        id: `_upcoming_weekly_${weekEndStr}`,
-        status: "upcoming",
-        period_type: "weekly",
-        period_end_date: weekEndStr,
-        count_date: weekEndStr,
-        _isUpcoming: true,
-        _stats: { totalItems: 0, countedItems: 0, totalCost: 0 },
-      });
+    // Nearest upcoming weekly: current configured period end (≥ today by definition).
+    const weekEnd = computePeriodEndDate(todayStr, periodConfig.periodEndDay);
+    if (weekEnd >= todayStr && !allCounts.some(c => c.period_type === "weekly" && c.period_end_date === weekEnd)) {
+      out.push(mkUpcoming("weekly", weekEnd));
     }
-    return entries;
+
+    // Nearest upcoming monthly: last day of current month if ≥ today, else next month's last day.
+    const [yStr, mStr] = todayStr.split("-");
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10); // 1-12
+    const lastOfMonth = (yy: number, mm: number) => {
+      const d = new Date(yy, mm, 0); // day 0 of next month = last of this month
+      const yyyy = d.getFullYear();
+      const mmStr = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mmStr}-${dd}`;
+    };
+    let monthEnd = lastOfMonth(y, m);
+    if (monthEnd < todayStr) {
+      const ny = m === 12 ? y + 1 : y;
+      const nm = m === 12 ? 1 : m + 1;
+      monthEnd = lastOfMonth(ny, nm);
+    }
+    if (!allCounts.some(c => c.period_type === "monthly" && c.period_end_date === monthEnd)) {
+      out.push(mkUpcoming("monthly", monthEnd));
+    }
+
+    return out;
   }, [recentCounts, getTodayInTimezone, periodConfig.periodEndDay]);
 
-  const filteredCounts = useMemo(() => {
+  const { filteredCounts, hasMoreHistory } = useMemo(() => {
     const base = typeFilter === "all"
       ? completedCounts
       : completedCounts.filter((c) => c.period_type === typeFilter);
 
-    const upcoming = (typeFilter === "all" || typeFilter === "weekly")
-      ? upcomingWeeklyEntries
-      : [];
+    const upcoming = upcomingEntries.filter(u => typeFilter === "all" || u.period_type === typeFilter);
     const combined = [...upcoming, ...base];
 
-    // Sort by effective period_end_date descending (newest first)
-    // Uses the monthly close safeguard so ME counts sort by their real month
-    return combined.sort((a, b) => {
+    // Dedupe by effective end date. Real and upcoming live in separate buckets so an
+    // upcoming placeholder can never hide a real submitted count for the same date.
+    // Within a bucket, monthly wins over weekly on shared dates.
+    const byKey = new Map<string, any>();
+    for (const c of combined) {
+      const end = getEffectivePeriodEndDate(c) || c.period_end_date || "";
+      const bucket = c.status === "upcoming" ? "u" : "r";
+      const key = `${end}|${bucket}`;
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, c);
+      } else if (c.period_type === "monthly" && existing.period_type !== "monthly") {
+        byKey.set(key, c);
+      }
+    }
+    const deduped = Array.from(byKey.values());
+
+    const sorted = deduped.sort((a, b) => {
       const aEnd = getEffectivePeriodEndDate(a) || a.period_end_date || "";
       const bEnd = getEffectivePeriodEndDate(b) || b.period_end_date || "";
       return bEnd.localeCompare(aEnd);
     });
-  }, [completedCounts, typeFilter, upcomingWeeklyEntries]);
+
+    const upcomingSlice = sorted.filter(c => c.status === "upcoming");
+    const pastAll = sorted.filter(c => c.status !== "upcoming");
+    const pastSlice = pastAll.slice(0, visibleCount);
+
+    return {
+      filteredCounts: [...upcomingSlice, ...pastSlice],
+      hasMoreHistory: pastAll.length > pastSlice.length,
+    };
+  }, [completedCounts, typeFilter, upcomingEntries, visibleCount]);
 
   const safeIdx = Math.min(selectedIdx, Math.max(filteredCounts.length - 1, 0));
   const selectedCount = filteredCounts[safeIdx] || null;
 
-  useEffect(() => { setSelectedIdx(0); }, [typeFilter]);
+  // 4-at-a-time paging
+  const PAGE_SIZE = 4;
+  const maxPage = Math.max(0, Math.ceil(filteredCounts.length / PAGE_SIZE) - 1);
+  const pagedCounts = filteredCounts.slice(pageIndex * PAGE_SIZE, pageIndex * PAGE_SIZE + PAGE_SIZE);
 
+  useEffect(() => { setSelectedIdx(0); setPageIndex(0); }, [typeFilter]);
+
+  // Follow the selection into its page so the active tab is always visible.
   useEffect(() => {
-    if (!tabsRef.current) return;
-    const el = tabsRef.current.querySelector('[data-active="true"]');
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [safeIdx]);
+    const targetPage = Math.floor(safeIdx / PAGE_SIZE);
+    if (targetPage !== pageIndex) setPageIndex(Math.min(targetPage, maxPage));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeIdx, maxPage]);
 
   if (!filteredCounts.length) {
     return (
@@ -172,14 +209,16 @@ export default function InventoryCountTab({
       <div>
         <div className="flex items-end gap-1 pt-2" style={{ overflow: "visible" }}>
           <button
-            onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" }); }}
-            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
+            onClick={() => setPageIndex(p => Math.max(0, p - 1))}
+            disabled={pageIndex === 0}
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
 
-          <div ref={tabsRef} className="flex gap-1 flex-1 items-end overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none", paddingTop: 24, marginTop: -24 }}>
-            {filteredCounts.map((count, idx) => {
+          <div ref={tabsRef} className="flex gap-1 flex-1 items-end" style={{ paddingTop: 24, marginTop: -24 }}>
+            {pagedCounts.map((count, localIdx) => {
+              const idx = pageIndex * PAGE_SIZE + localIdx;
               const isActive = idx === safeIdx;
               const effectiveEnd = getEffectivePeriodEndDate(count) || count.period_end_date;
               const endDate = new Date(effectiveEnd + "T12:00:00");
@@ -199,12 +238,12 @@ export default function InventoryCountTab({
                   }}
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   className={`
-                    flex-shrink-0 transition-colors flex items-center justify-center relative rounded-t-xl
+                    flex-1 min-w-0 transition-colors flex items-center justify-center relative rounded-t-xl
                     ${isActive
-                      ? "bg-card text-foreground border-2 border-border border-b-0 shadow-sm -mb-[3px] pb-[3px] z-10 min-w-[108px] px-3"
+                      ? "bg-card text-foreground border-2 border-border border-b-0 shadow-sm -mb-[3px] pb-[3px] z-10 px-3"
                       : isMonthly
-                        ? "bg-muted/40 text-muted-foreground border border-border/40 border-b-0 min-w-[72px] px-2"
-                        : "bg-muted/30 text-muted-foreground border border-border/40 border-b-0 min-w-[80px] px-2 hover:bg-muted/50"
+                        ? "bg-muted/40 text-muted-foreground border border-border/40 border-b-0 px-2"
+                        : "bg-muted/30 text-muted-foreground border border-border/40 border-b-0 px-2 hover:bg-muted/50"
                     }
                   `}
                 >
@@ -234,14 +273,32 @@ export default function InventoryCountTab({
                 </motion.button>
               );
             })}
+            {/* Pad row to keep 4-up sizing when current page has fewer than PAGE_SIZE */}
+            {Array.from({ length: Math.max(0, PAGE_SIZE - pagedCounts.length) }).map((_, i) => (
+              <div key={`_pad_${i}`} className="flex-1 min-w-0" />
+            ))}
           </div>
           <button
-            onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: 200, behavior: "smooth" }); }}
-            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
+            onClick={() => setPageIndex(p => Math.min(maxPage, p + 1))}
+            disabled={pageIndex >= maxPage}
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
+
+        {/* Lazy "Load older" — only when on the last page and more history exists */}
+        {hasMoreHistory && pageIndex === maxPage && (
+          <div className="flex justify-center mt-2">
+            <button
+              onClick={() => setVisibleCount(v => v + 6)}
+              className="text-[11px] font-semibold text-muted-foreground hover:text-foreground px-3 py-1 rounded-full bg-muted/40 hover:bg-muted/70 transition-colors"
+            >
+              Load older periods
+            </button>
+          </div>
+        )}
+
         
 
         {/* In-progress resume banner (compact, inside detail area) */}
