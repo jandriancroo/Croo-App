@@ -433,20 +433,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Default false on every store. Hemet is the canary. When false/null, the
   // multi-config selections fetch and the read-only legs block below are both
   // skipped → byte-for-byte identical render at every other store.
-  const { data: legsEnabledForLocation } = useQuery({
-    queryKey: ["location-legs-enabled", locationId],
-    enabled: !!locationId,
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("locations" as any)
-        .select("legs_enabled")
-        .eq("id", locationId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as any)?.legs_enabled === true;
-    },
-  });
+  // Legs queries (enabled flag, configs map, hydration map) are owned by
+  // useLegsValuation — single source of truth shared with Review / Export /
+  // period summary / future COGS+Variance. Session still builds its own
+  // live-input legs[] payload inside getItemCost (it reads from rawInputs,
+  // not from persisted snapshots), but it now pulls the same config + flag
+  // data so the queries don't run twice on the page.
+  const {
+    legsEnabled: legsEnabledForLocationRaw,
+    legsByCountItemId,
+    legsConfigsByBrandItemId: legsConfigsMap,
+  } = useLegsValuation(countId, locationId);
+  // Session's downstream code expects `boolean | undefined` (loading state
+  // distinguished from "off") — preserve that shape.
+  const legsEnabledForLocation: boolean | undefined =
+    locationId == null ? undefined : legsEnabledForLocationRaw;
+
 
   // Lens (approved brand_pack_configs) — keyed by brand_item_id (= brand_template_id).
   // Read-path only; resolver falls back to local when missing. Snapshots still win.
