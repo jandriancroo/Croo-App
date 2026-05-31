@@ -332,6 +332,11 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
+  const { dockContent: layoutDockContent } = useDockToast();
+  const isCountRoute = location.pathname.includes('/count/');
+  const countProgress = layoutDockContent && layoutDockContent.totalItems > 0
+    ? Math.round((layoutDockContent.countedItems / layoutDockContent.totalItems) * 100)
+    : 0;
   
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
@@ -1392,10 +1397,23 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             </SheetContent>
           </Sheet>
         </div>
+        {isCountRoute && layoutDockContent && (
+          <div className="px-4 pb-2 flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-300"
+                style={{ width: `${countProgress}%` }}
+              />
+            </div>
+            <span className="text-[11px] font-semibold text-white/90 tabular-nums whitespace-nowrap">
+              {layoutDockContent.countedItems}/{layoutDockContent.totalItems} · {countProgress}%
+            </span>
+          </div>
+        )}
       </header>
       
       
-      <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+3.25rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
+      <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? `${isCountRoute ? 'pt-[calc(env(safe-area-inset-top)+4.5rem)] pb-4' : 'pt-[calc(env(safe-area-inset-top)+3.25rem)] pb-24'}` : 'pt-1 py-8 pb-8'}`}>
         {children}
       </main>
       
@@ -1404,7 +1422,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <span className="text-base">Powered by</span>
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
-      {!roleLoading && (
+      {!roleLoading && !location.pathname.includes('/count/') && (
         <nav className={`mobile-dock-container ${isMobile ? '' : 'hidden'}`}>
           {/* Dash/Org Bubble Popup - swaps based on current route */}
           {showOrgBubble && hasMultiLocationAccess && (
