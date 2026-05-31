@@ -443,6 +443,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     legsEnabled: legsEnabledForLocationRaw,
     legsByCountItemId,
     legsConfigsByBrandItemId: legsConfigsMap,
+    getItemValueWithLegs,
   } = useLegsValuation(countId, locationId);
   // Session's downstream code expects `boolean | undefined` (loading state
   // distinguished from "off") — preserve that shape.
