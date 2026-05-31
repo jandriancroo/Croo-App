@@ -8949,10 +8949,14 @@ export type Database = {
           id: string
           item_id: string
           location_id: string | null
+          new_baseline: number | null
           new_cost: number | null
           new_pack_qty: number | null
+          new_quantity: number | null
+          old_baseline: number | null
           old_cost: number | null
           old_pack_qty: number | null
+          old_quantity: number | null
           run_at: string
           source: string
         }
@@ -8961,10 +8965,14 @@ export type Database = {
           id?: string
           item_id: string
           location_id?: string | null
+          new_baseline?: number | null
           new_cost?: number | null
           new_pack_qty?: number | null
+          new_quantity?: number | null
+          old_baseline?: number | null
           old_cost?: number | null
           old_pack_qty?: number | null
+          old_quantity?: number | null
           run_at?: string
           source?: string
         }
@@ -8973,10 +8981,14 @@ export type Database = {
           id?: string
           item_id?: string
           location_id?: string | null
+          new_baseline?: number | null
           new_cost?: number | null
           new_pack_qty?: number | null
+          new_quantity?: number | null
+          old_baseline?: number | null
           old_cost?: number | null
           old_pack_qty?: number | null
+          old_quantity?: number | null
           run_at?: string
           source?: string
         }
