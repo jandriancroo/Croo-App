@@ -128,13 +128,14 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         "Unit Value",
       ];
 
-      // Single source of truth — see src/utils/countItemValue.ts.
-      // forceLiveData=false → exports honor snapshots so historical CSVs match the saved count.
-      // For multi-config items (≥2 legs), pass legs[] so per-leg snapshots drive the parent total.
-      const computeLineValue = (ci: any, item: any, legs?: ExportLegRow[]) => {
+      // Parent valuation flows through useLegsValuation — multi-config items
+      // (≥2 legs) get the leg-aware path; single-config falls through to the
+      // canonical parent-row math. Same function used by Review / Session /
+      // period summary so totals always agree.
+      const computeLineValue = (ci: any, item: any) => {
         const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-        return calculateCountItemValue(
-          ci,
+        return getItemValueWithLegs(
+          { ...ci, id: ci.id },
           {
             brand_item_id: item?.brand_item_id,
             cost_per_unit: item?.cost_per_unit,
@@ -147,10 +148,10 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             recipe_yield_unit: item?.recipe_yield_unit,
           },
           conversion || null,
-          false,
-          legs && legs.length >= 2 ? legs : undefined
+          { forceLiveData: false },
         );
       };
+
 
       // Sort parents first (storage → name), then emit per-leg detail lines under each parent.
       const sortedItems = [...exportItems].sort((a: any, b: any) => {
