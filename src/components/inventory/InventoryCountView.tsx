@@ -463,7 +463,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                       const cfgById = new Map(cfgs.map(c => [c.pack_config_id, c]));
                                       // Enriched per-leg payloads (default-leg cost derived from
                                       // commonUnitCost so each sub-row prices with its own cfg).
-                                      const enrichedAll = buildLegsForValuation(item, legRows) ?? [];
+                                      const enrichedAll = buildLegsForValuation(bid, item.item as any, legRows, legsConfigsMap) ?? [];
                                       const enrichedByCfg = new Map<string, any>();
                                       legRows.forEach((lr, idx) => {
                                         if (enrichedAll[idx]) enrichedByCfg.set(lr.pack_config_id, enrichedAll[idx]);
