@@ -116,6 +116,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     reason: isEditing ? "edit_mode" : "active_count",
   });
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
+  const [showEditNotice, setShowEditNotice] = useState(isEditing);
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
   const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string; innerPacks?: string }>>({});
   // panCounts: itemId -> { panKey -> count of that pan }
