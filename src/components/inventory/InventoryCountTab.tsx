@@ -390,18 +390,43 @@ export default function InventoryCountTab({
                 {loadMore}
               </div>
               <div className="md:col-span-7">
-                {desktopSelected ? (
-                  <div className="rounded-2xl border border-border bg-card p-3 [&>div>.bg-card]:!border-0 [&>div>.bg-card]:!shadow-none [&>div>.bg-card]:!bg-transparent [&>div>.bg-card]:!rounded-none [&>div>.bg-card]:!p-0">
-                    {renderResumeBanner(desktopSelected)}
-                    <PeriodDetailPanel
-                      count={desktopSelected}
-                      locationId={locationId}
-                      onDeleteCount={!desktopSelected._isUpcoming ? onDeleteCount : undefined}
-                      onCreateCountForPeriod={onCreateCountForPeriod}
-                      onStartDailyCount={onStartDailyCount}
-                    />
-                  </div>
-                ) : (
+                {desktopSelected ? (() => {
+                  const effEnd = getEffectivePeriodEndDate(desktopSelected) || desktopSelected.period_end_date;
+                  const endD = new Date(effEnd + "T12:00:00");
+                  const isMonthly = desktopSelected.period_type === "monthly";
+                  const headerLabel = isMonthly
+                    ? `${format(endD, "MMMM yyyy")} · Month`
+                    : `Week ending ${format(endD, "MMM d, yyyy")}`;
+                  const cogsPct: number | null = desktopSelected._stats?.cogsPct ?? null;
+                  const cogsTone =
+                    cogsPct == null ? "text-muted-foreground"
+                    : cogsPct >= 65 ? "text-red-600"
+                    : cogsPct >= 60 ? "text-amber-600"
+                    : "text-emerald-600";
+                  return (
+                    <div className="rounded-2xl border border-border bg-card p-3 [&>div>.bg-card]:!border-0 [&>div>.bg-card]:!shadow-none [&>div>.bg-card]:!bg-transparent [&>div>.bg-card]:!rounded-none [&>div>.bg-card]:!p-0">
+                      <div className="flex items-center justify-between gap-3 px-1 pt-1 pb-2 mb-1 border-b border-border">
+                        <div className="text-sm font-bold truncate">{headerLabel}</div>
+                        {cogsPct != null && (
+                          <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">COGS</span>
+                            <span className={`text-base font-bold tabular-nums ${cogsTone}`}>
+                              {cogsPct.toFixed(1)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {renderResumeBanner(desktopSelected)}
+                      <PeriodDetailPanel
+                        count={desktopSelected}
+                        locationId={locationId}
+                        onDeleteCount={!desktopSelected._isUpcoming ? onDeleteCount : undefined}
+                        onCreateCountForPeriod={onCreateCountForPeriod}
+                        onStartDailyCount={onStartDailyCount}
+                      />
+                    </div>
+                  );
+                })() : (
                   <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
                     Select a period to see its breakdown.
                   </div>
