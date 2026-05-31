@@ -670,24 +670,31 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             </div>
 
 
-            <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
-              <FormulaRow label="Beginning Inventory" value={cogsData.beginValue} />
-              
-              {/* Expandable Purchases row */}
-              <button 
-                className="flex items-center justify-between w-full group"
-                onClick={() => setShowPurchases(!showPurchases)}
+            <div className="mt-2 p-3 rounded-xl bg-muted/40 space-y-2">
+              {/* Beginning — badge row, taps through to review */}
+              <button
+                onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border hover:bg-muted/60 active:scale-[0.99] transition-all"
               >
-                <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">+ Purchases</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium">${Math.round(cogsData.purchasesTotal).toLocaleString()}</span>
-                  <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showPurchases ? "rotate-180" : ""}`} />
-                </div>
+                <span className="text-sm text-foreground">Beginning Inventory</span>
+                <span className="text-sm font-semibold tabular-nums">${Math.round(cogsData.beginValue).toLocaleString()}</span>
               </button>
-              
+
+              {/* Purchases — badge row, expands inline list */}
+              <button
+                onClick={() => setShowPurchases(!showPurchases)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border hover:bg-muted/60 active:scale-[0.99] transition-all"
+              >
+                <span className="text-sm text-foreground">+ Purchases</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold tabular-nums">${Math.round(cogsData.purchasesTotal).toLocaleString()}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showPurchases ? "rotate-180" : ""}`} />
+                </span>
+              </button>
+
               {/* Inline purchases list */}
               {showPurchases && (
-                <div className="pl-3 border-l-2 border-border/60 ml-1 space-y-2 pt-1.5 pb-1">
+                <div className="pl-3 border-l-2 border-border/60 ml-1 space-y-2 pt-1 pb-1">
                   {cogsData.purchases && cogsData.purchases.length > 0 ? (
                     <>
                       {cogsData.purchases.map((po: any, i: number) => (
@@ -778,12 +785,21 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               {transferTotals.transfersOut > 0 && (
                 <FormulaRow label="− Transfers Out" value={transferTotals.transfersOut} />
               )}
-              <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
-              <div className="border-t border-border/60 pt-1.5 mt-1.5">
-                <FormulaRow 
-                  label="= Cost of Goods Sold" 
-                  value={cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut} 
-                  bold 
+
+              {/* Ending — badge row, taps through to review */}
+              <button
+                onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border hover:bg-muted/60 active:scale-[0.99] transition-all"
+              >
+                <span className="text-sm text-foreground">− Ending Inventory</span>
+                <span className="text-sm font-semibold tabular-nums">${Math.round(cogsData.endValue).toLocaleString()}</span>
+              </button>
+
+              <div className="border-t border-border/60 pt-2 mt-1">
+                <FormulaRow
+                  label="= Cost of Goods Sold"
+                  value={cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut}
+                  bold
                 />
               </div>
               <div className="flex items-center justify-between pt-1">
@@ -791,6 +807,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 <span className="text-sm font-medium">${Math.round(cogsData.netSales).toLocaleString()}</span>
               </div>
             </div>
+
 
             {count.period_type === "weekly" && (
               <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
