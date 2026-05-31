@@ -737,14 +737,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
       if (configs.length < 2) continue;
       if (isEditing) {
-        // Fix: baseline must mirror getItemTotalIncludingLegs() exactly. That
-        // function uses ITEM-LEVEL pack/inner resolvers (resolveItemPackQty /
-        // resolveInnerPackQtyForTotal) for the default-leg portion (via
-        // getTotalQuantity → base), and CFG multipliers only for non-default
-        // legs (extra). Using cfg multipliers for the default leg drifts
-        // whenever the brand-approved cfg's count_units_per_case/inner_qty
-        // differs from the item's resolved pack/inner — which is exactly the
-        // phantom 28.5→26 case.
+        // Multi-config totals must use the SAME per-leg math as the stored leg
+        // rows and the write RPC: cases × cfg.count_units_per_case +
+        // inner_packs × cfg.inner_qty + units. The default leg cannot reuse the
+        // generic item/lens resolver because items like Baby Spinach expose a
+        // bag lane only through the default pack-config (inner_qty=2.5), not
+        // item.inner_pack_quantity. Reusing item-level math is what rendered 26
+        // on reopen instead of the true 28.5.
         const itemPackQty = resolveItemPackQty(item);
         const itemInnerQty = resolveInnerPackQtyForTotal(item) ?? 0;
         let baseline = 0;
@@ -754,13 +753,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const c = Number(leg.entered_cases ?? 0) || 0;
           const u = Number(leg.entered_units ?? 0) || 0;
           const ip = Number(leg.entered_inner_packs ?? 0) || 0;
-          if (cfg.is_default) {
-            baseline += c * itemPackQty + ip * itemInnerQty + u;
-          } else {
-            const cu = Number(cfg.count_units_per_case ?? 0) || 0;
-            const ipq = Number(cfg.inner_qty ?? 0) || 0;
-            baseline += c * cu + ip * ipq + u;
-          }
+          const cu = Number(cfg.count_units_per_case ?? 0) || 0;
+          const ipq = Number(cfg.inner_qty ?? 0) || 0;
+          baseline += c * cu + ip * ipq + u;
         }
         // Pan portion: init effect already stamped originals[splitKey] =
         // parent-row base + pan units. Re-derive parent-row base the same way
@@ -956,10 +951,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (legsEnabledForLocation !== true || !bid) return base;
     const cfgs = legsConfigsMap?.get(bid) ?? [];
     if (cfgs.length < 2) return base;
-    let extra = 0;
+    const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(splitKey, item.pan_sizes) : 0;
+    let total = panUnits;
     for (const cfg of cfgs) {
-      if (cfg.is_default) continue;
-      const legKey = `${splitKey}::leg::${cfg.pack_config_id}`;
+      const legKey = cfg.is_default ? splitKey : `${splitKey}::leg::${cfg.pack_config_id}`;
       const rawCases = parseFloat(rawInputs[legKey]?.cases ?? '');
       const rawUnits = parseFloat(rawInputs[legKey]?.units ?? '');
       const rawInner = parseFloat(rawInputs[legKey]?.innerPacks ?? '');
@@ -969,10 +964,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const ip = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
       const cu = Number(cfg.count_units_per_case ?? 0);
       const ipq = Number(cfg.inner_qty ?? 0);
-      extra += c * cu + ip * ipq + u;
+      total += c * cu + ip * ipq + u;
     }
-    return Math.round((base + extra) * 100) / 100;
-  }, [getTotalQuantity, legsEnabledForLocation, legsConfigsMap, counts, rawInputs]);
+    return Math.round(total * 100) / 100;
+  }, [getTotalQuantity, getPanUnitsTotal, legsEnabledForLocation, legsConfigsMap, counts, rawInputs]);
 
   // Calculate cost for a single item (supports recipe cost trickle-down)
   // key param allows split-count items to be identified by splitKey
@@ -1380,7 +1375,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
     
     return edits;
-  }, [isEditing, items, getItemTotalIncludingLegs, counts, panCounts]);
+  }, [isEditing, items, getItemTotalIncludingLegs, counts, panCounts, resolveItemPackQty, resolveInnerPackQtyForTotal, legsEnabledForLocation, legsConfigsMap]);
 
   // Handle save for edit mode
   const handleSaveEdits = () => {
