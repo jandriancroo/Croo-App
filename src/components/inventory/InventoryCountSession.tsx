@@ -1162,6 +1162,72 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const CONCURRENCY = 6;
         const runEdit = async (edit: PendingEdit) => {
           let countItemId = edit.countItemId;
+
+          // Leg-aware branch (Fix B, 2026-05-31): for multi-config items,
+          // route through save_count_item_with_legs so parent.quantity /
+          // entered_* mirror SUM(legs) and the default leg's split, instead
+          // of clobbering the parent with the aggregate UI roll-up (root
+          // cause of the Baby Spinach 37.5-vs-27.5 drift). Single-config
+          // items keep the today path. Edit Mode never freezes, so we pass
+          // freeze=false — the original-submit cost snapshot stays intact
+          // (snapshot-wins contract).
+          const itemsNow = itemsRef.current || [];
+          const countsNow = countsRef.current || {};
+          const legsMapNow = legsConfigsMapRef.current;
+          const itemRow = itemsNow.find(
+            (i) =>
+              i.item_id === edit.itemId &&
+              (i.storage_location_id ?? null) === (edit.storageLocationId ?? null),
+          );
+          const bid = (itemRow as any)?.brand_item_id;
+          const cfgs = (legsEnabledRef.current === true && bid)
+            ? (legsMapNow?.get(bid) ?? [])
+            : [];
+          const isMultiConfig = cfgs.length >= 2;
+
+          if (isMultiConfig && countItemId) {
+            const splitKey = (itemRow as any)?._splitKey || edit.itemId!;
+            const legsPayload = cfgs.map((cfg: any) => {
+              const legKey = cfg.is_default ? splitKey : `${splitKey}::leg::${cfg.pack_config_id}`;
+              const s = countsNow[legKey] || { cases: 0, units: 0, innerPacks: 0 };
+              const cu = Number(cfg.count_units_per_case ?? 0);
+              const ipq = Number(cfg.inner_qty ?? 0);
+              const qc =
+                (Number(s.cases) || 0) * cu +
+                (Number(s.innerPacks) || 0) * ipq +
+                (Number(s.units) || 0);
+              return {
+                pack_config_id: cfg.pack_config_id,
+                is_default: !!cfg.is_default,
+                entered_cases: Number(s.cases) || 0,
+                entered_inner_packs: Number(s.innerPacks) || 0,
+                entered_units: Number(s.units) || 0,
+                quantity_common: qc,
+                pack_quantity_at_count: cu > 0 ? cu : null,
+                inner_pack_quantity_at_count: (ipq > 0 && ipq !== cu) ? ipq : null,
+                // cost_at_count omitted — RPC freeze=false ignores it anyway,
+                // and original-submit cost snapshot is preserved.
+                common_unit_at_count: (cfg as any).common_unit ?? null,
+              };
+            });
+            const { error: rpcErr } = await (supabase as any).rpc('save_count_item_with_legs', {
+              p_count_item_id: countItemId,
+              p_legs: legsPayload,
+              p_freeze_snapshots: false,
+              p_rollup_blocked: false,
+            });
+            if (rpcErr) throw rpcErr;
+            await supabase.from("inventory_count_edits").insert({
+              count_item_id: countItemId,
+              edited_by: user?.id,
+              previous_quantity: edit.previousQuantity,
+              new_quantity: edit.newQuantity,
+              reason: reason || null,
+            });
+            return;
+          }
+
+          // Single-config path (unchanged): direct parent UPDATE.
           // Build the full payload so the row mirrors what an autosave would
           // have written. Without this, only `quantity` updates and the entered
           // split / snapshots stay stale — which is what caused "no changes to
