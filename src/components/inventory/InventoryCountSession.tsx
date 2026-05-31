@@ -946,11 +946,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // changes after submit) would make the session total disagree with
     // Review/COGS. Once the user edits the row, the live recompute path
     // below takes over so pending changes are reflected immediately.
+    //
+    // CARVE-OUT (pan-baseline auto-heal, 2026-05): recipe items with
+    // pan_sizes.enabled bypass the snapshot path so quantity is recomputed
+    // from live panCounts × current pan_sizes.baseline_units. Pan baseline
+    // is a STRUCTURAL conversion ("1 sixth pan = 37 oz"), not a price — a
+    // baseline correction should heal the row on reopen, not stay frozen.
+    // Cost snapshot (cost_at_count) remains frozen via the live recipe
+    // batchCost branch reading the current recipe cost; only the quantity
+    // term is rebuilt. The next autosave persists the corrected quantity.
+    const isPannedRecipe =
+      (item as any).is_recipe === true && (item as any).pan_sizes?.enabled === true;
     if (
       isEditing &&
       (item as any)._countItemId &&
       ((item as any)._costAtCount != null || (item as any)._packQuantityAtCount != null) &&
-      !rawInputs[(item as any)._splitKey || item.item_id]
+      !rawInputs[(item as any)._splitKey || item.item_id] &&
+      !isPannedRecipe
     ) {
       const conv = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
       return getItemValueWithLegs(
