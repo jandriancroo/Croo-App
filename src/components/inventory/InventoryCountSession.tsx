@@ -1601,6 +1601,37 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       const runUpdate = async (upd: typeof toUpdate[number]) => {
         try {
+          // Fix B (2026-05-31): multi-config items are owned by pass 2b
+          // (legs RPC). Skip pass 2a's direct parent UPDATE for them — the
+          // RPC rewrites parent.quantity = SUM(legs) and default-leg
+          // entered_*. Without this skip, 2a wrote the aggregate roll-up
+          // (e.g. 37.5) that 2b then had to correct; if 2b failed, the
+          // parent drifted from its legs.
+          const itemsNow = itemsRef.current || [];
+          const legsMapNow = legsConfigsMapRef.current;
+          const keyForMulti = findKeyForUpd(upd.id);
+          const itRow = keyForMulti
+            ? itemsNow.find(
+                (i) =>
+                  i.item_id === keyForMulti.item_id &&
+                  (i.storage_location_id ?? null) === (keyForMulti.storage_location_id ?? null),
+              )
+            : undefined;
+          const bidMulti = (itRow as any)?.brand_item_id;
+          const isMulti = legsEnabledRef.current === true && bidMulti
+            && ((legsMapNow?.get(bidMulti)?.length ?? 0) >= 2);
+          if (isMulti) {
+            // Mark fingerprint saved so dirty-tracking doesn't keep retrying
+            // 2a; 2b is authoritative for this row's parent state.
+            if (keyForMulti) {
+              const k = `${keyForMulti.item_id}|${keyForMulti.storage_location_id || ''}`;
+              lastSavedQuantitiesRef.current.set(k, `${upd.quantity}|${upd.entered_cases}|${upd.entered_units}|${upd.entered_inner_packs}`);
+              failedItemsRef.current.delete(k);
+            }
+            saved++;
+            return;
+          }
+
           const { error } = await supabase
             .from("inventory_count_items")
             .update({ quantity: upd.quantity, entered_cases: upd.entered_cases, entered_units: upd.entered_units, entered_inner_packs: upd.entered_inner_packs, pan_inputs: (upd as any).pan_inputs ?? null } as any)
