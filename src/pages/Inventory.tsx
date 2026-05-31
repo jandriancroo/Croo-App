@@ -212,9 +212,100 @@ const Inventory = () => {
         }
       }
 
+      // ─── Enrich with purchasesTotal + cogsPct for list-row preview ──────
+      // Lightweight 4-query bulk: pfg/pa/vendor_invoices by delivery_date and
+      // sales_cache by sale_date scoped to the earliest period start. Bucket
+      // into each count by [period_start, period_end] window. This is a
+      // glanceable preview — the expanded PeriodDetailPanel still owns the
+      // authoritative value (uses inventory_order_assignments junction).
+      const periodWindow = (c: any): { start: string; end: string } | null => {
+        const end = c.period_end_date as string | null;
+        if (!end) return null;
+        if (c.period_start_date) return { start: c.period_start_date, end };
+        if (c.period_type === "weekly") {
+          const d = new Date(end + "T12:00:00");
+          d.setDate(d.getDate() - 6);
+          return { start: d.toISOString().slice(0, 10), end };
+        }
+        if (c.period_type === "monthly") {
+          return { start: end.slice(0, 7) + "-01", end };
+        }
+        return null;
+      };
+
+      const completedWithWindow = data
+        .filter(c => (c.status === "completed" || c.status === "in_progress") && periodWindow(c))
+        .map(c => ({ c, win: periodWindow(c)! }));
+
+      const enrichMap: Record<string, { purchasesTotal: number; cogsPct: number | null }> = {};
+
+      if (completedWithWindow.length > 0) {
+        const earliestStart = completedWithWindow.reduce(
+          (min, x) => (x.win.start < min ? x.win.start : min),
+          completedWithWindow[0].win.start,
+        );
+        const latestEnd = completedWithWindow.reduce(
+          (max, x) => (x.win.end > max ? x.win.end : max),
+          completedWithWindow[0].win.end,
+        );
+
+        const [pfgRes, paRes, invRes, salesRes] = await Promise.all([
+          supabase.from("pfg_orders").select("delivery_date,total_amount").eq("location_id", locationId).gte("delivery_date", earliestStart).lte("delivery_date", latestEnd),
+          supabase.from("pa_orders").select("delivery_date,total_amount").eq("location_id", locationId).gte("delivery_date", earliestStart).lte("delivery_date", latestEnd),
+          supabase.from("vendor_invoices").select("delivery_date,total_amount").eq("location_id", locationId).gte("delivery_date", earliestStart).lte("delivery_date", latestEnd),
+          supabase.from("sales_cache").select("sale_date,net_sales").eq("location_id", locationId).gte("sale_date", earliestStart).lte("sale_date", latestEnd),
+        ]);
+
+        const allOrders: { delivery_date: string | null; total_amount: number | null }[] = [
+          ...((pfgRes.data as any[]) || []),
+          ...((paRes.data as any[]) || []),
+          ...((invRes.data as any[]) || []),
+        ];
+        const salesRows = (salesRes.data as any[]) || [];
+
+        // Previous same-type completed count's totalCost = this count's beginning.
+        const sortedByType = (type: string) =>
+          completedWithWindow
+            .filter(x => x.c.period_type === type && x.c.status === "completed")
+            .sort((a, b) => (a.win.end > b.win.end ? 1 : -1));
+        const prevEndingMap: Record<string, number> = {};
+        for (const type of ["weekly", "monthly", "yearly"]) {
+          const chain = sortedByType(type);
+          for (let i = 1; i < chain.length; i++) {
+            const prev = chain[i - 1];
+            const cur = chain[i];
+            prevEndingMap[cur.c.id] = statsMap[prev.c.id]?.totalCost ?? 0;
+          }
+        }
+
+        for (const { c, win } of completedWithWindow) {
+          const purchasesTotal = allOrders.reduce((s, o) => {
+            if (!o.delivery_date) return s;
+            if (o.delivery_date < win.start || o.delivery_date > win.end) return s;
+            return s + (Number(o.total_amount) || 0);
+          }, 0);
+          const netSales = salesRows.reduce((s, r) => {
+            if (!r.sale_date) return s;
+            if (r.sale_date < win.start || r.sale_date > win.end) return s;
+            return s + (Number(r.net_sales) || 0);
+          }, 0);
+          const beginValue = prevEndingMap[c.id] ?? 0;
+          const ending = statsMap[c.id]?.totalCost ?? 0;
+          const cogsTotal = beginValue + purchasesTotal - ending;
+          const cogsPct = netSales > 0 ? (cogsTotal / netSales) * 100 : null;
+          enrichMap[c.id] = { purchasesTotal, cogsPct };
+        }
+      }
 
       // Ensure all counts have stats even if no count items yet
-      return data.map(c => ({ ...c, _stats: statsMap[c.id] || { totalItems: 0, countedItems: 0, totalCost: 0 } }));
+      return data.map(c => ({
+        ...c,
+        _stats: {
+          ...(statsMap[c.id] || { totalItems: 0, countedItems: 0, totalCost: 0 }),
+          purchasesTotal: enrichMap[c.id]?.purchasesTotal ?? null,
+          cogsPct: enrichMap[c.id]?.cogsPct ?? null,
+        },
+      }));
     },
     enabled: !!locationId
   });
