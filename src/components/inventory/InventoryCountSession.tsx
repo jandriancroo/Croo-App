@@ -2627,6 +2627,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                           </button>
                         )}
                         <input
@@ -2645,6 +2646,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                           </button>
                         )}
                       </div>
@@ -2720,6 +2722,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
                                           <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
                                       <input
@@ -2734,6 +2737,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
                                           <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
                                     </div>
@@ -2746,6 +2750,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
                                           <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
                                       <input
@@ -2760,6 +2765,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
                                           <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
                                     </div>
@@ -2772,6 +2778,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
                                           <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
                                       <input
@@ -2786,6 +2793,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
                                           <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                         </button>
                                       )}
                                     </div>
@@ -2814,6 +2822,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                           </button>
                         )}
                         <input
@@ -2832,6 +2841,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                           </button>
                         )}
                       </div>
@@ -2855,6 +2865,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onClick={() => updateInnerPacks(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                           </button>
                         )}
                         <input
@@ -2873,6 +2884,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onClick={() => updateInnerPacks(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                           </button>
                         )}
                       </div>
@@ -2894,6 +2906,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onClick={() => updateUnits(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                           </button>
                         )}
                         <input
@@ -2912,6 +2925,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onClick={() => updateUnits(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                           </button>
                         )}
                       </div>
@@ -2946,6 +2960,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                     onClick={() => updatePanCount(splitKey, panKey, -0.5)}
                                   >
                                     <Minus className="h-3 w-3" />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                   </button>
                                 )}
                                 <input
