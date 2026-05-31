@@ -1552,8 +1552,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       </Card>
       </>}
 
-      {/* Deactivated Brand Items Section */}
-      {deactivatedBrandItems && deactivatedBrandItems.length > 0 && (
+      {/* Deactivated Brand Items Section — only shown in Items tab, not in Settings */}
+      {mode === "items" && deactivatedBrandItems && deactivatedBrandItems.length > 0 && (
         <div className="border border-red-200 dark:border-red-900/40 rounded-lg overflow-hidden mt-4">
           <button
             className="w-full flex items-center gap-2 px-3 py-2.5 bg-red-50/60 dark:bg-red-950/20 hover:bg-red-100/60 dark:hover:bg-red-950/30 transition-colors text-left"
