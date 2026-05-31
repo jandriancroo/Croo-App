@@ -2363,73 +2363,64 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               style={{ width: `${totalItems > 0 ? (countedItems / totalItems) * 100 : 0}%` }}
             />
           </div>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">Items:</span>
-                <span className="font-semibold">{countedItems}<span className="text-muted-foreground font-normal">/{totalItems}</span></span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="text-xs text-muted-foreground">Items:</span>
+                <span className="font-semibold text-sm">{countedItems}<span className="text-muted-foreground font-normal">/{totalItems}</span></span>
               </div>
-              <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-4">
+              <div className="h-5 w-px bg-border" />
+              <div className="flex items-center gap-1 whitespace-nowrap">
                 <DollarSign className="h-4 w-4 text-primary" />
-                <span className="font-semibold text-primary">{formatCurrency(totalCost)}</span>
+                <span className="font-semibold text-primary text-sm">{formatCurrency(totalCost)}</span>
               </div>
-              <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-4">
+              <div className="h-5 w-px bg-border" />
+              <div className="flex items-center gap-1 whitespace-nowrap">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="font-semibold font-mono">{Math.floor(elapsedSeconds / 60)} min</span>
+                <span className="font-semibold font-mono text-sm">{Math.floor(elapsedSeconds / 60)} min</span>
               </div>
               {!isViewOnly && (
                 <>
-                  <div className="h-6 w-px bg-border" />
-                  <InventorySyncPill />
-                </>
-              )}
-              {isSupported && !isEditing && (
-                <>
-                  <div className="h-6 w-px bg-border" />
-                  <Button
-                    variant={isListening ? "destructive" : "outline"}
-                    size="sm"
-                    onClick={toggleListening}
-                    className="gap-2"
-                  >
-                    {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                    {isListening ? "Stop Voice" : "Voice Input"}
-                  </Button>
+                  <div className="h-5 w-px bg-border" />
+                  <div className="shrink-0"><InventorySyncPill /></div>
                 </>
               )}
               {isEditing && (
                 <>
-                  <div className="h-6 w-px bg-border" />
-                  <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
+                  <div className="h-5 w-px bg-border" />
+                  <div className="flex items-center gap-1.5 text-amber-600 text-xs font-medium whitespace-nowrap">
                     <History className="h-4 w-4" />
-                    <span>Editing - changes tracked</span>
+                    <span>Editing</span>
                   </div>
                 </>
               )}
             </div>
-            <div className="flex items-center gap-4">
-              <Button 
-                onClick={isEditing ? handleSaveEdits : () => onClose()} 
+            <div className="flex items-center gap-2 shrink-0">
+              {isSupported && !isEditing && (
+                <Button
+                  variant={isListening ? "destructive" : "outline"}
+                  size="icon"
+                  onClick={toggleListening}
+                  title={isListening ? "Stop Voice" : "Voice Input"}
+                  aria-label={isListening ? "Stop Voice" : "Voice Input"}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              )}
+              <Button
+                onClick={isEditing ? handleSaveEdits : () => onClose()}
                 disabled={isEditing ? saveEditMutation.isPending : isSaving}
                 variant={isEditing ? "default" : "outline"}
+                size="icon"
+                title={isEditing ? "Save Changes" : "Save & Exit"}
+                aria-label={isEditing ? "Save Changes" : "Save & Exit"}
                 className={isEditing ? "bg-amber-600 hover:bg-amber-700" : ""}
               >
-                {isEditing ? (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    {saveEditMutation.isPending ? "Saving..." : "Save Changes"}
-                  </>
-                ) : (
-                  <>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Save & Exit
-                  </>
-                )}
+                {isEditing ? <Save className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
               </Button>
             </div>
           </div>
+
         </div>
       )}
 
