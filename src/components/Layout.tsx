@@ -1225,7 +1225,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   );
                   if (pairItems.length === 0) return null;
                   return (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                       {pairItems.map(item => {
                         const Icon = item.icon;
                         const isActive = location.pathname === item.path;
