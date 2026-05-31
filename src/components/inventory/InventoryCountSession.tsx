@@ -2819,7 +2819,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             <div
                               key={lane.kind}
                               className={cn(
-                                "flex flex-col items-center gap-2.5 py-3 px-1",
+                                "flex flex-col items-center gap-1.5 py-2 px-1",
                                 i < active.length - 1 && "border-r border-border/60"
                               )}
                             >
@@ -2836,7 +2836,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 className="w-full text-center font-bold leading-none tabular-nums bg-transparent outline-none"
                               style={{ fontSize: 40, minHeight: 0 }}
                               />
-                              {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-2.5")}
+                              {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-4")}
                             </div>
                           ))}
                         </div>
@@ -2861,7 +2861,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <div
                             key={panKey}
                             className={cn(
-                              "flex flex-col items-center gap-2.5 py-3 px-1",
+                              "flex flex-col items-center gap-1.5 py-2 px-1",
                               !last && "border-r border-border/60"
                             )}
                           >
@@ -2997,7 +2997,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         return (
                           <div
                             key={`B-${slot}`}
-                            className="flex flex-col items-center gap-2.5 py-3 border-b border-border/60"
+                            className="flex flex-col items-center gap-1.5 py-2 border-b border-border/60"
                           >
                             <input
                               type="text"
@@ -3009,7 +3009,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               className="w-full text-center font-bold leading-none tabular-nums bg-transparent outline-none"
                               style={{ fontSize: 40, minHeight: 0 }}
                             />
-                            {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-2.5")}
+                            {renderBtns(lane, "h-[42px] w-[42px]", "h-[18px] w-[18px]", "gap-4")}
                           </div>
                         );
                       })}
@@ -3053,7 +3053,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       if (!panKey) return <div key={`D-${slot}`} className="border-b border-border/60" />;
                       const panQty = panCounts[splitKey]?.[panKey] || 0;
                       return (
-                        <div key={`D-${slot}`} className="flex flex-col items-center gap-2.5 py-3 border-b border-border/60">
+                        <div key={`D-${slot}`} className="flex flex-col items-center gap-1.5 py-2 border-b border-border/60">
                           <input
                             type="text"
                             inputMode="decimal"
