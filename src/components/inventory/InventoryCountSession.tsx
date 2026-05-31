@@ -2754,9 +2754,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               {/* Item header: name + subtitle + value badge */}
               <div className="flex items-start justify-between gap-3 px-3.5 py-3 sm:px-5 sm:py-4 border-b border-border/60">
                 <div className="flex items-start gap-3 min-w-0 flex-1">
-                  {item.image_url && (
-                    <img src={item.image_url} alt={item.item_name} className="w-10 h-10 sm:w-12 sm:h-12 rounded object-cover flex-shrink-0" />
-                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-[15px] sm:text-base font-bold text-foreground truncate leading-tight">{item.item_name}</p>
                     {headerSubtitle && (
