@@ -1330,8 +1330,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${displaySettingsOpen ? 'rotate-180' : ''}`} />
                   </Button>
                   {displaySettingsOpen && (
-                    <div className="px-3 pb-3 pt-1 space-y-2 border-t">
-                      <div className="flex items-center gap-2">
+                    <div className="px-2 pb-2 pt-1 space-y-2 border-t">
+                      <div className="flex items-center gap-2 pl-4 pr-2 h-8">
                         <Palette className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">Theme</span>
                         <Select value={theme} onValueChange={handleThemeChange}>
