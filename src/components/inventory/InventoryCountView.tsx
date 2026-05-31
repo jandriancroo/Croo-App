@@ -551,6 +551,71 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                         {formatCurrency(value)}
                                       </TableCell>
                                     </TableRow>
+                                    {(() => {
+                                      const legRows = legsByCountItemId?.get(item.id) ?? [];
+                                      if (legRows.length < 2) return null;
+                                      const bid = item.item?.brand_item_id;
+                                      const cfgs = bid ? (legsConfigsMap?.get(bid) ?? []) : [];
+                                      const cfgById = new Map(cfgs.map(c => [c.pack_config_id, c]));
+                                      const ordered = [...legRows].sort((a, b) => {
+                                        const ca = cfgById.get(a.pack_config_id);
+                                        const cb = cfgById.get(b.pack_config_id);
+                                        const ad = ca?.is_default ? 0 : 1;
+                                        const bd = cb?.is_default ? 0 : 1;
+                                        if (ad !== bd) return ad - bd;
+                                        return (ca?.label ?? "").localeCompare(cb?.label ?? "");
+                                      });
+                                      return ordered.map((leg) => {
+                                        const cfg = cfgById.get(leg.pack_config_id);
+                                        const label = cfg?.label
+                                          || (cfg?.outer_qty != null && cfg?.inner_qty != null
+                                                ? `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit ?? ""}`.trim()
+                                                : (leg.pack_quantity_at_count != null ? `${leg.pack_quantity_at_count} ${cfg?.common_unit ?? ""}`.trim() : "leg"));
+                                        const legValue = calculateCountItemValue(
+                                          {
+                                            quantity: null,
+                                            entered_cases: leg.entered_cases,
+                                            entered_units: leg.entered_units,
+                                            entered_inner_packs: leg.entered_inner_packs,
+                                            cost_at_count: null,
+                                            pack_quantity_at_count: null,
+                                            inner_pack_quantity_at_count: null,
+                                          } as any,
+                                          {
+                                            brand_item_id: item.item?.brand_item_id,
+                                            cost_per_unit: item.item?.cost_per_unit,
+                                            pack_quantity: item.item?.pack_quantity,
+                                            pack_quantity_override: (item.item as any)?.pack_quantity_override,
+                                            inner_pack_quantity: item.item?.inner_pack_quantity,
+                                            is_recipe: (item.item as any)?.is_recipe === true,
+                                            unit: item.item?.unit,
+                                          } as any,
+                                          null,
+                                          false,
+                                          [{
+                                            entered_cases: leg.entered_cases,
+                                            entered_units: leg.entered_units,
+                                            entered_inner_packs: leg.entered_inner_packs,
+                                            quantity_common: leg.quantity_common,
+                                            pack_quantity_at_count: leg.pack_quantity_at_count,
+                                            inner_pack_quantity_at_count: leg.inner_pack_quantity_at_count,
+                                            cost_at_count: leg.cost_at_count,
+                                          }],
+                                        );
+                                        const entered: string[] = [];
+                                        if ((leg.entered_cases ?? 0) > 0) entered.push(`${leg.entered_cases} cs`);
+                                        if ((leg.entered_inner_packs ?? 0) > 0) entered.push(`${leg.entered_inner_packs} pk`);
+                                        if ((leg.entered_units ?? 0) > 0) entered.push(`${leg.entered_units} ea`);
+                                        return (
+                                          <TableRow key={`${item.id}::${leg.pack_config_id}`} className="bg-muted/20">
+                                            <TableCell className="pl-9 text-xs text-muted-foreground">{label}</TableCell>
+                                            <TableCell className="text-right font-mono text-xs px-1 text-muted-foreground">{entered.join(", ") || "—"}</TableCell>
+                                            <TableCell className="text-right font-mono text-xs px-1 text-muted-foreground">{leg.quantity_common ?? 0}</TableCell>
+                                            <TableCell className="text-right pr-4 font-mono text-xs text-muted-foreground">{formatCurrency(legValue)}</TableCell>
+                                          </TableRow>
+                                        );
+                                      });
+                                    })()}
                                     {hasEdits && (
                                       <CollapsibleContent asChild>
                                         <TableRow className="bg-muted/30">
