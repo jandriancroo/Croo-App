@@ -206,11 +206,25 @@ export function computeCountLanes({
     (lensInnerType ?? "").trim() ||
     "pack";
   // The inner sublabel denominates "how many atomic units sit inside one
-  // inner pack." item.unit is the item's case-level label (often "cs"),
-  // which produces nonsense like "(50 cs/pack)". Use a stable "units" token
-  // (or recipe's own unit) instead.
+  // inner pack." When we know the common unit (e.g. lb) AND the inner noun
+  // (e.g. bag), render the richer "(3 lb/bag)" form. Fall back to "(3/pk)"
+  // when those hints are missing.
+  const commonUnitToken = (() => {
+    const u = (((lens as any)?.common_unit ?? item.unit) ?? "").trim();
+    if (!u) return null;
+    const lc = u.toLowerCase();
+    if (lc === "ea" || lc === "each" || lc === "unit" || lc === "units" || lc === "cs" || lc === "case" || lc === "cases" || lc === "ct" || lc === "count") return null;
+    return lc;
+  })();
+  const innerNounToken = (() => {
+    const n = (innerNounSingular || "").trim().toLowerCase();
+    if (!n || n === "pack") return "pk";
+    return n;
+  })();
   const innerSubLabel = showInnerPacks
-    ? `(${innerPackQty}/pk)`
+    ? commonUnitToken
+      ? `(${innerPackQty} ${commonUnitToken}/${innerNounToken})`
+      : `(${innerPackQty}/${innerNounToken})`
     : null;
 
   return {
