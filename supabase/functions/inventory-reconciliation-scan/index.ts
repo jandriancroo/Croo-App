@@ -343,6 +343,42 @@ serve(async (req) => {
       }
     }
 
+    // ========================================
+    // PHASE 3: Legs orphan guard
+    // FK enforces ON DELETE CASCADE, so this should always be zero. If
+    // anything shows up, surface loudly — do NOT silently drop.
+    // ========================================
+    let finalOrphans: { id: string; count_item_id: string }[] = [];
+    try {
+      const { data: allLegs } = await admin
+        .from("inventory_count_item_legs")
+        .select("id, count_item_id");
+      const uniqueParents = Array.from(new Set((allLegs || []).map((l: any) => l.count_item_id)));
+      const aliveSet = new Set<string>();
+      const BATCH = 500;
+      for (let i = 0; i < uniqueParents.length; i += BATCH) {
+        const batch = uniqueParents.slice(i, i + BATCH);
+        const { data: alive } = await admin
+          .from("inventory_count_items")
+          .select("id")
+          .in("id", batch);
+        for (const r of alive || []) aliveSet.add(r.id);
+      }
+      finalOrphans = (allLegs || []).filter((l: any) => !aliveSet.has(l.count_item_id));
+    } catch (orphanScanErr: any) {
+      report.errors.push(`Legs orphan scan failed: ${orphanScanErr?.message || orphanScanErr}`);
+    }
+
+    if (finalOrphans.length > 0) {
+      report.phase3_legs_audit.orphan_legs_found = finalOrphans.length;
+      report.phase3_legs_audit.orphan_leg_ids = finalOrphans.slice(0, 50).map(o => o.id);
+      const msg = `ORPHAN LEGS DETECTED: ${finalOrphans.length} legs reference missing parent rows. First 50 ids stored in report.phase3_legs_audit.orphan_leg_ids.`;
+      report.errors.push(msg);
+      console.error(`[Reconciliation] ${msg}`, finalOrphans.slice(0, 20));
+    } else {
+      console.log("[Reconciliation] Legs orphan guard: clean (0 orphans).");
+    }
+
     console.log("[Reconciliation] Complete:", JSON.stringify(report));
 
     return new Response(JSON.stringify({ success: true, report }), {
