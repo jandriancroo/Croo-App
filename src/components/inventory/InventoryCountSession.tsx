@@ -2433,13 +2433,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         </div>
       )}
 
-      {/* Edit mode indicator */}
-      {isEditing && (
-        <div className="flex items-center gap-2 text-amber-600 text-sm font-medium bg-amber-500/10 rounded-lg px-3 py-2">
-          <History className="h-4 w-4" />
-          <span>Editing completed count - changes will be tracked</span>
-        </div>
-      )}
+      {/* Edit mode notice — shown once on entry as a dialog */}
+      <Dialog open={showEditNotice} onOpenChange={setShowEditNotice}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <History className="h-5 w-5" />
+              Editing a completed count
+            </DialogTitle>
+            <DialogDescription>
+              Any changes you make will be tracked and added to the audit trail.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setShowEditNotice(false)}>Got it</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Progress bar with percentage */}
       {!isViewOnly && (
