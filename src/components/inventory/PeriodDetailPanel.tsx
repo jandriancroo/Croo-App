@@ -416,29 +416,38 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         itemMap.set(i.id, i);
       }
 
+      // Leg-aware valuation shared with Session / Review / Export / Inventory summary.
+      // One context fetch covers both begin + end counts. When legs are off at this
+      // location the helper returns empty maps and getItemValueWithLegs cleanly falls
+      // through to the canonical parent-row path (no regression).
+      const { fetchLegsValuationContext, makeGetItemValueWithLegs } = await import("@/hooks/useLegsValuation");
+      const periodCountIds = [beginCount?.id, count.id].filter(Boolean) as string[];
+      const legsCtx = await fetchLegsValuationContext({ locationId, countIds: periodCountIds });
+      const getItemValueWithLegs = makeGetItemValueWithLegs(legsCtx);
+
       // Single source of truth — see src/utils/countItemValue.ts
       // forceLiveData=false → honor snapshot fields (cost_at_count, pack_quantity_at_count)
       // saved at submit time. Historical counts must read what was stored, not recompute
-      // with today's mutated live pack_quantity values.
+      // with today's mutated live pack_quantity values. Recipes bypass legs (never
+      // multi-config) and stay on calculateCountItemValue directly.
       const getCountItemLineValue = (ci: any) => {
         const item = itemMap.get(ci.item_id);
         const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-        return calculateCountItemValue(
-          ci,
-          item ? {
-            brand_item_id: item.brand_item_id,
-            cost_per_unit: item.cost_per_unit,
-            pack_quantity: item.pack_quantity,
-            pack_quantity_override: item.pack_quantity_override,
-            inner_pack_quantity: item.inner_pack_quantity,
-            is_recipe: item.is_recipe === true,
-            unit: item.unit,
-            recipe_yield_qty: item.recipe_yield_qty,
-            recipe_yield_unit: item.recipe_yield_unit,
-          } : undefined,
-          conversion || null,
-          false
-        );
+        const itemForValue = item ? {
+          brand_item_id: item.brand_item_id,
+          cost_per_unit: item.cost_per_unit,
+          pack_quantity: item.pack_quantity,
+          pack_quantity_override: item.pack_quantity_override,
+          inner_pack_quantity: item.inner_pack_quantity,
+          is_recipe: item.is_recipe === true,
+          unit: item.unit,
+          recipe_yield_qty: item.recipe_yield_qty,
+          recipe_yield_unit: item.recipe_yield_unit,
+        } : undefined;
+        if (item?.is_recipe === true) {
+          return calculateCountItemValue(ci, itemForValue, conversion || null, false);
+        }
+        return getItemValueWithLegs(ci, itemForValue, conversion || null, { forceLiveData: false });
       };
 
       const getLivePerUnitCost = (itemId: string) => {

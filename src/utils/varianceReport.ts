@@ -133,27 +133,40 @@ export async function calculateVarianceReport(
     return itemActual.get(itemId)!;
   };
 
+  // Leg-aware valuation shared with Session / Review / Export / Inventory
+  // summary / PeriodDetailPanel / COGSReport. One context fetch covers both
+  // begin + end counts. When legs are off at this location the helper returns
+  // empty maps and getItemValueWithLegs cleanly falls through to the
+  // canonical parent-row path (no regression).
+  const { fetchLegsValuationContext, makeGetItemValueWithLegs } = await import("@/hooks/useLegsValuation");
+  const legsCtx = await fetchLegsValuationContext({
+    locationId,
+    countIds: [beginningCountId, endingCountId].filter(Boolean) as string[],
+  });
+  const getItemValueWithLegs = makeGetItemValueWithLegs(legsCtx);
+
   // Single source of truth — see src/utils/countItemValue.ts
   // PHASE 1: forceLiveData=true. Standard contract: full item shape + Pipeline 1 conversion.
+  // Recipes bypass legs (never multi-config) and stay on calculateCountItemValue directly;
+  // non-recipes route through getItemValueWithLegs for leg awareness.
   const getCountItemLineValue = (ci: any) => {
     const item: any = itemMap.get(ci.item_id);
     const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
-    return calculateCountItemValue(
-      ci,
-      item ? {
-        brand_item_id: item.brand_item_id,
-        cost_per_unit: item.cost_per_unit,
-        pack_quantity: item.pack_quantity,
-        pack_quantity_override: item.pack_quantity_override,
-        inner_pack_quantity: item.inner_pack_quantity,
-        is_recipe: item.is_recipe === true,
-        unit: item.unit,
-        recipe_yield_qty: item.recipe_yield_qty,
-        recipe_yield_unit: item.recipe_yield_unit,
-      } : undefined,
-      conversion || null,
-      true
-    );
+    const itemForValue = item ? {
+      brand_item_id: item.brand_item_id,
+      cost_per_unit: item.cost_per_unit,
+      pack_quantity: item.pack_quantity,
+      pack_quantity_override: item.pack_quantity_override,
+      inner_pack_quantity: item.inner_pack_quantity,
+      is_recipe: item.is_recipe === true,
+      unit: item.unit,
+      recipe_yield_qty: item.recipe_yield_qty,
+      recipe_yield_unit: item.recipe_yield_unit,
+    } : undefined;
+    if (item?.is_recipe === true) {
+      return calculateCountItemValue(ci, itemForValue, conversion || null, true);
+    }
+    return getItemValueWithLegs(ci, itemForValue, conversion || null, { forceLiveData: true });
   };
 
   const getItemCategory = (itemId: string) => {
