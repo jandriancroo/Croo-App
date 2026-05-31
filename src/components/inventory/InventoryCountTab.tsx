@@ -345,6 +345,47 @@ export default function InventoryCountTab({
                 </button>
               </div>
             )}
+
+            {/* Active period detail panel — rendered OUTSIDE the list to avoid double-card nesting */}
+            <AnimatePresence mode="wait">
+              {(() => {
+                const active = filteredCounts[safeIdx];
+                if (!active || active.status === "upcoming") return null;
+                return (
+                  <motion.div
+                    key={active.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                  >
+                    {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && active.id === inProgressWithStats.id && (
+                      <div className="mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                          </div>
+                          <span className="text-sm font-semibold">
+                            {inProgressWithStats._stats.countedItems} of {inProgressWithStats._stats.totalItems} items counted
+                          </span>
+                        </div>
+                        <Button size="sm" onClick={() => navigate(`/inventory/${locationId}/count/${inProgressWithStats.id}?continue=true`)}>
+                          Resume <ArrowRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    )}
+                    <PeriodDetailPanel
+                      count={active}
+                      locationId={locationId}
+                      onDeleteCount={!active._isUpcoming ? onDeleteCount : undefined}
+                      onCreateCountForPeriod={onCreateCountForPeriod}
+                      onStartDailyCount={onStartDailyCount}
+                    />
+                  </motion.div>
+                );
+              })()}
+            </AnimatePresence>
           </div>
         );
       })()}
