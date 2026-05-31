@@ -755,8 +755,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const u = Number(leg.entered_units ?? 0) || 0;
           const ip = Number(leg.entered_inner_packs ?? 0) || 0;
           if (cfg.is_default) {
-            // Default leg shares the bare splitKey input and is computed by
-            // getTotalQuantity with item-level resolvers.
             baseline += c * itemPackQty + ip * itemInnerQty + u;
           } else {
             const cu = Number(cfg.count_units_per_case ?? 0) || 0;
@@ -764,22 +762,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             baseline += c * cu + ip * ipq + u;
           }
         }
-        // Add pan units (mirrors getTotalQuantity's pan contribution).
-        const panMap = (initialPanCounts as any)?.[splitKey] ?? null;
-        // initialPanCounts isn't in scope here; read from current panCounts
-        // state via the ref-free fallback — pan hydration already happened in
-        // the main init effect, so originalCounts.current[splitKey] (set there)
-        // captured the pan portion. Carry it forward instead of recomputing.
+        // Pan portion: init effect already stamped originals[splitKey] =
+        // parent-row base + pan units. Re-derive parent-row base the same way
+        // the init effect did (item-level multipliers × parent entered_*), then
+        // pan = priorBaseline − parentBase. This preserves pan without needing
+        // panCounts in the closure.
+        const parentCases = Number((item as any)._existingCases ?? 0) || 0;
+        const parentUnits = Number((item as any)._existingUnits ?? 0) || 0;
+        const parentInner = Number((item as any)._existingInnerPacks ?? 0) || 0;
+        const parentBase =
+          parentCases * itemPackQty + parentInner * itemInnerQty + parentUnits;
         const priorBaseline = originalCounts.current[splitKey] ?? 0;
-        // priorBaseline = parent-row base (with possibly drifted pack qty) + pan.
-        // We replace the parent-row base with the legs-derived base above, but
-        // need to preserve the pan portion. Estimate pan = priorBaseline minus
-        // the parent-row base would require re-deriving — simpler: recompute
-        // pan directly from panCounts state below.
-        void panMap;
-        void priorBaseline;
-        legBaselineOverrides[splitKey] = Math.round(baseline * 100) / 100;
+        const panPortion = Math.max(0, priorBaseline - parentBase);
+        legBaselineOverrides[splitKey] =
+          Math.round((baseline + panPortion) * 100) / 100;
       }
+      // Default-leg override: for multi-leg items, the legs table is the source
       // of truth for BOTH the default-leg stepper (bare splitKey) and non-default
       // leg keys. The parent row's entered_cases/units may have drifted from a
       // prior bad save, so hydrate the default-leg stepper from the default leg
