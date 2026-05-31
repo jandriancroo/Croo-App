@@ -2544,13 +2544,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             <div 
               key={splitKey}
               className={cn(
-                "bg-card rounded-md border border-border overflow-hidden flex relative transition-all duration-300",
+                "bg-card border-y border-border overflow-hidden flex relative transition-all duration-300 -mx-3 sm:mx-0 sm:rounded-md sm:border",
                 isHighlighted && "ring-2 ring-green-500 ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-green-500/20",
                 isErrorHighlighted && "ring-2 ring-destructive ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-destructive/20 animate-pulse"
               )}
             >
-              {/* Left accent bar (Vault) */}
-              <div className="w-1 bg-primary flex-shrink-0" />
 
               {/* Value badge — pinned to top-right corner */}
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
@@ -2573,7 +2571,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.item_name}</p>
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-nowrap overflow-x-auto scrollbar-none">
                         <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                           {item.pack_size || item.unit || 'ea'}
                         </span>
