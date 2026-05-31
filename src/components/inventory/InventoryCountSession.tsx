@@ -2619,7 +2619,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate text-center">
                         Count ({item.unit || 'ea'})
                       </p>
-                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
@@ -2637,7 +2637,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleCasesInput(splitKey, e.target.value)}
                           onBlur={() => handleCasesBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0 px-2"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                         />
                         {!isViewOnly && (
                           <button
@@ -2718,7 +2718,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 {legLanes.showCases && (
                                   <div>
                                     <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">Cases</p>
-                                    <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
                                           <Minus className="h-4 w-4" strokeWidth={2} />
@@ -2732,7 +2732,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         onChange={(e) => handleCasesInput(legKeyUi, e.target.value)}
                                         onBlur={() => handleCasesBlur(legKeyUi)}
                                         disabled={isViewOnly}
-                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0 px-2"
+                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                                       />
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
@@ -2746,7 +2746,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 {legLanes.showInnerPacks && (
                                   <div>
                                     <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">{legLanes.innerLabel}</p>
-                                    <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
                                           <Minus className="h-4 w-4" strokeWidth={2} />
@@ -2760,7 +2760,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         onChange={(e) => handleInnerPacksInput(legKeyUi, e.target.value)}
                                         onBlur={() => handleInnerPacksBlur(legKeyUi)}
                                         disabled={isViewOnly}
-                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0 px-2"
+                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                                       />
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
@@ -2774,7 +2774,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 {legLanes.showUnits && (
                                   <div>
                                     <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">{legLanes.unitsLabel}</p>
-                                    <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
                                           <Minus className="h-4 w-4" strokeWidth={2} />
@@ -2788,7 +2788,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         onChange={(e) => handleUnitsInput(legKeyUi, e.target.value)}
                                         onBlur={() => handleUnitsBlur(legKeyUi)}
                                         disabled={isViewOnly}
-                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0 px-2"
+                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                                       />
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
@@ -2814,7 +2814,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
                         Cases
                       </p>
-                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
@@ -2832,7 +2832,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleCasesInput(splitKey, e.target.value)}
                           onBlur={() => handleCasesBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0 px-2"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                         />
                         {!isViewOnly && (
                           <button
@@ -2857,7 +2857,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <span className="ml-1 normal-case tracking-normal">{lanes.innerSubLabel}</span>
                         )}
                       </p>
-                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
@@ -2875,7 +2875,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleInnerPacksInput(splitKey, e.target.value)}
                           onBlur={() => handleInnerPacksBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0 px-2"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                         />
                         {!isViewOnly && (
                           <button
@@ -2898,7 +2898,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         Units
                         <span className="ml-1 normal-case tracking-normal">(individual)</span>
                       </p>
-                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
@@ -2916,7 +2916,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleUnitsInput(splitKey, e.target.value)}
                           onBlur={() => handleUnitsBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0 px-2"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
                         />
                         {!isViewOnly && (
                           <button
