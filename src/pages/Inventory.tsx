@@ -129,7 +129,7 @@ const Inventory = () => {
       for (let from = 0; ; from += PAGE_SIZE) {
         const { data: page, error: pageErr } = await supabase
           .from("inventory_count_items")
-          .select("count_id, item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs")
+          .select("id, count_id, item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs")
           .in("count_id", countIds)
           .order("count_id")
           .range(from, from + PAGE_SIZE - 1);
