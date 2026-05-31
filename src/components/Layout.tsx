@@ -1382,27 +1382,17 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   </Button>
                 )}
 
-                {/* Update App + Sign Out row */}
-                <div className="grid grid-cols-1 gap-2">
-                  <Button variant="outline" onClick={() => {
-                    setMenuOpen(false);
-                    const prevVersion = getCurrentAppVersion();
-                    sessionStorage.setItem('pre_update_version', prevVersion);
-                    toast.info('Updating app...');
-                    setTimeout(() => window.location.reload(), 500);
-                  }} className="justify-start gap-2 h-9 px-3">
-                    <RefreshCw className="h-4 w-4" />
-                    <span className="text-sm">Update</span>
-                  </Button>
-
-                  <Button variant="outline" onClick={() => {
-                    signOut();
-                    setMenuOpen(false);
-                  }} data-allow-during-count="logout" className="justify-start gap-2 h-9 px-3 text-destructive hover:text-destructive">
-                    <DoorOpen className="h-4 w-4" />
-                    <span className="text-sm">Sign Out</span>
-                  </Button>
-                </div>
+                {/* Update App */}
+                <Button variant="outline" onClick={() => {
+                  setMenuOpen(false);
+                  const prevVersion = getCurrentAppVersion();
+                  sessionStorage.setItem('pre_update_version', prevVersion);
+                  toast.info('Updating app...');
+                  setTimeout(() => window.location.reload(), 500);
+                }} className="justify-start gap-2 h-9 px-3">
+                  <RefreshCw className="h-4 w-4" />
+                  <span className="text-sm">Update</span>
+                </Button>
               </div>
             </SheetContent>
           </Sheet>
