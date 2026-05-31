@@ -2477,7 +2477,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             <div className="text-center flex-1 min-w-0">
               <p className="font-semibold text-sm text-primary-foreground truncate">{itemsByLocation[currentLocation]?.name}</p>
               <p className="text-xs text-primary-foreground/60">
-                Page {currentLocationIndex + 1}/{locationKeys.length} · {currentItems.length} items · {formatCurrency(currentItems.reduce((sum, i) => sum + getItemCost(i), 0))}
+                {currentItems.length} items · {formatCurrency(currentItems.reduce((sum, i) => sum + getItemCost(i), 0))}
               </p>
             </div>
             <button
@@ -2488,13 +2488,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
-          {/* Progress bar */}
-          <div className="mt-2 h-1.5 w-full bg-primary-foreground/15 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary-foreground rounded-full transition-all duration-300"
-              style={{ width: `${totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0}%` }}
-            />
-          </div>
+          {/* Page indicator */}
+          <p className="mt-1 text-center text-[11px] font-medium text-primary-foreground/60 tabular-nums">
+            Page {currentLocationIndex + 1} / {locationKeys.length}
+          </p>
         </div>
       )}
 
