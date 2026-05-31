@@ -2477,7 +2477,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             <div className="text-center flex-1 min-w-0">
               <p className="font-semibold text-sm text-primary-foreground truncate">{itemsByLocation[currentLocation]?.name}</p>
               <p className="text-xs text-primary-foreground/60">
-                {currentLocationIndex + 1} of {locationKeys.length} · {formatCurrency(currentItems.reduce((sum, i) => sum + getItemCost(i), 0))}
+                Page {currentLocationIndex + 1}/{locationKeys.length} · {currentItems.length} items · {formatCurrency(currentItems.reduce((sum, i) => sum + getItemCost(i), 0))}
               </p>
             </div>
             <button
