@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { calculateCountItemValue } from "@/utils/countItemValue";
+import { useLegsValuation } from "@/hooks/useLegsValuation";
 import { getEffectivePackQty, isLensValid } from "@/utils/getEffectivePackQty";
 import { computeCountLanes } from "@/utils/computeCountLanes";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
