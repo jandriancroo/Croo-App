@@ -68,6 +68,9 @@ interface CountItem {
   image_url: string | null;
   pan_sizes: PanSizesConfig | null;
   is_recipe: boolean;
+  /** Recipe yield fields — passed through to canonical valuator so Count matches Review/COGS. */
+  recipe_yield_qty?: number | null;
+  recipe_yield_unit?: string | null;
   /** Per-shortcut counting mode: inherit uses global settings */
   count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
 }
