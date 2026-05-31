@@ -40,7 +40,7 @@ export default function InventoryCountTab({
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(6);
-  const tabsRef = useRef<HTMLDivElement>(null);
+  // tabsRef removed — old horizontal tab strip replaced by Design D divider list.
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const { pendingIncoming } = useInventoryTransfers(locationId);
 
