@@ -70,104 +70,18 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   });
   const { conversionMap } = useBrandConversions(brandId);
 
-  // Step 3: legs-aware read path. Gate matches Session — when off, both
-  // follow-up queries are disabled and the view renders byte-identically.
-  const { data: legsEnabledForLocation } = useQuery({
-    queryKey: ["location-legs-enabled-view", locationId],
-    enabled: !!locationId,
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("locations" as any)
-        .select("legs_enabled")
-        .eq("id", locationId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as any)?.legs_enabled === true;
-    },
-  });
+  // Step 3: legs-aware read path. All three queries + the leg→value math
+  // live in the shared useLegsValuation hook — see src/hooks/useLegsValuation.ts.
+  // When the location's legs_enabled flag is off, the hook returns empty maps
+  // and getItemValueWithLegs falls through to the canonical parent-row path,
+  // so this view renders byte-identically.
+  const {
+    legsEnabled: legsEnabledForLocation,
+    legsByCountItemId,
+    legsConfigsByBrandItemId: legsConfigsMap,
+    getItemValueWithLegs,
+  } = useLegsValuation(countId, locationId);
 
-  // Selected pack configs for this location, keyed by brand_template_id.
-  // Used only to render leg labels. Math comes from per-leg snapshots.
-  const { data: legsConfigsMap } = useQuery({
-    queryKey: ["legs-configs-map-view", locationId, legsEnabledForLocation],
-    enabled: !!locationId && legsEnabledForLocation === true,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("location_pack_selections" as any)
-        .select("brand_template_id, is_default, brand_pack_configs!inner(id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, status)")
-        .eq("location_id", locationId);
-      if (error) throw error;
-      const map = new Map<string, Array<{ pack_config_id: string; is_default: boolean; label: string | null; outer_qty: number | null; outer_type: string | null; inner_qty: number | null; inner_type: string | null; common_unit: string | null; count_units_per_case: number | null }>>();
-      for (const row of (data as any[]) || []) {
-        const bpc = row?.brand_pack_configs;
-        if (!row?.brand_template_id || !bpc) continue;
-        if (bpc.status && bpc.status !== "approved") continue;
-        const list = map.get(row.brand_template_id) ?? [];
-        list.push({
-          pack_config_id: bpc.id,
-          is_default: !!row.is_default,
-          label: bpc.label ?? null,
-          outer_qty: bpc.outer_qty ?? null,
-          outer_type: bpc.outer_type ?? null,
-          inner_qty: bpc.inner_qty ?? null,
-          inner_type: bpc.inner_type ?? null,
-          common_unit: bpc.common_unit ?? null,
-          count_units_per_case: bpc.count_units_per_case ?? null,
-        });
-        map.set(row.brand_template_id, list);
-      }
-      for (const [k, list] of map) {
-        list.sort((a, b) => (a.is_default !== b.is_default) ? (a.is_default ? -1 : 1) : (a.label ?? "").localeCompare(b.label ?? ""));
-        map.set(k, list);
-      }
-      return map;
-    },
-  });
-
-  // Legs stamped on this count. Snapshot fields drive valuation via
-  // calculateCountItemValue(legs[]).
-  type LegRow = {
-    pack_config_id: string;
-    entered_cases: number | null;
-    entered_inner_packs: number | null;
-    entered_units: number | null;
-    quantity_common: number | null;
-    pack_quantity_at_count: number | null;
-    inner_pack_quantity_at_count: number | null;
-    cost_at_count: number | null;
-  };
-  const { data: legsByCountItemId } = useQuery({
-    queryKey: ["legs-by-count-item-view", countId, legsEnabledForLocation],
-    enabled: !!countId && legsEnabledForLocation === true,
-    staleTime: 0,
-    gcTime: 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_count_item_legs" as any)
-        .select("count_item_id, pack_config_id, entered_cases, entered_inner_packs, entered_units, quantity_common, pack_quantity_at_count, inner_pack_quantity_at_count, cost_at_count, inventory_count_items!inner(count_id)")
-        .eq("inventory_count_items.count_id", countId);
-      if (error) throw error;
-      const map = new Map<string, LegRow[]>();
-      for (const row of (data as any[]) || []) {
-        if (!row?.count_item_id) continue;
-        const list = map.get(row.count_item_id) ?? [];
-        list.push({
-          pack_config_id: row.pack_config_id,
-          entered_cases: row.entered_cases,
-          entered_inner_packs: row.entered_inner_packs,
-          entered_units: row.entered_units,
-          quantity_common: row.quantity_common,
-          pack_quantity_at_count: row.pack_quantity_at_count,
-          inner_pack_quantity_at_count: row.inner_pack_quantity_at_count,
-          cost_at_count: row.cost_at_count,
-        });
-        map.set(row.count_item_id, list);
-      }
-      return map;
-    },
-  });
 
   // Fetch storage locations in order
   const { data: storageLocations } = useQuery({
