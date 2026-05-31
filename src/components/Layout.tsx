@@ -1153,7 +1153,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
 
                 {/* Time + Users row (2 columns) */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {mobileTimeItems.length > 0 && (
                     <Button 
                       variant="outline" 
