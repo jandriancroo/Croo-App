@@ -107,14 +107,16 @@ function Lane({ label, sub }: { label: string; sub?: string }) {
 function FakeStepper() {
   return (
     <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20 opacity-70 select-none">
-      <div className="h-9 w-9 flex items-center justify-center text-muted-foreground border-r border-inherit flex-shrink-0">
+      <div className="relative h-9 w-9 flex items-center justify-center text-muted-foreground flex-shrink-0">
         <Minus className="h-4 w-4" strokeWidth={2} />
+        <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
       </div>
       <div className="flex-1 text-center text-xl font-bold text-muted-foreground tabular-nums bg-transparent w-0">
         0
       </div>
-      <div className="h-9 w-9 flex items-center justify-center text-muted-foreground border-l border-inherit flex-shrink-0">
+      <div className="relative h-9 w-9 flex items-center justify-center text-muted-foreground flex-shrink-0">
         <Plus className="h-4 w-4" strokeWidth={2} />
+        <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
       </div>
     </div>
   );
