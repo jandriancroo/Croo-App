@@ -162,9 +162,18 @@ const Inventory = () => {
       }
 
       const { calculateCountItemValue } = await import("@/utils/countItemValue");
+      const { fetchLegsValuationContext, makeGetItemValueWithLegs } = await import("@/hooks/useLegsValuation");
+
+      // Leg context shared with Review / Session / Export — one fetch covers
+      // every count in the summary. When legs are off at this location the
+      // helper returns empty maps and getItemValueWithLegs cleanly falls
+      // through to the canonical parent-row path (no regression).
+      const legsCtx = await fetchLegsValuationContext({ locationId: locationId!, countIds });
+      const getItemValueWithLegs = makeGetItemValueWithLegs(legsCtx);
 
       // Aggregate stats per count using the canonical valuation calculator so
-      // inner-pack items value identically to PeriodDetailPanel / COGSReport.
+      // inner-pack items value identically to PeriodDetailPanel / COGSReport,
+      // and multi-config items value identically to the Review screen.
       const statsMap: Record<string, { totalItems: number; countedItems: number; totalCost: number }> = {};
       for (const ci of (countItems || [])) {
         if (!statsMap[ci.count_id]) statsMap[ci.count_id] = { totalItems: 0, countedItems: 0, totalCost: 0 };
@@ -175,22 +184,34 @@ const Inventory = () => {
           const batchCost = recipeCostMap?.get(ci.item_id);
           // For recipes, override the live cost_per_unit with the freshly
           // computed batch cost (from fetchRecipeCosts) but let the canonical
-          // calculator handle the yield-qty division so quantity counted in
-          // yield units (e.g. qt) doesn't get multiplied by full batch cost.
+          // calculator handle the yield-qty division.
           const itemForValue = item ? {
             ...item,
             cost_per_unit: recipeIds.has(ci.item_id) && batchCost && batchCost > 0
               ? batchCost
               : item.cost_per_unit,
           } : item;
-          statsMap[ci.count_id].totalCost += calculateCountItemValue(
-            ci as any,
-            itemForValue,
-            null,
-            recipeIds.has(ci.item_id) && batchCost && batchCost > 0 ? true : false
-          );
+          // Recipes still flow through calculateCountItemValue directly with
+          // forceLiveData=true so the freshly-computed batch cost takes effect.
+          // Non-recipes go through getItemValueWithLegs for leg awareness.
+          if (recipeIds.has(ci.item_id) && batchCost && batchCost > 0) {
+            statsMap[ci.count_id].totalCost += calculateCountItemValue(
+              ci as any,
+              itemForValue,
+              null,
+              true,
+            );
+          } else {
+            statsMap[ci.count_id].totalCost += getItemValueWithLegs(
+              ci as any,
+              itemForValue,
+              null,
+              { forceLiveData: false },
+            );
+          }
         }
       }
+
 
       // Ensure all counts have stats even if no count items yet
       return data.map(c => ({ ...c, _stats: statsMap[c.id] || { totalItems: 0, countedItems: 0, totalCost: 0 } }));
