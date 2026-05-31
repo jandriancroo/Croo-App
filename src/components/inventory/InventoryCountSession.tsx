@@ -1353,8 +1353,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         legsEnabledForLocation === true &&
         !!brandItemId &&
         (legsConfigsMap?.get(brandItemId)?.length ?? 0) >= 2;
+      // For multi-config items, the `legBaselineOverrides` pass above already
+      // set originalCounts[key] to SUM(legs.quantity_common) — the legs table
+      // is the source of truth. Never fall back to parent.quantity (which can
+      // be stale from pre-leg-RPC writes); doing so produced phantom diffs on
+      // exit (e.g. Baby Spinach 35.5 → 23.5 with no user input).
       const hasStoredDrift =
-        isMultiConfig &&
+        !isMultiConfig &&
         Math.abs(storedQuantity - originalQuantity) > 0.01 &&
         Math.abs(newQuantity - originalQuantity) <= 0.01;
       const previousQuantity = hasStoredDrift ? storedQuantity : originalQuantity;
