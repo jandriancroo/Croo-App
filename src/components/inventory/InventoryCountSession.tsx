@@ -737,19 +737,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
       if (configs.length < 2) continue;
       if (isEditing) {
-        // Fix: baseline must match the value the user SEES in the splitKey input,
-        // which only reflects the DEFAULT leg's entered_* (see additions[k] below
-        // for cfg.is_default). Using SUM(legs.quantity_common) produces phantom
-        // diffs because non-default legs contribute to the sum but not to the
-        // displayed value for splitKey.
-        const defaultCfg = configs.find(c => c.is_default);
-        if (defaultCfg) {
-          const defaultLeg = legsHydrationMap.get(`${countItemId}|${defaultCfg.pack_config_id}`);
-          if (defaultLeg) {
-            legBaselineOverrides[splitKey] =
-              Math.round((Number(defaultLeg.quantity_common ?? 0) || 0) * 100) / 100;
-          }
+        // Fix: baseline must mirror getItemTotalIncludingLegs() exactly — it
+        // recomputes the total from each leg's entered_* × the CURRENT cfg
+        // multipliers (count_units_per_case, inner_qty) across ALL legs. Using
+        // SUM(legs.quantity_common) drifts when a leg's stored quantity_common
+        // doesn't match its entered_* × current cfg (stale snapshot, lens change,
+        // or prior bad save). Using only the default leg drops non-default leg
+        // contributions that the displayed total includes.
+        let baseline = 0;
+        for (const cfg of configs) {
+          const leg = legsHydrationMap.get(`${countItemId}|${cfg.pack_config_id}`);
+          if (!leg) continue;
+          const c = Number(leg.entered_cases ?? 0) || 0;
+          const u = Number(leg.entered_units ?? 0) || 0;
+          const ip = Number(leg.entered_inner_packs ?? 0) || 0;
+          const cu = Number(cfg.count_units_per_case ?? 0) || 0;
+          const ipq = Number(cfg.inner_qty ?? 0) || 0;
+          baseline += c * cu + ip * ipq + u;
         }
+        legBaselineOverrides[splitKey] = Math.round(baseline * 100) / 100;
       }
       // Default-leg override: for multi-leg items, the legs table is the source
       // of truth for BOTH the default-leg stepper (bare splitKey) and non-default
