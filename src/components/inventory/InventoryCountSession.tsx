@@ -2758,7 +2758,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     <img src={item.image_url} alt={item.item_name} className="w-10 h-10 sm:w-12 sm:h-12 rounded object-cover flex-shrink-0" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-[15px] sm:text-base font-medium text-foreground truncate leading-tight">{item.item_name}</p>
+                    <p className="text-[15px] sm:text-base font-bold text-foreground truncate leading-tight">{item.item_name}</p>
                     {headerSubtitle && (
                       <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">{headerSubtitle}</p>
                     )}
