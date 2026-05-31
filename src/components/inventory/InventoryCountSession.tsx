@@ -1065,14 +1065,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             const ip = isNaN(rInner) ? (committedLeg.innerPacks ?? 0) : Math.max(0, rInner);
             const cu = Number(cfg.count_units_per_case ?? 0);
             const ipq = Number(cfg.inner_qty ?? 0);
-            const qc = c * cu + ip * ipq + u;
+            // qc = total common units for this leg. Pans live on the parent /
+            // default leg only — fold them in so pan-counted inventory is valued.
+            let qc = c * cu + ip * ipq + u;
+            if (cfg.is_default) qc += panUnits;
+            // Pass quantity=qc + entered_cases only. zero out entered_units /
+            // entered_inner_packs so calculateCountItemValue doesn't double-count
+            // via the fallback path. Skip inner_pack_quantity_at_count to avoid
+            // the caseUnits = pack × inner inflation bug on legs whose "inner"
+            // lane is the de-facto case lane (outer_qty=1 multi-config items).
+            // Math reduces cleanly to qc × commonUnitCost per leg.
             return {
               entered_cases: c,
-              entered_units: u,
-              entered_inner_packs: ip,
+              entered_units: 0,
+              entered_inner_packs: 0,
               quantity_common: qc,
               pack_quantity_at_count: cu > 0 ? cu : null,
-              inner_pack_quantity_at_count: ipq > 0 ? ipq : null,
+              inner_pack_quantity_at_count: null,
               cost_at_count: cu > 0 ? cu * commonUnitCost : null,
             };
           });
@@ -1653,7 +1662,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 entered_units: Number(s.units) || 0,
                 quantity_common: qc,
                 pack_quantity_at_count: cu > 0 ? cu : null,
-                inner_pack_quantity_at_count: ipq > 0 ? ipq : null,
+                // Skip inner snapshot when inner_qty == count_units_per_case
+                // (the "inner" lane IS the case for outer_qty=1 multi-configs).
+                // Storing both would inflate caseUnits on reload-time valuation.
+                inner_pack_quantity_at_count: (ipq > 0 && ipq !== cu) ? ipq : null,
                 cost_at_count: (commonUnitCost != null && cu > 0) ? cu * commonUnitCost : null,
                 common_unit_at_count: (cfg as any).common_unit ?? null,
               };
