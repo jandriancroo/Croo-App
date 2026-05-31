@@ -2463,29 +2463,38 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         </div>
       )}
 
-      {/* Location navigation */}
+      {/* Location navigation — sticky with progress indicator */}
       {locationKeys.length > 1 && (
-        <div className="flex items-center justify-between bg-primary text-primary-foreground rounded-md px-2 py-3">
-          <button
-            className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
-            onClick={() => setCurrentLocationIndex(Math.max(0, currentLocationIndex - 1))}
-            disabled={currentLocationIndex === 0}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <div className="text-center">
-            <p className="font-semibold text-sm text-primary-foreground">{itemsByLocation[currentLocation]?.name}</p>
-            <p className="text-xs text-primary-foreground/60">
-              {currentLocationIndex + 1} of {locationKeys.length}
-            </p>
+        <div className="sticky top-[calc(env(safe-area-inset-top)+3.25rem+0.5rem)] z-20 mt-2 bg-primary text-primary-foreground rounded-md px-2 py-3 shadow-md overflow-hidden">
+          <div className="flex items-center justify-between">
+            <button
+              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
+              onClick={() => setCurrentLocationIndex(Math.max(0, currentLocationIndex - 1))}
+              disabled={currentLocationIndex === 0}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div className="text-center flex-1 min-w-0">
+              <p className="font-semibold text-sm text-primary-foreground truncate">{itemsByLocation[currentLocation]?.name}</p>
+              <p className="text-xs text-primary-foreground/60">
+                {currentLocationIndex + 1} of {locationKeys.length} · {countedItems}/{totalItems} counted
+              </p>
+            </div>
+            <button
+              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
+              onClick={() => setCurrentLocationIndex(Math.min(locationKeys.length - 1, currentLocationIndex + 1))}
+              disabled={currentLocationIndex === locationKeys.length - 1}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
           </div>
-          <button
-            className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
-            onClick={() => setCurrentLocationIndex(Math.min(locationKeys.length - 1, currentLocationIndex + 1))}
-            disabled={currentLocationIndex === locationKeys.length - 1}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+          {/* Progress bar */}
+          <div className="mt-2 h-1.5 w-full bg-primary-foreground/15 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary-foreground rounded-full transition-all duration-300"
+              style={{ width: `${totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0}%` }}
+            />
+          </div>
         </div>
       )}
 
