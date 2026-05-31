@@ -1,82 +1,55 @@
-## Goal
+# Count Screen Item Card Redesign
 
-Stand up Clover sales sync for Playa Bowls locations as a true parallel to the QU/Blaze pipeline — same shape, separate vendor, **zero risk to QU/Blaze**.
+Render-only redesign of `InventoryCountSession.tsx` item cards. No changes to save logic, RPCs, computeCountLanes, panCounts state, or any write path. Only JSX + Tailwind/inline styles in the per-item render block (~lines 2440–2900) and matching update to `CountLanesPreview.tsx` so the preview stays in parity.
 
-## Core principles
+## Files changed
 
-1. **Brand scoping is hard-enforced.** QU code paths only run for Blaze brand (`5f805404-...`). Clover code paths only run for Playa Bowls brand (`5fb4ef79-...`). No Playa location ever hits QU, no Blaze location ever hits Clover.
-2. **`sales_cache` stays untouched** (locked-feature rule #5). Clover gets its own twin table `clover_sales_cache` with the same columns and write semantics.
-3. **`labor_cache` source pattern is preserved.** When we later add Clover labor, it writes with `source = 'clover'`.
-4. **Same UI, same dashboards.** A thin routing helper picks the right cache table by brand so `Dashboard`, `SalesSummary`, `Org Dashboard`, projections, etc. don't need to know which POS produced the data.
+1. `src/components/inventory/InventoryCountSession.tsx` — replace the item-card render block (header + single-leg stepper + multi-leg legs + pan/cambro section) with new unified layout.
+2. `src/components/inventory/CountLanesPreview.tsx` — mirror the new structure in `FakeStepper`/preview rows.
+3. `src/index.css` — add 4 small utility classes (`.count-btn-down`, `.count-btn-up`, `.count-value-badge`, `.count-default-bg`) so the coral/teal/orange/mint colors are reused without scattering hex values.
 
-## What gets built
+No edits to: `computeCountLanes.ts`, state setters, `updateCount`, `updatePanCount`, save handlers, hydration logic.
 
-### 1. Database (migration)
+## Layout strategy
 
-- `clover_sales_cache` — column-for-column twin of `sales_cache`:
-  `location_id, sale_date, net_sales, guest_count, avg_ticket, hourly_data, projected_sales, validation_status, validation_attempts, flagged_no_sales, yoy_sale_date, yoy_net_sales, yoy_hourly_data, payments_data, living_projection, override_projection, override_at, override_by, initial_projection, product_mix, fetched_at, created_at`
-  (`pizza_count` dropped — not relevant; Playa equivalent can live in `product_mix`.)
-- Unique index on `(location_id, sale_date)`.
-- RLS + GRANTs identical to `sales_cache`.
-- Add `'clover'` as a valid value to `labor_cache.source` check (no schema change needed if it's a free TEXT).
+**Single source of structure**: build one `rows` array per item describing each row (`type: 'config-header' | 'config-steppers' | 'pan-header' | 'pan-steppers'` + lane cells). Render twice:
 
-### 2. Edge function `clover-sync`
+- **Mobile (`<640px`, `sm:hidden`)**: stacked card. Each config = colored header strip + `grid-cols-N` lane grid (N = active lane count, no ghost columns). Pan section = label strip + `grid-cols-N` of pan lanes.
+- **Desktop (`sm:`, `≥640px`, `hidden sm:grid`)**: one CSS grid `grid-template-columns: 180px 1fr 1fr 1fr` wrapping ALL rows so left label column and 3 lane columns stay row-synced via the grid itself (not flex). Unused lane cells render a faded `—`.
 
-Mirrors `fetch-qubeyond-sales` structurally but for Clover REST API:
+Tailwind arbitrary values used for exact spec sizes (`text-[15px]`, `min-h-[36px]`, `grid-cols-[180px_1fr_1fr_1fr]`, etc.). Colors `#e85d04`, `#E1F5EE`, `#0F6E56`, `#085041`, `#FEF3EE`, `#F5C4B3`, `#993C1D`, `#9FE1CB`, `#1D9E75` referenced via the 4 new utility classes + a couple of inline `style` props for the orange badge / default-config tinted backgrounds. Borders use `border-border` (existing semantic token mapping to `--color-border-tertiary` equivalent).
 
-- Reads credentials from `location_integrations` where `integration_type='clover'` (already saved).
-- **Brand guard at top:** resolves `location_id → organization.brand_id`, exits early unless brand = Playa Bowls.
-- Pulls per business day (PST, 10 AM cutoff — same Luxon rules as QU):
-  - `/v3/merchants/{mid}/orders` (paid, in window) → net sales, guest count, hourly buckets, line items → `product_mix`
-  - `/v3/merchants/{mid}/payments` → `payments_data` (cash/card/3PD split, tips)
-- Writes with **conditional spread merge** (`...existing, ...new`) to protect `projected_sales`, `payments_data`, `product_mix` — same rule as QU.
-- `isWithinBusinessHours` logic copied verbatim from sales-cache sync (post-midnight handling, 3 AM yesterday resync).
-- Actions: `sync_today`, `sync_yesterday`, `sync_range`, `backfill_53w` (mirrors QU surface).
+## Row structure
 
-### 3. Cron schedule
+### Header row (both viewports)
+- Item name (`text-[15px]`/`sm:text-base` font-medium) + subtitle (`text-[11px] text-muted-foreground`)
+- Value badge top-right: orange `#e85d04`, white, two-line ($value / unit count). Inline style for exact color.
 
-Two pg_cron jobs (Playa-only — function self-guards by brand):
-- Every 15 min during business hours → `sync_today` for all active Playa locations with Clover creds.
-- Daily 3 AM PST → `sync_yesterday` + maintenance.
+### Per-config rows
+- **Mobile**: `config-header` strip (default = mint bg + dark green text + "default" pill; non-default = muted bg). Then lane grid with vertical `border-r border-border/60` dividers, lane cell = label (`text-[9px] uppercase tracking-wider text-muted-foreground`) + number (`text-[32px] font-medium leading-none`) + button row (gap-3, 36×36 coral down / mint up).
+- **Desktop**: two rows per config in the parent 4-col grid — Row A (label cell with config name + default badge, lane cells with centered labels), Row B (label cell with cost/pack subtitle, lane cells with 30px number + 34×34 buttons). Default config: cells get mint bg + mint borders. Unused lane cells render `<span class="opacity-20">—</span>` (labels) and `opacity-[0.08]` (steppers).
 
-### 4. Read-side routing
+### Pan/Cambro rows
+- Only render when `item.pan_sizes?.enabled_keys?.length > 0`.
+- Mobile: `border-t` separator, label strip "PAN / CAMBRO" (muted bg, `text-[9px] uppercase`), flows directly into pan lane grid (NO border between label strip and pan column labels — pan labels live in the first pan grid row). Pan steppers: 26px number, 32×32 buttons, gap-2.5.
+- Desktop: Row C (label cell "PAN / CAMBRO" muted bg + pan-size labels in lane cells, muted bg), Row D (empty label cell + pan steppers, 26px number, 30×30 buttons, gap-2).
 
-New helper `getSalesCacheTable(brandId)` returns `'sales_cache' | 'clover_sales_cache'`. Used by:
-- `src/utils/salesCache.ts`
-- `src/hooks/useReportData.ts`, `useOrgDashboardData.ts`, `usePrefetchDashboard.tsx`
-- `Dashboard.tsx`, `BrandDashboard.tsx`, `SalesSummary.tsx`, `CompactDashboard.tsx`
-- `sales-service` edge function (`?brand=` aware)
+## Button styling (shared)
+Down: `bg-[#FEF3EE] border border-[#F5C4B3] text-[#993C1D]` rounded-md.
+Up: `bg-[#E1F5EE] border border-[#9FE1CB] text-[#0F6E56]` rounded-md.
+Mobile 36×36, desktop steppers 34×34, desktop pan 30×30, mobile pan 32×32. Icons `h-4 w-4` (ArrowDown/ArrowUp from lucide).
 
-For Org/Brand dashboards spanning both brands, queries union the two tables. The `setQueryData` "Master Writer" pattern stays intact.
+The previous "centered fade divider between +/−" pattern is **removed** — the new design has separate square buttons with gap, not a joined stepper. All `via-foreground/20` spans deleted from the touched sections.
 
-### 5. Backfill (post-validation)
+## What I will NOT touch
 
-Once the first Playa location's `sync_today` looks right, run `backfill_53w` via the maintenance queue (same pattern as Sales Backfill System memory) to populate YOY pacing.
+- `computeCountLanes.ts` (lane labels, sublabels, abbreviations stay as-is)
+- Any `setCounts` / `setPanCounts` / `updateCount` / `updatePanCount` / `handleCountInput` / save / cache code
+- Header search bar, period selector, save button, snapshot logic
+- Other inventory pages
 
-## What is NOT in this pass
+## After applying
 
-- Clover labor sync (separate follow-up; will write to `labor_cache` with `source='clover'`).
-- Clover webhooks / streaming (polling-only v1, like QU started).
-- Product-mix → inventory depletion mapping (uses existing `product_mix` pipeline once data lands).
+I'll screenshot the preview at 390px (mobile) and ~1024px (desktop) and zoom into one multi-config item (Baby Spinach style) and one single-config item (Fresh Basil style) to confirm match against your two screenshots before declaring done.
 
-## Files touched
-
-```text
-NEW  supabase/functions/clover-sync/index.ts
-NEW  migration: clover_sales_cache + RLS + grants
-EDIT supabase/functions/sales-service/index.ts        (brand-aware table selection)
-EDIT src/utils/salesCache.ts                          (table router)
-EDIT src/lib/queryKeys.ts                             (clover keys)
-EDIT dashboards + hooks listed above                  (route by brand)
-NEW  cron entries via insert tool (URL + anon key)
-```
-
-## Validation gates before going wide
-
-1. Migration applied, `clover_sales_cache` reachable via Data API.
-2. Manual `sync_today` for Wilco TX returns rows with correct net sales matching Clover dashboard.
-3. Dashboard for the Wilco TX location renders sales identically to a Blaze location.
-4. Confirm a Blaze location dashboard is unchanged (regression check).
-5. Then enable cron + backfill.
-
-Confirm and I'll start with the migration.
+Approve to apply, or tell me what to adjust.
