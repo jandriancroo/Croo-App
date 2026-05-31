@@ -231,23 +231,21 @@ export default function InventoryCountTab({
                   className="rounded-2xl p-5 text-white shadow-sm"
                   style={{ background: "#085041" }}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-200/90">
-                        Current period
-                      </div>
-                      <div className="mt-1 text-xl font-bold leading-tight">{periodLabel}</div>
-                      <div className="mt-1 text-xs text-emerald-100/80">
-                        {rangeLabel}
-                        {purchases != null && purchases > 0 && (
-                          <> · ${Math.round(purchases).toLocaleString()} purchases</>
-                        )}
-                      </div>
-                    </div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-200/90">
+                    Current period
+                  </div>
+                  <div className="mt-1 text-2xl font-bold leading-tight">{periodLabel}</div>
+                  <div className="mt-1 text-xs text-emerald-100/80">
+                    {rangeLabel}
+                    {purchases != null && purchases > 0 && (
+                      <> · ${Math.round(purchases).toLocaleString()} purchases</>
+                    )}
+                  </div>
+                  <div className="mt-4 flex justify-end">
                     <Button
                       size="sm"
                       onClick={onStartCount}
-                      className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-semibold shadow flex-shrink-0"
+                      className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-semibold shadow"
                     >
                       Start count
                     </Button>
