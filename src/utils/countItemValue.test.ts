@@ -298,16 +298,20 @@ describe('calculateCountItemValue', () => {
   });
 
   it('legs: Baby Spinach canary — 2 cs × 10 lb + 3 bags × 2.5 lb @ $1.88/lb ≈ $51.70', () => {
-    const parentCi = { quantity: null, entered_cases: null, entered_units: null, cost_at_count: 1.88, pack_quantity_at_count: null };
-    const item = { cost_per_unit: 1.88 };
+    // cost_at_count in this codebase is per-CASE (existing contract). Per spec
+    // §3.3 the underlying $/lb is shared (1.88), so each leg's per-case cost
+    // snapshot = pack_quantity × 1.88: 10lb case = $18.80, 2.5lb bag = $4.70.
+    const parentCi = { quantity: null, entered_cases: null, entered_units: null, cost_at_count: 18.80, pack_quantity_at_count: null };
+    const item = { cost_per_unit: 18.80 };
     const legs = [
-      { entered_cases: 2, entered_units: 0, quantity_common: 20, pack_quantity_at_count: 10, cost_at_count: 1.88 },
-      { entered_cases: 3, entered_units: 0, quantity_common: 7.5, pack_quantity_at_count: 2.5, cost_at_count: 1.88 },
+      { entered_cases: 2, entered_units: 0, quantity_common: 20, pack_quantity_at_count: 10, cost_at_count: 18.80 },
+      { entered_cases: 3, entered_units: 0, quantity_common: 7.5, pack_quantity_at_count: 2.5, cost_at_count: 4.70 },
     ];
     const result = calculateCountItemValue(parentCi, item, null, false, legs);
-    // 27.5 lb × $1.88 = $51.70
+    // 2 × $18.80 + 3 × $4.70 = $37.60 + $14.10 = $51.70
     expect(result).toBeCloseTo(51.70, 2);
   });
+
 
   it('legs: empty array and undefined are no-ops — falls through to parent-row valuation', () => {
     const ci = { quantity: 1020, entered_cases: 7, entered_units: 320, cost_at_count: 25.66, pack_quantity_at_count: null };
