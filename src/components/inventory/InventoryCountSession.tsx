@@ -737,13 +737,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
       if (configs.length < 2) continue;
       if (isEditing) {
-        // Fix: baseline must mirror getItemTotalIncludingLegs() exactly — it
-        // recomputes the total from each leg's entered_* × the CURRENT cfg
-        // multipliers (count_units_per_case, inner_qty) across ALL legs. Using
-        // SUM(legs.quantity_common) drifts when a leg's stored quantity_common
-        // doesn't match its entered_* × current cfg (stale snapshot, lens change,
-        // or prior bad save). Using only the default leg drops non-default leg
-        // contributions that the displayed total includes.
+        // Fix: baseline must mirror getItemTotalIncludingLegs() exactly. That
+        // function uses ITEM-LEVEL pack/inner resolvers (resolveItemPackQty /
+        // resolveInnerPackQtyForTotal) for the default-leg portion (via
+        // getTotalQuantity → base), and CFG multipliers only for non-default
+        // legs (extra). Using cfg multipliers for the default leg drifts
+        // whenever the brand-approved cfg's count_units_per_case/inner_qty
+        // differs from the item's resolved pack/inner — which is exactly the
+        // phantom 28.5→26 case.
+        const itemPackQty = resolveItemPackQty(item);
+        const itemInnerQty = resolveInnerPackQtyForTotal(item) ?? 0;
         let baseline = 0;
         for (const cfg of configs) {
           const leg = legsHydrationMap.get(`${countItemId}|${cfg.pack_config_id}`);
@@ -751,11 +754,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const c = Number(leg.entered_cases ?? 0) || 0;
           const u = Number(leg.entered_units ?? 0) || 0;
           const ip = Number(leg.entered_inner_packs ?? 0) || 0;
-          const cu = Number(cfg.count_units_per_case ?? 0) || 0;
-          const ipq = Number(cfg.inner_qty ?? 0) || 0;
-          baseline += c * cu + ip * ipq + u;
+          if (cfg.is_default) {
+            baseline += c * itemPackQty + ip * itemInnerQty + u;
+          } else {
+            const cu = Number(cfg.count_units_per_case ?? 0) || 0;
+            const ipq = Number(cfg.inner_qty ?? 0) || 0;
+            baseline += c * cu + ip * ipq + u;
+          }
         }
-        legBaselineOverrides[splitKey] = Math.round(baseline * 100) / 100;
+        // Pan portion: init effect already stamped originals[splitKey] =
+        // parent-row base + pan units. Re-derive parent-row base the same way
+        // the init effect did (item-level multipliers × parent entered_*), then
+        // pan = priorBaseline − parentBase. This preserves pan without needing
+        // panCounts in the closure.
+        const parentCases = Number((item as any)._existingCases ?? 0) || 0;
+        const parentUnits = Number((item as any)._existingUnits ?? 0) || 0;
+        const parentInner = Number((item as any)._existingInnerPacks ?? 0) || 0;
+        const parentBase =
+          parentCases * itemPackQty + parentInner * itemInnerQty + parentUnits;
+        const priorBaseline = originalCounts.current[splitKey] ?? 0;
+        const panPortion = Math.max(0, priorBaseline - parentBase);
+        legBaselineOverrides[splitKey] =
+          Math.round((baseline + panPortion) * 100) / 100;
       }
       // Default-leg override: for multi-leg items, the legs table is the source
       // of truth for BOTH the default-leg stepper (bare splitKey) and non-default
