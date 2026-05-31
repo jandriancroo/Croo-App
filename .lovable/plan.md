@@ -1,55 +1,108 @@
-# Count Screen Item Card Redesign
+# Refactor: Centralize Leg Fetching & Valuation
 
-Render-only redesign of `InventoryCountSession.tsx` item cards. No changes to save logic, RPCs, computeCountLanes, panCounts state, or any write path. Only JSX + Tailwind/inline styles in the per-item render block (~lines 2440–2900) and matching update to `CountLanesPreview.tsx` so the preview stays in parity.
+Stop duplicating leg queries + valuation across readers. One source of truth.
 
-## Files changed
+## New file: `src/hooks/useLegsValuation.ts`
 
-1. `src/components/inventory/InventoryCountSession.tsx` — replace the item-card render block (header + single-leg stepper + multi-leg legs + pan/cambro section) with new unified layout.
-2. `src/components/inventory/CountLanesPreview.tsx` — mirror the new structure in `FakeStepper`/preview rows.
-3. `src/index.css` — add 4 small utility classes (`.count-btn-down`, `.count-btn-up`, `.count-value-badge`, `.count-default-bg`) so the coral/teal/orange/mint colors are reused without scattering hex values.
+Exports both a hook (for components) and a pure utility (for non-React contexts like Inventory.tsx summary query functions and future COGS/Variance reducers).
 
-No edits to: `computeCountLanes.ts`, state setters, `updateCount`, `updatePanCount`, save handlers, hydration logic.
+### Types
 
-## Layout strategy
+```ts
+export type LegRow = {
+  id: string;
+  count_item_id: string;
+  pack_config_id: string;
+  entered_cases: number | null;
+  entered_units: number | null;
+  entered_inner_packs: number | null;
+  quantity_common: number | null;
+  cost_at_count: number | null;
+  pack_quantity_at_count: number | null;
+  inner_pack_quantity_at_count: number | null;
+};
 
-**Single source of structure**: build one `rows` array per item describing each row (`type: 'config-header' | 'config-steppers' | 'pan-header' | 'pan-steppers'` + lane cells). Render twice:
+export type LegsByCountItemId = Record<string, LegRow[]>;
+export type LegsConfigsMap = Record<string, { id: string; label: string; count_units_per_case: number; inner_qty: number | null }>;
 
-- **Mobile (`<640px`, `sm:hidden`)**: stacked card. Each config = colored header strip + `grid-cols-N` lane grid (N = active lane count, no ghost columns). Pan section = label strip + `grid-cols-N` of pan lanes.
-- **Desktop (`sm:`, `≥640px`, `hidden sm:grid`)**: one CSS grid `grid-template-columns: 180px 1fr 1fr 1fr` wrapping ALL rows so left label column and 3 lane columns stay row-synced via the grid itself (not flex). Unused lane cells render a faded `—`.
+export type LegsValuationBundle = {
+  legsByCountItemId: LegsByCountItemId;
+  legsConfigsMap: LegsConfigsMap;
+  legsEnabled: boolean;
+  isLoading: boolean;
+  getItemValueWithLegs: (
+    countItem: { id: string; ... },   // the inventory_count_items row (with snapshot fields)
+    item: InventoryItem,              // the inventory_items row (live data)
+    conversion: ConversionContext,    // existing arg shape from calculateCountItemValue
+    opts?: { forceLiveData?: boolean }
+  ) => number;
+};
+```
 
-Tailwind arbitrary values used for exact spec sizes (`text-[15px]`, `min-h-[36px]`, `grid-cols-[180px_1fr_1fr_1fr]`, etc.). Colors `#e85d04`, `#E1F5EE`, `#0F6E56`, `#085041`, `#FEF3EE`, `#F5C4B3`, `#993C1D`, `#9FE1CB`, `#1D9E75` referenced via the 4 new utility classes + a couple of inline `style` props for the orange badge / default-config tinted backgrounds. Borders use `border-border` (existing semantic token mapping to `--color-border-tertiary` equivalent).
+### Hook
 
-## Row structure
+```ts
+useLegsValuation(countId: string | undefined, locationId: string | undefined): LegsValuationBundle
+```
 
-### Header row (both viewports)
-- Item name (`text-[15px]`/`sm:text-base` font-medium) + subtitle (`text-[11px] text-muted-foreground`)
-- Value badge top-right: orange `#e85d04`, white, two-line ($value / unit count). Inline style for exact color.
+- Runs 3 React Query queries (keyed on `["legs-valuation", countId]`):
+  1. `locations.legs_enabled` for `locationId` → `legsEnabled`
+  2. `inventory_count_item_legs` joined to `inventory_count_items` filtered by `count_id` → grouped into `legsByCountItemId`
+  3. `brand_pack_configs` (approved only) referenced by those legs → `legsConfigsMap`
+- Gated: if `legsEnabled === false`, queries 2 & 3 are skipped and maps are empty.
+- All fields (snapshots included) selected once, identical to current Session/Review/Export selects.
 
-### Per-config rows
-- **Mobile**: `config-header` strip (default = mint bg + dark green text + "default" pill; non-default = muted bg). Then lane grid with vertical `border-r border-border/60` dividers, lane cell = label (`text-[9px] uppercase tracking-wider text-muted-foreground`) + number (`text-[32px] font-medium leading-none`) + button row (gap-3, 36×36 coral down / mint up).
-- **Desktop**: two rows per config in the parent 4-col grid — Row A (label cell with config name + default badge, lane cells with centered labels), Row B (label cell with cost/pack subtitle, lane cells with 30px number + 34×34 buttons). Default config: cells get mint bg + mint borders. Unused lane cells render `<span class="opacity-20">—</span>` (labels) and `opacity-[0.08]` (steppers).
+### Utility (non-hook)
 
-### Pan/Cambro rows
-- Only render when `item.pan_sizes?.enabled_keys?.length > 0`.
-- Mobile: `border-t` separator, label strip "PAN / CAMBRO" (muted bg, `text-[9px] uppercase`), flows directly into pan lane grid (NO border between label strip and pan column labels — pan labels live in the first pan grid row). Pan steppers: 26px number, 32×32 buttons, gap-2.5.
-- Desktop: Row C (label cell "PAN / CAMBRO" muted bg + pan-size labels in lane cells, muted bg), Row D (empty label cell + pan steppers, 26px number, 30×30 buttons, gap-2).
+```ts
+buildLegsValuation(args: {
+  legsRows: LegRow[];
+  configs: LegsConfigsMap;
+  legsEnabled: boolean;
+}): Pick<LegsValuationBundle, "legsByCountItemId" | "legsConfigsMap" | "legsEnabled" | "getItemValueWithLegs">
+```
 
-## Button styling (shared)
-Down: `bg-[#FEF3EE] border border-[#F5C4B3] text-[#993C1D]` rounded-md.
-Up: `bg-[#E1F5EE] border border-[#9FE1CB] text-[#0F6E56]` rounded-md.
-Mobile 36×36, desktop steppers 34×34, desktop pan 30×30, mobile pan 32×32. Icons `h-4 w-4` (ArrowDown/ArrowUp from lucide).
+Same shape, but takes already-fetched data. Used by `Inventory.tsx` summary query function and any future server-side reducer. The hook is a thin wrapper that calls `buildLegsValuation` after fetching.
 
-The previous "centered fade divider between +/−" pattern is **removed** — the new design has separate square buttons with gap, not a joined stepper. All `via-foreground/20` spans deleted from the touched sections.
+### `getItemValueWithLegs` rules (single implementation)
 
-## What I will NOT touch
+1. Look up `legs = legsByCountItemId[countItem.id] ?? []`.
+2. If `legsEnabled && legs.length >= 2` → pass `legs` (with configs resolved) to `calculateCountItemValue`. Per-leg uses snapshot `cost_at_count` / `pack_quantity_at_count` when present, else live commonUnitCost (Issue-1 formula).
+3. Else (single-config) → fall through to canonical `calculateCountItemValue(countItem, item, conversion, undefined, opts)`. Parent snapshot wins on frozen counts (already correct).
+4. `opts.forceLiveData` is forwarded to `calculateCountItemValue` unchanged.
 
-- `computeCountLanes.ts` (lane labels, sublabels, abbreviations stay as-is)
-- Any `setCounts` / `setPanCounts` / `updateCount` / `updatePanCount` / `handleCountInput` / save / cache code
-- Header search bar, period selector, save button, snapshot logic
-- Other inventory pages
+## Consumer refactors
 
-## After applying
+| File | What gets removed | What it calls |
+|---|---|---|
+| `InventoryCountView.tsx` | inline `legsByCountItemId` + `legsConfigsMap` queries, inline leg-aware valuation in the reducer | `useLegsValuation(countId, locationId)` → use `getItemValueWithLegs` everywhere it currently calls `calculateCountItemValue` |
+| `CountExportDialog.tsx` | the 3 leg/config/legs_enabled queries from Step 4, inline `legs.length >= 2 ? legs : undefined` checks | same hook; row builder calls `getItemValueWithLegs` for parent; per-leg detail rows still iterate `legsByCountItemId[ci.id]` directly (display data, not valuation logic) |
+| `InventoryCountSession.tsx` | the leg snapshot hydration in the existing query + the inline leg branch in `getItemCost` | replace `getItemCost`'s leg branch with `getItemValueWithLegs(countItem, item, conv, { forceLiveData: !isFrozen })`. Stepper inputs untouched. |
+| `Inventory.tsx` (summary) | inline leg fetch inside the period summary query fn | inside the query fn: fetch legs + configs + legs_enabled once, then call `buildLegsValuation(...)` and use `getItemValueWithLegs` in the reducer. No hook (not a component context). |
 
-I'll screenshot the preview at 390px (mobile) and ~1024px (desktop) and zoom into one multi-config item (Baby Spinach style) and one single-config item (Fresh Basil style) to confirm match against your two screenshots before declaring done.
+Future consumers (COGS, Variance, Reconciliation): just call the hook or utility — zero new query code.
 
-Approve to apply, or tell me what to adjust.
+## Non-goals
+
+- No change to `calculateCountItemValue` itself.
+- No change to stepper inputs, autosave payloads, or save-path stamping (Bug B stays as-is).
+- No change to CSV column shape from Step 4.
+- No DB / migration changes.
+
+## Verification after apply
+
+1. Open the current Spinach count (`/inventory/.../count/240fe79f...`) — Review total, Session footer, and Export parent total must match $53.61 exactly.
+2. Open a single-config count — totals unchanged from before refactor.
+3. Open an `in_progress` count — Session stepper still reads live data (no snapshot freeze for non-completed).
+4. Inventory period summary card total matches Review total for the same count.
+
+## Apply order
+
+1. Create `src/hooks/useLegsValuation.ts` (hook + utility + types).
+2. Refactor `InventoryCountView.tsx`.
+3. Refactor `CountExportDialog.tsx`.
+4. Refactor `InventoryCountSession.tsx` (`getItemCost` only — leg hydration in the existing fetch can be dropped since the hook owns it).
+5. Refactor `Inventory.tsx` summary query fn to use `buildLegsValuation`.
+6. Smoke-check the 4 verification points above.
+
+Approve and I'll apply in that order, showing the hook file in full first, then per-consumer diffs.
