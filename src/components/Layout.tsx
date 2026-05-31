@@ -332,6 +332,11 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
+  const { dockContent: layoutDockContent } = useDockToast();
+  const isCountRoute = location.pathname.includes('/count/');
+  const countProgress = layoutDockContent && layoutDockContent.totalItems > 0
+    ? Math.round((layoutDockContent.countedItems / layoutDockContent.totalItems) * 100)
+    : 0;
   
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
