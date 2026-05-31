@@ -2355,7 +2355,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     >
       {/* Desktop: Stats bar at top */}
       {!isMobile && !isViewOnly && (
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border -mx-4 px-4 py-3 space-y-2">
+        <div className="sticky top-14 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border -mx-4 px-4 py-3 space-y-2">
           {/* Progress bar */}
           <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
             <div 
@@ -2465,7 +2465,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       {/* Location navigation — sticky with progress indicator */}
       {locationKeys.length > 1 && (
-        <div className="sticky top-[calc(env(safe-area-inset-top)+3.25rem+0.5rem)] z-20 mt-2 bg-primary/95 backdrop-blur-md text-primary-foreground rounded-md px-2 py-2 shadow-md overflow-hidden border border-white/10">
+        <div className="sticky top-[calc(env(safe-area-inset-top)+3.25rem+0.5rem)] md:top-[8.5rem] z-20 mt-2 bg-primary/95 backdrop-blur-md text-primary-foreground rounded-md px-2 py-2 shadow-md overflow-hidden border border-white/10">
           <div className="flex items-center gap-2">
             <button
               className="h-9 w-9 shrink-0 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
