@@ -2752,25 +2752,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               )}
             >
               {/* Item header: name + subtitle + value badge */}
-              <div className="flex items-start justify-between gap-3 px-3.5 py-3 sm:px-5 sm:py-4 border-b border-border/60">
-                <div className="flex items-start gap-3 min-w-0 flex-1">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[15px] sm:text-base font-bold text-foreground truncate leading-tight">{item.item_name}</p>
-                    {headerSubtitle && (
-                      <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">{headerSubtitle}</p>
-                    )}
+              <div className="px-3.5 py-3 sm:px-5 sm:py-4 border-b border-border/60">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-[15px] sm:text-base font-bold text-foreground truncate leading-tight min-w-0 flex-1">{item.item_name}</p>
+                  <div
+                    className="flex-shrink-0 rounded-lg text-white text-center leading-tight"
+                    style={{ backgroundColor: '#e85d04', padding: '5px 10px' }}
+                  >
+                    <p className="text-[14px] sm:text-base font-medium tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
+                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                      {headerUnits} {headerUnitLabel}
+                    </p>
                   </div>
                 </div>
-                <div
-                  className="flex-shrink-0 rounded-lg text-white text-center leading-tight"
-                  style={{ backgroundColor: '#e85d04', padding: '5px 10px' }}
-                >
-                  <p className="text-[14px] sm:text-base font-medium tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
-                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                    {headerUnits} {headerUnitLabel}
-                  </p>
-                </div>
+                {headerSubtitle && (
+                  <p className="text-[11px] sm:text-xs text-muted-foreground mt-1.5">{headerSubtitle}</p>
+                )}
               </div>
+
 
               {/* ============ MOBILE LAYOUT (< 640px) ============ */}
               <div className="sm:hidden">
