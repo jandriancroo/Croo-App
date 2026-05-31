@@ -2755,10 +2755,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <div className="relative px-3.5 py-3 sm:px-5 sm:py-4 border-b border-border/60">
                 <div
                   className="absolute top-0 right-0 text-white text-center leading-tight"
-                  style={{ backgroundColor: '#e85d04', padding: '4px 8px', borderTopRightRadius: 'calc(0.5rem - 1px)', borderBottomLeftRadius: '0.5rem' }}
+                  style={{ backgroundColor: '#e85d04', padding: '6px 11px', borderTopRightRadius: 'calc(0.5rem - 1px)', borderBottomLeftRadius: '0.5rem' }}
                 >
-                  <p className="text-[13px] sm:text-sm font-medium tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
-                  <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                  <p className="text-[15px] sm:text-base font-semibold tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
                     {headerUnits} {headerUnitLabel}
                   </p>
                 </div>
