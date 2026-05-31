@@ -228,28 +228,28 @@ export default function InventoryCountTab({
 
               return (
                 <div
-                  className="rounded-2xl p-5 text-white shadow-sm"
+                  className="rounded-xl px-4 py-3 text-white shadow-sm flex items-center justify-between gap-3"
                   style={{ background: "#085041" }}
                 >
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-200/90">
-                    Current period
+                  <div className="min-w-0">
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-emerald-200/90">
+                      Current period
+                    </div>
+                    <div className="text-sm font-bold leading-tight truncate">{periodLabel}</div>
+                    <div className="text-[11px] text-emerald-100/80 truncate">
+                      {rangeLabel}
+                      {purchases != null && purchases > 0 && (
+                        <> · ${Math.round(purchases).toLocaleString()}</>
+                      )}
+                    </div>
                   </div>
-                  <div className="mt-1 text-2xl font-bold leading-tight">{periodLabel}</div>
-                  <div className="mt-1 text-xs text-emerald-100/80">
-                    {rangeLabel}
-                    {purchases != null && purchases > 0 && (
-                      <> · ${Math.round(purchases).toLocaleString()} purchases</>
-                    )}
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      size="sm"
-                      onClick={onStartCount}
-                      className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-semibold shadow"
-                    >
-                      Start count
-                    </Button>
-                  </div>
+                  <Button
+                    size="sm"
+                    onClick={onStartCount}
+                    className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-semibold shadow flex-shrink-0 h-8"
+                  >
+                    Start count
+                  </Button>
                 </div>
               );
             })()}
