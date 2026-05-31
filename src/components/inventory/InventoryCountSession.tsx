@@ -1026,6 +1026,60 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       ? packLensMap?.get(item.brand_item_id) ?? null
       : null;
 
+    // Multi-config (Path B): when legs are enabled AND this item has 2+ selected
+    // pack configs, build a synthetic legs[] payload so calculateCountItemValue
+    // values each leg with its own pack_qty + per-case cost. Per interpretation
+    // (a) confirmed 2026-05-31:
+    //   commonUnitCost = item.cost_per_unit / defaultCfg.count_units_per_case
+    //   leg.cost_at_count = cfg.count_units_per_case × commonUnitCost
+    // If either piece is missing/zero, fall through to today's parent-row math
+    // (no legs passed). Single-config items never enter this branch.
+    let legsForValuation: Array<{
+      entered_cases: number | null;
+      entered_units: number | null;
+      entered_inner_packs: number | null;
+      quantity_common: number | null;
+      pack_quantity_at_count: number | null;
+      inner_pack_quantity_at_count: number | null;
+      cost_at_count: number | null;
+    }> | undefined;
+    const bidForLegs = item.brand_item_id;
+    if (legsEnabledForLocation === true && bidForLegs) {
+      const cfgs = legsConfigsMap?.get(bidForLegs) ?? [];
+      if (cfgs.length >= 2) {
+        const defaultCfg = cfgs.find((c: any) => c.is_default) ?? cfgs[0];
+        const defaultUnitsPerCase = Number(defaultCfg?.count_units_per_case ?? 0);
+        const costPerCase = Number(item.cost_per_unit ?? 0);
+        const commonUnitCost = (defaultUnitsPerCase > 0 && costPerCase > 0)
+          ? costPerCase / defaultUnitsPerCase
+          : null;
+        if (commonUnitCost != null) {
+          legsForValuation = cfgs.map((cfg: any) => {
+            const legKey = cfg.is_default ? key : `${key}::leg::${cfg.pack_config_id}`;
+            const rCases = parseFloat(rawInputs[legKey]?.cases ?? '');
+            const rUnits = parseFloat(rawInputs[legKey]?.units ?? '');
+            const rInner = parseFloat(rawInputs[legKey]?.innerPacks ?? '');
+            const committedLeg = counts[legKey] || { cases: 0, units: 0, innerPacks: 0 };
+            const c = isNaN(rCases) ? committedLeg.cases : Math.max(0, rCases);
+            const u = isNaN(rUnits) ? committedLeg.units : Math.max(0, rUnits);
+            const ip = isNaN(rInner) ? (committedLeg.innerPacks ?? 0) : Math.max(0, rInner);
+            const cu = Number(cfg.count_units_per_case ?? 0);
+            const ipq = Number(cfg.inner_qty ?? 0);
+            const qc = c * cu + ip * ipq + u;
+            return {
+              entered_cases: c,
+              entered_units: u,
+              entered_inner_packs: ip,
+              quantity_common: qc,
+              pack_quantity_at_count: cu > 0 ? cu : null,
+              inner_pack_quantity_at_count: ipq > 0 ? ipq : null,
+              cost_at_count: cu > 0 ? cu * commonUnitCost : null,
+            };
+          });
+        }
+      }
+    }
+
     const result = calculateCountItemValue(
       {
         quantity: null,
@@ -1051,11 +1105,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         lens, // approved brand_pack_configs entry; resolver fails closed to local when invalid
       },
       conversion || null,
-      true
+      true,
+      legsForValuation
     );
 
     return result;
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap, lensEnabledForLocation]);
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap, lensEnabledForLocation, legsEnabledForLocation, legsConfigsMap]);
 
 
   // Calculate total running cost
@@ -1573,6 +1628,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             const bid = (it as any)?.brand_item_id;
             if (!countItemId || !bid) { legFailed++; continue; }
             const configs = legsMapNow?.get(bid) ?? [];
+            // Per-leg cost stamp (interpretation (a), 2026-05-31): derive
+            // commonUnitCost from the default config; each leg's case cost =
+            // cfg.count_units_per_case × commonUnitCost. RPC only writes these
+            // snapshots when p_freeze_snapshots=true (submit). Autosave keeps
+            // them in the payload but they're ignored server-side.
+            const defaultCfg = configs.find((c: any) => c.is_default) ?? configs[0];
+            const defaultUnitsPerCase = Number((defaultCfg as any)?.count_units_per_case ?? 0);
+            const itemCostPerCase = Number((it as any)?.cost_per_unit ?? 0);
+            const commonUnitCost = (defaultUnitsPerCase > 0 && itemCostPerCase > 0)
+              ? itemCostPerCase / defaultUnitsPerCase
+              : null;
             const legsPayload = configs.map((cfg) => {
               const legKey = cfg.is_default ? splitKey : `${splitKey}::leg::${cfg.pack_config_id}`;
               const s = countsNow[legKey] || { cases: 0, units: 0, innerPacks: 0 };
@@ -1586,6 +1652,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 entered_inner_packs: Number(s.innerPacks) || 0,
                 entered_units: Number(s.units) || 0,
                 quantity_common: qc,
+                pack_quantity_at_count: cu > 0 ? cu : null,
+                inner_pack_quantity_at_count: ipq > 0 ? ipq : null,
+                cost_at_count: (commonUnitCost != null && cu > 0) ? cu * commonUnitCost : null,
+                common_unit_at_count: (cfg as any).common_unit ?? null,
               };
             });
             if (bid === SPINACH_BRAND_ITEM_ID) {
