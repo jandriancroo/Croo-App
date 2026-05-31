@@ -111,22 +111,25 @@ export default function InventoryCountTab({
     const upcoming = upcomingEntries.filter(u => typeFilter === "all" || u.period_type === typeFilter);
     const combined = [...upcoming, ...base];
 
-    // Dedupe by effective end date. Real and upcoming live in separate buckets so an
-    // upcoming placeholder can never hide a real submitted count for the same date.
-    // Within a bucket, monthly wins over weekly on shared dates.
+    // Dedupe by effective end date. When a monthly and weekly share the same
+    // end date, monthly wins (one count satisfies both). Within the same
+    // period_type, a real submitted/in-progress count beats an upcoming
+    // placeholder so we never hide a real row.
+    const rank = (c: any) => {
+      const typeRank = c.period_type === "monthly" ? 2 : c.period_type === "weekly" ? 1 : 0;
+      const realRank = c.status === "upcoming" ? 0 : 1;
+      return typeRank * 10 + realRank;
+    };
     const byKey = new Map<string, any>();
     for (const c of combined) {
       const end = getEffectivePeriodEndDate(c) || c.period_end_date || "";
-      const bucket = c.status === "upcoming" ? "u" : "r";
-      const key = `${end}|${bucket}`;
-      const existing = byKey.get(key);
-      if (!existing) {
-        byKey.set(key, c);
-      } else if (c.period_type === "monthly" && existing.period_type !== "monthly") {
-        byKey.set(key, c);
+      const existing = byKey.get(end);
+      if (!existing || rank(c) > rank(existing)) {
+        byKey.set(end, c);
       }
     }
     const deduped = Array.from(byKey.values());
+
 
     const sorted = deduped.sort((a, b) => {
       const aEnd = getEffectivePeriodEndDate(a) || a.period_end_date || "";
