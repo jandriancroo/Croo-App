@@ -159,6 +159,7 @@ export default function InventoryCountTab({
 
   // Follow the selection into its page so the active tab is always visible.
   useEffect(() => {
+    if (safeIdx < 0) return;
     const targetPage = Math.floor(safeIdx / PAGE_SIZE);
     if (targetPage !== pageIndex) setPageIndex(Math.min(targetPage, maxPage));
     // eslint-disable-next-line react-hooks/exhaustive-deps
