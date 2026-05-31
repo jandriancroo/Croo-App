@@ -1347,7 +1347,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 pl-4 pr-2 h-8">
                         <Type className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">Text</span>
                         <Select value={textSize} onValueChange={handleTextSizeChange}>
