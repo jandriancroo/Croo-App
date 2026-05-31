@@ -1324,7 +1324,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     className={`justify-between h-9 px-3 w-full ${displaySettingsOpen ? 'border-0 bg-transparent hover:bg-transparent rounded-none' : ''}`}
                   >
                     <div className="flex items-center gap-2">
-                      <Type className="h-4 w-4" />
+                      <span className="inline-flex items-baseline w-4 h-4 justify-center font-semibold leading-none"><span className="text-sm">T</span><span className="text-[10px]">t</span></span>
                       <span className="text-sm">Display</span>
                     </div>
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${displaySettingsOpen ? 'rotate-180' : ''}`} />
