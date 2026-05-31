@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 import { calculateCountItemValue } from "@/utils/countItemValue";
 import { getEffectivePackQty } from "@/utils/getEffectivePackQty";
-import VarianceReport from "./VarianceReport";
+// VarianceReport moved to Review screen tabs (InventoryCountView → Actual vs Theo).
 import InvoiceUploadDialog from "./InvoiceUploadDialog";
 import SalesDateEditor from "./SalesDateEditor";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
