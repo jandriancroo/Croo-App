@@ -209,14 +209,16 @@ export default function InventoryCountTab({
       <div>
         <div className="flex items-end gap-1 pt-2" style={{ overflow: "visible" }}>
           <button
-            onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" }); }}
-            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
+            onClick={() => setPageIndex(p => Math.max(0, p - 1))}
+            disabled={pageIndex === 0}
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
 
-          <div ref={tabsRef} className="flex gap-1 flex-1 items-end overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none", paddingTop: 24, marginTop: -24 }}>
-            {filteredCounts.map((count, idx) => {
+          <div ref={tabsRef} className="flex gap-1 flex-1 items-end" style={{ paddingTop: 24, marginTop: -24 }}>
+            {pagedCounts.map((count, localIdx) => {
+              const idx = pageIndex * PAGE_SIZE + localIdx;
               const isActive = idx === safeIdx;
               const effectiveEnd = getEffectivePeriodEndDate(count) || count.period_end_date;
               const endDate = new Date(effectiveEnd + "T12:00:00");
@@ -236,12 +238,12 @@ export default function InventoryCountTab({
                   }}
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   className={`
-                    flex-shrink-0 transition-colors flex items-center justify-center relative rounded-t-xl
+                    flex-1 min-w-0 transition-colors flex items-center justify-center relative rounded-t-xl
                     ${isActive
-                      ? "bg-card text-foreground border-2 border-border border-b-0 shadow-sm -mb-[3px] pb-[3px] z-10 min-w-[108px] px-3"
+                      ? "bg-card text-foreground border-2 border-border border-b-0 shadow-sm -mb-[3px] pb-[3px] z-10 px-3"
                       : isMonthly
-                        ? "bg-muted/40 text-muted-foreground border border-border/40 border-b-0 min-w-[72px] px-2"
-                        : "bg-muted/30 text-muted-foreground border border-border/40 border-b-0 min-w-[80px] px-2 hover:bg-muted/50"
+                        ? "bg-muted/40 text-muted-foreground border border-border/40 border-b-0 px-2"
+                        : "bg-muted/30 text-muted-foreground border border-border/40 border-b-0 px-2 hover:bg-muted/50"
                     }
                   `}
                 >
@@ -271,14 +273,32 @@ export default function InventoryCountTab({
                 </motion.button>
               );
             })}
+            {/* Pad row to keep 4-up sizing when current page has fewer than PAGE_SIZE */}
+            {Array.from({ length: Math.max(0, PAGE_SIZE - pagedCounts.length) }).map((_, i) => (
+              <div key={`_pad_${i}`} className="flex-1 min-w-0" />
+            ))}
           </div>
           <button
-            onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: 200, behavior: "smooth" }); }}
-            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
+            onClick={() => setPageIndex(p => Math.min(maxPage, p + 1))}
+            disabled={pageIndex >= maxPage}
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
+
+        {/* Lazy "Load older" — only when on the last page and more history exists */}
+        {hasMoreHistory && pageIndex === maxPage && (
+          <div className="flex justify-center mt-2">
+            <button
+              onClick={() => setVisibleCount(v => v + 6)}
+              className="text-[11px] font-semibold text-muted-foreground hover:text-foreground px-3 py-1 rounded-full bg-muted/40 hover:bg-muted/70 transition-colors"
+            >
+              Load older periods
+            </button>
+          </div>
+        )}
+
         
 
         {/* In-progress resume banner (compact, inside detail area) */}
