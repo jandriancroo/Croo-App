@@ -1340,14 +1340,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const effectivePackQty = resolveItemPackQty(item);
       const newQuantity = getItemTotalIncludingLegs(item, key, effectivePackQty, resolveInnerPackQtyForTotal(item));
       const originalQuantity = originalCounts.current[key] ?? 0;
-      
-      if (newQuantity !== originalQuantity) {
+      const storedQuantity = Number(extendedItem._existingQuantity ?? 0);
+      const brandItemId = (item as any).brand_item_id;
+      const isMultiConfig =
+        legsEnabledForLocation === true &&
+        !!brandItemId &&
+        (legsConfigsMap?.get(brandItemId)?.length ?? 0) >= 2;
+      const hasStoredDrift =
+        isMultiConfig &&
+        Math.abs(storedQuantity - originalQuantity) > 0.01 &&
+        Math.abs(newQuantity - originalQuantity) <= 0.01;
+      const previousQuantity = hasStoredDrift ? storedQuantity : originalQuantity;
+
+      if (Math.abs(newQuantity - previousQuantity) > 0.01) {
         const liveCounts = counts[key] || { cases: 0, units: 0, innerPacks: 0 };
         const livePan = panCounts[key] || null;
         edits.push({
           countItemId: extendedItem._countItemId,
           itemName: item.item_name,
-          previousQuantity: originalQuantity,
+          previousQuantity,
           newQuantity,
           itemId: item.item_id,
           storageLocationId: extendedItem.storage_location_id,
