@@ -168,7 +168,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         const legs = legsByCountItemId?.get(ci.id) || [];
         const isMultiConfig = legs.length >= 2;
 
-        const parentValue = computeLineValue(ci, item, isMultiConfig ? legs : undefined);
+        const parentValue = computeLineValue(ci, item);
         const parentCostPerCase = ci.cost_at_count != null
           ? Number(ci.cost_at_count) || 0
           : Number(item?.cost_per_unit) || 0;
