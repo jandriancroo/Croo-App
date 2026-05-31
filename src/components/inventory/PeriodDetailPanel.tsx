@@ -670,15 +670,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             </div>
 
 
-            <div className="mt-2 p-3 rounded-xl bg-muted/40 space-y-2">
-              {/* Beginning — badge row, taps through to review */}
-              <button
-                onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border hover:bg-muted/60 active:scale-[0.99] transition-all"
-              >
+            <div className="mt-2 space-y-2">
+              {/* Beginning — display only (not interactive) */}
+              <div className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border">
                 <span className="text-sm text-foreground">Beginning Inventory</span>
                 <span className="text-sm font-semibold tabular-nums">${Math.round(cogsData.beginValue).toLocaleString()}</span>
-              </button>
+              </div>
+
 
               {/* Purchases — badge row, expands inline list */}
               <button
