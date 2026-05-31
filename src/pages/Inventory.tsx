@@ -49,7 +49,7 @@ const Inventory = () => {
   const [preselectedPeriod, setPreselectedPeriod] = useState<{ type: string; endDate: string } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
-  const [showExportMaster, setShowExportMaster] = useState(false);
+  
   
   
   const [showDailyCount, setShowDailyCount] = useState(false);
