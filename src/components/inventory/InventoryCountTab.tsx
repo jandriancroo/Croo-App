@@ -37,7 +37,7 @@ export default function InventoryCountTab({
 }: InventoryCountTabProps) {
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<"all" | "weekly" | "monthly">("all");
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [selectedIdx, setSelectedIdx] = useState(-1);
   const [pageIndex, setPageIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(6);
   // tabsRef removed — old horizontal tab strip replaced by Design D divider list.
@@ -155,10 +155,11 @@ export default function InventoryCountTab({
   const PAGE_SIZE = 4;
   const maxPage = Math.max(0, Math.ceil(filteredCounts.length / PAGE_SIZE) - 1);
 
-  useEffect(() => { setSelectedIdx(0); setPageIndex(0); }, [typeFilter]);
+  useEffect(() => { setSelectedIdx(-1); setPageIndex(0); }, [typeFilter]);
 
   // Follow the selection into its page so the active tab is always visible.
   useEffect(() => {
+    if (safeIdx < 0) return;
     const targetPage = Math.floor(safeIdx / PAGE_SIZE);
     if (targetPage !== pageIndex) setPageIndex(Math.min(targetPage, maxPage));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,28 +229,28 @@ export default function InventoryCountTab({
 
               return (
                 <div
-                  className="rounded-2xl p-5 text-white shadow-sm"
+                  className="rounded-xl px-4 py-3 text-white shadow-sm flex items-center justify-between gap-3"
                   style={{ background: "#085041" }}
                 >
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-200/90">
-                    Current period
+                  <div className="min-w-0">
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-emerald-200/90">
+                      Current period
+                    </div>
+                    <div className="text-sm font-bold leading-tight truncate">{periodLabel}</div>
+                    <div className="text-[11px] text-emerald-100/80 truncate">
+                      {rangeLabel}
+                      {purchases != null && purchases > 0 && (
+                        <> · ${Math.round(purchases).toLocaleString()}</>
+                      )}
+                    </div>
                   </div>
-                  <div className="mt-1 text-2xl font-bold leading-tight">{periodLabel}</div>
-                  <div className="mt-1 text-xs text-emerald-100/80">
-                    {rangeLabel}
-                    {purchases != null && purchases > 0 && (
-                      <> · ${Math.round(purchases).toLocaleString()} purchases</>
-                    )}
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      size="sm"
-                      onClick={onStartCount}
-                      className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-semibold shadow"
-                    >
-                      Start count
-                    </Button>
-                  </div>
+                  <Button
+                    size="sm"
+                    onClick={onStartCount}
+                    className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-semibold shadow flex-shrink-0 h-8"
+                  >
+                    Start count
+                  </Button>
                 </div>
               );
             })()}
@@ -278,7 +279,7 @@ export default function InventoryCountTab({
                   return (
                     <div key={count.id} className="border-b border-border last:border-b-0">
                       <button
-                        onClick={() => setSelectedIdx(idx)}
+                        onClick={() => setSelectedIdx(isActive ? -1 : idx)}
                         className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
                           isActive ? "bg-muted/40" : "hover:bg-muted/30"
                         }`}
@@ -305,6 +306,44 @@ export default function InventoryCountTab({
                           )}
                         </div>
                       </button>
+                      <AnimatePresence initial={false}>
+                        {isActive && (
+                          <motion.div
+                            key="panel"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-3 pb-3 pt-1">
+                              {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && count.id === inProgressWithStats.id && (
+                                <div className="mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75" />
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                                    </div>
+                                    <span className="text-sm font-semibold">
+                                      {inProgressWithStats._stats.countedItems} of {inProgressWithStats._stats.totalItems} items counted
+                                    </span>
+                                  </div>
+                                  <Button size="sm" onClick={() => navigate(`/inventory/${locationId}/count/${inProgressWithStats.id}?continue=true`)}>
+                                    Resume <ArrowRight className="h-4 w-4 ml-1" />
+                                  </Button>
+                                </div>
+                              )}
+                              <PeriodDetailPanel
+                                count={count}
+                                locationId={locationId}
+                                onDeleteCount={!count._isUpcoming ? onDeleteCount : undefined}
+                                onCreateCountForPeriod={onCreateCountForPeriod}
+                                onStartDailyCount={onStartDailyCount}
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   );
                 })}
@@ -346,46 +385,6 @@ export default function InventoryCountTab({
               </div>
             )}
 
-            {/* Active period detail panel — rendered OUTSIDE the list to avoid double-card nesting */}
-            <AnimatePresence mode="wait">
-              {(() => {
-                const active = filteredCounts[safeIdx];
-                if (!active || active.status === "upcoming") return null;
-                return (
-                  <motion.div
-                    key={active.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.18, ease: "easeOut" }}
-                  >
-                    {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && active.id === inProgressWithStats.id && (
-                      <div className="mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-                          </div>
-                          <span className="text-sm font-semibold">
-                            {inProgressWithStats._stats.countedItems} of {inProgressWithStats._stats.totalItems} items counted
-                          </span>
-                        </div>
-                        <Button size="sm" onClick={() => navigate(`/inventory/${locationId}/count/${inProgressWithStats.id}?continue=true`)}>
-                          Resume <ArrowRight className="h-4 w-4 ml-1" />
-                        </Button>
-                      </div>
-                    )}
-                    <PeriodDetailPanel
-                      count={active}
-                      locationId={locationId}
-                      onDeleteCount={!active._isUpcoming ? onDeleteCount : undefined}
-                      onCreateCountForPeriod={onCreateCountForPeriod}
-                      onStartDailyCount={onStartDailyCount}
-                    />
-                  </motion.div>
-                );
-              })()}
-            </AnimatePresence>
           </div>
         );
       })()}
