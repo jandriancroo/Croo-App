@@ -92,85 +92,16 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
     enabled: open,
   });
 
-  // Gate: only fetch legs data when location has opted in.
-  const { data: legsEnabledForLocation } = useQuery({
-    queryKey: ["export-location-legs-enabled", locationId],
-    enabled: !!locationId && open,
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("locations" as any)
-        .select("legs_enabled")
-        .eq("id", locationId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as any)?.legs_enabled === true;
-    },
-  });
+  // All leg fetching + valuation lives in useLegsValuation — see
+  // src/hooks/useLegsValuation.ts. One source of truth, shared with Review,
+  // Session, the period summary, and future COGS/Variance reports.
+  const {
+    legsByCountItemId,
+    legLabelById,
+    getItemValueWithLegs,
+  } = useLegsValuation(countId, locationId, { enabled: open });
 
-  // Pack config labels keyed by pack_config_id, used to label per-leg rows.
-  const { data: legLabelById } = useQuery({
-    queryKey: ["export-leg-labels", locationId, legsEnabledForLocation],
-    enabled: !!locationId && legsEnabledForLocation === true && open,
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("location_pack_selections" as any)
-        .select("brand_pack_configs!inner(id, label, status)")
-        .eq("location_id", locationId);
-      if (error) throw error;
-      const m = new Map<string, string>();
-      for (const row of (data as any[]) || []) {
-        const bpc = row?.brand_pack_configs;
-        if (!bpc?.id) continue;
-        if (bpc.status && bpc.status !== "approved") continue;
-        m.set(bpc.id, bpc.label ?? "");
-      }
-      return m;
-    },
-  });
 
-  // Per-count-item legs (snapshot-driven valuation).
-  type ExportLegRow = {
-    pack_config_id: string;
-    entered_cases: number | null;
-    entered_inner_packs: number | null;
-    entered_units: number | null;
-    quantity_common: number | null;
-    pack_quantity_at_count: number | null;
-    inner_pack_quantity_at_count: number | null;
-    cost_at_count: number | null;
-  };
-  const { data: legsByCountItemId } = useQuery({
-    queryKey: ["export-legs-by-count-item", countId, legsEnabledForLocation],
-    enabled: !!countId && legsEnabledForLocation === true && open,
-    staleTime: 0,
-    gcTime: 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_count_item_legs" as any)
-        .select("count_item_id, pack_config_id, entered_cases, entered_inner_packs, entered_units, quantity_common, pack_quantity_at_count, inner_pack_quantity_at_count, cost_at_count, inventory_count_items!inner(count_id)")
-        .eq("inventory_count_items.count_id", countId);
-      if (error) throw error;
-      const map = new Map<string, ExportLegRow[]>();
-      for (const row of (data as any[]) || []) {
-        if (!row?.count_item_id) continue;
-        const list = map.get(row.count_item_id) ?? [];
-        list.push({
-          pack_config_id: row.pack_config_id,
-          entered_cases: row.entered_cases,
-          entered_inner_packs: row.entered_inner_packs,
-          entered_units: row.entered_units,
-          quantity_common: row.quantity_common,
-          pack_quantity_at_count: row.pack_quantity_at_count,
-          inner_pack_quantity_at_count: row.inner_pack_quantity_at_count,
-          cost_at_count: row.cost_at_count,
-        });
-        map.set(row.count_item_id, list);
-      }
-      return map;
-    },
-  });
 
   const handleExport = () => {
     if (!exportItems) return;
