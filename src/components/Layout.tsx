@@ -1409,7 +1409,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <span className="text-base">Powered by</span>
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
-      {!roleLoading && !location.pathname.includes('/count/') && (
+      {!roleLoading && (
         <nav className={`mobile-dock-container ${isMobile ? '' : 'hidden'}`}>
           {/* Dash/Org Bubble Popup - swaps based on current route */}
           {showOrgBubble && hasMultiLocationAccess && (
