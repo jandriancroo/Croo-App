@@ -257,7 +257,11 @@ export default function InventoryCountTab({
                     <button
                       onClick={() => setSelectedIdx(desktop ? idx : (isActive ? -1 : idx))}
                       className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
-                        isActive ? "bg-muted/40" : "hover:bg-muted/30"
+                        isActive
+                          ? desktop
+                            ? "bg-primary/10 border-l-2 border-primary pl-[14px]"
+                            : "bg-muted/40"
+                          : "hover:bg-muted/30"
                       }`}
                     >
                       <div className="min-w-0">
