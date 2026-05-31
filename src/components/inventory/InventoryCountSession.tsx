@@ -2540,462 +2540,557 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             !!item.brand_item_id &&
             (legsConfigsMap?.get(item.brand_item_id)?.length ?? 0) >= 2;
           
+          // === Build unified configs array (single source for mobile + desktop renders) ===
+          type LaneSpec = {
+            kind: 'cases' | 'inner' | 'units';
+            label: string;
+            value: any;
+            onDown: () => void;
+            onUp: () => void;
+            onChange: (v: string) => void;
+            onBlur: () => void;
+          };
+          type ConfigRow = {
+            configId: string;
+            label: string;
+            subtitle: string;
+            isDefault: boolean;
+            lanes: (LaneSpec | null)[]; // [cases?, inner?, units?]
+          };
+
+          let configRows: ConfigRow[] = [];
+
+          if (item.is_recipe) {
+            configRows = [{
+              configId: 'recipe',
+              label: '',
+              subtitle: '',
+              isDefault: true,
+              lanes: [
+                {
+                  kind: 'cases',
+                  label: lanes.casesLabel,
+                  value: rawInputs[splitKey]?.cases ?? count.cases,
+                  onDown: () => updateCases(splitKey, -1),
+                  onUp: () => updateCases(splitKey, 1),
+                  onChange: (v) => handleCasesInput(splitKey, v),
+                  onBlur: () => handleCasesBlur(splitKey),
+                }, null, null,
+              ],
+            }];
+          } else if (hasMultipleLegConfigs) {
+            const configs = legsConfigsMap?.get(item.brand_item_id!) ?? [];
+            configRows = configs.map((cfg) => {
+              const legKey = cfg.is_default
+                ? splitKey
+                : makeLegInputKey(splitKey, cfg.pack_config_id, cfg.is_default);
+              const legState = counts[legKey] || { cases: 0, units: 0, innerPacks: 0 };
+              const outerQty = Number(cfg.outer_qty ?? 1) || 1;
+              const innerIsCommon =
+                (cfg.inner_type ?? '').trim().toLowerCase() ===
+                (cfg.common_unit ?? '').trim().toLowerCase();
+              const hasInnerTier = !innerIsCommon && Number(cfg.inner_qty ?? 0) > 0;
+              const baseLanes = computeCountLanes({
+                item: {
+                  is_recipe: item.is_recipe,
+                  pack_quantity: outerQty,
+                  inner_pack_quantity: hasInnerTier ? (cfg.inner_qty ?? null) : null,
+                  inner_pack_label: cfg.inner_type ?? null,
+                  unit: cfg.common_unit ?? item.unit,
+                  cost_per_unit: item.cost_per_unit,
+                  count_by: 'inherit',
+                },
+                lens: null,
+                lensEnabled: false,
+              });
+              const structuralShowCases = outerQty > 1;
+              const structuralShowInner = hasInnerTier;
+              const collapseUnits = !structuralShowCases && structuralShowInner;
+              const legLanes = {
+                ...baseLanes,
+                showCases: structuralShowCases,
+                showInnerPacks: structuralShowInner,
+                showUnits: !collapseUnits,
+              };
+              const liveUnits = cfg.count_units_per_case ?? null;
+              const livePerCommon =
+                item.cost_per_unit != null && liveUnits && liveUnits > 0
+                  ? item.cost_per_unit / liveUnits
+                  : null;
+              const perCommon = livePerCommon != null
+                ? `${formatCurrency(livePerCommon)}/${cfg.common_unit || 'ea'}`
+                : '—';
+              return {
+                configId: cfg.pack_config_id,
+                label: cfg.label || `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit}`,
+                subtitle: `${cfg.count_units_per_case} ${cfg.common_unit}/cs · ${perCommon}`,
+                isDefault: !!cfg.is_default,
+                lanes: [
+                  legLanes.showCases ? {
+                    kind: 'cases', label: 'Cases',
+                    value: rawInputs[legKey]?.cases ?? legState.cases,
+                    onDown: () => updateCases(legKey, -1),
+                    onUp: () => updateCases(legKey, 1),
+                    onChange: (v) => handleCasesInput(legKey, v),
+                    onBlur: () => handleCasesBlur(legKey),
+                  } : null,
+                  legLanes.showInnerPacks ? {
+                    kind: 'inner', label: legLanes.innerLabel,
+                    value: rawInputs[legKey]?.innerPacks ?? legState.innerPacks,
+                    onDown: () => updateInnerPacks(legKey, -1),
+                    onUp: () => updateInnerPacks(legKey, 1),
+                    onChange: (v) => handleInnerPacksInput(legKey, v),
+                    onBlur: () => handleInnerPacksBlur(legKey),
+                  } : null,
+                  legLanes.showUnits ? {
+                    kind: 'units', label: legLanes.unitsLabel,
+                    value: rawInputs[legKey]?.units ?? legState.units,
+                    onDown: () => updateUnits(legKey, -1),
+                    onUp: () => updateUnits(legKey, 1),
+                    onChange: (v) => handleUnitsInput(legKey, v),
+                    onBlur: () => handleUnitsBlur(legKey),
+                  } : null,
+                ],
+              };
+            });
+          } else {
+            configRows = [{
+              configId: 'single',
+              label: item.pack_size || '',
+              subtitle: '',
+              isDefault: true,
+              lanes: [
+                showCases ? {
+                  kind: 'cases', label: 'Cases',
+                  value: rawInputs[splitKey]?.cases ?? count.cases,
+                  onDown: () => updateCases(splitKey, -1),
+                  onUp: () => updateCases(splitKey, 1),
+                  onChange: (v) => handleCasesInput(splitKey, v),
+                  onBlur: () => handleCasesBlur(splitKey),
+                } : null,
+                lanes.showInnerPacks ? {
+                  kind: 'inner', label: lanes.innerLabel,
+                  value: rawInputs[splitKey]?.innerPacks ?? (count.innerPacks ?? 0),
+                  onDown: () => updateInnerPacks(splitKey, -1),
+                  onUp: () => updateInnerPacks(splitKey, 1),
+                  onChange: (v) => handleInnerPacksInput(splitKey, v),
+                  onBlur: () => handleInnerPacksBlur(splitKey),
+                } : null,
+                showUnits ? {
+                  kind: 'units', label: lanes.unitsLabel,
+                  value: rawInputs[splitKey]?.units ?? count.units,
+                  onDown: () => updateUnits(splitKey, -1),
+                  onUp: () => updateUnits(splitKey, 1),
+                  onChange: (v) => handleUnitsInput(splitKey, v),
+                  onBlur: () => handleUnitsBlur(splitKey),
+                } : null,
+              ],
+            }];
+          }
+
+          const isMultiConfig = configRows.length > 1;
+          const hasPan = !!(item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length);
+          const panKeys = item.pan_sizes?.enabled_keys ?? [];
+
+          // Build item header subtitle text (plain string, comma-separated)
+          const headerBits: string[] = [];
+          if (item.pack_size) headerBits.push(item.pack_size);
+          if (item.item_number) headerBits.push(`#${item.item_number}`);
+          if (item.is_recipe) {
+            const rc = recipeCosts?.get(item.item_id) || item.cost_per_unit || 0;
+            if (rc) headerBits.push(`${formatCurrency(rc)}/ea`);
+          } else if (item.cost_per_unit) {
+            const caseCost = item.cost_per_unit || 0;
+            const packsPerCase = item.pack_quantity || 1;
+            const unitsPerPack = (item as any).inner_pack_quantity || 0;
+            const hasInner = unitsPerPack > 0;
+            const totalUnits = hasInner ? packsPerCase * unitsPerPack : packsPerCase;
+            headerBits.push(`${formatCurrency(caseCost)}/cs`);
+            if (hasInner) headerBits.push(`${formatCurrency(caseCost / packsPerCase)}/pk`);
+            if (totalUnits > 0 && totalUnits !== packsPerCase) headerBits.push(`${formatCurrency(caseCost / totalUnits)}/u`);
+          }
+          const headerSubtitle = headerBits.join(' · ');
+          const headerUnits = item.is_recipe
+            ? getTotalQuantity(splitKey, 1, item.pan_sizes, null)
+            : getItemTotalIncludingLegs(item, splitKey, resolveItemPackQty(item), resolveInnerPackQtyForTotal(item));
+          const headerUnitLabel = item.is_recipe ? (item.unit || 'ea') : 'units';
+
+          // Reusable button row (coral down / mint up)
+          const renderBtns = (lane: LaneSpec, sizeCls: string, iconCls: string, gapCls: string) => (
+            <div className={cn("flex items-center", gapCls)}>
+              {!isViewOnly && (
+                <button
+                  type="button"
+                  onClick={lane.onDown}
+                  className={cn(sizeCls, "flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform")}
+                >
+                  <ArrowDown className={iconCls} strokeWidth={2.25} />
+                </button>
+              )}
+              {!isViewOnly && (
+                <button
+                  type="button"
+                  onClick={lane.onUp}
+                  className={cn(sizeCls, "flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform")}
+                >
+                  <ArrowUp className={iconCls} strokeWidth={2.25} />
+                </button>
+              )}
+            </div>
+          );
+
+          const gridColsClass = (n: number) =>
+            n === 3 ? "grid-cols-3" : n === 2 ? "grid-cols-2" : "grid-cols-1";
+
           return (
-            <div 
+            <div
               key={splitKey}
               className={cn(
-                "bg-card rounded-md border border-border overflow-hidden flex relative transition-all duration-300",
+                "bg-card rounded-lg border border-border/60 overflow-hidden relative transition-all duration-300",
                 isHighlighted && "ring-2 ring-green-500 ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-green-500/20",
                 isErrorHighlighted && "ring-2 ring-destructive ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-destructive/20 animate-pulse"
               )}
             >
-              {/* Left accent bar (Vault) */}
-              <div className="w-1 bg-primary flex-shrink-0" />
-
-              {/* Value badge — pinned to top-right corner */}
-              <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
-                <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
-                <p className="text-[9px] text-accent-foreground/70 text-center">
-                  {item.is_recipe ? getTotalQuantity(splitKey, 1, item.pan_sizes, null) : getItemTotalIncludingLegs(item, splitKey, resolveItemPackQty(item), resolveInnerPackQtyForTotal(item))} {item.is_recipe ? (item.unit || 'ea') : 'units'}
-                </p>
+              {/* Item header: name + subtitle + value badge */}
+              <div className="flex items-start justify-between gap-3 px-3.5 py-3 sm:px-5 sm:py-4 border-b border-border/60">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {item.image_url && (
+                    <img src={item.image_url} alt={item.item_name} className="w-10 h-10 sm:w-12 sm:h-12 rounded object-cover flex-shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] sm:text-base font-medium text-foreground truncate leading-tight">{item.item_name}</p>
+                    {headerSubtitle && (
+                      <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">{headerSubtitle}</p>
+                    )}
+                  </div>
+                </div>
+                <div
+                  className="flex-shrink-0 rounded-lg text-white text-center leading-tight"
+                  style={{ backgroundColor: '#e85d04', padding: '5px 10px' }}
+                >
+                  <p className="text-[14px] sm:text-base font-medium tabular-nums tracking-tight">{formatCurrency(itemCost)}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                    {headerUnits} {headerUnitLabel}
+                  </p>
+                </div>
               </div>
 
-              <div className="flex-1 min-w-0">
-                {/* Item header with badge chips */}
-                <div className="px-3 py-3 border-b border-border pr-28">
-                  <div className="flex items-start gap-3">
-                    {item.image_url && (
-                      <img 
-                        src={item.image_url} 
-                        alt={item.item_name}
-                        className="w-12 h-12 rounded object-cover flex-shrink-0"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.item_name}</p>
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                          {item.pack_size || item.unit || 'ea'}
-                        </span>
-                        {item.item_number && (
-                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            #{item.item_number}
+              {/* ============ MOBILE LAYOUT (< 640px) ============ */}
+              <div className="sm:hidden">
+                {configRows.map((cfg, cfgIdx) => {
+                  const active = cfg.lanes.filter((l): l is LaneSpec => !!l);
+                  return (
+                    <div key={cfg.configId} className={cn(cfgIdx > 0 && "border-t border-border/60")}>
+                      {isMultiConfig && (
+                        <div
+                          className={cn(
+                            "flex items-center gap-1.5 px-3.5 py-1.5 border-b border-border/60",
+                            cfg.isDefault ? "" : "bg-muted"
+                          )}
+                          style={cfg.isDefault ? { backgroundColor: '#E1F5EE' } : undefined}
+                        >
+                          <span
+                            className="text-[12px] font-medium"
+                            style={cfg.isDefault ? { color: '#085041' } : undefined}
+                          >
+                            {cfg.label}
                           </span>
-                        )}
-                        {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (() => {
-                          if (item.is_recipe) {
-                            return (
-                              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                {formatCurrency(recipeCosts?.get(item.item_id) || item.cost_per_unit || 0)}/ea
-                              </span>
-                            );
-                          }
-                          const caseCost = item.cost_per_unit || 0;
-                          if (!caseCost) return null;
-                          const packsPerCase = (item.pack_quantity || 1);
-                          const unitsPerPack = (item as any).inner_pack_quantity || 0;
-                          const hasInner = unitsPerPack > 0;
-                          const totalUnits = hasInner ? packsPerCase * unitsPerPack : packsPerCase;
-                          const perPack = hasInner ? caseCost / packsPerCase : null;
-                          const perUnit = totalUnits > 0 ? caseCost / totalUnits : null;
-                          return (
-                            <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                              {formatCurrency(caseCost)}/cs
-                              {perPack != null && ` · ${formatCurrency(perPack)}/pk`}
-                              {perUnit != null && ` · ${formatCurrency(perUnit)}/u`}
+                          {cfg.isDefault && (
+                            <span
+                              className="rounded-full text-[9px] font-medium"
+                              style={{ backgroundColor: '#0F6E56', color: '#E1F5EE', padding: '1px 8px' }}
+                            >
+                              default
                             </span>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Count controls */}
-                <div className="p-3">
-                  {item.is_recipe ? (
-                    /* Single count stepper for recipe items */
-                    <div className="max-w-xs mx-auto">
-                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate text-center">
-                        Count ({item.unit || 'ea'})
-                      </p>
-                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateCases(splitKey, -1)}
-                          >
-                            <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={rawInputs[splitKey]?.cases ?? count.cases}
-                          onChange={(e) => handleCasesInput(splitKey, e.target.value)}
-                          onBlur={() => handleCasesBlur(splitKey)}
-                          disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                        />
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateCases(splitKey, 1)}
-                          >
-                            <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ) : hasMultipleLegConfigs ? (
-                  (() => {
-                    const configs = legsConfigsMap?.get(item.brand_item_id!) ?? [];
-                    return (
-                      <div className="space-y-4">
-                        {configs.map((cfg) => {
-                          const legKeyUi = cfg.is_default
-                            ? splitKey
-                            : makeLegInputKey(splitKey, cfg.pack_config_id, cfg.is_default);
-                          const legState = counts[legKeyUi] || { cases: 0, units: 0, innerPacks: 0 };
-                          const outerQty = Number(cfg.outer_qty ?? 1) || 1;
-                          const innerIsCommon =
-                            (cfg.inner_type ?? '').trim().toLowerCase() ===
-                            (cfg.common_unit ?? '').trim().toLowerCase();
-                          const hasInnerTier =
-                            !innerIsCommon && Number(cfg.inner_qty ?? 0) > 0;
-                          const baseLanes = computeCountLanes({
-                            item: {
-                              is_recipe: item.is_recipe,
-                              pack_quantity: outerQty,
-                              inner_pack_quantity: hasInnerTier ? (cfg.inner_qty ?? null) : null,
-                              inner_pack_label: cfg.inner_type ?? null,
-                              unit: cfg.common_unit ?? item.unit,
-                              cost_per_unit: item.cost_per_unit,
-                              count_by: 'inherit',
-                            },
-                            lens: null,
-                            lensEnabled: false,
-                          });
-                          const structuralShowCases = outerQty > 1;
-                          const structuralShowInner = hasInnerTier;
-                          const collapseUnits =
-                            !structuralShowCases && structuralShowInner;
-                          const legLanes = {
-                            ...baseLanes,
-                            showCases: structuralShowCases,
-                            showInnerPacks: structuralShowInner,
-                            showUnits: collapseUnits ? false : true,
-                          };
-                          const liveUnits = cfg.count_units_per_case ?? null;
-                          const livePerCommon =
-                            item.cost_per_unit != null && liveUnits && liveUnits > 0
-                              ? item.cost_per_unit / liveUnits
-                              : null;
-                          const perCommon = livePerCommon != null
-                            ? `${formatCurrency(livePerCommon)}/${cfg.common_unit || 'ea'}`
-                            : '—';
-                          const laneCount = [legLanes.showCases, legLanes.showInnerPacks, legLanes.showUnits].filter(Boolean).length;
-                          return (
-                            <div key={cfg.pack_config_id}>
-                              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                                <span className="text-[10px] font-semibold text-foreground">
-                                  {cfg.label || `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit}`}
-                                </span>
-                                {cfg.is_default && (
-                                  <span className="text-[8px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1 py-0.5 rounded">
-                                    default
-                                  </span>
-                                )}
-                                <span className="text-[9px] text-muted-foreground">
-                                  · {cfg.count_units_per_case} {cfg.common_unit}/cs · {perCommon}
-                                </span>
-                              </div>
-                              <div className={cn("grid gap-2", laneCount === 3 ? "grid-cols-3" : laneCount === 2 ? "grid-cols-2" : "grid-cols-1")}>
-                                {legLanes.showCases && (
-                                  <div>
-                                    <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">Cases</p>
-                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                                      {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
-                                          <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                                        </button>
-                                      )}
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={rawInputs[legKeyUi]?.cases ?? legState.cases}
-                                        onChange={(e) => handleCasesInput(legKeyUi, e.target.value)}
-                                        onBlur={() => handleCasesBlur(legKeyUi)}
-                                        disabled={isViewOnly}
-                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                                      />
-                                      {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
-                                          <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                                {legLanes.showInnerPacks && (
-                                  <div>
-                                    <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">{legLanes.innerLabel}</p>
-                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                                      {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
-                                          <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                                        </button>
-                                      )}
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={rawInputs[legKeyUi]?.innerPacks ?? legState.innerPacks}
-                                        onChange={(e) => handleInnerPacksInput(legKeyUi, e.target.value)}
-                                        onBlur={() => handleInnerPacksBlur(legKeyUi)}
-                                        disabled={isViewOnly}
-                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                                      />
-                                      {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
-                                          <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                                {legLanes.showUnits && (
-                                  <div>
-                                    <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">{legLanes.unitsLabel}</p>
-                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                                      {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
-                                          <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                                        </button>
-                                      )}
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={rawInputs[legKeyUi]?.units ?? legState.units}
-                                        onChange={(e) => handleUnitsInput(legKeyUi, e.target.value)}
-                                        onBlur={() => handleUnitsBlur(legKeyUi)}
-                                        disabled={isViewOnly}
-                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                                      />
-                                      {!isViewOnly && (
-                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
-                                          <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()
-                  ) : (
-                  <div className={cn("grid gap-2", showInnerPacks ? "grid-cols-3" : "grid-cols-2")}>
-                    {/* Cases counter — hidden if count_by=units_only */}
-                    {showCases && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
-                        Cases
-                      </p>
-                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateCases(splitKey, -1)}
-                          >
-                            <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={rawInputs[splitKey]?.cases ?? count.cases}
-                          onChange={(e) => handleCasesInput(splitKey, e.target.value)}
-                          onBlur={() => handleCasesBlur(splitKey)}
-                          disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                        />
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateCases(splitKey, 1)}
-                          >
-                            <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    )}
-
-                    {/* Phase 4: Pack counter — the middle tier between cases and individual units */}
-                    {showInnerPacks && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
-                        {lanes.innerLabel}
-                        {lanes.innerSubLabel && (
-                          <span className="ml-1 normal-case tracking-normal">{lanes.innerSubLabel}</span>
-                        )}
-                      </p>
-                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateInnerPacks(splitKey, -1)}
-                          >
-                            <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={rawInputs[splitKey]?.innerPacks ?? (count.innerPacks ?? 0)}
-                          onChange={(e) => handleInnerPacksInput(splitKey, e.target.value)}
-                          onBlur={() => handleInnerPacksBlur(splitKey)}
-                          disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                        />
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateInnerPacks(splitKey, 1)}
-                          >
-                            <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    )}
-
-                    {/* Units counter — hidden if count_by=cases_only */}
-                    {showUnits && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
-                        Units
-                        <span className="ml-1 normal-case tracking-normal">(individual)</span>
-                      </p>
-                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateUnits(splitKey, -1)}
-                          >
-                            <Minus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={rawInputs[splitKey]?.units ?? count.units}
-                          onChange={(e) => handleUnitsInput(splitKey, e.target.value)}
-                          onBlur={() => handleUnitsBlur(splitKey)}
-                          disabled={isViewOnly}
-                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                        />
-                        {!isViewOnly && (
-                          <button
-                            type="button"
-                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                            onClick={() => updateUnits(splitKey, 1)}
-                          >
-                            <Plus className="h-4 w-4" strokeWidth={2} />
-                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    )}
-                  </div>
-                  )}
-
-                  {/* Pan size rows */}
-                  {item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-border">
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
-                        Pan / Cambro
-                      </p>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {item.pan_sizes.enabled_keys.map(panKey => {
-                          const container = ALL_CONTAINERS.find(c => c.key === panKey);
-                          if (!container) return null;
-                          const unitsEach = getPanUnits(item.pan_sizes!, panKey);
-                          const panQty = panCounts[splitKey]?.[panKey] || 0;
-                          return (
-                            <div key={panKey} className="text-center">
-                              <p className="text-[9px] text-muted-foreground font-medium mb-1 truncate">
-                                {container.label}
-                                {unitsEach != null && ` (${unitsEach})`}
+                          )}
+                          {cfg.subtitle && (
+                            <span
+                              className="ml-auto text-[10px] truncate"
+                              style={cfg.isDefault ? { color: '#1D9E75' } : undefined}
+                            >
+                              {cfg.subtitle}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {active.length > 0 && (
+                        <div className={cn("grid", gridColsClass(active.length))}>
+                          {active.map((lane, i) => (
+                            <div
+                              key={lane.kind}
+                              className={cn(
+                                "flex flex-col items-center gap-1.5 py-2.5 px-1",
+                                i < active.length - 1 && "border-r border-border/60"
+                              )}
+                            >
+                              <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                                {lane.label}
                               </p>
-                              <div className="flex items-center bg-background rounded-md border border-foreground/15 overflow-hidden">
-                                {!isViewOnly && (
-                                  <button
-                                    type="button"
-                                    className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                                    onClick={() => updatePanCount(splitKey, panKey, -0.5)}
-                                  >
-                                    <Minus className="h-3 w-3" />
-                                    <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                                  </button>
-                                )}
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={rawPanInputs[splitKey]?.[panKey] ?? panQty}
-                                  onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
-                                  onBlur={() => handlePanBlur(splitKey, panKey)}
-                                  disabled={isViewOnly}
-                                  className="flex-1 text-center text-sm font-bold bg-transparent outline-none w-0"
-                                />
-                                {!isViewOnly && (
-                                  <button
-                                    type="button"
-                                    className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                                    onClick={() => updatePanCount(splitKey, panKey, 0.5)}
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                    <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
-                                  </button>
-                                )}
-                              </div>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={lane.value}
+                                onChange={(e) => lane.onChange(e.target.value)}
+                                onBlur={lane.onBlur}
+                                disabled={isViewOnly}
+                                className="w-full text-center text-[32px] font-medium leading-none tabular-nums bg-transparent outline-none"
+                              />
+                              {renderBtns(lane, "h-9 w-9", "h-4 w-4", "gap-3")}
                             </div>
-                          );
-                        })}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  );
+                })}
 
-                </div>
+                {hasPan && (
+                  <div className="border-t border-border/60">
+                    <div className="px-3.5 py-1.5 bg-muted">
+                      <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">PAN / CAMBRO</p>
+                    </div>
+                    <div className={cn("grid", gridColsClass(Math.min(panKeys.length, 3)))}>
+                      {panKeys.map((panKey, i) => {
+                        const container = ALL_CONTAINERS.find(c => c.key === panKey);
+                        if (!container) return null;
+                        const unitsEach = getPanUnits(item.pan_sizes!, panKey);
+                        const panQty = panCounts[splitKey]?.[panKey] || 0;
+                        const last = i === Math.min(panKeys.length, 3) - 1;
+                        return (
+                          <div
+                            key={panKey}
+                            className={cn(
+                              "flex flex-col items-center gap-1.5 py-2.5 px-1",
+                              !last && "border-r border-border/60"
+                            )}
+                          >
+                            <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground text-center truncate w-full px-1">
+                              {container.label}{unitsEach != null && ` (${unitsEach})`}
+                            </p>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={rawPanInputs[splitKey]?.[panKey] ?? panQty}
+                              onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
+                              onBlur={() => handlePanBlur(splitKey, panKey)}
+                              disabled={isViewOnly}
+                              className="w-full text-center text-[26px] font-medium leading-none tabular-nums bg-transparent outline-none"
+                            />
+                            <div className="flex items-center gap-2.5">
+                              {!isViewOnly && (
+                                <button
+                                  type="button"
+                                  onClick={() => updatePanCount(splitKey, panKey, -0.5)}
+                                  className="h-8 w-8 flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
+                                >
+                                  <ArrowDown className="h-4 w-4" strokeWidth={2.25} />
+                                </button>
+                              )}
+                              {!isViewOnly && (
+                                <button
+                                  type="button"
+                                  onClick={() => updatePanCount(splitKey, panKey, 0.5)}
+                                  className="h-8 w-8 flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
+                                >
+                                  <ArrowUp className="h-4 w-4" strokeWidth={2.25} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ============ DESKTOP LAYOUT (>= 640px) ============ */}
+              <div
+                className={cn(
+                  "hidden sm:grid",
+                  isMultiConfig
+                    ? "grid-cols-[180px_1fr_1fr_1fr]"
+                    : "grid-cols-3"
+                )}
+              >
+                {configRows.map((cfg) => {
+                  const defaultBg = { backgroundColor: '#E1F5EE' };
+                  const defaultBorder = '#9FE1CB';
+                  const labelColor = cfg.isDefault ? '#085041' : undefined;
+                  const subColor = cfg.isDefault ? '#1D9E75' : undefined;
+                  return (
+                    <div key={cfg.configId} className="contents">
+                      {/* Row A — labels */}
+                      {isMultiConfig && (
+                        <div
+                          className={cn(
+                            "px-3.5 flex items-center gap-1.5 min-h-[36px] border-r border-b",
+                            !cfg.isDefault && "bg-muted border-border/60"
+                          )}
+                          style={cfg.isDefault ? { ...defaultBg, borderRightColor: defaultBorder, borderBottomColor: defaultBorder } : undefined}
+                        >
+                          <span className="text-[12px] font-medium" style={labelColor ? { color: labelColor } : undefined}>
+                            {cfg.label}
+                          </span>
+                          {cfg.isDefault && (
+                            <span
+                              className="rounded-full text-[9px] font-medium"
+                              style={{ backgroundColor: '#0F6E56', color: '#E1F5EE', padding: '1px 8px' }}
+                            >
+                              default
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {[0, 1, 2].map((slot) => {
+                        const lane = cfg.lanes[slot];
+                        return (
+                          <div
+                            key={`A-${slot}`}
+                            className={cn(
+                              "flex items-center justify-center min-h-[36px] border-b",
+                              !cfg.isDefault && "bg-muted border-border/60"
+                            )}
+                            style={cfg.isDefault ? { ...defaultBg, borderBottomColor: defaultBorder } : undefined}
+                          >
+                            {lane ? (
+                              <span
+                                className="text-[9px] font-medium uppercase tracking-wider"
+                                style={labelColor ? { color: labelColor } : { color: 'hsl(var(--muted-foreground))' }}
+                              >
+                                {lane.label}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] opacity-20">—</span>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Row B — subtitle + steppers */}
+                      {isMultiConfig && (
+                        <div
+                          className={cn(
+                            "px-3.5 flex items-center border-r border-b py-2.5",
+                            !cfg.isDefault && "bg-muted border-border/60"
+                          )}
+                          style={cfg.isDefault ? { ...defaultBg, borderRightColor: defaultBorder, borderBottomColor: defaultBorder } : undefined}
+                        >
+                          <span className="text-[10px]" style={subColor ? { color: subColor } : { color: 'hsl(var(--muted-foreground))' }}>
+                            {cfg.subtitle}
+                          </span>
+                        </div>
+                      )}
+                      {[0, 1, 2].map((slot) => {
+                        const lane = cfg.lanes[slot];
+                        if (!lane) {
+                          return (
+                            <div
+                              key={`B-${slot}`}
+                              className="border-b border-border/60"
+                              style={cfg.isDefault ? { ...defaultBg, borderBottomColor: defaultBorder } : undefined}
+                            />
+                          );
+                        }
+                        return (
+                          <div
+                            key={`B-${slot}`}
+                            className="flex flex-col items-center gap-1.5 py-3 border-b border-border/60"
+                          >
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={lane.value}
+                              onChange={(e) => lane.onChange(e.target.value)}
+                              onBlur={lane.onBlur}
+                              disabled={isViewOnly}
+                              className="w-full text-center text-[30px] font-medium leading-none tabular-nums bg-transparent outline-none"
+                            />
+                            {renderBtns(lane, "h-[34px] w-[34px]", "h-4 w-4", "gap-3")}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+
+                {hasPan && (
+                  <div className="contents">
+                    {/* Row C — pan labels */}
+                    {isMultiConfig && (
+                      <div className="px-3.5 flex items-center min-h-[36px] bg-muted border-r border-b border-border/60">
+                        <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">PAN / CAMBRO</span>
+                      </div>
+                    )}
+                    {[0, 1, 2].map((slot) => {
+                      const panKey = panKeys[slot];
+                      const container = panKey ? ALL_CONTAINERS.find(c => c.key === panKey) : null;
+                      const unitsEach = panKey ? getPanUnits(item.pan_sizes!, panKey) : null;
+                      return (
+                        <div
+                          key={`C-${slot}`}
+                          className="flex items-center justify-center min-h-[36px] bg-muted border-b border-border/60"
+                        >
+                          {container ? (
+                            <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                              {container.label}{unitsEach != null && ` (${unitsEach})`}
+                            </span>
+                          ) : (
+                            <span className="text-[9px] opacity-20">—</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {/* Row D — pan steppers */}
+                    {isMultiConfig && (
+                      <div className="bg-muted border-r border-b border-border/60" />
+                    )}
+                    {[0, 1, 2].map((slot) => {
+                      const panKey = panKeys[slot];
+                      if (!panKey) return <div key={`D-${slot}`} className="border-b border-border/60" />;
+                      const panQty = panCounts[splitKey]?.[panKey] || 0;
+                      return (
+                        <div key={`D-${slot}`} className="flex flex-col items-center gap-1.5 py-3 border-b border-border/60">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={rawPanInputs[splitKey]?.[panKey] ?? panQty}
+                            onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
+                            onBlur={() => handlePanBlur(splitKey, panKey)}
+                            disabled={isViewOnly}
+                            className="w-full text-center text-[26px] font-medium leading-none tabular-nums bg-transparent outline-none"
+                          />
+                          <div className="flex items-center gap-2">
+                            {!isViewOnly && (
+                              <button
+                                type="button"
+                                onClick={() => updatePanCount(splitKey, panKey, -0.5)}
+                                className="h-[30px] w-[30px] flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
+                              >
+                                <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.25} />
+                              </button>
+                            )}
+                            {!isViewOnly && (
+                              <button
+                                type="button"
+                                onClick={() => updatePanCount(splitKey, panKey, 0.5)}
+                                className="h-[30px] w-[30px] flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
+                              >
+                                <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
 
       {/* Navigation bar with back/forward and location name */}
       {locationKeys.length > 1 && (
