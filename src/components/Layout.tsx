@@ -120,7 +120,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Value</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/55">Total Value</p>
                   <p className="mt-1 truncate text-xl font-semibold leading-none tracking-tight text-white tabular-nums">
                     {formatCurrency(dockContent.totalValue)}
                   </p>
