@@ -371,6 +371,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               return basePan;
             })(),
             is_recipe: isRecipe,
+            // Recipe yield fields — required for canonical valuation parity with Review/COGS.
+            // Without these, calculateCountItemValue's yield branch is skipped and recipe items
+            // are valued at qty × batchCost instead of qty × (batchCost / yield_qty), inflating
+            // the Count screen total vs. Review.
+            recipe_yield_qty: (item as any).recipe_yield_qty ?? null,
+            recipe_yield_unit: (item as any).recipe_yield_unit ?? null,
             count_by: (locId ? countByMap.get(`${item.id}|${locId}`) : 'inherit') as CountItem['count_by'] || 'inherit',
             _existingQuantity: countData?.quantity ?? 0,
             _existingCases: countData?.entered_cases ?? null,
