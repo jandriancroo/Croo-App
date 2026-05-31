@@ -2355,7 +2355,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     >
       {/* Desktop: Stats bar at top */}
       {!isMobile && !isViewOnly && (
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border -mx-4 px-4 py-3 space-y-2">
+        <div className="sticky top-14 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border -mx-4 px-4 py-3 space-y-2">
           {/* Progress bar */}
           <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
             <div 
