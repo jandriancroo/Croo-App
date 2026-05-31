@@ -180,10 +180,8 @@ export default function InventoryCountTab({
 
   return (
     <div className="space-y-3">
-      {/* Filter chips + New button */}
-      <div className="flex items-center gap-2">
-        <FilterChips typeFilter={typeFilter} setTypeFilter={setTypeFilter} />
-        <div className="flex-1" />
+      {/* Action row — Transfer + New */}
+      <div className="flex items-center gap-2 justify-end">
         <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5 relative" onClick={() => setShowTransferDialog(true)}>
           <ArrowRightLeft className="h-3.5 w-3.5" /> Transfer
           {pendingIncoming.length > 0 && (
