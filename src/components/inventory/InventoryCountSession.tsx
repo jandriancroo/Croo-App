@@ -648,12 +648,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // legs hydration query lands. Runs once per mount; default-leg state stays
   // owned by the existing init effect above.
   const legsHydratedRef = useRef(false);
+  // Separate guard for the edit-mode baseline override pass. The main
+  // hydration may have run before `isEditing` flipped true (parent prop /
+  // lock hook resolves async), which would silently skip the baseline
+  // override and produce phantom diffs in the Save dialog. This ref lets
+  // the baseline pass run exactly once when isEditing becomes true.
+  const legsBaselineHydratedRef = useRef(false);
   useEffect(() => {
-    if (legsHydratedRef.current) return;
+    const baselineDone = !isEditing || legsBaselineHydratedRef.current;
+    if (legsHydratedRef.current && baselineDone) return;
     if (!items || !legsHydrationMap) return;
     if (legsEnabledForLocation !== true) return;
     if (!legsConfigsMap) return;
+    const firstRun = !legsHydratedRef.current;
     legsHydratedRef.current = true;
+    if (isEditing) legsBaselineHydratedRef.current = true;
+
     const additions: Record<string, ItemCount> = {};
     const rawAdditions: Record<string, { cases: string; units: string; innerPacks: string }> = {};
     // Fix (A): for multi-leg items in edit mode, the parent-row baseline computed
@@ -740,6 +750,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (isEditing && Object.keys(legBaselineOverrides).length > 0) {
       originalCounts.current = { ...originalCounts.current, ...legBaselineOverrides };
     }
+    if (!firstRun) return;
     if (Object.keys(additions).length === 0) return;
     traceSpinach('hydrate-leg-state-merge', {
       keys: Object.keys(additions),
@@ -750,6 +761,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     // Non-default leg keys never collide with prev, so they're additive either way.
     setCounts(prev => ({ ...prev, ...additions }));
     setRawInputs(prev => ({ ...prev, ...rawAdditions }));
+
   }, [items, legsHydrationMap, legsConfigsMap, legsEnabledForLocation, makeLegInputKey, isEditing]);
 
   // Initialize timer from existing duration (for resumed counts)
@@ -917,41 +929,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }) => {
     const key = (item as any)._splitKey || item.item_id;
 
-    // Recipe items: route through the canonical calculator so yield-qty
-    // division applies (counted unit may differ from yield unit).
-    const batchCost = recipeCosts?.get(item.item_id);
-    if (batchCost !== undefined && batchCost > 0) {
-      const totalUnits = getTotalQuantity(key, 1, item.pan_sizes);
-      return calculateCountItemValue(
-        {
-          quantity: totalUnits,
-          entered_cases: null,
-          entered_units: null,
-          entered_inner_packs: null,
-          cost_at_count: null,
-          pack_quantity_at_count: null,
-          inner_pack_quantity_at_count: null,
-        },
-        {
-          cost_per_unit: batchCost,
-          is_recipe: true,
-          unit: (item as any).unit,
-          recipe_yield_qty: (item as any).recipe_yield_qty,
-          recipe_yield_unit: (item as any).recipe_yield_unit,
-        },
-        null,
-        true
-      );
-    }
-
-    // Edit mode snapshot path: when viewing a submitted count and the user
-    // hasn't typed into this row, value it from the persisted cost_at_count /
-    // pack_quantity_at_count snapshots via the same hook Review and COGS use.
-    // This keeps the running total in lockstep with Review/COGS on submitted
-    // counts where live item data (cost_per_unit, pack_quantity, lens) has
-    // drifted since submission. Once the user edits the row, the live
-    // recompute path below takes over so pending changes are reflected
-    // immediately; on save the snapshot is rewritten.
+    // Edit mode snapshot path (hoisted ABOVE the recipe batchCost branch):
+    // when viewing a submitted count and the user hasn't typed into this row,
+    // value it from the persisted cost_at_count / pack_quantity_at_count
+    // snapshots via the same hook Review and COGS use. This applies to
+    // recipe items too — otherwise live batchCost drift (ingredient cost
+    // changes after submit) would make the session total disagree with
+    // Review/COGS. Once the user edits the row, the live recompute path
+    // below takes over so pending changes are reflected immediately.
     if (
       isEditing &&
       (item as any)._countItemId &&
@@ -984,6 +969,34 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         conv || null,
       );
     }
+
+    // Recipe items: route through the canonical calculator so yield-qty
+    // division applies (counted unit may differ from yield unit).
+    const batchCost = recipeCosts?.get(item.item_id);
+    if (batchCost !== undefined && batchCost > 0) {
+      const totalUnits = getTotalQuantity(key, 1, item.pan_sizes);
+      return calculateCountItemValue(
+        {
+          quantity: totalUnits,
+          entered_cases: null,
+          entered_units: null,
+          entered_inner_packs: null,
+          cost_at_count: null,
+          pack_quantity_at_count: null,
+          inner_pack_quantity_at_count: null,
+        },
+        {
+          cost_per_unit: batchCost,
+          is_recipe: true,
+          unit: (item as any).unit,
+          recipe_yield_qty: (item as any).recipe_yield_qty,
+          recipe_yield_unit: (item as any).recipe_yield_unit,
+        },
+        null,
+        true
+      );
+    }
+
 
     // Live values (mid-typing) override saved values
     const rawCases = parseFloat(rawInputs[key]?.cases ?? '');
