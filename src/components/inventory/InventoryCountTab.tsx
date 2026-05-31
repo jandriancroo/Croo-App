@@ -38,8 +38,6 @@ export default function InventoryCountTab({
   const [pageIndex, setPageIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(6);
   // tabsRef removed — old horizontal tab strip replaced by Design D divider list.
-  const [showTransferDialog, setShowTransferDialog] = useState(false);
-  const { pendingIncoming } = useInventoryTransfers(locationId);
 
   // Merge in-progress into recentCounts stats if available
   const inProgressWithStats = useMemo(() => {
