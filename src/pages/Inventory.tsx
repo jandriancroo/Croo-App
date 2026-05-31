@@ -54,6 +54,8 @@ const Inventory = () => {
   
   const [showDailyCount, setShowDailyCount] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const { pendingIncoming } = useInventoryTransfers(locationId || "");
 
   // Fetch location details
   const { data: location } = useQuery({
