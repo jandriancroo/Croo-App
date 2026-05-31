@@ -278,7 +278,7 @@ export default function InventoryCountTab({
                   return (
                     <div key={count.id} className="border-b border-border last:border-b-0">
                       <button
-                        onClick={() => setSelectedIdx(idx)}
+                        onClick={() => setSelectedIdx(isActive ? -1 : idx)}
                         className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
                           isActive ? "bg-muted/40" : "hover:bg-muted/30"
                         }`}
@@ -305,6 +305,44 @@ export default function InventoryCountTab({
                           )}
                         </div>
                       </button>
+                      <AnimatePresence initial={false}>
+                        {isActive && (
+                          <motion.div
+                            key="panel"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-3 pb-3 pt-1">
+                              {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && count.id === inProgressWithStats.id && (
+                                <div className="mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75" />
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                                    </div>
+                                    <span className="text-sm font-semibold">
+                                      {inProgressWithStats._stats.countedItems} of {inProgressWithStats._stats.totalItems} items counted
+                                    </span>
+                                  </div>
+                                  <Button size="sm" onClick={() => navigate(`/inventory/${locationId}/count/${inProgressWithStats.id}?continue=true`)}>
+                                    Resume <ArrowRight className="h-4 w-4 ml-1" />
+                                  </Button>
+                                </div>
+                              )}
+                              <PeriodDetailPanel
+                                count={count}
+                                locationId={locationId}
+                                onDeleteCount={!count._isUpcoming ? onDeleteCount : undefined}
+                                onCreateCountForPeriod={onCreateCountForPeriod}
+                                onStartDailyCount={onStartDailyCount}
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   );
                 })}
