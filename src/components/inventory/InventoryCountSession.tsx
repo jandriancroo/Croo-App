@@ -737,16 +737,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const configs = legsConfigsMap?.get(item.brand_item_id) ?? [];
       if (configs.length < 2) continue;
       if (isEditing) {
-        let legSum = 0;
-        let sawAnyLeg = false;
-        for (const cfg of configs) {
-          const legRow = legsHydrationMap.get(`${countItemId}|${cfg.pack_config_id}`);
-          if (!legRow) continue;
-          sawAnyLeg = true;
-          legSum += Number(legRow.quantity_common ?? 0) || 0;
-        }
-        if (sawAnyLeg) {
-          legBaselineOverrides[splitKey] = Math.round(legSum * 100) / 100;
+        // Fix: baseline must match the value the user SEES in the splitKey input,
+        // which only reflects the DEFAULT leg's entered_* (see additions[k] below
+        // for cfg.is_default). Using SUM(legs.quantity_common) produces phantom
+        // diffs because non-default legs contribute to the sum but not to the
+        // displayed value for splitKey.
+        const defaultCfg = configs.find(c => c.is_default);
+        if (defaultCfg) {
+          const defaultLeg = legsHydrationMap.get(`${countItemId}|${defaultCfg.pack_config_id}`);
+          if (defaultLeg) {
+            legBaselineOverrides[splitKey] =
+              Math.round((Number(defaultLeg.quantity_common ?? 0) || 0) * 100) / 100;
+          }
         }
       }
       // Default-leg override: for multi-leg items, the legs table is the source
