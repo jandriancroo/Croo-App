@@ -180,25 +180,9 @@ export default function InventoryCountTab({
 
   return (
     <div className="space-y-3">
-      {/* Action row — Transfer + New */}
-      <div className="flex items-center gap-2 justify-end">
-        <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5 relative" onClick={() => setShowTransferDialog(true)}>
-          <ArrowRightLeft className="h-3.5 w-3.5" /> Transfer
-          {pendingIncoming.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-bold">
-              {pendingIncoming.length}
-            </span>
-          )}
-        </Button>
-        <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5" onClick={onStartCount}>
-          <Plus className="h-3.5 w-3.5" /> New
-        </Button>
-      </div>
-
       {/* Pending incoming transfers */}
       <PendingTransfersSection locationId={locationId} />
 
-      <TransferDialog open={showTransferDialog} onClose={() => setShowTransferDialog(false)} locationId={locationId} />
 
       {/* Design D — dark teal hero for current/upcoming + divider list for past periods */}
       {(() => {
