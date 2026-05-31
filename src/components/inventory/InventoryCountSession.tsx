@@ -2544,13 +2544,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             <div 
               key={splitKey}
               className={cn(
-                "bg-card rounded-md border border-border overflow-hidden flex relative transition-all duration-300",
+                "bg-card border-y border-border overflow-hidden flex relative transition-all duration-300 -mx-3 sm:mx-0 sm:rounded-md sm:border",
                 isHighlighted && "ring-2 ring-green-500 ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-green-500/20",
                 isErrorHighlighted && "ring-2 ring-destructive ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-destructive/20 animate-pulse"
               )}
             >
-              {/* Left accent bar (Vault) */}
-              <div className="w-1 bg-primary flex-shrink-0" />
 
               {/* Value badge — pinned to top-right corner */}
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
@@ -2573,19 +2571,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.item_name}</p>
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-nowrap overflow-x-auto scrollbar-none">
+                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
                           {item.pack_size || item.unit || 'ea'}
                         </span>
                         {item.item_number && (
-                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
                             #{item.item_number}
                           </span>
                         )}
                         {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (() => {
                           if (item.is_recipe) {
                             return (
-                              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
                                 {formatCurrency(recipeCosts?.get(item.item_id) || item.cost_per_unit || 0)}/ea
                               </span>
                             );
@@ -2599,7 +2597,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           const perPack = hasInner ? caseCost / packsPerCase : null;
                           const perUnit = totalUnits > 0 ? caseCost / totalUnits : null;
                           return (
-                            <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
                               {formatCurrency(caseCost)}/cs
                               {perPack != null && ` · ${formatCurrency(perPack)}/pk`}
                               {perUnit != null && ` · ${formatCurrency(perUnit)}/u`}
