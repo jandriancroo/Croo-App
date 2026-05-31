@@ -944,6 +944,47 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       );
     }
 
+    // Edit mode snapshot path: when viewing a submitted count and the user
+    // hasn't typed into this row, value it from the persisted cost_at_count /
+    // pack_quantity_at_count snapshots via the same hook Review and COGS use.
+    // This keeps the running total in lockstep with Review/COGS on submitted
+    // counts where live item data (cost_per_unit, pack_quantity, lens) has
+    // drifted since submission. Once the user edits the row, the live
+    // recompute path below takes over so pending changes are reflected
+    // immediately; on save the snapshot is rewritten.
+    if (
+      isEditing &&
+      (item as any)._countItemId &&
+      ((item as any)._costAtCount != null || (item as any)._packQuantityAtCount != null) &&
+      !rawInputs[(item as any)._splitKey || item.item_id]
+    ) {
+      const conv = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
+      return getItemValueWithLegs(
+        {
+          id: (item as any)._countItemId,
+          quantity: Number((item as any)._existingQuantity ?? 0),
+          entered_cases: (item as any)._existingCases ?? null,
+          entered_units: (item as any)._existingUnits ?? null,
+          entered_inner_packs: (item as any)._existingInnerPacks ?? null,
+          cost_at_count: (item as any)._costAtCount ?? null,
+          pack_quantity_at_count: (item as any)._packQuantityAtCount ?? null,
+          inner_pack_quantity_at_count: (item as any)._innerPackQuantityAtCount ?? null,
+        },
+        {
+          brand_item_id: item.brand_item_id,
+          cost_per_unit: item.cost_per_unit,
+          pack_quantity: (item as any)._rawPackQuantity ?? item.pack_quantity,
+          pack_quantity_override: (item as any)._rawPackQuantityOverride ?? null,
+          inner_pack_quantity: (item as any).inner_pack_quantity || null,
+          is_recipe: (item as any).is_recipe === true,
+          unit: (item as any).unit,
+          recipe_yield_qty: (item as any).recipe_yield_qty,
+          recipe_yield_unit: (item as any).recipe_yield_unit,
+        },
+        conv || null,
+      );
+    }
+
     // Live values (mid-typing) override saved values
     const rawCases = parseFloat(rawInputs[key]?.cases ?? '');
     const rawUnits = parseFloat(rawInputs[key]?.units ?? '');
