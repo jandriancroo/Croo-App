@@ -1126,7 +1126,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               </button>
             </SheetTrigger>
 
-            <SheetContent side="bottom" className="h-auto">
+            <SheetContent side="bottom" className="h-auto max-h-[90vh] overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
