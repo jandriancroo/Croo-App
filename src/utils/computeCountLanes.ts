@@ -223,7 +223,7 @@ export function computeCountLanes({
     innerSubLabel,
     unitsLabel: (() => {
       const u = (item.unit ?? "").trim().toLowerCase();
-      if (!u || u === "ea" || u === "each" || u === "unit" || u === "units") return "Units";
+      if (!u || u === "ea" || u === "each" || u === "unit" || u === "units" || u === "cs" || u === "case" || u === "cases" || u === "ct" || u === "count") return "Units";
       // Weight/volume atomic units render as their own plural (LBS, OZ, KG, ML, GAL…)
       return u.endsWith("s") ? u.toUpperCase() : `${u.toUpperCase()}S`;
     })(),

@@ -2833,9 +2833,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 onChange={(e) => lane.onChange(e.target.value)}
                                 onBlur={lane.onBlur}
                                 disabled={isViewOnly}
-                                className="w-full text-center text-[52px] font-semibold leading-none tabular-nums bg-transparent outline-none"
+                                className="w-full text-center text-[32px] font-semibold leading-none tabular-nums bg-transparent outline-none"
                               />
-                              {renderBtns(lane, "h-9 w-9", "h-4 w-4", "gap-3")}
+                              {renderBtns(lane, "h-9 w-9", "h-4 w-4", "gap-2")}
                             </div>
                           ))}
                         </div>
@@ -2874,14 +2874,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
                               onBlur={() => handlePanBlur(splitKey, panKey)}
                               disabled={isViewOnly}
-                              className="w-full text-center text-[44px] font-semibold leading-none tabular-nums bg-transparent outline-none"
+                              className="w-full text-center text-[32px] font-semibold leading-none tabular-nums bg-transparent outline-none"
                             />
                             <div className="flex items-center gap-2.5">
                               {!isViewOnly && (
                                 <button
                                   type="button"
                                   onClick={() => updatePanCount(splitKey, panKey, -0.5)}
-                                  className="h-8 w-8 flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
+                                  className="h-9 w-9 flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
                                 >
                                   <ArrowDown className="h-4 w-4" strokeWidth={2.25} />
                                 </button>
@@ -2890,7 +2890,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 <button
                                   type="button"
                                   onClick={() => updatePanCount(splitKey, panKey, 0.5)}
-                                  className="h-8 w-8 flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
+                                  className="h-9 w-9 flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
                                 >
                                   <ArrowUp className="h-4 w-4" strokeWidth={2.25} />
                                 </button>
@@ -3004,9 +3004,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               onChange={(e) => lane.onChange(e.target.value)}
                               onBlur={lane.onBlur}
                               disabled={isViewOnly}
-                              className="w-full text-center text-[48px] font-semibold leading-none tabular-nums bg-transparent outline-none"
+                              className="w-full text-center text-[32px] font-semibold leading-none tabular-nums bg-transparent outline-none"
                             />
-                            {renderBtns(lane, "h-[34px] w-[34px]", "h-4 w-4", "gap-3")}
+                            {renderBtns(lane, "h-9 w-9", "h-4 w-4", "gap-2")}
                           </div>
                         );
                       })}
@@ -3058,14 +3058,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
                             onBlur={() => handlePanBlur(splitKey, panKey)}
                             disabled={isViewOnly}
-                            className="w-full text-center text-[44px] font-semibold leading-none tabular-nums bg-transparent outline-none"
+                            className="w-full text-center text-[32px] font-semibold leading-none tabular-nums bg-transparent outline-none"
                           />
                           <div className="flex items-center gap-2">
                             {!isViewOnly && (
                               <button
                                 type="button"
                                 onClick={() => updatePanCount(splitKey, panKey, -0.5)}
-                                className="h-[30px] w-[30px] flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
+                                className="h-9 w-9 flex items-center justify-center rounded-md border border-[#F5C4B3] bg-[#FEF3EE] text-[#993C1D] active:scale-95 transition-transform"
                               >
                                 <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.25} />
                               </button>
@@ -3074,7 +3074,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               <button
                                 type="button"
                                 onClick={() => updatePanCount(splitKey, panKey, 0.5)}
-                                className="h-[30px] w-[30px] flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
+                                className="h-9 w-9 flex items-center justify-center rounded-md border border-[#9FE1CB] bg-[#E1F5EE] text-[#0F6E56] active:scale-95 transition-transform"
                               >
                                 <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
                               </button>
