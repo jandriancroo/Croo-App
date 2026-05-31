@@ -98,7 +98,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
         .select("brand_template_id, is_default, brand_pack_configs!inner(id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, status)")
         .eq("location_id", locationId);
       if (error) throw error;
-      const map = new Map<string, Array<{ pack_config_id: string; is_default: boolean; label: string | null; outer_qty: number | null; outer_type: string | null; inner_qty: number | null; inner_type: string | null; common_unit: string | null }>>();
+      const map = new Map<string, Array<{ pack_config_id: string; is_default: boolean; label: string | null; outer_qty: number | null; outer_type: string | null; inner_qty: number | null; inner_type: string | null; common_unit: string | null; count_units_per_case: number | null }>>();
       for (const row of (data as any[]) || []) {
         const bpc = row?.brand_pack_configs;
         if (!row?.brand_template_id || !bpc) continue;
@@ -113,6 +113,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
           inner_qty: bpc.inner_qty ?? null,
           inner_type: bpc.inner_type ?? null,
           common_unit: bpc.common_unit ?? null,
+          count_units_per_case: bpc.count_units_per_case ?? null,
         });
         map.set(row.brand_template_id, list);
       }
@@ -304,21 +305,57 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   // Single source of truth — see src/utils/countItemValue.ts
   // forceLiveData=false → honor snapshots (cost_at_count, pack_quantity_at_count).
   // Review reads historical/in-progress counts as-stored.
+  // Build per-leg valuation payload mirroring InventoryCountSession's contract.
+  // Per spec §3.3 cost comes from a shared common-unit cost derived from the
+  // DEFAULT cfg + parent item.cost_per_unit. Snapshots (when present on the
+  // leg row) still win. Returns undefined when legs[] would not change math
+  // (single config or missing config data) so callers preserve today's path.
+  const buildLegsForValuation = (
+    item: CountItem,
+    legRows: Array<{ pack_config_id: string; entered_cases: number | null; entered_inner_packs: number | null; entered_units: number | null; quantity_common: number | null; pack_quantity_at_count: number | null; inner_pack_quantity_at_count: number | null; cost_at_count: number | null; }>,
+  ) => {
+    if (legRows.length < 2) return undefined;
+    const itm: any = item.item || {};
+    const bid = itm.brand_item_id;
+    if (!bid) return undefined;
+    const cfgs = legsConfigsMap?.get(bid) ?? [];
+    if (cfgs.length < 2) return undefined;
+    const cfgById = new Map(cfgs.map((c: any) => [c.pack_config_id, c]));
+    const defaultCfg: any = cfgs.find((c: any) => c.is_default) ?? cfgs[0];
+    const defaultUnitsPerCase = Number(defaultCfg?.count_units_per_case ?? 0);
+    const costPerCase = Number(itm.cost_per_unit ?? 0);
+    const commonUnitCost = (defaultUnitsPerCase > 0 && costPerCase > 0)
+      ? costPerCase / defaultUnitsPerCase
+      : null;
+    if (commonUnitCost == null) return undefined;
+    return legRows.map((leg) => {
+      const cfg: any = cfgById.get(leg.pack_config_id);
+      const cu = Number(cfg?.count_units_per_case ?? 0);
+      // Snapshot-wins on the leg row, else derive from the leg's cfg.
+      const pq = leg.pack_quantity_at_count != null ? Number(leg.pack_quantity_at_count) : (cu > 0 ? cu : null);
+      const legCost = leg.cost_at_count != null
+        ? Number(leg.cost_at_count)
+        : (pq != null && pq > 0 ? pq * commonUnitCost : null);
+      return {
+        entered_cases: leg.entered_cases,
+        entered_units: 0,
+        entered_inner_packs: 0,
+        quantity_common: leg.quantity_common,
+        pack_quantity_at_count: pq,
+        inner_pack_quantity_at_count: null,
+        cost_at_count: legCost,
+      };
+    });
+  };
+
+  // Single source of truth — see src/utils/countItemValue.ts
+  // forceLiveData=false → honor snapshots (cost_at_count, pack_quantity_at_count).
+  // Review reads historical/in-progress counts as-stored.
   const getItemValue = (item: CountItem) => {
     const itm: any = item.item || {};
     const conversion = itm.brand_item_id ? conversionMap.get(itm.brand_item_id) : null;
     const legRows = legsByCountItemId?.get(item.id) ?? [];
-    const legsForValuation = legRows.length >= 2
-      ? legRows.map(l => ({
-          entered_cases: l.entered_cases,
-          entered_units: l.entered_units,
-          entered_inner_packs: l.entered_inner_packs,
-          quantity_common: l.quantity_common,
-          pack_quantity_at_count: l.pack_quantity_at_count,
-          inner_pack_quantity_at_count: l.inner_pack_quantity_at_count,
-          cost_at_count: l.cost_at_count,
-        }))
-      : undefined;
+    const legsForValuation = buildLegsForValuation(item, legRows);
     return calculateCountItemValue(
       item as any,
       {
@@ -557,6 +594,13 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                       const bid = item.item?.brand_item_id;
                                       const cfgs = bid ? (legsConfigsMap?.get(bid) ?? []) : [];
                                       const cfgById = new Map(cfgs.map(c => [c.pack_config_id, c]));
+                                      // Enriched per-leg payloads (default-leg cost derived from
+                                      // commonUnitCost so each sub-row prices with its own cfg).
+                                      const enrichedAll = buildLegsForValuation(item, legRows) ?? [];
+                                      const enrichedByCfg = new Map<string, any>();
+                                      legRows.forEach((lr, idx) => {
+                                        if (enrichedAll[idx]) enrichedByCfg.set(lr.pack_config_id, enrichedAll[idx]);
+                                      });
                                       const ordered = [...legRows].sort((a, b) => {
                                         const ca = cfgById.get(a.pack_config_id);
                                         const cb = cfgById.get(b.pack_config_id);
@@ -571,37 +615,32 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                           || (cfg?.outer_qty != null && cfg?.inner_qty != null
                                                 ? `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit ?? ""}`.trim()
                                                 : (leg.pack_quantity_at_count != null ? `${leg.pack_quantity_at_count} ${cfg?.common_unit ?? ""}`.trim() : "leg"));
-                                        const legValue = calculateCountItemValue(
-                                          {
-                                            quantity: null,
-                                            entered_cases: leg.entered_cases,
-                                            entered_units: leg.entered_units,
-                                            entered_inner_packs: leg.entered_inner_packs,
-                                            cost_at_count: null,
-                                            pack_quantity_at_count: null,
-                                            inner_pack_quantity_at_count: null,
-                                          } as any,
-                                          {
-                                            brand_item_id: item.item?.brand_item_id,
-                                            cost_per_unit: item.item?.cost_per_unit,
-                                            pack_quantity: item.item?.pack_quantity,
-                                            pack_quantity_override: (item.item as any)?.pack_quantity_override,
-                                            inner_pack_quantity: item.item?.inner_pack_quantity,
-                                            is_recipe: (item.item as any)?.is_recipe === true,
-                                            unit: item.item?.unit,
-                                          } as any,
-                                          null,
-                                          false,
-                                          [{
-                                            entered_cases: leg.entered_cases,
-                                            entered_units: leg.entered_units,
-                                            entered_inner_packs: leg.entered_inner_packs,
-                                            quantity_common: leg.quantity_common,
-                                            pack_quantity_at_count: leg.pack_quantity_at_count,
-                                            inner_pack_quantity_at_count: leg.inner_pack_quantity_at_count,
-                                            cost_at_count: leg.cost_at_count,
-                                          }],
-                                        );
+                                        const enrichedLeg = enrichedByCfg.get(leg.pack_config_id);
+                                        const legValue = enrichedLeg
+                                          ? calculateCountItemValue(
+                                              {
+                                                quantity: null,
+                                                entered_cases: leg.entered_cases,
+                                                entered_units: leg.entered_units,
+                                                entered_inner_packs: leg.entered_inner_packs,
+                                                cost_at_count: null,
+                                                pack_quantity_at_count: null,
+                                                inner_pack_quantity_at_count: null,
+                                              } as any,
+                                              {
+                                                brand_item_id: item.item?.brand_item_id,
+                                                cost_per_unit: item.item?.cost_per_unit,
+                                                pack_quantity: item.item?.pack_quantity,
+                                                pack_quantity_override: (item.item as any)?.pack_quantity_override,
+                                                inner_pack_quantity: item.item?.inner_pack_quantity,
+                                                is_recipe: (item.item as any)?.is_recipe === true,
+                                                unit: item.item?.unit,
+                                              } as any,
+                                              null,
+                                              false,
+                                              [enrichedLeg],
+                                            )
+                                          : 0;
                                         const entered: string[] = [];
                                         if ((leg.entered_cases ?? 0) > 0) entered.push(`${leg.entered_cases} cs`);
                                         if ((leg.entered_inner_packs ?? 0) > 0) entered.push(`${leg.entered_inner_packs} pk`);
