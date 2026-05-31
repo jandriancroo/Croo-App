@@ -394,9 +394,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
       const [beginItems, endItems] = await Promise.all([
         beginCount
-          ? supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs").eq("count_id", beginCount.id)
+          ? supabase.from("inventory_count_items").select("id, item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs").eq("count_id", beginCount.id)
           : { data: [] },
-        supabase.from("inventory_count_items").select("item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs").eq("count_id", count.id),
+        supabase.from("inventory_count_items").select("id, item_id, quantity, cost_at_count, pack_quantity_at_count, inner_pack_quantity_at_count, entered_cases, entered_units, entered_inner_packs").eq("count_id", count.id),
       ]);
 
       // Collect all item_ids referenced in both counts to include inactive items
