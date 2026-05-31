@@ -611,52 +611,52 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       ) : cogsData ? (
         <Card className="relative">
           <CardContent className="p-4 sm:p-5">
-            {/* Top row: COGS % pinned right */}
-            <div className="flex items-start justify-between mb-1">
-              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                <p className="text-base font-bold leading-tight">{formatPeriodLabel(count)}</p>
-                {count.status === "completed" && (
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-emerald-500/50 text-emerald-600">
-                    Submitted
-                  </Badge>
+            {/* Top row: meta (date range + user) on left, Review eye + optional Resume on right */}
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0 flex-1">
+                {periodRange && (
+                  <div className="flex items-center gap-0.5 flex-wrap">
+                    <p className="text-xs font-medium text-primary/80">
+                      {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
+                      {periodRange.salesEndStr !== periodRange.endStr && (
+                        <span className="text-amber-600 ml-1">(sales thru {format(new Date(periodRange.salesEndStr + "T12:00:00"), "MMM d")})</span>
+                      )}
+                    </p>
+                    {canManageOrders && count.status === "completed" && (
+                      <SalesDateEditor
+                        countId={count.id}
+                        locationId={locationId}
+                        startStr={periodRange.startStr}
+                        endStr={periodRange.endStr}
+                        salesEndStr={periodRange.salesEndStr}
+                        canEdit={canManageOrders}
+                        currentEndOverride={count.sales_end_override || null}
+                        currentStartOverride={count.sales_start_override || null}
+                      />
+                    )}
+                  </div>
                 )}
-                {count.status === "in_progress" && hasCountedItems && (
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-amber-500/50 text-amber-600">
-                    In Progress
-                  </Badge>
-                )}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {count.counted_by_profile?.full_name || "Unknown"}
+                  {count.completed_at &&
+                    ` • ${format(new Date(count.completed_at), "MMM d 'at' h:mm a")}`}
+                </p>
                 {count.is_late_close && (
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-amber-500/50 text-amber-600">
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-amber-500/50 text-amber-600 mt-1">
                     Flex
                   </Badge>
                 )}
-                {canManageOrders && !isUpcoming && count.id && onDeleteCount && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => onDeleteCount(count)}
-                    title="Delete count"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                <div className="text-right">
-                  {(() => {
-                    const adjCogs = cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut;
-                    const adjPct = cogsData.netSales > 0 ? (adjCogs / cogsData.netSales) * 100 : 0;
-                    return (
-                      <>
-                        <p className={`text-2xl font-bold leading-none ${adjPct > 22 ? "text-destructive" : ""}`}>
-                          {adjPct.toFixed(1)}%
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
-                      </>
-                    );
-                  })()}
-                </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                  title="Open review"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
                 {count.status === "in_progress" && hasCountedItems && (
                   <Button
                     size="icon"
@@ -668,87 +668,33 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 )}
               </div>
             </div>
-            {/* Sub-details */}
-            <div className="mb-4">
-              {periodRange && (
-                <div className="flex items-center gap-0.5 flex-wrap">
-                  <p className="text-xs font-medium text-primary/80">
-                    {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
-                    {periodRange.salesEndStr !== periodRange.endStr && (
-                      <span className="text-amber-600 ml-1">(sales thru {format(new Date(periodRange.salesEndStr + "T12:00:00"), "MMM d")})</span>
-                    )}
-                  </p>
-                  {canManageOrders && count.status === "completed" && (
-                    <SalesDateEditor
-                      countId={count.id}
-                      locationId={locationId}
-                      startStr={periodRange.startStr}
-                      endStr={periodRange.endStr}
-                      salesEndStr={periodRange.salesEndStr}
-                      canEdit={canManageOrders}
-                      currentEndOverride={count.sales_end_override || null}
-                      currentStartOverride={count.sales_start_override || null}
-                    />
-                  )}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {count.counted_by_profile?.full_name || "Unknown"}
-                {count.completed_at &&
-                  ` • ${format(new Date(count.completed_at), "MMM d 'at' h:mm a")}`}
-              </p>
-            </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <SummaryMetric label="BEGINNING" value={`$${Math.round(cogsData.beginValue).toLocaleString()}`} />
-              {/* PURCHASES box — tappable to expand purchases list */}
-              <button 
-                className="text-center p-2 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.97] transition-all cursor-pointer ring-1 ring-primary/25"
-                onClick={() => setShowPurchases(!showPurchases)}
-              >
-                <p className="text-base font-bold">${Math.round(cogsData.purchasesTotal).toLocaleString()}</p>
-                <div className="flex items-center justify-center gap-1.5 mt-0.5">
-                  <p className="text-[11px] text-primary uppercase tracking-wide font-medium">PURCHASES</p>
-                  <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                    <ChevronDown className={`h-2.5 w-2.5 text-primary transition-transform ${showPurchases ? "rotate-180" : ""}`} />
-                  </div>
-                </div>
-              </button>
-              {/* ENDING box — tappable, navigates to review screen */}
+
+            <div className="mt-2 p-3 rounded-xl bg-muted/40 space-y-2">
+              {/* Beginning — badge row, taps through to review */}
               <button
-                className="text-center p-2 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.97] transition-all cursor-pointer ring-1 ring-primary/25"
                 onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border hover:bg-muted/60 active:scale-[0.99] transition-all"
               >
-                <p className="text-base font-bold">
-                  ${Math.round(cogsData.endValue).toLocaleString()}
-                </p>
-                <div className="flex items-center justify-center gap-1.5 mt-0.5">
-                  <p className="text-[11px] text-primary uppercase tracking-wide font-medium">REVIEW</p>
-                  <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                    <Eye className="h-2.5 w-2.5 text-primary" />
-                  </div>
-                </div>
+                <span className="text-sm text-foreground">Beginning Inventory</span>
+                <span className="text-sm font-semibold tabular-nums">${Math.round(cogsData.beginValue).toLocaleString()}</span>
               </button>
-            </div>
 
-            <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
-              <FormulaRow label="Beginning Inventory" value={cogsData.beginValue} />
-              
-              {/* Expandable Purchases row */}
-              <button 
-                className="flex items-center justify-between w-full group"
+              {/* Purchases — badge row, expands inline list */}
+              <button
                 onClick={() => setShowPurchases(!showPurchases)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border hover:bg-muted/60 active:scale-[0.99] transition-all"
               >
-                <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">+ Purchases</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium">${Math.round(cogsData.purchasesTotal).toLocaleString()}</span>
+                <span className="text-sm text-foreground">+ Purchases</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold tabular-nums">${Math.round(cogsData.purchasesTotal).toLocaleString()}</span>
                   <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showPurchases ? "rotate-180" : ""}`} />
-                </div>
+                </span>
               </button>
-              
+
               {/* Inline purchases list */}
               {showPurchases && (
-                <div className="pl-3 border-l-2 border-border/60 ml-1 space-y-2 pt-1.5 pb-1">
+                <div className="pl-3 border-l-2 border-border/60 ml-1 space-y-2 pt-1 pb-1">
                   {cogsData.purchases && cogsData.purchases.length > 0 ? (
                     <>
                       {cogsData.purchases.map((po: any, i: number) => (
@@ -839,12 +785,21 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               {transferTotals.transfersOut > 0 && (
                 <FormulaRow label="− Transfers Out" value={transferTotals.transfersOut} />
               )}
-              <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
-              <div className="border-t border-border/60 pt-1.5 mt-1.5">
-                <FormulaRow 
-                  label="= Cost of Goods Sold" 
-                  value={cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut} 
-                  bold 
+
+              {/* Ending — badge row, taps through to review */}
+              <button
+                onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background border border-border hover:bg-muted/60 active:scale-[0.99] transition-all"
+              >
+                <span className="text-sm text-foreground">− Ending Inventory</span>
+                <span className="text-sm font-semibold tabular-nums">${Math.round(cogsData.endValue).toLocaleString()}</span>
+              </button>
+
+              <div className="border-t border-border/60 pt-2 mt-1">
+                <FormulaRow
+                  label="= Cost of Goods Sold"
+                  value={cogsData.cogsTotal + transferTotals.transfersIn - transferTotals.transfersOut}
+                  bold
                 />
               </div>
               <div className="flex items-center justify-between pt-1">
@@ -852,6 +807,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 <span className="text-sm font-medium">${Math.round(cogsData.netSales).toLocaleString()}</span>
               </div>
             </div>
+
 
             {count.period_type === "weekly" && (
               <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
