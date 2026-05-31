@@ -2364,17 +2364,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           </div>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
                 <span className="text-sm text-muted-foreground">Items:</span>
                 <span className="font-semibold">{countedItems}<span className="text-muted-foreground font-normal">/{totalItems}</span></span>
               </div>
               <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
                 <DollarSign className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-primary">{formatCurrency(totalCost)}</span>
               </div>
               <div className="h-6 w-px bg-border" />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="font-semibold font-mono">{Math.floor(elapsedSeconds / 60)} min</span>
               </div>
@@ -2408,7 +2408,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 </>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
               <Button 
                 onClick={isEditing ? handleSaveEdits : () => onClose()} 
                 disabled={isEditing ? saveEditMutation.isPending : isSaving}
@@ -2878,7 +2878,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                               className="w-full text-center font-bold leading-none tabular-nums bg-transparent outline-none"
                               style={{ fontSize: 40, minHeight: 0 }}
                             />
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-4">
                               {!isViewOnly && (
                                 <button
                                   type="button"
@@ -3064,7 +3064,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             className="w-full text-center font-bold leading-none tabular-nums bg-transparent outline-none"
                               style={{ fontSize: 40, minHeight: 0 }}
                           />
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-4">
                             {!isViewOnly && (
                               <button
                                 type="button"
