@@ -1396,6 +1396,30 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               </div>
             </SheetContent>
           </Sheet>
+
+          <AlertDialog open={signOutConfirmOpen} onOpenChange={setSignOutConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Sign out of CrooHQ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You'll need to sign back in to access your locations, schedules, and inventory.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    setSignOutConfirmOpen(false);
+                    setMenuOpen(false);
+                    signOut();
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Sign out
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </header>
       
