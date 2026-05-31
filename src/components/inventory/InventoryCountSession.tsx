@@ -14,7 +14,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, ArrowLeft, Save, Mic, MicOff, Clock, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, ArrowLeft, Save, Mic, MicOff, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -2490,7 +2490,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       )}
 
       {/* Item list with dual counting */}
-      <div className="space-y-3 -mx-4 sm:mx-0">
+      <div className="space-y-3 -mx-1 sm:mx-0">
         {currentItems.map((item) => {
           const splitKey = (item as any)._splitKey || item.item_id;
           const count = counts[splitKey] || { cases: 0, units: 0, innerPacks: 0 };
@@ -2544,11 +2544,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             <div 
               key={splitKey}
               className={cn(
-                "bg-card border-y border-border overflow-hidden flex relative transition-all duration-300 -mx-3 sm:mx-0 sm:rounded-md sm:border",
+                "bg-card rounded-md border border-border overflow-hidden flex relative transition-all duration-300",
                 isHighlighted && "ring-2 ring-green-500 ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-green-500/20",
                 isErrorHighlighted && "ring-2 ring-destructive ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-destructive/20 animate-pulse"
               )}
             >
+              {/* Left accent bar (Vault) */}
+              <div className="w-1 bg-primary flex-shrink-0" />
 
               {/* Value badge — pinned to top-right corner */}
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
@@ -2571,19 +2573,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.item_name}</p>
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-nowrap overflow-x-auto scrollbar-none">
-                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                           {item.pack_size || item.unit || 'ea'}
                         </span>
                         {item.item_number && (
-                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                             #{item.item_number}
                           </span>
                         )}
                         {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (() => {
                           if (item.is_recipe) {
                             return (
-                              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+                              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                                 {formatCurrency(recipeCosts?.get(item.item_id) || item.cost_per_unit || 0)}/ea
                               </span>
                             );
@@ -2597,7 +2599,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           const perPack = hasInner ? caseCost / packsPerCase : null;
                           const perUnit = totalUnits > 0 ? caseCost / totalUnits : null;
                           return (
-                            <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+                            <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                               {formatCurrency(caseCost)}/cs
                               {perPack != null && ` · ${formatCurrency(perPack)}/pk`}
                               {perUnit != null && ` · ${formatCurrency(perUnit)}/u`}
@@ -2610,9 +2612,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 </div>
                 
                 {/* Count controls */}
-                <div className={item.is_recipe ? "p-3" : ""}>
-
-
+                <div className="p-3">
                   {item.is_recipe ? (
                     /* Single count stepper for recipe items */
                     <div className="max-w-xs mx-auto">
@@ -2654,10 +2654,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   ) : hasMultipleLegConfigs ? (
                   (() => {
                     const configs = legsConfigsMap?.get(item.brand_item_id!) ?? [];
-                    const panEnabled = !!(item.pan_sizes?.enabled && (item.pan_sizes.enabled_keys?.length ?? 0) > 0);
                     return (
-                      <div>
-                        {configs.map((cfg, cfgIdx) => {
+                      <div className="space-y-4">
+                        {configs.map((cfg) => {
                           const legKeyUi = cfg.is_default
                             ? splitKey
                             : makeLegInputKey(splitKey, cfg.pack_config_id, cfg.is_default);
@@ -2683,7 +2682,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           });
                           const structuralShowCases = outerQty > 1;
                           const structuralShowInner = hasInnerTier;
-                          const collapseUnits = !structuralShowCases && structuralShowInner;
+                          const collapseUnits =
+                            !structuralShowCases && structuralShowInner;
                           const legLanes = {
                             ...baseLanes,
                             showCases: structuralShowCases,
@@ -2698,418 +2698,244 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           const perCommon = livePerCommon != null
                             ? `${formatCurrency(livePerCommon)}/${cfg.common_unit || 'ea'}`
                             : '—';
-                          type Slot = {
-                            label: string;
-                            raw: string | number | undefined;
-                            value: number;
-                            onInput: (v: string) => void;
-                            onBlur: () => void;
-                            dec: () => void;
-                            inc: () => void;
-                          };
-                          const slots: (Slot | null)[] = [];
-                          if (legLanes.showCases) slots.push({
-                            label: 'Cases',
-                            raw: rawInputs[legKeyUi]?.cases,
-                            value: legState.cases,
-                            onInput: (v) => handleCasesInput(legKeyUi, v),
-                            onBlur: () => handleCasesBlur(legKeyUi),
-                            dec: () => updateCases(legKeyUi, -1),
-                            inc: () => updateCases(legKeyUi, 1),
-                          });
-                          if (legLanes.showInnerPacks) slots.push({
-                            label: legLanes.innerLabel,
-                            raw: rawInputs[legKeyUi]?.innerPacks,
-                            value: legState.innerPacks,
-                            onInput: (v) => handleInnerPacksInput(legKeyUi, v),
-                            onBlur: () => handleInnerPacksBlur(legKeyUi),
-                            dec: () => updateInnerPacks(legKeyUi, -1),
-                            inc: () => updateInnerPacks(legKeyUi, 1),
-                          });
-                          if (legLanes.showUnits) slots.push({
-                            label: legLanes.unitsLabel,
-                            raw: rawInputs[legKeyUi]?.units,
-                            value: legState.units,
-                            onInput: (v) => handleUnitsInput(legKeyUi, v),
-                            onBlur: () => handleUnitsBlur(legKeyUi),
-                            dec: () => updateUnits(legKeyUi, -1),
-                            inc: () => updateUnits(legKeyUi, 1),
-                          });
-                          while (slots.length < 3) slots.push(null);
-                          const tealBg = cfg.is_default;
-                          const headerBg = tealBg ? 'bg-[#E1F5EE]' : 'bg-muted/50';
-                          const headerText = tealBg ? 'text-[#085041]' : 'text-foreground';
-                          const headerMuted = tealBg ? 'text-[#085041]/80' : 'text-muted-foreground';
+                          const laneCount = [legLanes.showCases, legLanes.showInnerPacks, legLanes.showUnits].filter(Boolean).length;
                           return (
-                            <div key={cfg.pack_config_id} className={cn(cfgIdx > 0 && 'border-t border-border')}>
-                              {/* Config header row */}
-                              <div className={cn('flex items-center gap-1.5 flex-wrap px-[14px] py-[7px]', headerBg)}>
-                                <span className={cn('text-[11px] font-semibold', headerText)}>
+                            <div key={cfg.pack_config_id}>
+                              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                                <span className="text-[10px] font-semibold text-foreground">
                                   {cfg.label || `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit}`}
                                 </span>
                                 {cfg.is_default && (
-                                  <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded text-[#E1F5EE] bg-[#0F6E56]">
+                                  <span className="text-[8px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1 py-0.5 rounded">
                                     default
                                   </span>
                                 )}
-                                <span className={cn('text-[10px]', headerMuted)}>
+                                <span className="text-[9px] text-muted-foreground">
                                   · {cfg.count_units_per_case} {cfg.common_unit}/cs · {perCommon}
                                 </span>
                               </div>
-                              {/* Column label row */}
-                              <div className={cn('grid grid-cols-3 border-b border-border', headerBg)}>
-                                {slots.map((slot, i) => (
-                                  <div
-                                    key={i}
-                                    className={cn(
-                                      'py-1 text-center text-[8px] uppercase tracking-wider font-semibold',
-                                      i > 0 && 'border-l border-border',
-                                      !slot && 'opacity-15',
-                                      tealBg ? 'text-[#085041]' : 'text-muted-foreground',
-                                    )}
-                                  >
-                                    {slot ? slot.label : '—'}
+                              <div className={cn("grid gap-2", laneCount === 3 ? "grid-cols-3" : laneCount === 2 ? "grid-cols-2" : "grid-cols-1")}>
+                                {legLanes.showCases && (
+                                  <div>
+                                    <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">Cases</p>
+                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
+                                      {!isViewOnly && (
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
+                                          <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                                        </button>
+                                      )}
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={rawInputs[legKeyUi]?.cases ?? legState.cases}
+                                        onChange={(e) => handleCasesInput(legKeyUi, e.target.value)}
+                                        onBlur={() => handleCasesBlur(legKeyUi)}
+                                        disabled={isViewOnly}
+                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                      />
+                                      {!isViewOnly && (
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
+                                          <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
-                                ))}
-                              </div>
-                              {/* Stepper row */}
-                              <div className="grid grid-cols-3">
-                                {slots.map((slot, i) => (
-                                  <div
-                                    key={i}
-                                    className={cn(
-                                      'h-[52px] flex items-center',
-                                      i > 0 && 'border-l border-border',
-                                      !slot && 'opacity-15',
-                                    )}
-                                  >
-                                    {slot ? (
-                                      <>
-                                        {!isViewOnly && (
-                                          <button
-                                            type="button"
-                                            className="w-9 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
-                                            onClick={slot.dec}
-                                          >
-                                            <ArrowDown className="h-4 w-4" strokeWidth={2.5} style={{ color: '#993C1D' }} />
-                                          </button>
-                                        )}
-                                        <input
-                                          type="text"
-                                          inputMode="decimal"
-                                          value={slot.raw ?? slot.value}
-                                          onChange={(e) => slot.onInput(e.target.value)}
-                                          onBlur={slot.onBlur}
-                                          disabled={isViewOnly}
-                                          className="flex-1 text-center text-[26px] font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0 leading-none"
-                                        />
-                                        {!isViewOnly && (
-                                          <button
-                                            type="button"
-                                            className="w-9 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
-                                            onClick={slot.inc}
-                                          >
-                                            <ArrowUp className="h-4 w-4" strokeWidth={2.5} style={{ color: '#0F6E56' }} />
-                                          </button>
-                                        )}
-                                      </>
-                                    ) : (
-                                      <div className="flex-1 text-center text-muted-foreground text-sm">—</div>
-                                    )}
+                                )}
+                                {legLanes.showInnerPacks && (
+                                  <div>
+                                    <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">{legLanes.innerLabel}</p>
+                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
+                                      {!isViewOnly && (
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
+                                          <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                                        </button>
+                                      )}
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={rawInputs[legKeyUi]?.innerPacks ?? legState.innerPacks}
+                                        onChange={(e) => handleInnerPacksInput(legKeyUi, e.target.value)}
+                                        onBlur={() => handleInnerPacksBlur(legKeyUi)}
+                                        disabled={isViewOnly}
+                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                      />
+                                      {!isViewOnly && (
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
+                                          <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
-                                ))}
+                                )}
+                                {legLanes.showUnits && (
+                                  <div>
+                                    <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">{legLanes.unitsLabel}</p>
+                                    <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
+                                      {!isViewOnly && (
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
+                                          <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                                        </button>
+                                      )}
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={rawInputs[legKeyUi]?.units ?? legState.units}
+                                        onChange={(e) => handleUnitsInput(legKeyUi, e.target.value)}
+                                        onBlur={() => handleUnitsBlur(legKeyUi)}
+                                        disabled={isViewOnly}
+                                        className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                      />
+                                      {!isViewOnly && (
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
+                                          <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
                         })}
-                        {/* Pan / Cambro section — edge-to-edge, label row flows directly into column labels */}
-                        {panEnabled && (() => {
-                          const panKeys = item.pan_sizes!.enabled_keys.slice(0, 3);
-                          const padded: (string | null)[] = [...panKeys];
-                          while (padded.length < 3) padded.push(null);
-                          return (
-                            <div className="border-t border-border">
-                              {/* Section label — NO border-bottom */}
-                              <div className="px-[14px] py-[7px] bg-muted/50">
-                                <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                                  Pan / Cambro
-                                </span>
-                              </div>
-                              {/* Column labels — has border-bottom */}
-                              <div className="grid grid-cols-3 bg-muted/50 border-b border-border">
-                                {padded.map((panKey, i) => {
-                                  const container = panKey ? ALL_CONTAINERS.find(c => c.key === panKey) : null;
-                                  const unitsEach = (panKey && container) ? getPanUnits(item.pan_sizes!, panKey) : null;
-                                  return (
-                                    <div
-                                      key={i}
-                                      className={cn(
-                                        'py-1 text-center text-[10px] font-medium text-muted-foreground',
-                                        i > 0 && 'border-l border-border',
-                                        !container && 'opacity-15',
-                                      )}
-                                    >
-                                      {container ? `${container.label}${unitsEach != null ? ` (${unitsEach})` : ''}` : '—'}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              {/* Pan steppers */}
-                              <div className="grid grid-cols-3">
-                                {padded.map((panKey, i) => {
-                                  const container = panKey ? ALL_CONTAINERS.find(c => c.key === panKey) : null;
-                                  const panQty = panKey ? (panCounts[splitKey]?.[panKey] || 0) : 0;
-                                  return (
-                                    <div
-                                      key={i}
-                                      className={cn(
-                                        'h-[44px] flex items-center',
-                                        i > 0 && 'border-l border-border',
-                                        !container && 'opacity-15',
-                                      )}
-                                    >
-                                      {container && panKey ? (
-                                        <>
-                                          {!isViewOnly && (
-                                            <button
-                                              type="button"
-                                              className="w-8 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
-                                              onClick={() => updatePanCount(splitKey, panKey, -0.5)}
-                                            >
-                                              <ArrowDown className="h-[13px] w-[13px]" strokeWidth={2.5} style={{ color: '#993C1D' }} />
-                                            </button>
-                                          )}
-                                          <input
-                                            type="text"
-                                            inputMode="decimal"
-                                            value={rawPanInputs[splitKey]?.[panKey] ?? panQty}
-                                            onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
-                                            onBlur={() => handlePanBlur(splitKey, panKey)}
-                                            disabled={isViewOnly}
-                                            className="flex-1 text-center text-base font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                                          />
-                                          {!isViewOnly && (
-                                            <button
-                                              type="button"
-                                              className="w-8 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
-                                              onClick={() => updatePanCount(splitKey, panKey, 0.5)}
-                                            >
-                                              <ArrowUp className="h-[13px] w-[13px]" strokeWidth={2.5} style={{ color: '#0F6E56' }} />
-                                            </button>
-                                          )}
-                                        </>
-                                      ) : (
-                                        <div className="flex-1 text-center text-muted-foreground text-sm">—</div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })()}
                       </div>
                     );
                   })()
-
                   ) : (
-                  (() => {
-                    type Slot = {
-                      label: string;
-                      sub?: string;
-                      raw: string | number | undefined;
-                      value: number;
-                      onInput: (v: string) => void;
-                      onBlur: () => void;
-                      dec: () => void;
-                      inc: () => void;
-                    };
-                    const slots: (Slot | null)[] = [];
-                    if (showCases) slots.push({
-                      label: 'Cases',
-                      raw: rawInputs[splitKey]?.cases,
-                      value: count.cases,
-                      onInput: (v) => handleCasesInput(splitKey, v),
-                      onBlur: () => handleCasesBlur(splitKey),
-                      dec: () => updateCases(splitKey, -1),
-                      inc: () => updateCases(splitKey, 1),
-                    });
-                    if (showInnerPacks) slots.push({
-                      label: lanes.innerLabel,
-                      sub: lanes.innerSubLabel ?? undefined,
-                      raw: rawInputs[splitKey]?.innerPacks,
-                      value: count.innerPacks ?? 0,
-                      onInput: (v) => handleInnerPacksInput(splitKey, v),
-                      onBlur: () => handleInnerPacksBlur(splitKey),
-                      dec: () => updateInnerPacks(splitKey, -1),
-                      inc: () => updateInnerPacks(splitKey, 1),
-                    });
-                    if (showUnits) slots.push({
-                      label: 'Units',
-                      sub: '(individual)',
-                      raw: rawInputs[splitKey]?.units,
-                      value: count.units,
-                      onInput: (v) => handleUnitsInput(splitKey, v),
-                      onBlur: () => handleUnitsBlur(splitKey),
-                      dec: () => updateUnits(splitKey, -1),
-                      inc: () => updateUnits(splitKey, 1),
-                    });
-                    while (slots.length < 3) slots.push(null);
-                    const panEnabled = !!(item.pan_sizes?.enabled && (item.pan_sizes.enabled_keys?.length ?? 0) > 0);
-                    return (
-                      <div>
-                        {/* Column label row */}
-                        <div className="grid grid-cols-3 border-b border-border bg-muted/50">
-                          {slots.map((slot, i) => (
-                            <div
-                              key={i}
-                              className={cn(
-                                'py-1 text-center text-[8px] uppercase tracking-wider font-semibold text-muted-foreground',
-                                i > 0 && 'border-l border-border',
-                                !slot && 'opacity-15',
-                              )}
-                            >
-                              {slot ? slot.label : '—'}
-                            </div>
-                          ))}
-                        </div>
-                        {/* Stepper row */}
-                        <div className="grid grid-cols-3">
-                          {slots.map((slot, i) => (
-                            <div
-                              key={i}
-                              className={cn(
-                                'h-[52px] flex items-center',
-                                i > 0 && 'border-l border-border',
-                                !slot && 'opacity-15',
-                              )}
-                            >
-                              {slot ? (
-                                <>
-                                  {!isViewOnly && (
-                                    <button
-                                      type="button"
-                                      className="w-9 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
-                                      onClick={slot.dec}
-                                    >
-                                      <ArrowDown className="h-4 w-4" strokeWidth={2.5} style={{ color: '#993C1D' }} />
-                                    </button>
-                                  )}
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={slot.raw ?? slot.value}
-                                    onChange={(e) => slot.onInput(e.target.value)}
-                                    onBlur={slot.onBlur}
-                                    disabled={isViewOnly}
-                                    className="flex-1 text-center text-[26px] font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0 leading-none"
-                                  />
-                                  {!isViewOnly && (
-                                    <button
-                                      type="button"
-                                      className="w-9 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
-                                      onClick={slot.inc}
-                                    >
-                                      <ArrowUp className="h-4 w-4" strokeWidth={2.5} style={{ color: '#0F6E56' }} />
-                                    </button>
-                                  )}
-                                </>
-                              ) : (
-                                <div className="flex-1 text-center text-muted-foreground text-sm">—</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        {/* Pan / Cambro — edge-to-edge, label row flows directly into column labels */}
-                        {panEnabled && (() => {
-                          const panKeys = item.pan_sizes!.enabled_keys.slice(0, 3);
-                          const padded: (string | null)[] = [...panKeys];
-                          while (padded.length < 3) padded.push(null);
-                          return (
-                            <div className="border-t border-border">
-                              <div className="px-[14px] py-[7px] bg-muted/50">
-                                <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                                  Pan / Cambro
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-3 bg-muted/50 border-b border-border">
-                                {padded.map((panKey, i) => {
-                                  const container = panKey ? ALL_CONTAINERS.find(c => c.key === panKey) : null;
-                                  const unitsEach = (panKey && container) ? getPanUnits(item.pan_sizes!, panKey) : null;
-                                  return (
-                                    <div
-                                      key={i}
-                                      className={cn(
-                                        'py-1 text-center text-[10px] font-medium text-muted-foreground',
-                                        i > 0 && 'border-l border-border',
-                                        !container && 'opacity-15',
-                                      )}
-                                    >
-                                      {container ? `${container.label}${unitsEach != null ? ` (${unitsEach})` : ''}` : '—'}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              <div className="grid grid-cols-3">
-                                {padded.map((panKey, i) => {
-                                  const container = panKey ? ALL_CONTAINERS.find(c => c.key === panKey) : null;
-                                  const panQty = panKey ? (panCounts[splitKey]?.[panKey] || 0) : 0;
-                                  return (
-                                    <div
-                                      key={i}
-                                      className={cn(
-                                        'h-[44px] flex items-center',
-                                        i > 0 && 'border-l border-border',
-                                        !container && 'opacity-15',
-                                      )}
-                                    >
-                                      {container && panKey ? (
-                                        <>
-                                          {!isViewOnly && (
-                                            <button
-                                              type="button"
-                                              className="w-8 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
-                                              onClick={() => updatePanCount(splitKey, panKey, -0.5)}
-                                            >
-                                              <ArrowDown className="h-[13px] w-[13px]" strokeWidth={2.5} style={{ color: '#993C1D' }} />
-                                            </button>
-                                          )}
-                                          <input
-                                            type="text"
-                                            inputMode="decimal"
-                                            value={rawPanInputs[splitKey]?.[panKey] ?? panQty}
-                                            onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
-                                            onBlur={() => handlePanBlur(splitKey, panKey)}
-                                            disabled={isViewOnly}
-                                            className="flex-1 text-center text-base font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
-                                          />
-                                          {!isViewOnly && (
-                                            <button
-                                              type="button"
-                                              className="w-8 h-full flex items-center justify-center flex-shrink-0 active:bg-muted transition-colors"
-                                              onClick={() => updatePanCount(splitKey, panKey, 0.5)}
-                                            >
-                                              <ArrowUp className="h-[13px] w-[13px]" strokeWidth={2.5} style={{ color: '#0F6E56' }} />
-                                            </button>
-                                          )}
-                                        </>
-                                      ) : (
-                                        <div className="flex-1 text-center text-muted-foreground text-sm">—</div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })()}
+                  <div className={cn("grid gap-2", showInnerPacks ? "grid-cols-3" : "grid-cols-2")}>
+                    {/* Cases counter — hidden if count_by=units_only */}
+                    {showCases && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
+                        Cases
+                      </p>
+                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateCases(splitKey, -1)}
+                          >
+                            <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                          </button>
+                        )}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rawInputs[splitKey]?.cases ?? count.cases}
+                          onChange={(e) => handleCasesInput(splitKey, e.target.value)}
+                          onBlur={() => handleCasesBlur(splitKey)}
+                          disabled={isViewOnly}
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                        />
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateCases(splitKey, 1)}
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                          </button>
+                        )}
                       </div>
-                    );
-                  })()
+                    </div>
+                    )}
+
+                    {/* Phase 4: Pack counter — the middle tier between cases and individual units */}
+                    {showInnerPacks && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
+                        {lanes.innerLabel}
+                        {lanes.innerSubLabel && (
+                          <span className="ml-1 normal-case tracking-normal">{lanes.innerSubLabel}</span>
+                        )}
+                      </p>
+                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateInnerPacks(splitKey, -1)}
+                          >
+                            <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                          </button>
+                        )}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rawInputs[splitKey]?.innerPacks ?? (count.innerPacks ?? 0)}
+                          onChange={(e) => handleInnerPacksInput(splitKey, e.target.value)}
+                          onBlur={() => handleInnerPacksBlur(splitKey)}
+                          disabled={isViewOnly}
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                        />
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateInnerPacks(splitKey, 1)}
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    )}
+
+                    {/* Units counter — hidden if count_by=cases_only */}
+                    {showUnits && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider whitespace-nowrap truncate">
+                        Units
+                        <span className="ml-1 normal-case tracking-normal">(individual)</span>
+                      </p>
+                      <div className="flex items-center gap-1 rounded-lg overflow-hidden border border-foreground/20">
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateUnits(splitKey, -1)}
+                          >
+                            <Minus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                          </button>
+                        )}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rawInputs[splitKey]?.units ?? count.units}
+                          onChange={(e) => handleUnitsInput(splitKey, e.target.value)}
+                          onBlur={() => handleUnitsBlur(splitKey)}
+                          disabled={isViewOnly}
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                        />
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                            onClick={() => updateUnits(splitKey, 1)}
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                          <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    )}
+                  </div>
                   )}
 
-                  {/* Pan size rows for recipe items only (single + multi rendered inline above) */}
-                  {item.is_recipe && item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
+                  {/* Pan size rows */}
+                  {item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-border">
                       <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
                         Pan / Cambro
@@ -3134,6 +2960,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                     onClick={() => updatePanCount(splitKey, panKey, -0.5)}
                                   >
                                     <Minus className="h-3 w-3" />
+                                    <span aria-hidden="true" className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                   </button>
                                 )}
                                 <input
@@ -3152,6 +2979,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                     onClick={() => updatePanCount(splitKey, panKey, 0.5)}
                                   >
                                     <Plus className="h-3 w-3" />
+                                    <span aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-px h-1/2 bg-gradient-to-b from-transparent via-foreground/20 to-transparent" />
                                   </button>
                                 )}
                               </div>
@@ -3161,7 +2989,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       </div>
                     </div>
                   )}
-
 
                 </div>
               </div>
