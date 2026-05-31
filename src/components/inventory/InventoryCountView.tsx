@@ -69,6 +69,104 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   });
   const { conversionMap } = useBrandConversions(brandId);
 
+  // Step 3: legs-aware read path. Gate matches Session — when off, both
+  // follow-up queries are disabled and the view renders byte-identically.
+  const { data: legsEnabledForLocation } = useQuery({
+    queryKey: ["location-legs-enabled-view", locationId],
+    enabled: !!locationId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("locations" as any)
+        .select("legs_enabled")
+        .eq("id", locationId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any)?.legs_enabled === true;
+    },
+  });
+
+  // Selected pack configs for this location, keyed by brand_template_id.
+  // Used only to render leg labels. Math comes from per-leg snapshots.
+  const { data: legsConfigsMap } = useQuery({
+    queryKey: ["legs-configs-map-view", locationId, legsEnabledForLocation],
+    enabled: !!locationId && legsEnabledForLocation === true,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("location_pack_selections" as any)
+        .select("brand_template_id, is_default, brand_pack_configs!inner(id, label, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, status)")
+        .eq("location_id", locationId);
+      if (error) throw error;
+      const map = new Map<string, Array<{ pack_config_id: string; is_default: boolean; label: string | null; outer_qty: number | null; outer_type: string | null; inner_qty: number | null; inner_type: string | null; common_unit: string | null }>>();
+      for (const row of (data as any[]) || []) {
+        const bpc = row?.brand_pack_configs;
+        if (!row?.brand_template_id || !bpc) continue;
+        if (bpc.status && bpc.status !== "approved") continue;
+        const list = map.get(row.brand_template_id) ?? [];
+        list.push({
+          pack_config_id: bpc.id,
+          is_default: !!row.is_default,
+          label: bpc.label ?? null,
+          outer_qty: bpc.outer_qty ?? null,
+          outer_type: bpc.outer_type ?? null,
+          inner_qty: bpc.inner_qty ?? null,
+          inner_type: bpc.inner_type ?? null,
+          common_unit: bpc.common_unit ?? null,
+        });
+        map.set(row.brand_template_id, list);
+      }
+      for (const [k, list] of map) {
+        list.sort((a, b) => (a.is_default !== b.is_default) ? (a.is_default ? -1 : 1) : (a.label ?? "").localeCompare(b.label ?? ""));
+        map.set(k, list);
+      }
+      return map;
+    },
+  });
+
+  // Legs stamped on this count. Snapshot fields drive valuation via
+  // calculateCountItemValue(legs[]).
+  type LegRow = {
+    pack_config_id: string;
+    entered_cases: number | null;
+    entered_inner_packs: number | null;
+    entered_units: number | null;
+    quantity_common: number | null;
+    pack_quantity_at_count: number | null;
+    inner_pack_quantity_at_count: number | null;
+    cost_at_count: number | null;
+  };
+  const { data: legsByCountItemId } = useQuery({
+    queryKey: ["legs-by-count-item-view", countId, legsEnabledForLocation],
+    enabled: !!countId && legsEnabledForLocation === true,
+    staleTime: 0,
+    gcTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_count_item_legs" as any)
+        .select("count_item_id, pack_config_id, entered_cases, entered_inner_packs, entered_units, quantity_common, pack_quantity_at_count, inner_pack_quantity_at_count, cost_at_count, inventory_count_items!inner(count_id)")
+        .eq("inventory_count_items.count_id", countId);
+      if (error) throw error;
+      const map = new Map<string, LegRow[]>();
+      for (const row of (data as any[]) || []) {
+        if (!row?.count_item_id) continue;
+        const list = map.get(row.count_item_id) ?? [];
+        list.push({
+          pack_config_id: row.pack_config_id,
+          entered_cases: row.entered_cases,
+          entered_inner_packs: row.entered_inner_packs,
+          entered_units: row.entered_units,
+          quantity_common: row.quantity_common,
+          pack_quantity_at_count: row.pack_quantity_at_count,
+          inner_pack_quantity_at_count: row.inner_pack_quantity_at_count,
+          cost_at_count: row.cost_at_count,
+        });
+        map.set(row.count_item_id, list);
+      }
+      return map;
+    },
+  });
+
   // Fetch storage locations in order
   const { data: storageLocations } = useQuery({
     queryKey: ["inventory-storage-locations-view", locationId],
@@ -209,6 +307,18 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   const getItemValue = (item: CountItem) => {
     const itm: any = item.item || {};
     const conversion = itm.brand_item_id ? conversionMap.get(itm.brand_item_id) : null;
+    const legRows = legsByCountItemId?.get(item.id) ?? [];
+    const legsForValuation = legRows.length >= 2
+      ? legRows.map(l => ({
+          entered_cases: l.entered_cases,
+          entered_units: l.entered_units,
+          entered_inner_packs: l.entered_inner_packs,
+          quantity_common: l.quantity_common,
+          pack_quantity_at_count: l.pack_quantity_at_count,
+          inner_pack_quantity_at_count: l.inner_pack_quantity_at_count,
+          cost_at_count: l.cost_at_count,
+        }))
+      : undefined;
     return calculateCountItemValue(
       item as any,
       {
@@ -223,7 +333,8 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
         recipe_yield_unit: itm.recipe_yield_unit,
       },
       conversion || null,
-      false
+      false,
+      legsForValuation,
     );
   };
 
@@ -440,6 +551,71 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                         {formatCurrency(value)}
                                       </TableCell>
                                     </TableRow>
+                                    {(() => {
+                                      const legRows = legsByCountItemId?.get(item.id) ?? [];
+                                      if (legRows.length < 2) return null;
+                                      const bid = item.item?.brand_item_id;
+                                      const cfgs = bid ? (legsConfigsMap?.get(bid) ?? []) : [];
+                                      const cfgById = new Map(cfgs.map(c => [c.pack_config_id, c]));
+                                      const ordered = [...legRows].sort((a, b) => {
+                                        const ca = cfgById.get(a.pack_config_id);
+                                        const cb = cfgById.get(b.pack_config_id);
+                                        const ad = ca?.is_default ? 0 : 1;
+                                        const bd = cb?.is_default ? 0 : 1;
+                                        if (ad !== bd) return ad - bd;
+                                        return (ca?.label ?? "").localeCompare(cb?.label ?? "");
+                                      });
+                                      return ordered.map((leg) => {
+                                        const cfg = cfgById.get(leg.pack_config_id);
+                                        const label = cfg?.label
+                                          || (cfg?.outer_qty != null && cfg?.inner_qty != null
+                                                ? `${cfg.outer_qty}/${cfg.inner_qty} ${cfg.common_unit ?? ""}`.trim()
+                                                : (leg.pack_quantity_at_count != null ? `${leg.pack_quantity_at_count} ${cfg?.common_unit ?? ""}`.trim() : "leg"));
+                                        const legValue = calculateCountItemValue(
+                                          {
+                                            quantity: null,
+                                            entered_cases: leg.entered_cases,
+                                            entered_units: leg.entered_units,
+                                            entered_inner_packs: leg.entered_inner_packs,
+                                            cost_at_count: null,
+                                            pack_quantity_at_count: null,
+                                            inner_pack_quantity_at_count: null,
+                                          } as any,
+                                          {
+                                            brand_item_id: item.item?.brand_item_id,
+                                            cost_per_unit: item.item?.cost_per_unit,
+                                            pack_quantity: item.item?.pack_quantity,
+                                            pack_quantity_override: (item.item as any)?.pack_quantity_override,
+                                            inner_pack_quantity: item.item?.inner_pack_quantity,
+                                            is_recipe: (item.item as any)?.is_recipe === true,
+                                            unit: item.item?.unit,
+                                          } as any,
+                                          null,
+                                          false,
+                                          [{
+                                            entered_cases: leg.entered_cases,
+                                            entered_units: leg.entered_units,
+                                            entered_inner_packs: leg.entered_inner_packs,
+                                            quantity_common: leg.quantity_common,
+                                            pack_quantity_at_count: leg.pack_quantity_at_count,
+                                            inner_pack_quantity_at_count: leg.inner_pack_quantity_at_count,
+                                            cost_at_count: leg.cost_at_count,
+                                          }],
+                                        );
+                                        const entered: string[] = [];
+                                        if ((leg.entered_cases ?? 0) > 0) entered.push(`${leg.entered_cases} cs`);
+                                        if ((leg.entered_inner_packs ?? 0) > 0) entered.push(`${leg.entered_inner_packs} pk`);
+                                        if ((leg.entered_units ?? 0) > 0) entered.push(`${leg.entered_units} ea`);
+                                        return (
+                                          <TableRow key={`${item.id}::${leg.pack_config_id}`} className="bg-muted/20">
+                                            <TableCell className="pl-9 text-xs text-muted-foreground">{label}</TableCell>
+                                            <TableCell className="text-right font-mono text-xs px-1 text-muted-foreground">{entered.join(", ") || "—"}</TableCell>
+                                            <TableCell className="text-right font-mono text-xs px-1 text-muted-foreground">{leg.quantity_common ?? 0}</TableCell>
+                                            <TableCell className="text-right pr-4 font-mono text-xs text-muted-foreground">{formatCurrency(legValue)}</TableCell>
+                                          </TableRow>
+                                        );
+                                      });
+                                    })()}
                                     {hasEdits && (
                                       <CollapsibleContent asChild>
                                         <TableRow className="bg-muted/30">
