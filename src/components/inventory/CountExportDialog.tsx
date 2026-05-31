@@ -187,6 +187,8 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         "Pack Size",
         "Category",
         "Unit",
+        "Pack Config Label",
+        "Pack Config ID",
         "Cases",
         "Units",
         "Total Qty",
@@ -194,9 +196,10 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
         "Unit Value",
       ];
 
-      // Single source of truth — see src/utils/countItemValue.ts
+      // Single source of truth — see src/utils/countItemValue.ts.
       // forceLiveData=false → exports honor snapshots so historical CSVs match the saved count.
-      const computeLineValue = (ci: any, item: any) => {
+      // For multi-config items (≥2 legs), pass legs[] so per-leg snapshots drive the parent total.
+      const computeLineValue = (ci: any, item: any, legs?: ExportLegRow[]) => {
         const conversion = item?.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
         return calculateCountItemValue(
           ci,
@@ -212,39 +215,92 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
             recipe_yield_unit: item?.recipe_yield_unit,
           },
           conversion || null,
-          false
+          false,
+          legs && legs.length >= 2 ? legs : undefined
         );
       };
 
-      const rows = exportItems.map((ci: any) => {
-        const item = ci.item;
-        const costPerUnit = ci.cost_at_count != null ? Number(ci.cost_at_count) || 0 : Number(item?.cost_per_unit) || 0;
-        const unitValue = computeLineValue(ci, item);
+      // Sort parents first (storage → name), then emit per-leg detail lines under each parent.
+      const sortedItems = [...exportItems].sort((a: any, b: any) => {
+        const aLoc = a.item?.storage_location?.name || "";
+        const bLoc = b.item?.storage_location?.name || "";
+        const locCmp = aLoc.localeCompare(bLoc);
+        if (locCmp !== 0) return locCmp;
+        return (a.item?.name || "").localeCompare(b.item?.name || "");
+      });
 
-        const cases = ci.entered_cases ?? "";
-        const units = ci.entered_units ?? "";
+      const rows: any[][] = [];
+      for (const ci of sortedItems) {
+        const item = ci.item || {};
+        const legs = legsByCountItemId?.get(ci.id) || [];
+        const isMultiConfig = legs.length >= 2;
 
-        return [
+        const parentValue = computeLineValue(ci, item, isMultiConfig ? legs : undefined);
+        const parentCostPerCase = ci.cost_at_count != null
+          ? Number(ci.cost_at_count) || 0
+          : Number(item?.cost_per_unit) || 0;
+
+        rows.push([
           item?.storage_location?.name || "",
           item?.name || "",
           item?.item_number || "",
           item?.pack_size || "",
           item?.category || "",
           item?.unit || "",
-          cases,
-          units,
+          "",
+          "",
+          ci.entered_cases ?? "",
+          ci.entered_units ?? "",
           ci.quantity,
-          costPerUnit.toFixed(2),
-          unitValue.toFixed(2),
-        ];
-      });
+          parentCostPerCase.toFixed(2),
+          parentValue.toFixed(2),
+        ]);
 
-      // Sort by storage location then item name
-      rows.sort((a: any[], b: any[]) => {
-        const locCmp = (a[0] as string).localeCompare(b[0] as string);
-        if (locCmp !== 0) return locCmp;
-        return (a[1] as string).localeCompare(b[1] as string);
-      });
+        if (isMultiConfig) {
+          for (const leg of legs) {
+            const legValue = calculateCountItemValue(
+              {
+                quantity: leg.quantity_common,
+                entered_cases: leg.entered_cases,
+                entered_units: leg.entered_units,
+                entered_inner_packs: leg.entered_inner_packs,
+                cost_at_count: leg.cost_at_count,
+                pack_quantity_at_count: leg.pack_quantity_at_count,
+                inner_pack_quantity_at_count: leg.inner_pack_quantity_at_count,
+              },
+              {
+                brand_item_id: item?.brand_item_id,
+                cost_per_unit: item?.cost_per_unit,
+                pack_quantity: item?.pack_quantity,
+                pack_quantity_override: item?.pack_quantity_override,
+                inner_pack_quantity: item?.inner_pack_quantity,
+                is_recipe: item?.is_recipe === true,
+                unit: item?.unit,
+                recipe_yield_qty: item?.recipe_yield_qty,
+                recipe_yield_unit: item?.recipe_yield_unit,
+              },
+              item?.brand_item_id ? conversionMap.get(item.brand_item_id) || null : null,
+              false
+            );
+            const legCostPerCase = leg.cost_at_count != null ? Number(leg.cost_at_count) || 0 : 0;
+            rows.push([
+              item?.storage_location?.name || "",
+              `  └ ${item?.name || ""}`,
+              item?.item_number || "",
+              item?.pack_size || "",
+              item?.category || "",
+              item?.unit || "",
+              legLabelById?.get(leg.pack_config_id) || "",
+              leg.pack_config_id,
+              leg.entered_cases ?? "",
+              leg.entered_units ?? "",
+              leg.quantity_common ?? "",
+              legCostPerCase.toFixed(2),
+              legValue.toFixed(2),
+            ]);
+          }
+        }
+      }
 
       const csvContent = [
         headers.join(","),
