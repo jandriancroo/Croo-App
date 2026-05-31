@@ -3092,52 +3092,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         })}
       </div>
 
-
-      {/* Navigation bar with back/forward and location name */}
-      {locationKeys.length > 1 && (
-        <div className="bg-primary text-primary-foreground rounded-md">
-          <div className="flex items-center justify-between px-2 py-3">
-            <button
-              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
-              onClick={() => setCurrentLocationIndex(prev => Math.max(0, prev - 1))}
-              disabled={currentLocationIndex === 0}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            
-            <div className="text-center">
-              <p className="font-semibold text-sm truncate text-primary-foreground">
-                {itemsByLocation[currentLocation]?.name}
-              </p>
-              <p className="text-xs text-primary-foreground/60">
-                {currentLocationIndex + 1} of {locationKeys.length}
-              </p>
-            </div>
-            
-            <button
-              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
-              onClick={() => setCurrentLocationIndex(prev => Math.min(locationKeys.length - 1, prev + 1))}
-              disabled={currentLocationIndex === locationKeys.length - 1}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
-          
-          {/* Quick navigation dots */}
-          <div className="flex justify-center gap-2 pb-2">
-            {locationKeys.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentLocationIndex(idx)}
-                className={cn(
-                  "w-2 h-2 rounded-full transition-colors",
-                  idx === currentLocationIndex ? "bg-primary-foreground" : "bg-primary-foreground/30"
-                )}
-              />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
 
     {/* Mobile uses the smart dock via context - no inline dock needed */}
