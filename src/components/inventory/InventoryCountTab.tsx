@@ -205,145 +205,197 @@ export default function InventoryCountTab({
 
       <TransferDialog open={showTransferDialog} onClose={() => setShowTransferDialog(false)} locationId={locationId} />
 
-      {/* Flush strip + elevated active tabs */}
-      <div>
-        <div className="flex items-end gap-1 pt-2" style={{ overflow: "visible" }}>
-          <button
-            onClick={() => setPageIndex(p => Math.max(0, p - 1))}
-            disabled={pageIndex === 0}
-            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-          </button>
+      {/* Design D — dark teal hero for current/upcoming + divider list for past periods */}
+      {(() => {
+        const upcoming = filteredCounts.find(c => c.status === "upcoming") || null;
+        const past = filteredCounts.filter(c => c.status !== "upcoming");
+        const pagedPast = past.slice(pageIndex * PAGE_SIZE, pageIndex * PAGE_SIZE + PAGE_SIZE);
+        const pastMaxPage = Math.max(0, Math.ceil(past.length / PAGE_SIZE) - 1);
 
-          <div ref={tabsRef} className="flex gap-1 flex-1 items-end" style={{ paddingTop: 24, marginTop: -24 }}>
-            {pagedCounts.map((count, localIdx) => {
-              const idx = pageIndex * PAGE_SIZE + localIdx;
-              const isActive = idx === safeIdx;
-              const effectiveEnd = getEffectivePeriodEndDate(count) || count.period_end_date;
-              const endDate = new Date(effectiveEnd + "T12:00:00");
-              const hasCountedItems = (count._stats?.countedItems || 0) > 0;
-              const isInProgress = count.status === "in_progress" && hasCountedItems;
-              const isCompleted = count.status === "completed";
-              const isUpcoming = !!count._isUpcoming || (count.status === "in_progress" && !hasCountedItems);
-              const isMonthly = count.period_type === "monthly";
+        return (
+          <div className="space-y-3">
+            {/* Hero card — current/upcoming period */}
+            {upcoming && (() => {
+              const endStr = getEffectivePeriodEndDate(upcoming) || upcoming.period_end_date;
+              const endDate = new Date(endStr + "T12:00:00");
+              const isMonthly = upcoming.period_type === "monthly";
+              const periodLabel = isMonthly
+                ? `${format(endDate, "MMMM yyyy")} · Month end`
+                : `Week ending ${format(endDate, "MMM d")}`;
+              const startDate = isMonthly
+                ? new Date(endDate.getFullYear(), endDate.getMonth(), 1)
+                : (() => { const d = new Date(endDate); d.setDate(d.getDate() - 6); return d; })();
+              const rangeLabel = `${format(startDate, "MMM d")} – ${format(endDate, "MMM d")}`;
+              const purchases = upcoming._stats?.purchasesTotal;
 
               return (
-                <motion.button
-                  key={count.id}
-                  data-active={isActive}
-                  onClick={() => setSelectedIdx(idx)}
-                  animate={{
-                    height: isActive ? 68 : isMonthly ? 58 : 48,
-                  }}
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  className={`
-                    flex-1 min-w-0 transition-colors flex items-center justify-center relative rounded-t-xl
-                    ${isActive
-                      ? "bg-card text-foreground border-2 border-border border-b-0 shadow-sm -mb-[3px] pb-[3px] z-10 px-3"
-                      : isMonthly
-                        ? "bg-muted/40 text-muted-foreground border border-border/40 border-b-0 px-2"
-                        : "bg-muted/30 text-muted-foreground border border-border/40 border-b-0 px-2 hover:bg-muted/50"
-                    }
-                  `}
+                <div
+                  className="rounded-2xl p-5 text-white shadow-sm"
+                  style={{ background: "#085041" }}
                 >
-                  {/* Left accent bar for upcoming/in-progress */}
-                  {(isUpcoming || isInProgress) && !isActive && (
-                    <div className={`absolute left-1.5 top-2 bottom-2 w-[2.5px] rounded-full ${
-                      isInProgress ? "bg-amber-400" : "bg-emerald-400"
-                    } animate-pulse`} />
-                  )}
-
-                  <div className="flex flex-col items-center gap-0.5">
-                    <span className={`text-[8px] uppercase font-bold tracking-widest ${
-                      isActive ? "text-primary" : "text-muted-foreground/40"
-                    }`}>
-                      {isMonthly ? "Month" : "Week"}
-                    </span>
-                    <span className={`text-sm font-bold whitespace-nowrap ${
-                      !isActive && isCompleted ? "text-muted-foreground/60" : ""
-                    }`}>
-                      {isMonthly ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
-                    </span>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-200/90">
+                        Current period
+                      </div>
+                      <div className="mt-1 text-xl font-bold leading-tight">{periodLabel}</div>
+                      <div className="mt-1 text-xs text-emerald-100/80">
+                        {rangeLabel}
+                        {purchases != null && purchases > 0 && (
+                          <> · ${Math.round(purchases).toLocaleString()} purchases</>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={onStartCount}
+                      className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300 font-semibold shadow flex-shrink-0"
+                    >
+                      Start count
+                    </Button>
                   </div>
-                  {/* Checkmark for completed periods */}
-                  {!isActive && isCompleted && (
-                    <Check className="absolute top-1 right-1 h-3 w-3 text-emerald-500/60" strokeWidth={3} />
-                  )}
-                </motion.button>
+                </div>
               );
-            })}
-            {/* Pad row to keep 4-up sizing when current page has fewer than PAGE_SIZE */}
-            {Array.from({ length: Math.max(0, PAGE_SIZE - pagedCounts.length) }).map((_, i) => (
-              <div key={`_pad_${i}`} className="flex-1 min-w-0" />
-            ))}
-          </div>
-          <button
-            onClick={() => setPageIndex(p => Math.min(maxPage, p + 1))}
-            disabled={pageIndex >= maxPage}
-            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
+            })()}
 
-        {/* Lazy "Load older" — only when on the last page and more history exists */}
-        {hasMoreHistory && pageIndex === maxPage && (
-          <div className="flex justify-center mt-2">
-            <button
-              onClick={() => setVisibleCount(v => v + 6)}
-              className="text-[11px] font-semibold text-muted-foreground hover:text-foreground px-3 py-1 rounded-full bg-muted/40 hover:bg-muted/70 transition-colors"
-            >
-              Load older periods
-            </button>
-          </div>
-        )}
+            {/* Past periods — divider list with inline expansion */}
+            {past.length > 0 && (
+              <div className="rounded-2xl border border-border bg-card overflow-hidden">
+                {pagedPast.map((count) => {
+                  const idx = filteredCounts.indexOf(count);
+                  const isActive = idx === safeIdx;
+                  const effectiveEnd = getEffectivePeriodEndDate(count) || count.period_end_date;
+                  const endDate = new Date(effectiveEnd + "T12:00:00");
+                  const isMonthly = count.period_type === "monthly";
+                  const label = isMonthly
+                    ? `${format(endDate, "MMM yyyy")} · Month`
+                    : `Week · ${format(endDate, "MMM d")}`;
+                  const cogsPct: number | null = count._stats?.cogsPct ?? null;
+                  const ending: number | null = count._stats?.totalCost ?? null;
+                  const statusLabel = count.status === "in_progress" ? "In progress" : "Submitted";
+                  const cogsTone =
+                    cogsPct == null ? "text-muted-foreground"
+                    : cogsPct >= 65 ? "text-red-600"
+                    : cogsPct >= 60 ? "text-amber-600"
+                    : "text-emerald-600";
 
-        
+                  return (
+                    <div key={count.id} className="border-b border-border last:border-b-0">
+                      <button
+                        onClick={() => setSelectedIdx(idx)}
+                        className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${
+                          isActive ? "bg-muted/40" : "hover:bg-muted/30"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold flex items-center gap-1.5">
+                            {label}
+                            {count.status === "completed" && (
+                              <Check className="h-3.5 w-3.5 text-emerald-500" strokeWidth={3} />
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">{statusLabel}</div>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          {ending != null && ending > 0 && (
+                            <span className="text-sm font-semibold text-muted-foreground tabular-nums">
+                              ${Math.round(ending).toLocaleString()}
+                            </span>
+                          )}
+                          {cogsPct != null && (
+                            <span className={`text-sm font-bold tabular-nums ${cogsTone}`}>
+                              {cogsPct.toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+                      </button>
 
-        {/* In-progress resume banner (compact, inside detail area) */}
-        {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && selectedCount?.id === inProgressWithStats.id && (
-          <div className="mt-2 flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
-            <div className="flex items-center gap-2">
-              <div className="flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                      {/* Inline expansion — PeriodDetailPanel (untouched COGS card) */}
+                      <AnimatePresence initial={false}>
+                        {isActive && (
+                          <motion.div
+                            key="exp"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.18, ease: "easeOut" }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-3 pb-3">
+                              {/* In-progress resume banner */}
+                              {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && count.id === inProgressWithStats.id && (
+                                <div className="mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75" />
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                                    </div>
+                                    <span className="text-sm font-semibold">
+                                      {inProgressWithStats._stats.countedItems} of {inProgressWithStats._stats.totalItems} items counted
+                                    </span>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => navigate(`/inventory/${locationId}/count/${inProgressWithStats.id}?continue=true`)}
+                                  >
+                                    Resume <ArrowRight className="h-4 w-4 ml-1" />
+                                  </Button>
+                                </div>
+                              )}
+                              <PeriodDetailPanel
+                                count={count}
+                                locationId={locationId}
+                                onDeleteCount={!count._isUpcoming ? onDeleteCount : undefined}
+                                onCreateCountForPeriod={onCreateCountForPeriod}
+                                onStartDailyCount={onStartDailyCount}
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+
+                {/* Arrow paging — only when more than one page of past periods */}
+                {past.length > PAGE_SIZE && (
+                  <div className="flex items-center justify-between px-3 py-2 bg-muted/20 border-t border-border">
+                    <button
+                      onClick={() => setPageIndex(p => Math.max(0, p - 1))}
+                      disabled={pageIndex === 0}
+                      className="w-8 h-8 rounded-lg bg-background hover:bg-muted flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="text-[11px] text-muted-foreground font-medium tabular-nums">
+                      {pageIndex + 1} / {pastMaxPage + 1}
+                    </span>
+                    <button
+                      onClick={() => setPageIndex(p => Math.min(pastMaxPage, p + 1))}
+                      disabled={pageIndex >= pastMaxPage}
+                      className="w-8 h-8 rounded-lg bg-background hover:bg-muted flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
-              <span className="text-sm font-semibold">
-                {inProgressWithStats._stats.countedItems} of {inProgressWithStats._stats.totalItems} items counted
-              </span>
-            </div>
-            <Button
-              size="sm"
-              onClick={() => navigate(`/inventory/${locationId}/count/${inProgressWithStats.id}?continue=true`)}
-            >
-              Resume <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-        )}
+            )}
 
-        {/* Detail panel */}
-        <AnimatePresence mode="wait">
-          {selectedCount && (
-            <motion.div
-              key={selectedCount.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="period-detail-flush"
-            >
-              <PeriodDetailPanel
-                count={selectedCount}
-                locationId={locationId}
-                onDeleteCount={!selectedCount._isUpcoming ? onDeleteCount : undefined}
-                onCreateCountForPeriod={onCreateCountForPeriod}
-                onStartDailyCount={onStartDailyCount}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            {/* Load older — only when more history exists beyond visible window */}
+            {hasMoreHistory && pageIndex === pastMaxPage && (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setVisibleCount(v => v + 6)}
+                  className="text-[11px] font-semibold text-muted-foreground hover:text-foreground px-3 py-1 rounded-full bg-muted/40 hover:bg-muted/70 transition-colors"
+                >
+                  Load older periods
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
