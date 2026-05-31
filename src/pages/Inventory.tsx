@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, Upload, ArrowLeft, DollarSign } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, Upload, ArrowLeft, DollarSign, ArrowRightLeft, Plus } from "lucide-react";
+import TransferDialog from "@/components/inventory/TransferDialog";
+import { useInventoryTransfers } from "@/hooks/useInventoryTransfers";
 import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
 import RecipeGeniusCard from "@/components/inventory/menu-pricing/RecipeGeniusCard";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
@@ -52,6 +54,8 @@ const Inventory = () => {
   
   const [showDailyCount, setShowDailyCount] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const { pendingIncoming } = useInventoryTransfers(locationId || "");
 
   // Fetch location details
   const { data: location } = useQuery({
@@ -446,30 +450,50 @@ const Inventory = () => {
   return (
     <Layout>
       <div className="space-y-4">
-        {/* Location Header */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-          <MapPin className="h-4 w-4" />
-          <span className="font-medium text-foreground">
-            {location?.name || "Loading..."}
-          </span>
-          {location?.store_number && (
-            <Badge variant="outline" className="text-xs">
-              #{location.store_number}
-            </Badge>
-          )}
+        {/* Page header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold leading-tight">Inventory</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {location?.name || "Loading..."}
+              {location?.store_number && <> · #{location.store_number}</>}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 rounded-xl relative"
+              onClick={() => setShowTransferDialog(true)}
+              title="Transfer"
+            >
+              <ArrowRightLeft className="h-5 w-5" />
+              {pendingIncoming.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-bold">
+                  {pendingIncoming.length}
+                </span>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              className="h-10 px-3 rounded-xl gap-1.5"
+              onClick={handleStartCount}
+            >
+              <Plus className="h-4 w-4" /> New count
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 rounded-xl"
+              onClick={() => setShowSettings(true)}
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Inventory</h1>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-10 w-10 rounded-xl"
-            onClick={() => setShowSettings(true)}
-          >
-            <Settings className="h-5 w-5" />
-          </Button>
-        </div>
+        <TransferDialog open={showTransferDialog} onClose={() => setShowTransferDialog(false)} locationId={locationId!} />
+
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
