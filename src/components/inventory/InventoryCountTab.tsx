@@ -150,12 +150,10 @@ export default function InventoryCountTab({
   }, [completedCounts, typeFilter, upcomingEntries, visibleCount]);
 
   const safeIdx = Math.min(selectedIdx, Math.max(filteredCounts.length - 1, 0));
-  const selectedCount = filteredCounts[safeIdx] || null;
 
   // 4-at-a-time paging
   const PAGE_SIZE = 4;
   const maxPage = Math.max(0, Math.ceil(filteredCounts.length / PAGE_SIZE) - 1);
-  const pagedCounts = filteredCounts.slice(pageIndex * PAGE_SIZE, pageIndex * PAGE_SIZE + PAGE_SIZE);
 
   useEffect(() => { setSelectedIdx(0); setPageIndex(0); }, [typeFilter]);
 
