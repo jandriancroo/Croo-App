@@ -2732,7 +2732,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         onChange={(e) => handleCasesInput(legKeyUi, e.target.value)}
                                         onBlur={() => handleCasesBlur(legKeyUi)}
                                         disabled={isViewOnly}
-                                        className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                        className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0 px-1.5"
                                       />
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
@@ -2760,7 +2760,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         onChange={(e) => handleInnerPacksInput(legKeyUi, e.target.value)}
                                         onBlur={() => handleInnerPacksBlur(legKeyUi)}
                                         disabled={isViewOnly}
-                                        className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                        className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0 px-1.5"
                                       />
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
@@ -2788,7 +2788,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         onChange={(e) => handleUnitsInput(legKeyUi, e.target.value)}
                                         onBlur={() => handleUnitsBlur(legKeyUi)}
                                         disabled={isViewOnly}
-                                        className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0"
+                                        className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent outline-none min-w-0 px-1.5"
                                       />
                                       {!isViewOnly && (
                                         <button type="button" className="relative h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
