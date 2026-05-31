@@ -168,9 +168,7 @@ export default function InventoryCountTab({
   if (!filteredCounts.length) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <FilterChips typeFilter={typeFilter} setTypeFilter={setTypeFilter} />
-          <div className="flex-1" />
+        <div className="flex items-center gap-2 justify-end">
           <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5" onClick={onStartCount}>
             <Plus className="h-3.5 w-3.5" /> New
           </Button>
