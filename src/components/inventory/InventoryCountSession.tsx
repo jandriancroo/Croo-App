@@ -2623,7 +2623,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -2641,7 +2641,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
@@ -2718,7 +2718,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                     <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Cases</p>
                                     <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                                       {!isViewOnly && (
-                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, -1)}>
                                           <Minus className="h-4 w-4" strokeWidth={2} />
                                         </button>
                                       )}
@@ -2732,7 +2732,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
                                       />
                                       {!isViewOnly && (
-                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateCases(legKeyUi, 1)}>
                                           <Plus className="h-4 w-4" strokeWidth={2} />
                                         </button>
                                       )}
@@ -2744,7 +2744,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                     <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">{legLanes.innerLabel}</p>
                                     <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                                       {!isViewOnly && (
-                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, -1)}>
                                           <Minus className="h-4 w-4" strokeWidth={2} />
                                         </button>
                                       )}
@@ -2758,7 +2758,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
                                       />
                                       {!isViewOnly && (
-                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateInnerPacks(legKeyUi, 1)}>
                                           <Plus className="h-4 w-4" strokeWidth={2} />
                                         </button>
                                       )}
@@ -2770,7 +2770,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                     <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">{legLanes.unitsLabel}</p>
                                     <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                                       {!isViewOnly && (
-                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, -1)}>
                                           <Minus className="h-4 w-4" strokeWidth={2} />
                                         </button>
                                       )}
@@ -2784,7 +2784,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                         className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
                                       />
                                       {!isViewOnly && (
-                                        <button type="button" className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
+                                        <button type="button" className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0" onClick={() => updateUnits(legKeyUi, 1)}>
                                           <Plus className="h-4 w-4" strokeWidth={2} />
                                         </button>
                                       )}
@@ -2810,7 +2810,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -2828,7 +2828,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
@@ -2851,7 +2851,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateInnerPacks(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -2869,7 +2869,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateInnerPacks(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
@@ -2890,7 +2890,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateUnits(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -2908,7 +2908,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
+                            className="relative h-11 w-11 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateUnits(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
