@@ -337,7 +337,7 @@ const CountExportDialog = ({ countId, locationId, periodLabel }: CountExportDial
   const totalItems = exportItems?.length || 0;
   const countedItems = exportItems?.filter((i: any) => i.quantity > 0).length || 0;
   const totalValue = exportItems?.reduce((sum: number, ci: any) => {
-    const item = ci.item || {};
+    const item: any = ci.item || {};
     const conversion = item.brand_item_id ? conversionMap.get(item.brand_item_id) : null;
     return sum + calculateCountItemValue(
       ci,
