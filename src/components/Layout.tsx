@@ -1369,7 +1369,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 )}
 
                 {/* Update App + Sign Out row */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <Button variant="outline" onClick={() => {
                     setMenuOpen(false);
                     const prevVersion = getCurrentAppVersion();
