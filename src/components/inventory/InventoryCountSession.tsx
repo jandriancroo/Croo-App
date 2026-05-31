@@ -2490,7 +2490,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       )}
 
       {/* Item list with dual counting */}
-      <div className="space-y-3 -mx-1 sm:mx-0">
+      <div className="space-y-3 -mx-4 sm:mx-0">
         {currentItems.map((item) => {
           const splitKey = (item as any)._splitKey || item.item_id;
           const count = counts[splitKey] || { cases: 0, units: 0, innerPacks: 0 };
