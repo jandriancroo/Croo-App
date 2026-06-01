@@ -1025,7 +1025,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const innerVal = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
     const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
-    const innerPackQty = (item as any).inner_pack_quantity || 0;
 
     // [hydration-drift diagnostic] compare hydrated counts vs DB existing values
     const dbCases = Number((item as any)._existingCases ?? 0);
@@ -1055,6 +1054,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const lens = (lensEnabledForLocation === true && item.brand_item_id)
       ? packLensMap?.get(item.brand_item_id) ?? null
       : null;
+    const innerPackQty = Number((item as any).inner_pack_quantity ?? (lens as any)?.inner_qty ?? 0) || 0;
 
     // Multi-config (Path B): when legs are enabled AND this item has 2+ selected
     // pack configs, build a synthetic legs[] payload so calculateCountItemValue
