@@ -113,7 +113,6 @@ describe("computeCountLanes — shared lane decision for count screen + approval
     expect(lanes.innerLabel).toBe("Bags");
     expect(lanes.innerSubLabel).toBe("(5 lb/bag)");
   });
-  });
 
   it("count_by='units_only' hides Cases even when lens has case tier", () => {
     const lanes = computeCountLanes({
