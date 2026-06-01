@@ -1340,7 +1340,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     for (const item of items) {
       const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string; _packQuantityAtCount?: number | null; _innerPackQuantityAtCount?: number | null };
       const key = extendedItem._splitKey || item.item_id;
-      const innerPackQty = (item as any).inner_pack_quantity ?? null;
+      // Phase 4 (2026-06-01): thread the resolved inner factor (snapshot > lens > local)
+      // through the edit-mode snapshot so 3-tier items (jugs/sleeves/cans) freeze the
+      // correct inner_pack_quantity_at_count alongside pack_quantity_at_count. Without
+      // this, lens-derived inner factors were silently dropped at save time and the
+      // reader's caseUnits denominator collapsed to pack only, inflating valuations.
+      const innerPackQty = resolveInnerPackQtyForTotal(item);
       // Diff math uses the LIVE effective pack qty so the baseline (computed from
       // the current entered_cases × current caseUnits) and the new value share
       // the same multiplier. Snapshots are stamped on save below for history.
@@ -1431,7 +1436,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const key = (item as any)._splitKey || item.item_id;
         const storLocId = item.storage_location_id;
         const countState = counts[key] || { cases: 0, units: 0, innerPacks: 0 };
-        const innerPackQty = (item as any).inner_pack_quantity ?? null;
+        // Phase 4 (2026-06-01): see calculatePendingEdits for rationale — autosave
+        // must also persist the resolver-derived inner factor, not the stale local field.
+        const innerPackQty = resolveInnerPackQtyForTotal(item);
         // Fold raw per-leg lane triples into the snapshot so the diff guard fires
         // when a non-default leg's cases/innerPacks/units change. Prefixed `_` so
         // the RPC/insert path ignores it. Single-config items get null.
@@ -1487,7 +1494,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       });
       return { itemCounts, snapshot: JSON.stringify(itemCounts) };
     };
-  }, [items, counts, panCounts, getItemTotalIncludingLegs, legsConfigsMap, legsEnabledForLocation]);
+  }, [items, counts, panCounts, getItemTotalIncludingLegs, legsConfigsMap, legsEnabledForLocation, resolveInnerPackQtyForTotal]);
 
   // === Palm Springs forensic audit log ===
   // Logs every save attempt with raw UI inputs (cases, units, pan inputs) verbatim
