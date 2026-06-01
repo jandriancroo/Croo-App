@@ -79,11 +79,9 @@ export function CountLanesPreview({
             <Lane
               label={lanes.casesLabel}
               sub={(() => {
-                // Prefer the human-readable unit token ("4 lb/case") over the
-                // generic "4 units total/case" filler.
                 const unit = lanes.unitToken
                   ?? (lanes.innerPackQty ? "units" : "ea");
-                return `(${lanes.packQty} ${unit}/case)`;
+                return `(${lanes.packQty} ${unit}/${lanes.casesNounToken})`;
               })()}
             />
           )}
