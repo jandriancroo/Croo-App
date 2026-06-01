@@ -124,9 +124,13 @@ export function resolveItemPackShape(
       packQty = total;
       innerPackQty = null;
     }
+    // Inner lane wants the CONTAINER noun ("bag", "sleeve"), not what's
+    // inside it. In brand_pack_configs, that's outer_type. inner_type is the
+    // unit *inside* the container (often the same as common_unit, e.g. "lb")
+    // and should only be used as a fallback when outer_type is missing.
     const innerLabel =
-      trimmedOrNull(lens!.inner_type) ??
       trimmedOrNull((lens as any).outer_type) ??
+      trimmedOrNull(lens!.inner_type) ??
       trimmedOrNull(item.inner_pack_label);
     const unit =
       (trimmedOrNull(lens!.common_unit) ??
