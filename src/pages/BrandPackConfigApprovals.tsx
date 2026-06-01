@@ -1609,6 +1609,7 @@ export default function BrandPackConfigApprovals() {
               );
             })}
           </CardContent>
+          )}
         </Card>
       );})}
 
