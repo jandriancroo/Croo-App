@@ -1440,51 +1440,46 @@ export default function BrandPackConfigApprovals() {
                           </div>
                         </div>
 
-                        {/* SHOW ON COUNT SCREEN — per-lane toggles */}
-                        <div className="space-y-2">
-                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Show on count screen</div>
-                          {(() => {
-                            const ov = laneOverride[r.id] ?? {};
-                            const defaults = {
-                              cases: ov.cases ?? true,
-                              packs: ov.packs ?? ((innerN ?? 0) > 1),
-                              common: ov.common ?? false,
-                            };
-                            const setLane = (key: "cases" | "packs" | "common", v: boolean) =>
-                              setLaneOverride((m) => ({ ...m, [r.id]: { ...defaults, [key]: v } }));
-                            const laneBtn = (
-                              key: "cases" | "packs" | "common",
-                              title: string,
-                              sub: string,
-                            ) => {
-                              const on = defaults[key];
-                              return (
-                                <button
-                                  type="button"
-                                  disabled={formLocked}
-                                  onClick={() => setLane(key, !on)}
-                                  className={`flex-1 min-w-[140px] rounded-md border px-3 py-2 text-left transition ${on ? "border-emerald-500/60 bg-emerald-500/10" : "border-border bg-background/60 opacity-70"} ${formLocked ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"}`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox checked={on} disabled={formLocked} />
-                                    <span className="font-medium text-sm">{title}</span>
-                                  </div>
-                                  <div className="text-[11px] text-muted-foreground pl-6">{sub}</div>
-                                </button>
-                              );
-                            };
+                        {/* SHOW ON COUNT SCREEN — inline one-liner with three checkboxes */}
+                        {(() => {
+                          const ov = laneOverride[r.id] ?? {};
+                          const defaults = {
+                            cases: ov.cases ?? true,
+                            packs: ov.packs ?? ((innerN ?? 0) > 1),
+                            common: ov.common ?? false,
+                          };
+                          const setLane = (key: "cases" | "packs" | "common", v: boolean) =>
+                            setLaneOverride((m) => ({ ...m, [r.id]: { ...defaults, [key]: v } }));
+                          const packsLabel = innerNounPlural.charAt(0).toUpperCase() + innerNounPlural.slice(1);
+                          const item = (key: "cases" | "packs" | "common", label: string, disabled = false) => {
+                            const on = defaults[key] && !disabled;
                             return (
-                              <div className="flex flex-wrap gap-2">
-                                {laneBtn("cases", "Cases", cupc > 0 ? `${cupc} ${commonUnitLabel} each` : "")}
-                                {laneBtn("packs", `${innerNounPlural.charAt(0).toUpperCase() + innerNounPlural.slice(1)}`, innerN && innerN > 0 ? `${innerN} ${commonUnitLabel} each` : "no inner pack")}
-                                {laneBtn("common", `Loose ${commonUnitLabel}`, "for items counted by weight")}
-                              </div>
+                              <label
+                                className={`inline-flex items-center gap-1.5 select-none ${disabled || formLocked ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                              >
+                                <Checkbox
+                                  checked={on}
+                                  disabled={formLocked || disabled}
+                                  onCheckedChange={(v) => setLane(key, !!v)}
+                                />
+                                <span>{label}</span>
+                              </label>
                             );
-                          })()}
-                          <div className="text-[11px] text-muted-foreground">
-                            Preview below mirrors what counters will actually see.
-                          </div>
-                        </div>
+                          };
+                          const hasInner = (innerN ?? 0) > 0;
+                          return (
+                            <div className="rounded-md border bg-background/40 px-3 py-2 text-sm flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1">
+                                Counters see
+                              </span>
+                              {item("cases", "Cases")}
+                              <span className="text-muted-foreground/50">·</span>
+                              {item("packs", packsLabel, !hasInner)}
+                              <span className="text-muted-foreground/50">·</span>
+                              {item("common", `Loose ${commonUnitLabel}`)}
+                            </div>
+                          );
+                        })()}
 
                         {/* Optional label */}
                         <Field label="Label (optional)">
