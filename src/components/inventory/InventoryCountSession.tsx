@@ -1038,7 +1038,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         unitsVal, dbUnits,
         panUnits,
         innerPacksVal: innerVal,
-        innerPackQty,
+        innerPackQty: (item as any).inner_pack_quantity ?? null,
       });
     }
 
@@ -1478,7 +1478,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           item_name_at_count: item.item_name,
           cost_at_count: item.cost_per_unit,
           unit_at_count: item.unit,
-          pack_quantity_at_count: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+          pack_quantity_at_count: resolveItemPackQty(item),
           // Phase 3: snapshot the inner_pack_quantity at save time (mirrors pack_quantity_at_count)
           inner_pack_quantity_at_count: innerPackQty,
           pan_sizes_at_count: item.pan_sizes ?? null,
@@ -2105,7 +2105,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const casesVal = counts[key]?.cases || 0;
       const unitsVal = counts[key]?.units || 0;
       const innerVal = counts[key]?.innerPacks || 0;
-      const innerPackQty = (item as any).inner_pack_quantity ?? null;
+      const lens = (lensEnabledForLocation === true && item.brand_item_id)
+        ? packLensMap?.get(item.brand_item_id) ?? null
+        : null;
+      const innerPackQty = Number((item as any).inner_pack_quantity ?? (lens as any)?.inner_qty ?? 0) || null;
       return {
         item_id: item.item_id,
         quantity: getItemTotalIncludingLegs(item, key, resolveItemPackQty(item), resolveInnerPackQtyForTotal(item)),
@@ -2117,7 +2120,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         item_name_at_count: item.item_name,
         cost_at_count: item.cost_per_unit,
         unit_at_count: item.unit,
-        pack_quantity_at_count: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+        pack_quantity_at_count: resolveItemPackQty(item),
         // Phase 3: snapshot inner_pack_quantity at save time for historical immutability
         inner_pack_quantity_at_count: innerPackQty,
         pan_sizes_at_count: item.pan_sizes ?? null,

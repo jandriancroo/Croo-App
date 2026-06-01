@@ -78,14 +78,15 @@ describe("computeCountLanes — shared lane decision for count screen + approval
     const lanes = computeCountLanes({
       item: {
         pack_quantity: 10,
-        inner_pack_quantity: 100,
         // inner_pack_label intentionally omitted
         unit: "ea",
         cost_per_unit: 25,
       },
-      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", inner_type: "sleeve" } as any,
+      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", inner_type: "sleeve", inner_qty: 100 } as any,
     });
+    expect(lanes.showInnerPacks).toBe(true);
     expect(lanes.innerLabel).toBe("Sleeves");
+    expect(lanes.innerSubLabel).toBe("(100 ea/sleeve)");
   });
 
   it("count_by='units_only' hides Cases even when lens has case tier", () => {
