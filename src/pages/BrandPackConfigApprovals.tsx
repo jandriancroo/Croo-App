@@ -503,6 +503,8 @@ export default function BrandPackConfigApprovals() {
   const [editingApproved, setEditingApproved] = useState<Record<string, boolean>>({});
   // Per-row collapsed state — lets the user hide proposals they're not working on.
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Per-item (template) collapsed state — collapses the whole item card.
+  const [collapsedItems, setCollapsedItems] = useState<Record<string, boolean>>({});
 
 
 
