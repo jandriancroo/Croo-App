@@ -1483,7 +1483,10 @@ export default function BrandPackConfigApprovals() {
                         count_units_per_case: cupc > 0 ? cupc : null,
                         cost_per_common_unit: cost,
                         common_unit: d.common_unit || null,
-                        inner_type: showPacks ? (d.outer_type || null) : null,
+                        outer_qty: outer > 0 ? outer : null,
+                        outer_type: showPacks ? (d.outer_type || null) : null,
+                        inner_qty: showPacks ? inner : null,
+                        inner_type: d.inner_type || null,
                       } as any,
                       lensEnabled: true,
                     });
