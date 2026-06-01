@@ -501,6 +501,8 @@ export default function BrandPackConfigApprovals() {
   >({});
   // Per-row "edit mode" for already-approved configs (unlocks the form).
   const [editingApproved, setEditingApproved] = useState<Record<string, boolean>>({});
+  // Per-row collapsed state — lets the user hide proposals they're not working on.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
 
 
