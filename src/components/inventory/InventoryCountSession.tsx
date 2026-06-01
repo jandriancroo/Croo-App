@@ -2839,6 +2839,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   count_units_per_case: cfg.count_units_per_case,
                   cost_per_common_unit: cfg.cost_per_common_unit,
                   common_unit: cfg.common_unit,
+                  outer_qty: cfg.outer_qty,
                   outer_type: cfg.outer_type,
                   inner_qty: cfg.inner_qty,
                   inner_type: cfg.inner_type,
