@@ -1500,6 +1500,7 @@ export default function BrandPackConfigApprovals() {
 
                   {/* SHOW ON COUNT SCREEN — inline one-liner, sits right under the preview */}
                   {(() => {
+                    const formLocked = isApproved && !editingApproved[r.id];
                     const ov = laneOverride[r.id] ?? {};
                     const innerN = d.inner_qty == null ? null : Number(d.inner_qty);
                     const defaults = {
