@@ -2867,7 +2867,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 isDefault: !!cfg.is_default,
                 lanes: [
                   legLanes.showCases ? {
-                    kind: 'cases', label: 'Cases',
+                    kind: 'cases', label: legLanes.casesLabel,
                     value: rawInputs[legKey]?.cases ?? legState.cases,
                     onDown: () => updateCases(legKey, -1),
                     onUp: () => updateCases(legKey, 1),
