@@ -1278,72 +1278,212 @@ export default function BrandPackConfigApprovals() {
                   )}
 
 
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                    <Field label="Outer qty">
-                      <Input type="number" value={d.outer_qty ?? ""} onChange={(e) => patchDraft(r.id, { outer_qty: Number(e.target.value) })} />
-                    </Field>
-                    <Field label="Outer type">
-                      <OuterTypeSelect value={d.outer_type} onChange={(v) => patchDraft(r.id, { outer_type: v })} />
-                    </Field>
-                    <Field label="Inner qty">
-                      <Input type="number" value={d.inner_qty ?? ""} onChange={(e) => patchDraft(r.id, { inner_qty: e.target.value === "" ? null : Number(e.target.value) })} />
-                    </Field>
-                    <Field label="Inner type">
-                      <InnerTypeSelect value={d.inner_type} onChange={(v) => patchDraft(r.id, { inner_type: v })} />
-                    </Field>
-                    <Field label="Common unit">
-                      <UnitSelect value={d.common_unit} onChange={(v) => patchDraft(r.id, { common_unit: v ?? "" })} />
-                    </Field>
-                    <Field label="$ / common unit">
-                      <Input type="number" step="0.0001" value={d.cost_per_common_unit ?? ""} onChange={(e) => patchDraft(r.id, { cost_per_common_unit: e.target.value === "" ? null : Number(e.target.value) })} />
-                    </Field>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <Field label="Label (optional)">
-                      <Input value={d.label ?? ""} onChange={(e) => patchDraft(r.id, { label: e.target.value })} placeholder="e.g. case, sack, 4-pack" />
-                    </Field>
-                    <div className="flex items-end justify-between text-xs text-muted-foreground gap-2">
-                      <span>count_units_per_case = {(Number(d.outer_qty) || 0) * ((d.inner_qty ?? 1) || 1)}</span>
-                      {(() => {
-                        const outer = Number(d.outer_qty) || 0;
-                        const inner = d.inner_qty == null ? null : Number(d.inner_qty);
-                        const heuristic = outer > 1 && (inner ?? 0) > 1;
-                        const override = middleTierOverride[r.id];
-                        const checked = override ?? heuristic;
-                        return (
-                          <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={(v) =>
-                                setMiddleTierOverride((prev) => ({ ...prev, [r.id]: !!v }))
-                              }
-                            />
-                            <span>Show middle pack tier (3-lane)</span>
-                          </label>
-                        );
-                      })()}
+                  {/* APPROVED banner — gives a clear edit path for already-approved configs. */}
+                  {isApproved && !editingApproved[r.id] && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
+                      <div className="flex items-center gap-2 text-sm text-emerald-900 dark:text-emerald-100">
+                        <Check className="h-4 w-4" />
+                        <span>
+                          <b>Approved</b> · {proposalLocs.length} location{proposalLocs.length === 1 ? "" : "s"} using this config
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingApproved((m) => ({ ...m, [r.id]: true }))}
+                        >
+                          <Save className="h-4 w-4" /> Edit
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Live count-screen preview — driven by the SAME computeCountLanes()
-                      the real count screen uses. If a rule changes there, this moves
-                      with it. Approve when the lanes/labels look right. */}
+                  {(() => {
+                    const formLocked = isApproved && !editingApproved[r.id];
+                    const outerN = Number(d.outer_qty) || 0;
+                    const innerN = d.inner_qty == null ? null : Number(d.inner_qty);
+                    const cupc = outerN * (innerN ?? 1);
+                    const innerNounPlural = (d.inner_type || "pack").toLowerCase() + ((d.inner_type || "").toLowerCase().endsWith("s") ? "" : "s");
+                    const commonUnitLabel = (d.common_unit || "unit").toLowerCase();
+                    // Source case price (used to derive cost-per-common-unit)
+                    const casePriceFromSrc = ev.costPerCase != null ? Number(ev.costPerCase) : null;
+                    const derivedCost = casePriceFromSrc != null && cupc > 0 ? casePriceFromSrc / cupc : null;
+                    const usingOverride = !!costOverride[r.id];
+                    const displayCost = usingOverride ? d.cost_per_common_unit : derivedCost ?? d.cost_per_common_unit;
+                    return (
+                      <>
+                        {/* PACK STRUCTURE — sentence form */}
+                        <div className="space-y-2">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Pack structure</div>
+                          <div className="rounded-md border bg-background/60 p-3 flex flex-wrap items-center gap-2 text-sm">
+                            <span>1 case contains</span>
+                            <Input
+                              type="number"
+                              className="w-16 h-9 text-center"
+                              value={d.outer_qty ?? ""}
+                              disabled={formLocked}
+                              onChange={(e) => patchDraft(r.id, { outer_qty: Number(e.target.value) })}
+                            />
+                            <div className="w-28">
+                              <OuterTypeSelect
+                                value={d.outer_type}
+                                onChange={(v) => !formLocked && patchDraft(r.id, { outer_type: v })}
+                              />
+                            </div>
+                            <span>of</span>
+                            <Input
+                              type="number"
+                              className="w-16 h-9 text-center"
+                              value={d.inner_qty ?? ""}
+                              disabled={formLocked}
+                              onChange={(e) => patchDraft(r.id, { inner_qty: e.target.value === "" ? null : Number(e.target.value) })}
+                            />
+                            <div className="w-28">
+                              <InnerTypeSelect
+                                value={d.inner_type}
+                                onChange={(v) => !formLocked && patchDraft(r.id, { inner_type: v })}
+                              />
+                            </div>
+                            <span>each</span>
+                          </div>
+                          {cupc > 0 && d.common_unit && (
+                            <div className="text-xs text-muted-foreground pl-1">
+                              → 1 case = <b>{cupc} {commonUnitLabel}</b> total
+                            </div>
+                          )}
+                        </div>
+
+                        {/* COUNT IN + COST PER UNIT */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Measured in</div>
+                            <UnitSelect
+                              value={d.common_unit}
+                              onChange={(v) => !formLocked && patchDraft(r.id, { common_unit: v ?? "" })}
+                            />
+                            <div className="text-[11px] text-muted-foreground">Unit used for valuation math</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                Cost per {commonUnitLabel} {usingOverride ? "(override)" : "(calculated)"}
+                              </div>
+                            </div>
+                            {usingOverride ? (
+                              <Input
+                                type="number"
+                                step="0.0001"
+                                value={d.cost_per_common_unit ?? ""}
+                                disabled={formLocked}
+                                onChange={(e) => patchDraft(r.id, { cost_per_common_unit: e.target.value === "" ? null : Number(e.target.value) })}
+                              />
+                            ) : (
+                              <div className="h-10 px-3 flex items-center rounded-md border bg-muted/40 text-sm font-medium">
+                                {displayCost != null ? `$${Number(displayCost).toFixed(4).replace(/0+$/, "").replace(/\.$/, "")}` : "—"}
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                              <span>
+                                {casePriceFromSrc != null && cupc > 0
+                                  ? <>${casePriceFromSrc.toFixed(2)} ÷ {cupc} {commonUnitLabel}</>
+                                  : "no source case price"}
+                              </span>
+                              {!formLocked && (
+                                <button
+                                  type="button"
+                                  className="underline hover:text-foreground"
+                                  onClick={() => {
+                                    const next = !usingOverride;
+                                    setCostOverride((m) => ({ ...m, [r.id]: next }));
+                                    if (!next && derivedCost != null) {
+                                      patchDraft(r.id, { cost_per_common_unit: derivedCost });
+                                    }
+                                  }}
+                                >
+                                  {usingOverride ? "use calculated" : "override"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* SHOW ON COUNT SCREEN — per-lane toggles */}
+                        <div className="space-y-2">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Show on count screen</div>
+                          {(() => {
+                            const ov = laneOverride[r.id] ?? {};
+                            const defaults = {
+                              cases: ov.cases ?? true,
+                              packs: ov.packs ?? ((innerN ?? 0) > 1),
+                              common: ov.common ?? false,
+                            };
+                            const setLane = (key: "cases" | "packs" | "common", v: boolean) =>
+                              setLaneOverride((m) => ({ ...m, [r.id]: { ...defaults, [key]: v } }));
+                            const laneBtn = (
+                              key: "cases" | "packs" | "common",
+                              title: string,
+                              sub: string,
+                            ) => {
+                              const on = defaults[key];
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={formLocked}
+                                  onClick={() => setLane(key, !on)}
+                                  className={`flex-1 min-w-[140px] rounded-md border px-3 py-2 text-left transition ${on ? "border-emerald-500/60 bg-emerald-500/10" : "border-border bg-background/60 opacity-70"} ${formLocked ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted/50"}`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={on} disabled={formLocked} />
+                                    <span className="font-medium text-sm">{title}</span>
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground pl-6">{sub}</div>
+                                </button>
+                              );
+                            };
+                            return (
+                              <div className="flex flex-wrap gap-2">
+                                {laneBtn("cases", "Cases", cupc > 0 ? `${cupc} ${commonUnitLabel} each` : "")}
+                                {laneBtn("packs", `${innerNounPlural.charAt(0).toUpperCase() + innerNounPlural.slice(1)}`, innerN && innerN > 0 ? `${innerN} ${commonUnitLabel} each` : "no inner pack")}
+                                {laneBtn("common", `Loose ${commonUnitLabel}`, "for items counted by weight")}
+                              </div>
+                            );
+                          })()}
+                          <div className="text-[11px] text-muted-foreground">
+                            Preview below mirrors what counters will actually see.
+                          </div>
+                        </div>
+
+                        {/* Optional label */}
+                        <Field label="Label (optional)">
+                          <Input
+                            value={d.label ?? ""}
+                            disabled={formLocked}
+                            onChange={(e) => patchDraft(r.id, { label: e.target.value })}
+                            placeholder="e.g. case, sack, 4-pack"
+                          />
+                        </Field>
+                      </>
+                    );
+                  })()}
+
+                  {/* Live count-screen preview — same computeCountLanes() the real
+                      count screen uses, with per-lane visibility overrides applied. */}
                   {(() => {
                     const outer = Number(d.outer_qty) || 0;
                     const inner = d.inner_qty == null ? null : Number(d.inner_qty);
                     const cupc = outer * (inner ?? 1);
                     const cost = d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit);
-                    // Middle-tier visibility: explicit per-row override wins;
-                    // fallback heuristic = 3-tier iff outer>1 AND inner>1.
-                    const heuristic = outer > 1 && (inner ?? 0) > 1;
-                    const isThreeTier = middleTierOverride[r.id] ?? heuristic;
+                    const ov = laneOverride[r.id] ?? {};
+                    const showPacks = ov.packs ?? ((inner ?? 0) > 1);
+                    const showCases = ov.cases ?? true;
+                    const showCommon = ov.common ?? false;
                     const previewLanes = computeCountLanes({
                       item: {
                         is_recipe: false,
-                        pack_quantity: isThreeTier ? outer : (cupc || 1),
-                        inner_pack_quantity: isThreeTier ? inner : null,
-                        inner_pack_label: null, // intentionally null so the lens label wins
+                        pack_quantity: showPacks ? outer : (cupc || 1),
+                        inner_pack_quantity: showPacks ? inner : null,
+                        inner_pack_label: null,
                         unit: d.common_unit || "ea",
                         cost_per_unit: cost != null && cupc > 0 ? cost * cupc : null,
                         count_by: "inherit",
@@ -1352,24 +1492,52 @@ export default function BrandPackConfigApprovals() {
                         count_units_per_case: cupc > 0 ? cupc : null,
                         cost_per_common_unit: cost,
                         common_unit: d.common_unit || null,
-                        // inner_type drives the middle-lane label (only relevant in 3-tier)
-                        inner_type: isThreeTier ? (d.inner_type || null) : null,
+                        inner_type: showPacks ? (d.inner_type || null) : null,
                       } as any,
                       lensEnabled: true,
                     });
-
+                    // Apply per-lane visibility overrides on top of the resolver output.
+                    const lanesForPreview = {
+                      ...previewLanes,
+                      showCases,
+                      showInnerPacks: previewLanes.showInnerPacks && showPacks,
+                      showUnits: showCommon,
+                    };
                     return (
                       <CountLanesPreview
-                        lanes={previewLanes}
+                        lanes={lanesForPreview}
                         itemName={r.template?.product_name}
                       />
                     );
                   })()}
 
-
-                  {isApproved ? (
-                    <div className="flex items-center justify-end pt-1 text-xs text-muted-foreground italic">
-                      Read-only reference — already approved
+                  {/* ACTIONS */}
+                  {isApproved && !editingApproved[r.id] ? null : isApproved && editingApproved[r.id] ? (
+                    <div className="flex gap-2 justify-end pt-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={isBusy}
+                        onClick={() => {
+                          setEditingApproved((m) => ({ ...m, [r.id]: false }));
+                          setDrafts((dd) => { const n = { ...dd }; delete n[r.id]; return n; });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={isBusy}
+                        onClick={async () => {
+                          const reason = window.prompt("Why are you changing this approved config?\n(Required — saved to audit trail.)");
+                          if (!reason || !reason.trim()) return;
+                          setRowBusy(r.id, "save");
+                          try { await updateApproved.mutateAsync({ r, reason: reason.trim() }); }
+                          finally { setRowBusy(r.id, null); }
+                        }}
+                      >
+                        <Save className="h-4 w-4" /> Save changes
+                      </Button>
                     </div>
                   ) : (
                     <div className="flex gap-2 justify-end pt-1">
@@ -1408,6 +1576,7 @@ export default function BrandPackConfigApprovals() {
                       </Button>
                     </div>
                   )}
+
                 </div>
               );
             })}
