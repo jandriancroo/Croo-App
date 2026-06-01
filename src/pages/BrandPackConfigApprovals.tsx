@@ -1332,7 +1332,11 @@ export default function BrandPackConfigApprovals() {
                     const outerN = Number(d.outer_qty) || 0;
                     const innerN = d.inner_qty == null ? null : Number(d.inner_qty);
                     const cupc = outerN * (innerN ?? 1);
-                    const innerNounPlural = (d.inner_type || "pack").toLowerCase() + ((d.inner_type || "").toLowerCase().endsWith("s") ? "" : "s");
+                    // The middle count lane represents the sub-containers inside the case
+                    // (e.g. "sleeve" in "1 case contains 12 sleeve of 14 oz") — that's
+                    // outer_type, NOT inner_type (which is the atomic unit like "oz").
+                    const middleTierNoun = (d.outer_type || "pack").toLowerCase();
+                    const innerNounPlural = middleTierNoun + (middleTierNoun.endsWith("s") ? "" : "s");
                     const commonUnitLabel = (d.common_unit || "unit").toLowerCase();
                     // Source case price (used to derive cost-per-common-unit)
                     const casePriceFromSrc = ev.costPerCase != null ? Number(ev.costPerCase) : null;
