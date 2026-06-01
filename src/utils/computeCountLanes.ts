@@ -65,6 +65,8 @@ export interface CountLanes {
   showUnits: boolean;
   /** Display label for each visible lane. */
   casesLabel: string;
+  /** Singular noun used for the cases-lane sublabel ("case" or override like "jug"). */
+  casesNounToken: string;
   innerLabel: string;
   /** Small subtitle under the inner label: e.g. "(12 ea/sleeve)". */
   innerSubLabel: string | null;
@@ -147,6 +149,7 @@ export function computeCountLanes({
       showInnerPacks: false,
       showUnits: false,
       casesLabel: `Count (${item.unit ?? "ea"})`,
+      casesNounToken: "case",
       innerLabel: "",
       innerSubLabel: null,
       unitsLabel: "",
@@ -234,12 +237,23 @@ export function computeCountLanes({
       : `(${innerPackQty}/${innerNounToken})`
     : null;
 
+  // When there's no inner-pack tier, the user's label override (e.g. "jug")
+  // would otherwise be invisible — promote it onto the Cases lane.
+  const labelOverride = (item.inner_pack_label ?? "").trim();
+  const casesLabel = !showInnerPacks && labelOverride
+    ? pluralizeLabel(labelOverride)
+    : "Cases";
+  const casesNounToken = !showInnerPacks && labelOverride
+    ? labelOverride.toLowerCase()
+    : "case";
+
   return {
     isRecipe: false,
     showCases,
     showInnerPacks,
     showUnits,
-    casesLabel: "Cases",
+    casesLabel,
+    casesNounToken,
     innerLabel,
     innerSubLabel,
     unitsLabel: (() => {
