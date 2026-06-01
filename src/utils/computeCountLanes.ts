@@ -226,7 +226,11 @@ export function computeCountLanes({
   })();
   const innerSubLabel = showInnerPacks
     ? commonUnitToken
-      ? `(${innerPackQty} ${commonUnitToken}/${innerNounToken})`
+      ? innerNounToken === commonUnitToken
+        // Noun and unit are the same (e.g. "lb" inside an "lb" inner) — avoid the
+        // ugly "(4 lb/lb)" duplication and just show the quantity + unit.
+        ? `(${innerPackQty} ${commonUnitToken})`
+        : `(${innerPackQty} ${commonUnitToken}/${innerNounToken})`
       : `(${innerPackQty}/${innerNounToken})`
     : null;
 
@@ -250,6 +254,7 @@ export function computeCountLanes({
     costPerCase,
     costPerPack,
     costPerUnit,
+    unitToken: commonUnitToken,
     caseTierSource: lensApplies ? "lens" : "local",
   };
 }
