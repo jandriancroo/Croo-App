@@ -106,6 +106,7 @@ export function resolveItemPackShape(
       packQty: snapPack,
       innerPackQty: snapInner != null && snapInner > 0 ? snapInner : null,
       innerLabel: trimmedOrNull(item.inner_pack_label),
+      outerLabel: null,
       unit: (trimmedOrNull(item.unit) ?? "ea").toLowerCase(),
       costPerCase,
       source: "snapshot",
@@ -116,30 +117,40 @@ export function resolveItemPackShape(
   if (isLensValid(lens)) {
     const total = finiteOrNull(lens!.count_units_per_case) ?? 1;
     const lensInner = finiteOrNull(lens!.inner_qty);
+    const commonUnitNorm = (trimmedOrNull(lens!.common_unit) ?? "").toLowerCase();
+    const innerTypeNorm = (trimmedOrNull(lens!.inner_type) ?? "").toLowerCase();
+    // When inner_type === common_unit (e.g. inner="lb", common="lb"), the
+    // "inner" tier isn't a real container — it's just the count unit. Suppress
+    // the inner lane and let the outer container drive the Cases label.
+    const innerIsCommon = innerTypeNorm.length > 0 && innerTypeNorm === commonUnitNorm;
     let packQty = total;
     let innerPackQty: number | null = null;
-    if (lensInner != null && lensInner > 0 && total > 0 && total % lensInner === 0) {
+    if (
+      !innerIsCommon &&
+      lensInner != null && lensInner > 0 && total > 0 && total % lensInner === 0
+    ) {
       packQty = total / lensInner;
       innerPackQty = lensInner;
     } else {
-      // Misconfigured lens (inner doesn't divide total) → fall back to lens
-      // total as packQty with no inner tier rather than double-multiplying.
+      // Misconfigured lens (inner doesn't divide total) OR innerIsCommon →
+      // no inner tier. packQty == total (count_units_per_case).
       packQty = total;
       innerPackQty = null;
     }
-    // Inner lane wants the CONTAINER noun ("bag", "sleeve"), not what's
-    // inside it. In brand_pack_configs, that's outer_type. inner_type is the
-    // unit *inside* the container (often the same as common_unit, e.g. "lb")
-    // and should only be used as a fallback when outer_type is missing.
-    const innerLabel =
-      trimmedOrNull((lens as any).outer_type) ??
-      trimmedOrNull(lens!.inner_type) ??
-      trimmedOrNull(item.inner_pack_label);
+    // Inner lane wants the inner container noun (e.g. "sleeve"). That's
+    // inner_type in brand_pack_configs. outer_type names the OUTER container
+    // (the "case" / "bag") and feeds the Cases-lane label instead.
+    const innerLabel = innerPackQty == null
+      ? null
+      : (trimmedOrNull(lens!.inner_type) ??
+         trimmedOrNull((lens as any).outer_type) ??
+         trimmedOrNull(item.inner_pack_label));
+    const outerLabel = trimmedOrNull((lens as any).outer_type);
     const unit =
       (trimmedOrNull(lens!.common_unit) ??
         trimmedOrNull(item.unit) ??
         "ea").toLowerCase();
-    return { packQty, innerPackQty, innerLabel, unit, costPerCase, source: "lens" };
+    return { packQty, innerPackQty, innerLabel, outerLabel, unit, costPerCase, source: "lens" };
   }
 
   // 3) Local default.
@@ -148,6 +159,7 @@ export function resolveItemPackShape(
     packQty: localPackQty(item),
     innerPackQty: localInner != null && localInner > 0 ? localInner : null,
     innerLabel: trimmedOrNull(item.inner_pack_label),
+    outerLabel: null,
     unit: (trimmedOrNull(item.unit) ?? "ea").toLowerCase(),
     costPerCase,
     source: "local",
