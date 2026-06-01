@@ -1494,7 +1494,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       });
       return { itemCounts, snapshot: JSON.stringify(itemCounts) };
     };
-  }, [items, counts, panCounts, getItemTotalIncludingLegs, legsConfigsMap, legsEnabledForLocation]);
+  }, [items, counts, panCounts, getItemTotalIncludingLegs, legsConfigsMap, legsEnabledForLocation, resolveInnerPackQtyForTotal]);
 
   // === Palm Springs forensic audit log ===
   // Logs every save attempt with raw UI inputs (cases, units, pan inputs) verbatim
