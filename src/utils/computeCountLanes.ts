@@ -65,6 +65,8 @@ export interface CountLanes {
   showUnits: boolean;
   /** Display label for each visible lane. */
   casesLabel: string;
+  /** Singular noun used for the cases-lane sublabel ("case" or override like "jug"). */
+  casesNounToken: string;
   innerLabel: string;
   /** Small subtitle under the inner label: e.g. "(12 ea/sleeve)". */
   innerSubLabel: string | null;
