@@ -285,14 +285,25 @@ const InventoryCount = () => {
                 periodLabel={formatPeriodLabel(countData)}
               />
               {(!isLocked || canEditLocked) ? (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => navigate(`/inventory/${locationId}/count/${countId}?edit=true`)}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit Count
-                </Button>
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate(`/inventory/${locationId}/count/${countId}?edit=true`)}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Count
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </>
               ) : (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>🔒 Locked — Admin access required to edit</span>
