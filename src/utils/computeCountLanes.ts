@@ -212,15 +212,25 @@ export function computeCountLanes({
       : `(${innerPackQty}/${innerNounToken})`
     : null;
 
-  // When there's no inner-pack tier, surface the user's label override
-  // (e.g. "jug") on the Cases lane instead of letting it disappear.
+  // Cases-lane label precedence:
+  //   1. shape.outerLabel (lens-driven, e.g. "bag" → "Bags")
+  //   2. local inner_pack_label override when there's no inner tier
+  //   3. "Cases"
   const localLabelOverride = (item.inner_pack_label ?? "").trim();
-  const casesLabel = !showInnerPacks && localLabelOverride
-    ? pluralizeLabel(localLabelOverride)
-    : "Cases";
-  const casesNounToken = !showInnerPacks && localLabelOverride
-    ? localLabelOverride.toLowerCase()
-    : "case";
+  const outerOverride = (shape.outerLabel ?? "").trim();
+  // Suppress "case" as an outer noun — it's the generic default and would
+  // render "Cases" twice in the multi-leg branch anyway.
+  const outerIsGeneric = outerOverride.toLowerCase() === "case" || outerOverride.toLowerCase() === "cases";
+  const casesLabel = outerOverride && !outerIsGeneric
+    ? pluralizeLabel(outerOverride)
+    : (!showInnerPacks && localLabelOverride
+        ? pluralizeLabel(localLabelOverride)
+        : "Cases");
+  const casesNounToken = outerOverride && !outerIsGeneric
+    ? outerOverride.toLowerCase()
+    : (!showInnerPacks && localLabelOverride
+        ? localLabelOverride.toLowerCase()
+        : "case");
 
   return {
     isRecipe: false,
