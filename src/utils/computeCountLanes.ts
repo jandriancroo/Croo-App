@@ -21,6 +21,7 @@
  */
 
 import { isLensValid, type PackConfigLens } from "./getEffectivePackQty";
+import { resolveItemPackShape, atomicUnitToken, type PackShapeLens } from "./resolveItemPackShape";
 
 export type CountByMode =
   | "inherit"
@@ -123,15 +124,22 @@ export function computeCountLanes({
   lensEnabled = true,
 }: ComputeCountLanesArgs): CountLanes {
   const isRecipe = !!item.is_recipe;
-  const lensInnerQty = Number((lens as any)?.inner_qty ?? 0);
-  const innerPackQty = item.inner_pack_quantity ?? (lensInnerQty > 0 ? lensInnerQty : null);
-  const showInnerPacks =
-    !isRecipe && innerPackQty != null && Number(innerPackQty) > 0;
 
-  // Cost badges — mirror InventoryCountSession lines 2083-2106 exactly.
-  const caseCost = Number(item.cost_per_unit ?? 0) || 0;
-  const packsPerCase = Number(item.pack_quantity ?? 1) || 1;
-  const unitsPerPack = Number(innerPackQty ?? 0) || 0;
+  // Single unified resolution — snapshot > lens > local.
+  // computeCountLanes is called pre-snapshot (live count screen) and never
+  // sees pack_quantity_at_count, so the resolver effectively chooses between
+  // lens (when valid + enabled) and local.
+  const effectiveLens: PackShapeLens | null =
+    lensEnabled && isLensValid(lens) ? (lens as PackShapeLens) : null;
+  const shape = resolveItemPackShape(item as any, effectiveLens);
+
+  const innerPackQty = shape.innerPackQty;
+  const showInnerPacks = !isRecipe && innerPackQty != null && innerPackQty > 0;
+
+  // Cost badges — derived from the resolved shape.
+  const caseCost = Number(shape.costPerCase ?? 0) || 0;
+  const packsPerCase = shape.packQty;
+  const unitsPerPack = innerPackQty ?? 0;
   const hasInner = unitsPerPack > 0;
   const totalUnits = hasInner ? packsPerCase * unitsPerPack : packsPerCase;
   const costPerCase = caseCost > 0 ? caseCost : null;
@@ -146,7 +154,7 @@ export function computeCountLanes({
   if (isRecipe) {
     return {
       isRecipe: true,
-      showCases: true, // The single-stepper grid uses the same "cases" slot.
+      showCases: true,
       showInnerPacks: false,
       showUnits: false,
       casesLabel: `Count (${item.unit ?? "ea"})`,
@@ -166,26 +174,12 @@ export function computeCountLanes({
   }
 
   const countBy: CountByMode = (item.count_by ?? "inherit") as CountByMode;
-
-  // Lens-driven case-tier visibility.
-  const lensApplies = lensEnabled && isLensValid(lens);
+  const lensApplies = effectiveLens != null;
   const lensHasCaseTier =
-    lensApplies && Number(lens!.count_units_per_case ?? 0) > 1;
-
-  // Legacy local signals (no-lens path).
-  const rawPackQty =
-    item._rawPackQuantityOverride ??
-    item._rawPackQuantity ??
-    item.pack_quantity ??
-    1;
-  const rawInnerPackQty = innerPackQty;
+    lensApplies && Number(effectiveLens!.count_units_per_case ?? 0) > 1;
   const localTrueSingleUnit =
-    Number(rawPackQty) <= 1 &&
-    (!rawInnerPackQty || Number(rawInnerPackQty) <= 1);
-
-  const isTrueSingleUnit = lensApplies
-    ? !lensHasCaseTier
-    : localTrueSingleUnit;
+    shape.packQty <= 1 && (innerPackQty == null || innerPackQty <= 1);
+  const isTrueSingleUnit = lensApplies ? !lensHasCaseTier : localTrueSingleUnit;
 
   let showCases =
     countBy === "inherit" ||
@@ -200,52 +194,32 @@ export function computeCountLanes({
     showUnits = true;
   }
 
-  // Effective packQty used for the Cases lane math.
-  const effectivePackQty = lensApplies
-    ? Number(lens!.count_units_per_case ?? 1) || 1
-    : Number(rawPackQty) || 1;
+  const innerLabelRaw = shape.innerLabel ?? "";
+  const innerLabel = innerLabelRaw ? pluralizeLabel(innerLabelRaw) : "Packs";
+  const innerNounSingular = innerLabelRaw || "pack";
 
-  const lensOuterType =
-    typeof (lens as any)?.outer_type === "string" ? (lens as any).outer_type : null;
-  const innerLabel = resolveInnerLabel(item.inner_pack_label, lensOuterType);
-  const innerNounSingular =
-    (item.inner_pack_label ?? "").trim() ||
-    (lensOuterType ?? "").trim() ||
-    "pack";
-  // The inner sublabel denominates "how many atomic units sit inside one
-  // inner pack." When we know the common unit (e.g. lb) AND the inner noun
-  // (e.g. bag), render the richer "(3 lb/bag)" form. Fall back to "(3/pk)"
-  // when those hints are missing.
-  const commonUnitToken = (() => {
-    const u = (((lens as any)?.common_unit ?? item.unit) ?? "").trim();
-    if (!u) return null;
-    const lc = u.toLowerCase();
-    if (lc === "ea" || lc === "each" || lc === "unit" || lc === "units" || lc === "cs" || lc === "case" || lc === "cases" || lc === "ct" || lc === "count") return null;
-    return lc;
-  })();
+  const commonUnitToken = atomicUnitToken(shape.unit);
   const innerNounToken = (() => {
-    const n = (innerNounSingular || "").trim().toLowerCase();
+    const n = innerNounSingular.trim().toLowerCase();
     if (!n || n === "pack") return "pk";
     return n;
   })();
   const innerSubLabel = showInnerPacks
     ? commonUnitToken
       ? innerNounToken === commonUnitToken
-        // Noun and unit are the same (e.g. "lb" inside an "lb" inner) — avoid the
-        // ugly "(4 lb/lb)" duplication and just show the quantity + unit.
         ? `(${innerPackQty} ${commonUnitToken})`
         : `(${innerPackQty} ${commonUnitToken}/${innerNounToken})`
       : `(${innerPackQty}/${innerNounToken})`
     : null;
 
-  // When there's no inner-pack tier, the user's label override (e.g. "jug")
-  // would otherwise be invisible — promote it onto the Cases lane.
-  const labelOverride = (item.inner_pack_label ?? "").trim();
-  const casesLabel = !showInnerPacks && labelOverride
-    ? pluralizeLabel(labelOverride)
+  // When there's no inner-pack tier, surface the user's label override
+  // (e.g. "jug") on the Cases lane instead of letting it disappear.
+  const localLabelOverride = (item.inner_pack_label ?? "").trim();
+  const casesLabel = !showInnerPacks && localLabelOverride
+    ? pluralizeLabel(localLabelOverride)
     : "Cases";
-  const casesNounToken = !showInnerPacks && labelOverride
-    ? labelOverride.toLowerCase()
+  const casesNounToken = !showInnerPacks && localLabelOverride
+    ? localLabelOverride.toLowerCase()
     : "case";
 
   return {
@@ -260,11 +234,10 @@ export function computeCountLanes({
     unitsLabel: (() => {
       const u = (item.unit ?? "").trim().toLowerCase();
       if (!u || u === "ea" || u === "each" || u === "unit" || u === "units" || u === "cs" || u === "case" || u === "cases" || u === "ct" || u === "count") return "Units";
-      // Weight/volume atomic units render as their own plural (LBS, OZ, KG, ML, GAL…)
       return u.endsWith("s") ? u.toUpperCase() : `${u.toUpperCase()}S`;
     })(),
     unitsSubLabel: "(ea)",
-    packQty: effectivePackQty,
+    packQty: shape.packQty,
     innerPackQty,
     costPerCase,
     costPerPack,

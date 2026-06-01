@@ -28,6 +28,7 @@ import { calculateCountItemValue } from "@/utils/countItemValue";
 import { useLegsValuation } from "@/hooks/useLegsValuation";
 import { getEffectivePackQty, isLensValid } from "@/utils/getEffectivePackQty";
 import { computeCountLanes } from "@/utils/computeCountLanes";
+import { resolveItemPackShape, atomicUnitToken, type ResolvedPackShape } from "@/utils/resolveItemPackShape";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
@@ -828,58 +829,45 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }, 0);
   }, [panCounts]);
 
-  // Lens-aware pack-quantity resolver. Mirrors valuation precedence
-  // (getEffectivePackQty): snapshot > valid lens > local override > local pack.
-  // This is what the unit-total math should consult so the "X units" badge
-  // matches what the dollars are valued against. Without this, an approved
-  // lens of 1/250 with a stale local pack_quantity=1 would value $ correctly
-  // but render "1 unit" per case — a wrong on-hand count.
-  const resolveItemPackQty = useCallback((item: any): number => {
-    if (!item) return 1;
+  // === Unified pack-shape resolver ===
+  // Single entry point — snapshot > lens > local — used by every downstream
+  // consumer (lane decisions, header subtitle, valuation, save snapshot).
+  // Strict null/undefined checks: stale non-null local values no longer
+  // silently beat the approved lens config. See src/utils/resolveItemPackShape.ts.
+  const getShape = useCallback((item: any): ResolvedPackShape => {
+    if (!item) {
+      return { packQty: 1, innerPackQty: null, innerLabel: null, unit: "ea", costPerCase: null, source: "local" };
+    }
     const lens = (lensEnabledForLocation === true && item.brand_item_id)
       ? packLensMap?.get(item.brand_item_id) ?? null
       : null;
-    const effective = getEffectivePackQty({
-      pack_quantity_at_count: (item as any).pack_quantity_at_count ?? null,
-      pack_quantity_override: (item as any)._rawPackQuantityOverride ?? (item as any).pack_quantity_override ?? null,
-      pack_quantity: (item as any)._rawPackQuantity ?? item.pack_quantity ?? null,
-      lens,
-    });
-    // When the lens collapses outer × inner into count_units_per_case AND the
-    // item has an inner-pack tier, treat the lens value as TOTAL units per case
-    // and back out the OUTER (packs-per-case) so the case-units math
-    //   caseUnits = outer × inner = lens.count_units_per_case
-    // matches the display badge AND lets the inner-pack lane add real units
-    // (e.g. 1 case + 1 pack of Cold Cup Lids 10/100CT = 1100 units, not 1000).
-    const inner = Number((item as any).inner_pack_quantity ?? 0);
-    if (isLensValid(lens) && inner > 0 && effective > 0 && effective % inner === 0) {
-      return effective / inner;
-    }
-    return effective;
+    return resolveItemPackShape(
+      {
+        pack_quantity_at_count: item.pack_quantity_at_count ?? null,
+        inner_pack_quantity_at_count: item.inner_pack_quantity_at_count ?? null,
+        pack_quantity: item.pack_quantity ?? null,
+        pack_quantity_override: item.pack_quantity_override ?? null,
+        _rawPackQuantity: item._rawPackQuantity ?? null,
+        _rawPackQuantityOverride: item._rawPackQuantityOverride ?? null,
+        inner_pack_quantity: item.inner_pack_quantity ?? null,
+        inner_pack_label: item.inner_pack_label ?? null,
+        unit: item.unit ?? null,
+        cost_per_unit: item.cost_per_unit ?? null,
+      },
+      lens as any,
+    );
   }, [packLensMap, lensEnabledForLocation]);
 
-  // Inner-pack tier for total-unit math. Always returns the item's
-  // inner_pack_quantity (when present) — lens-collapse is handled in
-  // resolveItemPackQty above by returning the OUTER instead of the total,
-  // so caseUnits = outer × inner reconstructs to lens.count_units_per_case
-  // without double-multiplying.
-  const resolveInnerPackQtyForTotal = useCallback((item: any): number | null => {
-    if (!item) return null;
-    const lens = (lensEnabledForLocation === true && item.brand_item_id)
-      ? packLensMap?.get(item.brand_item_id) ?? null
-      : null;
-    const lensInner = Number((lens as any)?.inner_qty ?? 0);
-    const inner = Number((item as any).inner_pack_quantity ?? 0) || lensInner;
-    // Safety: if lens is active but its count_units_per_case is NOT divisible
-    // by inner_pack_quantity (misconfigured lens), suppress the inner tier so
-    // the caseUnits math doesn't double-multiply. resolveItemPackQty mirrors
-    // this guard and returns the lens total in that case.
-    if (isLensValid(lens) && inner > 0) {
-      const total = Number(lens!.count_units_per_case ?? 0);
-      if (!(total > 0 && total % inner === 0)) return null;
-    }
-    return (item as any).inner_pack_quantity ?? null;
-  }, [packLensMap, lensEnabledForLocation]);
+  // Thin wrappers preserved for call-site compatibility. Single source of
+  // truth = getShape; these just project the relevant field.
+  const resolveItemPackQty = useCallback(
+    (item: any): number => getShape(item).packQty,
+    [getShape],
+  );
+  const resolveInnerPackQtyForTotal = useCallback(
+    (item: any): number | null => getShape(item).innerPackQty,
+    [getShape],
+  );
 
   // Calculate total quantity for an item:
   //   cases × (pack_quantity × inner_pack_quantity when present, else pack_quantity)
@@ -1056,7 +1044,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const lens = (lensEnabledForLocation === true && item.brand_item_id)
       ? packLensMap?.get(item.brand_item_id) ?? null
       : null;
-    const innerPackQty = Number((item as any).inner_pack_quantity ?? (lens as any)?.inner_qty ?? 0) || 0;
+    const shape = getShape(item);
+    const innerPackQty = Number(shape.innerPackQty ?? 0) || 0;
 
     // Multi-config (Path B): when legs are enabled AND this item has 2+ selected
     // pack configs, build a synthetic legs[] payload so calculateCountItemValue
@@ -1151,7 +1140,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     );
 
     return result;
-  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap, lensEnabledForLocation, legsEnabledForLocation, legsConfigsMap, isEditing, getItemValueWithLegs]);
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts, getPanUnitsTotal, conversionMap, packLensMap, lensEnabledForLocation, legsEnabledForLocation, legsConfigsMap, isEditing, getItemValueWithLegs, getShape]);
 
 
   // Calculate total running cost
@@ -2939,14 +2928,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             const rc = recipeCosts?.get(item.item_id) || item.cost_per_unit || 0;
             if (rc) headerBits.push(`${formatCurrency(rc)}/ea`);
           } else if (item.cost_per_unit) {
-            const caseCost = item.cost_per_unit || 0;
-            const packsPerCase = item.pack_quantity || 1;
-            const unitsPerPack = (item as any).inner_pack_quantity || 0;
+            // Header subtitle pulls pack structure + unit from the unified
+            // shape resolver (snapshot > lens > local) so it agrees with the
+            // lane labels, valuation math, and save snapshot. Previously this
+            // block read item.pack_quantity / inner_pack_quantity directly,
+            // which is why approved-lens items rendered "/u" instead of the
+            // lens common_unit (e.g. "/lb").
+            const shape = getShape(item);
+            const caseCost = Number(item.cost_per_unit) || 0;
+            const packsPerCase = Number(shape.packQty) || 1;
+            const unitsPerPack = Number(shape.innerPackQty ?? 0) || 0;
             const hasInner = unitsPerPack > 0;
             const totalUnits = hasInner ? packsPerCase * unitsPerPack : packsPerCase;
+            const unitToken = atomicUnitToken(shape.unit) ?? 'u';
             headerBits.push(`${formatCurrency(caseCost)}/cs`);
             if (hasInner) headerBits.push(`${formatCurrency(caseCost / packsPerCase)}/pk`);
-            if (totalUnits > 0 && totalUnits !== packsPerCase) headerBits.push(`${formatCurrency(caseCost / totalUnits)}/u`);
+            if (totalUnits > 0 && totalUnits !== packsPerCase) {
+              headerBits.push(`${formatCurrency(caseCost / totalUnits)}/${unitToken}`);
+            }
           }
           const headerSubtitle = headerBits.join(' · ');
           const headerUnits = item.is_recipe
