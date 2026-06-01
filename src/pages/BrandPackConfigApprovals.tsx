@@ -491,6 +491,17 @@ export default function BrandPackConfigApprovals() {
   // Per-row override for middle-tier visibility in the preview.
   // null = follow heuristic (3-tier iff outer>1 AND inner>1). true/false = force.
   const [middleTierOverride, setMiddleTierOverride] = useState<Record<string, boolean>>({});
+  // Per-row cost override mode: when true, the cost field is editable instead
+  // of derived from case_price / count_units_per_case.
+  const [costOverride, setCostOverride] = useState<Record<string, boolean>>({});
+  // Per-row per-lane visibility overrides for the count-screen preview.
+  // Undefined values fall back to sensible defaults computed at render time.
+  const [laneOverride, setLaneOverride] = useState<
+    Record<string, { cases?: boolean; packs?: boolean; common?: boolean }>
+  >({});
+  // Per-row "edit mode" for already-approved configs (unlocks the form).
+  const [editingApproved, setEditingApproved] = useState<Record<string, boolean>>({});
+
 
 
   const proposalVendor = (r: ProposalRow): string => {
