@@ -923,6 +923,66 @@ export default function BrandPackConfigApprovals() {
     onError: (e: any) => toast({ title: "Reject failed", description: e.message, variant: "destructive" }),
   });
 
+  // ---- Update approved config (in-place edit) ----
+  // Updates the same row without changing status — locations already pointed at
+  // this config_id automatically pick up the new pack/cost values. Captures a
+  // lightweight audit trail inside source_evidence.edits[] (no new table).
+  const updateApproved = useMutation({
+    mutationFn: async (args: { r: ProposalRow; reason: string }) => {
+      const { r, reason } = args;
+      const d = getDraft(r);
+      const outer = Number(d.outer_qty) || 0;
+      const inner = d.inner_qty == null || d.inner_qty === ("" as any) ? null : Number(d.inner_qty);
+      const count_units_per_case = outer * (inner ?? 1);
+      if (!outer || !d.outer_type || !d.common_unit) {
+        throw new Error("outer_qty, outer_type, and common_unit are required");
+      }
+      const lensCost = d.cost_per_common_unit == null ? null : Number(d.cost_per_common_unit);
+      if (lensCost == null || !Number.isFinite(lensCost) || lensCost <= 0) {
+        throw new Error("cost_per_common_unit must be greater than 0");
+      }
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes.user?.id ?? null;
+      const prevEv = (r.source_evidence || {}) as any;
+      const prevEdits = Array.isArray(prevEv.edits) ? prevEv.edits : [];
+      const before = {
+        outer_qty: r.outer_qty, outer_type: r.outer_type,
+        inner_qty: r.inner_qty, inner_type: r.inner_type,
+        common_unit: r.common_unit, count_units_per_case: r.count_units_per_case,
+        cost_per_common_unit: r.cost_per_common_unit, label: r.label,
+      };
+      const after = {
+        outer_qty: outer, outer_type: d.outer_type,
+        inner_qty: inner, inner_type: d.inner_type || null,
+        common_unit: d.common_unit, count_units_per_case,
+        cost_per_common_unit: lensCost, label: d.label || null,
+      };
+      const newEv = {
+        ...prevEv,
+        edits: [
+          ...prevEdits,
+          { at: new Date().toISOString(), by: uid, reason, before, after },
+        ],
+      };
+      const { error } = await supabase
+        .from("brand_pack_configs")
+        .update({ ...after, source_evidence: newEv })
+        .eq("id", r.id)
+        .eq("status", "approved");
+      if (error) throw error;
+    },
+    onSuccess: (_, args) => {
+      toast({
+        title: "Config updated",
+        description: `${args.r.template?.product_name ?? ""} — all locations using this config now see the new values.`,
+      });
+      setEditingApproved((m) => ({ ...m, [args.r.id]: false }));
+      qc.invalidateQueries({ queryKey: ["pack-config-proposals", brandId] });
+    },
+    onError: (e: any) => toast({ title: "Update failed", description: e.message, variant: "destructive" }),
+  });
+
+
   // ---- Bulk runner ----
   const runBulk = async (action: "approve" | "reject") => {
     const ids = Array.from(effectiveSelected);
