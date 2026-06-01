@@ -1291,7 +1291,7 @@ export default function BrandPackConfigApprovals() {
                     </div>
                   )}
 
-
+                  {!collapsed[r.id] && (<>
                   {/* APPROVED banner — gives a clear edit path for already-approved configs. */}
                   {isApproved && !editingApproved[r.id] && (
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
