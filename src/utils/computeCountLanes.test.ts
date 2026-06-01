@@ -137,13 +137,17 @@ describe("computeCountLanes — shared lane decision for count screen + approval
     expect(lanes.showUnits).toBe(true);
   });
 
-  it("Invalid lens (cost=0) falls back to local — Cases only shown when local pack > 1", () => {
+  it("Lens with cost=0 is still structurally valid (Option B) — Cases shown from lens pack tier", () => {
+    // Under Option B, cost_per_common_unit is informational. Structural lens
+    // validity is determined by count_units_per_case > 0 alone, so a 250-unit
+    // case structure drives the Cases lane even when the reference price is 0.
     const lanes = computeCountLanes({
       item: { pack_quantity: 1, cost_per_unit: 5, count_by: "inherit" },
       lens: { count_units_per_case: 250, cost_per_common_unit: 0, common_unit: "ea" },
     });
 
-    expect(lanes.showCases).toBe(false);
-    expect(lanes.caseTierSource).toBe("local");
+    expect(lanes.showCases).toBe(true);
+    expect(lanes.caseTierSource).toBe("lens");
   });
 });
+
