@@ -37,7 +37,7 @@ describe("computeCountLanes — shared lane decision for count screen + approval
     expect(lanes.showInnerPacks).toBe(true);
     expect(lanes.showUnits).toBe(true);
     expect(lanes.innerLabel).toBe("Bags");
-    expect(lanes.innerSubLabel).toBe("(12 ea/bag)");
+    expect(lanes.innerSubLabel).toBe("(12/bag)");
     expect(lanes.costPerCase).toBe(48);
     expect(lanes.costPerPack).toBe(12); // 48 / 4 packs
     expect(lanes.costPerUnit).toBe(1); // 48 / 48 total units
@@ -70,11 +70,11 @@ describe("computeCountLanes — shared lane decision for count screen + approval
     expect(lanes.showInnerPacks).toBe(true);
     expect(lanes.showUnits).toBe(true);
     expect(lanes.innerLabel).toBe("Sleeves");
-    expect(lanes.innerSubLabel).toBe("(100 ea/sleeve)");
+    expect(lanes.innerSubLabel).toBe("(100/sleeve)");
     expect(lanes.packQty).toBe(1000); // lens-driven
   });
 
-  it("Inner label falls back to lens.inner_type when no local override", () => {
+  it("Inner label falls back to lens.outer_type when no local override", () => {
     const lanes = computeCountLanes({
       item: {
         pack_quantity: 10,
@@ -86,7 +86,33 @@ describe("computeCountLanes — shared lane decision for count screen + approval
     });
     expect(lanes.showInnerPacks).toBe(true);
     expect(lanes.innerLabel).toBe("Sleeves");
-    expect(lanes.innerSubLabel).toBe("(100 ea/sleeve)");
+    expect(lanes.innerSubLabel).toBe("(100/sleeve)");
+  });
+
+  it("Italian Sausage: approved 8/5 lb config shows Cases + Bags + LBS even when local inner pack fields are stale", () => {
+    const lanes = computeCountLanes({
+      item: {
+        pack_quantity: 8,
+        inner_pack_quantity: null,
+        inner_pack_label: null,
+        unit: "cs",
+        cost_per_unit: 98.65,
+        count_by: "inherit",
+      },
+      lens: {
+        count_units_per_case: 40,
+        cost_per_common_unit: 2.46625,
+        common_unit: "lb",
+        outer_type: "bag",
+        inner_qty: 5,
+      } as any,
+    });
+    expect(lanes.showCases).toBe(true);
+    expect(lanes.showInnerPacks).toBe(true);
+    expect(lanes.showUnits).toBe(true);
+    expect(lanes.innerLabel).toBe("Bags");
+    expect(lanes.innerSubLabel).toBe("(5 lb/bag)");
+  });
   });
 
   it("count_by='units_only' hides Cases even when lens has case tier", () => {
