@@ -53,8 +53,11 @@ export interface ResolvedPackShape {
   packQty: number;
   /** Units per inner pack, or null when no inner tier exists. */
   innerPackQty: number | null;
-  /** Singular noun for the inner lane (e.g. "bag"), or null. */
+  /** Singular noun for the inner lane (e.g. "sleeve"), or null. */
   innerLabel: string | null;
+  /** Singular noun for the outer container (e.g. "bag", "case"), or null.
+   *  Drives the Cases-lane label when set (e.g. "Bags" instead of "Cases"). */
+  outerLabel: string | null;
   /** Atomic unit token (lb, oz, ea…). Lowercased. */
   unit: string;
   /** Vendor case cost. Local cost_per_unit is system-of-record for cost. */
