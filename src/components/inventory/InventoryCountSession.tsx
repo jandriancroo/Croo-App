@@ -836,7 +836,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // silently beat the approved lens config. See src/utils/resolveItemPackShape.ts.
   const getShape = useCallback((item: any): ResolvedPackShape => {
     if (!item) {
-      return { packQty: 1, innerPackQty: null, innerLabel: null, unit: "ea", costPerCase: null, source: "local" };
+      return { packQty: 1, innerPackQty: null, innerLabel: null, outerLabel: null, unit: "ea", costPerCase: null, source: "local" };
     }
     const lens = (lensEnabledForLocation === true && item.brand_item_id)
       ? packLensMap?.get(item.brand_item_id) ?? null
@@ -2867,7 +2867,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 isDefault: !!cfg.is_default,
                 lanes: [
                   legLanes.showCases ? {
-                    kind: 'cases', label: 'Cases',
+                    kind: 'cases', label: legLanes.casesLabel,
                     value: rawInputs[legKey]?.cases ?? legState.cases,
                     onDown: () => updateCases(legKey, -1),
                     onUp: () => updateCases(legKey, 1),

@@ -149,5 +149,38 @@ describe("computeCountLanes — shared lane decision for count screen + approval
     expect(lanes.showCases).toBe(true);
     expect(lanes.caseTierSource).toBe("lens");
   });
+
+  // Real-DB-shape regressions — brand_pack_configs stores outer_type="case"
+  // and inner_type="sleeve"/"lb"/"ea". Inner lane must pull from inner_type,
+  // not outer_type; Cases-lane label must pull from outer_type.
+  it("Real shape: Cold Cup Lids (case/sleeve) — middle lane labeled Sleeves, cases stays Cases", () => {
+    const lanes = computeCountLanes({
+      item: { pack_quantity: 10, inner_pack_quantity: 100, unit: "ea", cost_per_unit: 24.68, count_by: "inherit" },
+      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", outer_type: "case", inner_qty: 100, inner_type: "sleeve" } as any,
+    });
+    expect(lanes.showInnerPacks).toBe(true);
+    expect(lanes.innerLabel).toBe("Sleeves");
+    expect(lanes.casesLabel).toBe("Cases");
+  });
+
+  it("Real shape: Salad Bowls (case/ea where inner==common) — inner lane suppressed", () => {
+    const lanes = computeCountLanes({
+      item: { pack_quantity: 6, inner_pack_quantity: 50, unit: "ea", cost_per_unit: 34.94, count_by: "inherit" },
+      lens: { count_units_per_case: 300, cost_per_common_unit: 0.12, common_unit: "ea", outer_type: "case", inner_qty: 50, inner_type: "ea" } as any,
+    });
+    expect(lanes.showCases).toBe(true);
+    expect(lanes.showInnerPacks).toBe(false);
+    expect(lanes.casesLabel).toBe("Cases");
+  });
+
+  it("Real shape: Red Onions 4/5 lb (bag/lb where inner==common) — cases labeled Bags, no inner lane", () => {
+    const lanes = computeCountLanes({
+      item: { pack_quantity: 4, inner_pack_quantity: 5, inner_pack_label: "lb", unit: "lb", cost_per_unit: 14.16, count_by: "inherit" },
+      lens: { count_units_per_case: 20, cost_per_common_unit: 0.71, common_unit: "lb", outer_type: "bag", inner_qty: 5, inner_type: "lb" } as any,
+    });
+    expect(lanes.showCases).toBe(true);
+    expect(lanes.showInnerPacks).toBe(false);
+    expect(lanes.casesLabel).toBe("Bags");
+  });
 });
 
