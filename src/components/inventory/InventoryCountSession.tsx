@@ -1044,7 +1044,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const lens = (lensEnabledForLocation === true && item.brand_item_id)
       ? packLensMap?.get(item.brand_item_id) ?? null
       : null;
-    const innerPackQty = Number((item as any).inner_pack_quantity ?? (lens as any)?.inner_qty ?? 0) || 0;
+    const shape = getShape(item);
+    const innerPackQty = Number(shape.innerPackQty ?? 0) || 0;
 
     // Multi-config (Path B): when legs are enabled AND this item has 2+ selected
     // pack configs, build a synthetic legs[] payload so calculateCountItemValue
