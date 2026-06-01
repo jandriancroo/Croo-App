@@ -1440,46 +1440,6 @@ export default function BrandPackConfigApprovals() {
                           </div>
                         </div>
 
-                        {/* SHOW ON COUNT SCREEN — inline one-liner with three checkboxes */}
-                        {(() => {
-                          const ov = laneOverride[r.id] ?? {};
-                          const defaults = {
-                            cases: ov.cases ?? true,
-                            packs: ov.packs ?? ((innerN ?? 0) > 1),
-                            common: ov.common ?? false,
-                          };
-                          const setLane = (key: "cases" | "packs" | "common", v: boolean) =>
-                            setLaneOverride((m) => ({ ...m, [r.id]: { ...defaults, [key]: v } }));
-                          const packsLabel = innerNounPlural.charAt(0).toUpperCase() + innerNounPlural.slice(1);
-                          const item = (key: "cases" | "packs" | "common", label: string, disabled = false) => {
-                            const on = defaults[key] && !disabled;
-                            return (
-                              <label
-                                className={`inline-flex items-center gap-1.5 select-none ${disabled || formLocked ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                              >
-                                <Checkbox
-                                  checked={on}
-                                  disabled={formLocked || disabled}
-                                  onCheckedChange={(v) => setLane(key, !!v)}
-                                />
-                                <span>{label}</span>
-                              </label>
-                            );
-                          };
-                          const hasInner = (innerN ?? 0) > 0;
-                          return (
-                            <div className="rounded-md border bg-background/40 px-3 py-2 text-sm flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1">
-                                Counters see
-                              </span>
-                              {item("cases", "Cases")}
-                              <span className="text-muted-foreground/50">·</span>
-                              {item("packs", packsLabel, !hasInner)}
-                              <span className="text-muted-foreground/50">·</span>
-                              {item("common", `Loose ${commonUnitLabel}`)}
-                            </div>
-                          );
-                        })()}
 
                         {/* Optional label */}
                         <Field label="Label (optional)">
@@ -1537,6 +1497,54 @@ export default function BrandPackConfigApprovals() {
                       />
                     );
                   })()}
+
+                  {/* SHOW ON COUNT SCREEN — inline one-liner, sits right under the preview */}
+                  {(() => {
+                    const formLocked = isApproved && !editingApproved[r.id];
+                    const ov = laneOverride[r.id] ?? {};
+                    const innerN = d.inner_qty == null ? null : Number(d.inner_qty);
+                    const defaults = {
+                      cases: ov.cases ?? true,
+                      packs: ov.packs ?? ((innerN ?? 0) > 1),
+                      common: ov.common ?? false,
+                    };
+                    const setLane = (key: "cases" | "packs" | "common", v: boolean) =>
+                      setLaneOverride((m) => ({ ...m, [r.id]: { ...defaults, [key]: v } }));
+                    const outerNoun = (d.outer_type || "pack").toLowerCase();
+                    const packsLabel =
+                      (outerNoun.endsWith("s") ? outerNoun : outerNoun + "s")
+                        .replace(/^./, (c) => c.toUpperCase());
+                    const commonUnitLabel = (d.common_unit || "unit").toLowerCase();
+                    const hasInner = (innerN ?? 0) > 0;
+                    const item = (key: "cases" | "packs" | "common", label: string, disabled = false) => {
+                      const on = defaults[key] && !disabled;
+                      return (
+                        <label
+                          className={`inline-flex items-center gap-1.5 select-none ${disabled || formLocked ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                        >
+                          <Checkbox
+                            checked={on}
+                            disabled={formLocked || disabled}
+                            onCheckedChange={(v) => setLane(key, !!v)}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      );
+                    };
+                    return (
+                      <div className="rounded-md border bg-background/40 px-3 py-2 text-sm flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1">
+                          Counters see
+                        </span>
+                        {item("cases", "Cases")}
+                        <span className="text-muted-foreground/50">·</span>
+                        {item("packs", packsLabel, !hasInner)}
+                        <span className="text-muted-foreground/50">·</span>
+                        {item("common", `Loose ${commonUnitLabel}`)}
+                      </div>
+                    );
+                  })()}
+
 
                   {/* ACTIONS */}
                   {isApproved && !editingApproved[r.id] ? null : isApproved && editingApproved[r.id] ? (
