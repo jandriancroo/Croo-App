@@ -1590,7 +1590,7 @@ export default function BrandPackConfigApprovals() {
                       </Button>
                     </div>
                   )}
-
+                  </>)}
                 </div>
               );
             })}
