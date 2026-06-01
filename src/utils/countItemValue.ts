@@ -60,19 +60,22 @@ export interface ItemForValue {
   recipe_yield_qty?: number | null;
   recipe_yield_unit?: string | null;
   /**
-   * Optional brand-approved pack config. When present AND valid
-   * (count_units_per_case > 0 AND cost_per_common_unit > 0), the lens
-   * OWNS valuation for this item: cost-per-case = cost_per_common_unit ×
-   * count_units_per_case, pack qty = count_units_per_case, and local
-   * cost_per_unit / pack_quantity are ignored.
+   * Optional brand-approved pack config. Under Option B (Jun 2026), the lens
+   * is **structure-only** — it never owns cost. Price always comes per-location
+   * from `item.cost_per_unit` (maintained by vendor sync). The lens still
+   * provides count_units_per_case / common_unit / outer_type to the pack-shape
+   * resolver upstream of this function.
    *
-   * Null/zero cost on the lens fails CLOSED — falls back to local behavior
-   * and logs a one-line warning so the gap is visible.
+   * Safety-net fallback: if `item.cost_per_unit` is null/0 AND the lens has a
+   * positive `cost_per_common_unit`, we fall back to the lens price so newly
+   * deployed items with no PFG sync yet don't silently value at $0. The
+   * per-location price wins whenever it exists.
    *
    * Snapshots still win absolutely on already-saved counts.
    */
   lens?: PackConfigLens | null;
 }
+
 
 export interface ConversionForValue {
   outer_qty: number;
