@@ -2828,7 +2828,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   is_recipe: item.is_recipe,
                   pack_quantity: item.pack_quantity,
                   inner_pack_quantity: item.inner_pack_quantity,
-                  inner_pack_label: item.inner_pack_label,
+                  inner_pack_label: (item as any).inner_pack_label ?? null,
                   unit: item.unit,
                   cost_per_unit: item.cost_per_unit,
                   count_by: 'inherit',
