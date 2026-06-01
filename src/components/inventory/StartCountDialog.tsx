@@ -311,8 +311,12 @@ const StartCountDialog = ({
       const monthEnd = endOfMonth(today);
       const monthEndStr = format(monthEnd, "yyyy-MM-dd");
       const monthStart = startOfMonth(today);
-      
-      if (!isPeriodCounted("monthly", monthEndStr)) {
+
+      // Only offer the current month's month-end once the month has actually
+      // ended (today is the last day of the month or later). A month-end count
+      // is for a month that has closed — offering "June Month End" on June 1
+      // pushes May down the list and lets staff start the wrong period.
+      if (todayStr >= monthEndStr && !isPeriodCounted("monthly", monthEndStr)) {
         scheduledOptions.push({
           id: `monthly-current`,
           type: "monthly",
