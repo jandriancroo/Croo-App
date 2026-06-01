@@ -60,19 +60,22 @@ export interface ItemForValue {
   recipe_yield_qty?: number | null;
   recipe_yield_unit?: string | null;
   /**
-   * Optional brand-approved pack config. When present AND valid
-   * (count_units_per_case > 0 AND cost_per_common_unit > 0), the lens
-   * OWNS valuation for this item: cost-per-case = cost_per_common_unit ×
-   * count_units_per_case, pack qty = count_units_per_case, and local
-   * cost_per_unit / pack_quantity are ignored.
+   * Optional brand-approved pack config. Under Option B (Jun 2026), the lens
+   * is **structure-only** — it never owns cost. Price always comes per-location
+   * from `item.cost_per_unit` (maintained by vendor sync). The lens still
+   * provides count_units_per_case / common_unit / outer_type to the pack-shape
+   * resolver upstream of this function.
    *
-   * Null/zero cost on the lens fails CLOSED — falls back to local behavior
-   * and logs a one-line warning so the gap is visible.
+   * Safety-net fallback: if `item.cost_per_unit` is null/0 AND the lens has a
+   * positive `cost_per_common_unit`, we fall back to the lens price so newly
+   * deployed items with no PFG sync yet don't silently value at $0. The
+   * per-location price wins whenever it exists.
    *
    * Snapshots still win absolutely on already-saved counts.
    */
   lens?: PackConfigLens | null;
 }
+
 
 export interface ConversionForValue {
   outer_qty: number;
@@ -136,27 +139,38 @@ export function calculateCountItemValue(
   const hasSnapshot = ci.pack_quantity_at_count != null || ci.cost_at_count != null;
   const useLive = forceLiveData && !hasSnapshot;
 
-  // ── Lens (brand_pack_configs approved) ──
-  // Owns valuation when present + valid + no snapshot + not a recipe.
-  // Fails CLOSED to local when invalid (null/zero cost) so an "owned" item is
-  // never silently $0. Recipes have their own yield-based math path.
-  const lensProvided = item?.lens != null;
+  // ── Lens structural validity (Option B, Jun 2026) ──
+  // Lens owns STRUCTURE only (count_units_per_case → pack qty / common unit).
+  // Cost is per-location and comes from snapshot or item.cost_per_unit. Recipes
+  // still skip lens entirely — yield math owns their valuation path.
+  // `useLens` here gates only pack-qty resolution + inner-tier suppression
+  // downstream; it no longer steers costPerCase.
   const useLens = !hasSnapshot && !item?.is_recipe && isLensValid(item?.lens);
-  if (lensProvided && !useLens && !hasSnapshot && !item?.is_recipe) {
-    // eslint-disable-next-line no-console
-    console.warn('[calculateCountItemValue] lens present but invalid (null/zero cost) — falling back to local', {
-      brand_item_id: item?.brand_item_id,
-      lens: item?.lens,
-    });
-  }
 
-  const costPerCase = useLens
-    ? Number(item!.lens!.cost_per_common_unit) * Number(item!.lens!.count_units_per_case)
+  // ── Option B price resolution ──
+  // Price is per-location: snapshot > item.cost_per_unit. Safety-net fallback
+  // to lens.cost_per_common_unit × count_units_per_case ONLY when local price
+  // is missing/zero, so newly-deployed items without a PFG sync yet don't
+  // silently value at $0 while vendor sync catches up.
+  const localCase = Number(item?.cost_per_unit) || 0;
+  const lensCase =
+    item?.lens &&
+    Number(item.lens.cost_per_common_unit) > 0 &&
+    Number(item.lens.count_units_per_case) > 0
+      ? Number(item.lens.cost_per_common_unit) * Number(item.lens.count_units_per_case)
+      : 0;
+
+  const costPerCase = hasSnapshot
+    ? (ci.cost_at_count != null
+        ? Number(ci.cost_at_count) || 0
+        : (localCase > 0 ? localCase : lensCase))
     : useLive
-      ? Number(item?.cost_per_unit) || 0
+      ? (localCase > 0 ? localCase : lensCase)
       : (ci.cost_at_count != null
           ? Number(ci.cost_at_count) || 0
-          : Number(item?.cost_per_unit) || 0);
+          : (localCase > 0 ? localCase : lensCase));
+
+
 
   if (costPerCase === 0) return 0;
 

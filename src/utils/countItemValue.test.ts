@@ -145,55 +145,89 @@ describe('calculateCountItemValue', () => {
     expect(result).toBe(20);
   });
 
-  // ── Lens (brand_pack_configs approved) read-path ──
+  // ── Option B (Jun 2026): lens is structure-only; price is per-location ──
 
-  it('lens owns valuation: Tiramisu 1 case + 4 loose, lens=16ea @ $1.84/ea, local ignored', () => {
+  it('per-location cost_per_unit wins over lens reference price (Option B)', () => {
+    // Italian Sausage Hemet scenario: brand reference = $100/case, local PFG = $94/case
+    const result = calculateCountItemValue(
+      { quantity: null, entered_cases: 1, entered_units: 0, cost_at_count: null, pack_quantity_at_count: null },
+      {
+        cost_per_unit: 94, // per-location price (PFG sync)
+        pack_quantity: 1,
+        // Lens reference $100/case ($6.25 × 16) — must NOT be used for valuation
+        lens: { count_units_per_case: 16, cost_per_common_unit: 6.25, common_unit: 'ea' },
+      },
+      null,
+      true
+    );
+    // 1 case × $94 = $94 (per-location wins, lens reference ignored for cost)
+    expect(result).toBe(94);
+  });
+
+  it('lens still drives structure (pack qty) even though it does not drive cost', () => {
+    // 1 case + 4 loose, lens says 16 units/case, local pack_quantity stale at 1.
+    // Per-location cost = $32/case. Lane math must use lens pack=16.
     const result = calculateCountItemValue(
       { quantity: null, entered_cases: 1, entered_units: 4, cost_at_count: null, pack_quantity_at_count: null },
       {
-        // Local values that MUST be ignored when lens is valid
-        cost_per_unit: 999,
-        pack_quantity: 1,
-        // Approved lens
+        cost_per_unit: 32,
+        pack_quantity: 1, // stale local
         lens: { count_units_per_case: 16, cost_per_common_unit: 1.84, common_unit: 'ea' },
       },
       null,
       true
     );
-    // costPerCase = 16 × $1.84 = $29.44 ; case=$29.44 ; 4 loose × $29.44/16 = $7.36 ; total $36.80
-    expect(result).toBeCloseTo(36.80, 2);
+    // 1 × $32 + 4 × $32/16 = $32 + $8 = $40
+    expect(result).toBeCloseTo(40, 2);
   });
 
-  it('lens with null cost fails closed to local (no silent $0)', () => {
+  it('safety-net: lens reference price used ONLY when local cost is missing/zero', () => {
+    // Newly deployed item: PFG sync hasn't run yet, cost_per_unit is null.
+    // Lens reference = $50/case ($3.125 × 16). Safety net kicks in.
     const result = calculateCountItemValue(
       { quantity: null, entered_cases: 1, entered_units: 0, cost_at_count: null, pack_quantity_at_count: null },
       {
-        cost_per_unit: 50,
+        cost_per_unit: null,
+        pack_quantity: 1,
+        lens: { count_units_per_case: 16, cost_per_common_unit: 3.125, common_unit: 'ea' },
+      },
+      null,
+      true
+    );
+    // No local → falls back to lens × units = $50
+    expect(result).toBe(50);
+  });
+
+  it('safety-net: zero cost_per_unit also falls back to lens reference', () => {
+    const result = calculateCountItemValue(
+      { quantity: null, entered_cases: 2, entered_units: 0, cost_at_count: null, pack_quantity_at_count: null },
+      {
+        cost_per_unit: 0,
+        pack_quantity: 5,
+        lens: { count_units_per_case: 16, cost_per_common_unit: 2, common_unit: 'ea' },
+      },
+      null,
+      true
+    );
+    // Local=0 → fallback: 2 × ($2 × 16) = 2 × $32 = $64
+    expect(result).toBe(64);
+  });
+
+  it('lens with null cost AND no local cost → 0 (no source of price)', () => {
+    const result = calculateCountItemValue(
+      { quantity: null, entered_cases: 1, entered_units: 0, cost_at_count: null, pack_quantity_at_count: null },
+      {
+        cost_per_unit: null,
         pack_quantity: 10,
         lens: { count_units_per_case: 16, cost_per_common_unit: null, common_unit: 'ea' },
       },
       null,
       true
     );
-    // Falls back to local: 1 case × $50 = $50
-    expect(result).toBe(50);
+    expect(result).toBe(0);
   });
 
-  it('lens with zero cost fails closed to local', () => {
-    const result = calculateCountItemValue(
-      { quantity: null, entered_cases: 2, entered_units: 0, cost_at_count: null, pack_quantity_at_count: null },
-      {
-        cost_per_unit: 25,
-        pack_quantity: 5,
-        lens: { count_units_per_case: 16, cost_per_common_unit: 0, common_unit: 'ea' },
-      },
-      null,
-      true
-    );
-    expect(result).toBe(50);
-  });
-
-  it('snapshot still wins over lens for already-saved counts', () => {
+  it('snapshot still wins over both lens and local (frozen counts immutable)', () => {
     const result = calculateCountItemValue(
       { quantity: null, entered_cases: 1, entered_units: 0, cost_at_count: 25.66, pack_quantity_at_count: 100 },
       {
@@ -235,39 +269,6 @@ describe('calculateCountItemValue', () => {
     expect(result).toBeCloseTo(1.53, 2);
   });
 
-  // ── Per-location gate (locations.lens_enabled) ──
-  // The gate lives at the caller (InventoryCountSession): when lens_enabled=false
-  // the caller passes lens=null. This test pins the resolver-side contract: the
-  // exact same item shape, once with a valid lens attached and once with lens=null
-  // (gate-off), produces TWO different values — proving the gate is the single
-  // switch that flips behavior. With lens=null the result must equal pure local
-  // resolution, byte-for-byte.
-  it('lens_enabled=false (caller passes lens=null) → byte-for-byte local behavior even when an approved-style config exists', () => {
-    const ci = { quantity: null, entered_cases: 1, entered_units: 4, cost_at_count: null, pack_quantity_at_count: null };
-    const localItem = { cost_per_unit: 50, pack_quantity: 10 };
-
-    // Gate ON: lens attached → lens owns valuation (1 case + 4 loose, lens=16ea @ $1.84)
-    const gateOn = calculateCountItemValue(
-      ci,
-      { ...localItem, lens: { count_units_per_case: 16, cost_per_common_unit: 1.84, common_unit: 'ea' } },
-      null,
-      true
-    );
-    // 16 × $1.84 = $29.44 ; case=$29.44 ; 4 × $29.44/16 = $7.36 ; total $36.80
-    expect(gateOn).toBeCloseTo(36.80, 2);
-
-    // Gate OFF: caller passes lens=null → pure local resolution
-    const gateOff = calculateCountItemValue(ci, { ...localItem, lens: null }, null, true);
-    // 1 case × $50 + 4 × $50/10 = $50 + $20 = $70
-    expect(gateOff).toBeCloseTo(70, 2);
-
-    // And: identical to passing no lens field at all (true byte-for-byte vs today)
-    const noLensField = calculateCountItemValue(ci, localItem, null, true);
-    expect(gateOff).toBe(noLensField);
-
-    // Sanity: gate flips the answer
-    expect(gateOn).not.toBeCloseTo(gateOff, 2);
-  });
 
   // ── Multi-config legs (Path B) ──
   // Spec: .lovable/pack-config-legs-spec.md §3.2/§3.3

@@ -22,15 +22,26 @@ describe('getEffectivePackQty — lens-driven unit-total resolution', () => {
     ).toBe(20);
   });
 
-  it('fails closed to local when lens cost is zero (invalid lens)', () => {
-    // Defense: a lens row with 0 cost must not silently re-shape unit totals.
+  it('lens with zero cost is still STRUCTURALLY valid (Option B: lens owns structure only)', () => {
+    // Cost no longer gates structural use of the lens. count_units_per_case
+    // is the only structural validity check.
     expect(
       getEffectivePackQty({
         pack_quantity: 20,
         lens: { count_units_per_case: 250, cost_per_common_unit: 0, common_unit: 'ea' },
       })
+    ).toBe(250);
+  });
+
+  it('lens with zero count_units_per_case is invalid → falls back to local', () => {
+    expect(
+      getEffectivePackQty({
+        pack_quantity: 20,
+        lens: { count_units_per_case: 0, cost_per_common_unit: 5, common_unit: 'ea' },
+      })
     ).toBe(20);
   });
+
 
   it('snapshot wins over lens (frozen historical counts stay frozen)', () => {
     expect(

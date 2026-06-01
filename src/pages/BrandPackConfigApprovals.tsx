@@ -1399,7 +1399,7 @@ export default function BrandPackConfigApprovals() {
                           <div className="space-y-1">
                             <div className="flex items-center justify-between">
                               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                                Cost per {commonUnitLabel} {usingOverride ? "(override)" : "(calculated)"}
+                                Reference price per {commonUnitLabel} {usingOverride ? "(override)" : "(calculated)"}
                               </div>
                             </div>
                             {usingOverride ? (
@@ -1437,8 +1437,12 @@ export default function BrandPackConfigApprovals() {
                                 </button>
                               )}
                             </div>
+                            <div className="text-[11px] text-muted-foreground italic pt-0.5">
+                              Informational only. The count screen uses each location's vendor sync price, not this value.
+                            </div>
                           </div>
                         </div>
+
 
 
                         {/* Optional label */}

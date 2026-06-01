@@ -1,108 +1,74 @@
-# Refactor: Centralize Leg Fetching & Valuation
 
-Stop duplicating leg queries + valuation across readers. One source of truth.
+# Option B — Lens owns structure, location owns price
 
-## New file: `src/hooks/useLegsValuation.ts`
+## Scope correction (read first)
 
-Exports both a hook (for components) and a pure utility (for non-React contexts like Inventory.tsx summary query functions and future COGS/Variance reducers).
+I walked the code before writing this. The fix is **smaller** than the framing in your message implies, because most of the conversion to per-location pricing already exists. The only remaining brand-wide-price code path is the single-config lens valuation in `calculateCountItemValue`. Everything else (multi-leg lane preview, multi-leg snapshot/valuation, header subtitle, save snapshot) already sources price from `inventory_items.cost_per_unit`.
 
-### Types
+### Already per-location today — no change needed
+- **Header subtitle** (`InventoryCountSession.tsx:2937–2948`) → reads `item.cost_per_unit`.
+- **Multi-leg lane preview subtitle** (lines 2843–2850) → derives from `item.cost_per_unit / liveUnits`.
+- **Multi-leg runtime valuation** (`useLegsValuation.ts:97` `buildLegsForValuation`) → `costPerCase = item.cost_per_unit`, then `commonUnitCost = costPerCase / defaultCfg.count_units_per_case`. Each leg = `cfg.count_units_per_case × commonUnitCost`. This is *exactly* the formula in your plan.
+- **Save snapshot** (lines 1384, 1470, 2112) → freezes `item.cost_per_unit` as `cost_at_count`. Per-location at submit time.
 
-```ts
-export type LegRow = {
-  id: string;
-  count_item_id: string;
-  pack_config_id: string;
-  entered_cases: number | null;
-  entered_units: number | null;
-  entered_inner_packs: number | null;
-  quantity_common: number | null;
-  cost_at_count: number | null;
-  pack_quantity_at_count: number | null;
-  inner_pack_quantity_at_count: number | null;
-};
-
-export type LegsByCountItemId = Record<string, LegRow[]>;
-export type LegsConfigsMap = Record<string, { id: string; label: string; count_units_per_case: number; inner_qty: number | null }>;
-
-export type LegsValuationBundle = {
-  legsByCountItemId: LegsByCountItemId;
-  legsConfigsMap: LegsConfigsMap;
-  legsEnabled: boolean;
-  isLoading: boolean;
-  getItemValueWithLegs: (
-    countItem: { id: string; ... },   // the inventory_count_items row (with snapshot fields)
-    item: InventoryItem,              // the inventory_items row (live data)
-    conversion: ConversionContext,    // existing arg shape from calculateCountItemValue
-    opts?: { forceLiveData?: boolean }
-  ) => number;
-};
+### The actual brand-wide-price leak — single-config lens path
+`src/utils/countItemValue.ts:153–159`:
 ```
-
-### Hook
-
-```ts
-useLegsValuation(countId: string | undefined, locationId: string | undefined): LegsValuationBundle
+const costPerCase = useLens
+  ? Number(item!.lens!.cost_per_common_unit) * Number(item!.lens!.count_units_per_case)
+  : useLive
+    ? Number(item?.cost_per_unit) || 0
+    : (ci.cost_at_count != null ? Number(ci.cost_at_count) || 0 : Number(item?.cost_per_unit) || 0);
 ```
+For any single-config item with an approved lens AND no snapshot, valuation = `lens.cost_per_common_unit × lens.count_units_per_case` — brand-wide. This is the structural inconsistency: header shows local PFG price, totals use brand price.
 
-- Runs 3 React Query queries (keyed on `["legs-valuation", countId]`):
-  1. `locations.legs_enabled` for `locationId` → `legsEnabled`
-  2. `inventory_count_item_legs` joined to `inventory_count_items` filtered by `count_id` → grouped into `legsByCountItemId`
-  3. `brand_pack_configs` (approved only) referenced by those legs → `legsConfigsMap`
-- Gated: if `legsEnabled === false`, queries 2 & 3 are skipped and maps are empty.
-- All fields (snapshots included) selected once, identical to current Session/Review/Export selects.
+`isLensValid` (`getEffectivePackQty.ts:41`) also gates lens **structure** use on `cost_per_common_unit > 0`. That's wrong under Option B — structure should be valid regardless of whether the informational price is set.
 
-### Utility (non-hook)
+## Changes
 
-```ts
-buildLegsValuation(args: {
-  legsRows: LegRow[];
-  configs: LegsConfigsMap;
-  legsEnabled: boolean;
-}): Pick<LegsValuationBundle, "legsByCountItemId" | "legsConfigsMap" | "legsEnabled" | "getItemValueWithLegs">
+### 1. `src/utils/countItemValue.ts` — drop lens cost-ownership
+Replace the lens branch in `calculateCountItemValue` so cost always comes from snapshot → `item.cost_per_unit`. The `lens` parameter on `ItemForValue` stays (other code may still pass it), but `useLens` no longer steers `costPerCase`. Simpler form:
 ```
+const costPerCase = hasSnapshot
+  ? (ci.cost_at_count != null ? Number(ci.cost_at_count) || 0 : Number(item?.cost_per_unit) || 0)
+  : Number(item?.cost_per_unit) || 0;
+```
+(Snapshot path unchanged; live path unchanged; lens path removed.) Update the doc comment on `ItemForValue.lens` to say "structure only — price is always per-location".
 
-Same shape, but takes already-fetched data. Used by `Inventory.tsx` summary query function and any future server-side reducer. The hook is a thin wrapper that calls `buildLegsValuation` after fetching.
+### 2. `src/utils/getEffectivePackQty.ts` — `isLensValid` no longer requires cost
+Drop `cost_per_common_unit > 0` from the validity check. Structure validity = `count_units_per_case > 0`. This unblocks lens-driven pack shape for items whose informational price isn't filled in. Snapshot precedence unchanged.
 
-### `getItemValueWithLegs` rules (single implementation)
+### 3. `src/components/inventory/BrandPackConfigApprovals.tsx` — label change only
+- Field label "Cost per common unit" → "Reference price (informational)".
+- Helper text underneath: "Recorded for audit/provenance. The count screen uses each location's vendor sync price (`inventory_items.cost_per_unit`), not this value."
+- Keep the existing >0 guard on approval — useful as a sanity check that someone looked at the price even if it's no longer authoritative. (Tell me if you want that guard removed too.)
 
-1. Look up `legs = legsByCountItemId[countItem.id] ?? []`.
-2. If `legsEnabled && legs.length >= 2` → pass `legs` (with configs resolved) to `calculateCountItemValue`. Per-leg uses snapshot `cost_at_count` / `pack_quantity_at_count` when present, else live commonUnitCost (Issue-1 formula).
-3. Else (single-config) → fall through to canonical `calculateCountItemValue(countItem, item, conversion, undefined, opts)`. Parent snapshot wins on frozen counts (already correct).
-4. `opts.forceLiveData` is forwarded to `calculateCountItemValue` unchanged.
+### 4. Tests
+Update `src/utils/countItemValue.test.ts`:
+- Cases that previously asserted "lens owns cost when valid + no snapshot" → assert "lens does NOT override per-location cost; `item.cost_per_unit` wins outside snapshots".
+- Keep snapshot-wins cases untouched.
+- Add one regression: single-config item, lens cost = $100/case, `item.cost_per_unit` = $94 → value uses $94.
 
-## Consumer refactors
+Update `src/utils/getEffectivePackQty.test.ts`: lens with `cost_per_common_unit = 0` should now still be valid for structure. Existing `count_units_per_case = 0` invalid case stays.
 
-| File | What gets removed | What it calls |
-|---|---|---|
-| `InventoryCountView.tsx` | inline `legsByCountItemId` + `legsConfigsMap` queries, inline leg-aware valuation in the reducer | `useLegsValuation(countId, locationId)` → use `getItemValueWithLegs` everywhere it currently calls `calculateCountItemValue` |
-| `CountExportDialog.tsx` | the 3 leg/config/legs_enabled queries from Step 4, inline `legs.length >= 2 ? legs : undefined` checks | same hook; row builder calls `getItemValueWithLegs` for parent; per-leg detail rows still iterate `legsByCountItemId[ci.id]` directly (display data, not valuation logic) |
-| `InventoryCountSession.tsx` | the leg snapshot hydration in the existing query + the inline leg branch in `getItemCost` | replace `getItemCost`'s leg branch with `getItemValueWithLegs(countItem, item, conv, { forceLiveData: !isFrozen })`. Stepper inputs untouched. |
-| `Inventory.tsx` (summary) | inline leg fetch inside the period summary query fn | inside the query fn: fetch legs + configs + legs_enabled once, then call `buildLegsValuation(...)` and use `getItemValueWithLegs` in the reducer. No hook (not a component context). |
+## Out of scope (explicitly)
+- `pack-config-seeder` and proposal generation — unchanged. Reference price still seeded from PFG/PA so the approval card has something to display.
+- Approval write path — unchanged structurally; only label/copy change.
+- Historical counts — untouched; snapshot-wins is the only path that runs for them.
 
-Future consumers (COGS, Variance, Reconciliation): just call the hook or utility — zero new query code.
-
-## Non-goals
-
-- No change to `calculateCountItemValue` itself.
-- No change to stepper inputs, autosave payloads, or save-path stamping (Bug B stays as-is).
-- No change to CSV column shape from Step 4.
-- No DB / migration changes.
+## Blast radius
+- **Submitted/locked counts:** zero change. Snapshot-wins guard runs first; lens cost branch never fired for them.
+- **In-progress counts with approved single-config lens AND `inventory_items.cost_per_unit ≠ lens.cost_per_common_unit`:** value changes to the per-location number. This is the intended fix.
+- **In-progress counts where lens cost matched local cost:** zero change.
+- **Multi-leg counts:** zero change (already per-location).
+- **Items with stale/null `inventory_items.cost_per_unit` but valid lens cost:** value drops to 0. This was previously masked by lens cost. It's a legit gap that needs PFG sync to fill — surfacing it is correct under Option B, but worth flagging. If you want a safety net here, we can add: "fall back to `lens.cost_per_common_unit × count_units_per_case` only when local cost is null/0" — keeps Option B intent (per-location wins) but stops new $0 valuations from items whose local price was never synced. **Tell me if you want that safety net or strict Option B.**
 
 ## Verification after apply
+1. `bunx vitest run src/utils/countItemValue.test.ts src/utils/getEffectivePackQty.test.ts src/utils/computeCountLanes.test.ts`
+2. Italian Sausage at Hemet — confirm header `$/cs`, multi-leg lane subtitles, and lane totals all read the same PFG-sourced number.
+3. SQL spot check: pick one approved single-config item where `inventory_items.cost_per_unit ≠ brand_pack_configs.cost_per_common_unit` and confirm count screen now uses the inventory_items value.
+4. If you have a Rowlett or Tuscaloosa in-progress count, sanity-check that header + totals match local PFG, not California's.
 
-1. Open the current Spinach count (`/inventory/.../count/240fe79f...`) — Review total, Session footer, and Export parent total must match $53.61 exactly.
-2. Open a single-config count — totals unchanged from before refactor.
-3. Open an `in_progress` count — Session stepper still reads live data (no snapshot freeze for non-completed).
-4. Inventory period summary card total matches Review total for the same count.
-
-## Apply order
-
-1. Create `src/hooks/useLegsValuation.ts` (hook + utility + types).
-2. Refactor `InventoryCountView.tsx`.
-3. Refactor `CountExportDialog.tsx`.
-4. Refactor `InventoryCountSession.tsx` (`getItemCost` only — leg hydration in the existing fetch can be dropped since the hook owns it).
-5. Refactor `Inventory.tsx` summary query fn to use `buildLegsValuation`.
-6. Smoke-check the 4 verification points above.
-
-Approve and I'll apply in that order, showing the hook file in full first, then per-consumer diffs.
+## Decisions I need from you before coding
+1. **Strict Option B** (lens cost never falls through, even when local is 0 → may show $0 for unsynced items) **or safety-net variant** (fall back to lens cost only when local is null/0)?
+2. **Keep the `cost_per_common_unit > 0` guard on the Approve button** as a "did a human look at this" check, or drop it since it's informational?
