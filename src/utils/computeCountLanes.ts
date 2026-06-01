@@ -123,14 +123,15 @@ export function computeCountLanes({
   lensEnabled = true,
 }: ComputeCountLanesArgs): CountLanes {
   const isRecipe = !!item.is_recipe;
-  const innerPackQty = item.inner_pack_quantity ?? null;
+  const lensInnerQty = Number((lens as any)?.inner_qty ?? 0);
+  const innerPackQty = item.inner_pack_quantity ?? (lensInnerQty > 0 ? lensInnerQty : null);
   const showInnerPacks =
     !isRecipe && innerPackQty != null && Number(innerPackQty) > 0;
 
   // Cost badges — mirror InventoryCountSession lines 2083-2106 exactly.
   const caseCost = Number(item.cost_per_unit ?? 0) || 0;
   const packsPerCase = Number(item.pack_quantity ?? 1) || 1;
-  const unitsPerPack = Number(item.inner_pack_quantity ?? 0) || 0;
+  const unitsPerPack = Number(innerPackQty ?? 0) || 0;
   const hasInner = unitsPerPack > 0;
   const totalUnits = hasInner ? packsPerCase * unitsPerPack : packsPerCase;
   const costPerCase = caseCost > 0 ? caseCost : null;
@@ -177,7 +178,7 @@ export function computeCountLanes({
     item._rawPackQuantity ??
     item.pack_quantity ??
     1;
-  const rawInnerPackQty = item.inner_pack_quantity ?? null;
+  const rawInnerPackQty = innerPackQty;
   const localTrueSingleUnit =
     Number(rawPackQty) <= 1 &&
     (!rawInnerPackQty || Number(rawInnerPackQty) <= 1);
@@ -204,12 +205,12 @@ export function computeCountLanes({
     ? Number(lens!.count_units_per_case ?? 1) || 1
     : Number(rawPackQty) || 1;
 
-  const lensInnerType =
-    typeof (lens as any)?.inner_type === "string" ? (lens as any).inner_type : null;
-  const innerLabel = resolveInnerLabel(item.inner_pack_label, lensInnerType);
+  const lensOuterType =
+    typeof (lens as any)?.outer_type === "string" ? (lens as any).outer_type : null;
+  const innerLabel = resolveInnerLabel(item.inner_pack_label, lensOuterType);
   const innerNounSingular =
     (item.inner_pack_label ?? "").trim() ||
-    (lensInnerType ?? "").trim() ||
+    (lensOuterType ?? "").trim() ||
     "pack";
   // The inner sublabel denominates "how many atomic units sit inside one
   // inner pack." When we know the common unit (e.g. lb) AND the inner noun

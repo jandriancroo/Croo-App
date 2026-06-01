@@ -1,11 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { computeCountLanes } from "./computeCountLanes";
 
 describe("computeCountLanes — shared lane decision for count screen + approval preview", () => {
   it("Toilet Seat Covers: lens 1/250 → Cases + Units (case tier comes from lens, not stale local=1)", () => {
     const lanes = computeCountLanes({
       item: {
-        pack_quantity: 1, // stale local
+        pack_quantity: 1,
         inner_pack_quantity: null,
         unit: "ea",
         cost_per_unit: 6.67,
@@ -13,6 +13,7 @@ describe("computeCountLanes — shared lane decision for count screen + approval
       },
       lens: { count_units_per_case: 250, cost_per_common_unit: 0.02668, common_unit: "ea" },
     });
+
     expect(lanes.showCases).toBe(true);
     expect(lanes.showInnerPacks).toBe(false);
     expect(lanes.showUnits).toBe(true);
@@ -31,22 +32,24 @@ describe("computeCountLanes — shared lane decision for count screen + approval
         cost_per_unit: 48,
         count_by: "inherit",
       },
-      lens: { count_units_per_case: 48, cost_per_common_unit: 1.0, common_unit: "ea" },
+      lens: { count_units_per_case: 48, cost_per_common_unit: 1, common_unit: "ea", outer_type: "bag" } as any,
     });
+
     expect(lanes.showCases).toBe(true);
     expect(lanes.showInnerPacks).toBe(true);
     expect(lanes.showUnits).toBe(true);
     expect(lanes.innerLabel).toBe("Bags");
-    expect(lanes.innerSubLabel).toBe("(12 ea/bag)");
+    expect(lanes.innerSubLabel).toBe("(12/bag)");
     expect(lanes.costPerCase).toBe(48);
-    expect(lanes.costPerPack).toBe(12); // 48 / 4 packs
-    expect(lanes.costPerUnit).toBe(1); // 48 / 48 total units
+    expect(lanes.costPerPack).toBe(12);
+    expect(lanes.costPerUnit).toBe(1);
   });
 
   it("Recipe item: single counting lane (no case/inner/units grid)", () => {
     const lanes = computeCountLanes({
       item: { is_recipe: true, unit: "lb", cost_per_unit: 3.5 },
     });
+
     expect(lanes.isRecipe).toBe(true);
     expect(lanes.showInnerPacks).toBe(false);
     expect(lanes.showUnits).toBe(false);
@@ -64,28 +67,56 @@ describe("computeCountLanes — shared lane decision for count screen + approval
         cost_per_unit: 25,
         count_by: "inherit",
       },
-      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", inner_type: "sleeve" } as any,
+      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", outer_type: "sleeve" } as any,
     });
+
     expect(lanes.showCases).toBe(true);
     expect(lanes.showInnerPacks).toBe(true);
     expect(lanes.showUnits).toBe(true);
     expect(lanes.innerLabel).toBe("Sleeves");
-    expect(lanes.innerSubLabel).toBe("(100 ea/sleeve)");
-    expect(lanes.packQty).toBe(1000); // lens-driven
+    expect(lanes.innerSubLabel).toBe("(100/sleeve)");
+    expect(lanes.packQty).toBe(1000);
   });
 
-  it("Inner label falls back to lens.inner_type when no local override", () => {
+  it("Inner label falls back to lens.outer_type when no local override", () => {
     const lanes = computeCountLanes({
       item: {
         pack_quantity: 10,
-        inner_pack_quantity: 100,
-        // inner_pack_label intentionally omitted
         unit: "ea",
         cost_per_unit: 25,
       },
-      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", inner_type: "sleeve" } as any,
+      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", outer_type: "sleeve", inner_qty: 100 } as any,
     });
+
+    expect(lanes.showInnerPacks).toBe(true);
     expect(lanes.innerLabel).toBe("Sleeves");
+    expect(lanes.innerSubLabel).toBe("(100/sleeve)");
+  });
+
+  it("Italian Sausage: approved 8/5 lb config shows Cases + Bags + LBS even when local inner pack fields are stale", () => {
+    const lanes = computeCountLanes({
+      item: {
+        pack_quantity: 8,
+        inner_pack_quantity: null,
+        inner_pack_label: null,
+        unit: "cs",
+        cost_per_unit: 98.65,
+        count_by: "inherit",
+      },
+      lens: {
+        count_units_per_case: 40,
+        cost_per_common_unit: 2.46625,
+        common_unit: "lb",
+        outer_type: "bag",
+        inner_qty: 5,
+      } as any,
+    });
+
+    expect(lanes.showCases).toBe(true);
+    expect(lanes.showInnerPacks).toBe(true);
+    expect(lanes.showUnits).toBe(true);
+    expect(lanes.innerLabel).toBe("Bags");
+    expect(lanes.innerSubLabel).toBe("(5 lb/bag)");
   });
 
   it("count_by='units_only' hides Cases even when lens has case tier", () => {
@@ -98,16 +129,18 @@ describe("computeCountLanes — shared lane decision for count screen + approval
       },
       lens: { count_units_per_case: 250, cost_per_common_unit: 0.1, common_unit: "ea" },
     });
+
     expect(lanes.showCases).toBe(false);
     expect(lanes.showUnits).toBe(true);
   });
 
   it("Invalid lens (cost=0) falls back to local — Cases only shown when local pack > 1", () => {
-    const lanesStaleLocal = computeCountLanes({
+    const lanes = computeCountLanes({
       item: { pack_quantity: 1, cost_per_unit: 5, count_by: "inherit" },
       lens: { count_units_per_case: 250, cost_per_common_unit: 0, common_unit: "ea" },
     });
-    expect(lanesStaleLocal.showCases).toBe(false); // local true single unit
-    expect(lanesStaleLocal.caseTierSource).toBe("local");
+
+    expect(lanes.showCases).toBe(false);
+    expect(lanes.caseTierSource).toBe("local");
   });
 });

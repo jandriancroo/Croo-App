@@ -470,16 +470,26 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     queryFn: async () => {
       const { data, error } = await supabase
         .from("brand_pack_configs" as any)
-        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, status")
+        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, outer_type, inner_qty, inner_type, status")
         .eq("status", "approved");
       if (error) throw error;
-      const map = new Map<string, { count_units_per_case: number | null; cost_per_common_unit: number | null; common_unit: string | null }>();
+      const map = new Map<string, {
+        count_units_per_case: number | null;
+        cost_per_common_unit: number | null;
+        common_unit: string | null;
+        outer_type: string | null;
+        inner_qty: number | null;
+        inner_type: string | null;
+      }>();
       for (const row of (data as any[]) || []) {
         if (!row?.brand_template_id) continue;
         map.set(row.brand_template_id, {
           count_units_per_case: row.count_units_per_case,
           cost_per_common_unit: row.cost_per_common_unit,
           common_unit: row.common_unit,
+          outer_type: row.outer_type,
+          inner_qty: row.inner_qty,
+          inner_type: row.inner_type,
         });
       }
       return map;
@@ -858,7 +868,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const lens = (lensEnabledForLocation === true && item.brand_item_id)
       ? packLensMap?.get(item.brand_item_id) ?? null
       : null;
-    const inner = Number((item as any).inner_pack_quantity ?? 0);
+    const lensInner = Number((lens as any)?.inner_qty ?? 0);
+    const inner = Number((item as any).inner_pack_quantity ?? 0) || lensInner;
     // Safety: if lens is active but its count_units_per_case is NOT divisible
     // by inner_pack_quantity (misconfigured lens), suppress the inner tier so
     // the caseUnits math doesn't double-multiply. resolveItemPackQty mirrors
@@ -1016,7 +1027,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const innerVal = isNaN(rawInner) ? (committed.innerPacks ?? 0) : Math.max(0, rawInner);
     const panUnits = item.pan_sizes !== undefined ? getPanUnitsTotal(key, item.pan_sizes) : 0;
-    const innerPackQty = (item as any).inner_pack_quantity || 0;
 
     // [hydration-drift diagnostic] compare hydrated counts vs DB existing values
     const dbCases = Number((item as any)._existingCases ?? 0);
@@ -1030,7 +1040,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         unitsVal, dbUnits,
         panUnits,
         innerPacksVal: innerVal,
-        innerPackQty,
+        innerPackQty: (item as any).inner_pack_quantity ?? null,
       });
     }
 
@@ -1046,6 +1056,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const lens = (lensEnabledForLocation === true && item.brand_item_id)
       ? packLensMap?.get(item.brand_item_id) ?? null
       : null;
+    const innerPackQty = Number((item as any).inner_pack_quantity ?? (lens as any)?.inner_qty ?? 0) || 0;
 
     // Multi-config (Path B): when legs are enabled AND this item has 2+ selected
     // pack configs, build a synthetic legs[] payload so calculateCountItemValue
@@ -1469,7 +1480,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           item_name_at_count: item.item_name,
           cost_at_count: item.cost_per_unit,
           unit_at_count: item.unit,
-          pack_quantity_at_count: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+          pack_quantity_at_count: resolveItemPackQty(item),
           // Phase 3: snapshot the inner_pack_quantity at save time (mirrors pack_quantity_at_count)
           inner_pack_quantity_at_count: innerPackQty,
           pan_sizes_at_count: item.pan_sizes ?? null,
@@ -2096,7 +2107,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const casesVal = counts[key]?.cases || 0;
       const unitsVal = counts[key]?.units || 0;
       const innerVal = counts[key]?.innerPacks || 0;
-      const innerPackQty = (item as any).inner_pack_quantity ?? null;
+      const lens = (lensEnabledForLocation === true && item.brand_item_id)
+        ? packLensMap?.get(item.brand_item_id) ?? null
+        : null;
+      const innerPackQty = Number((item as any).inner_pack_quantity ?? (lens as any)?.inner_qty ?? 0) || null;
       return {
         item_id: item.item_id,
         quantity: getItemTotalIncludingLegs(item, key, resolveItemPackQty(item), resolveInnerPackQtyForTotal(item)),
@@ -2108,7 +2122,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         item_name_at_count: item.item_name,
         cost_at_count: item.cost_per_unit,
         unit_at_count: item.unit,
-        pack_quantity_at_count: (item as any).pack_quantity_override ?? item.pack_quantity ?? null,
+        pack_quantity_at_count: resolveItemPackQty(item),
         // Phase 3: snapshot inner_pack_quantity at save time for historical immutability
         inner_pack_quantity_at_count: innerPackQty,
         pan_sizes_at_count: item.pan_sizes ?? null,
