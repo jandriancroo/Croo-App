@@ -28,6 +28,7 @@ import { calculateCountItemValue } from "@/utils/countItemValue";
 import { useLegsValuation } from "@/hooks/useLegsValuation";
 import { getEffectivePackQty, isLensValid } from "@/utils/getEffectivePackQty";
 import { computeCountLanes } from "@/utils/computeCountLanes";
+import { resolveItemPackShape, atomicUnitToken, type ResolvedPackShape } from "@/utils/resolveItemPackShape";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
