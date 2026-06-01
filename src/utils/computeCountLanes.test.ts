@@ -31,7 +31,7 @@ describe("computeCountLanes — shared lane decision for count screen + approval
         cost_per_unit: 48,
         count_by: "inherit",
       },
-      lens: { count_units_per_case: 48, cost_per_common_unit: 1.0, common_unit: "ea" },
+      lens: { count_units_per_case: 48, cost_per_common_unit: 1.0, common_unit: "ea", outer_type: "bag" } as any,
     });
     expect(lanes.showCases).toBe(true);
     expect(lanes.showInnerPacks).toBe(true);
@@ -64,7 +64,7 @@ describe("computeCountLanes — shared lane decision for count screen + approval
         cost_per_unit: 25,
         count_by: "inherit",
       },
-      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", inner_type: "sleeve" } as any,
+      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", outer_type: "sleeve" } as any,
     });
     expect(lanes.showCases).toBe(true);
     expect(lanes.showInnerPacks).toBe(true);
@@ -82,7 +82,7 @@ describe("computeCountLanes — shared lane decision for count screen + approval
         unit: "ea",
         cost_per_unit: 25,
       },
-      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", inner_type: "sleeve", inner_qty: 100 } as any,
+      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", outer_type: "sleeve", inner_qty: 100 } as any,
     });
     expect(lanes.showInnerPacks).toBe(true);
     expect(lanes.innerLabel).toBe("Sleeves");

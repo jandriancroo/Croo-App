@@ -205,12 +205,12 @@ export function computeCountLanes({
     ? Number(lens!.count_units_per_case ?? 1) || 1
     : Number(rawPackQty) || 1;
 
-  const lensInnerType =
-    typeof (lens as any)?.inner_type === "string" ? (lens as any).inner_type : null;
-  const innerLabel = resolveInnerLabel(item.inner_pack_label, lensInnerType);
+  const lensOuterType =
+    typeof (lens as any)?.outer_type === "string" ? (lens as any).outer_type : null;
+  const innerLabel = resolveInnerLabel(item.inner_pack_label, lensOuterType);
   const innerNounSingular =
     (item.inner_pack_label ?? "").trim() ||
-    (lensInnerType ?? "").trim() ||
+    (lensOuterType ?? "").trim() ||
     "pack";
   // The inner sublabel denominates "how many atomic units sit inside one
   // inner pack." When we know the common unit (e.g. lb) AND the inner noun
