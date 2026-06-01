@@ -470,16 +470,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     queryFn: async () => {
       const { data, error } = await supabase
         .from("brand_pack_configs" as any)
-        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, status")
+        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, inner_qty, inner_type, status")
         .eq("status", "approved");
       if (error) throw error;
-      const map = new Map<string, { count_units_per_case: number | null; cost_per_common_unit: number | null; common_unit: string | null }>();
+      const map = new Map<string, {
+        count_units_per_case: number | null;
+        cost_per_common_unit: number | null;
+        common_unit: string | null;
+        inner_qty: number | null;
+        inner_type: string | null;
+      }>();
       for (const row of (data as any[]) || []) {
         if (!row?.brand_template_id) continue;
         map.set(row.brand_template_id, {
           count_units_per_case: row.count_units_per_case,
           cost_per_common_unit: row.cost_per_common_unit,
           common_unit: row.common_unit,
+          inner_qty: row.inner_qty,
+          inner_type: row.inner_type,
         });
       }
       return map;
@@ -858,7 +866,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const lens = (lensEnabledForLocation === true && item.brand_item_id)
       ? packLensMap?.get(item.brand_item_id) ?? null
       : null;
-    const inner = Number((item as any).inner_pack_quantity ?? 0);
+    const lensInner = Number((lens as any)?.inner_qty ?? 0);
+    const inner = Number((item as any).inner_pack_quantity ?? 0) || lensInner;
     // Safety: if lens is active but its count_units_per_case is NOT divisible
     // by inner_pack_quantity (misconfigured lens), suppress the inner tier so
     // the caseUnits math doesn't double-multiply. resolveItemPackQty mirrors
