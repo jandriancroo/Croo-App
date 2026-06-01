@@ -114,38 +114,54 @@ export function resolveItemPackShape(
   }
 
   // 2) Lens — wins over local even if local is non-null but stale.
+  //
+  // Schema reminder (brand_pack_configs):
+  //   outer_qty / outer_type  → number + noun of middle-tier containers per case
+  //                              (e.g. 6 sleeves, 4 bags). NULL/1 means the case
+  //                              IS the container (no middle tier).
+  //   inner_qty / inner_type  → atomic units per middle container + the count
+  //                              unit (e.g. 50 ea, 5 lb). inner_type is the
+  //                              measurement unit, NOT a packaging noun.
+  //   count_units_per_case    → outer_qty × inner_qty (units per case total).
+  //
+  // Lane mapping:
+  //   outer_qty > 1  → 3-tier: Cases · <outer_type>s · <common_unit>s
+  //                    packQty=outer_qty, innerPackQty=inner_qty,
+  //                    innerLabel=outer_type, outerLabel=null
+  //   outer_qty ≤ 1  → 2-tier: <outer_type>s · <common_unit>s
+  //                    packQty=inner_qty (or total), innerPackQty=null,
+  //                    outerLabel=outer_type (renames Cases → "Bags" etc.)
   if (isLensValid(lens)) {
     const total = finiteOrNull(lens!.count_units_per_case) ?? 1;
     const lensInner = finiteOrNull(lens!.inner_qty);
-    const commonUnitNorm = (trimmedOrNull(lens!.common_unit) ?? "").toLowerCase();
-    const innerTypeNorm = (trimmedOrNull(lens!.inner_type) ?? "").toLowerCase();
-    // When inner_type === common_unit (e.g. inner="lb", common="lb"), the
-    // "inner" tier isn't a real container — it's just the count unit. Suppress
-    // the inner lane and let the outer container drive the Cases label.
-    const innerIsCommon = innerTypeNorm.length > 0 && innerTypeNorm === commonUnitNorm;
-    let packQty = total;
-    let innerPackQty: number | null = null;
-    if (
-      !innerIsCommon &&
-      lensInner != null && lensInner > 0 && total > 0 && total % lensInner === 0
-    ) {
-      packQty = total / lensInner;
-      innerPackQty = lensInner;
+    const lensOuter = finiteOrNull((lens as any).outer_qty);
+    const outerType = trimmedOrNull((lens as any).outer_type);
+    const hasMiddleTier =
+      lensOuter != null && lensOuter > 1 && lensInner != null && lensInner > 0;
+    let packQty: number;
+    let innerPackQty: number | null;
+    let innerLabel: string | null;
+    let outerLabel: string | null;
+    if (hasMiddleTier) {
+      // True 3-tier: case → N containers → M units.
+      packQty = lensOuter!;
+      innerPackQty = lensInner!;
+      innerLabel = outerType ?? trimmedOrNull(item.inner_pack_label);
+      outerLabel = null;
+    } else if (lensInner != null && lensInner > 0) {
+      // Flat case = single container of M units. No middle lane.
+      packQty = lensInner;
+      innerPackQty = null;
+      innerLabel = null;
+      // Only rename Cases lane when the container isn't the generic "case".
+      outerLabel = outerType && outerType.toLowerCase() !== "case" ? outerType : null;
     } else {
-      // Misconfigured lens (inner doesn't divide total) OR innerIsCommon →
-      // no inner tier. packQty == total (count_units_per_case).
+      // No usable inner info — fall back to total units per case.
       packQty = total;
       innerPackQty = null;
+      innerLabel = null;
+      outerLabel = outerType && outerType.toLowerCase() !== "case" ? outerType : null;
     }
-    // Inner lane wants the inner container noun (e.g. "sleeve"). That's
-    // inner_type in brand_pack_configs. outer_type names the OUTER container
-    // (the "case" / "bag") and feeds the Cases-lane label instead.
-    const innerLabel = innerPackQty == null
-      ? null
-      : (trimmedOrNull(lens!.inner_type) ??
-         trimmedOrNull((lens as any).outer_type) ??
-         trimmedOrNull(item.inner_pack_label));
-    const outerLabel = trimmedOrNull((lens as any).outer_type);
     const unit =
       (trimmedOrNull(lens!.common_unit) ??
         trimmedOrNull(item.unit) ??

@@ -26,6 +26,8 @@ export interface PackConfigLens {
   count_units_per_case: number | null;
   cost_per_common_unit: number | null;
   common_unit?: string | null;
+  /** Optional — number of middle-tier containers per case (e.g. 6 sleeves). */
+  outer_qty?: number | null;
 }
 
 export interface PackQtySource {

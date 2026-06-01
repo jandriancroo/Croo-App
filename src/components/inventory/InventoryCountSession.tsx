@@ -471,13 +471,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     queryFn: async () => {
       const { data, error } = await supabase
         .from("brand_pack_configs" as any)
-        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, outer_type, inner_qty, inner_type, status")
+        .select("brand_template_id, count_units_per_case, cost_per_common_unit, common_unit, outer_qty, outer_type, inner_qty, inner_type, status")
         .eq("status", "approved");
       if (error) throw error;
       const map = new Map<string, {
         count_units_per_case: number | null;
         cost_per_common_unit: number | null;
         common_unit: string | null;
+        outer_qty: number | null;
         outer_type: string | null;
         inner_qty: number | null;
         inner_type: string | null;
@@ -488,6 +489,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           count_units_per_case: row.count_units_per_case,
           cost_per_common_unit: row.cost_per_common_unit,
           common_unit: row.common_unit,
+          outer_qty: row.outer_qty,
           outer_type: row.outer_type,
           inner_qty: row.inner_qty,
           inner_type: row.inner_type,
@@ -2837,6 +2839,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   count_units_per_case: cfg.count_units_per_case,
                   cost_per_common_unit: cfg.cost_per_common_unit,
                   common_unit: cfg.common_unit,
+                  outer_qty: cfg.outer_qty,
                   outer_type: cfg.outer_type,
                   inner_qty: cfg.inner_qty,
                   inner_type: cfg.inner_type,
