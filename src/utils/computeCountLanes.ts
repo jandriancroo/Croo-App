@@ -234,12 +234,23 @@ export function computeCountLanes({
       : `(${innerPackQty}/${innerNounToken})`
     : null;
 
+  // When there's no inner-pack tier, the user's label override (e.g. "jug")
+  // would otherwise be invisible — promote it onto the Cases lane.
+  const labelOverride = (item.inner_pack_label ?? "").trim();
+  const casesLabel = !showInnerPacks && labelOverride
+    ? pluralizeLabel(labelOverride)
+    : "Cases";
+  const casesNounToken = !showInnerPacks && labelOverride
+    ? labelOverride.toLowerCase()
+    : "case";
+
   return {
     isRecipe: false,
     showCases,
     showInnerPacks,
     showUnits,
-    casesLabel: "Cases",
+    casesLabel,
+    casesNounToken,
     innerLabel,
     innerSubLabel,
     unitsLabel: (() => {
