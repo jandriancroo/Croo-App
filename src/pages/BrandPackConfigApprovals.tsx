@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Check, Archive, Save, Loader2, X, Search } from "lucide-react";
+import { ArrowLeft, Check, Archive, Save, Loader2, X, Search, ChevronDown, ChevronRight } from "lucide-react";
 import { TO_OZ } from "@/utils/unitConversion";
 import { CountLanesPreview } from "@/components/inventory/CountLanesPreview";
 import { computeCountLanes } from "@/utils/computeCountLanes";
@@ -501,6 +501,8 @@ export default function BrandPackConfigApprovals() {
   >({});
   // Per-row "edit mode" for already-approved configs (unlocks the form).
   const [editingApproved, setEditingApproved] = useState<Record<string, boolean>>({});
+  // Per-row collapsed state — lets the user hide proposals they're not working on.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
 
 
@@ -1222,6 +1224,18 @@ export default function BrandPackConfigApprovals() {
               return (
                 <div key={r.id} className={`rounded-lg border p-3 space-y-3 ${isApproved ? "bg-emerald-500/5 border-emerald-500/30" : "bg-muted/30"}`}>
                   <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setCollapsed((m) => ({ ...m, [r.id]: !m[r.id] }))}
+                      className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
+                      aria-label={collapsed[r.id] ? "Expand" : "Collapse"}
+                      title={collapsed[r.id] ? "Expand" : "Collapse"}
+                    >
+                      {collapsed[r.id] ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+                    <span className="font-medium text-sm truncate max-w-[18rem]" title={r.template?.product_name ?? ""}>
+                      {r.template?.product_name ?? "—"}
+                    </span>
                     <Checkbox
                       checked={effectiveSelected.has(r.id)}
                       onCheckedChange={() => toggleSelect(r.id)}
@@ -1277,7 +1291,7 @@ export default function BrandPackConfigApprovals() {
                     </div>
                   )}
 
-
+                  {!collapsed[r.id] && (<>
                   {/* APPROVED banner — gives a clear edit path for already-approved configs. */}
                   {isApproved && !editingApproved[r.id] && (
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
@@ -1576,7 +1590,7 @@ export default function BrandPackConfigApprovals() {
                       </Button>
                     </div>
                   )}
-
+                  </>)}
                 </div>
               );
             })}
