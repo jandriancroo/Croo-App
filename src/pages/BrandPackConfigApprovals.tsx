@@ -1224,6 +1224,18 @@ export default function BrandPackConfigApprovals() {
               return (
                 <div key={r.id} className={`rounded-lg border p-3 space-y-3 ${isApproved ? "bg-emerald-500/5 border-emerald-500/30" : "bg-muted/30"}`}>
                   <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setCollapsed((m) => ({ ...m, [r.id]: !m[r.id] }))}
+                      className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
+                      aria-label={collapsed[r.id] ? "Expand" : "Collapse"}
+                      title={collapsed[r.id] ? "Expand" : "Collapse"}
+                    >
+                      {collapsed[r.id] ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+                    <span className="font-medium text-sm truncate max-w-[18rem]" title={r.template?.product_name ?? ""}>
+                      {r.template?.product_name ?? "—"}
+                    </span>
                     <Checkbox
                       checked={effectiveSelected.has(r.id)}
                       onCheckedChange={() => toggleSelect(r.id)}
