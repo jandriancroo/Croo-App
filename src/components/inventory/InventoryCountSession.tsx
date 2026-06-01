@@ -1436,7 +1436,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const key = (item as any)._splitKey || item.item_id;
         const storLocId = item.storage_location_id;
         const countState = counts[key] || { cases: 0, units: 0, innerPacks: 0 };
-        const innerPackQty = (item as any).inner_pack_quantity ?? null;
+        // Phase 4 (2026-06-01): see calculatePendingEdits for rationale — autosave
+        // must also persist the resolver-derived inner factor, not the stale local field.
+        const innerPackQty = resolveInnerPackQtyForTotal(item);
         // Fold raw per-leg lane triples into the snapshot so the diff guard fires
         // when a non-default leg's cases/innerPacks/units change. Prefixed `_` so
         // the RPC/insert path ignores it. Single-config items get null.
