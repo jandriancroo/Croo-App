@@ -1340,7 +1340,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     for (const item of items) {
       const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string; _packQuantityAtCount?: number | null; _innerPackQuantityAtCount?: number | null };
       const key = extendedItem._splitKey || item.item_id;
-      const innerPackQty = (item as any).inner_pack_quantity ?? null;
+      // Phase 4 (2026-06-01): thread the resolved inner factor (snapshot > lens > local)
+      // through the edit-mode snapshot so 3-tier items (jugs/sleeves/cans) freeze the
+      // correct inner_pack_quantity_at_count alongside pack_quantity_at_count. Without
+      // this, lens-derived inner factors were silently dropped at save time and the
+      // reader's caseUnits denominator collapsed to pack only, inflating valuations.
+      const innerPackQty = resolveInnerPackQtyForTotal(item);
       // Diff math uses the LIVE effective pack qty so the baseline (computed from
       // the current entered_cases × current caseUnits) and the new value share
       // the same multiplier. Snapshots are stamped on save below for history.
