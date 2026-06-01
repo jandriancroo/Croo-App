@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play } from "lucide-react";
+import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Trash2 } from "lucide-react";
 import { formatPeriodLabel } from "@/utils/periodLabelUtils";
 import { toast } from "sonner";
 import { calculateUsageRates } from "@/utils/inventoryRateCalculation";
@@ -285,14 +285,25 @@ const InventoryCount = () => {
                 periodLabel={formatPeriodLabel(countData)}
               />
               {(!isLocked || canEditLocked) ? (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => navigate(`/inventory/${locationId}/count/${countId}?edit=true`)}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit Count
-                </Button>
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate(`/inventory/${locationId}/count/${countId}?edit=true`)}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Count
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </>
               ) : (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>🔒 Locked — Admin access required to edit</span>
