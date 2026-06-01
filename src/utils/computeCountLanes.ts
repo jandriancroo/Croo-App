@@ -149,6 +149,7 @@ export function computeCountLanes({
       showInnerPacks: false,
       showUnits: false,
       casesLabel: `Count (${item.unit ?? "ea"})`,
+      casesNounToken: "case",
       innerLabel: "",
       innerSubLabel: null,
       unitsLabel: "",
