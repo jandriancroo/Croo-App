@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Check, Archive, Save, Loader2, X, Search } from "lucide-react";
+import { ArrowLeft, Check, Archive, Save, Loader2, X, Search, ChevronDown, ChevronRight } from "lucide-react";
 import { TO_OZ } from "@/utils/unitConversion";
 import { CountLanesPreview } from "@/components/inventory/CountLanesPreview";
 import { computeCountLanes } from "@/utils/computeCountLanes";
