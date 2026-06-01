@@ -2846,15 +2846,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 } as any,
                 lensEnabled: true,
               });
-              const structuralShowCases = outerQty > 1;
-              const structuralShowInner = hasInnerTier;
-              const collapseUnits = !structuralShowCases && structuralShowInner;
-              const legLanes = {
-                ...baseLanes,
-                showCases: structuralShowCases,
-                showInnerPacks: structuralShowInner,
-                showUnits: !collapseUnits,
-              };
+              // Trust the resolver (baseLanes) for lane structure & labels.
+              // The resolver already triggers a 3-tier (Cases · Outer · Units)
+              // shape when outer_qty > 1, and correctly collapses to 2-tier
+              // when outer_qty <= 1. Previous override gated the middle tier
+              // on inner_type !== common_unit, which incorrectly suppressed
+              // the BAGS lane for items like Pesto (8 bag / 4 lb) where the
+              // inner measure unit matches the common unit.
+              void outerQty; void hasInnerTier; void innerIsCommon;
+              const legLanes = baseLanes;
               const liveUnits = cfg.count_units_per_case ?? null;
               const livePerCommon =
                 item.cost_per_unit != null && liveUnits && liveUnits > 0
