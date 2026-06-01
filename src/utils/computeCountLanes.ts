@@ -21,6 +21,7 @@
  */
 
 import { isLensValid, type PackConfigLens } from "./getEffectivePackQty";
+import { resolveItemPackShape, atomicUnitToken, type PackShapeLens } from "./resolveItemPackShape";
 
 export type CountByMode =
   | "inherit"
