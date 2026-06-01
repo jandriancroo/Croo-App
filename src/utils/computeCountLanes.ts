@@ -78,6 +78,8 @@ export interface CountLanes {
   costPerCase: number | null;
   costPerPack: number | null;
   costPerUnit: number | null;
+  /** Lowercased atomic unit token (e.g. "lb", "oz") for human-readable sublabels. null when unit is generic (ea/case/etc). */
+  unitToken: string | null;
   /** Which signal drove case-lane visibility — useful for debugging/UX. */
   caseTierSource: "lens" | "local" | "recipe";
 }
@@ -154,6 +156,7 @@ export function computeCountLanes({
       costPerCase,
       costPerPack: null,
       costPerUnit,
+      unitToken: null,
       caseTierSource: "recipe",
     };
   }
@@ -223,7 +226,11 @@ export function computeCountLanes({
   })();
   const innerSubLabel = showInnerPacks
     ? commonUnitToken
-      ? `(${innerPackQty} ${commonUnitToken}/${innerNounToken})`
+      ? innerNounToken === commonUnitToken
+        // Noun and unit are the same (e.g. "lb" inside an "lb" inner) — avoid the
+        // ugly "(4 lb/lb)" duplication and just show the quantity + unit.
+        ? `(${innerPackQty} ${commonUnitToken})`
+        : `(${innerPackQty} ${commonUnitToken}/${innerNounToken})`
       : `(${innerPackQty}/${innerNounToken})`
     : null;
 
@@ -247,6 +254,7 @@ export function computeCountLanes({
     costPerCase,
     costPerPack,
     costPerUnit,
+    unitToken: commonUnitToken,
     caseTierSource: lensApplies ? "lens" : "local",
   };
 }
