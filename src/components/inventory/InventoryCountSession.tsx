@@ -2818,18 +2818,30 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 (cfg.inner_type ?? '').trim().toLowerCase() ===
                 (cfg.common_unit ?? '').trim().toLowerCase();
               const hasInnerTier = !innerIsCommon && Number(cfg.inner_qty ?? 0) > 0;
+              // Pass cfg as the lens so resolveItemPackShape becomes the single
+              // label/structure source for both single-config and multi-leg
+              // branches. cfg still drives valuation below (subtitle/perCommon);
+              // structural visibility (showCases/showInnerPacks) is overridden
+              // per-leg below to preserve multi-leg semantics.
               const baseLanes = computeCountLanes({
                 item: {
                   is_recipe: item.is_recipe,
-                  pack_quantity: outerQty,
-                  inner_pack_quantity: hasInnerTier ? (cfg.inner_qty ?? null) : null,
-                  inner_pack_label: cfg.inner_type ?? null,
-                  unit: cfg.common_unit ?? item.unit,
+                  pack_quantity: item.pack_quantity,
+                  inner_pack_quantity: item.inner_pack_quantity,
+                  inner_pack_label: item.inner_pack_label,
+                  unit: item.unit,
                   cost_per_unit: item.cost_per_unit,
                   count_by: 'inherit',
                 },
-                lens: null,
-                lensEnabled: false,
+                lens: {
+                  count_units_per_case: cfg.count_units_per_case,
+                  cost_per_common_unit: cfg.cost_per_common_unit,
+                  common_unit: cfg.common_unit,
+                  outer_type: cfg.outer_type,
+                  inner_qty: cfg.inner_qty,
+                  inner_type: cfg.inner_type,
+                } as any,
+                lensEnabled: true,
               });
               const structuralShowCases = outerQty > 1;
               const structuralShowInner = hasInnerTier;
