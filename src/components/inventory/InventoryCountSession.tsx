@@ -2928,14 +2928,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             const rc = recipeCosts?.get(item.item_id) || item.cost_per_unit || 0;
             if (rc) headerBits.push(`${formatCurrency(rc)}/ea`);
           } else if (item.cost_per_unit) {
-            const caseCost = item.cost_per_unit || 0;
-            const packsPerCase = item.pack_quantity || 1;
-            const unitsPerPack = (item as any).inner_pack_quantity || 0;
+            // Header subtitle pulls pack structure + unit from the unified
+            // shape resolver (snapshot > lens > local) so it agrees with the
+            // lane labels, valuation math, and save snapshot. Previously this
+            // block read item.pack_quantity / inner_pack_quantity directly,
+            // which is why approved-lens items rendered "/u" instead of the
+            // lens common_unit (e.g. "/lb").
+            const shape = getShape(item);
+            const caseCost = Number(item.cost_per_unit) || 0;
+            const packsPerCase = Number(shape.packQty) || 1;
+            const unitsPerPack = Number(shape.innerPackQty ?? 0) || 0;
             const hasInner = unitsPerPack > 0;
             const totalUnits = hasInner ? packsPerCase * unitsPerPack : packsPerCase;
+            const unitToken = atomicUnitToken(shape.unit) ?? 'u';
             headerBits.push(`${formatCurrency(caseCost)}/cs`);
             if (hasInner) headerBits.push(`${formatCurrency(caseCost / packsPerCase)}/pk`);
-            if (totalUnits > 0 && totalUnits !== packsPerCase) headerBits.push(`${formatCurrency(caseCost / totalUnits)}/u`);
+            if (totalUnits > 0 && totalUnits !== packsPerCase) {
+              headerBits.push(`${formatCurrency(caseCost / totalUnits)}/${unitToken}`);
+            }
           }
           const headerSubtitle = headerBits.join(' · ');
           const headerUnits = item.is_recipe
