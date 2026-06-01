@@ -139,27 +139,29 @@ export function calculateCountItemValue(
   const hasSnapshot = ci.pack_quantity_at_count != null || ci.cost_at_count != null;
   const useLive = forceLiveData && !hasSnapshot;
 
-  // ── Lens (brand_pack_configs approved) ──
-  // Owns valuation when present + valid + no snapshot + not a recipe.
-  // Fails CLOSED to local when invalid (null/zero cost) so an "owned" item is
-  // never silently $0. Recipes have their own yield-based math path.
-  const lensProvided = item?.lens != null;
-  const useLens = !hasSnapshot && !item?.is_recipe && isLensValid(item?.lens);
-  if (lensProvided && !useLens && !hasSnapshot && !item?.is_recipe) {
-    // eslint-disable-next-line no-console
-    console.warn('[calculateCountItemValue] lens present but invalid (null/zero cost) — falling back to local', {
-      brand_item_id: item?.brand_item_id,
-      lens: item?.lens,
-    });
-  }
+  // ── Option B price resolution (Jun 2026) ──
+  // Price is per-location: snapshot > item.cost_per_unit. The lens (brand
+  // approved config) no longer owns cost. Safety-net only: if local price is
+  // missing/zero we fall back to lens.cost_per_common_unit × count_units_per_case
+  // so unsynced items don't silently value at $0 while PFG catches up.
+  const localCase = Number(item?.cost_per_unit) || 0;
+  const lensCase =
+    item?.lens &&
+    Number(item.lens.cost_per_common_unit) > 0 &&
+    Number(item.lens.count_units_per_case) > 0
+      ? Number(item.lens.cost_per_common_unit) * Number(item.lens.count_units_per_case)
+      : 0;
 
-  const costPerCase = useLens
-    ? Number(item!.lens!.cost_per_common_unit) * Number(item!.lens!.count_units_per_case)
+  const costPerCase = hasSnapshot
+    ? (ci.cost_at_count != null
+        ? Number(ci.cost_at_count) || 0
+        : (localCase > 0 ? localCase : lensCase))
     : useLive
-      ? Number(item?.cost_per_unit) || 0
+      ? (localCase > 0 ? localCase : lensCase)
       : (ci.cost_at_count != null
           ? Number(ci.cost_at_count) || 0
-          : Number(item?.cost_per_unit) || 0);
+          : (localCase > 0 ? localCase : lensCase));
+
 
   if (costPerCase === 0) return 0;
 
