@@ -32,7 +32,7 @@ describe("computeCountLanes — shared lane decision for count screen + approval
         cost_per_unit: 48,
         count_by: "inherit",
       },
-      lens: { count_units_per_case: 48, cost_per_common_unit: 1, common_unit: "ea", outer_type: "bag" } as any,
+      lens: { count_units_per_case: 48, cost_per_common_unit: 1, common_unit: "ea", outer_type: "bag", inner_qty: 12 } as any,
     });
 
     expect(lanes.showCases).toBe(true);
@@ -40,6 +40,8 @@ describe("computeCountLanes — shared lane decision for count screen + approval
     expect(lanes.showUnits).toBe(true);
     expect(lanes.innerLabel).toBe("Bags");
     expect(lanes.innerSubLabel).toBe("(12/bag)");
+    expect(lanes.packQty).toBe(4);
+    expect(lanes.innerPackQty).toBe(12);
     expect(lanes.costPerCase).toBe(48);
     expect(lanes.costPerPack).toBe(12);
     expect(lanes.costPerUnit).toBe(1);
@@ -67,7 +69,7 @@ describe("computeCountLanes — shared lane decision for count screen + approval
         cost_per_unit: 25,
         count_by: "inherit",
       },
-      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", outer_type: "sleeve" } as any,
+      lens: { count_units_per_case: 1000, cost_per_common_unit: 0.025, common_unit: "ea", outer_type: "sleeve", inner_qty: 100 } as any,
     });
 
     expect(lanes.showCases).toBe(true);
@@ -75,7 +77,8 @@ describe("computeCountLanes — shared lane decision for count screen + approval
     expect(lanes.showUnits).toBe(true);
     expect(lanes.innerLabel).toBe("Sleeves");
     expect(lanes.innerSubLabel).toBe("(100/sleeve)");
-    expect(lanes.packQty).toBe(1000);
+    expect(lanes.packQty).toBe(10);
+    expect(lanes.innerPackQty).toBe(100);
   });
 
   it("Inner label falls back to lens.outer_type when no local override", () => {
