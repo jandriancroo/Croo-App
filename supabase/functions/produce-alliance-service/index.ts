@@ -615,7 +615,10 @@ async function handleInvoices(supabase: any, body: any): Promise<Response> {
       total: li.extended_cost,
       master_product_code: li.master_product_code,
       master_product_desc: li.master_product_desc,
-      vendor_name: li.vendor_name,
+      // Force PA branding so existing pa_product_id mappings match cleanly.
+      // Actual distributor (e.g. "Worldwide Produce") is preserved in raw_data.detail.
+      vendor_name: 'Produce Alliance',
+      actual_distributor: li.vendor_name,
     }));
 
     // pa_order_id namespaced so invoices never collide with web orders
