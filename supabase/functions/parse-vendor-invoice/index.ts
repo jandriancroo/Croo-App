@@ -381,12 +381,15 @@ Return ONLY valid JSON, no markdown.`,
       if (gapErr) console.error("Error creating gap alerts:", gapErr);
     }
 
+    const matchedCount = insertItems.filter(i => i.match_status === "matched" || i.match_status === "matched_brand").length;
+    const unmatchedCount = insertItems.filter(i => i.match_status === "unmatched").length;
+
     return new Response(JSON.stringify({
       success: true,
       vendor_name: parsed.vendor_name,
       total_items: insertItems.length,
-      matched: insertItems.filter(i => i.match_status === "matched").length,
-      unmatched: insertItems.filter(i => i.match_status === "unmatched").length,
+      matched: matchedCount,
+      unmatched: unmatchedCount,
       new_gap_alerts: newGapAlerts.length,
       price_updates: priceUpdates.length,
     }), {
