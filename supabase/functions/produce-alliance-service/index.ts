@@ -463,13 +463,128 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
 }
 
 // ============================================================================
-// INVOICE LIST PROBE — captures raw shape from fetch-invoices-for-restaurant-by-params
+// INVOICES — fetch list + per-invoice details from PA portal
+// (covers off-portal orders e.g. Worldwide Produce phone/app orders)
 // ============================================================================
-async function handleProbeInvoices(supabase: any, body: any): Promise<Response> {
-  const { locationId, startDate, endDate } = body;
+
+interface PAInvoiceSummary {
+  invoiceNumber: string;
+  invoiceMasterId: string;
+  invoiceDate: string;        // MM/DD/YYYY from API
+  uploadDate: string;         // MM/DD/YYYY from API
+  invoiceTotal: number;
+  distributorName: string;
+  distributorId: string;      // vendorNumber
+  clientId: string;
+  totalQuantity: number;
+  webOrderId: string | null;
+}
+
+interface PAInvoiceLineItem {
+  pa_product_id: number | null;
+  item_code: string;
+  description: string;
+  master_product_code: string | null;
+  master_product_desc: string | null;
+  quantity: number;
+  unit_cost: number;
+  extended_cost: number;
+  vendor_name: string;
+}
+
+interface PAInvoiceDetail {
+  invoiceNumber: string;
+  invoiceDate: string;        // yyyy-MM-dd
+  uploadDate: string;         // yyyy-MM-dd
+  vendorName: string;
+  totalAmount: number;
+  lineItems: PAInvoiceLineItem[];
+}
+
+async function fetchInvoiceList(session: PASession, startDate: string, endDate: string): Promise<PAInvoiceSummary[]> {
+  const url = `${PA_BASE_URL}/api/restaurant-dashboard/fetch-invoices-for-restaurant-by-params?startDate=${startDate}&endDate=${endDate}&filterStr=all`;
+  const postBody = JSON.stringify({
+    limit: 100,
+    offset: 0,
+    filters: {},
+    restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+    orderByFields: { INVOICE_DATE: "DESC" },
+  });
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(session),
+    'Content-Type': 'application/json',
+    'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/viewInvoices?startDate=${startDate}&endDate=${endDate}&invoiceNumber=&originalInvoiceNumber=`,
+  };
+
+  console.log('[PA Invoices] POST', url);
+  const resp = await fetch(url, { method: 'POST', headers, body: postBody, redirect: 'follow' });
+  const text = await resp.text();
+  if (!resp.ok) {
+    console.error('[PA Invoices] list err:', resp.status, text.substring(0, 300));
+    return [];
+  }
+  let data: any; try { data = JSON.parse(text); } catch { return []; }
+  const list: any[] = data.dataList || [];
+  console.log('[PA Invoices] got', list.length, 'invoices in range');
+
+  return list.map((r: any) => ({
+    invoiceNumber: String(r.invoiceNumber || ''),
+    invoiceMasterId: String(r.invoiceMasterId || ''),
+    invoiceDate: r.invoiceDate || '',
+    uploadDate: r.uploadDate || '',
+    invoiceTotal: Number(r.invoiceTotal || 0),
+    distributorName: r.distributorName || '',
+    distributorId: String(r.vendorNumber || ''),
+    clientId: String(r.clientId || ''),
+    totalQuantity: Number(r.totalQuantity || 0),
+    webOrderId: r.webOrderId ? String(r.webOrderId) : null,
+  })).filter(i => i.invoiceNumber);
+}
+
+async function fetchInvoiceDetail(session: PASession, inv: PAInvoiceSummary): Promise<PAInvoiceDetail | null> {
+  const url = `${PA_BASE_URL}/api/view-invoice-details/get-detail-invoice?distributorId=${inv.distributorId}&restaurantId=${session.restaurantId}&invoiceNumber=${inv.invoiceNumber}&clientId=${inv.clientId}`;
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(session),
+    'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/view-invoice-details?invoiceNumber=${inv.invoiceNumber}&distributorId=${inv.distributorId}&restaurantId=${session.restaurantId}&clientId=${inv.clientId}`,
+  };
+  const resp = await fetch(url, { method: 'GET', headers, redirect: 'follow' });
+  const text = await resp.text();
+  if (!resp.ok) {
+    console.error('[PA InvDetail]', inv.invoiceNumber, 'err:', resp.status);
+    return null;
+  }
+  let data: any; try { data = JSON.parse(text); } catch { return null; }
+  const rows: any[] = Array.isArray(data) ? data : (data.dataList || data.data || []);
+  if (!rows.length) return null;
+
+  const first = rows[0];
+  const lineItems: PAInvoiceLineItem[] = rows.map((r: any) => ({
+    pa_product_id: r.paProductId != null ? Number(r.paProductId) : null,
+    item_code: String(r.itemNum || ''),
+    description: r.description || '',
+    master_product_code: r.masterProductCode || null,
+    master_product_desc: r.masterProductDesc || null,
+    quantity: Number(r.quantity || 0),
+    unit_cost: Number(r.unitCost || 0),
+    extended_cost: Number(r.extendedCost || 0),
+    vendor_name: r.vendorName || inv.distributorName,
+  }));
+
+  // invoiceDate from detail is already yyyy-MM-dd; uploadDate is "yyyy-MM-dd HH:mm:ss"
+  return {
+    invoiceNumber: inv.invoiceNumber,
+    invoiceDate: (first.invoiceDate || '').substring(0, 10),
+    uploadDate: (first.uploadDate || '').substring(0, 10),
+    vendorName: first.vendorName || inv.distributorName,
+    totalAmount: inv.invoiceTotal,
+    lineItems,
+  };
+}
+
+async function handleInvoices(supabase: any, body: any): Promise<Response> {
+  const { locationId, startDate, endDate, maxInvoices = 50 } = body;
   const credentials = await getCredentials(supabase, locationId);
   if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
-
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
@@ -478,96 +593,69 @@ async function handleProbeInvoices(supabase: any, body: any): Promise<Response> 
   const sd = startDate || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
   const ed = endDate || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  const url = `${PA_BASE_URL}/api/restaurant-dashboard/fetch-invoices-for-restaurant-by-params?startDate=${sd}&endDate=${ed}&filterStr=all`;
-  const postBody = JSON.stringify({
-    limit: 100,
-    offset: 0,
-    filters: {},
-    restaurantId: parseInt(session.restaurantId) || session.restaurantId,
-    orderByFields: { INVOICE_DATE: "DESC" },
+  const list = await fetchInvoiceList(session, sd, ed);
+  const toFetch = list.slice(0, maxInvoices);
+
+  let persisted = 0;
+  const persistedInvoices: string[] = [];
+  const errors: string[] = [];
+
+  for (const inv of toFetch) {
+    const detail = await fetchInvoiceDetail(session, inv);
+    await new Promise(r => setTimeout(r, 250));
+    if (!detail) continue;
+
+    const items = detail.lineItems.map(li => ({
+      name: li.description,
+      item_code: li.item_code,
+      pa_product_id: li.pa_product_id,
+      quantity: li.quantity,
+      unit: 'case',
+      price: li.unit_cost,
+      total: li.extended_cost,
+      master_product_code: li.master_product_code,
+      master_product_desc: li.master_product_desc,
+      vendor_name: li.vendor_name,
+    }));
+
+    // pa_order_id namespaced so invoices never collide with web orders
+    const paOrderId = `INV-${detail.invoiceNumber}`;
+
+    const { error } = await supabase
+      .from('pa_orders')
+      .upsert({
+        location_id: locationId,
+        pa_order_id: paOrderId,
+        order_number: detail.invoiceNumber,
+        order_date: detail.uploadDate || detail.invoiceDate,
+        delivery_date: detail.invoiceDate || detail.uploadDate,
+        status: 'invoiced',
+        total_amount: detail.totalAmount,
+        items,
+        raw_data: { source: 'pa_invoice', invoice: inv, detail },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'location_id,pa_order_id' });
+
+    if (error) {
+      console.error('[PA Invoices] upsert err', detail.invoiceNumber, error.message);
+      errors.push(`${detail.invoiceNumber}: ${error.message}`);
+    } else {
+      persisted++;
+      persistedInvoices.push(detail.invoiceNumber);
+    }
+  }
+
+  return jsonResponse({
+    success: true,
+    range: { sd, ed },
+    found: list.length,
+    fetched: toFetch.length,
+    persisted,
+    persistedInvoices,
+    errors,
   });
-
-  const headers: Record<string, string> = {
-    ...getAuthHeaders(session),
-    'Content-Type': 'application/json',
-    'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/viewInvoices?startDate=${sd}&endDate=${ed}&invoiceNumber=&originalInvoiceNumber=`,
-  };
-
-  console.log('[PA Invoices PROBE] POST', url, 'body:', postBody);
-  const resp = await fetch(url, { method: 'POST', headers, body: postBody, redirect: 'follow' });
-  const text = await resp.text();
-  console.log('[PA Invoices PROBE] status:', resp.status, 'len:', text.length);
-
-  let parsed: any = null;
-  try { parsed = JSON.parse(text); } catch { /* not json */ }
-
-  const summary: any = { status: resp.status, length: text.length };
-  if (parsed) {
-    if (Array.isArray(parsed)) {
-      summary.shape = `array[${parsed.length}]`;
-      summary.sample = parsed[0] || null;
-    } else {
-      summary.topKeys = Object.keys(parsed);
-      for (const k of summary.topKeys) {
-        const v = parsed[k];
-        if (Array.isArray(v)) {
-          summary[`${k}_array_len`] = v.length;
-          if (v[0]) summary[`${k}_sample_keys`] = Object.keys(v[0]);
-          if (v[0]) summary[`${k}_sample`] = v[0];
-        } else {
-          summary[k] = v;
-        }
-      }
-    }
-  } else {
-    summary.rawPreview = text.substring(0, 1000);
-  }
-
-  return jsonResponse({ success: resp.ok, restaurantId: session.restaurantId, range: { sd, ed }, summary });
 }
 
-// Probe invoice DETAIL — line items for one invoice
-async function handleProbeInvoiceDetail(supabase: any, body: any): Promise<Response> {
-  const { locationId, invoiceNumber, distributorId, clientId } = body;
-  const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
-  const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
-
-  const url = `${PA_BASE_URL}/api/view-invoice-details/get-detail-invoice?distributorId=${distributorId}&restaurantId=${session.restaurantId}&invoiceNumber=${invoiceNumber}&clientId=${clientId}`;
-  const headers: Record<string, string> = {
-    ...getAuthHeaders(session),
-    'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/view-invoice-details?invoiceNumber=${invoiceNumber}&distributorId=${distributorId}&restaurantId=${session.restaurantId}&clientId=${clientId}`,
-  };
-  console.log('[PA Inv Detail PROBE] GET', url);
-  const resp = await fetch(url, { method: 'GET', headers, redirect: 'follow' });
-  const text = await resp.text();
-  console.log('[PA Inv Detail PROBE] status:', resp.status, 'len:', text.length);
-  let parsed: any = null; try { parsed = JSON.parse(text); } catch {}
-  const summary: any = { status: resp.status, length: text.length };
-  if (parsed) {
-    if (Array.isArray(parsed)) {
-      summary.shape = `array[${parsed.length}]`; summary.sample = parsed[0];
-    } else {
-      summary.topKeys = Object.keys(parsed);
-      for (const k of summary.topKeys) {
-        const v = parsed[k];
-        if (Array.isArray(v)) {
-          summary[`${k}_array_len`] = v.length;
-          if (v[0]) summary[`${k}_sample_keys`] = Object.keys(v[0]);
-          if (v[0]) summary[`${k}_sample`] = v[0];
-        } else if (typeof v === 'object' && v !== null) {
-          summary[`${k}_keys`] = Object.keys(v);
-        } else {
-          summary[k] = v;
-        }
-      }
-    }
-  } else {
-    summary.rawPreview = text.substring(0, 1000);
-  }
-  return jsonResponse({ success: resp.ok, summary });
-}
 
 
 function extractOrdersFromJson(data: any): PAOrderSummary[] {
