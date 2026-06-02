@@ -3212,6 +3212,13 @@ export type Database = {
             referencedRelation: "inventory_counts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "inventory_count_deliveries_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts_live"
+            referencedColumns: ["id"]
+          },
         ]
       }
       inventory_count_edits: {
@@ -3457,6 +3464,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inventory_count_items_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts_live"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_count_items_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
@@ -3533,6 +3547,7 @@ export type Database = {
           duration_seconds: number | null
           id: string
           is_late_close: boolean
+          is_sandbox: boolean
           late_close_notes: string | null
           location_id: string | null
           locked_at: string | null
@@ -3542,6 +3557,7 @@ export type Database = {
           period_type: string | null
           sales_end_override: string | null
           sales_start_override: string | null
+          sandbox_owner: string | null
           started_at: string
           status: string
         }
@@ -3554,6 +3570,7 @@ export type Database = {
           duration_seconds?: number | null
           id?: string
           is_late_close?: boolean
+          is_sandbox?: boolean
           late_close_notes?: string | null
           location_id?: string | null
           locked_at?: string | null
@@ -3563,6 +3580,7 @@ export type Database = {
           period_type?: string | null
           sales_end_override?: string | null
           sales_start_override?: string | null
+          sandbox_owner?: string | null
           started_at?: string
           status?: string
         }
@@ -3575,6 +3593,7 @@ export type Database = {
           duration_seconds?: number | null
           id?: string
           is_late_close?: boolean
+          is_sandbox?: boolean
           late_close_notes?: string | null
           location_id?: string | null
           locked_at?: string | null
@@ -3584,6 +3603,7 @@ export type Database = {
           period_type?: string | null
           sales_end_override?: string | null
           sales_start_override?: string | null
+          sandbox_owner?: string | null
           started_at?: string
           status?: string
         }
@@ -4053,6 +4073,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inventory_order_assignments_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts_live"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_order_assignments_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
@@ -4101,6 +4128,13 @@ export type Database = {
             columns: ["count_id"]
             isOneToOne: false
             referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_order_exclusions_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts_live"
             referencedColumns: ["id"]
           },
           {
@@ -6847,6 +6881,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pa_orders_bound_to_count_id_fkey"
+            columns: ["bound_to_count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts_live"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "pa_orders_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
@@ -7199,6 +7240,13 @@ export type Database = {
             columns: ["bound_to_count_id"]
             isOneToOne: false
             referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pfg_orders_bound_to_count_id_fkey"
+            columns: ["bound_to_count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts_live"
             referencedColumns: ["id"]
           },
           {
@@ -10425,6 +10473,93 @@ export type Database = {
             columns: ["application_id"]
             isOneToOne: false
             referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_counts_live: {
+        Row: {
+          completed_at: string | null
+          count_date: string | null
+          counted_at: string | null
+          counted_by: string | null
+          created_at: string | null
+          duration_seconds: number | null
+          id: string | null
+          is_late_close: boolean | null
+          is_sandbox: boolean | null
+          late_close_notes: string | null
+          location_id: string | null
+          locked_at: string | null
+          locked_by: string | null
+          notes: string | null
+          period_end_date: string | null
+          period_type: string | null
+          sales_end_override: string | null
+          sales_start_override: string | null
+          sandbox_owner: string | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          count_date?: string | null
+          counted_at?: string | null
+          counted_by?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string | null
+          is_late_close?: boolean | null
+          is_sandbox?: boolean | null
+          late_close_notes?: string | null
+          location_id?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string | null
+          period_end_date?: string | null
+          period_type?: string | null
+          sales_end_override?: string | null
+          sales_start_override?: string | null
+          sandbox_owner?: string | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          count_date?: string | null
+          counted_at?: string | null
+          counted_by?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string | null
+          is_late_close?: boolean | null
+          is_sandbox?: boolean | null
+          late_close_notes?: string | null
+          location_id?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string | null
+          period_end_date?: string | null
+          period_type?: string | null
+          sales_end_override?: string | null
+          sales_start_override?: string | null
+          sandbox_owner?: string | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_counts_counted_by_fkey"
+            columns: ["counted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
