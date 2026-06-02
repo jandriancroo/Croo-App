@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
         new_pack_qty: null,
         old_cost: null,
         new_cost: null,
-        source: "inner_pack_qty_backfill_2026_06",
+        source: "inner_pack_backfill_systemwide_2026_06_01",
       });
       updated++;
     }
