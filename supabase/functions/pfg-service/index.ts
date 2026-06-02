@@ -655,12 +655,12 @@ async function fetchProductListHeaders(accessToken: string, customerId?: string)
 }
 
 // Fetch order history from PFG — queries BOTH endpoints and merges results
-async function fetchOrderHistory(accessToken: string, customerId?: string): Promise<any> {
-  console.log('[PFG API] Fetching order history (merged strategy)');
+async function fetchOrderHistory(accessToken: string, customerId?: string, daysBack: number = 14): Promise<any> {
+  console.log(`[PFG API] Fetching order history (merged strategy, ${daysBack} days back)`);
 
   const now = new Date();
   const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - 14);
+  startDate.setDate(startDate.getDate() - daysBack);
   const endDate = new Date(now);
   endDate.setDate(endDate.getDate() + 7);
 
@@ -668,6 +668,7 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
     StartDate: startDate.toISOString(),
     EndDate: endDate.toISOString(),
   };
+
   if (customerId) {
     requestBody.CustomerIds = [customerId];
   }
