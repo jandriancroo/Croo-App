@@ -89,6 +89,9 @@ const Inventory = () => {
     enabled: !!locationId,
   });
 
+  const brandId = brandInfo ?? null;
+  const { conversionMap } = useBrandConversions(brandId);
+
   // Check for in-progress count
   const { data: inProgressCount } = useQuery({
     queryKey: ["inventory-in-progress", locationId],
@@ -110,7 +113,7 @@ const Inventory = () => {
 
   // Fetch recent counts with stats
   const { data: recentCounts } = useQuery({
-    queryKey: ["inventory-counts", locationId],
+    queryKey: ["inventory-counts", locationId, conversionMap.size],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_counts")
@@ -186,16 +189,18 @@ const Inventory = () => {
         if (ci.quantity > 0) {
           statsMap[ci.count_id].countedItems++;
           const item = itemMap.get(ci.item_id);
-          // Snapshot-honoring path: submitted counts read their stamped
-          // cost_at_count / pack_quantity_at_count / inner_pack_quantity_at_count
-          // (Count History Integrity standard). Do NOT override recipe
-          // cost_per_unit with the live recipeCostMap — that caused the rail
-          // to drift upward vs the COGS card whenever a recipe's batch cost
-          // moved after submit. List = COGS card, always.
+          // Mirror PeriodDetailPanel exactly: snapshot-honoring + brand conversion.
+          // Without the conversion arg, items with a brand_item_id whose
+          // canonical_qty_per_inner differs from the local pack chain value
+          // differently, drifting the rail vs the COGS card (was ~$302 on
+          // Palm Desert May 2026). See PeriodDetailPanel.tsx:435 / :450.
+          const conversion = item?.brand_item_id
+            ? conversionMap.get(item.brand_item_id) ?? null
+            : null;
           statsMap[ci.count_id].totalCost += getItemValueWithLegs(
             ci as any,
             item,
-            null,
+            conversion,
             { forceLiveData: false },
           );
         }
