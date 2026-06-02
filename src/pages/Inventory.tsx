@@ -25,6 +25,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
+import SandboxCountsPanel from "@/components/inventory/SandboxCountsPanel";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 
 const StartCountDialog = lazyWithRetry(() => import("@/components/inventory/StartCountDialog"));
@@ -506,7 +507,8 @@ const Inventory = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="count" className="mt-4">
+          <TabsContent value="count" className="mt-4 space-y-4">
+            <SandboxCountsPanel locationId={locationId!} />
             <InventoryCountTab
               locationId={locationId!}
               inProgressCount={inProgressCount}
