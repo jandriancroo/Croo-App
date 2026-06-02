@@ -655,12 +655,12 @@ async function fetchProductListHeaders(accessToken: string, customerId?: string)
 }
 
 // Fetch order history from PFG — queries BOTH endpoints and merges results
-async function fetchOrderHistory(accessToken: string, customerId?: string): Promise<any> {
-  console.log('[PFG API] Fetching order history (merged strategy)');
+async function fetchOrderHistory(accessToken: string, customerId?: string, daysBack: number = 14): Promise<any> {
+  console.log(`[PFG API] Fetching order history (merged strategy, ${daysBack} days back)`);
 
   const now = new Date();
   const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - 14);
+  startDate.setDate(startDate.getDate() - daysBack);
   const endDate = new Date(now);
   endDate.setDate(endDate.getDate() + 7);
 
@@ -668,6 +668,7 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
     StartDate: startDate.toISOString(),
     EndDate: endDate.toISOString(),
   };
+
   if (customerId) {
     requestBody.CustomerIds = [customerId];
   }
@@ -1724,7 +1725,9 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       const { accessToken } = tokenResult;
 
       const customerIdToUse = credentials.customer_id;
-      const orderData = await fetchOrderHistory(accessToken, customerIdToUse);
+      const daysBack = typeof body?.daysBack === 'number' && body.daysBack > 0 ? body.daysBack : 14;
+      const orderData = await fetchOrderHistory(accessToken, customerIdToUse, daysBack);
+
       
       console.log('[PFG Sync] Raw response keys:', JSON.stringify(Object.keys(orderData || {})));
       console.log('[PFG Sync] IsSuccess:', orderData?.IsSuccess);
