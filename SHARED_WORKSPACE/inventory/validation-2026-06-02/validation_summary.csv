@@ -1,0 +1,15 @@
+location_name,has_submitted_count,latest_count_id,latest_count_date,latest_count_status,latest_count_completed_at,ending_inventory_value,sane_range_3k_15k,latest_count_item_rows,eligible_null_ipq_rows,items_over_500,items_over_1000,top_5_items,lens_enabled,legs_enabled
+Akers Mill,false,,,no_submitted_count,,,,0,0,0,0,,false,false
+Anaheim,false,,,no_submitted_count,,,,0,0,0,0,,false,false
+Georgetown,false,,,no_submitted_count,,,,0,0,0,0,,false,false
+Hemet,true,240fe79f-3f51-433f-a054-daa980b51ec9,2026-05-23,completed,2026-05-30T22:52:05.896+00:00,5260.4,true,212,0,0,0,Shredded Mozzarella ($356.76) | Meatballs ($148.72) | (NEW) Sliced Proscuitto ($129.07) | Cauliflower Crust ($126.90) | Diet Coke BIB 5g ($115.95),true,true
+IUPUI,false,,,no_submitted_count,,,,0,0,0,0,,false,false
+Niles,false,,,no_submitted_count,,,,0,0,0,0,,false,false
+Palm Desert,true,37df8106-4020-4fd7-9c13-e3798a058620,2026-06-01,completed,2026-06-01T23:04:16.525+00:00,4623.59,true,168,0,0,0,Yeast - Individual ($324.44) | Shredded Mozzarella ($241.80) | Chit Paper Rolls ($147.25) | Barqs Rootbeer BIB 2.5g ($121.00) | Sanitizer (Dispenser) ($120.66),true,true
+Palm Springs,true,85767e66-cc71-4827-bccd-718c743d8df0,2026-06-01,completed,2026-06-01T13:32:21.301+00:00,6759.66,true,223,0,0,0,"Shredded Mozzarella ($376.58) | Cauliflower Crust ($237.94) | Diced Chicken ($229.02) | 11"" Blaze Pizza Boxes ($205.28) | Red Onions ($172.80)",true,true
+Reno,false,,,no_submitted_count,,,,0,0,0,0,,false,false
+Reno,false,,,no_submitted_count,,,,0,0,0,0,,false,false
+Rowlett,true,989db4b2-631c-47a0-bf74-2898162119cb,2026-06-01,completed,2026-06-02T05:21:48.043+00:00,4803.75,true,185,0,0,0,Receipt Paper Roll ($312.21) | Romaine Lettuce (Bag) ($261.06) | Shredded Mozzarella ($245.77) | Meatballs ($146.72) | Prep N Print Label Roll ($139.84),true,true
+Sandbox,false,,,no_submitted_count,,,,0,0,0,0,,false,false
+Sparks,false,,,no_submitted_count,,,,0,0,0,0,,false,false
+Tuscaloosa,true,53621171-d8ad-4f56-986e-e89d9db3cdad,2026-06-01,completed,2026-06-02T05:34:43.483+00:00,6143.84,true,202,0,1,1,Shredded Mozzarella ($1007.76) | Extra Virgin Olive Oil ($358.30) | Chit Paper Rolls ($355.35) | Dough Flour ($296.66) | Pepperoni ($277.00),true,true
