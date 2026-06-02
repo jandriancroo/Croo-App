@@ -3315,6 +3315,8 @@ serve(async (req) => {
       case 'scrape_catalog_live': return await handleScrapeCatalogLive(supabase, body);
       case 'scrape_all_catalogs': return await handleScrapeAllCatalogs(supabase, body);
       case 'invoices': return await handleInvoices(supabase, body);
+      case 'set_sync_mode': return await handleSetSyncMode(supabase, body);
+      case 'nightly_invoice_sync': return await handleNightlyInvoiceSync(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
