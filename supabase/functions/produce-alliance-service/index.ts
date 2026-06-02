@@ -3189,6 +3189,7 @@ serve(async (req) => {
       case 'scrape_catalog_live': return await handleScrapeCatalogLive(supabase, body);
       case 'scrape_all_catalogs': return await handleScrapeAllCatalogs(supabase, body);
       case 'probe_invoices': return await handleProbeInvoices(supabase, body);
+      case 'probe_invoice_detail': return await handleProbeInvoiceDetail(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
