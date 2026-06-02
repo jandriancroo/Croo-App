@@ -185,34 +185,18 @@ const Inventory = () => {
         if (ci.quantity > 0) {
           statsMap[ci.count_id].countedItems++;
           const item = itemMap.get(ci.item_id);
-          const batchCost = recipeCostMap?.get(ci.item_id);
-          // For recipes, override the live cost_per_unit with the freshly
-          // computed batch cost (from fetchRecipeCosts) but let the canonical
-          // calculator handle the yield-qty division.
-          const itemForValue = item ? {
-            ...item,
-            cost_per_unit: recipeIds.has(ci.item_id) && batchCost && batchCost > 0
-              ? batchCost
-              : item.cost_per_unit,
-          } : item;
-          // Recipes still flow through calculateCountItemValue directly with
-          // forceLiveData=true so the freshly-computed batch cost takes effect.
-          // Non-recipes go through getItemValueWithLegs for leg awareness.
-          if (recipeIds.has(ci.item_id) && batchCost && batchCost > 0) {
-            statsMap[ci.count_id].totalCost += calculateCountItemValue(
-              ci as any,
-              itemForValue,
-              null,
-              true,
-            );
-          } else {
-            statsMap[ci.count_id].totalCost += getItemValueWithLegs(
-              ci as any,
-              itemForValue,
-              null,
-              { forceLiveData: false },
-            );
-          }
+          // Snapshot-honoring path: submitted counts read their stamped
+          // cost_at_count / pack_quantity_at_count / inner_pack_quantity_at_count
+          // (Count History Integrity standard). Do NOT override recipe
+          // cost_per_unit with the live recipeCostMap — that caused the rail
+          // to drift upward vs the COGS card whenever a recipe's batch cost
+          // moved after submit. List = COGS card, always.
+          statsMap[ci.count_id].totalCost += getItemValueWithLegs(
+            ci as any,
+            item,
+            null,
+            { forceLiveData: false },
+          );
         }
       }
 
