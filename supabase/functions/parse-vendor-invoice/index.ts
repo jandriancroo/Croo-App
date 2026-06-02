@@ -69,6 +69,15 @@ serve(async (req) => {
     const base64Image = btoa(binary);
     const contentType = imageResp.headers.get("content-type") || "image/jpeg";
 
+    const normalizeKey = (value: unknown) => String(value ?? "").trim().toLowerCase();
+    const firstNonEmpty = (...values: unknown[]) => {
+      for (const value of values) {
+        const text = String(value ?? "").trim();
+        if (text) return text;
+      }
+      return null;
+    };
+
     // Call Lovable AI with vision to extract line items
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -82,7 +91,9 @@ serve(async (req) => {
           {
             role: "system",
             content: `You are an invoice parser. Extract all line items from this vendor invoice image.
-For each line item extract: product_name, item_number (SKU/code if visible), quantity, unit (case/each/lb/etc), unit_price, total_price.
+For each line item extract: product_name, item_number (vendor/distributor SKU if visible), pa_product_id (ONLY the value from a column literally labeled PA Product ID or equivalent), quantity, unit (case/each/lb/etc), unit_price, total_price.
+If the invoice has multiple code columns (for example Dist Item, Item, and PA Product ID), keep the PA Product ID in pa_product_id and keep the other vendor/distributor code in item_number.
+For Worldwide Produce / Produce Alliance style invoices, prefer the human-readable Description column for product_name and capture the PA Product ID exactly as shown.
 Also extract: vendor_name, invoice_number, invoice_date (YYYY-MM-DD), delivery_date (YYYY-MM-DD if shown), total_amount.
 Return ONLY valid JSON, no markdown.`,
           },
@@ -118,6 +129,7 @@ Return ONLY valid JSON, no markdown.`,
                       properties: {
                         product_name: { type: "string" },
                         item_number: { type: "string" },
+                        pa_product_id: { type: "string" },
                         quantity: { type: "number" },
                         unit: { type: "string" },
                         unit_price: { type: "number" },
@@ -176,7 +188,7 @@ Return ONLY valid JSON, no markdown.`,
     // Now match line items against location inventory
     const { data: locationItems } = await admin
       .from("inventory_items")
-      .select("id, name, item_number, vendor_item_id, brand_item_id, cost_per_unit")
+      .select("id, name, item_number, pa_item_id, vendor_item_id, brand_item_id, cost_per_unit")
       .eq("location_id", invoice.location_id)
       .eq("status", "active");
 
@@ -203,25 +215,42 @@ Return ONLY valid JSON, no markdown.`,
       const [templatesRes, mappingsRes] = await Promise.all([
         admin
           .from("brand_inventory_templates")
-          .select("id, product_name, item_number, vendor_source")
+          .select("id, product_name, item_number, pa_item_id, vendor_source")
           .eq("brand_id", brandId),
         admin
           .from("brand_vendor_mappings")
-          .select("brand_template_id, vendor_item_id")
+          .select("brand_template_id, vendor, vendor_item_id")
       ]);
       existingTemplates = templatesRes.data || [];
       existingVendorMappings = mappingsRes.data || [];
     }
 
-    // Build a set of all known vendor item IDs from brand_vendor_mappings
-    const knownVendorIds = new Set(
-      existingVendorMappings.map((m: any) => m.vendor_item_id?.toLowerCase()).filter(Boolean)
-    );
-
-    const itemMap = new Map<string, any>();
+    const localByItemNumber = new Map<string, any>();
+    const localByPaId = new Map<string, any>();
+    const localByName = new Map<string, any>();
+    const localByBrandItemId = new Map<string, any>();
     for (const item of locationItems || []) {
-      if (item.item_number) itemMap.set(item.item_number.toLowerCase(), item);
-      if (item.name) itemMap.set(item.name.toLowerCase(), item);
+      if (item.item_number) localByItemNumber.set(normalizeKey(item.item_number), item);
+      if ((item as any).pa_item_id) localByPaId.set(normalizeKey((item as any).pa_item_id), item);
+      if (item.name) localByName.set(normalizeKey(item.name), item);
+      if (item.brand_item_id) localByBrandItemId.set(item.brand_item_id, item);
+    }
+
+    const templateByItemNumber = new Map<string, any>();
+    const templateByPaId = new Map<string, any>();
+    const templateByName = new Map<string, any>();
+    for (const template of existingTemplates) {
+      if (template.item_number) templateByItemNumber.set(normalizeKey(template.item_number), template);
+      if ((template as any).pa_item_id) templateByPaId.set(normalizeKey((template as any).pa_item_id), template);
+      if (template.product_name) templateByName.set(normalizeKey(template.product_name), template);
+    }
+
+    const templateIdByVendorKey = new Map<string, string>();
+    for (const mapping of existingVendorMappings) {
+      const vendorItemId = String(mapping.vendor_item_id || "").trim();
+      const vendor = String((mapping as any).vendor || "").trim().toLowerCase();
+      if (!vendorItemId) continue;
+      templateIdByVendorKey.set(`${vendor}:${normalizeKey(vendorItemId)}`, mapping.brand_template_id);
     }
 
     // Generate a deterministic ID for items without a vendor SKU
@@ -242,14 +271,44 @@ Return ONLY valid JSON, no markdown.`,
     const priceUpdates: { id: string; cost: number; pack_size?: string | null }[] = [];
 
     for (const li of parsed.line_items || []) {
-      // Auto-assign item_number if vendor didn't provide one
-      if (!li.item_number && li.product_name) {
+      const vendorItemNumber = firstNonEmpty(li.item_number, li.dist_item_number, li.distributor_item_number, li.item_code);
+      const paProductId = firstNonEmpty(li.pa_product_id, li.pa_item_id, li.paProductId);
+
+      if (!vendorItemNumber && !paProductId && li.product_name) {
         li.item_number = generateItemId(parsed.vendor_name, li.product_name);
+      } else {
+        li.item_number = vendorItemNumber || paProductId || li.item_number || null;
       }
 
-      const matchByNumber = li.item_number ? itemMap.get(li.item_number.toLowerCase()) : null;
-      const matchByName = li.product_name ? itemMap.get(li.product_name.toLowerCase()) : null;
-      const match = matchByNumber || matchByName;
+      let matchedTemplateId: string | null = null;
+      let match = null;
+
+      if (paProductId) {
+        match = localByPaId.get(normalizeKey(paProductId)) || null;
+        matchedTemplateId =
+          templateIdByVendorKey.get(`produce_alliance:${normalizeKey(paProductId)}`) ||
+          templateIdByVendorKey.get(`pa:${normalizeKey(paProductId)}`) ||
+          templateByPaId.get(normalizeKey(paProductId))?.id ||
+          null;
+        if (!match && matchedTemplateId) {
+          match = localByBrandItemId.get(matchedTemplateId) || null;
+        }
+      }
+
+      if (!match && li.item_number) {
+        match = localByItemNumber.get(normalizeKey(li.item_number)) || null;
+      }
+      if (!match && li.product_name) {
+        match = localByName.get(normalizeKey(li.product_name)) || null;
+      }
+      if (!matchedTemplateId) {
+        matchedTemplateId =
+          (match?.brand_item_id as string | undefined) ||
+          (paProductId ? templateByPaId.get(normalizeKey(paProductId))?.id : null) ||
+          (li.item_number ? templateByItemNumber.get(normalizeKey(li.item_number))?.id : null) ||
+          (li.product_name ? templateByName.get(normalizeKey(li.product_name))?.id : null) ||
+          null;
+      }
 
       const itemRow: any = {
         invoice_id: invoiceId,
@@ -259,8 +318,9 @@ Return ONLY valid JSON, no markdown.`,
         unit: li.unit || null,
         unit_price: li.unit_price || null,
         total_price: li.total_price || null,
-        match_status: match ? "matched" : "unmatched",
+        match_status: match ? "matched" : matchedTemplateId ? "matched_brand" : "unmatched",
         matched_item_id: match?.id || null,
+        matched_template_id: matchedTemplateId,
       };
 
       if (match && li.unit_price && li.unit_price > 0) {
@@ -273,45 +333,20 @@ Return ONLY valid JSON, no markdown.`,
 
       // For unmatched items: check if brand template already exists (dedup)
       // Cross-reference BOTH brand_inventory_templates AND brand_vendor_mappings
-      if (!match && brandId && li.product_name) {
-        const templateByNumber = li.item_number
-          ? existingTemplates.find(t => t.item_number?.toLowerCase() === li.item_number.toLowerCase())
-          : null;
-        const templateByName = existingTemplates.find(
-          t => t.product_name.toLowerCase() === li.product_name.toLowerCase()
-        );
-        // Also check if this vendor SKU is already mapped in brand_vendor_mappings
-        const mappedByVendorId = li.item_number
-          ? knownVendorIds.has(li.item_number.toLowerCase())
-          : false;
+      if (!match && !matchedTemplateId && brandId && li.product_name) {
+        const fallbackGapId = paProductId || li.item_number || generateItemId(parsed.vendor_name, li.product_name);
 
-        if (!templateByNumber && !templateByName && !mappedByVendorId) {
+        if (!templateByName.get(normalizeKey(li.product_name))) {
           newGapAlerts.push({
             brand_id: brandId,
-            item_number: li.item_number || generateItemId(parsed.vendor_name, li.product_name),
+            item_number: fallbackGapId,
             vendor_name: parsed.vendor_name || "Unknown Vendor",
             vendor_description: li.product_name,
-            vendor_source: `invoice`,
+            vendor_source: paProductId ? "produce_alliance" : `invoice`,
             category_name: null,
             pack_size: li.unit || null,
             status: "new",
           });
-        } else {
-          // Already exists as template or mapping — link to the template
-          const existingTemplate = templateByNumber || templateByName;
-          if (existingTemplate) {
-            itemRow.matched_template_id = existingTemplate.id;
-            itemRow.match_status = "matched_brand";
-          } else if (mappedByVendorId) {
-            // Find the template ID via the vendor mapping
-            const mapping = existingVendorMappings.find(
-              (m: any) => m.vendor_item_id?.toLowerCase() === li.item_number.toLowerCase()
-            );
-            if (mapping?.brand_template_id) {
-              itemRow.matched_template_id = mapping.brand_template_id;
-              itemRow.match_status = "matched_brand";
-            }
-          }
         }
       }
 
@@ -346,12 +381,15 @@ Return ONLY valid JSON, no markdown.`,
       if (gapErr) console.error("Error creating gap alerts:", gapErr);
     }
 
+    const matchedCount = insertItems.filter(i => i.match_status === "matched" || i.match_status === "matched_brand").length;
+    const unmatchedCount = insertItems.filter(i => i.match_status === "unmatched").length;
+
     return new Response(JSON.stringify({
       success: true,
       vendor_name: parsed.vendor_name,
       total_items: insertItems.length,
-      matched: insertItems.filter(i => i.match_status === "matched").length,
-      unmatched: insertItems.filter(i => i.match_status === "unmatched").length,
+      matched: matchedCount,
+      unmatched: unmatchedCount,
       new_gap_alerts: newGapAlerts.length,
       price_updates: priceUpdates.length,
     }), {
