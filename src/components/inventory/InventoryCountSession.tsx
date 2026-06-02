@@ -2105,10 +2105,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const casesVal = counts[key]?.cases || 0;
       const unitsVal = counts[key]?.units || 0;
       const innerVal = counts[key]?.innerPacks || 0;
-      const lens = (lensEnabledForLocation === true && item.brand_item_id)
-        ? packLensMap?.get(item.brand_item_id) ?? null
-        : null;
-      const innerPackQty = Number((item as any).inner_pack_quantity ?? (lens as any)?.inner_qty ?? 0) || null;
+      // Phase 4 (2026-06-02): manual save MUST persist the resolver-derived inner factor
+      // (snapshot > lens > local) — same source as autosave and the rest of the screen.
+      // Without this, manual submits leave inner_pack_quantity_at_count NULL on items
+      // that have a resolvable inner tier, causing reload-time inflation by ~ipq×.
+      const innerPackQty = resolveInnerPackQtyForTotal(item);
       return {
         item_id: item.item_id,
         quantity: getItemTotalIncludingLegs(item, key, resolveItemPackQty(item), resolveInnerPackQtyForTotal(item)),
