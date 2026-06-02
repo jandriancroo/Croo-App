@@ -33,6 +33,7 @@ export async function calculateUsageRates(
       .select("id, count_date, period_end_date, counted_at")
       .eq("location_id", locationId)
       .eq("status", "completed")
+      .eq("is_sandbox", false) // never anchor against a sandbox count
       .neq("id", countId)
       .order("count_date", { ascending: false })
       .limit(1)

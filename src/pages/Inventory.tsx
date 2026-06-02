@@ -100,6 +100,7 @@ const Inventory = () => {
         .from("inventory_counts")
         .select("*")
         .eq("location_id", locationId)
+        .eq("is_sandbox", false)
         .eq("status", "in_progress")
         .order("started_at", { ascending: false })
         .limit(1)
@@ -122,6 +123,7 @@ const Inventory = () => {
           counted_by_profile:profiles!inventory_counts_counted_by_fkey(full_name)
         `)
         .eq("location_id", locationId)
+        .eq("is_sandbox", false)
         .order("count_date", { ascending: false })
         .limit(500);
       
@@ -312,6 +314,7 @@ const Inventory = () => {
         .from("inventory_counts")
         .select("*")
         .eq("location_id", locationId)
+        .eq("is_sandbox", false)
         .eq("status", "in_progress");
 
       if (periodType && periodEndDate) {

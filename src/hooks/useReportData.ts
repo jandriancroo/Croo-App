@@ -71,6 +71,7 @@ async function fetchLocationData(
     .select('id, count_date, period_end_date, period_type')
     .eq('location_id', locationId)
     .eq('status', 'completed')
+    .eq('is_sandbox', false)
     .gte('period_end_date', fromISO)
     .lte('period_end_date', toISO)
     .order('period_end_date', { ascending: false });
@@ -151,6 +152,7 @@ async function fetchLocationData(
       .select('id, count_date, period_end_date')
       .eq('location_id', locationId)
       .eq('status', 'completed')
+      .eq('is_sandbox', false)
       .eq('period_type', endingCountRow.period_type)
       .lt('period_end_date', endingCountRow.period_end_date)
       .order('period_end_date', { ascending: false })
@@ -165,6 +167,7 @@ async function fetchLocationData(
         .select('id, count_date, period_end_date')
         .eq('location_id', locationId)
         .eq('status', 'completed')
+        .eq('is_sandbox', false)
         .lt('period_end_date', endingCountRow.period_end_date)
         .order('period_end_date', { ascending: false })
         .limit(1)
@@ -247,6 +250,7 @@ async function fetchLocationData(
         .from('inventory_counts')
         .select('id')
         .eq('location_id', locationId)
+        .eq('is_sandbox', false)
         .eq('period_type', 'weekly')
         .gte('period_end_date', periodStart)
         .lte('period_end_date', periodEnd);

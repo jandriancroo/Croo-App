@@ -178,6 +178,7 @@ export default function OrderReconciliationPicker({
           .from("inventory_counts")
           .select("id")
           .eq("location_id", locationId)
+          .eq("is_sandbox", false)
           .eq("period_type", "weekly")
           .gte("period_end_date", periodStartDate)
           .lte("period_end_date", periodEndDate);

@@ -86,6 +86,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         .select("id, period_type, period_end_date, is_late_close, counted_at, sales_end_override, sales_start_override")
         .eq("location_id", locationId)
         .eq("status", "completed")
+        .eq("is_sandbox", false)
         .lt("period_end_date", count.period_end_date)
         .order("period_end_date", { ascending: false })
         .limit(5);
@@ -270,6 +271,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           .from("inventory_counts")
           .select("id")
           .eq("location_id", locationId)
+          .eq("is_sandbox", false)
           .eq("period_type", "weekly")
           .gte("period_end_date", periodRange.startStr)
           .lte("period_end_date", periodRange.endStr);
@@ -386,6 +388,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         .select("id, period_end_date, count_date")
         .eq("location_id", locationId)
         .eq("status", "completed")
+        .eq("is_sandbox", false)
         .lt("period_end_date", periodRange.startStr)
         .order("period_end_date", { ascending: false })
         .limit(1);

@@ -54,6 +54,7 @@ const DeliveryReconciliation = ({ countId, locationId, onComplete }: DeliveryRec
         .select("id, count_date, counted_at")
         .eq("location_id", locationId)
         .eq("status", "completed")
+        .eq("is_sandbox", false)
         .neq("id", countId)
         .order("count_date", { ascending: false })
         .limit(1)
