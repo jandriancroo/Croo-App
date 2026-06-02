@@ -25,6 +25,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
+import { useBrandConversions } from "@/hooks/useBrandConversions";
 
 const StartCountDialog = lazyWithRetry(() => import("@/components/inventory/StartCountDialog"));
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
