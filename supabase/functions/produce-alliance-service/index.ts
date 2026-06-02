@@ -1932,6 +1932,41 @@ async function handleSaveCredentials(supabase: any, body: any): Promise<Response
   return jsonResponse({ success: true, message: 'Produce Alliance connected!' });
 }
 
+// ============================================================================
+// SET SYNC MODE — toggle between 'orders' (default) and 'invoices'
+// Stores on 'invoices' get nightly + manual invoice pulls from PA portal.
+// Stores on 'orders' use the legacy orders endpoint + manual PDF upload fallback.
+// Mutually exclusive — never both at once.
+// ============================================================================
+async function handleSetSyncMode(supabase: any, body: any): Promise<Response> {
+  const { locationId, syncMode } = body;
+  if (!locationId) return jsonResponse({ success: false, error: 'Missing locationId' }, 400);
+  if (syncMode !== 'orders' && syncMode !== 'invoices') {
+    return jsonResponse({ success: false, error: "syncMode must be 'orders' or 'invoices'" }, 400);
+  }
+
+  const { data: row, error: readErr } = await supabase
+    .from('location_integrations')
+    .select('credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'produce_alliance')
+    .maybeSingle();
+
+  if (readErr || !row) {
+    return jsonResponse({ success: false, error: 'PA integration not found for this location' }, 404);
+  }
+
+  const creds = { ...(row.credentials as any), sync_mode: syncMode };
+  const { error: writeErr } = await supabase
+    .from('location_integrations')
+    .update({ credentials: creds, updated_at: new Date().toISOString() })
+    .eq('location_id', locationId)
+    .eq('integration_type', 'produce_alliance');
+
+  if (writeErr) return jsonResponse({ success: false, error: writeErr.message }, 500);
+  return jsonResponse({ success: true, syncMode });
+}
+
 async function handleExplore(supabase: any, body: any): Promise<Response> {
   const { locationId } = body;
   const credentials = await getCredentials(supabase, locationId);
