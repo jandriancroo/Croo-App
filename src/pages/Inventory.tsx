@@ -25,6 +25,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
+import SandboxCountsPanel from "@/components/inventory/SandboxCountsPanel";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 
 const StartCountDialog = lazyWithRetry(() => import("@/components/inventory/StartCountDialog"));
@@ -100,6 +101,7 @@ const Inventory = () => {
         .from("inventory_counts")
         .select("*")
         .eq("location_id", locationId)
+        .eq("is_sandbox", false)
         .eq("status", "in_progress")
         .order("started_at", { ascending: false })
         .limit(1)
@@ -122,6 +124,7 @@ const Inventory = () => {
           counted_by_profile:profiles!inventory_counts_counted_by_fkey(full_name)
         `)
         .eq("location_id", locationId)
+        .eq("is_sandbox", false)
         .order("count_date", { ascending: false })
         .limit(500);
       
@@ -312,6 +315,7 @@ const Inventory = () => {
         .from("inventory_counts")
         .select("*")
         .eq("location_id", locationId)
+        .eq("is_sandbox", false)
         .eq("status", "in_progress");
 
       if (periodType && periodEndDate) {
@@ -503,7 +507,8 @@ const Inventory = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="count" className="mt-4">
+          <TabsContent value="count" className="mt-4 space-y-4">
+            <SandboxCountsPanel locationId={locationId!} />
             <InventoryCountTab
               locationId={locationId!}
               inProgressCount={inProgressCount}

@@ -148,6 +148,7 @@ const StartCountDialog = ({
         .from("inventory_counts")
         .select("period_type, period_end_date, status")
         .eq("location_id", locationId)
+        .eq("is_sandbox", false) // sandbox counts must not mark a period as already counted
         .not("period_end_date", "is", null);
       
       if (error) throw error;
@@ -728,6 +729,7 @@ const StartCountDialog = ({
         .from("inventory_counts")
         .select("*")
         .eq("location_id", locationId)
+        .eq("is_sandbox", false)
         .eq("status", "in_progress");
 
       if (selected.periodEndDate) {

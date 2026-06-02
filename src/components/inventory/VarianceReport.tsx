@@ -112,6 +112,7 @@ const VarianceReport = ({ countId, locationId, periodEndDate, provenCogs }: Vari
         .select("id, period_end_date")
         .eq("location_id", locationId)
         .eq("status", "completed")
+        .eq("is_sandbox", false)
         .neq("id", countId)
         .lt("period_end_date", periodEndDate)
         .order("period_end_date", { ascending: false })

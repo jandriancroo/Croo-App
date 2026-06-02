@@ -526,13 +526,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("duration_seconds")
+        .select("duration_seconds, is_sandbox")
         .eq("id", countId)
         .single();
       if (error) throw error;
       return data;
     }
   });
+  const isSandboxCount = !!(countRecord as any)?.is_sandbox;
 
   // Initialize counts from items — ONLY ONCE on first load
   // Uses entered_cases/entered_units when available (preserves raw user input)
@@ -2634,6 +2635,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   <div className="flex items-center gap-1.5 text-amber-600 text-xs font-medium whitespace-nowrap">
                     <History className="h-4 w-4" />
                     <span>Editing</span>
+                  </div>
+                </>
+              )}
+              {isSandboxCount && (
+                <>
+                  <div className="h-5 w-px bg-border" />
+                  <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/50 rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap">
+                    🧪 Sandbox · not counted in any report
                   </div>
                 </>
               )}
