@@ -482,7 +482,9 @@ async function handleProbeInvoices(supabase: any, body: any): Promise<Response> 
   const postBody = JSON.stringify({
     limit: 100,
     offset: 0,
+    filters: {},
     restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+    orderByFields: { INVOICE_DATE: "DESC" },
   });
 
   const headers: Record<string, string> = {
