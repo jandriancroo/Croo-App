@@ -526,6 +526,49 @@ async function handleProbeInvoices(supabase: any, body: any): Promise<Response> 
   return jsonResponse({ success: resp.ok, restaurantId: session.restaurantId, range: { sd, ed }, summary });
 }
 
+// Probe invoice DETAIL — line items for one invoice
+async function handleProbeInvoiceDetail(supabase: any, body: any): Promise<Response> {
+  const { locationId, invoiceNumber, distributorId, clientId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  const url = `${PA_BASE_URL}/api/view-invoice-details/get-detail-invoice?distributorId=${distributorId}&restaurantId=${session.restaurantId}&invoiceNumber=${invoiceNumber}&clientId=${clientId}`;
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(session),
+    'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/view-invoice-details?invoiceNumber=${invoiceNumber}&distributorId=${distributorId}&restaurantId=${session.restaurantId}&clientId=${clientId}`,
+  };
+  console.log('[PA Inv Detail PROBE] GET', url);
+  const resp = await fetch(url, { method: 'GET', headers, redirect: 'follow' });
+  const text = await resp.text();
+  console.log('[PA Inv Detail PROBE] status:', resp.status, 'len:', text.length);
+  let parsed: any = null; try { parsed = JSON.parse(text); } catch {}
+  const summary: any = { status: resp.status, length: text.length };
+  if (parsed) {
+    if (Array.isArray(parsed)) {
+      summary.shape = `array[${parsed.length}]`; summary.sample = parsed[0];
+    } else {
+      summary.topKeys = Object.keys(parsed);
+      for (const k of summary.topKeys) {
+        const v = parsed[k];
+        if (Array.isArray(v)) {
+          summary[`${k}_array_len`] = v.length;
+          if (v[0]) summary[`${k}_sample_keys`] = Object.keys(v[0]);
+          if (v[0]) summary[`${k}_sample`] = v[0];
+        } else if (typeof v === 'object' && v !== null) {
+          summary[`${k}_keys`] = Object.keys(v);
+        } else {
+          summary[k] = v;
+        }
+      }
+    }
+  } else {
+    summary.rawPreview = text.substring(0, 1000);
+  }
+  return jsonResponse({ success: resp.ok, summary });
+}
+
 
 function extractOrdersFromJson(data: any): PAOrderSummary[] {
   // The PA API returns: { records, selectedProductCounts, extraParams, dataList }
