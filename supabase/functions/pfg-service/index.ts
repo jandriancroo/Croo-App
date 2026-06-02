@@ -1725,7 +1725,9 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       const { accessToken } = tokenResult;
 
       const customerIdToUse = credentials.customer_id;
-      const orderData = await fetchOrderHistory(accessToken, customerIdToUse);
+      const daysBack = typeof body?.daysBack === 'number' && body.daysBack > 0 ? body.daysBack : 14;
+      const orderData = await fetchOrderHistory(accessToken, customerIdToUse, daysBack);
+
       
       console.log('[PFG Sync] Raw response keys:', JSON.stringify(Object.keys(orderData || {})));
       console.log('[PFG Sync] IsSuccess:', orderData?.IsSuccess);
