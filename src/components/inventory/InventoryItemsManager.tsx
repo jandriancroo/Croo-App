@@ -1151,6 +1151,22 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                     )}
                     Sync PA
                   </Button>
+                  {(paIntegration.credentials as any)?.sync_mode === 'invoices' && (
+                    <Button
+                      className="w-full mt-2"
+                      variant="secondary"
+                      size="sm"
+                      onClick={pullPaInvoices}
+                      disabled={isPaSyncing}
+                    >
+                      {isPaSyncing ? (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <img src={paLogo} alt="PA" className="h-5 w-auto mr-1.5" />
+                      )}
+                      Pull PA Invoices
+                    </Button>
+                  )}
                   {paProgress && (
                     <div className="mt-1.5 space-y-1">
                       <p className="text-xs text-muted-foreground truncate">{paProgress.phase}</p>
