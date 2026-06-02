@@ -69,9 +69,14 @@ export default function OrderReconciliationPicker({
     setIsRescanning(true);
     try {
       const beforeCount = (orders || []).filter((o) => o.sourceType === "pfg").length;
+      // Cover the full reconciliation period plus a 7-day buffer (min 21 days)
+      // so month-end counts pull every order in the window, not just the last 14 days.
+      const periodStartMs = periodStartDate ? new Date(periodStartDate).getTime() : Date.now() - 21 * 86400000;
+      const daysBack = Math.max(21, Math.ceil((Date.now() - periodStartMs) / 86400000) + 7);
       const { data, error } = await supabase.functions.invoke("pfg-service", {
-        body: { action: "sync_orders", locationId },
+        body: { action: "sync_orders", locationId, daysBack },
       });
+
       if (error) throw error;
       await queryClient.invalidateQueries({
         queryKey: ["order-reconciliation-v2", locationId],
