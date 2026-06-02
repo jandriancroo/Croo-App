@@ -615,7 +615,10 @@ async function handleInvoices(supabase: any, body: any): Promise<Response> {
       total: li.extended_cost,
       master_product_code: li.master_product_code,
       master_product_desc: li.master_product_desc,
-      vendor_name: li.vendor_name,
+      // Force PA branding so existing pa_product_id mappings match cleanly.
+      // Actual distributor (e.g. "Worldwide Produce") is preserved in raw_data.detail.
+      vendor_name: 'Produce Alliance',
+      actual_distributor: li.vendor_name,
     }));
 
     // pa_order_id namespaced so invoices never collide with web orders
@@ -1927,6 +1930,88 @@ async function handleSaveCredentials(supabase: any, body: any): Promise<Response
   if (error) throw error;
 
   return jsonResponse({ success: true, message: 'Produce Alliance connected!' });
+}
+
+// ============================================================================
+// SET SYNC MODE — toggle between 'orders' (default) and 'invoices'
+// Stores on 'invoices' get nightly + manual invoice pulls from PA portal.
+// Stores on 'orders' use the legacy orders endpoint + manual PDF upload fallback.
+// Mutually exclusive — never both at once.
+// ============================================================================
+async function handleSetSyncMode(supabase: any, body: any): Promise<Response> {
+  const { locationId, syncMode } = body;
+  if (!locationId) return jsonResponse({ success: false, error: 'Missing locationId' }, 400);
+  if (syncMode !== 'orders' && syncMode !== 'invoices') {
+    return jsonResponse({ success: false, error: "syncMode must be 'orders' or 'invoices'" }, 400);
+  }
+
+  const { data: row, error: readErr } = await supabase
+    .from('location_integrations')
+    .select('credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'produce_alliance')
+    .maybeSingle();
+
+  if (readErr || !row) {
+    return jsonResponse({ success: false, error: 'PA integration not found for this location' }, 404);
+  }
+
+  const creds = { ...(row.credentials as any), sync_mode: syncMode };
+  const { error: writeErr } = await supabase
+    .from('location_integrations')
+    .update({ credentials: creds, updated_at: new Date().toISOString() })
+    .eq('location_id', locationId)
+    .eq('integration_type', 'produce_alliance');
+
+  if (writeErr) return jsonResponse({ success: false, error: writeErr.message }, 500);
+  return jsonResponse({ success: true, syncMode });
+}
+
+// ============================================================================
+// NIGHTLY INVOICE SYNC — called by pg_cron @ 3:30 AM PST
+// Iterates every location with sync_mode='invoices' and pulls last 3 days of invoices
+// (overlap window catches late-posting WW Produce phone orders).
+// ============================================================================
+async function handleNightlyInvoiceSync(supabase: any, _body: any): Promise<Response> {
+  console.log('[PA Nightly] starting invoice sync for all invoices-mode locations');
+
+  const { data: locs, error } = await supabase
+    .from('location_integrations')
+    .select('location_id, credentials')
+    .eq('integration_type', 'produce_alliance')
+    .eq('is_active', true);
+
+  if (error) return jsonResponse({ success: false, error: error.message }, 500);
+
+  const targets = (locs || []).filter((l: any) => (l.credentials as any)?.sync_mode === 'invoices');
+  console.log(`[PA Nightly] ${targets.length} location(s) on invoices mode (of ${locs?.length || 0} total)`);
+
+  // Last 3 days (overlap catches late portal posts)
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const end = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const past = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+  const start = `${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}`;
+
+  const results: any[] = [];
+  for (const loc of targets) {
+    try {
+      const res = await handleInvoices(supabase, {
+        locationId: loc.location_id,
+        startDate: start,
+        endDate: end,
+        maxInvoices: 50,
+      });
+      const json = await res.json();
+      results.push({ locationId: loc.location_id, ...json });
+    } catch (e) {
+      results.push({ locationId: loc.location_id, success: false, error: (e as Error).message });
+    }
+    // light throttle between locations
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  return jsonResponse({ success: true, range: { start, end }, processed: targets.length, results });
 }
 
 async function handleExplore(supabase: any, body: any): Promise<Response> {
@@ -3277,6 +3362,8 @@ serve(async (req) => {
       case 'scrape_catalog_live': return await handleScrapeCatalogLive(supabase, body);
       case 'scrape_all_catalogs': return await handleScrapeAllCatalogs(supabase, body);
       case 'invoices': return await handleInvoices(supabase, body);
+      case 'set_sync_mode': return await handleSetSyncMode(supabase, body);
+      case 'nightly_invoice_sync': return await handleNightlyInvoiceSync(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {

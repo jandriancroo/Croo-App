@@ -1067,6 +1067,31 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   };
 
+  // Pull recent PA invoices (for stores with sync_mode='invoices' — e.g. Worldwide Produce phone orders)
+  const pullPaInvoices = async () => {
+    if (!paIntegration) return;
+    setIsPaSyncing(true);
+    setPaProgress({ phase: "Pulling PA invoices...", current: 20, total: 100 });
+    try {
+      const { data, error } = await supabase.functions.invoke("produce-alliance-service", {
+        body: { action: "invoices", locationId },
+      });
+      if (error) throw error;
+      setPaProgress({ phase: "Complete!", current: 100, total: 100 });
+      queryClient.invalidateQueries({ queryKey: ["last-pa-sync", locationId] });
+      const n = data?.persisted ?? 0;
+      if (n > 0) toast.success(`Pulled ${n} PA invoice(s)`);
+      else toast.info(data?.message || "No new PA invoices in window");
+    } catch (err: any) {
+      console.error("PA invoice pull error:", err);
+      setPaProgress({ phase: "Pull failed", current: 0, total: 100 });
+      toast.error(err.message || "Failed to pull PA invoices");
+    } finally {
+      setIsPaSyncing(false);
+      setTimeout(() => setPaProgress(null), 2000);
+    }
+  };
+
   return (
     <>
     <div className="space-y-6">
@@ -1126,6 +1151,22 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                     )}
                     Sync PA
                   </Button>
+                  {(paIntegration.credentials as any)?.sync_mode === 'invoices' && (
+                    <Button
+                      className="w-full mt-2"
+                      variant="secondary"
+                      size="sm"
+                      onClick={pullPaInvoices}
+                      disabled={isPaSyncing}
+                    >
+                      {isPaSyncing ? (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <img src={paLogo} alt="PA" className="h-5 w-auto mr-1.5" />
+                      )}
+                      Pull PA Invoices
+                    </Button>
+                  )}
                   {paProgress && (
                     <div className="mt-1.5 space-y-1">
                       <p className="text-xs text-muted-foreground truncate">{paProgress.phase}</p>

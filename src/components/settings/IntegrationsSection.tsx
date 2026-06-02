@@ -1074,6 +1074,47 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 Save
               </Button>
             </div>
+            {/* Sync Mode Toggle — mutually exclusive */}
+            {paConnected && (
+              <div className="rounded-md border p-3 space-y-2">
+                <Label className="text-sm font-medium">Sync Source</Label>
+                <p className="text-xs text-muted-foreground">
+                  Choose where this store's PA data comes from. Stores can't use both at once.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['orders', 'invoices'] as const).map((mode) => {
+                    const current = ((paIntegration?.credentials as any)?.sync_mode || 'orders') as 'orders' | 'invoices';
+                    const active = current === mode;
+                    return (
+                      <Button
+                        key={mode}
+                        type="button"
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={async () => {
+                          if (active) return;
+                          try {
+                            const { data, error } = await supabase.functions.invoke('produce-alliance-service', {
+                              body: { action: 'set_sync_mode', locationId, syncMode: mode },
+                            });
+                            if (error || !data?.success) throw new Error(data?.error || error?.message || 'Failed');
+                            toast.success(`Sync source set to ${mode === 'orders' ? 'Portal Orders' : 'Portal Invoices'}`);
+                            queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'produce_alliance'] });
+                          } catch (e: any) {
+                            toast.error(e.message || 'Failed to update sync source');
+                          }
+                        }}
+                      >
+                        {mode === 'orders' ? 'Portal Orders' : 'Portal Invoices'}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  <strong>Portal Orders</strong> = the standard PA web-order flow. <strong>Portal Invoices</strong> = use when the store orders outside PA (e.g. Worldwide Produce phone/app orders) and invoices land in the PA portal.
+                </p>
+              </div>
+            )}
             {/* Delivery Schedule */}
             {paConnected && (
               <DeliveryScheduleEditor
