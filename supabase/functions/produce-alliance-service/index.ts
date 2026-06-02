@@ -462,6 +462,69 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
   return [];
 }
 
+// ============================================================================
+// INVOICE LIST PROBE — captures raw shape from fetch-invoices-for-restaurant-by-params
+// ============================================================================
+async function handleProbeInvoices(supabase: any, body: any): Promise<Response> {
+  const { locationId, startDate, endDate } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const sd = startDate || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+  const ed = endDate || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+  const url = `${PA_BASE_URL}/api/restaurant-dashboard/fetch-invoices-for-restaurant-by-params?startDate=${sd}&endDate=${ed}&filterStr=all`;
+  const postBody = JSON.stringify({
+    limit: 100,
+    offset: 0,
+    restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+  });
+
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(session),
+    'Content-Type': 'application/json',
+    'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/viewInvoices?startDate=${sd}&endDate=${ed}&invoiceNumber=&originalInvoiceNumber=`,
+  };
+
+  console.log('[PA Invoices PROBE] POST', url, 'body:', postBody);
+  const resp = await fetch(url, { method: 'POST', headers, body: postBody, redirect: 'follow' });
+  const text = await resp.text();
+  console.log('[PA Invoices PROBE] status:', resp.status, 'len:', text.length);
+
+  let parsed: any = null;
+  try { parsed = JSON.parse(text); } catch { /* not json */ }
+
+  const summary: any = { status: resp.status, length: text.length };
+  if (parsed) {
+    if (Array.isArray(parsed)) {
+      summary.shape = `array[${parsed.length}]`;
+      summary.sample = parsed[0] || null;
+    } else {
+      summary.topKeys = Object.keys(parsed);
+      for (const k of summary.topKeys) {
+        const v = parsed[k];
+        if (Array.isArray(v)) {
+          summary[`${k}_array_len`] = v.length;
+          if (v[0]) summary[`${k}_sample_keys`] = Object.keys(v[0]);
+          if (v[0]) summary[`${k}_sample`] = v[0];
+        } else {
+          summary[k] = v;
+        }
+      }
+    }
+  } else {
+    summary.rawPreview = text.substring(0, 1000);
+  }
+
+  return jsonResponse({ success: resp.ok, restaurantId: session.restaurantId, range: { sd, ed }, summary });
+}
+
+
 function extractOrdersFromJson(data: any): PAOrderSummary[] {
   // The PA API returns: { records, selectedProductCounts, extraParams, dataList }
   // Orders are in dataList (array of order objects)
