@@ -180,7 +180,7 @@ export function setCachedLiveSales(locationId: string, data: any): void {
 
 // === HOURLY PATTERN CACHE (valid for entire day) ===
 
-export function getCachedHourlyPattern(locationId: string): { hour: number; avgPercent: number }[] | null {
+export function getCachedHourlyPattern(locationId: string, timezone?: string): { hour: number; avgPercent: number }[] | null {
   try {
     const key = getHourlyPatternCacheKey(locationId);
     const cached = localStorage.getItem(key);
@@ -192,8 +192,8 @@ export function getCachedHourlyPattern(locationId: string): { hour: number; avgP
     // Check version
     if (parsed.version !== CACHE_VERSION) return null;
     
-    // Only valid for today
-    const { date: currentDate } = getPSTDate();
+    // Only valid for today (in the store's local timezone)
+    const { date: currentDate } = getLocalDate(timezone);
     if (parsed.validForDate !== currentDate) {
       localStorage.removeItem(key);
       return null;
@@ -205,10 +205,10 @@ export function getCachedHourlyPattern(locationId: string): { hour: number; avgP
   }
 }
 
-export function setCachedHourlyPattern(locationId: string, pattern: { hour: number; avgPercent: number }[]): void {
+export function setCachedHourlyPattern(locationId: string, pattern: { hour: number; avgPercent: number }[], timezone?: string): void {
   try {
     const key = getHourlyPatternCacheKey(locationId);
-    const { date: currentDate } = getPSTDate();
+    const { date: currentDate } = getLocalDate(timezone);
     const cacheEntry: CachedHourlyPattern = {
       version: CACHE_VERSION,
       cachedAt: new Date().toISOString(),
@@ -222,7 +222,7 @@ export function setCachedHourlyPattern(locationId: string, pattern: { hour: numb
 }
 
 // Get cached projections - only valid until after close of business
-export function getCachedProjections(locationId: string): CachedProjections['data'] | null {
+export function getCachedProjections(locationId: string, timezone?: string): CachedProjections['data'] | null {
   try {
     const key = getProjectionCacheKey(locationId);
     const cached = localStorage.getItem(key);
@@ -234,10 +234,10 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
     // Check version
     if (parsed.version !== CACHE_VERSION) return null;
     
-    const { date: currentDate, hour: currentHour } = getPSTDate();
+    const { date: currentDate, hour: currentHour } = getLocalDate(timezone);
     const validUntilDate = parsed.validUntil;
     
-    // Cache is valid if we're still on the same day AND before close of business (10 PM)
+    // Cache is valid if we're still on the same day AND before close of business (10 PM local)
     // Once close of business passes, cache expires for the next day's projections
     if (currentDate === validUntilDate && currentHour < 22) {
       // Check if daily projection is still valid (30-min expiry)
@@ -280,17 +280,18 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
 // Cache projections - valid until close of business today
 export function setCachedProjections(
   locationId: string,
-  data: { todayProjected?: number; todayPaceAdjusted?: number; todaySource?: string; weekProjected: number; monthProjected: number }
+  data: { todayProjected?: number; todayPaceAdjusted?: number; todaySource?: string; weekProjected: number; monthProjected: number },
+  timezone?: string
 ): void {
   try {
     const key = getProjectionCacheKey(locationId);
-    const { date: currentDate } = getPSTDate();
+    const { date: currentDate } = getLocalDate(timezone);
     const now = new Date().toISOString();
     
     const cacheEntry: CachedProjections = {
       version: CACHE_VERSION,
       cachedAt: now,
-      validUntil: currentDate, // Valid until close of business today
+      validUntil: currentDate, // Valid until close of business today (in store's local timezone)
       data: {
         ...data,
         todayProjectedAt: data.todayProjected ? now : undefined,
@@ -303,6 +304,7 @@ export function setCachedProjections(
     // localStorage might be full - ignore
   }
 }
+
 
 // Clean up old cache entries (call occasionally)
 export function cleanupOldSalesCache(daysToKeep: number = 90): void {
