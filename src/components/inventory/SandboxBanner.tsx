@@ -419,7 +419,79 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Pick source dialog */}
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pick a source count to clone</DialogTitle>
+            <DialogDescription>
+              Choose any real location + count. The clone replaces this sandbox
+              count with a fresh copy of the source.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Location</label>
+              <Select
+                value={pickerLocationId}
+                onValueChange={(v) => {
+                  setPickerLocationId(v);
+                  setPickerCountId("");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a real location…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pickerLocations.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Count</label>
+              <Select
+                value={pickerCountId}
+                onValueChange={setPickerCountId}
+                disabled={!pickerLocationId}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      pickerLocationId ? "Select a count…" : "Pick a location first"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {pickerCounts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.count_date} · {c.period_type ?? "count"} · {c.status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPickerOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => cloneFromPicker.mutate()}
+              disabled={!pickerLocationId || !pickerCountId || cloneFromPicker.isPending}
+            >
+              <RotateCw className="h-4 w-4 mr-1.5" />
+              Clone into sandbox
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+
   );
 }
 
