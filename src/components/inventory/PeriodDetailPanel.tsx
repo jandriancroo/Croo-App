@@ -909,12 +909,14 @@ function DailySpotChecksGrid({
   spotChecks,
   todayStr,
   onStartDailyCount,
+  timezone,
 }: {
   periodRange: { startStr: string; endStr: string } | null;
   spotChecks: any[] | undefined;
   locationId: string;
   todayStr: string;
   onStartDailyCount?: () => void;
+  timezone: string;
 }) {
   const [previewCheck, setPreviewCheck] = useState<any | null>(null);
 
