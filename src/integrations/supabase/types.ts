@@ -3539,6 +3539,9 @@ export type Database = {
       }
       inventory_counts: {
         Row: {
+          cloned_at: string | null
+          cloned_from_count_id: string | null
+          cloned_from_location_id: string | null
           completed_at: string | null
           count_date: string
           counted_at: string | null
@@ -3562,6 +3565,9 @@ export type Database = {
           status: string
         }
         Insert: {
+          cloned_at?: string | null
+          cloned_from_count_id?: string | null
+          cloned_from_location_id?: string | null
           completed_at?: string | null
           count_date?: string
           counted_at?: string | null
@@ -3585,6 +3591,9 @@ export type Database = {
           status?: string
         }
         Update: {
+          cloned_at?: string | null
+          cloned_from_count_id?: string | null
+          cloned_from_location_id?: string | null
           completed_at?: string | null
           count_date?: string
           counted_at?: string | null
@@ -5800,6 +5809,7 @@ export type Database = {
       locations: {
         Row: {
           address: string | null
+          brand_id: string | null
           created_at: string
           created_by: string | null
           fresh_kds_active: boolean
@@ -5814,12 +5824,14 @@ export type Database = {
           longitude: number | null
           name: string
           organization_id: string | null
+          requires_super_admin: boolean
           store_number: string | null
           updated_at: string
           vendor_territory: string | null
         }
         Insert: {
           address?: string | null
+          brand_id?: string | null
           created_at?: string
           created_by?: string | null
           fresh_kds_active?: boolean
@@ -5834,12 +5846,14 @@ export type Database = {
           longitude?: number | null
           name: string
           organization_id?: string | null
+          requires_super_admin?: boolean
           store_number?: string | null
           updated_at?: string
           vendor_territory?: string | null
         }
         Update: {
           address?: string | null
+          brand_id?: string | null
           created_at?: string
           created_by?: string | null
           fresh_kds_active?: boolean
@@ -5854,6 +5868,7 @@ export type Database = {
           longitude?: number | null
           name?: string
           organization_id?: string | null
+          requires_super_admin?: boolean
           store_number?: string | null
           updated_at?: string
           vendor_territory?: string | null
@@ -8563,6 +8578,54 @@ export type Database = {
           },
         ]
       }
+      sandbox_active_fix: {
+        Row: {
+          bug_description: string
+          created_at: string
+          deployed_at: string | null
+          id: string
+          last_viewed_at: string | null
+          requested_at: string
+          sandbox_count_id: string
+          sandbox_owner: string
+          source_count_id: string
+          source_count_label: string | null
+          source_location_id: string
+          source_location_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          bug_description: string
+          created_at?: string
+          deployed_at?: string | null
+          id?: string
+          last_viewed_at?: string | null
+          requested_at?: string
+          sandbox_count_id: string
+          sandbox_owner: string
+          source_count_id: string
+          source_count_label?: string | null
+          source_location_id: string
+          source_location_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bug_description?: string
+          created_at?: string
+          deployed_at?: string | null
+          id?: string
+          last_viewed_at?: string | null
+          requested_at?: string
+          sandbox_count_id?: string
+          sandbox_owner?: string
+          source_count_id?: string
+          source_count_label?: string | null
+          source_location_id?: string
+          source_location_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       schedule_change_log: {
         Row: {
           change_type: string
@@ -10603,10 +10666,15 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      can_see_admin_locations: { Args: { _user_id: string }; Returns: boolean }
       check_alerts_sql: { Args: never; Returns: undefined }
       cleanup_internal_logs: { Args: never; Returns: undefined }
       cleanup_theo_chat_messages: { Args: never; Returns: undefined }
       clear_all_pending_pin_plaintext: { Args: never; Returns: Json }
+      clone_count_to_sandbox: {
+        Args: { _source_count_id: string; _source_location_id: string }
+        Returns: string
+      }
       convert_recipe_unit_to_count: {
         Args: { p_count_unit: string; p_recipe_unit: string }
         Returns: number
