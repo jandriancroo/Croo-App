@@ -84,6 +84,9 @@ export default function LocationActivationList({
       return map;
     },
     staleTime: 10 * 60 * 1000,
+  });
+
+
 
   const handleDeploy = async (locationId: string) => {
     setDeployingLocId(locationId);
