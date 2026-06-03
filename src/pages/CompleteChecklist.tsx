@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useIsIOS } from '@/hooks/useIsIOS';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
