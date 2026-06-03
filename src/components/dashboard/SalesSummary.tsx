@@ -565,7 +565,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     
     // Check cache INSIDE the query function to get fresh values
     const cachedProjections = isTodayCheck && currentLocation?.id 
-      ? getCachedProjections(currentLocation.id) 
+      ? getCachedProjections(currentLocation.id, locationZone) 
       : null;
     
     const hasValidDailyCache = cachedProjections?.todayProjected !== undefined;
@@ -778,7 +778,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           todaySource: todaySource || undefined,
           weekProjected, 
           monthProjected 
-        });
+        }, locationZone);
       }
     }
     

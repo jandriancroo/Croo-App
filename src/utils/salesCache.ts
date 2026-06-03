@@ -62,33 +62,38 @@ function getHourlyPatternCacheKey(locationId: string): string {
   return `${HOURLY_PATTERN_CACHE_KEY}${locationId}`;
 }
 
-// Check if date is in the past (in PST timezone for consistency)
-function isDateInPast(dateStr: string): boolean {
-  const { date: todayPST } = getPSTDate();
-  return dateStr < todayPST; // Simple string comparison works for YYYY-MM-DD format
+// Check if date is in the past (in the store's local timezone)
+function isDateInPast(dateStr: string, timezone: string = 'America/Los_Angeles'): boolean {
+  const { date: todayLocal } = getLocalDate(timezone);
+  return dateStr < todayLocal; // Simple string comparison works for YYYY-MM-DD format
 }
 
-// Get current date/time in PST timezone
-function getPSTDate(): { date: string; hour: number } {
+// Get current date/hour in the given timezone (defaults to PST for backward compat)
+function getLocalDate(timezone: string = 'America/Los_Angeles'): { date: string; hour: number } {
   const now = new Date();
-  // Use proper timezone conversion
-  const pstString = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-  const pstDate = new Date(pstString);
-  const year = pstDate.getFullYear();
-  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pstDate.getDate()).padStart(2, '0');
-  return { 
+  const localString = now.toLocaleString('en-US', { timeZone: timezone });
+  const localDate = new Date(localString);
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
+  return {
     date: `${year}-${month}-${day}`,
-    hour: pstDate.getHours()
+    hour: localDate.getHours()
   };
 }
 
-// Check if current time is after close of business (10 PM PST)
-function isAfterCloseOfBusiness(): boolean {
-  return getPSTDate().hour >= 22;
+// Legacy alias — preserved for any external imports
+function getPSTDate(): { date: string; hour: number } {
+  return getLocalDate('America/Los_Angeles');
 }
 
-export function getCachedSalesData(locationId: string, date: string): CachedSalesData['data'] | null {
+// Check if current time is after close of business (10 PM local)
+function isAfterCloseOfBusiness(timezone: string = 'America/Los_Angeles'): boolean {
+  return getLocalDate(timezone).hour >= 22;
+}
+
+
+export function getCachedSalesData(locationId: string, date: string, timezone?: string): CachedSalesData['data'] | null {
   try {
     const key = getCacheKey(locationId, date);
     const cached = localStorage.getItem(key);
@@ -101,7 +106,7 @@ export function getCachedSalesData(locationId: string, date: string): CachedSale
     if (parsed.version !== CACHE_VERSION) return null;
     
     // Only use cache for past dates (historical data won't change)
-    if (!isDateInPast(date)) return null;
+    if (!isDateInPast(date, timezone)) return null;
     
     return parsed.data;
   } catch {
@@ -112,10 +117,11 @@ export function getCachedSalesData(locationId: string, date: string): CachedSale
 export function setCachedSalesData(
   locationId: string, 
   date: string, 
-  data: CachedSalesData['data']
+  data: CachedSalesData['data'],
+  timezone?: string
 ): void {
   // Only cache past dates
-  if (!isDateInPast(date)) return;
+  if (!isDateInPast(date, timezone)) return;
   
   try {
     const key = getCacheKey(locationId, date);
@@ -129,6 +135,7 @@ export function setCachedSalesData(
     // localStorage might be full - ignore
   }
 }
+
 
 // === LIVE SALES CACHE (5-minute TTL for stale-while-revalidate) ===
 
@@ -173,7 +180,7 @@ export function setCachedLiveSales(locationId: string, data: any): void {
 
 // === HOURLY PATTERN CACHE (valid for entire day) ===
 
-export function getCachedHourlyPattern(locationId: string): { hour: number; avgPercent: number }[] | null {
+export function getCachedHourlyPattern(locationId: string, timezone?: string): { hour: number; avgPercent: number }[] | null {
   try {
     const key = getHourlyPatternCacheKey(locationId);
     const cached = localStorage.getItem(key);
@@ -185,8 +192,8 @@ export function getCachedHourlyPattern(locationId: string): { hour: number; avgP
     // Check version
     if (parsed.version !== CACHE_VERSION) return null;
     
-    // Only valid for today
-    const { date: currentDate } = getPSTDate();
+    // Only valid for today (in the store's local timezone)
+    const { date: currentDate } = getLocalDate(timezone);
     if (parsed.validForDate !== currentDate) {
       localStorage.removeItem(key);
       return null;
@@ -198,10 +205,10 @@ export function getCachedHourlyPattern(locationId: string): { hour: number; avgP
   }
 }
 
-export function setCachedHourlyPattern(locationId: string, pattern: { hour: number; avgPercent: number }[]): void {
+export function setCachedHourlyPattern(locationId: string, pattern: { hour: number; avgPercent: number }[], timezone?: string): void {
   try {
     const key = getHourlyPatternCacheKey(locationId);
-    const { date: currentDate } = getPSTDate();
+    const { date: currentDate } = getLocalDate(timezone);
     const cacheEntry: CachedHourlyPattern = {
       version: CACHE_VERSION,
       cachedAt: new Date().toISOString(),
@@ -215,7 +222,7 @@ export function setCachedHourlyPattern(locationId: string, pattern: { hour: numb
 }
 
 // Get cached projections - only valid until after close of business
-export function getCachedProjections(locationId: string): CachedProjections['data'] | null {
+export function getCachedProjections(locationId: string, timezone?: string): CachedProjections['data'] | null {
   try {
     const key = getProjectionCacheKey(locationId);
     const cached = localStorage.getItem(key);
@@ -227,10 +234,10 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
     // Check version
     if (parsed.version !== CACHE_VERSION) return null;
     
-    const { date: currentDate, hour: currentHour } = getPSTDate();
+    const { date: currentDate, hour: currentHour } = getLocalDate(timezone);
     const validUntilDate = parsed.validUntil;
     
-    // Cache is valid if we're still on the same day AND before close of business (10 PM)
+    // Cache is valid if we're still on the same day AND before close of business (10 PM local)
     // Once close of business passes, cache expires for the next day's projections
     if (currentDate === validUntilDate && currentHour < 22) {
       // Check if daily projection is still valid (30-min expiry)
@@ -273,17 +280,18 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
 // Cache projections - valid until close of business today
 export function setCachedProjections(
   locationId: string,
-  data: { todayProjected?: number; todayPaceAdjusted?: number; todaySource?: string; weekProjected: number; monthProjected: number }
+  data: { todayProjected?: number; todayPaceAdjusted?: number; todaySource?: string; weekProjected: number; monthProjected: number },
+  timezone?: string
 ): void {
   try {
     const key = getProjectionCacheKey(locationId);
-    const { date: currentDate } = getPSTDate();
+    const { date: currentDate } = getLocalDate(timezone);
     const now = new Date().toISOString();
     
     const cacheEntry: CachedProjections = {
       version: CACHE_VERSION,
       cachedAt: now,
-      validUntil: currentDate, // Valid until close of business today
+      validUntil: currentDate, // Valid until close of business today (in store's local timezone)
       data: {
         ...data,
         todayProjectedAt: data.todayProjected ? now : undefined,
@@ -296,6 +304,7 @@ export function setCachedProjections(
     // localStorage might be full - ignore
   }
 }
+
 
 // Clean up old cache entries (call occasionally)
 export function cleanupOldSalesCache(daysToKeep: number = 90): void {

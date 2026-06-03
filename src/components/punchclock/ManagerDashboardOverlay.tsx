@@ -627,8 +627,8 @@ export function ManagerDashboardOverlay({
   // Get REAL projections from localStorage cache (same source as Dashboard SalesSummary)
   // This is the SINGLE SOURCE OF TRUTH for projections - Dashboard writes to this cache
   const localStorageProjections = useMemo(() => {
-    return getCachedProjections(locationId);
-  }, [locationId]);
+    return getCachedProjections(locationId, timezone);
+  }, [locationId, timezone]);
   
   // Get REAL live sales data from localStorage cache (same source as Dashboard)
   const localStorageLiveSales = useMemo(() => {

@@ -55,7 +55,7 @@ export function DayBreakdownDialog({
       
       // Check cache for past dates first
       if (isPast) {
-        const cached = getCachedSalesData(currentLocation.id, dateStr);
+        const cached = getCachedSalesData(currentLocation.id, dateStr, timezone);
         if (cached) {
           const hourlyMap: Record<number, number> = {};
           cached.hourly.forEach((item) => {
@@ -100,7 +100,7 @@ export function DayBreakdownDialog({
               daily: data.daily,
               hourly: data.hourly || [],
               guestCount: data.guestCount || { daily: 0 }
-            });
+            }, timezone);
           }
           
           setSalesData({
