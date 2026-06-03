@@ -15,6 +15,7 @@ import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 
 import { useAuth } from "@/lib/auth";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
@@ -81,6 +82,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const isBuildMode = mode === "build";
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { timezone } = useLocationTimezone(locationId);
   const { canEditCategories, canTriggerSync } = useInventoryPermissions();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPaSyncing, setIsPaSyncing] = useState(false);
@@ -337,7 +339,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     if (!isoDate) return null;
     const d = new Date(isoDate);
     return d.toLocaleString('en-US', { 
-      timeZone: 'America/Los_Angeles',
+      timeZone: timezone,
       month: 'short', day: 'numeric', 
       hour: 'numeric', minute: '2-digit',
       hour12: true

@@ -65,6 +65,29 @@ export default function LocationActivationList({
     staleTime: 30_000,
   });
 
+  // Each location may live in a different timezone; render "Last deployed" in
+  // the location's own zone so an Alabama store doesn't look "stale" because
+  // LA hasn't ticked over yet.
+  const { data: timezoneMap } = useQuery({
+    queryKey: ['location-timezones', locationIds.sort().join(',')],
+    enabled: locationIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_settings')
+        .select('location_id, timezone')
+        .in('location_id', locationIds);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      for (const row of data || []) {
+        if (row.timezone) map.set(row.location_id, row.timezone);
+      }
+      return map;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+
+
   const handleDeploy = async (locationId: string) => {
     setDeployingLocId(locationId);
     try {
@@ -109,9 +132,9 @@ export default function LocationActivationList({
     }
   };
 
-  const formatDeployDate = (dateStr: string | null) => {
+  const formatDeployDate = (dateStr: string | null, tz: string) => {
     if (!dateStr) return null;
-    const zoned = toZonedTime(new Date(dateStr), 'America/Los_Angeles');
+    const zoned = toZonedTime(new Date(dateStr), tz);
     return format(zoned, 'MMM d, yyyy h:mm a');
   };
 
@@ -123,7 +146,8 @@ export default function LocationActivationList({
         const pct = liveCount > 0 ? Math.round((active / liveCount) * 100) : 0;
         const isDeploying = deployingLocId === loc.id;
         const needsDeploy = liveCount > 0;
-        const lastDeployed = formatDeployDate(loc.last_deployed_at);
+        const locTz = timezoneMap?.get(loc.id) || 'America/Los_Angeles';
+        const lastDeployed = formatDeployDate(loc.last_deployed_at, locTz);
         const integrationStatus = integrationMap?.get(loc.id);
         const vendorsReady = integrationStatus?.ok ?? true; // optimistic until query resolves
         const missingVendors: string[] = [];

@@ -607,7 +607,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               </div>
             )}
             {count.period_type === "weekly" && (
-              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
+              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} timezone={timezone} />
             )}
           </CardContent>
         </Card>
@@ -804,7 +804,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
 
             {count.period_type === "weekly" && (
-              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
+              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} timezone={timezone} />
             )}
 
           </CardContent>
@@ -909,12 +909,14 @@ function DailySpotChecksGrid({
   spotChecks,
   todayStr,
   onStartDailyCount,
+  timezone,
 }: {
   periodRange: { startStr: string; endStr: string } | null;
   spotChecks: any[] | undefined;
   locationId: string;
   todayStr: string;
   onStartDailyCount?: () => void;
+  timezone: string;
 }) {
   const [previewCheck, setPreviewCheck] = useState<any | null>(null);
 
@@ -1018,7 +1020,7 @@ function DailySpotChecksGrid({
             </DialogTitle>
             <DialogDescription>
               {previewCheck?.completed_at
-                ? `Completed ${formatInTimeZone(new Date(previewCheck.completed_at), "America/Los_Angeles", "h:mm a")}`
+                ? `Completed ${formatInTimeZone(new Date(previewCheck.completed_at), timezone, "h:mm a")}`
                 : "In progress"}
             </DialogDescription>
           </DialogHeader>

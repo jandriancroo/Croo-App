@@ -19,9 +19,17 @@ export function useUserPosition(userId?: string, locationId?: string) {
 
     const detect = async () => {
       try {
+        // Fetch this location's timezone so "today" matches the store, not LA
+        const { data: settings } = await supabase
+          .from('location_settings')
+          .select('timezone')
+          .eq('location_id', locationId)
+          .maybeSingle();
+        const tz = settings?.timezone || 'America/Los_Angeles';
+
         // 1. Check if user is currently clocked in by finding the most recent punch today
         const today = new Date();
-        const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' });
+        const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: tz });
         const todayStr = formatter.format(today);
 
         // Get the most recent punch of any type today
