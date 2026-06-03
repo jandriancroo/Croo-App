@@ -490,6 +490,7 @@ const Inventory = () => {
 
         <TransferDialog open={showTransferDialog} onClose={() => setShowTransferDialog(false)} locationId={locationId!} />
 
+        <SandboxPostDeployBanner />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
