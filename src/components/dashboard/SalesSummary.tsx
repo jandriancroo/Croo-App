@@ -778,7 +778,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           todaySource: todaySource || undefined,
           weekProjected, 
           monthProjected 
-        });
+        }, locationZone);
       }
     }
     
