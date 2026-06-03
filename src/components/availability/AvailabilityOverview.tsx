@@ -17,13 +17,13 @@ import { format, startOfWeek, isBefore } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { Check, X, Calendar, Clock } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { getDisplayName } from "@/utils/displayName";
 
-const TZ = "America/Los_Angeles";
-/** Format a date-only string (YYYY-MM-DD) in LA timezone — safe from off-by-one bugs */
-const fmtDate = (dateStr: string, pattern: string): string => {
-  return formatInTimeZone(new Date(`${dateStr}T12:00:00Z`), TZ, pattern);
+/** Format a date-only string (YYYY-MM-DD) in the given timezone — safe from off-by-one bugs */
+const fmtDateTZ = (dateStr: string, pattern: string, tz: string): string => {
+  return formatInTimeZone(new Date(`${dateStr}T12:00:00Z`), tz, pattern);
 };
 
 interface AvailabilityRequest {
@@ -49,6 +49,8 @@ interface AvailabilityRequest {
 
 export function AvailabilityOverview() {
   const { isAdmin } = useUserRole();
+  const { timezone: TZ } = useLocationTimezone();
+  const fmtDate = (dateStr: string, pattern: string) => fmtDateTZ(dateStr, pattern, TZ);
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [denyDialogOpen, setDenyDialogOpen] = useState(false);
@@ -160,7 +162,7 @@ export function AvailabilityOverview() {
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
   const filteredRequests = hidePastRequests
     ? requests.filter((r) => {
-        const requestDate = parseDateStringInTimezone(r.start_date, "America/Los_Angeles");
+        const requestDate = parseDateStringInTimezone(r.start_date, TZ);
         return !isBefore(requestDate, currentWeekStart);
       })
     : requests;

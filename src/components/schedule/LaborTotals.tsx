@@ -14,14 +14,14 @@ import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
 
-// Get current date in PST timezone (YYYY-MM-DD format)
-function getTodayPST(): string {
+// Get current date in the given timezone (YYYY-MM-DD format)
+function getTodayInTZ(timezone: string): string {
   const now = new Date();
-  const pstString = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-  const pstDate = new Date(pstString);
-  const year = pstDate.getFullYear();
-  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pstDate.getDate()).padStart(2, '0');
+  const localString = now.toLocaleString('en-US', { timeZone: timezone || 'America/Los_Angeles' });
+  const localDate = new Date(localString);
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 interface Profile {

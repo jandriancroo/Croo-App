@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { differenceInHours, parseISO, format } from "date-fns";
 import { useLocation } from "@/hooks/useLocation";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 
 
@@ -21,6 +22,7 @@ interface RequestAvailabilityDialogProps {
 
 export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: RequestAvailabilityDialogProps) {
   const { currentLocation } = useLocation();
+  const { timezone } = useLocationTimezone();
   const [requestType, setRequestType] = useState<"paid" | "unpaid">("unpaid");
   const [timeScope, setTimeScope] = useState<"multi_day" | "full_day" | "partial_day">("full_day");
   const [startDate, setStartDate] = useState("");
@@ -72,8 +74,8 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
     } else if (timeScope === "multi_day") {
       if (startDate && endDate) {
         const [rangeStart, rangeEnd] = startDate <= endDate ? [startDate, endDate] : [endDate, startDate];
-        const start = parseDateStringInTimezone(rangeStart, "America/Los_Angeles");
-        const end = parseDateStringInTimezone(rangeEnd, "America/Los_Angeles");
+        const start = parseDateStringInTimezone(rangeStart, timezone);
+        const end = parseDateStringInTimezone(rangeEnd, timezone);
         const current = new Date(start);
 
         while (current <= end) {
