@@ -65,6 +65,26 @@ export default function LocationActivationList({
     staleTime: 30_000,
   });
 
+  // Each location may live in a different timezone; render "Last deployed" in
+  // the location's own zone so an Alabama store doesn't look "stale" because
+  // LA hasn't ticked over yet.
+  const { data: timezoneMap } = useQuery({
+    queryKey: ['location-timezones', locationIds.sort().join(',')],
+    enabled: locationIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_settings')
+        .select('location_id, timezone')
+        .in('location_id', locationIds);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      for (const row of data || []) {
+        if (row.timezone) map.set(row.location_id, row.timezone);
+      }
+      return map;
+    },
+    staleTime: 10 * 60 * 1000,
+
   const handleDeploy = async (locationId: string) => {
     setDeployingLocId(locationId);
     try {
