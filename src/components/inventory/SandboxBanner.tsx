@@ -51,9 +51,13 @@ interface SandboxBannerProps {
  */
 export function SandboxBanner({ count }: SandboxBannerProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { isSuperAdmin } = useUserRole();
   const [requestOpen, setRequestOpen] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerLocationId, setPickerLocationId] = useState<string>("");
+  const [pickerCountId, setPickerCountId] = useState<string>("");
   const [bugText, setBugText] = useState("");
   const [copied, setCopied] = useState(false);
 
