@@ -306,16 +306,26 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => reclone.mutate()}
-            disabled={reclone.isPending || !hasSource}
-            title={!hasSource ? "No source recorded for this sandbox count" : ""}
-          >
-            <RotateCw className="h-3.5 w-3.5 mr-1.5" />
-            Re-clone from source
-          </Button>
+          {hasSource ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => reclone.mutate()}
+              disabled={reclone.isPending}
+            >
+              <RotateCw className="h-3.5 w-3.5 mr-1.5" />
+              Re-clone from source
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPickerOpen(true)}
+            >
+              <Search className="h-3.5 w-3.5 mr-1.5" />
+              Pick source
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
