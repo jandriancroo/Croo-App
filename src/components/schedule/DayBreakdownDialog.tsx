@@ -100,7 +100,7 @@ export function DayBreakdownDialog({
               daily: data.daily,
               hourly: data.hourly || [],
               guestCount: data.guestCount || { daily: 0 }
-            });
+            }, timezone);
           }
           
           setSalesData({
