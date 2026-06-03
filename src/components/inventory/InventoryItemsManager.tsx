@@ -339,7 +339,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     if (!isoDate) return null;
     const d = new Date(isoDate);
     return d.toLocaleString('en-US', { 
-      timeZone: 'America/Los_Angeles',
+      timeZone: timezone,
       month: 'short', day: 'numeric', 
       hour: 'numeric', minute: '2-digit',
       hour12: true
