@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Transfer, useInventoryTransfers } from "@/hooks/useInventoryTransfers";
 import { formatInTimeZone } from "date-fns-tz";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 
 interface PendingTransfersSectionProps {
   locationId: string;
@@ -13,6 +14,7 @@ interface PendingTransfersSectionProps {
 export default function PendingTransfersSection({ locationId }: PendingTransfersSectionProps) {
   const { user } = useAuth();
   const { pendingIncoming, receiveTransfer, cancelTransfer } = useInventoryTransfers(locationId);
+  const { timezone } = useLocationTimezone(locationId);
   const [expanded, setExpanded] = useState(true);
 
   if (pendingIncoming.length === 0) return null;
