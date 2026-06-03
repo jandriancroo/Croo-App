@@ -82,6 +82,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const isBuildMode = mode === "build";
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { timezone } = useLocationTimezone(locationId);
   const { canEditCategories, canTriggerSync } = useInventoryPermissions();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPaSyncing, setIsPaSyncing] = useState(false);
