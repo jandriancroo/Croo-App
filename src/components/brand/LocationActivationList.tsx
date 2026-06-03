@@ -132,9 +132,9 @@ export default function LocationActivationList({
     }
   };
 
-  const formatDeployDate = (dateStr: string | null) => {
+  const formatDeployDate = (dateStr: string | null, tz: string) => {
     if (!dateStr) return null;
-    const zoned = toZonedTime(new Date(dateStr), 'America/Los_Angeles');
+    const zoned = toZonedTime(new Date(dateStr), tz);
     return format(zoned, 'MMM d, yyyy h:mm a');
   };
 
@@ -146,7 +146,8 @@ export default function LocationActivationList({
         const pct = liveCount > 0 ? Math.round((active / liveCount) * 100) : 0;
         const isDeploying = deployingLocId === loc.id;
         const needsDeploy = liveCount > 0;
-        const lastDeployed = formatDeployDate(loc.last_deployed_at);
+        const locTz = timezoneMap?.get(loc.id) || 'America/Los_Angeles';
+        const lastDeployed = formatDeployDate(loc.last_deployed_at, locTz);
         const integrationStatus = integrationMap?.get(loc.id);
         const vendorsReady = integrationStatus?.ok ?? true; // optimistic until query resolves
         const missingVendors: string[] = [];
