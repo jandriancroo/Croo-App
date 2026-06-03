@@ -124,6 +124,7 @@ export function AutoScheduleWizard({
   scheduleId,
   onScheduleGenerated,
 }: AutoScheduleWizardProps) {
+  const { timezone } = useLocationTimezone(locationId);
   const [step, setStep] = useState(1);
   const [sourceType, setSourceType] = useState<"template" | "last_week">("template");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);

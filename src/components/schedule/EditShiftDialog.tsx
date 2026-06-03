@@ -48,6 +48,7 @@ export function EditShiftDialog({
 }: EditShiftDialogProps) {
   const queryClient = useQueryClient();
   const { currentLocation } = useAppLocation();
+  const { timezone } = useLocationTimezone();
   const [startTime, setStartTime] = useState(shift.start_time);
   const [endTime, setEndTime] = useState(shift.end_time);
   const [selectedUserId, setSelectedUserId] = useState(shift.user_id || "unassigned");

@@ -73,6 +73,7 @@ export function MobileShiftDialog({
 }: MobileShiftDialogProps) {
   const queryClient = useQueryClient();
   const { currentLocation } = useAppLocation();
+  const { timezone } = useLocationTimezone();
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
