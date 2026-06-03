@@ -41,7 +41,7 @@ interface StoreRankRow {
   rank: number;
 }
 
-const TRACKER_TZ = 'America/Los_Angeles';
+const DEFAULT_TRACKER_TZ = 'America/Los_Angeles';
 
 const money = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const number = (value: number) => Math.round(value).toLocaleString();
