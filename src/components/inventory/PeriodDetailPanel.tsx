@@ -804,7 +804,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
 
             {count.period_type === "weekly" && (
-              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
+              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} timezone={timezone} />
             )}
 
           </CardContent>
