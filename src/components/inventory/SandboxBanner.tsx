@@ -125,6 +125,8 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
       new Date(activeFix.requested_at).getTime();
   }, [activeFix]);
 
+  const hasSource = !!(count.cloned_from_location_id && count.cloned_from_count_id);
+
   const requestPrompt = useMemo(
     () => buildRequestPrompt({ count, source, bug: bugText }),
     [count, source, bugText]
@@ -202,13 +204,24 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
               Sandbox count — isolated testbed
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              Cloned from{" "}
-              <span className="font-medium text-foreground">
-                {source?.location_name ?? "…"}
-              </span>{" "}
-              · {source?.count_label ?? "…"}
-              {count.cloned_at && (
-                <> · {new Date(count.cloned_at).toLocaleString()}</>
+              {hasSource ? (
+                <>
+                  Cloned from{" "}
+                  <span className="font-medium text-foreground">
+                    {source?.location_name ?? "…"}
+                  </span>{" "}
+                  · {source?.count_label ?? "…"}
+                  {count.cloned_at && (
+                    <> · {new Date(count.cloned_at).toLocaleString()}</>
+                  )}
+                </>
+              ) : (
+                <>
+                  No source recorded. This sandbox count wasn&apos;t created via
+                  Clone to Sandbox — open a real count and use the{" "}
+                  <span className="font-medium text-foreground">Clone to Sandbox</span>{" "}
+                  button to seed one.
+                </>
               )}
             </div>
             {activeFix && (
@@ -225,12 +238,19 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
             size="sm"
             variant="outline"
             onClick={() => reclone.mutate()}
-            disabled={reclone.isPending}
+            disabled={reclone.isPending || !hasSource}
+            title={!hasSource ? "No source recorded for this sandbox count" : ""}
           >
             <RotateCw className="h-3.5 w-3.5 mr-1.5" />
             Re-clone from source
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setRequestOpen(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setRequestOpen(true)}
+            disabled={!hasSource}
+            title={!hasSource ? "Clone a real count into the sandbox first" : ""}
+          >
             <Wrench className="h-3.5 w-3.5 mr-1.5" />
             Request fix for testing
           </Button>
