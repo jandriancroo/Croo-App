@@ -1018,7 +1018,7 @@ function DailySpotChecksGrid({
             </DialogTitle>
             <DialogDescription>
               {previewCheck?.completed_at
-                ? `Completed ${formatInTimeZone(new Date(previewCheck.completed_at), "America/Los_Angeles", "h:mm a")}`
+                ? `Completed ${formatInTimeZone(new Date(previewCheck.completed_at), timezone, "h:mm a")}`
                 : "In progress"}
             </DialogDescription>
           </DialogHeader>
