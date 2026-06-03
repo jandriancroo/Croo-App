@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Loader2, RotateCcw, CheckCircle2, Radio, Sparkles, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -71,6 +72,8 @@ export function LaborTotals({
   const { canViewAllWages } = useUserRole();
   const { canSeeSales } = useTeamSalesVisibility();
   const { currentLocation } = useAppLocation();
+  const { timezone } = useLocationTimezone();
+  const getTodayPST = () => getTodayInTZ(timezone);
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -121,11 +122,11 @@ export function EditShiftDialog({
       const conflictingRequests = availabilityRequests.filter((request) => {
         if (request.user_id !== userId) return false;
 
-        const reqDate = parseDateStringInTimezone(request.start_date, 'America/Los_Angeles');
-        const cellDate = parseDateStringInTimezone(shiftDate, 'America/Los_Angeles');
+        const reqDate = parseDateStringInTimezone(request.start_date, timezone);
+        const cellDate = parseDateStringInTimezone(shiftDate, timezone);
 
         if (request.time_scope === "multi_day" && request.end_date) {
-          const endDate = parseDateStringInTimezone(request.end_date, 'America/Los_Angeles');
+          const endDate = parseDateStringInTimezone(request.end_date, timezone);
           return cellDate >= reqDate && cellDate <= endDate;
         }
         return reqDate.toDateString() === cellDate.toDateString();
