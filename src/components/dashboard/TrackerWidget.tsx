@@ -65,6 +65,8 @@ function normalizeMix(rowMix: unknown): Array<{ itemName: string; quantity: numb
 
 export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const { currentLocation, locations } = useAppLocation();
+  const { timezone: locTimezone } = useLocationTimezone();
+  const TRACKER_TZ = locTimezone || DEFAULT_TRACKER_TZ;
   const [period, setPeriod] = useState<PeriodKey>('day');
   const [expanded, setExpanded] = useState(false);
   const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
