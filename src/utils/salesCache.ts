@@ -93,7 +93,7 @@ function isAfterCloseOfBusiness(timezone: string = 'America/Los_Angeles'): boole
 }
 
 
-export function getCachedSalesData(locationId: string, date: string): CachedSalesData['data'] | null {
+export function getCachedSalesData(locationId: string, date: string, timezone?: string): CachedSalesData['data'] | null {
   try {
     const key = getCacheKey(locationId, date);
     const cached = localStorage.getItem(key);
@@ -106,7 +106,7 @@ export function getCachedSalesData(locationId: string, date: string): CachedSale
     if (parsed.version !== CACHE_VERSION) return null;
     
     // Only use cache for past dates (historical data won't change)
-    if (!isDateInPast(date)) return null;
+    if (!isDateInPast(date, timezone)) return null;
     
     return parsed.data;
   } catch {
@@ -117,10 +117,11 @@ export function getCachedSalesData(locationId: string, date: string): CachedSale
 export function setCachedSalesData(
   locationId: string, 
   date: string, 
-  data: CachedSalesData['data']
+  data: CachedSalesData['data'],
+  timezone?: string
 ): void {
   // Only cache past dates
-  if (!isDateInPast(date)) return;
+  if (!isDateInPast(date, timezone)) return;
   
   try {
     const key = getCacheKey(locationId, date);
@@ -134,6 +135,7 @@ export function setCachedSalesData(
     // localStorage might be full - ignore
   }
 }
+
 
 // === LIVE SALES CACHE (5-minute TTL for stale-while-revalidate) ===
 
