@@ -130,6 +130,61 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Picker: list real (non-sandbox) locations
+  const { data: pickerLocations = [] } = useQuery({
+    queryKey: ["sandbox-picker-locations"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("locations")
+        .select("id, name")
+        .eq("requires_super_admin", false)
+        .order("name");
+      return data ?? [];
+    },
+    enabled: pickerOpen,
+  });
+
+  // Picker: recent counts at the selected location
+  const { data: pickerCounts = [] } = useQuery({
+    queryKey: ["sandbox-picker-counts", pickerLocationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("inventory_counts")
+        .select("id, count_date, period_type, status")
+        .eq("location_id", pickerLocationId)
+        .eq("is_sandbox", false)
+        .order("count_date", { ascending: false })
+        .limit(50);
+      return data ?? [];
+    },
+    enabled: pickerOpen && !!pickerLocationId,
+  });
+
+  const cloneFromPicker = useMutation({
+    mutationFn: async () => {
+      if (!pickerLocationId || !pickerCountId) {
+        throw new Error("Pick a location and a count");
+      }
+      const { data, error } = await supabase.rpc("clone_count_to_sandbox", {
+        _source_location_id: pickerLocationId,
+        _source_count_id: pickerCountId,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: (newCountId) => {
+      toast.success("Cloned to sandbox");
+      setPickerOpen(false);
+      setPickerLocationId("");
+      setPickerCountId("");
+      // Navigate to the freshly-cloned sandbox count (same sandbox location)
+      navigate(`/inventory/${count.location_id ?? ""}/count/${newCountId}`.replace("//count", `/${count.id}/count`));
+      // Safer: just reload the route to current sandbox location
+      queryClient.invalidateQueries({ queryKey: ["inventory-count-details"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const canDeploy = useMemo(() => {
     if (!activeFix) return false;
     if (!activeFix.last_viewed_at) return false;
