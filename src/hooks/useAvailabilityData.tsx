@@ -6,18 +6,17 @@ import { format, startOfWeek, isBefore, isThisWeek, addWeeks, isSameWeek } from 
 import { formatInTimeZone } from "date-fns-tz";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import {
   formatDateTimeInTimezone,
   parseDateStringInTimezone,
 } from "@/utils/timezoneUtils";
 
-const TZ = "America/Los_Angeles";
-
-/** Format a date-only string (YYYY-MM-DD) in LA timezone — safe from off-by-one bugs */
-const fmtDate = (dateStr: string, pattern: string): string => {
+/** Format a date-only string (YYYY-MM-DD) in the given timezone — safe from off-by-one bugs */
+const fmtDateTZ = (dateStr: string, pattern: string, tz: string): string => {
   // Use noon UTC to guarantee the date lands on the correct calendar day in any timezone
-  return formatInTimeZone(new Date(`${dateStr}T12:00:00Z`), TZ, pattern);
+  return formatInTimeZone(new Date(`${dateStr}T12:00:00Z`), tz, pattern);
 };
 
 export interface AvailabilityRequest {
@@ -50,6 +49,8 @@ export function useAvailabilityData() {
   const { user } = useAuth();
   const { canApproveRequests, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const { timezone: TZ } = useLocationTimezone();
+  const fmtDate = (dateStr: string, pattern: string) => fmtDateTZ(dateStr, pattern, TZ);
   const { canViewSickTime } = useRolePermissions();
 
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
@@ -357,7 +358,7 @@ export function useAvailabilityData() {
   };
 
   const formatRequestedDate = (createdAt: string) => {
-    return formatDateTimeInTimezone(createdAt, "America/Los_Angeles", {
+    return formatDateTimeInTimezone(createdAt, TZ, {
       month: "short",
       day: "numeric",
     });
@@ -368,7 +369,7 @@ export function useAvailabilityData() {
 
   const filteredRequests = requests.filter((request) => {
     if (hidePastRequests) {
-      const requestDate = parseDateStringInTimezone(request.start_date, "America/Los_Angeles");
+      const requestDate = parseDateStringInTimezone(request.start_date, TZ);
       if (isBefore(requestDate, currentWeekStart)) return false;
     }
     if (filterStatus !== "all" && request.status !== filterStatus) return false;
@@ -377,7 +378,7 @@ export function useAvailabilityData() {
   });
 
   const getWeekKey = (dateStr: string) => {
-    const date = parseDateStringInTimezone(dateStr, "America/Los_Angeles");
+    const date = parseDateStringInTimezone(dateStr, TZ);
     const weekStart = startOfWeek(date, { weekStartsOn: 1 });
     return format(weekStart, "yyyy-MM-dd");
   };

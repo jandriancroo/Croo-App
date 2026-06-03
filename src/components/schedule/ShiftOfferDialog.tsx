@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 
 interface ShiftOfferDialogProps {
   open: boolean;
@@ -15,6 +16,7 @@ interface ShiftOfferDialogProps {
 }
 
 export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: ShiftOfferDialogProps) {
+  const { timezone } = useLocationTimezone();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingOffer, setExistingOffer] = useState<any>(null);
 
@@ -244,7 +246,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
           <div className="flex justify-between">
             <span className="text-muted-foreground">Date:</span>
             <span className="font-medium">
-              {shift?.shift_date ? parseDateStringInTimezone(shift.shift_date, 'America/Los_Angeles').toLocaleDateString() : "N/A"}
+              {shift?.shift_date ? parseDateStringInTimezone(shift.shift_date, timezone).toLocaleDateString() : "N/A"}
             </span>
           </div>
           <div className="flex justify-between">
@@ -261,7 +263,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
             <p>• You'll lose $1.00 Croo Cash for offering this shift</p>
             {(() => {
               const offerDate = shift?.shift_date
-                ? parseDateStringInTimezone(shift.shift_date, "America/Los_Angeles")
+                ? parseDateStringInTimezone(shift.shift_date, timezone)
                 : null;
               const dayOfWeek = offerDate ? offerDate.getDay() : null;
               // Weekend = Friday (5), Saturday (6), Sunday (0)

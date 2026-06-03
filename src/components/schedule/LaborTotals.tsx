@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Loader2, RotateCcw, CheckCircle2, Radio, Sparkles, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -14,14 +15,14 @@ import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
 
-// Get current date in PST timezone (YYYY-MM-DD format)
-function getTodayPST(): string {
+// Get current date in the given timezone (YYYY-MM-DD format)
+function getTodayInTZ(timezone: string): string {
   const now = new Date();
-  const pstString = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-  const pstDate = new Date(pstString);
-  const year = pstDate.getFullYear();
-  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pstDate.getDate()).padStart(2, '0');
+  const localString = now.toLocaleString('en-US', { timeZone: timezone || 'America/Los_Angeles' });
+  const localDate = new Date(localString);
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 interface Profile {
@@ -71,6 +72,8 @@ export function LaborTotals({
   const { canViewAllWages } = useUserRole();
   const { canSeeSales } = useTeamSalesVisibility();
   const { currentLocation } = useAppLocation();
+  const { timezone } = useLocationTimezone();
+  const getTodayPST = () => getTodayInTZ(timezone);
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));

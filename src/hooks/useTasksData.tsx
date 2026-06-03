@@ -438,11 +438,11 @@ export function useTasksData() {
         });
 
         const now = new Date();
-        const pstStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-        const pstNow = new Date(pstStr);
-        const currentDate = `${pstNow.getFullYear()}-${String(pstNow.getMonth() + 1).padStart(2, '0')}-${String(pstNow.getDate()).padStart(2, '0')}`;
+        const localStr = now.toLocaleString('en-US', { timeZone: timezone || 'America/Los_Angeles' });
+        const localNow = new Date(localStr);
+        const currentDate = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}-${String(localNow.getDate()).padStart(2, '0')}`;
         const isViewingToday = historyDateStr === currentDate;
-        const currentMinutes = pstNow.getHours() * 60 + pstNow.getMinutes();
+        const currentMinutes = localNow.getHours() * 60 + localNow.getMinutes();
 
         expectedTimes.forEach(timeSlot => {
           const [h, m] = timeSlot.split(':').map(Number);

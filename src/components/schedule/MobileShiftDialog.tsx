@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -72,6 +73,7 @@ export function MobileShiftDialog({
 }: MobileShiftDialogProps) {
   const queryClient = useQueryClient();
   const { currentLocation } = useAppLocation();
+  const { timezone } = useLocationTimezone();
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -180,7 +182,7 @@ export function MobileShiftDialog({
         }
         
         // Calculate day_of_week from the selected date using timezone-safe parsing
-        const selectedDate = parseDateStringInTimezone(shiftDate, 'America/Los_Angeles');
+        const selectedDate = parseDateStringInTimezone(shiftDate, timezone);
         const dayOfWeek = selectedDate.getDay();
         
         const { error: shiftError } = await supabase
@@ -198,7 +200,7 @@ export function MobileShiftDialog({
         if (shiftError) throw shiftError;
       } else {
         // Update existing shift (including date if changed)
-        const selectedDate = parseDateStringInTimezone(shiftDate, 'America/Los_Angeles');
+        const selectedDate = parseDateStringInTimezone(shiftDate, timezone);
         const dayOfWeek = selectedDate.getDay();
         
         const { error: shiftError } = await supabase
@@ -218,7 +220,7 @@ export function MobileShiftDialog({
 
       // Auto-notify when a shift claim is approved
       if (isApprovingClaim && selectedUserId && selectedUserId !== 'unassigned') {
-        const formattedDate = shiftDate ? parseDateStringInTimezone(shiftDate, 'America/Los_Angeles').toLocaleDateString('en-US', { 
+        const formattedDate = shiftDate ? parseDateStringInTimezone(shiftDate, timezone).toLocaleDateString('en-US', { 
           weekday: 'short', 
           month: 'short', 
           day: 'numeric' 
@@ -337,7 +339,7 @@ export function MobileShiftDialog({
           ) : (
             <div>
               <Label className="text-muted-foreground">Date</Label>
-              <p className="font-medium">{parseDateStringInTimezone(shift.shift_date, 'America/Los_Angeles').toLocaleDateString()}</p>
+              <p className="font-medium">{parseDateStringInTimezone(shift.shift_date, timezone).toLocaleDateString()}</p>
             </div>
           )}
 
