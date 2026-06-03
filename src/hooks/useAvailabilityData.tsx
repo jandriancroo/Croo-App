@@ -49,6 +49,8 @@ export function useAvailabilityData() {
   const { user } = useAuth();
   const { canApproveRequests, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const { timezone: TZ } = useLocationTimezone();
+  const fmtDate = (dateStr: string, pattern: string) => fmtDateTZ(dateStr, pattern, TZ);
   const { canViewSickTime } = useRolePermissions();
 
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
@@ -356,7 +358,7 @@ export function useAvailabilityData() {
   };
 
   const formatRequestedDate = (createdAt: string) => {
-    return formatDateTimeInTimezone(createdAt, "America/Los_Angeles", {
+    return formatDateTimeInTimezone(createdAt, TZ, {
       month: "short",
       day: "numeric",
     });
@@ -367,7 +369,7 @@ export function useAvailabilityData() {
 
   const filteredRequests = requests.filter((request) => {
     if (hidePastRequests) {
-      const requestDate = parseDateStringInTimezone(request.start_date, "America/Los_Angeles");
+      const requestDate = parseDateStringInTimezone(request.start_date, TZ);
       if (isBefore(requestDate, currentWeekStart)) return false;
     }
     if (filterStatus !== "all" && request.status !== filterStatus) return false;
@@ -376,7 +378,7 @@ export function useAvailabilityData() {
   });
 
   const getWeekKey = (dateStr: string) => {
-    const date = parseDateStringInTimezone(dateStr, "America/Los_Angeles");
+    const date = parseDateStringInTimezone(dateStr, TZ);
     const weekStart = startOfWeek(date, { weekStartsOn: 1 });
     return format(weekStart, "yyyy-MM-dd");
   };
