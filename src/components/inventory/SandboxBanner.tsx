@@ -290,10 +290,9 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
                 </>
               ) : (
                 <>
-                  No source recorded. This sandbox count wasn&apos;t created via
-                  Clone to Sandbox — open a real count and use the{" "}
-                  <span className="font-medium text-foreground">Clone to Sandbox</span>{" "}
-                  button to seed one.
+                  No source recorded. Use{" "}
+                  <span className="font-medium text-foreground">Pick source</span>{" "}
+                  to seed this sandbox from any real count.
                 </>
               )}
             </div>
