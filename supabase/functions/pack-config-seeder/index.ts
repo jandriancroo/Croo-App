@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
           const mapping = mappingByVendorSku.get(`pfg::${it.itemNumber.toLowerCase()}`);
           if (!mapping?.brand_template_id) continue;
 
-          const countUnits = parsed.outer_qty * parsed.inner_qty;
+          const countUnits = Math.round(parsed.outer_qty * parsed.inner_qty * 100) / 100;
           const costPerCommon = it.price && countUnits > 0 ? it.price / countUnits : null;
 
           candidates.push({
