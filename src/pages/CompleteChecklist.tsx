@@ -176,11 +176,15 @@ export default function CompleteChecklist() {
   // Only applies to TODAY's checklist - historical views are never locked
   const isLocked = useMemo(() => {
     if (!checklist?.lock_until_time) return false;
-    
-    // Get today's date in PST
+
+    // Use the LOCATION'S timezone, not a hardcoded LA timezone.
+    // lock_until_time (HH:MM) is stored as the location's local wall-clock time,
+    // so the "now" comparison must be done in the same timezone — otherwise
+    // stores outside PST (e.g. Tuscaloosa/CST) see the wrong lock window.
+    const tz = locationTimezone || 'America/Los_Angeles';
     const now = new Date();
-    const dateFormatter = new Intl.DateTimeFormat('en-US', { 
-      timeZone: 'America/Los_Angeles', 
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
@@ -189,35 +193,33 @@ export default function CompleteChecklist() {
     const todayYear = parseInt(todayParts.find(p => p.type === 'year')?.value || '0');
     const todayMonth = parseInt(todayParts.find(p => p.type === 'month')?.value || '0');
     const todayDay = parseInt(todayParts.find(p => p.type === 'day')?.value || '0');
-    
-    // Check if viewDate is before today (historical) - if so, never lock
+
     const viewYear = viewDate.getFullYear();
     const viewMonth = viewDate.getMonth() + 1;
     const viewDay = viewDate.getDate();
-    
-    const isHistorical = 
-      viewYear < todayYear || 
+
+    const isHistorical =
+      viewYear < todayYear ||
       (viewYear === todayYear && viewMonth < todayMonth) ||
       (viewYear === todayYear && viewMonth === todayMonth && viewDay < todayDay);
-    
+
     if (isHistorical) return false;
-    
-    // For today's checklist, check if current time is before lock time
-    const timeFormatter = new Intl.DateTimeFormat('en-US', { 
-      timeZone: 'America/Los_Angeles', 
-      hour: '2-digit', 
+
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: false 
+      hour12: false
     });
     const currentTimeStr = timeFormatter.format(now);
     const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
     const [lockHour, lockMinute] = checklist.lock_until_time.split(':').map(Number);
-    
+
     const currentMinutes = currentHour * 60 + currentMinute;
     const lockMinutes = lockHour * 60 + lockMinute;
-    
+
     return currentMinutes < lockMinutes;
-  }, [checklist?.lock_until_time, viewDate]);
+  }, [checklist?.lock_until_time, viewDate, locationTimezone]);
   
   // Permission check: shift managers and above can undo
   const canUndoItems = isShiftManager;
