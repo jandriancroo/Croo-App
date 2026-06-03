@@ -125,6 +125,8 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
       new Date(activeFix.requested_at).getTime();
   }, [activeFix]);
 
+  const hasSource = !!(count.cloned_from_location_id && count.cloned_from_count_id);
+
   const requestPrompt = useMemo(
     () => buildRequestPrompt({ count, source, bug: bugText }),
     [count, source, bugText]
