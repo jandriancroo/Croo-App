@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Beaker, RotateCw, Wrench, Rocket, Copy, Check } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Beaker, RotateCw, Wrench, Rocket, Copy, Check, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -43,9 +51,13 @@ interface SandboxBannerProps {
  */
 export function SandboxBanner({ count }: SandboxBannerProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { isSuperAdmin } = useUserRole();
   const [requestOpen, setRequestOpen] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerLocationId, setPickerLocationId] = useState<string>("");
+  const [pickerCountId, setPickerCountId] = useState<string>("");
   const [bugText, setBugText] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -114,6 +126,67 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
       toast.success("Sandbox re-cloned from source");
       queryClient.invalidateQueries({ queryKey: ["inventory-count-details"] });
       queryClient.invalidateQueries({ queryKey: ["sandbox-active-fix"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Picker: list real (non-sandbox) locations
+  const { data: pickerLocations = [] } = useQuery({
+    queryKey: ["sandbox-picker-locations"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("locations")
+        .select("id, name")
+        .eq("requires_super_admin", false)
+        .order("name");
+      return data ?? [];
+    },
+    enabled: pickerOpen,
+  });
+
+  // Picker: recent counts at the selected location
+  const { data: pickerCounts = [] } = useQuery({
+    queryKey: ["sandbox-picker-counts", pickerLocationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("inventory_counts")
+        .select("id, count_date, period_type, status")
+        .eq("location_id", pickerLocationId)
+        .eq("is_sandbox", false)
+        .order("count_date", { ascending: false })
+        .limit(50);
+      return data ?? [];
+    },
+    enabled: pickerOpen && !!pickerLocationId,
+  });
+
+  const cloneFromPicker = useMutation({
+    mutationFn: async () => {
+      if (!pickerLocationId || !pickerCountId) {
+        throw new Error("Pick a location and a count");
+      }
+      const { data, error } = await supabase.rpc("clone_count_to_sandbox", {
+        _source_location_id: pickerLocationId,
+        _source_count_id: pickerCountId,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: async (newCountId) => {
+      toast.success("Cloned to sandbox");
+      setPickerOpen(false);
+      setPickerLocationId("");
+      setPickerCountId("");
+      const { data: sandbox } = await supabase
+        .from("locations")
+        .select("id")
+        .eq("name", "Sandbox")
+        .eq("requires_super_admin", true)
+        .maybeSingle();
+      if (sandbox?.id) {
+        navigate(`/inventory/${sandbox.id}/count/${newCountId}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["inventory-count-details"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -217,10 +290,9 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
                 </>
               ) : (
                 <>
-                  No source recorded. This sandbox count wasn&apos;t created via
-                  Clone to Sandbox — open a real count and use the{" "}
-                  <span className="font-medium text-foreground">Clone to Sandbox</span>{" "}
-                  button to seed one.
+                  No source recorded. Use{" "}
+                  <span className="font-medium text-foreground">Pick source</span>{" "}
+                  to seed this sandbox from any real count.
                 </>
               )}
             </div>
@@ -234,16 +306,26 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => reclone.mutate()}
-            disabled={reclone.isPending || !hasSource}
-            title={!hasSource ? "No source recorded for this sandbox count" : ""}
-          >
-            <RotateCw className="h-3.5 w-3.5 mr-1.5" />
-            Re-clone from source
-          </Button>
+          {hasSource ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => reclone.mutate()}
+              disabled={reclone.isPending}
+            >
+              <RotateCw className="h-3.5 w-3.5 mr-1.5" />
+              Re-clone from source
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPickerOpen(true)}
+            >
+              <Search className="h-3.5 w-3.5 mr-1.5" />
+              Pick source
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -337,7 +419,79 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Pick source dialog */}
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pick a source count to clone</DialogTitle>
+            <DialogDescription>
+              Choose any real location + count. The clone replaces this sandbox
+              count with a fresh copy of the source.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Location</label>
+              <Select
+                value={pickerLocationId}
+                onValueChange={(v) => {
+                  setPickerLocationId(v);
+                  setPickerCountId("");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a real location…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pickerLocations.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Count</label>
+              <Select
+                value={pickerCountId}
+                onValueChange={setPickerCountId}
+                disabled={!pickerLocationId}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      pickerLocationId ? "Select a count…" : "Pick a location first"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {pickerCounts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.count_date} · {c.period_type ?? "count"} · {c.status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPickerOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => cloneFromPicker.mutate()}
+              disabled={!pickerLocationId || !pickerCountId || cloneFromPicker.isPending}
+            >
+              <RotateCw className="h-4 w-4 mr-1.5" />
+              Clone into sandbox
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+
   );
 }
 
