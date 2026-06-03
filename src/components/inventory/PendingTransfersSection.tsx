@@ -49,7 +49,7 @@ export default function PendingTransfersSection({ locationId }: PendingTransfers
                   <p className="text-[11px] text-muted-foreground">
                     {transfer.transferred_by_profile?.full_name} · {formatInTimeZone(
                       new Date(transfer.created_at),
-                      "America/Los_Angeles",
+                      timezone,
                       "MMM d 'at' h:mm a"
                     )}
                   </p>
