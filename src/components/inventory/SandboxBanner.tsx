@@ -172,14 +172,20 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
       if (error) throw error;
       return data as string;
     },
-    onSuccess: (newCountId) => {
+    onSuccess: async (newCountId) => {
       toast.success("Cloned to sandbox");
       setPickerOpen(false);
       setPickerLocationId("");
       setPickerCountId("");
-      // Navigate to the freshly-cloned sandbox count (same sandbox location)
-      navigate(`/inventory/${count.location_id ?? ""}/count/${newCountId}`.replace("//count", `/${count.id}/count`));
-      // Safer: just reload the route to current sandbox location
+      const { data: sandbox } = await supabase
+        .from("locations")
+        .select("id")
+        .eq("name", "Sandbox")
+        .eq("requires_super_admin", true)
+        .maybeSingle();
+      if (sandbox?.id) {
+        navigate(`/inventory/${sandbox.id}/count/${newCountId}`);
+      }
       queryClient.invalidateQueries({ queryKey: ["inventory-count-details"] });
     },
     onError: (e: Error) => toast.error(e.message),
