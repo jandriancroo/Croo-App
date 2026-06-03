@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
           || mappingByVendorSku.get(`produce_alliance::${it.pa_item_id.toLowerCase()}`);
         if (!mapping?.brand_template_id) continue;
 
-        const countUnits = parsed.outer_qty * parsed.inner_qty;
+        const countUnits = Math.round(parsed.outer_qty * parsed.inner_qty * 100) / 100;
         const costPerCommon = it.unit_price && countUnits > 0 ? it.unit_price / countUnits : null;
 
         candidates.push({
