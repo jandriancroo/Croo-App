@@ -10671,6 +10671,10 @@ export type Database = {
       cleanup_internal_logs: { Args: never; Returns: undefined }
       cleanup_theo_chat_messages: { Args: never; Returns: undefined }
       clear_all_pending_pin_plaintext: { Args: never; Returns: Json }
+      clone_count_to_sandbox: {
+        Args: { _source_count_id: string; _source_location_id: string }
+        Returns: string
+      }
       convert_recipe_unit_to_count: {
         Args: { p_count_unit: string; p_recipe_unit: string }
         Returns: number
