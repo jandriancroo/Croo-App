@@ -62,31 +62,36 @@ function getHourlyPatternCacheKey(locationId: string): string {
   return `${HOURLY_PATTERN_CACHE_KEY}${locationId}`;
 }
 
-// Check if date is in the past (in PST timezone for consistency)
-function isDateInPast(dateStr: string): boolean {
-  const { date: todayPST } = getPSTDate();
-  return dateStr < todayPST; // Simple string comparison works for YYYY-MM-DD format
+// Check if date is in the past (in the store's local timezone)
+function isDateInPast(dateStr: string, timezone: string = 'America/Los_Angeles'): boolean {
+  const { date: todayLocal } = getLocalDate(timezone);
+  return dateStr < todayLocal; // Simple string comparison works for YYYY-MM-DD format
 }
 
-// Get current date/time in PST timezone
-function getPSTDate(): { date: string; hour: number } {
+// Get current date/hour in the given timezone (defaults to PST for backward compat)
+function getLocalDate(timezone: string = 'America/Los_Angeles'): { date: string; hour: number } {
   const now = new Date();
-  // Use proper timezone conversion
-  const pstString = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-  const pstDate = new Date(pstString);
-  const year = pstDate.getFullYear();
-  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pstDate.getDate()).padStart(2, '0');
-  return { 
+  const localString = now.toLocaleString('en-US', { timeZone: timezone });
+  const localDate = new Date(localString);
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
+  return {
     date: `${year}-${month}-${day}`,
-    hour: pstDate.getHours()
+    hour: localDate.getHours()
   };
 }
 
-// Check if current time is after close of business (10 PM PST)
-function isAfterCloseOfBusiness(): boolean {
-  return getPSTDate().hour >= 22;
+// Legacy alias — preserved for any external imports
+function getPSTDate(): { date: string; hour: number } {
+  return getLocalDate('America/Los_Angeles');
 }
+
+// Check if current time is after close of business (10 PM local)
+function isAfterCloseOfBusiness(timezone: string = 'America/Los_Angeles'): boolean {
+  return getLocalDate(timezone).hour >= 22;
+}
+
 
 export function getCachedSalesData(locationId: string, date: string): CachedSalesData['data'] | null {
   try {
