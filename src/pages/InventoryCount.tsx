@@ -276,11 +276,29 @@ const InventoryCount = () => {
           </>
         )}
 
+        {/* Sandbox banner — only renders when this count is a sandbox clone */}
+        <SandboxBanner
+          count={{
+            id: countData.id,
+            is_sandbox: (countData as any).is_sandbox ?? false,
+            sandbox_owner: (countData as any).sandbox_owner ?? null,
+            cloned_from_location_id: (countData as any).cloned_from_location_id ?? null,
+            cloned_from_count_id: (countData as any).cloned_from_count_id ?? null,
+            cloned_at: (countData as any).cloned_at ?? null,
+          }}
+        />
+
         {/* Count Session, View, or Review */}
         {isViewOnly ? (
           <>
             {/* Actions for completed counts */}
             <div className="flex justify-end gap-2">
+              {!(countData as any).is_sandbox && (
+                <CloneToSandboxButton
+                  sourceLocationId={locationId!}
+                  sourceCountId={countId!}
+                />
+              )}
               <CountExportDialog
                 countId={countId!}
                 locationId={locationId!}
