@@ -97,6 +97,7 @@ export default function CompleteChecklist() {
   } = useAuth();
   const { isAdmin, isManager, isShiftManager } = useUserRole();
   const { currentLocation } = useLocation();
+  const { timezone: locationTimezone } = useLocationTimezone();
   const { position: userPosition, loading: positionLoading } = useUserPosition(user?.id, currentLocation?.id);
   const [positionStartTimes, setPositionStartTimes] = useState<Record<string, string>>({});
   const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
