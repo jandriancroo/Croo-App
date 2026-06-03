@@ -15,6 +15,14 @@ export async function calculateUsageRates(
   locationId: string
 ): Promise<{ calculated: number; skipped: number }> {
   try {
+    // 0. Resolve location timezone so "days elapsed" math is anchored locally
+    const { data: locSettings } = await supabase
+      .from("location_settings")
+      .select("timezone")
+      .eq("location_id", locationId)
+      .maybeSingle();
+    const locTz = locSettings?.timezone || 'America/Los_Angeles';
+
     // 1. Get current count details
     const { data: currentCount, error: countErr } = await supabase
       .from("inventory_counts")
@@ -45,10 +53,10 @@ export async function calculateUsageRates(
     }
 
     // Use counted_at for precise sales cutoff, fallback to count_date
-    // Convert UTC timestamps to PST dates to avoid off-by-one errors
+    // Convert UTC timestamps to the store's local date to avoid off-by-one errors
     const toLocalDate = (utcStr: string) => {
       const d = new Date(utcStr);
-      return d.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+      return d.toLocaleDateString('en-CA', { timeZone: locTz });
     };
     const periodStart = previousCount.counted_at 
       ? toLocalDate(previousCount.counted_at)
