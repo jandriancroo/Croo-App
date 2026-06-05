@@ -17,7 +17,8 @@ async function auth(): Promise<string | null> {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const { quStoreId = 1223, date = "2026-06-05" } = await req.json().catch(() => ({}));
+  const reqBody0 = await req.clone().json().catch(() => ({} as any));
+  const { quStoreId = 1223, date = "2026-06-05" } = reqBody0;
   const token = await auth();
   if (!token) return new Response("auth failed", { status: 502, headers: corsHeaders });
 
