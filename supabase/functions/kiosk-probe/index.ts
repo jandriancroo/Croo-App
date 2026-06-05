@@ -28,16 +28,11 @@ serve(async (req) => {
     "x-integration": Deno.env.get("QU_INTEGRATION_USER_ID") || "",
   };
 
-  // Pull EVERY field we can think of on check-detail
-  const fields = [
-    "checkNumber","orderChannelName","orderChannelId","checkState","netSales",
-    "orderTypeName","orderTypeId","serviceTypeName","serviceTypeId",
-    "tableNumber","tableName","sourceName","sourceId","origin","originName",
-    "deviceName","deviceId","terminalName","terminalId","stationName","stationId",
-    "employeeName","cashierName","createdBy","openedBy","operatorName",
-    "tenderName","paymentTypeName","customerName","guestCount",
-    "isOnline","isOlo","isKiosk","externalOrderId","externalOrderSource",
-    "menuName","menuId","revenueCenterName","revenueCenterId",
+  // Try field set passed in body, else a known-safe baseline
+  const reqBody = await req.json().catch(() => ({} as any));
+  const fields: string[] = reqBody.fields || [
+    "checkNumber","orderChannelName","checkState","netSales",
+    "orderTypeName","serviceTypeName","tenderName","stationName","terminalName","employeeName","tableNumber","guestCount",
   ];
 
   const body = {
