@@ -42,10 +42,11 @@ const Inventory = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
-  const { hasPermission } = useRolePermissions();
+  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { hasPermission, loading: permsLoading } = useRolePermissions();
   const { isBrandLevel } = useInventoryPermissions();
   const { timezone } = useLocationTimezone();
+  const permissionsLoading = roleLoading || permsLoading;
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
