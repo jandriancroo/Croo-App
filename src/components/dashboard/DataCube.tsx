@@ -35,12 +35,16 @@ export function DataCube({
 }: DataCubeProps) {
   const isOled = useIsOledTheme();
   
-  const formatValue = (value: number | undefined, format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes'): string => {
+  const formatValue = (value: number | undefined, format: 'currency' | 'currency_signed' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes'): string => {
     if (value === undefined || value === null) return '--';
     
     switch (format) {
       case 'currency':
         return `$${Math.round(value).toLocaleString()}`;
+      case 'currency_signed': {
+        const sign = value >= 0 ? '+' : '-';
+        return `${sign}$${Math.abs(value).toFixed(2)}`;
+      }
       case 'percent':
         return `${value.toFixed(1)}%`;
       case 'percent_signed': {
