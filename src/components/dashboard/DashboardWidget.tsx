@@ -358,7 +358,7 @@ export interface SalesDataForWidgets {
     kioskCheckCount?: number;
     kioskAvgCheck?: number;
     otherAvgCheck?: number;
-    avgCheckVariancePct?: number;
+    avgCheckVariance?: number;
     hasKiosk?: boolean;
   } | null;
 }
