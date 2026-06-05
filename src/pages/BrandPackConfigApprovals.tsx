@@ -579,6 +579,22 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
     );
   }, [filteredRows]);
 
+  // Collapse all item cards by default when grouped data loads.
+  useEffect(() => {
+    setCollapsedItems((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const g of grouped) {
+        const key = g.template?.id ?? "x";
+        if (!(key in next)) {
+          next[key] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [grouped]);
+
   // Trim selection to currently visible rows
   const visibleIds = useMemo(() => new Set(filteredRows.map((r) => r.id)), [filteredRows]);
   const effectiveSelected = useMemo(() => {
