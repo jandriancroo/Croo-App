@@ -357,6 +357,7 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       }
 
       await refetchOutliers();
+      await refetchLastScanAt();
       setLastScanStats({ matchCount: totalMatched, totalBid: totalVendorItems, discrepancies });
       toast.success('Scan complete');
     } catch (err: any) {
