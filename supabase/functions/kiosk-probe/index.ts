@@ -17,11 +17,8 @@ async function auth(): Promise<string | null> {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const reqBody0 = await req.clone().json().catch(() => ({} as any));
-  const { quStoreId = 1223, date = "2026-06-05" } = reqBody0;
   const token = await auth();
   if (!token) return new Response("auth failed", { status: 502, headers: corsHeaders });
-
   const headers = {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -29,51 +26,43 @@ serve(async (req) => {
     "x-integration": Deno.env.get("QU_INTEGRATION_USER_ID") || "",
   };
 
-  // Try field set passed in body, else a known-safe baseline
-  const reqBody = await req.json().catch(() => ({} as any));
-  const fields: string[] = reqBody.fields || [
-    "checkNumber","orderChannelName","checkState","netSales",
-    "orderTypeName","serviceTypeName","tenderName","stationName","terminalName","employeeName","tableNumber","guestCount",
+  // From the previous probe:
+  //  - kiosk dine-in:   checkId 6a230fc0f85aec73e1c03b56  (check# 260605180448274)
+  //  - olo carry-out:   checkId 6a230ff7a07d581946d9a1a5  (check# 260605180543452 - Dave's kiosk carry-out test)
+  //  - in-store:        checkId 6a230f7ae33ab1207af734ae  (check# 1000)
+  //  - olo delivery:    checkId 6a2307d43628eaf2716644a5  (check# 260605173100516 - real 3rd-party)
+  const targets = [
+    { tag: "kiosk_dinein",  checkId: "6a230fc0f85aec73e1c03b56" },
+    { tag: "olo_carry_kiosk_or_web", checkId: "6a230ff7a07d581946d9a1a5" },
+    { tag: "in_store",      checkId: "6a230f7ae33ab1207af734ae" },
+    { tag: "olo_delivery",  checkId: "6a2307d43628eaf2716644a5" },
   ];
 
-  const body = {
-    fields: fields.map((f) => ({ fieldName: f })),
-    filters: {
-      date: { from: date, to: date, type: "custom" },
-      location: { operationalUnits: [Number(quStoreId)] },
-    },
-    params: {
-      sectionId: "main",
-      pageNumber: 1,
-      pageSize: 50,
-      sort: [{ field: "date", dir: "desc" }],
-    },
-  };
+  // Try several known sub-section endpoints on the check-detail report
+  const sections = ["sub", "subreport", "details", "items", "payments", "header", "checkInfo"];
+  const out: any = {};
 
-  const r = await fetch(
-    "https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/main",
-    { method: "POST", headers, body: JSON.stringify(body) },
-  );
-  const text = await r.text();
-  let data: any;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
-
-  // Summarize: tally distinct values per field for items that look kiosk vs not
-  const items = (data.items || []).filter((it: any) => it.checkNumber && it.checkNumber !== "Total");
-  const summary: any = { totalItems: items.length, sampleKeys: items[0] ? Object.keys(items[0]) : [], byChannel: {} };
-  for (const it of items) {
-    const k = `${it.orderChannelName || "?"} | ${it.orderTypeName || it.serviceTypeName || "?"}`;
-    summary.byChannel[k] = (summary.byChannel[k] || 0) + 1;
+  for (const t of targets) {
+    out[t.tag] = {};
+    for (const sec of sections) {
+      const url = `https://gateway-api.qubeyond.com/api/v4/data/reports/check-detail/sections/${sec}`;
+      try {
+        const r = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            params: { sectionId: sec, checkId: t.checkId, pageNumber: 1, pageSize: 100 },
+          }),
+        });
+        const text = await r.text();
+        out[t.tag][sec] = { status: r.status, body: text.slice(0, 1500) };
+      } catch (e) {
+        out[t.tag][sec] = { error: String(e) };
+      }
+    }
   }
-  // Pick two interesting examples: an OLO + Dine In and an OLO + Carry Out and a plain In Store
-  const find = (pred: (it: any) => boolean) => items.find(pred);
-  const examples = {
-    olo_dine_in: find((it: any) => /olo/i.test(it.orderChannelName || "") && /dine/i.test(it.orderTypeName || it.serviceTypeName || "")),
-    olo_carry: find((it: any) => /olo/i.test(it.orderChannelName || "") && /carry|to.?go/i.test(it.orderTypeName || it.serviceTypeName || "")),
-    in_store: find((it: any) => /in.?store/i.test(it.orderChannelName || "")),
-  };
 
-  return new Response(JSON.stringify({ status: r.status, summary, examples, firstItem: items[0], rawPreview: text.slice(0, 2000) }, null, 2), {
+  return new Response(JSON.stringify(out, null, 2), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
