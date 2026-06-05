@@ -110,7 +110,7 @@ export interface MetricConfig {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
-  format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes';
+  format: 'currency' | 'currency_signed' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes';
   category: 'daily' | 'weekly' | 'monthly';
 }
 
@@ -240,7 +240,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   kiosk_sales_today: { type: 'kiosk_sales_today', label: 'Kiosk Sales', shortLabel: 'Kiosk $', icon: DollarSign, format: 'currency', category: 'daily' },
   kiosk_check_count_today: { type: 'kiosk_check_count_today', label: 'Kiosk Checks', shortLabel: 'Kiosk Qty', icon: Users, format: 'number', category: 'daily' },
   kiosk_avg_check: { type: 'kiosk_avg_check', label: 'Kiosk Avg Check', shortLabel: 'Kiosk Avg', icon: DollarSign, format: 'currency', category: 'daily' },
-  kiosk_avg_check_variance: { type: 'kiosk_avg_check_variance', label: 'Kiosk Avg vs Store', shortLabel: 'Kiosk +/-', icon: TrendingUp, format: 'percent_signed', category: 'daily' },
+  kiosk_avg_check_variance: { type: 'kiosk_avg_check_variance', label: 'Kiosk Avg vs Store', shortLabel: 'Kiosk +/-', icon: TrendingUp, format: 'currency_signed', category: 'daily' },
 
   // Legacy aliases (map to equivalents for backwards compatibility) - hidden from UI
   labor_percent: { type: 'labor_percent', label: 'Labor %', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'daily' },
@@ -358,7 +358,7 @@ export interface SalesDataForWidgets {
     kioskCheckCount?: number;
     kioskAvgCheck?: number;
     otherAvgCheck?: number;
-    avgCheckVariancePct?: number;
+    avgCheckVariance?: number;
     hasKiosk?: boolean;
   } | null;
 }
@@ -390,12 +390,16 @@ export function DashboardWidget({
   
   // Use primary color for OLED theme instead of custom accent colors
   const effectiveColor = isOled ? 'hsl(215, 30%, 18%)' : accentColor;
-  const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes'): string => {
+  const formatValue = (value: number | undefined, formatType: 'currency' | 'currency_signed' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes'): string => {
     if (value === undefined || value === null) return '--';
     
     switch (formatType) {
       case 'currency':
         return `$${Math.round(value).toLocaleString()}`;
+      case 'currency_signed': {
+        const sign = value >= 0 ? '+' : '-';
+        return `${sign}$${Math.abs(value).toFixed(2)}`;
+      }
       case 'percent':
         return `${value.toFixed(1)}%`;
       case 'percent_signed': {
