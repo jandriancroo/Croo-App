@@ -100,6 +100,12 @@ export function DataCube({
       case 'kds_ontime_count': return salesData.kdsData?.onTimeCount;
       case 'kds_caution_count': return salesData.kdsData?.cautionCount;
       case 'kds_late_count': return salesData.kdsData?.lateCount;
+
+      // Kiosk metrics
+      case 'kiosk_sales_today': return salesData.kioskData?.kioskSales;
+      case 'kiosk_check_count_today': return salesData.kioskData?.kioskCheckCount;
+      case 'kiosk_avg_check': return salesData.kioskData?.kioskAvgCheck;
+      case 'kiosk_avg_check_variance': return salesData.kioskData?.avgCheckVariancePct;
       
       // Daily guests/products
       case 'guest_count_today': return salesData.guestCount?.daily;
