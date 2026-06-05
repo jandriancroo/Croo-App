@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, Package, BookOpen, Search, Plus, Archive, Tag, ChefHat,
   BarChart3, Building2, CheckCircle2, Clock, Zap, ArrowRight, GitBranch, Eye,
-  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle, ChevronDown, Link2, Check,
+  RefreshCw, Shield, FileText, ScanSearch, Filter, Activity, HelpCircle, ChevronDown, Link2, Check, Pencil,
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -534,26 +534,6 @@ export default function BrandInventory() {
                     className="pl-9 h-9"
                   />
                 </div>
-                {catalogFilter === 'live' && (
-                  <>
-                    <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setCategoryEditorOpen(true)}>
-                      <Tag className="h-3.5 w-3.5" />
-                      Edit Categories
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => {
-                        setConversionsTargetId(null);
-                        setConversionsOpen(true);
-                      }}
-                    >
-                      <GitBranch className="h-3.5 w-3.5" />
-                      Conversions
-                    </Button>
-                  </>
-                )}
                 <Button size="sm" className="gap-1.5 shrink-0" onClick={() => setNewItemDialog(true)}>
                   <Plus className="h-3.5 w-3.5" />
                   New Item
@@ -583,6 +563,33 @@ export default function BrandInventory() {
                     <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
                       <Tag className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">By Category</span>
+                      {catalogFilter === 'live' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 gap-1 text-[11px] ml-1"
+                          onClick={() => setCategoryEditorOpen(true)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Edit Categories
+                        </Button>
+                      )}
+                      <div className="ml-auto flex items-center gap-2">
+                        {filteredTemplates.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[11px]"
+                            onClick={() => {
+                              const allIds = filteredTemplates.map(t => t.id);
+                              const allSelected = allIds.every(id => catalogSelectedIds.has(id));
+                              setCatalogSelectedIds(allSelected ? new Set() : new Set(allIds));
+                            }}
+                          >
+                            {filteredTemplates.every(t => catalogSelectedIds.has(t.id)) && filteredTemplates.length > 0 ? 'Clear all' : `Select all (${filteredTemplates.length})`}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="divide-y divide-border">
                       {Object.entries(groupedTemplates)
@@ -622,6 +629,10 @@ export default function BrandInventory() {
                     onClear={() => setCatalogSelectedIds(new Set())}
                     activeFilter={catalogFilter}
                     categories={categoryNames}
+                    onOpenConversions={() => {
+                      setConversionsTargetId(Array.from(catalogSelectedIds)[0] ?? null);
+                      setConversionsOpen(true);
+                    }}
                   />
                 )}
               </>
@@ -839,9 +850,12 @@ export default function BrandInventory() {
           }}
           brandId={brandId}
           items={(() => {
-            const live = templates.filter(t => (t.status || 'live') === 'live');
+            const useSelection = catalogSelectedIds.size > 0;
+            const pool = useSelection
+              ? templates.filter(t => catalogSelectedIds.has(t.id))
+              : templates.filter(t => (t.status || 'live') === 'live');
             const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
-            return [...live].sort((a, b) => {
+            return [...pool].sort((a, b) => {
               const ai = orderMap[a.category || 'Uncategorized'] ?? 999;
               const bi = orderMap[b.category || 'Uncategorized'] ?? 999;
               if (ai !== bi) return ai - bi;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Clock, Archive, Tag, X, Grid3X3 } from "lucide-react";
+import { CheckCircle2, Clock, Archive, Tag, X, Grid3X3, GitBranch } from "lucide-react";
 import BrandPanMatrixSheet from "./BrandPanMatrixSheet";
 import { toast } from "sonner";
 import {
@@ -28,9 +28,10 @@ interface BrandCatalogBulkBarProps {
   onClear: () => void;
   activeFilter?: string;
   categories?: string[];
+  onOpenConversions?: () => void;
 }
 
-export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, activeFilter = 'live', categories = [] }: BrandCatalogBulkBarProps) {
+export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, activeFilter = 'live', categories = [], onOpenConversions }: BrandCatalogBulkBarProps) {
   const queryClient = useQueryClient();
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [publishCategoryDialog, setPublishCategoryDialog] = useState(false);
@@ -167,6 +168,16 @@ export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, act
               </div>
             )}
           </div>
+
+          {onOpenConversions && (
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
+              onClick={onOpenConversions}
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+              Conversions
+            </button>
+          )}
 
           <button
             className="p-1.5 rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
