@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -578,6 +578,22 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       (a.template?.product_name || "").localeCompare(b.template?.product_name || "")
     );
   }, [filteredRows]);
+
+  // Collapse all item cards by default when grouped data loads.
+  useEffect(() => {
+    setCollapsedItems((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const g of grouped) {
+        const key = g.template?.id ?? "x";
+        if (!(key in next)) {
+          next[key] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [grouped]);
 
   // Trim selection to currently visible rows
   const visibleIds = useMemo(() => new Set(filteredRows.map((r) => r.id)), [filteredRows]);
