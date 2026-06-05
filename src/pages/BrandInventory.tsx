@@ -759,6 +759,40 @@ export default function BrandInventory() {
           <TabsContent value="health" className="space-y-4">
             {brandId && <VendorHealthDashboard brandId={brandId} />}
           </TabsContent>
+
+          {/* ===== VENDOR GAPS TAB ===== */}
+          <TabsContent value="vendor-gaps" className="space-y-4">
+            {brandId && <VendorGapFinder brandId={brandId} />}
+          </TabsContent>
+
+          {/* ===== PACK CONFIGS TAB ===== */}
+          <TabsContent value="pack-configs" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Pack Config Approvals
+                  {proposalCount > 0 && (
+                    <Badge variant="default" className="text-[10px] tabular-nums ml-1 h-5 px-1.5">
+                      {proposalCount} pending
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Review and approve lens-detected pack configurations before they propagate to locations.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => navigate(`/brand/${brandId}/inventory/pack-configs`)}
+                  className="gap-1.5"
+                >
+                  Open Pack Configs
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
 
