@@ -287,6 +287,12 @@ serve(async (req) => {
         }
       }
 
+      // Stamp last scan timestamp so the UI can show "Last updated at"
+      await supabase
+        .from("brands")
+        .update({ last_vendor_gap_scan_at: new Date().toISOString() })
+        .eq("id", brand.id);
+
       results.push({ brandId: brand.id, brandName: brand.name, newItems: newItemCount });
     }
 
