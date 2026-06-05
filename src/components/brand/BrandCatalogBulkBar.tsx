@@ -28,9 +28,10 @@ interface BrandCatalogBulkBarProps {
   onClear: () => void;
   activeFilter?: string;
   categories?: string[];
+  onOpenConversions?: () => void;
 }
 
-export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, activeFilter = 'live', categories = [] }: BrandCatalogBulkBarProps) {
+export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, activeFilter = 'live', categories = [], onOpenConversions }: BrandCatalogBulkBarProps) {
   const queryClient = useQueryClient();
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [publishCategoryDialog, setPublishCategoryDialog] = useState(false);
