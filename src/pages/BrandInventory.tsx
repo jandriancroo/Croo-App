@@ -437,26 +437,6 @@ export default function BrandInventory() {
           </Button>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="catalog" className="gap-1.5">
-              <Package className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Catalog</span>
-            </TabsTrigger>
-            <TabsTrigger value="recipes" className="gap-1.5">
-              <ChefHat className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Recipes</span>
-            </TabsTrigger>
-            <TabsTrigger value="theo" className="gap-1.5">
-              <Filter className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Theo</span>
-              {(brand?.pos_excluded_categories?.length ?? 0) > 0 && (
-                <Badge variant="secondary" className="text-[10px] tabular-nums ml-0.5">
-                  {brand.pos_excluded_categories.length}
-                </Badge>
-              )}
-            </TabsTrigger>
         {/* Tabs — parent group selector + child tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           {/* Parent group pill selector */}
@@ -565,21 +545,6 @@ export default function BrandInventory() {
                   </Button>
                 ))}
               </div>
-                <Button
-                  variant={catalogFilter === 'gaps' as any ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setCatalogFilter('gaps' as any)}
-                  className="gap-1.5"
-                >
-                  <ScanSearch className="h-3.5 w-3.5" />
-                  Vendor Gaps
-                  {gapAlertCount > 0 && (
-                    <Badge variant="destructive" className="ml-1.5 text-[10px] px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
-                      {gapAlertCount}
-                    </Badge>
-                  )}
-                </Button>
-              </div>
               <div className="flex-1 flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -617,9 +582,9 @@ export default function BrandInventory() {
               </div>
             </div>
 
-            {catalogFilter === 'gaps' ? (
-              <VendorGapFinder brandId={brandId!} />
-            ) : (
+            <>
+              <>
+
               <>
                 {templatesLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading catalog...</div>
