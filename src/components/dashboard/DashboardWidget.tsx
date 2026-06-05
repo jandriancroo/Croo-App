@@ -306,6 +306,12 @@ export const METRIC_GROUPS = [
       'payment_olo_combined_today', 'payment_olo_combined_today_pct'
     ] as MetricType[]
   },
+  {
+    label: 'Kiosk (enable only if you have a customer ordering kiosk)',
+    metrics: [
+      'kiosk_sales_today', 'kiosk_check_count_today', 'kiosk_avg_check', 'kiosk_avg_check_variance'
+    ] as MetricType[]
+  },
 ];
 
 export interface SalesDataForWidgets {
