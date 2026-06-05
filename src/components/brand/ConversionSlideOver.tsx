@@ -385,7 +385,7 @@ export default function ConversionSlideOver({
               </Button>
             </div>
           </div>
-        </SheetHeader>
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-5 mt-3 grid grid-cols-3">
@@ -546,7 +546,7 @@ export default function ConversionSlideOver({
             </div>
           </TabsContent>
         </Tabs>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
