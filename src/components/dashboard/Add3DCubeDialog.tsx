@@ -61,21 +61,30 @@ export function Add3DCubeDialog({
     onOpenChange(isOpen);
   };
 
-  const toggleMetric = (metric: MetricType) => {
+  const isKioskMetric = (m: MetricType) => String(m).startsWith('kiosk_');
+
+  const applyToggle = (metric: MetricType) => {
     const currentFaceMetrics = faceMetrics[activeFace];
     const maxMetrics = 5; // 4 corners + 1 center
-    
+
     if (currentFaceMetrics.includes(metric)) {
-      // Remove metric
       const updated = [...faceMetrics];
       updated[activeFace] = currentFaceMetrics.filter(m => m !== metric);
       setFaceMetrics(updated);
     } else if (currentFaceMetrics.length < maxMetrics) {
-      // Add metric
       const updated = [...faceMetrics];
       updated[activeFace] = [...currentFaceMetrics, metric];
       setFaceMetrics(updated);
     }
+  };
+
+  const toggleMetric = (metric: MetricType) => {
+    const alreadySelected = faceMetrics[activeFace].includes(metric);
+    if (!alreadySelected && isKioskMetric(metric) && !kioskConfirmed) {
+      setPendingKioskMetric(metric);
+      return;
+    }
+    applyToggle(metric);
   };
 
   const handleAddCube = async () => {
