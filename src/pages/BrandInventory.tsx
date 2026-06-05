@@ -629,6 +629,10 @@ export default function BrandInventory() {
                     onClear={() => setCatalogSelectedIds(new Set())}
                     activeFilter={catalogFilter}
                     categories={categoryNames}
+                    onOpenConversions={() => {
+                      setConversionsTargetId(Array.from(catalogSelectedIds)[0] ?? null);
+                      setConversionsOpen(true);
+                    }}
                   />
                 )}
               </>
