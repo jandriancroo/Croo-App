@@ -34,6 +34,8 @@ import TheoMappingTab from '@/components/brand/TheoMappingTab';
 import ArchivedRecipesSection from '@/components/brand/ArchivedRecipesSection';
 import LocationActivationList from '@/components/brand/LocationActivationList';
 import VendorHealthDashboard from '@/components/brand/VendorHealthDashboard';
+import BrandPackConfigApprovals from '@/pages/BrandPackConfigApprovals';
+import BrandUnpricedIngredients from '@/pages/BrandUnpricedIngredients';
 import ConversionSlideOver from '@/components/brand/ConversionSlideOver';
 import { useBrandConversions } from '@/hooks/useBrandConversions';
 
