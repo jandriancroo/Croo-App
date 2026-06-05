@@ -109,7 +109,7 @@ export function DataCube({
       case 'kiosk_sales_today': return salesData.kioskData?.kioskSales;
       case 'kiosk_check_count_today': return salesData.kioskData?.kioskCheckCount;
       case 'kiosk_avg_check': return salesData.kioskData?.kioskAvgCheck;
-      case 'kiosk_avg_check_variance': return salesData.kioskData?.avgCheckVariancePct;
+      case 'kiosk_avg_check_variance': return salesData.kioskData?.avgCheckVariance;
       
       // Daily guests/products
       case 'guest_count_today': return salesData.guestCount?.daily;
