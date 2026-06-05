@@ -48,7 +48,25 @@ export default function BrandInventory() {
   const queryClient = useQueryClient();
   const { isSuperAdmin, isBrandAdmin, loading: roleLoading } = useUserRole();
   const [activeTab, setActiveTab] = useState('catalog');
-  const [catalogFilter, setCatalogFilter] = useState<'live' | 'draft' | 'archived' | 'gaps'>('live');
+  const [catalogFilter, setCatalogFilter] = useState<'live' | 'draft' | 'archived'>('live');
+
+  // Tab groupings — parent navigation
+  const TAB_GROUPS = {
+    brand: ['catalog', 'recipes', 'theo'],
+    vendor: ['vendor-gaps', 'pack-configs', 'health'],
+    setup: ['locations', 'guide'],
+  } as const;
+  type ParentGroup = keyof typeof TAB_GROUPS;
+  const groupOfTab = (tab: string): ParentGroup => {
+    for (const g of Object.keys(TAB_GROUPS) as ParentGroup[]) {
+      if ((TAB_GROUPS[g] as readonly string[]).includes(tab)) return g;
+    }
+    return 'brand';
+  };
+  const parentGroup = groupOfTab(activeTab);
+  const handleGroupChange = (g: ParentGroup) => {
+    setActiveTab(TAB_GROUPS[g][0]);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [newItemDialog, setNewItemDialog] = useState(false);
