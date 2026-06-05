@@ -23,7 +23,7 @@ const fmtCurrency = (v: number | null) =>
     ? "—"
     : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
 
-export default function BrandUnpricedIngredients() {
+export default function BrandUnpricedIngredients({ embedded = false }: { embedded?: boolean } = {}) {
   const { brandId } = useParams<{ brandId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
