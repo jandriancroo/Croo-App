@@ -48,7 +48,25 @@ export default function BrandInventory() {
   const queryClient = useQueryClient();
   const { isSuperAdmin, isBrandAdmin, loading: roleLoading } = useUserRole();
   const [activeTab, setActiveTab] = useState('catalog');
-  const [catalogFilter, setCatalogFilter] = useState<'live' | 'draft' | 'archived' | 'gaps'>('live');
+  const [catalogFilter, setCatalogFilter] = useState<'live' | 'draft' | 'archived'>('live');
+
+  // Tab groupings — parent navigation
+  const TAB_GROUPS = {
+    brand: ['catalog', 'recipes', 'theo'],
+    vendor: ['vendor-gaps', 'pack-configs', 'health'],
+    setup: ['locations', 'guide'],
+  } as const;
+  type ParentGroup = keyof typeof TAB_GROUPS;
+  const groupOfTab = (tab: string): ParentGroup => {
+    for (const g of Object.keys(TAB_GROUPS) as ParentGroup[]) {
+      if ((TAB_GROUPS[g] as readonly string[]).includes(tab)) return g;
+    }
+    return 'brand';
+  };
+  const parentGroup = groupOfTab(activeTab);
+  const handleGroupChange = (g: ParentGroup) => {
+    setActiveTab(TAB_GROUPS[g][0]);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
   const [newItemDialog, setNewItemDialog] = useState(false);
@@ -419,38 +437,90 @@ export default function BrandInventory() {
           </Button>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — parent group selector + child tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          {/* Parent group pill selector */}
+          <div className="inline-flex bg-muted rounded-full p-1 gap-0.5">
+            {([
+              { id: 'brand' as const, label: 'Brand Management' },
+              { id: 'vendor' as const, label: 'Vendor Management' },
+              { id: 'setup' as const, label: 'Setup' },
+            ]).map(g => (
+              <button
+                key={g.id}
+                onClick={() => handleGroupChange(g.id)}
+                className={`rounded-full font-medium transition-all duration-200 px-4 py-1.5 text-xs sm:text-sm ${
+                  parentGroup === g.id
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Child tabs — scoped to selected group */}
           <TabsList className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="catalog" className="gap-1.5">
-              <Package className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Catalog</span>
-            </TabsTrigger>
-            <TabsTrigger value="recipes" className="gap-1.5">
-              <ChefHat className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Recipes</span>
-            </TabsTrigger>
-            <TabsTrigger value="theo" className="gap-1.5">
-              <Filter className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Theo</span>
-              {(brand?.pos_excluded_categories?.length ?? 0) > 0 && (
-                <Badge variant="secondary" className="text-[10px] tabular-nums ml-0.5">
-                  {brand.pos_excluded_categories.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="locations" className="gap-1.5">
-              <Building2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Locations</span>
-            </TabsTrigger>
-            <TabsTrigger value="guide" className="gap-1.5">
-              <BookOpen className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Guide</span>
-            </TabsTrigger>
-            <TabsTrigger value="health" className="gap-1.5">
-              <Activity className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Health</span>
-            </TabsTrigger>
+            {parentGroup === 'brand' && (
+              <>
+                <TabsTrigger value="catalog" className="gap-1.5">
+                  <Package className="h-3.5 w-3.5" />
+                  <span>Catalog</span>
+                </TabsTrigger>
+                <TabsTrigger value="recipes" className="gap-1.5">
+                  <ChefHat className="h-3.5 w-3.5" />
+                  <span>Recipes</span>
+                </TabsTrigger>
+                <TabsTrigger value="theo" className="gap-1.5">
+                  <Filter className="h-3.5 w-3.5" />
+                  <span>Theo</span>
+                  {(brand?.pos_excluded_categories?.length ?? 0) > 0 && (
+                    <Badge variant="secondary" className="text-[10px] tabular-nums ml-0.5">
+                      {brand.pos_excluded_categories.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </>
+            )}
+            {parentGroup === 'vendor' && (
+              <>
+                <TabsTrigger value="vendor-gaps" className="gap-1.5">
+                  <ScanSearch className="h-3.5 w-3.5" />
+                  <span>Vendor Gaps</span>
+                  {gapAlertCount > 0 && (
+                    <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
+                      {gapAlertCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="pack-configs" className="gap-1.5">
+                  <Package className="h-3.5 w-3.5" />
+                  <span>Pack Configs</span>
+                  {proposalCount > 0 && (
+                    <Badge variant="default" className="ml-1 text-[10px] tabular-nums h-[18px] px-1.5">
+                      {proposalCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="health" className="gap-1.5">
+                  <Activity className="h-3.5 w-3.5" />
+                  <span>Health</span>
+                </TabsTrigger>
+              </>
+            )}
+            {parentGroup === 'setup' && (
+              <>
+                <TabsTrigger value="locations" className="gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span>Locations</span>
+                </TabsTrigger>
+                <TabsTrigger value="guide" className="gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5" />
+                  <span>Guide</span>
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           {/* ===== CATALOG TAB ===== */}
@@ -474,20 +544,6 @@ export default function BrandInventory() {
                     </Badge>
                   </Button>
                 ))}
-                <Button
-                  variant={catalogFilter === 'gaps' as any ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setCatalogFilter('gaps' as any)}
-                  className="gap-1.5"
-                >
-                  <ScanSearch className="h-3.5 w-3.5" />
-                  Vendor Gaps
-                  {gapAlertCount > 0 && (
-                    <Badge variant="destructive" className="ml-1.5 text-[10px] px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
-                      {gapAlertCount}
-                    </Badge>
-                  )}
-                </Button>
               </div>
               <div className="flex-1 flex gap-2">
                 <div className="relative flex-1">
@@ -526,10 +582,8 @@ export default function BrandInventory() {
               </div>
             </div>
 
-            {catalogFilter === 'gaps' ? (
-              <VendorGapFinder brandId={brandId!} />
-            ) : (
               <>
+
                 {templatesLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading catalog...</div>
                 ) : filteredTemplates.length === 0 && catalogFilter !== 'archived' ? (
@@ -592,7 +646,7 @@ export default function BrandInventory() {
                   />
                 )}
               </>
-            )}
+
           </TabsContent>
 
           {/* ===== RECIPES TAB ===== */}
@@ -704,6 +758,40 @@ export default function BrandInventory() {
           {/* ===== HEALTH TAB ===== */}
           <TabsContent value="health" className="space-y-4">
             {brandId && <VendorHealthDashboard brandId={brandId} />}
+          </TabsContent>
+
+          {/* ===== VENDOR GAPS TAB ===== */}
+          <TabsContent value="vendor-gaps" className="space-y-4">
+            {brandId && <VendorGapFinder brandId={brandId} />}
+          </TabsContent>
+
+          {/* ===== PACK CONFIGS TAB ===== */}
+          <TabsContent value="pack-configs" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Pack Config Approvals
+                  {proposalCount > 0 && (
+                    <Badge variant="default" className="text-[10px] tabular-nums ml-1 h-5 px-1.5">
+                      {proposalCount} pending
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Review and approve lens-detected pack configurations before they propagate to locations.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => navigate(`/brand/${brandId}/inventory/pack-configs`)}
+                  className="gap-1.5"
+                >
+                  Open Pack Configs
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
