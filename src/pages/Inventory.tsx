@@ -42,10 +42,11 @@ const Inventory = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
-  const { hasPermission } = useRolePermissions();
+  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { hasPermission, loading: permsLoading } = useRolePermissions();
   const { isBrandLevel } = useInventoryPermissions();
   const { timezone } = useLocationTimezone();
+  const permissionsLoading = roleLoading || permsLoading;
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
@@ -437,6 +438,13 @@ const Inventory = () => {
 
 
 
+  // While permissions are still loading (or transiently errored on a flaky
+  // preview network), do NOT redirect — otherwise the page bounces to
+  // /dashboard every render before isAdmin/hasPermission resolve, which
+  // makes Sandbox unreachable on slow connections.
+  if (permissionsLoading) {
+    return null;
+  }
   if (!canAccessInventory) {
     navigate('/dashboard', { replace: true });
     return null;
