@@ -562,17 +562,16 @@ export default function BrandInventory() {
                   <Card>
                     <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
                       <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">By Category</span>
-                      {catalogFilter === 'live' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 gap-1 text-[11px] ml-1"
+                      {catalogFilter === 'live' ? (
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
                           onClick={() => setCategoryEditorOpen(true)}
                         >
-                          <Pencil className="h-3 w-3" />
                           Edit Categories
-                        </Button>
+                        </button>
+                      ) : (
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">By Category</span>
                       )}
                       <div className="ml-auto flex items-center gap-2">
                         {filteredTemplates.length > 0 && (
