@@ -144,10 +144,14 @@ serve(async (req) => {
 
     let kioskSales = 0, kioskCount = 0;
     let otherSales = 0, otherCount = 0;
+    const channelTally: Record<string, { count: number; sales: number }> = {};
 
     for (const it of items) {
-      const channel = String(it.orderChannelName || "").toLowerCase();
+      const rawChannel = String(it.orderChannelName || "(none)");
+      const channel = rawChannel.toLowerCase();
       const net = parseMoney(it.netSales);
+      const t = channelTally[rawChannel] ||= { count: 0, sales: 0 };
+      t.count += 1; t.sales += net;
       if (channel.includes("kiosk")) {
         kioskSales += net;
         kioskCount += 1;
@@ -169,6 +173,7 @@ serve(async (req) => {
       avgCheckVariancePct: variancePct,
       hasKiosk: kioskCount > 0,
       sampledChecks: items.length,
+      channelBreakdown: channelTally,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     return new Response(JSON.stringify({ error: String(err) }), {
