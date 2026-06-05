@@ -352,6 +352,15 @@ export interface SalesDataForWidgets {
     cautionCount?: number;
     lateCount?: number;
   } | null;
+  // Kiosk metrics data
+  kioskData?: {
+    kioskSales?: number;
+    kioskCheckCount?: number;
+    kioskAvgCheck?: number;
+    otherAvgCheck?: number;
+    avgCheckVariancePct?: number;
+    hasKiosk?: boolean;
+  } | null;
 }
 
 interface DashboardWidgetProps {
