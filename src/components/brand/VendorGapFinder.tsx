@@ -656,19 +656,28 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <h3 className="font-semibold text-sm flex items-center gap-2">
                 <Search className="h-4 w-4 text-primary" />
                 Vendor Gap Finder
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Compare PFG Bid List &amp; PA catalog against your catalog
+                Auto-scans nightly. Compares PFG Bid List &amp; PA catalog against your catalog.
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                <span className="font-medium">Last updated:</span>{' '}
+                {lastScanAt
+                  ? new Date(lastScanAt).toLocaleString(undefined, {
+                      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                    })
+                  : 'Never — waiting for first nightly run'}
               </p>
             </div>
-            <Button size="sm" onClick={runScan}
+            <Button size="sm" variant="ghost" onClick={runScan}
+              title="Force a manual rescan"
               disabled={isScanning || (pfgLocations.length === 0 && brandLocationIds.length === 0)}>
               {isScanning ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
-              {isScanning ? 'Scanning...' : 'Run Scan'}
+              {isScanning ? 'Scanning...' : 'Refresh now'}
             </Button>
           </div>
           {pfgLocations.length === 0 && brandLocationIds.length === 0 && (
@@ -676,15 +685,14 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
               No locations have PFG or PA integrations configured.
             </p>
           )}
-          {(pfgLocations.length > 0 || brandLocationIds.length > 0) && !isScanning && (
+          {(pfgLocations.length > 0 || brandLocationIds.length > 0) && !isScanning && activeOutliers.length > 0 && (
             <p className="text-xs text-muted-foreground mt-2">
-              {activeOutliers.length > 0
-                ? `${activeOutliers.length} unresolved gaps. Run scan to refresh.`
-                : 'Click Run Scan to check for new vendor items.'}
+              {activeOutliers.length} unresolved gap{activeOutliers.length === 1 ? '' : 's'} from the last scan.
             </p>
           )}
         </CardContent>
       </Card>
+
 
       {/* Stats */}
       {(lastScanStats || activeOutliers.length > 0) && (
