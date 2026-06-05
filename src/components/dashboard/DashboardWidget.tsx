@@ -94,6 +94,11 @@ export type MetricType =
   | 'kds_ontime_count'
   | 'kds_caution_count'
   | 'kds_late_count'
+  // Kiosk (customer self-order) metrics
+  | 'kiosk_sales_today'
+  | 'kiosk_check_count_today'
+  | 'kiosk_avg_check'
+  | 'kiosk_avg_check_variance'
   // Legacy aliases (for backwards compatibility)
   | 'labor_percent'
   | 'labor_cost'
