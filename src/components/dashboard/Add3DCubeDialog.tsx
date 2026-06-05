@@ -40,6 +40,8 @@ export function Add3DCubeDialog({
   const [accentColor, setAccentColor] = useState<ThemeColorKey>(THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key);
   const [faceMetrics, setFaceMetrics] = useState<MetricType[][]>([[], [], [], []]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingKioskMetric, setPendingKioskMetric] = useState<MetricType | null>(null);
+  const [kioskConfirmed, setKioskConfirmed] = useState(false);
 
   const resetDialog = () => {
     setNumFaces(2);
