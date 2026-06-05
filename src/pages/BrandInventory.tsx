@@ -582,10 +582,8 @@ export default function BrandInventory() {
               </div>
             </div>
 
-            <>
               <>
 
-              <>
                 {templatesLoading ? (
                   <div className="text-center py-8 text-muted-foreground">Loading catalog...</div>
                 ) : filteredTemplates.length === 0 && catalogFilter !== 'archived' ? (
@@ -648,7 +646,7 @@ export default function BrandInventory() {
                   />
                 )}
               </>
-            )}
+
           </TabsContent>
 
           {/* ===== RECIPES TAB ===== */}
