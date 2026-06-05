@@ -172,16 +172,32 @@ export default function Dashboard() {
     staleTime: 5 * 60 * 1000,
   });
   
+  // Fetch Kiosk metrics for current location (only relevant for stores with a kiosk)
+  const { data: kioskData } = useQuery({
+    queryKey: ['kiosk-metrics', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return null;
+      const { data, error } = await supabase.functions.invoke('kiosk-metrics', {
+        body: { location_id: currentLocation.id },
+      });
+      if (error) return null;
+      return data ?? null;
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+
   // Combine sales data with personal data and KDS data (memoized to prevent recalc on every render)
   const combinedSalesData: SalesDataForWidgets | null = useMemo(() => {
     if (salesOverviewData) {
-      return { ...salesOverviewData, personalData: personalPayData, kdsData };
+      return { ...salesOverviewData, personalData: personalPayData, kdsData, kioskData };
     }
-    if (personalPayData || kdsData) {
-      return { personalData: personalPayData, kdsData };
+    if (personalPayData || kdsData || kioskData) {
+      return { personalData: personalPayData, kdsData, kioskData };
     }
     return null;
-  }, [salesOverviewData, personalPayData, kdsData]);
+  }, [salesOverviewData, personalPayData, kdsData, kioskData]);
 
   // Read from the unified dashboard_widgets table via the shared hook
   // (same query key as WidgetsSection, so no duplicate fetch).

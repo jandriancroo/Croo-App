@@ -1,5 +1,15 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +50,8 @@ export function Add3DCubeDialog({
   const [accentColor, setAccentColor] = useState<ThemeColorKey>(THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key);
   const [faceMetrics, setFaceMetrics] = useState<MetricType[][]>([[], [], [], []]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingKioskMetric, setPendingKioskMetric] = useState<MetricType | null>(null);
+  const [kioskConfirmed, setKioskConfirmed] = useState(false);
 
   const resetDialog = () => {
     setNumFaces(2);
@@ -48,6 +60,8 @@ export function Add3DCubeDialog({
     setAccentColor(THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key);
     setFaceMetrics([[], [], [], []]);
     setIsSubmitting(false);
+    setPendingKioskMetric(null);
+    setKioskConfirmed(false);
   };
 
   const handleClose = (isOpen: boolean) => {
@@ -57,21 +71,30 @@ export function Add3DCubeDialog({
     onOpenChange(isOpen);
   };
 
-  const toggleMetric = (metric: MetricType) => {
+  const isKioskMetric = (m: MetricType) => String(m).startsWith('kiosk_');
+
+  const applyToggle = (metric: MetricType) => {
     const currentFaceMetrics = faceMetrics[activeFace];
     const maxMetrics = 5; // 4 corners + 1 center
-    
+
     if (currentFaceMetrics.includes(metric)) {
-      // Remove metric
       const updated = [...faceMetrics];
       updated[activeFace] = currentFaceMetrics.filter(m => m !== metric);
       setFaceMetrics(updated);
     } else if (currentFaceMetrics.length < maxMetrics) {
-      // Add metric
       const updated = [...faceMetrics];
       updated[activeFace] = [...currentFaceMetrics, metric];
       setFaceMetrics(updated);
     }
+  };
+
+  const toggleMetric = (metric: MetricType) => {
+    const alreadySelected = faceMetrics[activeFace].includes(metric);
+    if (!alreadySelected && isKioskMetric(metric) && !kioskConfirmed) {
+      setPendingKioskMetric(metric);
+      return;
+    }
+    applyToggle(metric);
   };
 
   const handleAddCube = async () => {
@@ -284,6 +307,32 @@ export function Add3DCubeDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={!!pendingKioskMetric} onOpenChange={(o) => !o && setPendingKioskMetric(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kiosk metric — confirm</AlertDialogTitle>
+            <AlertDialogDescription>
+              Only enable kiosk metrics if this store has a customer self-order kiosk in the lobby.
+              Otherwise these tiles will show $0 and won't be useful.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingKioskMetric(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingKioskMetric) {
+                  setKioskConfirmed(true);
+                  applyToggle(pendingKioskMetric);
+                  setPendingKioskMetric(null);
+                }
+              }}
+            >
+              Yes, we have a kiosk
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

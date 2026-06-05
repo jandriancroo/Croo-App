@@ -94,6 +94,11 @@ export type MetricType =
   | 'kds_ontime_count'
   | 'kds_caution_count'
   | 'kds_late_count'
+  // Kiosk (customer self-order) metrics
+  | 'kiosk_sales_today'
+  | 'kiosk_check_count_today'
+  | 'kiosk_avg_check'
+  | 'kiosk_avg_check_variance'
   // Legacy aliases (for backwards compatibility)
   | 'labor_percent'
   | 'labor_cost'
@@ -231,6 +236,12 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   kds_caution_count: { type: 'kds_caution_count', label: 'Caution', shortLabel: 'Caution', icon: Clock, format: 'number', category: 'daily' },
   kds_late_count: { type: 'kds_late_count', label: 'Late', shortLabel: 'Late', icon: Clock, format: 'number', category: 'daily' },
 
+  // Kiosk (customer self-order) metrics
+  kiosk_sales_today: { type: 'kiosk_sales_today', label: 'Kiosk Sales', shortLabel: 'Kiosk $', icon: DollarSign, format: 'currency', category: 'daily' },
+  kiosk_check_count_today: { type: 'kiosk_check_count_today', label: 'Kiosk Checks', shortLabel: 'Kiosk Qty', icon: Users, format: 'number', category: 'daily' },
+  kiosk_avg_check: { type: 'kiosk_avg_check', label: 'Kiosk Avg Check', shortLabel: 'Kiosk Avg', icon: DollarSign, format: 'currency', category: 'daily' },
+  kiosk_avg_check_variance: { type: 'kiosk_avg_check_variance', label: 'Kiosk Avg vs Store', shortLabel: 'Kiosk +/-', icon: TrendingUp, format: 'percent_signed', category: 'daily' },
+
   // Legacy aliases (map to equivalents for backwards compatibility) - hidden from UI
   labor_percent: { type: 'labor_percent', label: 'Labor %', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'daily' },
   labor_cost: { type: 'labor_cost', label: 'Labor Cost', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'daily' },
@@ -295,6 +306,12 @@ export const METRIC_GROUPS = [
       'payment_olo_combined_today', 'payment_olo_combined_today_pct'
     ] as MetricType[]
   },
+  {
+    label: 'Kiosk (enable only if you have a customer ordering kiosk)',
+    metrics: [
+      'kiosk_sales_today', 'kiosk_check_count_today', 'kiosk_avg_check', 'kiosk_avg_check_variance'
+    ] as MetricType[]
+  },
 ];
 
 export interface SalesDataForWidgets {
@@ -334,6 +351,15 @@ export interface SalesDataForWidgets {
     onTimeCount?: number;
     cautionCount?: number;
     lateCount?: number;
+  } | null;
+  // Kiosk metrics data
+  kioskData?: {
+    kioskSales?: number;
+    kioskCheckCount?: number;
+    kioskAvgCheck?: number;
+    otherAvgCheck?: number;
+    avgCheckVariancePct?: number;
+    hasKiosk?: boolean;
   } | null;
 }
 
