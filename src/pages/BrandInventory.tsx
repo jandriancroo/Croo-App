@@ -457,18 +457,90 @@ export default function BrandInventory() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="locations" className="gap-1.5">
-              <Building2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Locations</span>
-            </TabsTrigger>
-            <TabsTrigger value="guide" className="gap-1.5">
-              <BookOpen className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Guide</span>
-            </TabsTrigger>
-            <TabsTrigger value="health" className="gap-1.5">
-              <Activity className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Health</span>
-            </TabsTrigger>
+        {/* Tabs — parent group selector + child tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          {/* Parent group pill selector */}
+          <div className="inline-flex bg-muted rounded-full p-1 gap-0.5">
+            {([
+              { id: 'brand' as const, label: 'Brand Management' },
+              { id: 'vendor' as const, label: 'Vendor Management' },
+              { id: 'setup' as const, label: 'Setup' },
+            ]).map(g => (
+              <button
+                key={g.id}
+                onClick={() => handleGroupChange(g.id)}
+                className={`rounded-full font-medium transition-all duration-200 px-4 py-1.5 text-xs sm:text-sm ${
+                  parentGroup === g.id
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Child tabs — scoped to selected group */}
+          <TabsList className="w-full justify-start overflow-x-auto">
+            {parentGroup === 'brand' && (
+              <>
+                <TabsTrigger value="catalog" className="gap-1.5">
+                  <Package className="h-3.5 w-3.5" />
+                  <span>Catalog</span>
+                </TabsTrigger>
+                <TabsTrigger value="recipes" className="gap-1.5">
+                  <ChefHat className="h-3.5 w-3.5" />
+                  <span>Recipes</span>
+                </TabsTrigger>
+                <TabsTrigger value="theo" className="gap-1.5">
+                  <Filter className="h-3.5 w-3.5" />
+                  <span>Theo</span>
+                  {(brand?.pos_excluded_categories?.length ?? 0) > 0 && (
+                    <Badge variant="secondary" className="text-[10px] tabular-nums ml-0.5">
+                      {brand.pos_excluded_categories.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </>
+            )}
+            {parentGroup === 'vendor' && (
+              <>
+                <TabsTrigger value="vendor-gaps" className="gap-1.5">
+                  <ScanSearch className="h-3.5 w-3.5" />
+                  <span>Vendor Gaps</span>
+                  {gapAlertCount > 0 && (
+                    <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
+                      {gapAlertCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="pack-configs" className="gap-1.5">
+                  <Package className="h-3.5 w-3.5" />
+                  <span>Pack Configs</span>
+                  {proposalCount > 0 && (
+                    <Badge variant="default" className="ml-1 text-[10px] tabular-nums h-[18px] px-1.5">
+                      {proposalCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="health" className="gap-1.5">
+                  <Activity className="h-3.5 w-3.5" />
+                  <span>Health</span>
+                </TabsTrigger>
+              </>
+            )}
+            {parentGroup === 'setup' && (
+              <>
+                <TabsTrigger value="locations" className="gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span>Locations</span>
+                </TabsTrigger>
+                <TabsTrigger value="guide" className="gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5" />
+                  <span>Guide</span>
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
 
           {/* ===== CATALOG TAB ===== */}
@@ -492,6 +564,7 @@ export default function BrandInventory() {
                     </Badge>
                   </Button>
                 ))}
+              </div>
                 <Button
                   variant={catalogFilter === 'gaps' as any ? 'default' : 'outline'}
                   size="sm"
