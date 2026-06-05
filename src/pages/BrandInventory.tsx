@@ -421,9 +421,9 @@ export default function BrandInventory() {
           {/* Parent group pill selector */}
           <div className="inline-flex bg-muted rounded-full p-1 gap-0.5">
             {([
-              { id: 'brand' as const, label: 'Brand Management' },
-              { id: 'vendor' as const, label: 'Vendor Management' },
-              { id: 'setup' as const, label: 'Setup' },
+              { id: 'brand' as const, label: 'Brand Management', shortLabel: 'Brand' },
+              { id: 'vendor' as const, label: 'Vendor Management', shortLabel: 'Vendors' },
+              { id: 'setup' as const, label: 'Setup', shortLabel: 'Setup' },
             ]).map(g => (
               <button
                 key={g.id}
@@ -434,7 +434,8 @@ export default function BrandInventory() {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {g.label}
+                <span className="sm:hidden">{g.shortLabel}</span>
+                <span className="hidden sm:inline">{g.label}</span>
               </button>
             ))}
           </div>
