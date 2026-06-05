@@ -17,11 +17,8 @@ async function auth(): Promise<string | null> {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const reqBody0 = await req.clone().json().catch(() => ({} as any));
-  const { quStoreId = 1223, date = "2026-06-05" } = reqBody0;
   const token = await auth();
   if (!token) return new Response("auth failed", { status: 502, headers: corsHeaders });
-
   const headers = {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -29,25 +26,26 @@ serve(async (req) => {
     "x-integration": Deno.env.get("QU_INTEGRATION_USER_ID") || "",
   };
 
-  // Try field set passed in body, else a known-safe baseline
-  const reqBody = await req.json().catch(() => ({} as any));
-  const fields: string[] = reqBody.fields || [
-    "checkNumber","orderChannelName","checkState","netSales",
-    "orderTypeName","serviceTypeName","tenderName","stationName","terminalName","employeeName","tableNumber","guestCount",
+  // Throw the kitchen sink at check-detail/main and see which fields actually return values.
+  // QU silently drops unknown fields, so we just keep the ones that come back populated.
+  const candidateFields = [
+    "checkNumber","orderChannelName","orderTypeName","checkState","netSales","employee",
+    "terminalName","stationName","posDeviceName","posSourceName","posTerminalName","posTerminalType",
+    "deviceName","deviceId","kioskName","selfOrderName","salesChannel","subChannel",
+    "orderSource","orderSourceName","originName","originType","origin","sourceName",
+    "aggregatorName","thirdPartyName","oloPlatform","oloOriginName","oloOrderType","oloSource",
+    "orderingMode","orderMode","menuName","menuId","revenueCenterName","revenueCenterId",
+    "tabletName","cashierName","serverName","operatorName","salesAgentName","entryMethod",
+    "channelType","businessChannel","fulfillmentType","fulfillment","customerName","customerPhone",
   ];
 
   const body = {
-    fields: fields.map((f) => ({ fieldName: f })),
+    fields: candidateFields.map((f) => ({ fieldName: f })),
     filters: {
-      date: { from: date, to: date, type: "custom" },
-      location: { operationalUnits: [Number(quStoreId)] },
+      date: { from: "2026-06-05", to: "2026-06-05", type: "custom" },
+      location: { operationalUnits: [5280] },
     },
-    params: {
-      sectionId: "main",
-      pageNumber: 1,
-      pageSize: 50,
-      sort: [{ field: "date", dir: "desc" }],
-    },
+    params: { sectionId: "main", pageNumber: 1, pageSize: 50, sort: [{ field: "date", dir: "desc" }] },
   };
 
   const r = await fetch(
@@ -55,25 +53,28 @@ serve(async (req) => {
     { method: "POST", headers, body: JSON.stringify(body) },
   );
   const text = await r.text();
-  let data: any;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
-
-  // Summarize: tally distinct values per field for items that look kiosk vs not
+  const data = JSON.parse(text);
   const items = (data.items || []).filter((it: any) => it.checkNumber && it.checkNumber !== "Total");
-  const summary: any = { totalItems: items.length, sampleKeys: items[0] ? Object.keys(items[0]) : [], byChannel: {} };
-  for (const it of items) {
-    const k = `${it.orderChannelName || "?"} | ${it.orderTypeName || it.serviceTypeName || "?"}`;
-    summary.byChannel[k] = (summary.byChannel[k] || 0) + 1;
-  }
-  // Pick two interesting examples: an OLO + Dine In and an OLO + Carry Out and a plain In Store
-  const find = (pred: (it: any) => boolean) => items.find(pred);
-  const examples = {
-    olo_dine_in: find((it: any) => /olo/i.test(it.orderChannelName || "") && /dine/i.test(it.orderTypeName || it.serviceTypeName || "")),
-    olo_carry: find((it: any) => /olo/i.test(it.orderChannelName || "") && /carry|to.?go/i.test(it.orderTypeName || it.serviceTypeName || "")),
-    in_store: find((it: any) => /in.?store/i.test(it.orderChannelName || "")),
-  };
 
-  return new Response(JSON.stringify({ status: r.status, summary, examples, firstItem: items[0], rawPreview: text.slice(0, 2000) }, null, 2), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  // Targets: the two kiosk checks Dave rang
+  const kioskDinein = items.find((it: any) => it.checkNumber === "260605180448274");
+  const kioskCarry  = items.find((it: any) => it.checkNumber === "260605180543452");
+  // A real third-party OLO carry for contrast
+  const oloRealCarry = items.find((it: any) =>
+    it.orderChannelName === "OLO" &&
+    it.orderTypeName === "Carry Out" &&
+    it.checkNumber !== "260605180543452");
+  const oloDelivery = items.find((it: any) => it.orderChannelName === "OLO" && it.orderTypeName === "Delivery");
+
+  // Compute the union of keys that have values on any returned item
+  const allKeys = new Set<string>();
+  for (const it of items) for (const k of Object.keys(it)) if (it[k] !== "" && it[k] != null) allKeys.add(k);
+
+  return new Response(JSON.stringify({
+    populatedKeysAcrossAllItems: [...allKeys].sort(),
+    kioskDinein,
+    kioskCarry,
+    oloRealCarry,
+    oloDelivery,
+  }, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
