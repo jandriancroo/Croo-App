@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN IF NOT EXISTS last_vendor_gap_scan_at timestamptz;

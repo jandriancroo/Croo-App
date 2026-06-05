@@ -1052,6 +1052,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          last_vendor_gap_scan_at: string | null
           logo_url: string | null
           name: string
           pos_excluded_categories: string[]
@@ -1063,6 +1064,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          last_vendor_gap_scan_at?: string | null
           logo_url?: string | null
           name: string
           pos_excluded_categories?: string[]
@@ -1074,6 +1076,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          last_vendor_gap_scan_at?: string | null
           logo_url?: string | null
           name?: string
           pos_excluded_categories?: string[]
