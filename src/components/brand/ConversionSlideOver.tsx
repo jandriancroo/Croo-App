@@ -337,9 +337,9 @@ export default function ConversionSlideOver({
         <div className="px-5 pt-5 pb-3 border-b border-border space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <SheetTitle className="text-xl font-bold truncate">
+              <DialogTitle className="text-xl font-bold truncate">
                 {currentItem?.common_name || currentItem?.product_name || 'No item'}
-              </SheetTitle>
+              </DialogTitle>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 {currentItem?.category && (
                   <Badge variant="outline" className="text-[10px]">{currentItem.category}</Badge>
