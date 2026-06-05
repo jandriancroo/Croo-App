@@ -190,6 +190,11 @@ function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets 
     case 'kds_ontime_count': return salesData.kdsData?.onTimeCount;
     case 'kds_caution_count': return salesData.kdsData?.cautionCount;
     case 'kds_late_count': return salesData.kdsData?.lateCount;
+    // Kiosk metrics
+    case 'kiosk_sales_today': return salesData.kioskData?.kioskSales;
+    case 'kiosk_check_count_today': return salesData.kioskData?.kioskCheckCount;
+    case 'kiosk_avg_check': return salesData.kioskData?.kioskAvgCheck;
+    case 'kiosk_avg_check_variance': return salesData.kioskData?.avgCheckVariancePct;
     case 'guest_count_today': return salesData.guestCount?.daily;
     case 'pizza_count_today': return typeof salesData.pizzaCount === 'number' ? salesData.pizzaCount : salesData.pizzaCount?.daily;
     case 'labor_percent_today':
