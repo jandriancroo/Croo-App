@@ -264,7 +264,6 @@ export default function BrandUnpricedIngredients({ embedded = false }: { embedde
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </div>
     </Wrapper>
   );
 }
