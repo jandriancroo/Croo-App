@@ -297,6 +297,32 @@ export function Add3DCubeDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={!!pendingKioskMetric} onOpenChange={(o) => !o && setPendingKioskMetric(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kiosk metric — confirm</AlertDialogTitle>
+            <AlertDialogDescription>
+              Only enable kiosk metrics if this store has a customer self-order kiosk in the lobby.
+              Otherwise these tiles will show $0 and won't be useful.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingKioskMetric(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingKioskMetric) {
+                  setKioskConfirmed(true);
+                  applyToggle(pendingKioskMetric);
+                  setPendingKioskMetric(null);
+                }
+              }}
+            >
+              Yes, we have a kiosk
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
