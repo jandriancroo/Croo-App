@@ -846,9 +846,12 @@ export default function BrandInventory() {
           }}
           brandId={brandId}
           items={(() => {
-            const live = templates.filter(t => (t.status || 'live') === 'live');
+            const useSelection = catalogSelectedIds.size > 0;
+            const pool = useSelection
+              ? templates.filter(t => catalogSelectedIds.has(t.id))
+              : templates.filter(t => (t.status || 'live') === 'live');
             const orderMap = categoryNames.reduce((m, c, i) => { m[c] = i; return m; }, {} as Record<string, number>);
-            return [...live].sort((a, b) => {
+            return [...pool].sort((a, b) => {
               const ai = orderMap[a.category || 'Uncategorized'] ?? 999;
               const bi = orderMap[b.category || 'Uncategorized'] ?? 999;
               if (ai !== bi) return ai - bi;
