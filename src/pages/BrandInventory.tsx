@@ -563,6 +563,33 @@ export default function BrandInventory() {
                     <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
                       <Tag className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">By Category</span>
+                      {catalogFilter === 'live' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 gap-1 text-[11px] ml-1"
+                          onClick={() => setCategoryEditorOpen(true)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Edit Categories
+                        </Button>
+                      )}
+                      <div className="ml-auto flex items-center gap-2">
+                        {filteredTemplates.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[11px]"
+                            onClick={() => {
+                              const allIds = filteredTemplates.map(t => t.id);
+                              const allSelected = allIds.every(id => catalogSelectedIds.has(id));
+                              setCatalogSelectedIds(allSelected ? new Set() : new Set(allIds));
+                            }}
+                          >
+                            {filteredTemplates.every(t => catalogSelectedIds.has(t.id)) && filteredTemplates.length > 0 ? 'Clear all' : `Select all (${filteredTemplates.length})`}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="divide-y divide-border">
                       {Object.entries(groupedTemplates)
