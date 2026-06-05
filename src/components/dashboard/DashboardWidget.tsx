@@ -110,7 +110,7 @@ export interface MetricConfig {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
-  format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes';
+  format: 'currency' | 'currency_signed' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes';
   category: 'daily' | 'weekly' | 'monthly';
 }
 
