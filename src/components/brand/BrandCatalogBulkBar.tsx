@@ -169,6 +169,16 @@ export default function BrandCatalogBulkBar({ selectedIds, brandId, onClear, act
             )}
           </div>
 
+          {onOpenConversions && (
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
+              onClick={onOpenConversions}
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+              Conversions
+            </button>
+          )}
+
           <button
             className="p-1.5 rounded-full text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
             onClick={onClear}
