@@ -23,7 +23,7 @@ const fmtCurrency = (v: number | null) =>
     ? "—"
     : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(v);
 
-export default function BrandUnpricedIngredients() {
+export default function BrandUnpricedIngredients({ embedded = false }: { embedded?: boolean } = {}) {
   const { brandId } = useParams<{ brandId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -97,17 +97,22 @@ export default function BrandUnpricedIngredients() {
     setArchiveTarget(null);
   };
 
+  const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+    embedded ? <>{children}</> : <Layout>{children}</Layout>;
+
   return (
-    <Layout>
-      <div className="container max-w-7xl mx-auto p-4 space-y-4">
+    <Wrapper>
+      <div className={embedded ? "space-y-4" : "container max-w-7xl mx-auto p-4 space-y-4"}>
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/brand/${brandId}/inventory`)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          {!embedded && (
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/brand/${brandId}/inventory`)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
           <div className="flex-1 min-w-0">
-            <div className="text-xs text-muted-foreground">{brand?.name ?? "Brand"}</div>
-            <h1 className="text-xl font-semibold truncate">Unpriced Ingredients</h1>
+            {!embedded && <div className="text-xs text-muted-foreground">{brand?.name ?? "Brand"}</div>}
+            <h1 className={embedded ? "text-base font-semibold" : "text-xl font-semibold truncate"}>Unpriced Ingredients</h1>
           </div>
           <Button onClick={handleSync} disabled={syncing} size="sm" className="gap-2">
             <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
@@ -259,6 +264,6 @@ export default function BrandUnpricedIngredients() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Layout>
+    </Wrapper>
   );
 }

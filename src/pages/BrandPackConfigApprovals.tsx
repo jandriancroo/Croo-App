@@ -224,7 +224,7 @@ const sourceVariant = (s: string | null): "default" | "secondary" | "outline" =>
   return "outline";
 };
 
-export default function BrandPackConfigApprovals() {
+export default function BrandPackConfigApprovals({ embedded = false }: { embedded?: boolean } = {}) {
   const { brandId } = useParams<{ brandId: string }>();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -1026,14 +1026,16 @@ export default function BrandPackConfigApprovals() {
     filteredRows.length > 0 && effectiveSelected.size === filteredRows.length;
 
   return (
-    <div className="container mx-auto p-4 space-y-4 max-w-5xl pb-24">
+    <div className={embedded ? "space-y-4 pb-24" : "container mx-auto p-4 space-y-4 max-w-5xl pb-24"}>
       <div className="flex items-center gap-3">
-        <Button asChild variant="ghost" size="sm">
-          <Link to={`/brand/${brandId}/inventory`}>
-            <ArrowLeft className="h-4 w-4" /> Back
-          </Link>
-        </Button>
-        <h1 className="text-2xl font-semibold">Pack Config Approvals</h1>
+        {!embedded && (
+          <Button asChild variant="ghost" size="sm">
+            <Link to={`/brand/${brandId}/inventory`}>
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Link>
+          </Button>
+        )}
+        <h1 className={embedded ? "text-base font-semibold" : "text-2xl font-semibold"}>Pack Config Approvals</h1>
         <Badge variant="outline" className="ml-2">
           {filteredRows.length} of {proposalRows.length}
         </Badge>

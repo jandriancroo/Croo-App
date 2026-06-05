@@ -34,6 +34,8 @@ import TheoMappingTab from '@/components/brand/TheoMappingTab';
 import ArchivedRecipesSection from '@/components/brand/ArchivedRecipesSection';
 import LocationActivationList from '@/components/brand/LocationActivationList';
 import VendorHealthDashboard from '@/components/brand/VendorHealthDashboard';
+import BrandPackConfigApprovals from '@/pages/BrandPackConfigApprovals';
+import BrandUnpricedIngredients from '@/pages/BrandUnpricedIngredients';
 import ConversionSlideOver from '@/components/brand/ConversionSlideOver';
 import { useBrandConversions } from '@/hooks/useBrandConversions';
 
@@ -412,29 +414,6 @@ export default function BrandInventory() {
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 shrink-0"
-            onClick={() => navigate(`/brand/${brandId}/inventory/pack-configs`)}
-          >
-            <Package className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Pack Configs</span>
-            {proposalCount > 0 && (
-              <Badge variant="default" className="text-[10px] tabular-nums ml-0.5 h-5 px-1.5">
-                {proposalCount}
-              </Badge>
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 shrink-0"
-            onClick={() => navigate(`/brand/${brandId}/inventory/unpriced`)}
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Unpriced Ingredients</span>
-          </Button>
         </div>
 
         {/* Tabs — parent group selector + child tabs */}
@@ -746,6 +725,9 @@ export default function BrandInventory() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Unpriced ingredients (per-location pricing gaps) */}
+            {brandId && <BrandUnpricedIngredients embedded />}
           </TabsContent>
 
 
@@ -767,31 +749,7 @@ export default function BrandInventory() {
 
           {/* ===== PACK CONFIGS TAB ===== */}
           <TabsContent value="pack-configs" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Pack Config Approvals
-                  {proposalCount > 0 && (
-                    <Badge variant="default" className="text-[10px] tabular-nums ml-1 h-5 px-1.5">
-                      {proposalCount} pending
-                    </Badge>
-                  )}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Review and approve lens-detected pack configurations before they propagate to locations.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={() => navigate(`/brand/${brandId}/inventory/pack-configs`)}
-                  className="gap-1.5"
-                >
-                  Open Pack Configs
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
+            <BrandPackConfigApprovals embedded />
           </TabsContent>
         </Tabs>
       </div>
