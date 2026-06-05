@@ -50,6 +50,8 @@ export function Add3DCubeDialog({
     setAccentColor(THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key);
     setFaceMetrics([[], [], [], []]);
     setIsSubmitting(false);
+    setPendingKioskMetric(null);
+    setKioskConfirmed(false);
   };
 
   const handleClose = (isOpen: boolean) => {
