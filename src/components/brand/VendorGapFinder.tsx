@@ -107,6 +107,19 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
 
   const autoResolvedRef = useRef<Set<string>>(new Set());
 
+  // Last nightly scan timestamp (stamped by the vendor-gap-scan edge function)
+  const { data: lastScanAt, refetch: refetchLastScanAt } = useQuery({
+    queryKey: ['brand-last-vendor-gap-scan-at', brandId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('brands')
+        .select('last_vendor_gap_scan_at')
+        .eq('id', brandId)
+        .maybeSingle();
+      return (data as any)?.last_vendor_gap_scan_at as string | null;
+    },
+  });
+
   // Get locations with PFG integration for this brand
   const { data: pfgLocations = [] } = useQuery({
     queryKey: ['brand-pfg-locations', brandId],
