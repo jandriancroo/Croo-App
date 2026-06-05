@@ -163,14 +163,14 @@ serve(async (req) => {
 
     const kioskAvg = kioskCount > 0 ? kioskSales / kioskCount : 0;
     const otherAvg = otherCount > 0 ? otherSales / otherCount : 0;
-    const variancePct = otherAvg > 0 ? ((kioskAvg - otherAvg) / otherAvg) * 100 : 0;
+    const varianceDollars = kioskCount > 0 ? kioskAvg - otherAvg : 0;
 
     return new Response(JSON.stringify({
       kioskSales,
       kioskCheckCount: kioskCount,
       kioskAvgCheck: kioskAvg,
       otherAvgCheck: otherAvg,
-      avgCheckVariancePct: variancePct,
+      avgCheckVariance: varianceDollars,
       hasKiosk: kioskCount > 0,
       sampledChecks: items.length,
       channelBreakdown: channelTally,
