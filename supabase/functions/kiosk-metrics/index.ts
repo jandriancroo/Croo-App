@@ -86,7 +86,7 @@ serve(async (req) => {
     if (!quStoreId) {
       return new Response(JSON.stringify({
         kioskSales: 0, kioskCheckCount: 0, kioskAvgCheck: 0,
-        otherAvgCheck: 0, avgCheckVariancePct: 0, hasKiosk: false,
+        otherAvgCheck: 0, avgCheckVariance: 0, hasKiosk: false,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
