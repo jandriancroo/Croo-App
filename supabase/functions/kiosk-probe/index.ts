@@ -73,7 +73,7 @@ serve(async (req) => {
     in_store: find((it: any) => /in.?store/i.test(it.orderChannelName || "")),
   };
 
-  return new Response(JSON.stringify({ summary, examples, firstItem: items[0] }, null, 2), {
+  return new Response(JSON.stringify({ status: r.status, summary, examples, firstItem: items[0], rawPreview: text.slice(0, 2000) }, null, 2), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
