@@ -438,6 +438,13 @@ const Inventory = () => {
 
 
 
+  // While permissions are still loading (or transiently errored on a flaky
+  // preview network), do NOT redirect — otherwise the page bounces to
+  // /dashboard every render before isAdmin/hasPermission resolve, which
+  // makes Sandbox unreachable on slow connections.
+  if (permissionsLoading) {
+    return null;
+  }
   if (!canAccessInventory) {
     navigate('/dashboard', { replace: true });
     return null;
