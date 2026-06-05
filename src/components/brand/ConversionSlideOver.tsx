@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -332,14 +332,14 @@ export default function ConversionSlideOver({
 
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0 gap-0">
-        <SheetHeader className="px-5 pt-5 pb-3 border-b border-border space-y-3">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0">
+        <div className="px-5 pt-5 pb-3 border-b border-border space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <SheetTitle className="text-xl font-bold truncate">
+              <DialogTitle className="text-xl font-bold truncate">
                 {currentItem?.common_name || currentItem?.product_name || 'No item'}
-              </SheetTitle>
+              </DialogTitle>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 {currentItem?.category && (
                   <Badge variant="outline" className="text-[10px]">{currentItem.category}</Badge>
@@ -385,7 +385,7 @@ export default function ConversionSlideOver({
               </Button>
             </div>
           </div>
-        </SheetHeader>
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-5 mt-3 grid grid-cols-3">
@@ -546,7 +546,7 @@ export default function ConversionSlideOver({
             </div>
           </TabsContent>
         </Tabs>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
