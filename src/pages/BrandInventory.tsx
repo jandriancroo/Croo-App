@@ -467,7 +467,8 @@ export default function BrandInventory() {
               <>
                 <TabsTrigger value="vendor-gaps" className="gap-1.5">
                   <ScanSearch className="h-3.5 w-3.5" />
-                  <span>Vendor Gaps</span>
+                  <span className="sm:hidden">Gaps</span>
+                  <span className="hidden sm:inline">Vendor Gaps</span>
                   {gapAlertCount > 0 && (
                     <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 min-w-[18px] h-[18px] flex items-center justify-center">
                       {gapAlertCount}
@@ -476,7 +477,8 @@ export default function BrandInventory() {
                 </TabsTrigger>
                 <TabsTrigger value="pack-configs" className="gap-1.5">
                   <Package className="h-3.5 w-3.5" />
-                  <span>Pack Configs</span>
+                  <span className="sm:hidden">Packs</span>
+                  <span className="hidden sm:inline">Pack Configs</span>
                   {proposalCount > 0 && (
                     <Badge variant="default" className="ml-1 text-[10px] tabular-nums h-[18px] px-1.5">
                       {proposalCount}
