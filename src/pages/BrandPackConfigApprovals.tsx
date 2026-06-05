@@ -506,21 +506,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
   // Per-item (template) collapsed state — collapses the whole item card.
   const [collapsedItems, setCollapsedItems] = useState<Record<string, boolean>>({});
 
-  // Collapse all item cards by default when grouped data loads.
-  useEffect(() => {
-    setCollapsedItems((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const g of grouped) {
-        const key = g.template?.id ?? "x";
-        if (!(key in next)) {
-          next[key] = true;
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [grouped]);
+
 
   const proposalVendor = (r: ProposalRow): string => {
     const ev = (r.source_evidence || {}) as any;
