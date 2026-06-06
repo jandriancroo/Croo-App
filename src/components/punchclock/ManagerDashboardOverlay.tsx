@@ -1041,7 +1041,7 @@ export function ManagerDashboardOverlay({
 
 
         <div
-          className="relative h-full overflow-y-auto p-3 pb-16 lg:p-4 lg:pb-16"
+          className="relative h-full overflow-y-auto p-3 pb-24 lg:p-4 lg:pb-24"
           style={{ fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
         >
           <div className="mx-auto max-w-7xl">
@@ -1056,10 +1056,12 @@ export function ManagerDashboardOverlay({
               }`}
             >
               <div className={`flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-start lg:justify-between ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500">Manager Dashboard</p>
-                  <p className={`mt-2 text-xl font-medium lg:text-2xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
-                    <span className={isDayMode ? 'text-slate-500' : 'text-slate-400'}>{format(currentTime, 'EEEE')} service · projecting </span>
+                  <p className={`mt-2 text-lg font-medium lg:text-xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                    <span className={isDayMode ? 'text-slate-500' : 'text-slate-400'}>{format(currentTime, 'EEEE')} service · </span>
+                    <span className={`font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(totalSales)}</span>
+                    <span className={isDayMode ? 'text-slate-500' : 'text-slate-400'}> sales · projecting </span>
                     <span className={`font-semibold ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
                       {paceDelta >= 0 ? `${formatCurrency(Math.abs(paceDelta))} ahead` : `${formatCurrency(Math.abs(paceDelta))} short`}
                     </span>
@@ -1067,7 +1069,7 @@ export function ManagerDashboardOverlay({
                   </p>
                 </div>
 
-                <div className="flex items-start gap-4 self-end lg:self-auto">
+                <div className="flex items-start gap-4 self-end lg:self-auto shrink-0">
                   <ThemeModePill isDayMode={isDayMode} onChange={handleThemeModeChange} />
                   <div className="text-right">
                     {(() => {
@@ -1091,54 +1093,42 @@ export function ManagerDashboardOverlay({
                 </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                  <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Total Sales</p>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className={`text-2xl font-bold lg:text-3xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(totalSales)}</p>
-                      <p className={`mt-0.5 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual sales today</p>
-                    </div>
-                    <DollarSign className="h-7 w-7 text-emerald-500" />
-                  </div>
-                </div>
 
-                <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                  <div className="flex items-center gap-2">
-                    <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>EOD Goal</p>
-                    <ProjectionIcon source={eodGoalSource} />
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className={`text-2xl font-bold lg:text-3xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(eodGoal)}</p>
-                      <p className={`mt-0.5 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Projected close</p>
-                    </div>
-                    <Target className="h-7 w-7 text-sky-500" />
-                  </div>
-                </div>
 
-                <div className={`rounded-2xl p-3 ring-1 ${paceStatus === 'fire' ? 'ring-amber-500/40' : isDayMode ? 'ring-slate-200' : 'ring-white/5'} ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                  <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Pace</p>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-2xl font-bold text-amber-500 lg:text-3xl">{formatCurrency(paceAdjusted)}</p>
-                      <p className={`mt-0.5 text-xs ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {paceDelta >= 0 ? 'Above goal pace' : 'Needs push to goal'}
-                      </p>
+              <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                <div className="flex flex-col gap-3 min-w-0">
+                  {/* Combined EOD Goal / Pace card */}
+                  <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>EOD Goal</span>
+                        <ProjectionIcon source={eodGoalSource} />
+                        <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-300' : 'text-slate-600'}`}>/</span>
+                        <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Pace</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {paceStatus === 'fire' ? (
+                          <Flame className="h-5 w-5 animate-pulse text-amber-500" />
+                        ) : paceStatus === 'cold' ? (
+                          <TrendingDown className="h-5 w-5 text-red-500" />
+                        ) : (
+                          <TrendingUp className="h-5 w-5 text-emerald-500" />
+                        )}
+                        <Target className="h-5 w-5 text-sky-500" />
+                      </div>
                     </div>
-                    {paceStatus === 'fire' ? (
-                      <Flame className="h-7 w-7 animate-pulse text-amber-500" />
-                    ) : paceStatus === 'cold' ? (
-                      <TrendingDown className="h-7 w-7 text-red-500" />
-                    ) : (
-                      <TrendingUp className="h-7 w-7 text-emerald-500" />
-                    )}
+                    <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                      <span className={`text-2xl font-bold lg:text-3xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(eodGoal)}</span>
+                      <span className={`text-xl font-light ${isDayMode ? 'text-slate-300' : 'text-slate-600'}`}>/</span>
+                      <span className="text-2xl font-bold text-amber-500 lg:text-3xl">{formatCurrency(paceAdjusted)}</span>
+                      <span className={`text-xs ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {paceDelta >= 0 ? 'above pace' : 'needs push'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(300px,0.95fr)]">
-                <div className={`rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                  <div className={`rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       Hourly Sales
@@ -1196,9 +1186,11 @@ export function ManagerDashboardOverlay({
                       </div>
                     )}
                   </div>
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 min-w-0">
+
                   <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -1383,67 +1375,70 @@ export function ManagerDashboardOverlay({
                       </motion.div>
                     )}
                   </div>
-                </div>
-              </div>
 
-              <div className={`mt-3 rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Checklists</h3>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                      {checklistsData.filter((c: any) => c.isComplete).length} of {checklistsData.length || quickTasks.length || 0} done
-                    </span>
+                  {/* Tasks / Checklists block (right column) */}
+                  <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Checklists</h3>
+                      <span className={`text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {checklistsData.filter((c: any) => c.isComplete).length} of {checklistsData.length || quickTasks.length || 0} done
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {checklistsData.slice(0, 5).map((checklist: any) => {
+                        const completed = checklist.completedItems || 0;
+                        const total = checklist.totalItems || 0;
+                        const progressPct = total > 0 ? Math.round((completed / total) * 100) : checklist.isComplete ? 100 : 0;
+                        const done = checklist.isComplete;
+                        return (
+                          <div key={checklist.id}>
+                            <div className="mb-1 flex items-baseline justify-between gap-2">
+                              <span className={`truncate text-xs font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{checklist.title}</span>
+                              <span className={`shrink-0 text-[10px] font-semibold ${done ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                {done ? 'done' : `${completed}/${total}`}
+                              </span>
+                            </div>
+                            <div className={`h-1 w-full overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
+                              <div className={`h-full rounded-full ${done ? 'bg-emerald-400' : 'bg-amber-500'}`} style={{ width: `${progressPct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {checklistsData.length === 0 && quickTasks.length > 0 && quickTasks.slice(0, 5).map((task: any) => (
+                        <div key={task.id}>
+                          <div className="mb-1 flex items-baseline justify-between gap-2">
+                            <span className={`truncate text-xs font-medium ${task.isComplete ? (isDayMode ? 'text-slate-400 line-through' : 'text-slate-500 line-through') : isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                              {task.event_name}
+                            </span>
+                            <span className={`shrink-0 text-[10px] font-semibold ${task.isComplete ? 'text-emerald-500' : 'text-amber-500'}`}>
+                              {task.isComplete ? 'done' : format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
+                            </span>
+                          </div>
+                          <div className={`h-1 w-full overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
+                            <div className={`h-full rounded-full ${task.isComplete ? 'bg-emerald-400' : 'bg-amber-500'}`} style={{ width: `${task.isComplete ? 100 : 35}%` }} />
+                          </div>
+                        </div>
+                      ))}
+
+                      {checklistsData.length === 0 && quickTasks.length === 0 && (
+                        <p className={`py-2 text-center text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No tasks today</p>
+                      )}
+                    </div>
+
                     <button
-                      onClick={() => setShowTeamTasks(true)}
-                      className={`rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-all ${isDayMode ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-white text-neutral-900 hover:bg-neutral-200'}`}
+                      type="button"
+                      onPointerDown={(e) => { e.stopPropagation(); }}
+                      onClick={(e) => { e.stopPropagation(); setShowTeamTasks(true); }}
+                      className={`mt-3 w-full rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-all ${isDayMode ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-white text-neutral-900 hover:bg-neutral-200'}`}
                     >
                       Team Tasks
                     </button>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  {checklistsData.slice(0, 7).map((checklist: any) => {
-                    const completed = checklist.completedItems || 0;
-                    const total = checklist.totalItems || 0;
-                    const progressPct = total > 0 ? Math.round((completed / total) * 100) : checklist.isComplete ? 100 : 0;
-                    const done = checklist.isComplete;
-                    return (
-                      <div key={checklist.id}>
-                        <div className="mb-2 flex items-baseline justify-between gap-2">
-                          <span className={`truncate text-sm font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{checklist.title}</span>
-                          <span className={`shrink-0 text-xs font-semibold ${done ? 'text-emerald-500' : 'text-amber-500'}`}>
-                            {done ? 'done' : `${completed}/${total}`}
-                          </span>
-                        </div>
-                        <div className={`h-1 w-full overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
-                          <div className={`h-full rounded-full ${done ? 'bg-emerald-400' : 'bg-amber-500'}`} style={{ width: `${progressPct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {checklistsData.length === 0 && quickTasks.length > 0 && quickTasks.slice(0, 7).map((task: any) => (
-                    <div key={task.id}>
-                      <div className="mb-2 flex items-baseline justify-between gap-2">
-                        <span className={`truncate text-sm font-medium ${task.isComplete ? (isDayMode ? 'text-slate-400 line-through' : 'text-slate-500 line-through') : isDayMode ? 'text-slate-900' : 'text-white'}`}>
-                          {task.event_name}
-                        </span>
-                        <span className={`shrink-0 text-xs font-semibold ${task.isComplete ? 'text-emerald-500' : 'text-amber-500'}`}>
-                          {task.isComplete ? 'done' : format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
-                        </span>
-                      </div>
-                      <div className={`h-1 w-full overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
-                        <div className={`h-full rounded-full ${task.isComplete ? 'bg-emerald-400' : 'bg-amber-500'}`} style={{ width: `${task.isComplete ? 100 : 35}%` }} />
-                      </div>
-                    </div>
-                  ))}
-
-                  {checklistsData.length === 0 && quickTasks.length === 0 && (
-                    <p className={`col-span-full py-4 text-center text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No tasks today</p>
-                  )}
-                </div>
               </div>
+
             </motion.div>
           </div>
         </div>
