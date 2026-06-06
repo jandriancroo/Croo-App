@@ -132,7 +132,7 @@ function HourlyChartRecharts({
   const projectedFill = isDayMode ? 'hsl(var(--muted-foreground) / 0.15)' : 'rgba(255,255,255,0.15)';
 
   return (
-    <div className="flex-1 min-h-0 w-full">
+    <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={chartData}

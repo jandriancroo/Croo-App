@@ -1304,7 +1304,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 </span>
               </div>
             )}
-            <Card className={`w-full overflow-hidden relative ${isDayMode ? '' : 'bg-neutral-800 border-neutral-700'}`}>
+            <Card className={`w-full overflow-hidden relative shadow-none border-0 ${isDayMode ? '' : 'bg-neutral-800'}`}>
             <div className="grid md:grid-cols-2">
 
               {/* Left Side - Image and Quote or Birthday Message */}
