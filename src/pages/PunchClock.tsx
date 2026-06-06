@@ -1287,8 +1287,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {!currentUser ? (
         <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
 
-          <div className="w-full max-w-5xl relative">
-            {/* Location tab — sits above the card, matches page bg so it reads as a cutout from the page */}
+          <div className="w-full max-w-5xl relative pt-10">
+            {/* Location tab — visually merges with the page background and cuts into the card without a seam */}
             {currentLocation && (
               <div
                 className={`absolute left-1/2 top-0 -translate-x-1/2 z-30 flex items-center gap-4 px-10 py-4 rounded-b-[28px] ${
@@ -1304,7 +1304,10 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 </span>
               </div>
             )}
-            <Card className={`w-full overflow-hidden relative shadow-none border-0 ${isDayMode ? '' : 'bg-neutral-800'}`}>
+            <Card
+              className={`w-full overflow-hidden relative !shadow-none border-0 ${isDayMode ? '' : 'bg-neutral-800'}`}
+              style={{ boxShadow: 'none' }}
+            >
             <div className="grid md:grid-cols-2">
 
               {/* Left Side - Image and Quote or Birthday Message */}
