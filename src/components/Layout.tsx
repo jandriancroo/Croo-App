@@ -93,13 +93,13 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
       {/* Tap on handle or swipe up to expand (tap works in preview mode) */}
       {canViewSalesAndLabor && (
         <div 
-          className="flex justify-center pt-2 pb-1 cursor-pointer"
+          className="flex justify-center pt-1.5 pb-0 cursor-pointer"
           onClick={onSwipeUp}
         >
           <div className="w-10 h-1 bg-accent-foreground/20 rounded-full" />
         </div>
       )}
-      <div className={`relative z-10 flex items-center justify-evenly px-2 ${canViewSalesAndLabor ? 'pt-1' : 'pt-3'} pb-0`}>
+      <div className={`relative z-10 flex items-center justify-evenly px-2 py-1`}>
 
         {/* Smart dock content (e.g., inventory counting) */}
         {dockContent && (
