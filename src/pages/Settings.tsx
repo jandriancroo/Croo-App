@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/sonner';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -99,6 +100,7 @@ export default function Settings() {
   const { isChecklistOnlyLocation, currentLocation, organizationId } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'default');
+  const [showDockLabels, setShowDockLabels] = useState(localStorage.getItem('app-dock-labels') !== 'false');
   const [locations, setLocations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'location' | 'org' | 'super'>('location');
@@ -182,6 +184,13 @@ export default function Settings() {
     localStorage.setItem('app-text-size', value);
     document.documentElement.setAttribute('data-text-size', value);
     toast('Text size updated');
+  };
+
+  const handleDockLabelsChange = (checked: boolean) => {
+    setShowDockLabels(checked);
+    localStorage.setItem('app-dock-labels', checked ? 'true' : 'false');
+    window.dispatchEvent(new Event('dock-labels-changed'));
+    toast(checked ? 'Dock labels shown' : 'Dock labels hidden');
   };
 
   // Pill label helpers
@@ -268,6 +277,13 @@ export default function Settings() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">Adjust text size across the app</p>
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="dock-labels" className="text-sm font-medium">Show Dock Labels</Label>
+                <p className="text-xs text-muted-foreground">Hide the text under each dock icon for a slimmer, wider pill.</p>
+              </div>
+              <Switch id="dock-labels" checked={showDockLabels} onCheckedChange={handleDockLabelsChange} />
             </div>
           </div>
         );

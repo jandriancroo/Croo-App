@@ -57,6 +57,17 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
   const { dockContent } = useDockToast();
   const [bouncingItem, setBouncingItem] = useState<string | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const [showLabels, setShowLabels] = useState(() => localStorage.getItem('app-dock-labels') !== 'false');
+
+  useEffect(() => {
+    const handler = () => setShowLabels(localStorage.getItem('app-dock-labels') !== 'false');
+    window.addEventListener('dock-labels-changed', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('dock-labels-changed', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
 
   // Format currency for smart dock
   const formatCurrency = (value: number) => {
@@ -230,14 +241,16 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                   onTouchCancel={handleTouchEnd}
-                  className={`dock-nav-button flex-1 mx-0.5 my-1.5 flex flex-col items-center gap-0.5 py-1.5 rounded-2xl transition-colors relative select-none ${
+                  className={`dock-nav-button flex-1 mx-0.5 my-1.5 flex flex-col items-center gap-0.5 ${showLabels ? 'py-1.5' : 'py-2'} rounded-2xl transition-colors relative select-none ${
                     isActive 
                       ? 'bg-white/20 text-accent-foreground' 
                       : 'text-accent-foreground/70 hover:text-accent-foreground'
                   } ${bouncingItem === item.path ? 'dock-bouncing' : ''}`}
                 >
-                  <Icon className="h-8 w-8" strokeWidth={1.75} />
-                  <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+                  <Icon className={showLabels ? 'h-8 w-8' : 'h-7 w-7'} strokeWidth={1.75} />
+                  {showLabels && (
+                    <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+                  )}
                   {showBadge && (
                     <span className="absolute top-1 right-1/4 h-2.5 w-2.5 bg-destructive rounded-full" />
                   )}
