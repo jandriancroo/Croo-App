@@ -749,7 +749,6 @@ export function ManagerDashboardOverlay({
   
   // Get hours with actual sales - up to 8 hours shown in two rows
   const salesHours = useMemo(() => {
-    // Build a list of all hours up to current hour that have sales
     const hoursWithSales: Array<{
       hour: number;
       label: string;
@@ -757,8 +756,8 @@ export function ManagerDashboardOverlay({
       projected: number;
       estimatedPizzas: number;
     }> = [];
-    
-    // Look at recent hours (from store open to current hour)
+
+    let firstSalesHour: number | null = null;
     for (let h = 0; h <= currentHour; h++) {
       const hourStr = `${String(h).padStart(2, '0')}:00`;
       const cachedHourData = cachedHourly?.find(
@@ -766,26 +765,39 @@ export function ManagerDashboardOverlay({
       );
       const dbHourData = hourlyData.find(hd => hd.hour === hourStr);
       const hourData = cachedHourData || dbHourData;
-      
-      // Only include hours with actual sales recorded
-      if (hourData && hourData.sales > 0) {
-        const sales = hourData.sales || 0;
-        // Calculate estimated pizzas proportionally (matching SalesOverview)
-        const estimatedPizzas = totalHourlySales > 0 && pizzaCount > 0
-          ? Math.round((sales / totalHourlySales) * pizzaCount * 10) / 10
-          : 0;
-        
-        hoursWithSales.push({
-          hour: h,
-          label: h >= 12 ? `${h === 12 ? 12 : h - 12}PM` : `${h === 0 ? 12 : h}AM`,
-          sales,
-          projected: hourData.projected || 0,
-          estimatedPizzas,
-        });
+      if (hourData && (hourData.sales || 0) > 0) {
+        firstSalesHour = h;
+        break;
       }
     }
-    
-    // Return up to 8 hours with sales
+
+    if (firstSalesHour === null) return [];
+
+    // Include every hour from first sale → current hour so quiet/in-progress hours
+    // (like an unfinished 11 AM) still render on the chart.
+    for (let h = firstSalesHour; h <= currentHour; h++) {
+      const hourStr = `${String(h).padStart(2, '0')}:00`;
+      const cachedHourData = cachedHourly?.find(
+        hd => hd.hour.startsWith(String(h).padStart(2, '0')) || hd.hour === hourStr
+      );
+      const dbHourData = hourlyData.find(hd => hd.hour === hourStr);
+      const hourData = cachedHourData || dbHourData;
+
+      const sales = hourData?.sales || 0;
+      const projected = hourData?.projected || 0;
+      const estimatedPizzas = totalHourlySales > 0 && pizzaCount > 0
+        ? Math.round((sales / totalHourlySales) * pizzaCount * 10) / 10
+        : 0;
+
+      hoursWithSales.push({
+        hour: h,
+        label: h >= 12 ? `${h === 12 ? 12 : h - 12}PM` : `${h === 0 ? 12 : h}AM`,
+        sales,
+        projected,
+        estimatedPizzas,
+      });
+    }
+
     return hoursWithSales.slice(-8);
   }, [currentHour, cachedHourly, hourlyData, totalHourlySales, pizzaCount]);
 
