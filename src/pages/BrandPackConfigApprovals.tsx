@@ -954,7 +954,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
       const d = getDraft(r);
       const outer = Number(d.outer_qty) || 0;
       const inner = d.inner_qty == null || d.inner_qty === ("" as any) ? null : Number(d.inner_qty);
-      const count_units_per_case = outer * (inner ?? 1);
+      const count_units_per_case = Math.round(outer * (inner ?? 1) * 1e8) / 1e8;
       if (!outer || !d.outer_type || !d.common_unit) {
         throw new Error("outer_qty, outer_type, and common_unit are required");
       }
