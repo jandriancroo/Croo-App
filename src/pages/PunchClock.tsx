@@ -225,6 +225,78 @@ export default function PunchClock() {
     localStorage.setItem('punch-clock-day-mode', String(next));
   }, []);
 
+  const todayStr = useMemo(
+    () => getTodayInTimezone(timezone || DEFAULT_TIMEZONE, closeTime),
+    [timezone, closeTime]
+  );
+
+  const { data: liveClockedIn = [] } = useQuery({
+    queryKey: ['punch-clock-active-shifts', currentLocation?.id, todayStr, timezone],
+    enabled: !!currentLocation?.id && !!timezone,
+    queryFn: async () => {
+      if (!currentLocation?.id || !timezone) return [];
+
+      const startOfDay = parseDateStringInTimezone(todayStr, timezone).toISOString();
+      const endOfDayDate = getEndOfDateStringInTimezone(todayStr, timezone);
+      const endOfDayPlus = new Date(endOfDayDate);
+      endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
+      const endOfDay = endOfDayPlus.toISOString();
+
+      const { data: punches, error } = await supabase
+        .from('time_punches')
+        .select('user_id, punch_time, punch_type, notes')
+        .eq('location_id', currentLocation.id)
+        .gte('punch_time', startOfDay)
+        .lte('punch_time', endOfDay)
+        .order('punch_time', { ascending: true });
+
+      if (error) throw error;
+
+      const userPunches: Record<string, typeof punches> = {};
+      (punches || []).forEach((p) => {
+        if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
+        userPunches[p.user_id].push(p);
+      });
+
+      const activeUsers: { userId: string; clockInTime: string }[] = [];
+      Object.entries(userPunches).forEach(([userId, userPunchList]) => {
+        let isClockedInNow = false;
+        let clockInTime: string | null = null;
+
+        userPunchList.forEach((p) => {
+          if (p.punch_type === 'clock_in') {
+            isClockedInNow = true;
+            clockInTime = p.punch_time;
+          } else if (p.punch_type === 'clock_out') {
+            isClockedInNow = false;
+          }
+        });
+
+        if (isClockedInNow && clockInTime) activeUsers.push({ userId, clockInTime });
+      });
+
+      if (!activeUsers.length) return [];
+
+      const userIds = activeUsers.map((u) => u.userId);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url')
+        .in('id', userIds);
+
+      const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
+      return activeUsers
+        .map((user) => ({
+          userId: user.userId,
+          clockInTime: user.clockInTime,
+          fullName: profileMap.get(user.userId)?.full_name || 'Unknown',
+          profilePhoto: profileMap.get(user.userId)?.profile_photo_url || null,
+        }))
+        .sort((a, b) => a.fullName.localeCompare(b.fullName));
+    },
+    refetchInterval: 30000,
+  });
+
   // Swipe pager — swipe LEFT on the punch clock to reveal the manager dashboard
   const keypadSwipeRef = useRef<HTMLDivElement>(null);
   const shiftSwipeRef = useRef<HTMLDivElement>(null);
