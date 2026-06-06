@@ -57,6 +57,7 @@ import { ProjectionIcon } from '@/components/ui/projection-tag';
 import type { AppRole } from '@/hooks/useUserRole';
 import { AlarmTaskOverlay } from './AlarmTaskOverlay';
 import { TeamTasksView } from './TeamTasksView';
+import { ThemeModePill } from './ThemeModePill';
 
 interface ManagerDashboardOverlayProps {
   locationId: string;
@@ -213,6 +214,11 @@ export function ManagerDashboardOverlay({
   const [selectedHour, setSelectedHour] = useState<SelectedHourInfo | null>(null);
   const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
   const [showTeamTasks, setShowTeamTasks] = useState(false);
+
+  const handleThemeModeChange = (next: boolean) => {
+    setIsDayMode(next);
+    localStorage.setItem('punch-clock-day-mode', String(next));
+  };
 
   // Build storage key for labor cuts persistence
   const laborCutsStorageKey = useMemo(() => 
