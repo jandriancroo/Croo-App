@@ -444,6 +444,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     document.documentElement.setAttribute('data-text-size', value);
   };
 
+  const handleDockLabelsChange = (checked: boolean) => {
+    setShowDockLabels(checked);
+    localStorage.setItem('app-dock-labels', checked ? 'true' : 'false');
+    window.dispatchEvent(new Event('dock-labels-changed'));
+  };
+
   // Apply saved text size on mount
   useEffect(() => {
     const saved = localStorage.getItem('app-text-size');
