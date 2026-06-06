@@ -1291,15 +1291,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {/* Location tab — visually merges with the page background and cuts into the card without a seam */}
             {currentLocation && (
               <div
-                className={`absolute left-1/2 top-0 -translate-x-1/2 z-30 flex items-center gap-4 px-10 py-4 rounded-b-[28px] ${
+                className={`absolute left-1/2 top-0 -translate-x-1/2 z-30 flex items-center gap-3 px-8 py-3 rounded-b-[24px] ${
                   isDayMode ? 'bg-background' : 'bg-neutral-900'
                 }`}
               >
                 {brandLogoUrl && (
-                  <img src={brandLogoUrl} alt="Brand" className="h-10 w-10 object-contain rounded-md" />
+                  <img src={brandLogoUrl} alt="Brand" className="h-8 w-8 object-contain rounded-md" />
                 )}
-                <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isDayMode ? 'bg-primary' : 'bg-primary'}`} />
-                <span className={`text-lg font-semibold tracking-wide ${isDayMode ? 'text-foreground' : 'text-white'}`}>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${isDayMode ? 'bg-primary' : 'bg-primary'}`} />
+                <span className={`text-base font-semibold tracking-wide ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                   {currentLocation.name}
                 </span>
               </div>
