@@ -1095,8 +1095,40 @@ export function ManagerDashboardOverlay({
 
 
 
-              <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(300px,0.95fr)]">
-                <div className={`rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+              <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                <div className="flex flex-col gap-3 min-w-0">
+                  {/* Combined EOD Goal / Pace card */}
+                  <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>EOD Goal</span>
+                        <ProjectionIcon source={eodGoalSource} />
+                        <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-300' : 'text-slate-600'}`}>/</span>
+                        <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Pace</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {paceStatus === 'fire' ? (
+                          <Flame className="h-5 w-5 animate-pulse text-amber-500" />
+                        ) : paceStatus === 'cold' ? (
+                          <TrendingDown className="h-5 w-5 text-red-500" />
+                        ) : (
+                          <TrendingUp className="h-5 w-5 text-emerald-500" />
+                        )}
+                        <Target className="h-5 w-5 text-sky-500" />
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                      <span className={`text-2xl font-bold lg:text-3xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(eodGoal)}</span>
+                      <span className={`text-xl font-light ${isDayMode ? 'text-slate-300' : 'text-slate-600'}`}>/</span>
+                      <span className="text-2xl font-bold text-amber-500 lg:text-3xl">{formatCurrency(paceAdjusted)}</span>
+                      <span className={`text-xs ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {paceDelta >= 0 ? 'above pace' : 'needs push'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={`rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       Hourly Sales
