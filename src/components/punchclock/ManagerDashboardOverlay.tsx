@@ -1055,7 +1055,7 @@ export function ManagerDashboardOverlay({
                   : 'border-white/5 bg-[#0f1117] text-white'
               }`}
             >
-              <div className={`flex flex-col gap-5 border-b pb-5 lg:flex-row lg:items-start lg:justify-between ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
+              <div className={`flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-start lg:justify-between ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500">Manager Dashboard</p>
                   <p className={`mt-2 text-xl font-medium lg:text-2xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
