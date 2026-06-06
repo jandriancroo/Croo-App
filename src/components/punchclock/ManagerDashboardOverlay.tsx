@@ -1386,8 +1386,8 @@ export function ManagerDashboardOverlay({
                 </div>
               </div>
 
-              <div className={`mt-4 rounded-2xl p-5 lg:p-6 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                <div className="mb-5 flex items-center justify-between gap-3">
+              <div className={`mt-3 rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                <div className="mb-3 flex items-center justify-between gap-3">
                   <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Checklists</h3>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
