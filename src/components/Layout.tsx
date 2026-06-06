@@ -57,6 +57,17 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
   const { dockContent } = useDockToast();
   const [bouncingItem, setBouncingItem] = useState<string | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const [showLabels, setShowLabels] = useState(() => localStorage.getItem('app-dock-labels') !== 'false');
+
+  useEffect(() => {
+    const handler = () => setShowLabels(localStorage.getItem('app-dock-labels') !== 'false');
+    window.addEventListener('dock-labels-changed', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('dock-labels-changed', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
 
   // Format currency for smart dock
   const formatCurrency = (value: number) => {
