@@ -844,7 +844,7 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
   .glass-dock::after { display: none; }
 
   .dark .glass-dock {
-    background: hsl(var(--accent) / 0.72);
+    background: hsl(var(--accent) / 0.9);
     backdrop-filter: blur(24px) saturate(160%);
     -webkit-backdrop-filter: blur(24px) saturate(160%);
     border: 1px solid hsl(0 0% 100% / 0.16);
