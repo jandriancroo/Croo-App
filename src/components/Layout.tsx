@@ -398,6 +398,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const ovationHasContent = !!ovationDisplayScore || ovationLoading;
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');
+  const [showDockLabels, setShowDockLabels] = useState(localStorage.getItem('app-dock-labels') !== 'false');
   const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
 
   // Show version toast after "Update App" reload
