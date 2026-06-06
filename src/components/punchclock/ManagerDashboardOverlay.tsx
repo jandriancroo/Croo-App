@@ -1212,31 +1212,6 @@ export function ManagerDashboardOverlay({
                       </div>
                     </div>
 
-                    <div className="mt-3 space-y-2">
-                      <div>
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual</span>
-                          <span className={`text-xs font-semibold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
-                            {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className={`h-2 overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
-                          <div
-                            className={`h-full rounded-full ${laborStatus === 'good' ? 'bg-emerald-500' : laborStatus === 'warning' ? 'bg-amber-500' : 'bg-red-500'}`}
-                            style={{ width: `${Math.min((cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage) / 40 * 100, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Target</span>
-                          <span className={`text-xs font-semibold ${isDayMode ? 'text-slate-700' : 'text-slate-300'}`}>{laborTarget}%</span>
-                        </div>
-                        <div className={`h-2 overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
-                          <div className={`h-full rounded-full ${isDayMode ? 'bg-slate-400' : 'bg-slate-500'}`} style={{ width: `${(laborTarget / 40) * 100}%` }} />
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
                   <div className={`flex min-h-0 flex-col rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
