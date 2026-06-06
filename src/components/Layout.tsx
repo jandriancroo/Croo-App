@@ -8,7 +8,6 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, LogOut, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type, GraduationCap } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -58,17 +57,6 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
   const { dockContent } = useDockToast();
   const [bouncingItem, setBouncingItem] = useState<string | null>(null);
   const touchStartY = useRef<number | null>(null);
-  const [showLabels, setShowLabels] = useState(() => localStorage.getItem('app-dock-labels') !== 'false');
-
-  useEffect(() => {
-    const handler = () => setShowLabels(localStorage.getItem('app-dock-labels') !== 'false');
-    window.addEventListener('dock-labels-changed', handler);
-    window.addEventListener('storage', handler);
-    return () => {
-      window.removeEventListener('dock-labels-changed', handler);
-      window.removeEventListener('storage', handler);
-    };
-  }, []);
 
   // Format currency for smart dock
   const formatCurrency = (value: number) => {
@@ -105,13 +93,13 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
       {/* Tap on handle or swipe up to expand (tap works in preview mode) */}
       {canViewSalesAndLabor && (
         <div 
-          className="flex justify-center pt-1.5 pb-0 cursor-pointer"
+          className="flex justify-center pt-2 pb-1 cursor-pointer"
           onClick={onSwipeUp}
         >
           <div className="w-10 h-1 bg-accent-foreground/20 rounded-full" />
         </div>
       )}
-      <div className={`relative z-10 flex items-center justify-evenly px-2 py-1`}>
+      <div className={`relative z-10 flex items-center justify-evenly px-2 ${canViewSalesAndLabor ? 'pt-1' : 'pt-3'} pb-0`}>
 
         {/* Smart dock content (e.g., inventory counting) */}
         {dockContent && (
@@ -242,16 +230,14 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                   onTouchCancel={handleTouchEnd}
-                  className={`dock-nav-button flex-1 mx-0.5 my-1.5 flex flex-col items-center gap-0.5 ${showLabels ? 'py-1.5' : 'py-2'} rounded-2xl transition-colors relative select-none ${
+                  className={`dock-nav-button flex-1 flex flex-col items-center gap-0.5 py-1 rounded-xl transition-colors relative select-none ${
                     isActive 
                       ? 'bg-white/20 text-accent-foreground' 
                       : 'text-accent-foreground/70 hover:text-accent-foreground'
                   } ${bouncingItem === item.path ? 'dock-bouncing' : ''}`}
                 >
-                  <Icon className={showLabels ? 'h-8 w-8' : 'h-7 w-7'} strokeWidth={1.75} />
-                  {showLabels && (
-                    <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
-                  )}
+                  <Icon className="h-8 w-8" strokeWidth={1.75} />
+                  <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
                   {showBadge && (
                     <span className="absolute top-1 right-1/4 h-2.5 w-2.5 bg-destructive rounded-full" />
                   )}
@@ -398,7 +384,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const ovationHasContent = !!ovationDisplayScore || ovationLoading;
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');
-  const [showDockLabels, setShowDockLabels] = useState(localStorage.getItem('app-dock-labels') !== 'false');
   const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
 
   // Show version toast after "Update App" reload
@@ -442,12 +427,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     setTextSize(value);
     localStorage.setItem('app-text-size', value);
     document.documentElement.setAttribute('data-text-size', value);
-  };
-
-  const handleDockLabelsChange = (checked: boolean) => {
-    setShowDockLabels(checked);
-    localStorage.setItem('app-dock-labels', checked ? 'true' : 'false');
-    window.dispatchEvent(new Event('dock-labels-changed'));
   };
 
   // Apply saved text size on mount
@@ -1383,12 +1362,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                             ))}
                           </SelectContent>
                         </Select>
-                      </div>
-                      <div className="flex items-center gap-2 pl-4 pr-2 h-8">
-                        <LayoutDashboard className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Dock Labels</span>
-                        <div className="flex-1" />
-                        <Switch checked={showDockLabels} onCheckedChange={handleDockLabelsChange} />
                       </div>
                     </div>
                   )}
