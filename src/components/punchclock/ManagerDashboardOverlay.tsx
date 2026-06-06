@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useClock } from '@/hooks/useClock';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInMinutes } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSwipe } from '@/hooks/useSwipe';
+import { SwipePagerHint } from './SwipePagerHint';
 import { 
   ResponsiveContainer, 
   ComposedChart, 
@@ -22,7 +24,6 @@ import {
   Flame,
   Coffee,
   CheckCircle2,
-  ArrowLeftRight,
   X,
   Gauge,
   Scissors,
@@ -1008,27 +1009,32 @@ export function ManagerDashboardOverlay({
     );
   }
 
+  // Swipe RIGHT on the dashboard to return to the punch clock
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useSwipe(overlayRef, { onSwipeRight: onClose });
+
   return (
     <>
       <motion.div
+        ref={overlayRef}
         key="manager-dashboard-overlay"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.6, ease: 'easeInOut' }}
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'tween', duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         className={`fixed inset-0 z-[100] overflow-hidden ${
           isDayMode 
             ? 'bg-background' 
             : 'bg-neutral-900'
         }`}
       >
-        {/* Swap Button - Bottom Center, same position as punch clock */}
-        <button
-          onClick={onClose}
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[101] flex items-center justify-center w-20 h-20 rounded-full transition-all shadow-neumorphic-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 active:scale-95"
-        >
-          <ArrowLeftRight className="h-8 w-8" />
-        </button>
+        {/* Pager hint — replaces old teal swap button */}
+        <SwipePagerHint
+          page="dashboard"
+          isDayMode={isDayMode}
+          onDotClick={(target) => target === 'punch' && onClose()}
+        />
+
 
         <div className="relative h-full p-4 flex flex-col">
           {/* Top Row: Sales Cards + Time + Employees */}
