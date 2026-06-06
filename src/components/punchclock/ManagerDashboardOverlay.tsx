@@ -1496,13 +1496,8 @@ export function ManagerDashboardOverlay({
                         );
                       })
                     )}
-                    {/* Show scroll indicator if more than 6 */}
-                    {activeShifts.length > 6 && (
-                      <p className={`text-center text-[9px] pt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                        +{activeShifts.length - 6} more (scroll to see)
-                      </p>
-                    )}
                   </div>
+
                   
                   {/* Labor Savings Preview Button */}
                   {hasAnyCuts && (
