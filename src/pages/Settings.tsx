@@ -278,6 +278,13 @@ export default function Settings() {
               </Select>
               <p className="text-xs text-muted-foreground">Adjust text size across the app</p>
             </div>
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="dock-labels" className="text-sm font-medium">Show Dock Labels</Label>
+                <p className="text-xs text-muted-foreground">Hide the text under each dock icon for a slimmer, wider pill.</p>
+              </div>
+              <Switch id="dock-labels" checked={showDockLabels} onCheckedChange={handleDockLabelsChange} />
+            </div>
           </div>
         );
 
