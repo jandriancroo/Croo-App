@@ -434,6 +434,10 @@ Deno.serve(async (req) => {
             });
           } else {
             created.push(c);
+            // Track the newly inserted SKU so further candidates in this run won't re-insert.
+            let set = existingSkuByTemplate.get(c.brand_template_id);
+            if (!set) { set = new Set(); existingSkuByTemplate.set(c.brand_template_id, set); }
+            set.add(skuKey);
             await supabase.from("pack_config_seed_log").insert({
               brand_template_id: c.brand_template_id,
               vendor: c.vendor,
