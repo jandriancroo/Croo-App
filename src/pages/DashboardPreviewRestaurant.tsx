@@ -113,9 +113,11 @@ export default function DashboardPreviewRestaurant() {
               <ChecklistRow label="Prep List" right="done" pct={100} tone="emerald" done />
               <ChecklistRow label="Closing" right="5/18" pct={28} tone="amber" />
             </div>
+          </div>
             </div>
           </div>
         </section>
+
 
         {/* Page 2: Punch Clock */}
         <section className="snap-center shrink-0 w-full h-full overflow-y-auto p-4 lg:p-10 pb-24">
