@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Home, ClipboardList, Package, MessageSquare, Mic, ChevronUp, ChevronLeft } from "lucide-react";
+import { Home, ClipboardList, Package, MessageSquare, Mic } from "lucide-react";
 import { TheoOrb } from "@/components/dock/TheoOrb";
 import { cn } from "@/lib/utils";
 
 type State = "dashboard" | "inventory" | "swiped";
+type Style = "frosted" | "solid" | "glow";
 
 const TABS = [
   { icon: Home, label: "Home" },
@@ -12,15 +13,67 @@ const TABS = [
   { icon: MessageSquare, label: "Messages" },
 ];
 
-function PillDock({ active, dim = false }: { active: number; dim?: boolean }) {
+/* ============================================================
+   THREE DISTINCT STYLE TOKENS
+   ============================================================ */
+const STYLES: Record<Style, {
+  name: string;
+  blurb: string;
+  dock: string;          // pill wrapper classes
+  iconActive: string;
+  iconIdle: string;
+  smartDock: string;     // morphed inventory dock wrapper
+  saveBtn: string;
+  micBtn: string;
+  accent: string;        // for counted numbers etc
+}> = {
+  frosted: {
+    name: "A · Frosted Glass",
+    blurb: "Translucent dark pill, heavy blur, hairline white border. Closest to Instagram.",
+    dock: "bg-black/55 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.45)]",
+    iconActive: "text-white",
+    iconIdle: "text-white/45",
+    smartDock: "bg-black/65 backdrop-blur-2xl border border-white/12 shadow-[0_10px_40px_rgba(0,0,0,0.5)]",
+    saveBtn: "bg-white text-black",
+    micBtn: "bg-white/10 border border-white/15 text-white/80",
+    accent: "text-emerald-400",
+  },
+  solid: {
+    name: "B · Solid Charcoal",
+    blurb: "Opaque charcoal pill, no blur, soft outer shadow. Crisper, more 'app-like'.",
+    dock: "bg-neutral-900 border border-neutral-800 shadow-[0_12px_30px_rgba(0,0,0,0.55)]",
+    iconActive: "text-white",
+    iconIdle: "text-neutral-500",
+    smartDock: "bg-neutral-900 border border-neutral-800 shadow-[0_12px_30px_rgba(0,0,0,0.55)]",
+    saveBtn: "bg-white text-black",
+    micBtn: "bg-neutral-800 border border-neutral-700 text-neutral-300",
+    accent: "text-blue-400",
+  },
+  glow: {
+    name: "C · Neon Glow",
+    blurb: "Dark blurred pill with a colored glow ring around active icon + Theo orb.",
+    dock: "bg-black/70 backdrop-blur-xl border border-white/10 shadow-[0_0_40px_rgba(99,102,241,0.25)]",
+    iconActive: "text-white drop-shadow-[0_0_8px_rgba(129,140,248,0.9)]",
+    iconIdle: "text-white/40",
+    smartDock: "bg-black/75 backdrop-blur-xl border border-indigo-500/30 shadow-[0_0_50px_rgba(99,102,241,0.3)]",
+    saveBtn: "bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.6)]",
+    micBtn: "bg-white/5 border border-indigo-500/40 text-indigo-300",
+    accent: "text-indigo-300",
+  },
+};
+
+/* ============================================================
+   DOCK VARIANTS
+   ============================================================ */
+function PillDock({ style, activeIdx = 0, dim = false }: { style: Style; activeIdx?: number; dim?: boolean }) {
+  const S = STYLES[style];
   return (
     <div className="mx-auto w-[92%]">
       <div
         className={cn(
           "h-[60px] rounded-full px-3 flex items-center justify-between",
-          "bg-black/60 backdrop-blur-2xl border border-white/10",
-          "shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
-          dim && "opacity-70"
+          S.dock,
+          dim && "opacity-70",
         )}
       >
         {TABS.map((T, i) => (
@@ -28,182 +81,175 @@ function PillDock({ active, dim = false }: { active: number; dim?: boolean }) {
             key={T.label}
             className={cn(
               "w-10 h-10 flex items-center justify-center rounded-full transition-colors",
-              i === active ? "text-white" : "text-white/40"
+              i === activeIdx ? S.iconActive : S.iconIdle,
             )}
           >
-            <T.icon className="w-[22px] h-[22px]" strokeWidth={i === active ? 2.5 : 2} />
+            <T.icon className="w-[22px] h-[22px]" strokeWidth={i === activeIdx ? 2.5 : 2} />
           </button>
         ))}
-        <TheoOrb size={40} className="text-white" />
+        <div className={cn(style === "glow" && "rounded-full ring-2 ring-indigo-400/60 shadow-[0_0_15px_rgba(99,102,241,0.7)]")}>
+          <TheoOrb size={40} className="text-white" />
+        </div>
       </div>
     </div>
   );
 }
 
-function PhoneFrame({ children, label }: { children: React.ReactNode; label: string }) {
+function SmartDock({ style }: { style: Style }) {
+  const S = STYLES[style];
   return (
-    <div className="flex flex-col items-center gap-3">
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-      <div
-        className="relative bg-neutral-950 rounded-[44px] border-[6px] border-neutral-800 shadow-2xl overflow-hidden"
-        style={{ width: 320, height: 660 }}
-      >
-        {children}
+    <div className="mx-auto w-[94%]">
+      <div className={cn("rounded-[28px] p-3.5 space-y-3", S.smartDock)}>
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <div className="text-[9px] text-white/40 uppercase tracking-wider">Total Value</div>
+            <div className="text-lg font-bold leading-tight text-white">$4,285.50</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-white/40 uppercase tracking-wider">Counted</div>
+            <div className="text-sm font-semibold text-white">
+              45 <span className="text-white/40 font-normal">/ 120</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[9px] text-white/40 uppercase tracking-wider">Timer</div>
+            <div className={cn("text-sm font-mono", S.accent)}>08:42</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className={cn("h-11 w-11 rounded-full flex items-center justify-center shrink-0", S.micBtn)}>
+            <Mic className="w-5 h-5" />
+          </button>
+          <button className={cn("flex-1 h-11 text-sm font-semibold rounded-full", S.saveBtn)}>
+            Save Count
+          </button>
+          <div className={cn("shrink-0", style === "glow" && "rounded-full ring-2 ring-indigo-400/60 shadow-[0_0_15px_rgba(99,102,241,0.7)]")}>
+            <TheoOrb size={44} className="text-white" />
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ---------- STATE 1: Dashboard ---------- */
-function DashboardState() {
+/* ============================================================
+   PHONE SCREENS
+   ============================================================ */
+function DashboardScreen({ style }: { style: Style }) {
   return (
     <div className="absolute inset-0 bg-neutral-950 text-white flex flex-col">
-      <div className="p-5 pt-10 space-y-5 flex-1 overflow-hidden">
+      <div className="p-4 pt-8 space-y-4 flex-1 overflow-hidden">
         <div className="flex justify-between items-center">
           <div>
-            <div className="text-xs text-white/40">Palm Springs</div>
-            <h1 className="text-xl font-bold">Dashboard</h1>
+            <div className="text-[10px] text-white/40">Palm Springs</div>
+            <h1 className="text-lg font-bold">Dashboard</h1>
           </div>
-          <div className="w-9 h-9 rounded-full bg-neutral-800" />
+          <div className="w-8 h-8 rounded-full bg-neutral-800" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="h-24 rounded-2xl bg-gradient-to-br from-emerald-900/40 to-neutral-900 border border-white/5 p-3">
-            <div className="text-[10px] text-white/40 uppercase">Sales</div>
-            <div className="text-lg font-bold">$12,480</div>
-            <div className="text-[10px] text-emerald-400">+4.2% YoY</div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="h-20 rounded-2xl bg-gradient-to-br from-emerald-900/40 to-neutral-900 border border-white/5 p-2.5">
+            <div className="text-[9px] text-white/40 uppercase">Sales</div>
+            <div className="text-base font-bold">$12,480</div>
           </div>
-          <div className="h-24 rounded-2xl bg-gradient-to-br from-blue-900/40 to-neutral-900 border border-white/5 p-3">
-            <div className="text-[10px] text-white/40 uppercase">Labor</div>
-            <div className="text-lg font-bold">28.4%</div>
-            <div className="text-[10px] text-blue-400">on target</div>
+          <div className="h-20 rounded-2xl bg-gradient-to-br from-blue-900/40 to-neutral-900 border border-white/5 p-2.5">
+            <div className="text-[9px] text-white/40 uppercase">Labor</div>
+            <div className="text-base font-bold">28.4%</div>
           </div>
         </div>
-        <div className="h-32 rounded-2xl bg-neutral-900/60 border border-white/5" />
         <div className="h-24 rounded-2xl bg-neutral-900/60 border border-white/5" />
+        <div className="h-20 rounded-2xl bg-neutral-900/60 border border-white/5" />
       </div>
-      <div className="pb-6">
-        <PillDock active={0} />
+      <div className="pb-5">
+        <PillDock style={style} activeIdx={0} />
       </div>
     </div>
   );
 }
 
-/* ---------- STATE 2: Inventory Count (morphed dock) ---------- */
-function InventoryState() {
+function InventoryScreen({ style }: { style: Style }) {
   return (
     <div className="absolute inset-0 bg-neutral-950 text-white flex flex-col">
-      <div className="p-5 pt-10 flex-1 overflow-hidden">
-        <div className="flex items-center gap-2 mb-4">
-          <ChevronLeft className="w-5 h-5 text-white/60" />
-          <h1 className="text-base font-semibold">Bar — Walk-in</h1>
-        </div>
+      <div className="p-4 pt-8 flex-1 overflow-hidden">
+        <h1 className="text-sm font-semibold mb-3">Bar — Walk-in</h1>
         <div className="space-y-2">
-          {["Tito's Vodka 1L", "Jameson 750ml", "Casamigos Blanco", "Hendricks Gin", "Patron Silver"].map((n, i) => (
+          {["Tito's Vodka 1L", "Jameson 750ml", "Casamigos Blanco", "Hendricks Gin"].map((n, i) => (
             <div
               key={n}
               className={cn(
-                "h-14 rounded-xl border flex items-center justify-between px-3",
+                "h-11 rounded-xl border flex items-center justify-between px-3",
                 i === 1
                   ? "bg-blue-500/10 border-blue-500/40"
-                  : "bg-neutral-900/60 border-white/5"
+                  : "bg-neutral-900/60 border-white/5",
               )}
             >
-              <span className="text-sm">{n}</span>
-              <span className={cn("text-sm font-mono", i === 1 ? "text-blue-300" : "text-white/40")}>
-                {i === 1 ? "--" : (Math.random() * 5).toFixed(1)}
+              <span className="text-xs">{n}</span>
+              <span className={cn("text-xs font-mono", i === 1 ? "text-blue-300" : "text-white/40")}>
+                {i === 1 ? "--" : (2 + i).toFixed(1)}
               </span>
             </div>
           ))}
         </div>
       </div>
+      <div className="pb-5">
+        <SmartDock style={style} />
+      </div>
+    </div>
+  );
+}
 
-      {/* Morphed smart dock */}
-      <div className="pb-6">
-        <div className="mx-auto w-[94%]">
-          <div className="bg-black/75 backdrop-blur-2xl border border-white/15 rounded-[28px] p-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.6)] space-y-3">
-            {/* Data row */}
-            <div className="flex items-center justify-between px-1">
-              <div>
-                <div className="text-[9px] text-white/40 uppercase tracking-wider">Total Value</div>
-                <div className="text-lg font-bold leading-tight">$4,285.50</div>
-              </div>
-              <div className="text-center">
-                <div className="text-[9px] text-white/40 uppercase tracking-wider">Counted</div>
-                <div className="text-sm font-semibold">
-                  45 <span className="text-white/40 font-normal">/ 120</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[9px] text-white/40 uppercase tracking-wider">Timer</div>
-                <div className="text-sm font-mono text-emerald-400">08:42</div>
-              </div>
-            </div>
-            {/* Controls */}
-            <div className="flex items-center gap-2">
-              <button className="h-11 w-11 rounded-full bg-neutral-800 border border-white/10 flex items-center justify-center text-white/70 shrink-0">
-                <Mic className="w-5 h-5" />
-              </button>
-              <button className="flex-1 h-11 bg-white text-black text-sm font-semibold rounded-full">
-                Save Count
-              </button>
-              <TheoOrb size={44} className="text-white shrink-0" />
+function SwipedScreen({ style }: { style: Style }) {
+  return (
+    <div className="absolute inset-0 bg-neutral-950 text-white">
+      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute bottom-0 inset-x-0 top-[14%] bg-neutral-900 rounded-t-[32px] border-t border-white/10 shadow-[0_-20px_50px_rgba(0,0,0,0.7)] flex flex-col">
+        <div className="w-10 h-1.5 bg-white/15 rounded-full mx-auto mt-3 mb-3" />
+        <div className="px-4 flex-1 overflow-hidden">
+          <div className="flex items-center gap-2.5 mb-4">
+            <TheoOrb size={36} className="text-white" />
+            <div>
+              <h2 className="text-sm font-bold">Theo Insights</h2>
+              <p className="text-[10px] text-white/50">Manager Dashboard</p>
             </div>
           </div>
+          <div className="space-y-2">
+            <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
+              <div className="text-[9px] text-amber-400 font-semibold uppercase mb-1">Labor Alert</div>
+              <p className="text-[11px] text-white/80 leading-relaxed">
+                Weekly labor up 4.2% vs last month.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2.5 bg-white/5 rounded-2xl border border-white/5">
+                <div className="text-[9px] text-white/40 uppercase">COGS</div>
+                <div className="text-sm font-semibold">28.4%</div>
+              </div>
+              <div className="p-2.5 bg-white/5 rounded-2xl border border-white/5">
+                <div className="text-[9px] text-white/40 uppercase">Rev</div>
+                <div className="text-sm font-semibold">$42.1k</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="pb-5">
+          <PillDock style={style} activeIdx={0} dim />
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------- STATE 3: Swiped-up (Theo / Manager sheet) ---------- */
-function SwipedState() {
+/* ============================================================
+   PAGE
+   ============================================================ */
+function PhoneFrame({ style, state }: { style: Style; state: State }) {
   return (
-    <div className="absolute inset-0 bg-neutral-950 text-white flex flex-col">
-      {/* dim background */}
-      <div className="absolute inset-0 bg-black/50" />
-
-      {/* Sheet */}
-      <div className="absolute bottom-0 inset-x-0 top-[14%] bg-neutral-900 rounded-t-[36px] border-t border-white/10 shadow-[0_-20px_50px_rgba(0,0,0,0.7)] flex flex-col">
-        <div className="w-10 h-1.5 bg-white/15 rounded-full mx-auto mt-3 mb-4" />
-        <div className="px-5 flex-1 overflow-hidden">
-          <div className="flex items-center gap-3 mb-5">
-            <TheoOrb size={44} className="text-white" />
-            <div>
-              <h2 className="text-base font-bold">Theo Insights</h2>
-              <p className="text-xs text-white/50">Manager Dashboard</p>
-            </div>
-          </div>
-          <div className="space-y-2.5">
-            <div className="p-3.5 bg-white/5 rounded-2xl border border-white/5">
-              <div className="text-[10px] text-amber-400 font-semibold uppercase mb-1">Labor Alert</div>
-              <p className="text-xs text-white/80 leading-relaxed">
-                Weekly labor is up 4.2% vs last month. Consider cutting one server early.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
-                <div className="text-[10px] text-white/40 uppercase">COGS</div>
-                <div className="text-base font-semibold">28.4%</div>
-              </div>
-              <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
-                <div className="text-[10px] text-white/40 uppercase">Revenue</div>
-                <div className="text-base font-semibold">$42.1k</div>
-              </div>
-            </div>
-            <div className="p-3.5 bg-white/5 rounded-2xl border border-white/5">
-              <div className="text-[10px] text-emerald-400 font-semibold uppercase mb-1">Stock</div>
-              <p className="text-xs text-white/80 leading-relaxed">
-                Cold brew concentrate runs out by Friday at current velocity.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Dock pinned to sheet bottom */}
-        <div className="pb-5">
-          <PillDock active={0} dim />
-        </div>
-      </div>
+    <div
+      className="relative bg-neutral-950 rounded-[36px] border-[5px] border-neutral-800 shadow-2xl overflow-hidden"
+      style={{ width: 260, height: 540 }}
+    >
+      {state === "dashboard" && <DashboardScreen style={style} />}
+      {state === "inventory" && <InventoryScreen style={style} />}
+      {state === "swiped" && <SwipedScreen style={style} />}
     </div>
   );
 }
@@ -212,13 +258,13 @@ export default function DockPreview() {
   const [state, setState] = useState<State>("dashboard");
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Instagram-Style Dock — Preview</h1>
+            <h1 className="text-2xl font-bold">Dock Style Comparison</h1>
             <p className="text-sm text-muted-foreground">
-              Floating pill dock across Dashboard, Inventory Count, and Swiped-Up Manager states.
+              Same dock, same data, same behavior — three visual treatments. Pick the one you like.
             </p>
           </div>
           <div className="inline-flex rounded-full bg-muted p-1 text-xs font-medium">
@@ -228,7 +274,7 @@ export default function DockPreview() {
                 onClick={() => setState(s)}
                 className={cn(
                   "px-4 py-2 rounded-full capitalize transition-colors",
-                  state === s ? "bg-background shadow-sm" : "text-muted-foreground"
+                  state === s ? "bg-background shadow-sm" : "text-muted-foreground",
                 )}
               >
                 {s === "swiped" ? "Swiped Up" : s}
@@ -237,45 +283,36 @@ export default function DockPreview() {
           </div>
         </header>
 
-        {/* Triptych: all three side-by-side */}
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-            All three states
-          </h2>
-          <div className="flex flex-wrap gap-8 justify-center bg-neutral-900/30 rounded-3xl p-8 border border-border/40">
-            <PhoneFrame label="Dashboard">
-              <DashboardState />
-            </PhoneFrame>
-            <PhoneFrame label="Inventory Count">
-              <InventoryState />
-            </PhoneFrame>
-            <PhoneFrame label="Swiped Up">
-              <SwipedState />
-            </PhoneFrame>
-          </div>
-        </section>
-
-        {/* Focused single view */}
-        <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-            Focused: {state}
-          </h2>
-          <div className="flex justify-center bg-neutral-900/30 rounded-3xl p-8 border border-border/40">
+        {/* Three styles side-by-side */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {(Object.keys(STYLES) as Style[]).map((style) => (
             <div
-              className="relative bg-neutral-950 rounded-[52px] border-[8px] border-neutral-800 shadow-2xl overflow-hidden"
-              style={{ width: 390, height: 800 }}
+              key={style}
+              className="rounded-3xl border border-border bg-neutral-900/30 p-5 flex flex-col items-center gap-4"
             >
-              {state === "dashboard" && <DashboardState />}
-              {state === "inventory" && <InventoryState />}
-              {state === "swiped" && <SwipedState />}
-              {state === "dashboard" && (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-white/40 text-[10px] animate-bounce pointer-events-none">
-                  <ChevronUp className="w-3 h-3" /> swipe up for Theo
-                </div>
-              )}
+              <div className="text-center">
+                <h3 className="text-base font-bold">{STYLES[style].name}</h3>
+                <p className="text-xs text-muted-foreground mt-1 max-w-[240px]">{STYLES[style].blurb}</p>
+              </div>
+              <PhoneFrame style={style} state={state} />
+              {/* Isolated dock swatch so you can see just the pill */}
+              <div className="w-full bg-neutral-950 rounded-2xl p-4 pt-6 pb-6">
+                <p className="text-[10px] text-white/40 uppercase tracking-wider mb-3 text-center">
+                  Dock only
+                </p>
+                {state === "inventory" ? (
+                  <SmartDock style={style} />
+                ) : (
+                  <PillDock style={style} activeIdx={0} />
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          ))}
+        </div>
+
+        <p className="text-xs text-muted-foreground text-center">
+          Tell me <strong>A</strong>, <strong>B</strong>, or <strong>C</strong> and I'll apply that style to the real dock.
+        </p>
       </div>
     </div>
   );
