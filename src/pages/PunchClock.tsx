@@ -21,6 +21,7 @@ import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay
 import { ManagerDashboardOverlay } from '@/components/punchclock/ManagerDashboardOverlay';
 import { ShiftSummaryCard } from '@/components/punchclock/ShiftSummaryCard';
 import { SwipePagerHint } from '@/components/punchclock/SwipePagerHint';
+import { ThemeToggleIcons } from '@/components/punchclock/ThemeToggleIcons';
 import { useSwipe } from '@/hooks/useSwipe';
 
 // Function to calculate average brightness of an image
@@ -1290,10 +1291,10 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {/* Location tab — sits above the card, matches page bg so it reads as a cutout from the page */}
             {currentLocation && (
               <div
-                className={`absolute left-1/2 -translate-x-1/2 -top-px z-30 flex items-center gap-4 px-10 py-4 rounded-b-[28px] ${
+                className={`absolute left-1/2 z-30 flex items-center gap-4 px-10 py-4 rounded-b-[28px] ${
                   isDayMode ? 'bg-background' : 'bg-neutral-900'
                 }`}
-                style={{ marginTop: '-1px' }}
+                style={{ top: 0, transform: 'translate(-50%, calc(-100% + 2px))' }}
               >
                 {brandLogoUrl && (
                   <img src={brandLogoUrl} alt="Brand" className="h-10 w-10 object-contain rounded-md" />
