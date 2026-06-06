@@ -1,29 +1,26 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useClock } from '@/hooks/useClock';
 import { AnimatePresence } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
-import { Clock, Coffee, LogOut, AlertTriangle, Fingerprint } from 'lucide-react';
+import { Clock, Coffee, LogOut, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import crooLogo from '@/assets/croo-logo.webp';
 import crooLogoInverted from '/croo-logo-inverted-transparent.png';
 
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
-import { getTodayInTimezone, toISOStringInTimezone, DEFAULT_TIMEZONE, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
+import { getTodayInTimezone, toISOStringInTimezone, DEFAULT_TIMEZONE } from '@/utils/timezoneUtils';
 import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
 import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
 import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay';
 import { ManagerDashboardOverlay } from '@/components/punchclock/ManagerDashboardOverlay';
 import { ShiftSummaryCard } from '@/components/punchclock/ShiftSummaryCard';
 import { SwipePagerHint } from '@/components/punchclock/SwipePagerHint';
-import { ThemeModePill } from '@/components/punchclock/ThemeModePill';
 import { useSwipe } from '@/hooks/useSwipe';
 
 // Function to calculate average brightness of an image
@@ -219,83 +216,6 @@ export default function PunchClock() {
   const [showManagerDashboard, setShowManagerDashboard] = useState(false);
   const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
   const activeCrooLogo = isDayMode ? crooLogo : crooLogoInverted;
-
-  const handleThemeModeChange = useCallback((next: boolean) => {
-    setIsDayMode(next);
-    localStorage.setItem('punch-clock-day-mode', String(next));
-  }, []);
-
-  const todayStr = useMemo(
-    () => getTodayInTimezone(timezone || DEFAULT_TIMEZONE),
-    [timezone]
-  );
-
-  const { data: liveClockedIn = [] } = useQuery({
-    queryKey: ['punch-clock-active-shifts', currentLocation?.id, todayStr, timezone],
-    enabled: !!currentLocation?.id && !!timezone,
-    queryFn: async () => {
-      if (!currentLocation?.id || !timezone) return [];
-
-      const startOfDay = parseDateStringInTimezone(todayStr, timezone).toISOString();
-      const endOfDayDate = getEndOfDateStringInTimezone(todayStr, timezone);
-      const endOfDayPlus = new Date(endOfDayDate);
-      endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
-      const endOfDay = endOfDayPlus.toISOString();
-
-      const { data: punches, error } = await supabase
-        .from('time_punches')
-        .select('user_id, punch_time, punch_type, notes')
-        .eq('location_id', currentLocation.id)
-        .gte('punch_time', startOfDay)
-        .lte('punch_time', endOfDay)
-        .order('punch_time', { ascending: true });
-
-      if (error) throw error;
-
-      const userPunches: Record<string, typeof punches> = {};
-      (punches || []).forEach((p) => {
-        if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
-        userPunches[p.user_id].push(p);
-      });
-
-      const activeUsers: { userId: string; clockInTime: string }[] = [];
-      Object.entries(userPunches).forEach(([userId, userPunchList]) => {
-        let isClockedInNow = false;
-        let clockInTime: string | null = null;
-
-        userPunchList.forEach((p) => {
-          if (p.punch_type === 'clock_in') {
-            isClockedInNow = true;
-            clockInTime = p.punch_time;
-          } else if (p.punch_type === 'clock_out') {
-            isClockedInNow = false;
-          }
-        });
-
-        if (isClockedInNow && clockInTime) activeUsers.push({ userId, clockInTime });
-      });
-
-      if (!activeUsers.length) return [];
-
-      const userIds = activeUsers.map((u) => u.userId);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, profile_photo_url')
-        .in('id', userIds);
-
-      const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
-
-      return activeUsers
-        .map((user) => ({
-          userId: user.userId,
-          clockInTime: user.clockInTime,
-          fullName: profileMap.get(user.userId)?.full_name || 'Unknown',
-          profilePhoto: profileMap.get(user.userId)?.profile_photo_url || null,
-        }))
-        .sort((a, b) => a.fullName.localeCompare(b.fullName));
-    },
-    refetchInterval: 30000,
-  });
 
   // Swipe pager — swipe LEFT on the punch clock to reveal the manager dashboard
   const keypadSwipeRef = useRef<HTMLDivElement>(null);
@@ -1364,9 +1284,9 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {/* Master code 0223 on keypad exits to dashboard */}
 
       {!currentUser ? (
-        <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center overflow-hidden p-4 touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
+        <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
 
-          <Card className={`relative w-full max-w-5xl overflow-hidden border font-vansans ${isDayMode ? 'border-slate-200 bg-white' : 'border-white/5 bg-[#0f1117]'}`}>
+          <Card className={`w-full max-w-5xl overflow-hidden relative ${isDayMode ? '' : 'bg-neutral-800 border-neutral-700'}`}>
             {/* Floating Location Badge - positioned at top center where sections meet */}
             {currentLocation && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
@@ -1538,64 +1458,52 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               )}
 
               {/* Right Side - Number Pad */}
-              <CardContent className={`flex flex-col justify-center p-8 ${isDayMode ? 'bg-gradient-to-b from-white to-slate-50' : 'bg-gradient-to-b from-[#141822] to-[#0f1117]'}`}>
-                <div className="space-y-6">
-                  <div className={`flex items-start justify-between gap-4 border-b pb-5 ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500">Punch Clock</p>
-                      <p className={`mt-2 text-lg font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>Tap in to start your shift</p>
+              <CardContent className={`p-8 flex flex-col justify-center ${isDayMode ? '' : 'bg-neutral-800'}`}>
+                <div className="space-y-4">
+                  {/* Time Display - moved from image side */}
+                  <div className="text-center pb-2">
+                    <div className={`text-4xl sm:text-5xl font-bold tracking-tight ${isDayMode ? 'text-foreground' : 'text-white'}`}>
+                      {format(currentTime, 'h:mm:ss a')}
                     </div>
-                    <div className="flex items-start gap-4">
-                      <ThemeModePill isDayMode={isDayMode} onChange={handleThemeModeChange} />
-                      <div className="text-right">
-                        <div className={`text-3xl font-medium tracking-tight ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
-                          {format(currentTime, 'h:mm')}
-                          <span className={`ml-1 text-base ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>{format(currentTime, 'a')}</span>
-                        </div>
-                        <p className={`mt-1 text-[11px] uppercase tracking-[0.22em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>{format(currentTime, 'EEEE, MMM d')}</p>
+                    <p className={`text-sm mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
+                      {format(currentTime, 'EEEE, MMMM d')}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h3 className={`text-base font-medium mb-3 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
+                      {pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN'}
+                    </h3>
+                    <div className="text-center mb-4">
+                      <div 
+                        className={`flex items-center justify-center gap-3 h-14 ${pinShake ? 'animate-shake' : ''}`}
+                        style={pinShake ? { animation: 'shake 0.5s ease-in-out' } : undefined}
+                      >
+                        {[0, 1, 2, 3].map((i) => (
+                          <div
+                            key={i}
+                            className={`w-11 h-11 rounded-xl border-2 flex items-center justify-center text-xl font-bold transition-all duration-200 ${
+                              pinError
+                                ? 'bg-destructive/20 border-destructive'
+                                : pin.length > i 
+                                  ? 'bg-primary border-primary text-primary-foreground scale-105 shadow-lg' 
+                                  : isDayMode ? 'bg-muted/50 border-border' : 'bg-neutral-700/50 border-neutral-600'
+                            }`}
+                          >
+                            {pin.length > i ? '•' : ''}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
-
-                  <div className="flex flex-col items-center py-2">
-                    <button
-                      type="button"
-                      onClick={() => pin.length === 4 && verifyPin()}
-                      className="flex h-40 w-40 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-[0_0_60px_-10px_rgba(245,158,11,0.55)] transition-transform hover:scale-[1.02]"
-                    >
-                      <Fingerprint className="h-16 w-16 text-amber-950" strokeWidth={1.5} />
-                    </button>
-                    <p className={`mt-6 text-sm ${pinError ? 'text-destructive font-semibold' : isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {pinError ? 'Wrong PIN - Try Again' : 'Enter your 4-digit PIN'}
-                    </p>
-                    <div
-                      className={`mt-3 flex h-10 items-center justify-center gap-3 ${pinShake ? 'animate-shake' : ''}`}
-                      style={pinShake ? { animation: 'shake 0.5s ease-in-out' } : undefined}
-                    >
-                      {[0, 1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className={`h-3.5 w-3.5 rounded-full border transition-all duration-200 ${
-                            pinError
-                              ? 'border-destructive bg-destructive/20'
-                              : pin.length > i
-                                ? 'border-amber-500 bg-amber-500'
-                                : isDayMode
-                                  ? 'border-slate-300 bg-transparent'
-                                  : 'border-white/15 bg-transparent'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
+                  
                   <div className="grid grid-cols-3 gap-2">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                       <Button
                         key={num}
                         variant="outline"
                         size="lg"
-                        className={`h-16 rounded-2xl border text-2xl font-bold shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-primary hover:text-primary-foreground hover:border-primary active:scale-95 ${isDayMode ? 'border-slate-200 bg-white text-slate-900' : 'border-white/10 bg-[#0a0a0f]/50 text-white'}`}
+                        className={`h-16 text-2xl font-bold rounded-xl border-2 hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md ${isDayMode ? 'bg-card' : 'bg-neutral-700 border-neutral-600 text-white'}`}
                         onClick={() => handleNumberClick(num.toString())}
                       >
                         {num}
@@ -1604,7 +1512,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="ghost"
                       size="lg"
-                      className={`h-16 rounded-2xl text-sm font-medium transition-all duration-150 active:scale-95 ${isDayMode ? 'text-slate-500 hover:bg-slate-100' : 'text-slate-400 hover:bg-white/5'}`}
+                      className={`h-16 text-sm font-medium rounded-xl hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150 ${isDayMode ? '' : 'text-neutral-400'}`}
                       onClick={handleClear}
                     >
                       Clear
@@ -1612,7 +1520,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="outline"
                       size="lg"
-                      className={`h-16 rounded-2xl border text-2xl font-bold shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-primary hover:text-primary-foreground hover:border-primary active:scale-95 ${isDayMode ? 'border-slate-200 bg-white text-slate-900' : 'border-white/10 bg-[#0a0a0f]/50 text-white'}`}
+                      className={`h-16 text-2xl font-bold rounded-xl border-2 hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md ${isDayMode ? 'bg-card' : 'bg-neutral-700 border-neutral-600 text-white'}`}
                       onClick={() => handleNumberClick('0')}
                     >
                       0
@@ -1620,42 +1528,21 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="ghost"
                       size="lg"
-                      className={`h-16 rounded-2xl text-xl font-medium transition-all duration-150 active:scale-95 ${isDayMode ? 'text-slate-500 hover:bg-slate-100' : 'text-slate-400 hover:bg-white/5'}`}
+                      className={`h-16 text-xl font-medium rounded-xl hover:bg-muted active:scale-95 transition-all duration-150 ${isDayMode ? '' : 'text-neutral-400 hover:bg-neutral-700'}`}
                       onClick={handleBackspace}
                     >
                       ⌫
                     </Button>
                   </div>
 
-                  <div className={`rounded-2xl p-4 ${isDayMode ? 'bg-slate-100/80' : 'bg-[#0a0a0f]/45'}`}>
-                    <div className={`mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                      <Clock className="h-3.5 w-3.5" />
-                      On the Clock
-                    </div>
-                    <div className="space-y-2.5">
-                      {liveClockedIn.length === 0 ? (
-                        <p className={`text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No one is clocked in yet.</p>
-                      ) : (
-                        liveClockedIn.slice(0, 6).map((shift) => (
-                          <div key={shift.userId} className="flex items-center gap-2.5 min-w-0">
-                            <Avatar className="h-8 w-8 shrink-0">
-                              <AvatarImage src={shift.profilePhoto || undefined} />
-                              <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                                {shift.fullName.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className={`truncate text-sm font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
-                              {shift.fullName.split(' ')[0]} · {Math.max(0, Math.floor((currentTime.getTime() - new Date(shift.clockInTime).getTime()) / 60000 / 60))}h {Math.max(0, Math.floor((currentTime.getTime() - new Date(shift.clockInTime).getTime()) / 60000) % 60)}m
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-auto flex items-center justify-center gap-3 pt-2">
-                    <span className={`text-base font-medium ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Powered by</span>
-                    <img src={activeCrooLogo} alt="Croo" className="h-10 w-auto opacity-70" />
+                  {/* Powered by Croo branding */}
+                  <div className="flex items-center justify-center gap-3 pt-6 mt-auto">
+                    <span className={`text-base font-medium ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Powered by</span>
+                    <img 
+                      src={activeCrooLogo} 
+                      alt="Croo" 
+                      className="h-10 w-auto opacity-70"
+                    />
                   </div>
                 </div>
               </CardContent>
