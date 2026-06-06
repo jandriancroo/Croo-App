@@ -1041,7 +1041,7 @@ export function ManagerDashboardOverlay({
 
 
         <div
-          className="relative h-full overflow-y-auto p-4 pb-24 lg:p-8 lg:pb-28"
+          className="relative h-full overflow-y-auto p-3 pb-16 lg:p-4 lg:pb-16"
           style={{ fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
         >
           <div className="mx-auto max-w-7xl">
@@ -1049,13 +1049,13 @@ export function ManagerDashboardOverlay({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.08 }}
-              className={`overflow-hidden rounded-[28px] border p-5 shadow-2xl lg:p-8 ${
+              className={`overflow-hidden rounded-[24px] border p-4 shadow-2xl lg:p-5 ${
                 isDayMode
                   ? 'border-slate-200 bg-white text-slate-900'
                   : 'border-white/5 bg-[#0f1117] text-white'
               }`}
             >
-              <div className={`flex flex-col gap-5 border-b pb-5 lg:flex-row lg:items-start lg:justify-between ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
+              <div className={`flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-start lg:justify-between ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500">Manager Dashboard</p>
                   <p className={`mt-2 text-xl font-medium lg:text-2xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
@@ -1091,55 +1091,55 @@ export function ManagerDashboardOverlay({
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className={`rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
                   <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Total Sales</p>
-                  <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="mt-2 flex items-center justify-between gap-3">
                     <div>
-                      <p className={`text-3xl font-bold lg:text-4xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(totalSales)}</p>
-                      <p className={`mt-1 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual sales today</p>
+                      <p className={`text-2xl font-bold lg:text-3xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(totalSales)}</p>
+                      <p className={`mt-0.5 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual sales today</p>
                     </div>
-                    <DollarSign className="h-8 w-8 text-emerald-500" />
+                    <DollarSign className="h-7 w-7 text-emerald-500" />
                   </div>
                 </div>
 
-                <div className={`rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
                   <div className="flex items-center gap-2">
                     <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>EOD Goal</p>
                     <ProjectionIcon source={eodGoalSource} />
                   </div>
-                  <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="mt-2 flex items-center justify-between gap-3">
                     <div>
-                      <p className={`text-3xl font-bold lg:text-4xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(eodGoal)}</p>
-                      <p className={`mt-1 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Projected close</p>
+                      <p className={`text-2xl font-bold lg:text-3xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(eodGoal)}</p>
+                      <p className={`mt-0.5 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Projected close</p>
                     </div>
-                    <Target className="h-8 w-8 text-sky-500" />
+                    <Target className="h-7 w-7 text-sky-500" />
                   </div>
                 </div>
 
-                <div className={`rounded-2xl p-5 ring-1 ${paceStatus === 'fire' ? 'ring-amber-500/40' : isDayMode ? 'ring-slate-200' : 'ring-white/5'} ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                <div className={`rounded-2xl p-3 ring-1 ${paceStatus === 'fire' ? 'ring-amber-500/40' : isDayMode ? 'ring-slate-200' : 'ring-white/5'} ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
                   <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Pace</p>
-                  <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="mt-2 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-3xl font-bold text-amber-500 lg:text-4xl">{formatCurrency(paceAdjusted)}</p>
-                      <p className={`mt-1 text-xs ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      <p className="text-2xl font-bold text-amber-500 lg:text-3xl">{formatCurrency(paceAdjusted)}</p>
+                      <p className={`mt-0.5 text-xs ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
                         {paceDelta >= 0 ? 'Above goal pace' : 'Needs push to goal'}
                       </p>
                     </div>
                     {paceStatus === 'fire' ? (
-                      <Flame className="h-8 w-8 animate-pulse text-amber-500" />
+                      <Flame className="h-7 w-7 animate-pulse text-amber-500" />
                     ) : paceStatus === 'cold' ? (
-                      <TrendingDown className="h-8 w-8 text-red-500" />
+                      <TrendingDown className="h-7 w-7 text-red-500" />
                     ) : (
-                      <TrendingUp className="h-8 w-8 text-emerald-500" />
+                      <TrendingUp className="h-7 w-7 text-emerald-500" />
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,0.95fr)]">
-                <div className={`rounded-2xl p-5 lg:p-6 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                  <div className="mb-5 flex items-center justify-between gap-3">
+              <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(300px,0.95fr)]">
+                <div className={`rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                  <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       Hourly Sales
                     </h3>
@@ -1187,7 +1187,7 @@ export function ManagerDashboardOverlay({
                     )}
                   </AnimatePresence>
 
-                  <div className="h-[260px] lg:h-[320px]">
+                  <div className="h-[160px] lg:h-[200px]">
                     {salesHours.some(h => h.sales > 0) ? (
                       <HourlyChartRecharts hours={salesHours} formatCurrency={formatCurrency} isDayMode={isDayMode} />
                     ) : (
@@ -1198,13 +1198,13 @@ export function ManagerDashboardOverlay({
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-4">
-                  <div className={`rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                <div className="flex flex-col gap-3">
+                  <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Labor</h3>
-                        <div className="mt-3 flex items-end gap-2">
-                          <span className={`text-4xl font-bold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
+                        <div className="mt-2 flex items-end gap-2">
+                          <span className={`text-3xl font-bold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
                             {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
                           </span>
                           <span className={`pb-1 text-xs ${laborStatus === 'good' ? 'text-emerald-500/80' : laborStatus === 'warning' ? 'text-amber-500/80' : 'text-red-500/80'}`}>
@@ -1220,7 +1220,7 @@ export function ManagerDashboardOverlay({
                       </div>
                     </div>
 
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-3 space-y-2">
                       <div>
                         <div className="mb-1 flex items-center justify-between">
                           <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual</span>
@@ -1247,7 +1247,7 @@ export function ManagerDashboardOverlay({
                     </div>
                   </div>
 
-                  <div className={`flex min-h-[320px] flex-col rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                  <div className={`flex min-h-0 flex-col rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>On The Line</h3>
                       <div className="flex items-center gap-2">
@@ -1386,8 +1386,8 @@ export function ManagerDashboardOverlay({
                 </div>
               </div>
 
-              <div className={`mt-4 rounded-2xl p-5 lg:p-6 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                <div className="mb-5 flex items-center justify-between gap-3">
+              <div className={`mt-3 rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                <div className="mb-3 flex items-center justify-between gap-3">
                   <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Checklists</h3>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -1402,7 +1402,7 @@ export function ManagerDashboardOverlay({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {checklistsData.slice(0, 7).map((checklist: any) => {
                     const completed = checklist.completedItems || 0;
                     const total = checklist.totalItems || 0;
