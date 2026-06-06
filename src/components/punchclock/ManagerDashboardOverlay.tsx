@@ -1229,7 +1229,7 @@ export function ManagerDashboardOverlay({
 
                     <div className="flex flex-col gap-2 overflow-y-auto pr-1 max-h-[220px]">
                       {activeShifts.length === 0 ? (
-                        <p className={`col-span-full py-6 text-center text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No one clocked in</p>
+                        <p className={`py-6 text-center text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No one clocked in</p>
                       ) : (
                         activeShifts.map((shift) => {
                           const cut = getCutForEmployee(shift.userId);
