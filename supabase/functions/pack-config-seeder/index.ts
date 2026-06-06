@@ -379,7 +379,28 @@ Deno.serve(async (req) => {
     // 5b. Walk every candidate — is it new?
     for (const c of uniqueCandidates) {
       const k = candidateKey(c);
-      if (!existingByKey.has(k)) {
+      if (existingByKey.has(k)) continue;
+
+      // SKU-scoped guard — never spawn a second config for a SKU that already has one.
+      // The only way to get a second config per SKU is a human deliberately adding it.
+      const skuKey = `${String(c.vendor).toLowerCase()}::${String(c.vendor_item_id)}`;
+      if (existingSkuByTemplate.get(c.brand_template_id)?.has(skuKey)) {
+        skippedCount++;
+        if (!dryRun) {
+          await supabase.from("pack_config_seed_log").insert({
+            brand_template_id: c.brand_template_id,
+            vendor: c.vendor,
+            vendor_item_id: c.vendor_item_id,
+            pack_string: c.source_evidence?.packString,
+            status: 'skipped',
+            dry_run: false,
+            run_id: runId,
+          });
+        }
+        continue;
+      }
+
+      {
         newCount++;
         if (!dryRun) {
           const { data: inserted, error: insErr } = await supabase
