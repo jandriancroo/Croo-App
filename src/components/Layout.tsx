@@ -230,7 +230,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                   onTouchCancel={handleTouchEnd}
-                  className={`dock-nav-button flex-1 flex flex-col items-center gap-0.5 py-1 rounded-xl transition-colors relative select-none ${
+                  className={`dock-nav-button flex-1 mx-0.5 my-1.5 flex flex-col items-center gap-0.5 py-1.5 rounded-2xl transition-colors relative select-none ${
                     isActive 
                       ? 'bg-white/20 text-accent-foreground' 
                       : 'text-accent-foreground/70 hover:text-accent-foreground'
