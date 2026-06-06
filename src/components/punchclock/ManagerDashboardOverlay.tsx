@@ -1040,7 +1040,10 @@ export function ManagerDashboardOverlay({
         />
 
 
-        <div className="relative h-full overflow-y-auto p-4 pb-24 lg:p-8 lg:pb-28 font-vansans">
+        <div
+          className="relative h-full overflow-y-auto p-4 pb-24 lg:p-8 lg:pb-28"
+          style={{ fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
+        >
           <div className="mx-auto max-w-7xl">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
