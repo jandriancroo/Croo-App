@@ -40,16 +40,17 @@ const STYLES: Record<Style, {
     accent: "text-accent-foreground",
   },
   solid: {
-    name: "B · Solid Orange",
-    blurb: "Opaque accent pill, no blur, soft drop shadow. Matches today's dock color, just floating.",
-    dock: "bg-accent border border-white/10 shadow-[0_10px_24px_hsl(var(--accent)/0.4)]",
+    name: "B · Glassy Orange",
+    blurb: "Accent pill with a touch of transparency + blur. Solid feel, subtle glass.",
+    dock: "bg-accent/70 backdrop-blur-xl border border-white/20 shadow-[0_10px_28px_hsl(var(--accent)/0.4)]",
     iconActive: "text-accent-foreground",
     iconIdle: "text-accent-foreground/55",
-    smartDock: "bg-accent border border-white/10 shadow-[0_10px_24px_hsl(var(--accent)/0.4)]",
+    smartDock: "bg-accent/70 backdrop-blur-xl border border-white/20 shadow-[0_10px_28px_hsl(var(--accent)/0.4)]",
     saveBtn: "bg-accent-foreground text-accent",
-    micBtn: "bg-white/15 border border-white/25 text-accent-foreground",
+    micBtn: "bg-white/20 border border-white/30 text-accent-foreground",
     accent: "text-accent-foreground",
   },
+
   glow: {
     name: "C · Orange Glow",
     blurb: "Translucent accent with a stronger glow halo on the active icon + Theo orb.",
