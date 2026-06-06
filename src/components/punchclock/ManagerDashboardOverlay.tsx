@@ -1247,7 +1247,7 @@ export function ManagerDashboardOverlay({
                     </div>
                   </div>
 
-                  <div className={`flex min-h-[320px] flex-col rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                  <div className={`flex min-h-0 flex-col rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>On The Line</h3>
                       <div className="flex items-center gap-2">
