@@ -74,13 +74,16 @@ export default function DashboardPreviewRestaurant() {
           <div className="bg-[#141822] rounded-2xl p-5 lg:p-6 mt-4">
             <div className="flex justify-between items-center mb-5">
               <h3 className="text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400">Checklists</h3>
-              <span className="text-slate-500 text-xs">1 of 4 done</span>
+              <span className="text-slate-500 text-xs">2 of 7 done</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               <ChecklistRow label="AM Line" right="16/19" pct={84} tone="amber" />
               <ChecklistRow label="Shift Chg" right="13/22" pct={59} tone="amber" />
               <ChecklistRow label="Deep Clean" right="done" pct={100} tone="emerald" done />
               <ChecklistRow label="Opening" right="11/15" pct={73} tone="amber" />
+              <ChecklistRow label="PM Line" right="8/20" pct={40} tone="amber" />
+              <ChecklistRow label="Prep List" right="done" pct={100} tone="emerald" done />
+              <ChecklistRow label="Closing" right="5/18" pct={28} tone="amber" />
             </div>
           </div>
         </div>
