@@ -1286,24 +1286,27 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {!currentUser ? (
         <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
 
-          <Card className={`w-full max-w-5xl overflow-hidden relative ${isDayMode ? '' : 'bg-neutral-800 border-neutral-700'}`}>
-            {/* Location tab — dips down from the top edge of the card, matches page bg */}
+          <div className="w-full max-w-5xl relative">
+            {/* Location tab — sits above the card, matches page bg so it reads as a cutout from the page */}
             {currentLocation && (
               <div
-                className={`absolute top-0 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 px-5 py-2 rounded-b-2xl ${
+                className={`absolute left-1/2 -translate-x-1/2 -top-px z-30 flex items-center gap-4 px-10 py-4 rounded-b-[28px] ${
                   isDayMode ? 'bg-background' : 'bg-neutral-900'
                 }`}
+                style={{ marginTop: '-1px' }}
               >
                 {brandLogoUrl && (
-                  <img src={brandLogoUrl} alt="Brand" className="h-5 w-5 object-contain rounded" />
+                  <img src={brandLogoUrl} alt="Brand" className="h-10 w-10 object-contain rounded-md" />
                 )}
-                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isDayMode ? 'bg-primary' : 'bg-primary'}`} />
-                <span className={`text-sm font-semibold tracking-wide ${isDayMode ? 'text-foreground' : 'text-white'}`}>
+                <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isDayMode ? 'bg-primary' : 'bg-primary'}`} />
+                <span className={`text-lg font-semibold tracking-wide ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                   {currentLocation.name}
                 </span>
               </div>
             )}
+            <Card className={`w-full overflow-hidden relative ${isDayMode ? '' : 'bg-neutral-800 border-neutral-700'}`}>
             <div className="grid md:grid-cols-2">
+
               {/* Left Side - Image and Quote or Birthday Message */}
               {birthdayEmployees.length > 0 ? (
                 <div className="relative h-full min-h-[600px] bg-gradient-to-br from-primary via-accent to-primary">
