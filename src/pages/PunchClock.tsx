@@ -226,8 +226,8 @@ export default function PunchClock() {
   }, []);
 
   const todayStr = useMemo(
-    () => getTodayInTimezone(timezone || DEFAULT_TIMEZONE, closeTime),
-    [timezone, closeTime]
+    () => getTodayInTimezone(timezone || DEFAULT_TIMEZONE),
+    [timezone]
   );
 
   const { data: liveClockedIn = [] } = useQuery({
