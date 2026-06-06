@@ -64,6 +64,8 @@ interface ManagerDashboardOverlayProps {
   timezone: string;
   closeTime?: string | null;
   onClose: () => void;
+  isDayMode: boolean;
+  onThemeChange: (next: boolean) => void;
 }
 
 interface ActiveShift {
@@ -204,7 +206,9 @@ export function ManagerDashboardOverlay({
   locationId, 
   timezone,
   closeTime,
-  onClose 
+  onClose,
+  isDayMode,
+  onThemeChange,
 }: ManagerDashboardOverlayProps) {
   
   const [selectedEmployee, setSelectedEmployee] = useState<ActiveShift | null>(null);
@@ -212,13 +216,7 @@ export function ManagerDashboardOverlay({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [customTime, setCustomTime] = useState('');
   const [selectedHour, setSelectedHour] = useState<SelectedHourInfo | null>(null);
-  const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
   const [showTeamTasks, setShowTeamTasks] = useState(false);
-
-  const handleThemeModeChange = (next: boolean) => {
-    setIsDayMode(next);
-    localStorage.setItem('punch-clock-day-mode', String(next));
-  };
 
   // Build storage key for labor cuts persistence
   const laborCutsStorageKey = useMemo(() => 
@@ -1052,7 +1050,7 @@ export function ManagerDashboardOverlay({
         />
 
         {/* Bottom-right theme toggle */}
-        <ThemeToggleIcons isDayMode={isDayMode} onChange={handleThemeModeChange} />
+        <ThemeToggleIcons isDayMode={isDayMode} onChange={onThemeChange} />
 
 
         <div
