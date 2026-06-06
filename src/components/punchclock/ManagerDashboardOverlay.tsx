@@ -1041,7 +1041,7 @@ export function ManagerDashboardOverlay({
 
 
         <div
-          className="relative h-full overflow-y-auto p-4 pb-24 lg:p-8 lg:pb-28"
+          className="relative h-full overflow-y-auto p-3 pb-16 lg:p-4 lg:pb-16"
           style={{ fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
         >
           <div className="mx-auto max-w-7xl">
@@ -1049,7 +1049,7 @@ export function ManagerDashboardOverlay({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.08 }}
-              className={`overflow-hidden rounded-[28px] border p-5 shadow-2xl lg:p-8 ${
+              className={`overflow-hidden rounded-[24px] border p-4 shadow-2xl lg:p-5 ${
                 isDayMode
                   ? 'border-slate-200 bg-white text-slate-900'
                   : 'border-white/5 bg-[#0f1117] text-white'
