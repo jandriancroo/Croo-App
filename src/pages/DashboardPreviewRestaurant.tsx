@@ -82,17 +82,22 @@ export default function DashboardPreviewRestaurant() {
                 <p className="text-slate-500 text-xs mt-1">$870 · 40.1h</p>
               </div>
 
-              <div className="bg-[#141822] rounded-2xl p-5 flex-1">
-                <div className="flex items-center justify-between mb-3">
+              <div className="bg-[#141822] rounded-2xl p-5 flex-1 flex flex-col min-h-0">
+                <div className="flex items-center justify-between mb-3 shrink-0">
                   <h3 className="text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400">On The Line</h3>
                   <button className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors" title="Cut staff">
                     <Scissors className="w-3.5 h-3.5 text-slate-400" strokeWidth={2.25} />
                   </button>
                 </div>
-                <div className="space-y-2.5">
+                <div className="flex-1 overflow-y-auto min-h-0 space-y-2.5 pr-1">
                   <StaffRow name="Janessa" tone="bg-sky-300/80 text-sky-900" initial="J" />
                   <StaffRow name="Joshua" tone="bg-pink-300/80 text-pink-900" initial="J" />
                   <StaffRow name="Nicole" tone="bg-emerald-300/80 text-emerald-900" initial="N" />
+                  <StaffRow name="Marcus" tone="bg-violet-300/80 text-violet-900" initial="M" />
+                  <StaffRow name="Aaliyah" tone="bg-amber-300/80 text-amber-900" initial="A" />
+                  <StaffRow name="Diego" tone="bg-rose-300/80 text-rose-900" initial="D" />
+                  <StaffRow name="Sofia" tone="bg-teal-300/80 text-teal-900" initial="S" />
+                  <StaffRow name="Tyrell" tone="bg-indigo-300/80 text-indigo-900" initial="T" />
                 </div>
               </div>
             </div>
