@@ -1051,6 +1051,9 @@ export function ManagerDashboardOverlay({
           onDotClick={(target) => target === 'punch' && onClose()}
         />
 
+        {/* Bottom-right theme toggle */}
+        <ThemeToggleIcons isDayMode={isDayMode} onChange={handleThemeModeChange} />
+
 
         <div
           className="relative h-full overflow-y-auto p-3 pb-24 lg:p-4 lg:pb-24"
