@@ -1,3 +1,4 @@
+import type { SyntheticEvent, TouchEvent } from 'react';
 import { Sun, Moon } from 'lucide-react';
 
 interface ThemeToggleIconsProps {
@@ -14,10 +15,10 @@ interface ThemeToggleIconsProps {
 export function ThemeToggleIcons({ isDayMode, onChange, className = '' }: ThemeToggleIconsProps) {
   const baseBtn =
     'flex h-9 w-9 items-center justify-center rounded-full transition-all cursor-pointer';
-  const stop = (e: React.SyntheticEvent) => {
+  const stop = (e: SyntheticEvent) => {
     e.stopPropagation();
   };
-  const stopTouch = (e: React.TouchEvent) => {
+  const stopTouch = (e: TouchEvent) => {
     e.stopPropagation();
   };
   return (
