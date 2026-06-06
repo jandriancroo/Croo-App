@@ -13,17 +13,25 @@ interface ThemeToggleIconsProps {
  */
 export function ThemeToggleIcons({ isDayMode, onChange, className = '' }: ThemeToggleIconsProps) {
   const baseBtn =
-    'flex h-9 w-9 items-center justify-center rounded-full transition-all';
+    'flex h-9 w-9 items-center justify-center rounded-full transition-all cursor-pointer';
+  const stop = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+  };
   return (
     <div
-      className={`fixed bottom-4 right-4 z-[200] flex items-center gap-1 rounded-full p-1 backdrop-blur ${
-        isDayMode ? 'bg-background/80 border border-border' : 'bg-neutral-800/80 border border-neutral-700'
+      onPointerDown={stop}
+      onClick={stop}
+      className={`fixed bottom-4 right-4 z-[300] flex items-center gap-1 rounded-full p-1 backdrop-blur pointer-events-auto ${
+        isDayMode
+          ? 'bg-background/80 border border-border'
+          : 'bg-neutral-800/80 border border-neutral-700'
       } ${className}`}
     >
       <button
         type="button"
         aria-label="Light mode"
-        onClick={() => onChange(true)}
+        onPointerDown={stop}
+        onClick={(e) => { stop(e); onChange(true); }}
         className={`${baseBtn} ${
           isDayMode
             ? 'bg-primary text-primary-foreground'
@@ -35,7 +43,8 @@ export function ThemeToggleIcons({ isDayMode, onChange, className = '' }: ThemeT
       <button
         type="button"
         aria-label="Dark mode"
-        onClick={() => onChange(false)}
+        onPointerDown={stop}
+        onClick={(e) => { stop(e); onChange(false); }}
         className={`${baseBtn} ${
           !isDayMode
             ? 'bg-white text-neutral-900'
