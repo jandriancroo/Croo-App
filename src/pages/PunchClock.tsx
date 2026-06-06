@@ -1553,6 +1553,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             </div>
 
           </Card>
+          </div>
+
 
           {/* Pager hint — replaces old teal swap button */}
           {currentLocation?.id && timezone && !showManagerDashboard && (
