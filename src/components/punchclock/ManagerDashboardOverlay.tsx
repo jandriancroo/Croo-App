@@ -1041,7 +1041,7 @@ export function ManagerDashboardOverlay({
 
 
         <div
-          className="relative h-full overflow-y-auto p-3 pb-16 lg:p-4 lg:pb-16"
+          className="relative h-full overflow-y-auto p-3 pb-24 lg:p-4 lg:pb-24"
           style={{ fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' }}
         >
           <div className="mx-auto max-w-7xl">
