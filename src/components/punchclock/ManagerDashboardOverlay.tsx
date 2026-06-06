@@ -57,7 +57,7 @@ import { ProjectionIcon } from '@/components/ui/projection-tag';
 import type { AppRole } from '@/hooks/useUserRole';
 import { AlarmTaskOverlay } from './AlarmTaskOverlay';
 import { TeamTasksView } from './TeamTasksView';
-import { ThemeModePill } from './ThemeModePill';
+import { ThemeToggleIcons } from './ThemeToggleIcons';
 
 interface ManagerDashboardOverlayProps {
   locationId: string;
@@ -1082,7 +1082,6 @@ export function ManagerDashboardOverlay({
                 </div>
 
                 <div className="flex items-start gap-4 self-end lg:self-auto shrink-0">
-                  <ThemeModePill isDayMode={isDayMode} onChange={handleThemeModeChange} />
                   <div className="text-right">
                     {(() => {
                       const timeStr = formatTimeDisplay(currentTime);
@@ -1091,9 +1090,9 @@ export function ManagerDashboardOverlay({
                       const periodPart = match ? match[2] : '';
                       return (
                         <>
-                          <div className={`text-3xl font-light tracking-tight lg:text-4xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                          <div className={`text-5xl font-light tracking-tight lg:text-6xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
                             {timePart}
-                            <span className={`ml-1 text-base ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>{periodPart}</span>
+                            <span className={`ml-1 text-xl ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>{periodPart}</span>
                           </div>
                           <div className={`mt-1 text-[11px] uppercase tracking-[0.22em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             {format(currentTime, 'EEEE, MMM d')}
@@ -1107,7 +1106,7 @@ export function ManagerDashboardOverlay({
 
 
 
-              <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+              <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-stretch">
                 <div className="flex flex-col gap-3 min-w-0">
                   {/* Combined EOD Goal / Pace card */}
                   <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-neutral-800'}`}>
@@ -1139,7 +1138,7 @@ export function ManagerDashboardOverlay({
                     </div>
                   </div>
 
-                  <div className={`rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-neutral-800'}`}>
+                  <div className={`flex flex-1 min-h-0 flex-col rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-neutral-800'}`}>
 
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -1189,7 +1188,7 @@ export function ManagerDashboardOverlay({
                     )}
                   </AnimatePresence>
 
-                  <div className="h-[160px] lg:h-[200px]">
+                  <div className="flex-1 min-h-[200px]">
                     {salesHours.some(h => h.sales > 0) ? (
                       <HourlyChartRecharts hours={salesHours} formatCurrency={formatCurrency} isDayMode={isDayMode} />
                     ) : (
