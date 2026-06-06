@@ -749,7 +749,6 @@ export function ManagerDashboardOverlay({
   
   // Get hours with actual sales - up to 8 hours shown in two rows
   const salesHours = useMemo(() => {
-    // Build a list of all hours up to current hour that have sales
     const hoursWithSales: Array<{
       hour: number;
       label: string;
@@ -757,8 +756,8 @@ export function ManagerDashboardOverlay({
       projected: number;
       estimatedPizzas: number;
     }> = [];
-    
-    // Look at recent hours (from store open to current hour)
+
+    let firstSalesHour: number | null = null;
     for (let h = 0; h <= currentHour; h++) {
       const hourStr = `${String(h).padStart(2, '0')}:00`;
       const cachedHourData = cachedHourly?.find(
@@ -766,26 +765,39 @@ export function ManagerDashboardOverlay({
       );
       const dbHourData = hourlyData.find(hd => hd.hour === hourStr);
       const hourData = cachedHourData || dbHourData;
-      
-      // Only include hours with actual sales recorded
-      if (hourData && hourData.sales > 0) {
-        const sales = hourData.sales || 0;
-        // Calculate estimated pizzas proportionally (matching SalesOverview)
-        const estimatedPizzas = totalHourlySales > 0 && pizzaCount > 0
-          ? Math.round((sales / totalHourlySales) * pizzaCount * 10) / 10
-          : 0;
-        
-        hoursWithSales.push({
-          hour: h,
-          label: h >= 12 ? `${h === 12 ? 12 : h - 12}PM` : `${h === 0 ? 12 : h}AM`,
-          sales,
-          projected: hourData.projected || 0,
-          estimatedPizzas,
-        });
+      if (hourData && (hourData.sales || 0) > 0) {
+        firstSalesHour = h;
+        break;
       }
     }
-    
-    // Return up to 8 hours with sales
+
+    if (firstSalesHour === null) return [];
+
+    // Include every hour from first sale → current hour so quiet/in-progress hours
+    // (like an unfinished 11 AM) still render on the chart.
+    for (let h = firstSalesHour; h <= currentHour; h++) {
+      const hourStr = `${String(h).padStart(2, '0')}:00`;
+      const cachedHourData = cachedHourly?.find(
+        hd => hd.hour.startsWith(String(h).padStart(2, '0')) || hd.hour === hourStr
+      );
+      const dbHourData = hourlyData.find(hd => hd.hour === hourStr);
+      const hourData = cachedHourData || dbHourData;
+
+      const sales = hourData?.sales || 0;
+      const projected = hourData?.projected || 0;
+      const estimatedPizzas = totalHourlySales > 0 && pizzaCount > 0
+        ? Math.round((sales / totalHourlySales) * pizzaCount * 10) / 10
+        : 0;
+
+      hoursWithSales.push({
+        hour: h,
+        label: h >= 12 ? `${h === 12 ? 12 : h - 12}PM` : `${h === 0 ? 12 : h}AM`,
+        sales,
+        projected,
+        estimatedPizzas,
+      });
+    }
+
     return hoursWithSales.slice(-8);
   }, [currentHour, cachedHourly, hourlyData, totalHourlySales, pizzaCount]);
 
@@ -1212,31 +1224,6 @@ export function ManagerDashboardOverlay({
                       </div>
                     </div>
 
-                    <div className="mt-3 space-y-2">
-                      <div>
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual</span>
-                          <span className={`text-xs font-semibold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
-                            {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className={`h-2 overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
-                          <div
-                            className={`h-full rounded-full ${laborStatus === 'good' ? 'bg-emerald-500' : laborStatus === 'warning' ? 'bg-amber-500' : 'bg-red-500'}`}
-                            style={{ width: `${Math.min((cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage) / 40 * 100, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="mb-1 flex items-center justify-between">
-                          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Target</span>
-                          <span className={`text-xs font-semibold ${isDayMode ? 'text-slate-700' : 'text-slate-300'}`}>{laborTarget}%</span>
-                        </div>
-                        <div className={`h-2 overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
-                          <div className={`h-full rounded-full ${isDayMode ? 'bg-slate-400' : 'bg-slate-500'}`} style={{ width: `${(laborTarget / 40) * 100}%` }} />
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
                   <div className={`flex min-h-0 flex-col rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
@@ -1252,9 +1239,9 @@ export function ManagerDashboardOverlay({
                       </div>
                     </div>
 
-                    <div className="grid flex-1 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 auto-rows-max">
+                    <div className="flex flex-col gap-2 overflow-y-auto pr-1 max-h-[220px]">
                       {activeShifts.length === 0 ? (
-                        <p className={`col-span-full py-6 text-center text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No one clocked in</p>
+                        <p className={`py-6 text-center text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No one clocked in</p>
                       ) : (
                         activeShifts.map((shift) => {
                           const cut = getCutForEmployee(shift.userId);
