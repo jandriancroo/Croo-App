@@ -50,6 +50,7 @@ const Certifications = lazyWithRetry(() => import("./pages/Certifications"));
 const Alerts = lazyWithRetry(() => import("./pages/Alerts"));
 const LocationProfile = lazyWithRetry(() => import("./pages/LocationProfile"));
 const FontPreviewPage = lazyWithRetry(() => import("./pages/FontPreviewPage"));
+const DashboardPreview = lazyWithRetry(() => import("./pages/DashboardPreview"));
 const TemperatureValidation = lazyWithRetry(() => import("./pages/TemperatureValidation"));
 const Index = lazyWithRetry(() => import("./pages/Index"));
 const WelcomeProfile = lazyWithRetry(() => import("./pages/WelcomeProfile"));
