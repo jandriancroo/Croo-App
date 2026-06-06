@@ -1560,7 +1560,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   <div className="flex flex-col items-center py-2">
                     <button
                       type="button"
-                      onClick={() => pin.length === 4 && handlePinSubmit()}
+                      onClick={() => pin.length === 4 && verifyPin()}
                       className="flex h-40 w-40 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-[0_0_60px_-10px_rgba(245,158,11,0.55)] transition-transform hover:scale-[1.02]"
                     >
                       <Fingerprint className="h-16 w-16 text-amber-950" strokeWidth={1.5} />
