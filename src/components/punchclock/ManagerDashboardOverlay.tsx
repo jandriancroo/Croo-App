@@ -1347,11 +1347,11 @@ export function ManagerDashboardOverlay({
                       {activeShifts.length}
                     </Badge>
                   </h3>
-                  <div className="space-y-1 sm:space-y-1.5 flex-1 overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 flex-1 overflow-y-auto auto-rows-max pr-1">
                     {activeShifts.length === 0 ? (
-                      <p className={`text-center py-4 text-xs sm:text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>No one clocked in</p>
+                      <p className={`text-center py-4 text-xs sm:text-sm col-span-full ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>No one clocked in</p>
                     ) : (
-                      activeShifts.slice(0, 6).map((shift) => {
+                      activeShifts.map((shift) => {
                         const cut = getCutForEmployee(shift.userId);
                         return (
                           <Popover 
