@@ -1220,7 +1220,7 @@ export function ManagerDashboardOverlay({
                       </div>
                     </div>
 
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-3 space-y-2">
                       <div>
                         <div className="mb-1 flex items-center justify-between">
                           <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual</span>
