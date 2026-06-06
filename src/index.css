@@ -824,69 +824,52 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
     background: hsl(220 25% 16% / 0.8);
   }
   
-  /* Mobile dock - frosted glass style (all themes) */
+  /* Mobile dock - frosted orange floating pill (Instagram-style) */
   .glass-dock {
     position: relative;
-    background: hsl(var(--accent) / 0.98);
-    padding-bottom: env(safe-area-inset-bottom);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    border: none;
-    border-radius: 1rem 1rem 0 0;
-    box-shadow: 
-      0 -6px 20px hsl(var(--accent) / 0.25),
-      -2px 0 6px hsl(0 0% 0% / 0.15),
-      inset 0 1px 0 hsl(0 0% 100% / 0.15),
-      inset 0 -1px 0 hsl(0 0% 100% / 0.06),
-      inset 1px 0 0 hsl(0 0% 100% / 0.1),
-      inset -1px 0 0 hsl(0 0% 100% / 0.1);
-    border-top: 1px solid hsl(0 0% 100% / 0.15);
+    background: hsl(var(--accent) / 0.78);
+    padding-bottom: 0;
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid hsl(0 0% 100% / 0.18);
+    border-radius: 28px;
+    box-shadow:
+      0 12px 32px hsl(var(--accent) / 0.35),
+      0 4px 12px hsl(0 0% 0% / 0.25),
+      inset 0 1px 0 hsl(0 0% 100% / 0.22);
     overflow: hidden;
   }
-  
-  /* Remove gradient overlays - frosted look */
-  .glass-dock::before {
-    display: none;
-  }
-  
-  .glass-dock::after {
-    display: none;
-  }
-  
+
+  .glass-dock::before { display: none; }
+  .glass-dock::after { display: none; }
+
   .dark .glass-dock {
-    background: hsl(var(--accent) / 0.98);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: 
-      0 -4px 24px hsl(0 0% 0% / 0.35),
-      inset 0 1px 0 hsl(0 0% 100% / 0.12);
+    background: hsl(var(--accent) / 0.72);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid hsl(0 0% 100% / 0.16);
+    box-shadow:
+      0 14px 36px hsl(var(--accent) / 0.4),
+      0 4px 14px hsl(0 0% 0% / 0.45),
+      inset 0 1px 0 hsl(0 0% 100% / 0.18);
   }
-  
-  .dark .glass-dock::after {
-    display: none;
-  }
-  
+
+  .dark .glass-dock::after { display: none; }
+
   [data-theme="oled"] .glass-dock {
-    background: hsl(220 22% 15% / 0.98);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: 
-      0 -4px 28px hsl(0 0% 0% / 0.5),
-      inset 0 1px 0 hsl(220 20% 30% / 0.15);
-    color: hsl(215 12% 75%);
+    background: hsl(220 22% 15% / 0.72);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid hsl(220 20% 40% / 0.25);
+    box-shadow:
+      0 14px 36px hsl(0 0% 0% / 0.55),
+      inset 0 1px 0 hsl(220 20% 40% / 0.2);
+    color: hsl(215 12% 85%);
   }
 
-  [data-theme="oled"] .glass-dock svg {
-    color: hsl(215 12% 75%);
-  }
-
-  [data-theme="oled"] .glass-dock span {
-    color: hsl(215 12% 75%);
-  }
-  
-  [data-theme="oled"] .glass-dock::after {
-    display: none;
-  }
+  [data-theme="oled"] .glass-dock svg { color: hsl(215 12% 85%); }
+  [data-theme="oled"] .glass-dock span { color: hsl(215 12% 85%); }
+  [data-theme="oled"] .glass-dock::after { display: none; }
 
   /* Neumorphic shadow utilities */
   .shadow-neumorphic {
@@ -969,13 +952,18 @@ html[data-theme="blaze"] body.blaze-dashboard .glass-card {
     box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.15);
   }
 
-  /* Fixed mobile dock container - sits at true bottom */
+  /* Fixed mobile dock container - floating pill at bottom */
   .mobile-dock-container {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     z-index: 50;
+    padding: 0 12px calc(env(safe-area-inset-bottom) + 10px) 12px;
+    pointer-events: none;
+  }
+  .mobile-dock-container > * {
+    pointer-events: auto;
   }
 
   /* Dock button — no GPU hacks to prevent iOS compositing detach */
