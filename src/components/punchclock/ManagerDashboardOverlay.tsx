@@ -1198,8 +1198,8 @@ export function ManagerDashboardOverlay({
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-4">
-                  <div className={`rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                <div className="flex flex-col gap-3">
+                  <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Labor</h3>
