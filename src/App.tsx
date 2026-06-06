@@ -50,6 +50,7 @@ const Certifications = lazyWithRetry(() => import("./pages/Certifications"));
 const Alerts = lazyWithRetry(() => import("./pages/Alerts"));
 const LocationProfile = lazyWithRetry(() => import("./pages/LocationProfile"));
 const FontPreviewPage = lazyWithRetry(() => import("./pages/FontPreviewPage"));
+const DashboardPreview = lazyWithRetry(() => import("./pages/DashboardPreview"));
 const TemperatureValidation = lazyWithRetry(() => import("./pages/TemperatureValidation"));
 const Index = lazyWithRetry(() => import("./pages/Index"));
 const WelcomeProfile = lazyWithRetry(() => import("./pages/WelcomeProfile"));
@@ -204,6 +205,7 @@ const AppContent = () => {
         <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
         <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
         <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
+        <Route path="/dashboard-preview" element={<DashboardPreview />} />
         <Route path="/email-preview" element={<ProtectedRoute><EmailPreview /></ProtectedRoute>} />
         <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
         <Route path="/my-timecard" element={<ProtectedRoute><MyTimecard /></ProtectedRoute>} />
