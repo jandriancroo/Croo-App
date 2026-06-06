@@ -1,20 +1,22 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useClock } from '@/hooks/useClock';
 import { AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
-import { Clock, Coffee, LogOut, AlertTriangle } from 'lucide-react';
+import { Clock, Coffee, LogOut, AlertTriangle, Fingerprint } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import crooLogo from '@/assets/croo-logo.webp';
 import crooLogoInverted from '/croo-logo-inverted-transparent.png';
 
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
-import { getTodayInTimezone, toISOStringInTimezone, DEFAULT_TIMEZONE } from '@/utils/timezoneUtils';
+import { getTodayInTimezone, toISOStringInTimezone, DEFAULT_TIMEZONE, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
 import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
 import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
 import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay';
