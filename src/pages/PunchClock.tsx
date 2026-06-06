@@ -1551,7 +1551,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
           </Card>
 
           {/* Pager hint — replaces old teal swap button */}
-          {currentLocation?.id && timezone && (
+          {currentLocation?.id && timezone && !showManagerDashboard && (
             <SwipePagerHint
               page="punch"
               isDayMode={isDayMode}
