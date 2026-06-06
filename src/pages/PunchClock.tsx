@@ -1565,6 +1565,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               onDotClick={(target) => target === 'dashboard' && setShowManagerDashboard(true)}
             />
           )}
+
+          {/* Theme toggle (bottom right) */}
+          <ThemeToggleIcons
+            isDayMode={isDayMode}
+            onChange={(next) => {
+              setIsDayMode(next);
+              localStorage.setItem('punch-clock-day-mode', String(next));
+            }}
+          />
         </div>
       ) : (
         <div ref={shiftSwipeRef} className={`min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
