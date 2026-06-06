@@ -186,6 +186,13 @@ export default function Settings() {
     toast('Text size updated');
   };
 
+  const handleDockLabelsChange = (checked: boolean) => {
+    setShowDockLabels(checked);
+    localStorage.setItem('app-dock-labels', checked ? 'true' : 'false');
+    window.dispatchEvent(new Event('dock-labels-changed'));
+    toast(checked ? 'Dock labels shown' : 'Dock labels hidden');
+  };
+
   // Pill label helpers
   const locationLabel = currentLocation?.name || 'Location';
   const currentOrgId = (currentLocation as any)?.organization_id || organizationId;
