@@ -1,26 +1,29 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useClock } from '@/hooks/useClock';
 import { AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
-import { Clock, Coffee, LogOut, AlertTriangle } from 'lucide-react';
+import { Clock, Coffee, LogOut, AlertTriangle, Fingerprint } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import crooLogo from '@/assets/croo-logo.webp';
 import crooLogoInverted from '/croo-logo-inverted-transparent.png';
 
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
-import { getTodayInTimezone, toISOStringInTimezone, DEFAULT_TIMEZONE } from '@/utils/timezoneUtils';
+import { getTodayInTimezone, toISOStringInTimezone, DEFAULT_TIMEZONE, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
 import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
 import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
 import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay';
 import { ManagerDashboardOverlay } from '@/components/punchclock/ManagerDashboardOverlay';
 import { ShiftSummaryCard } from '@/components/punchclock/ShiftSummaryCard';
 import { SwipePagerHint } from '@/components/punchclock/SwipePagerHint';
+import { ThemeModePill } from '@/components/punchclock/ThemeModePill';
 import { useSwipe } from '@/hooks/useSwipe';
 
 // Function to calculate average brightness of an image
@@ -216,6 +219,83 @@ export default function PunchClock() {
   const [showManagerDashboard, setShowManagerDashboard] = useState(false);
   const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
   const activeCrooLogo = isDayMode ? crooLogo : crooLogoInverted;
+
+  const handleThemeModeChange = useCallback((next: boolean) => {
+    setIsDayMode(next);
+    localStorage.setItem('punch-clock-day-mode', String(next));
+  }, []);
+
+  const todayStr = useMemo(
+    () => getTodayInTimezone(timezone || DEFAULT_TIMEZONE),
+    [timezone]
+  );
+
+  const { data: liveClockedIn = [] } = useQuery({
+    queryKey: ['punch-clock-active-shifts', currentLocation?.id, todayStr, timezone],
+    enabled: !!currentLocation?.id && !!timezone,
+    queryFn: async () => {
+      if (!currentLocation?.id || !timezone) return [];
+
+      const startOfDay = parseDateStringInTimezone(todayStr, timezone).toISOString();
+      const endOfDayDate = getEndOfDateStringInTimezone(todayStr, timezone);
+      const endOfDayPlus = new Date(endOfDayDate);
+      endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
+      const endOfDay = endOfDayPlus.toISOString();
+
+      const { data: punches, error } = await supabase
+        .from('time_punches')
+        .select('user_id, punch_time, punch_type, notes')
+        .eq('location_id', currentLocation.id)
+        .gte('punch_time', startOfDay)
+        .lte('punch_time', endOfDay)
+        .order('punch_time', { ascending: true });
+
+      if (error) throw error;
+
+      const userPunches: Record<string, typeof punches> = {};
+      (punches || []).forEach((p) => {
+        if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
+        userPunches[p.user_id].push(p);
+      });
+
+      const activeUsers: { userId: string; clockInTime: string }[] = [];
+      Object.entries(userPunches).forEach(([userId, userPunchList]) => {
+        let isClockedInNow = false;
+        let clockInTime: string | null = null;
+
+        userPunchList.forEach((p) => {
+          if (p.punch_type === 'clock_in') {
+            isClockedInNow = true;
+            clockInTime = p.punch_time;
+          } else if (p.punch_type === 'clock_out') {
+            isClockedInNow = false;
+          }
+        });
+
+        if (isClockedInNow && clockInTime) activeUsers.push({ userId, clockInTime });
+      });
+
+      if (!activeUsers.length) return [];
+
+      const userIds = activeUsers.map((u) => u.userId);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url')
+        .in('id', userIds);
+
+      const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
+      return activeUsers
+        .map((user) => ({
+          userId: user.userId,
+          clockInTime: user.clockInTime,
+          fullName: profileMap.get(user.userId)?.full_name || 'Unknown',
+          profilePhoto: profileMap.get(user.userId)?.profile_photo_url || null,
+        }))
+        .sort((a, b) => a.fullName.localeCompare(b.fullName));
+    },
+    refetchInterval: 30000,
+  });
 
   // Swipe pager — swipe LEFT on the punch clock to reveal the manager dashboard
   const keypadSwipeRef = useRef<HTMLDivElement>(null);
@@ -1284,226 +1364,184 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {/* Master code 0223 on keypad exits to dashboard */}
 
       {!currentUser ? (
-        <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
-
-          <Card className={`w-full max-w-5xl overflow-hidden relative ${isDayMode ? '' : 'bg-neutral-800 border-neutral-700'}`}>
-            {/* Floating Location Badge - positioned at top center where sections meet */}
-            {currentLocation && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                <div className={`flex items-center gap-3 px-5 py-2.5 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-primary border-primary/30' : 'bg-primary border-primary/30'}`}>
-                  {brandLogoUrl && (
-                    <>
-                      <img src={brandLogoUrl} alt="Brand" className="h-7 w-7 object-contain rounded" />
-                      <div className="w-px h-5 bg-primary-foreground/30" />
-                    </>
-                  )}
-                  <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-primary-foreground" />
-                  <span className="text-base font-semibold text-primary-foreground">{currentLocation.name}</span>
+        <div
+          ref={keypadSwipeRef}
+          className={`relative min-h-screen flex flex-col items-center justify-center overflow-hidden p-4 touch-none ${isDayMode ? 'bg-[#f4f5f7]' : 'bg-[#0a0a0f]'}`}
+          style={{
+            touchAction: 'none',
+            fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+          }}
+        >
+          <div className="absolute inset-0 overflow-hidden">
+            {birthdayEmployees.length > 0 ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-primary via-accent to-primary">
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white">
+                  <div className="mb-6 text-9xl animate-bounce">🎂</div>
+                  <h2 className="mb-4 text-center text-6xl font-bold">Happy Birthday!</h2>
+                  <div className="mb-6 text-center text-4xl font-semibold">
+                    {birthdayEmployees.map((emp, idx) => (
+                      <div key={emp.id}>
+                        {emp.full_name}
+                        {idx < birthdayEmployees.length - 1 && ' & '}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-5xl font-bold">{format(currentTime, 'h:mm:ss a')}</div>
+                  <p className="mt-6 text-center text-2xl italic">Wishing you a wonderful day full of joy and blessings!</p>
                 </div>
               </div>
-            )}
-            <div className="grid md:grid-cols-2">
-              {/* Left Side - Image and Quote or Birthday Message */}
-              {birthdayEmployees.length > 0 ? (
-                <div className="relative h-full min-h-[600px] bg-gradient-to-br from-primary via-accent to-primary">
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white">
-                    <div className="text-9xl mb-6 animate-bounce">🎂</div>
-                    <h2 className="text-6xl font-bold mb-4 text-center">Happy Birthday!</h2>
-                    <div className="text-4xl font-semibold mb-6 text-center">
-                      {birthdayEmployees.map((emp, idx) => (
-                        <div key={emp.id}>
-                          {emp.full_name}
-                          {idx < birthdayEmployees.length - 1 && ' & '}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-5xl font-bold">
-                      {format(currentTime, 'h:mm:ss a')}
-                    </div>
-                    <p className="text-2xl mt-6 text-center italic">
-                      Wishing you a wonderful day full of joy and blessings!
-                    </p>
+            ) : customBackground === 'historical_quotes' ? (
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? currentHistoricalImage : prevHistoricalImage})` }}
+                />
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? prevHistoricalImage : currentHistoricalImage})` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
+                <div className="absolute inset-x-0 bottom-0 p-8 text-white">
+                  <p className="text-xl font-medium italic drop-shadow-lg">{currentQuote}</p>
+                </div>
+              </div>
+            ) : customBackground === 'nature_facts' || !customBackground ? (
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? currentNatureImage : prevNatureImage})` }}
+                />
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? prevNatureImage : currentNatureImage})` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
+                <div className="absolute inset-x-0 bottom-0 p-8 text-white">
+                  <h2 className="mb-3 text-3xl font-bold drop-shadow-lg">Did You Know?</h2>
+                  <div className="space-y-2">
+                    <p className="text-xl font-medium drop-shadow-lg">{currentFact.fact}</p>
+                    <p className="text-sm opacity-90 drop-shadow">📚 {currentFact.category}</p>
                   </div>
                 </div>
-              ) : customBackground === "historical_quotes" ? (
-                // Historical theme with rotating landmarks and quotes - dual layer crossfade
-                <div className="relative h-full min-h-[600px] overflow-hidden">
-                  {/* Layer A */}
-                  <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
-                    style={{ backgroundImage: `url(${crossfadeActive ? currentHistoricalImage : prevHistoricalImage})` }}
-                  />
-                  {/* Layer B */}
-                  <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
-                    style={{ backgroundImage: `url(${crossfadeActive ? prevHistoricalImage : currentHistoricalImage})` }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-                    <p className="text-xl font-medium italic drop-shadow-lg">{currentQuote}</p>
+              </div>
+            ) : customBackground === 'custom_multi' && customBackgroundUrls.length > 0 ? (
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
+                />
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/15" />
+                {currentCustomText && textPosition === 'overlay' && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center p-8">
+                    <h2
+                      className={`text-center text-4xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                      style={{
+                        color: customTextColor,
+                        textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                      }}
+                    >
+                      {currentCustomText}
+                    </h2>
                   </div>
-                </div>
-              ) : customBackground === "nature_facts" || !customBackground ? (
-                // Nature theme with rotating landscapes and facts (default) - dual layer crossfade
-                <div className="relative h-full min-h-[600px] overflow-hidden">
-                  {/* Layer A */}
-                  <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
-                    style={{ backgroundImage: `url(${crossfadeActive ? currentNatureImage : prevNatureImage})` }}
-                  />
-                  {/* Layer B */}
-                  <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
-                    style={{ backgroundImage: `url(${crossfadeActive ? prevNatureImage : currentNatureImage})` }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-                    <h2 className="text-3xl font-bold mb-3 drop-shadow-lg">Did You Know?</h2>
-                    <div className="space-y-2">
-                      <p className="text-xl font-medium drop-shadow-lg">{currentFact.fact}</p>
-                      <p className="text-sm opacity-90 drop-shadow">📚 {currentFact.category}</p>
-                    </div>
+                )}
+              </div>
+            ) : customBackground ? (
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${customBackground})` }} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/15" />
+                {customOverlayText && textPosition === 'overlay' && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center p-8">
+                    <h2
+                      className={`text-center text-4xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                      style={{
+                        color: customTextColor,
+                        textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                      }}
+                    >
+                      {customOverlayText}
+                    </h2>
                   </div>
-                </div>
-              ) : customBackground === "custom_multi" && customBackgroundUrls.length > 0 ? (
-                // Multi-slide custom theme - dual layer crossfade
-                <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
-                  {/* Image layers for crossfade */}
-                  {textPosition === 'below' ? (
-                    // For "below" position, image takes flex-1
-                    <div className="relative flex-1 overflow-hidden">
-                      {/* Layer A */}
-                      <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
-                        style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
-                      />
-                      {/* Layer B */}
-                      <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
-                        style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
-                      />
-                    </div>
-                  ) : (
-                    // For "overlay" position, image is absolute
-                    <>
-                      {/* Layer A */}
-                      <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
-                        style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
-                      />
-                      {/* Layer B */}
-                      <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
-                        style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                    </>
-                  )}
-                  {currentCustomText && textPosition === 'overlay' && (
-                    <div className="absolute inset-0 z-10 flex flex-col justify-center items-center p-8">
-                      <h2 
-                        className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                        style={{ 
-                          color: customTextColor,
-                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                        }}
-                      >
-                        {currentCustomText}
-                      </h2>
-                    </div>
-                  )}
-                  {/* Text pinned below image - white box with black text */}
-                  {currentCustomText && textPosition === 'below' && (
-                    <div className={`border-t px-6 py-4 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
-                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap max-w-[calc(100%-6rem)] mx-auto ${isDayMode ? 'text-foreground' : 'text-white'}`}>
-                        {currentCustomText}
-                      </h2>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                // Single image custom background (legacy) - only custom text, no time
-                <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
-                  {/* Image area - takes full height for overlay, partial for below */}
-                  <div 
-                    className={`bg-cover bg-center ${textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
-                    style={{ backgroundImage: `url(${customBackground})` }}
-                  >
-                    {textPosition === 'overlay' && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                    )}
-                  </div>
-                  {customOverlayText && textPosition === 'overlay' && (
-                    <div className="absolute inset-0 z-10 flex flex-col justify-center items-center p-8">
-                      <h2 
-                        className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                        style={{ 
-                          color: customTextColor,
-                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                        }}
-                      >
-                        {customOverlayText}
-                      </h2>
-                    </div>
-                  )}
-                  {/* Text pinned below image - white box with black text */}
-                  {customOverlayText && textPosition === 'below' && (
-                    <div className={`border-t px-6 py-4 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
-                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap max-w-[calc(100%-6rem)] mx-auto ${isDayMode ? 'text-foreground' : 'text-white'}`}>
-                        {customOverlayText}
-                      </h2>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
+            ) : null}
 
-              {/* Right Side - Number Pad */}
-              <CardContent className={`p-8 flex flex-col justify-center ${isDayMode ? '' : 'bg-neutral-800'}`}>
-                <div className="space-y-4">
-                  {/* Time Display - moved from image side */}
-                  <div className="text-center pb-2">
-                    <div className={`text-4xl sm:text-5xl font-bold tracking-tight ${isDayMode ? 'text-foreground' : 'text-white'}`}>
-                      {format(currentTime, 'h:mm:ss a')}
+            <div className={`absolute inset-0 ${isDayMode ? 'bg-[#f4f5f7]/76' : 'bg-[#0a0a0f]/48'}`} />
+          </div>
+
+          <div className="relative z-10 flex w-full max-w-xl flex-col items-center gap-4">
+            {currentLocation && (
+              <div className={`flex items-center gap-3 rounded-full border px-5 py-2.5 shadow-lg backdrop-blur-xl ${isDayMode ? 'border-primary/20 bg-white/85' : 'border-white/10 bg-[#0f1117]/72'}`}>
+                {brandLogoUrl && (
+                  <>
+                    <img src={brandLogoUrl} alt="Brand" className="h-7 w-7 rounded object-contain" />
+                    <div className={`h-5 w-px ${isDayMode ? 'bg-slate-300' : 'bg-white/10'}`} />
+                  </>
+                )}
+                <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-primary" />
+                <span className={`text-base font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{currentLocation.name}</span>
+              </div>
+            )}
+
+            <Card className={`w-full overflow-hidden rounded-[28px] border shadow-2xl ${isDayMode ? 'border-slate-200 bg-white' : 'border-white/5 bg-[#0f1117]'}`}>
+              <CardContent className={`flex flex-col p-8 ${isDayMode ? 'bg-gradient-to-b from-white to-[#f4f5f7]' : 'bg-gradient-to-b from-[#141822] to-[#0f1117]'}`}>
+                <div className="space-y-6">
+                  <div className={`flex items-start justify-between gap-4 border-b pb-5 ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-500">Punch Clock</p>
+                      <p className={`mt-2 text-lg font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>Tap in to start your shift</p>
                     </div>
-                    <p className={`text-sm mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
-                      {format(currentTime, 'EEEE, MMMM d')}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className={`text-base font-medium mb-3 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
-                      {pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN'}
-                    </h3>
-                    <div className="text-center mb-4">
-                      <div 
-                        className={`flex items-center justify-center gap-3 h-14 ${pinShake ? 'animate-shake' : ''}`}
-                        style={pinShake ? { animation: 'shake 0.5s ease-in-out' } : undefined}
-                      >
-                        {[0, 1, 2, 3].map((i) => (
-                          <div
-                            key={i}
-                            className={`w-11 h-11 rounded-xl border-2 flex items-center justify-center text-xl font-bold transition-all duration-200 ${
-                              pinError
-                                ? 'bg-destructive/20 border-destructive'
-                                : pin.length > i 
-                                  ? 'bg-primary border-primary text-primary-foreground scale-105 shadow-lg' 
-                                  : isDayMode ? 'bg-muted/50 border-border' : 'bg-neutral-700/50 border-neutral-600'
-                            }`}
-                          >
-                            {pin.length > i ? '•' : ''}
-                          </div>
-                        ))}
+                    <div className="flex items-start gap-4">
+                      <ThemeModePill isDayMode={isDayMode} onChange={handleThemeModeChange} />
+                      <div className="text-right">
+                        <div className={`text-3xl font-light tracking-tight tabular-nums ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                          {format(currentTime, 'h:mm')}
+                          <span className={`ml-1 text-base ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>{format(currentTime, 'a')}</span>
+                        </div>
+                        <p className={`mt-1 text-[11px] uppercase tracking-[0.22em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>{format(currentTime, 'EEEE, MMM d')}</p>
                       </div>
                     </div>
                   </div>
-                  
+
+                  <div className="flex flex-col items-center py-6">
+                    <button
+                      type="button"
+                      onClick={() => pin.length === 4 && verifyPin()}
+                      className="flex h-40 w-40 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-[0_0_60px_-10px_rgba(245,158,11,0.55)] transition-transform hover:scale-[1.02]"
+                    >
+                      <Fingerprint className="h-16 w-16 text-amber-950" strokeWidth={1.5} />
+                    </button>
+                    <p className={`mt-6 text-sm ${pinError ? 'font-semibold text-destructive' : isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {pinError ? 'Wrong PIN - Try Again' : 'Enter your 4-digit PIN'}
+                    </p>
+                    <div className={`mt-3 flex items-center justify-center gap-3 ${pinShake ? 'animate-shake' : ''}`} style={pinShake ? { animation: 'shake 0.5s ease-in-out' } : undefined}>
+                      {[0, 1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-3.5 w-3.5 rounded-full border transition-all duration-200 ${
+                            pinError
+                              ? 'border-destructive bg-destructive/20'
+                              : pin.length > i
+                                ? 'border-amber-500 bg-amber-500'
+                                : isDayMode
+                                  ? 'border-slate-300 bg-transparent'
+                                  : 'border-white/15 bg-transparent'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                       <Button
                         key={num}
                         variant="outline"
                         size="lg"
-                        className={`h-16 text-2xl font-bold rounded-xl border-2 hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md ${isDayMode ? 'bg-card' : 'bg-neutral-700 border-neutral-600 text-white'}`}
+                        className={`h-16 rounded-2xl border text-2xl font-bold shadow-sm transition-all duration-150 hover:scale-[1.02] hover:border-primary hover:bg-primary hover:text-primary-foreground active:scale-95 ${isDayMode ? 'border-slate-200 bg-white text-slate-900' : 'border-white/10 bg-[#0a0a0f]/50 text-white'}`}
                         onClick={() => handleNumberClick(num.toString())}
                       >
                         {num}
@@ -1512,7 +1550,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="ghost"
                       size="lg"
-                      className={`h-16 text-sm font-medium rounded-xl hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150 ${isDayMode ? '' : 'text-neutral-400'}`}
+                      className={`h-16 rounded-2xl text-sm font-medium transition-all duration-150 active:scale-95 ${isDayMode ? 'text-slate-500 hover:bg-slate-100' : 'text-slate-400 hover:bg-white/5'}`}
                       onClick={handleClear}
                     >
                       Clear
@@ -1520,7 +1558,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="outline"
                       size="lg"
-                      className={`h-16 text-2xl font-bold rounded-xl border-2 hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md ${isDayMode ? 'bg-card' : 'bg-neutral-700 border-neutral-600 text-white'}`}
+                      className={`h-16 rounded-2xl border text-2xl font-bold shadow-sm transition-all duration-150 hover:scale-[1.02] hover:border-primary hover:bg-primary hover:text-primary-foreground active:scale-95 ${isDayMode ? 'border-slate-200 bg-white text-slate-900' : 'border-white/10 bg-[#0a0a0f]/50 text-white'}`}
                       onClick={() => handleNumberClick('0')}
                     >
                       0
@@ -1528,30 +1566,50 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="ghost"
                       size="lg"
-                      className={`h-16 text-xl font-medium rounded-xl hover:bg-muted active:scale-95 transition-all duration-150 ${isDayMode ? '' : 'text-neutral-400 hover:bg-neutral-700'}`}
+                      className={`h-16 rounded-2xl text-xl font-medium transition-all duration-150 active:scale-95 ${isDayMode ? 'text-slate-500 hover:bg-slate-100' : 'text-slate-400 hover:bg-white/5'}`}
                       onClick={handleBackspace}
                     >
                       ⌫
                     </Button>
                   </div>
 
-                  {/* Powered by Croo branding */}
-                  <div className="flex items-center justify-center gap-3 pt-6 mt-auto">
-                    <span className={`text-base font-medium ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Powered by</span>
-                    <img 
-                      src={activeCrooLogo} 
-                      alt="Croo" 
-                      className="h-10 w-auto opacity-70"
-                    />
+                  <div className={`rounded-2xl p-4 ${isDayMode ? 'bg-[#eef0f3]/70' : 'bg-[#0a0a0f]/50'}`}>
+                    <div className={`mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                      <Clock className="h-3.5 w-3.5" />
+                      On the Clock
+                    </div>
+                    <div className="space-y-2.5">
+                      {liveClockedIn.length === 0 ? (
+                        <p className={`text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No one is clocked in yet.</p>
+                      ) : (
+                        liveClockedIn.slice(0, 6).map((shift) => (
+                          <div key={shift.userId} className="flex min-w-0 items-center gap-2.5">
+                            <Avatar className="h-8 w-8 shrink-0">
+                              <AvatarImage src={shift.profilePhoto || undefined} />
+                              <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                                {shift.fullName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className={`truncate text-sm font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                              {shift.fullName.split(' ')[0]} · {Math.max(0, Math.floor((currentTime.getTime() - new Date(shift.clockInTime).getTime()) / 60000 / 60))}h {Math.max(0, Math.floor((currentTime.getTime() - new Date(shift.clockInTime).getTime()) / 60000) % 60)}m
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-auto flex items-center justify-center gap-3 pt-2">
+                    <span className={`text-base font-medium ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Powered by</span>
+                    <img src={activeCrooLogo} alt="Croo" className="h-10 w-auto opacity-70" />
                   </div>
                 </div>
               </CardContent>
-            </div>
-
-          </Card>
+            </Card>
+          </div>
 
           {/* Pager hint — replaces old teal swap button */}
-          {currentLocation?.id && timezone && (
+          {currentLocation?.id && timezone && !showManagerDashboard && (
             <SwipePagerHint
               page="punch"
               isDayMode={isDayMode}
