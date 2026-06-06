@@ -17,10 +17,15 @@ export function ThemeToggleIcons({ isDayMode, onChange, className = '' }: ThemeT
   const stop = (e: React.SyntheticEvent) => {
     e.stopPropagation();
   };
+  const stopTouch = (e: React.TouchEvent) => {
+    e.stopPropagation();
+  };
   return (
     <div
       onPointerDown={stop}
       onClick={stop}
+      onTouchStart={stopTouch}
+      onTouchEnd={stopTouch}
       className={`fixed bottom-4 right-4 z-[300] flex items-center gap-1 rounded-full p-1 backdrop-blur pointer-events-auto ${
         isDayMode
           ? 'bg-background/80 border border-border'
@@ -31,6 +36,8 @@ export function ThemeToggleIcons({ isDayMode, onChange, className = '' }: ThemeT
         type="button"
         aria-label="Light mode"
         onPointerDown={stop}
+        onTouchStart={stopTouch}
+        onTouchEnd={stopTouch}
         onClick={(e) => { stop(e); onChange(true); }}
         className={`${baseBtn} ${
           isDayMode
@@ -44,6 +51,8 @@ export function ThemeToggleIcons({ isDayMode, onChange, className = '' }: ThemeT
         type="button"
         aria-label="Dark mode"
         onPointerDown={stop}
+        onTouchStart={stopTouch}
+        onTouchEnd={stopTouch}
         onClick={(e) => { stop(e); onChange(false); }}
         className={`${baseBtn} ${
           !isDayMode
