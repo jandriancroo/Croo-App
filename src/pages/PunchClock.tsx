@@ -1540,7 +1540,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               {/* Right Side - Number Pad */}
               <CardContent className={`flex flex-col justify-center p-8 ${isDayMode ? 'bg-gradient-to-b from-white to-slate-50' : 'bg-gradient-to-b from-[#141822] to-[#0f1117]'}`}>
                 <div className="space-y-6">
-                  <div className="flex items-start justify-between gap-4 border-b pb-5 ${isDayMode ? 'border-slate-200' : 'border-white/5'}">
+                  <div className={`flex items-start justify-between gap-4 border-b pb-5 ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500">Punch Clock</p>
                       <p className={`mt-2 text-lg font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>Tap in to start your shift</p>
