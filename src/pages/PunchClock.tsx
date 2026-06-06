@@ -1287,19 +1287,20 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
         <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
 
           <Card className={`w-full max-w-5xl overflow-hidden relative ${isDayMode ? '' : 'bg-neutral-800 border-neutral-700'}`}>
-            {/* Floating Location Badge - positioned at top center where sections meet */}
+            {/* Location tab — dips down from the top edge of the card, matches page bg */}
             {currentLocation && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                <div className={`flex items-center gap-3 px-5 py-2.5 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-primary border-primary/30' : 'bg-primary border-primary/30'}`}>
-                  {brandLogoUrl && (
-                    <>
-                      <img src={brandLogoUrl} alt="Brand" className="h-7 w-7 object-contain rounded" />
-                      <div className="w-px h-5 bg-primary-foreground/30" />
-                    </>
-                  )}
-                  <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-primary-foreground" />
-                  <span className="text-base font-semibold text-primary-foreground">{currentLocation.name}</span>
-                </div>
+              <div
+                className={`absolute top-0 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 px-5 py-2 rounded-b-2xl ${
+                  isDayMode ? 'bg-background' : 'bg-neutral-900'
+                }`}
+              >
+                {brandLogoUrl && (
+                  <img src={brandLogoUrl} alt="Brand" className="h-5 w-5 object-contain rounded" />
+                )}
+                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isDayMode ? 'bg-primary' : 'bg-primary'}`} />
+                <span className={`text-sm font-semibold tracking-wide ${isDayMode ? 'text-foreground' : 'text-white'}`}>
+                  {currentLocation.name}
+                </span>
               </div>
             )}
             <div className="grid md:grid-cols-2">
