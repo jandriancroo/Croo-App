@@ -1042,631 +1042,407 @@ export function ManagerDashboardOverlay({
         />
 
 
-        <div className="relative h-full p-4 flex flex-col">
-          {/* Top Row: Sales Cards + Time + Employees */}
-          <div className="flex-1 flex items-stretch gap-4 min-h-0">
-            
-            {/* Left Column - Sales & Labor */}
+        <div className="relative h-full overflow-y-auto p-4 pb-24 lg:p-8 lg:pb-28 font-vansans">
+          <div className="mx-auto max-w-7xl">
             <motion.div
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="flex-1 flex flex-col gap-3"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 }}
+              className={`overflow-hidden rounded-[28px] border p-5 shadow-2xl lg:p-8 ${
+                isDayMode
+                  ? 'border-slate-200 bg-white text-slate-900'
+                  : 'border-white/5 bg-[#0f1117] text-white'
+              }`}
             >
-              {/* Sales Cards Row */}
-              <div className="grid grid-cols-3 gap-1 sm:gap-2 lg:gap-3 xl:gap-4">
-                {/* Total Sales */}
-                <Card className={isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}>
-                  <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center">
-                    <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-green-500" />
-                    <p className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Total Sales</p>
-                    <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold ${isDayMode ? 'text-foreground' : 'text-white'}`}>{formatCurrency(totalSales)}</p>
-                  </CardContent>
-                </Card>
+              <div className={`flex flex-col gap-5 border-b pb-5 lg:flex-row lg:items-start lg:justify-between ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500">Manager Dashboard</p>
+                  <p className={`mt-2 text-xl font-medium lg:text-2xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                    <span className={isDayMode ? 'text-slate-500' : 'text-slate-400'}>{format(currentTime, 'EEEE')} service · projecting </span>
+                    <span className={`font-semibold ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {paceDelta >= 0 ? `${formatCurrency(Math.abs(paceDelta))} ahead` : `${formatCurrency(Math.abs(paceDelta))} short`}
+                    </span>
+                    <span className={isDayMode ? 'text-slate-500' : 'text-slate-400'}> of EOD goal</span>
+                  </p>
+                </div>
 
-                {/* EOD Goal */}
-                <Card className={isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}>
-                  <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center relative">
-                    <Target className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-blue-500" />
-                    <div className="flex items-center justify-center gap-1 mb-0.5">
-                      <p className={`text-[10px] sm:text-xs lg:text-sm xl:text-base ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>EOD Goal</p>
-                      <ProjectionIcon source={eodGoalSource} />
-                    </div>
-                    <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold ${isDayMode ? 'text-foreground' : 'text-white'}`}>{formatCurrency(eodGoal)}</p>
-                  </CardContent>
-                </Card>
-
-                {/* Pace */}
-                <Card className={`${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'} ${
-                  paceStatus === 'fire' ? 'ring-2 ring-orange-500/50' : ''
-                }`}>
-                  <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center">
-                    {paceStatus === 'fire' ? (
-                      <Flame className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-orange-500 animate-pulse" />
-                    ) : paceStatus === 'cold' ? (
-                      <TrendingDown className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-red-500" />
-                    ) : (
-                      <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-green-500" />
-                    )}
-                    <p className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Pace</p>
-                    <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-amber-500">{formatCurrency(paceAdjusted)}</p>
-                  </CardContent>
-                </Card>
+                <div className="flex items-start gap-4 self-end lg:self-auto">
+                  <ThemeModePill isDayMode={isDayMode} onChange={handleThemeModeChange} />
+                  <div className="text-right">
+                    {(() => {
+                      const timeStr = formatTimeDisplay(currentTime);
+                      const match = timeStr.match(/^([\d:]+)\s*(AM|PM)$/i);
+                      const timePart = match ? match[1] : timeStr;
+                      const periodPart = match ? match[2] : '';
+                      return (
+                        <>
+                          <div className={`text-3xl font-medium tracking-tight lg:text-4xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                            {timePart}
+                            <span className={`ml-1 text-base ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>{periodPart}</span>
+                          </div>
+                          <div className={`mt-1 text-[11px] uppercase tracking-[0.22em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {format(currentTime, 'EEEE, MMM d')}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
 
-              {/* Hourly Chart */}
-              <Card className={`flex-1 min-h-[200px] lg:min-h-[300px] xl:min-h-[400px] ${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}`}>
-                <CardContent className="p-2 sm:p-3 lg:p-4 h-full flex flex-col">
-                  <div className="flex items-center justify-between mb-1 lg:mb-2">
-                    <h3 className={`text-xs sm:text-sm lg:text-base font-semibold flex items-center gap-2 ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
-                      <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5" />
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className={`rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                  <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Total Sales</p>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className={`text-3xl font-bold lg:text-4xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(totalSales)}</p>
+                      <p className={`mt-1 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual sales today</p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-emerald-500" />
+                  </div>
+                </div>
+
+                <div className={`rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>EOD Goal</p>
+                    <ProjectionIcon source={eodGoalSource} />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className={`text-3xl font-bold lg:text-4xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(eodGoal)}</p>
+                      <p className={`mt-1 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Projected close</p>
+                    </div>
+                    <Target className="h-8 w-8 text-sky-500" />
+                  </div>
+                </div>
+
+                <div className={`rounded-2xl p-5 ring-1 ${paceStatus === 'fire' ? 'ring-amber-500/40' : isDayMode ? 'ring-slate-200' : 'ring-white/5'} ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                  <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Pace</p>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-3xl font-bold text-amber-500 lg:text-4xl">{formatCurrency(paceAdjusted)}</p>
+                      <p className={`mt-1 text-xs ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {paceDelta >= 0 ? 'Above goal pace' : 'Needs push to goal'}
+                      </p>
+                    </div>
+                    {paceStatus === 'fire' ? (
+                      <Flame className="h-8 w-8 animate-pulse text-amber-500" />
+                    ) : paceStatus === 'cold' ? (
+                      <TrendingDown className="h-8 w-8 text-red-500" />
+                    ) : (
+                      <TrendingUp className="h-8 w-8 text-emerald-500" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(300px,0.95fr)]">
+                <div className={`rounded-2xl p-5 lg:p-6 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                  <div className="mb-5 flex items-center justify-between gap-3">
+                    <h3 className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       Hourly Sales
                     </h3>
-                    {/* Legend */}
                     {salesHours.some(h => h.projected > 0) && (
-                      <div className="flex items-center gap-2 text-[9px] sm:text-[10px]">
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-sm bg-primary" />
-                          <span className={isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}>Actual</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-sm bg-muted-foreground/30" />
-                          <span className={isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}>Projected</span>
-                        </div>
+                      <div className={`flex items-center gap-4 text-[10px] font-semibold uppercase tracking-[0.14em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2.5 w-2.5 rounded-sm bg-primary" /> Actual
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2.5 w-2.5 rounded-sm border border-amber-500/30 bg-amber-500/20" /> Projected
+                        </span>
                       </div>
                     )}
                   </div>
-                  
-                  {/* Selected Hour Info */}
+
                   <AnimatePresence>
                     {selectedHour && (
                       <motion.div
-                        initial={{ opacity: 0, y: -10 }}
+                        initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className={`mb-2 p-2 rounded-lg border ${isDayMode ? 'bg-secondary border-border' : 'bg-neutral-700/50 border-neutral-600'}`}
-                        onClick={() => setSelectedHour(null)}
+                        exit={{ opacity: 0, y: -8 }}
+                        className={`mb-4 rounded-xl border p-3 ${isDayMode ? 'border-slate-200 bg-white' : 'border-white/5 bg-[#0a0a0f]/60'}`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className={`font-semibold text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>{selectedHour.label}</span>
-                          <X className={`h-3 w-3 cursor-pointer ${isDayMode ? 'text-muted-foreground hover:text-foreground' : 'text-neutral-400 hover:text-white'}`} onClick={() => setSelectedHour(null)} />
+                          <span className={`text-sm font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{selectedHour.label}</span>
+                          <button type="button" onClick={() => setSelectedHour(null)}>
+                            <X className={`h-3.5 w-3.5 ${isDayMode ? 'text-slate-400 hover:text-slate-900' : 'text-slate-500 hover:text-white'}`} />
+                          </button>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 mt-1">
-                          <div className="text-center">
-                            <p className={`text-[9px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Sales</p>
-                            <p className={`font-bold text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>{formatCurrency(selectedHour.sales)}</p>
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          <div>
+                            <p className={`text-[10px] uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Sales</p>
+                            <p className={`mt-1 text-sm font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(selectedHour.sales)}</p>
                           </div>
-                          <div className="text-center">
-                            <p className={`text-[9px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Projected</p>
-                            <p className={`font-bold text-sm ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
-                              {selectedHour.projected > 0 ? formatCurrency(selectedHour.projected) : '—'}
-                            </p>
+                          <div>
+                            <p className={`text-[10px] uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Projected</p>
+                            <p className={`mt-1 text-sm font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{selectedHour.projected > 0 ? formatCurrency(selectedHour.projected) : '—'}</p>
                           </div>
-                          <div className="text-center">
-                            <p className={`text-[9px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>🍕</p>
-                            <p className={`font-bold text-sm ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
-                              {selectedHour.estimatedPizzas > 0 ? selectedHour.estimatedPizzas : '—'}
-                            </p>
+                          <div>
+                            <p className={`text-[10px] uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Pizzas</p>
+                            <p className={`mt-1 text-sm font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{selectedHour.estimatedPizzas > 0 ? selectedHour.estimatedPizzas : '—'}</p>
                           </div>
                         </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  
-                  {salesHours.some(h => h.sales > 0) ? (
-                    <HourlyChartRecharts 
-                      hours={salesHours} 
-                      formatCurrency={formatCurrency}
-                      isDayMode={isDayMode}
-                    />
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center">
-                      <p className={`text-xs sm:text-sm lg:text-base ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>No hourly data yet</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
 
-            {/* Center Column - Time Display */}
-            <motion.div
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.05 }}
-              className="flex flex-col items-center justify-start px-4 lg:px-6 pt-2"
-            >
-              {/* Clock section - clean solid style */}
-              <div className={`relative px-6 sm:px-10 py-4 sm:py-6 rounded-2xl shadow-neumorphic-lg ${
-                isDayMode 
-                  ? 'bg-primary/10 border border-primary/20' 
-                  : 'bg-neutral-800 border border-neutral-700'
-              }`}>
-                {/* Content */}
-                <div className="flex flex-col items-center gap-2 sm:gap-3">
-                  {(() => {
-                    const timeStr = formatTimeDisplay(currentTime);
-                    const match = timeStr.match(/^([\d:]+)\s*(AM|PM)$/i);
-                    const timePart = match ? match[1] : timeStr;
-                    const periodPart = match ? match[2] : '';
-                    return (
-                      <div className="flex items-start">
-                        <span 
-                          className={`text-5xl sm:text-7xl lg:text-8xl font-bold tracking-wide ${isDayMode ? 'text-foreground' : 'text-white'}`}
-                          style={{ 
-                            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                          }}
-                        >
-                          {timePart}
-                        </span>
-                        <span className={`text-base sm:text-lg lg:text-xl font-semibold ml-1 mt-1 sm:mt-2 lg:mt-3 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
-                          {periodPart}
-                        </span>
+                  <div className="h-[260px] lg:h-[320px]">
+                    {salesHours.some(h => h.sales > 0) ? (
+                      <HourlyChartRecharts hours={salesHours} formatCurrency={formatCurrency} isDayMode={isDayMode} />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <p className={`text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No hourly data yet</p>
                       </div>
-                    );
-                  })()}
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm sm:text-base lg:text-lg font-medium tracking-wide ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
-                      {format(currentTime, 'EEEE, MMMM d')}
-                    </p>
-                    <button
-                      onClick={() => { const next = !isDayMode; setIsDayMode(next); localStorage.setItem('punch-clock-day-mode', String(next)); }}
-                      className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full transition-all ${
-                        isDayMode 
-                          ? 'bg-secondary text-foreground hover:bg-secondary/80' 
-                          : 'bg-neutral-700 text-white hover:bg-neutral-600'
-                      }`}
-                    >
-                      {isDayMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-                    </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className={`rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Labor</h3>
+                        <div className="mt-3 flex items-end gap-2">
+                          <span className={`text-4xl font-bold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
+                            {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
+                          </span>
+                          <span className={`pb-1 text-xs ${laborStatus === 'good' ? 'text-emerald-500/80' : laborStatus === 'warning' ? 'text-amber-500/80' : 'text-red-500/80'}`}>
+                            {laborStatus === 'good' ? 'on target' : laborStatus === 'warning' ? 'watching' : 'over target'}
+                          </span>
+                        </div>
+                        <p className={`mt-1 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {formatCurrency(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))} · {(laborData?.laborHours || 0).toFixed(1)}h · target {laborTarget}%
+                        </p>
+                      </div>
+                      <div className={`rounded-full p-2 ${isDayMode ? 'bg-white' : 'bg-[#0a0a0f]/60'}`}>
+                        <Gauge className={`h-5 w-5 ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`} />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual</span>
+                          <span className={`text-xs font-semibold ${laborStatus === 'good' ? 'text-emerald-500' : laborStatus === 'warning' ? 'text-amber-500' : 'text-red-500'}`}>
+                            {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className={`h-2 overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
+                          <div
+                            className={`h-full rounded-full ${laborStatus === 'good' ? 'bg-emerald-500' : laborStatus === 'warning' ? 'bg-amber-500' : 'bg-red-500'}`}
+                            style={{ width: `${Math.min((cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage) / 40 * 100, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Target</span>
+                          <span className={`text-xs font-semibold ${isDayMode ? 'text-slate-700' : 'text-slate-300'}`}>{laborTarget}%</span>
+                        </div>
+                        <div className={`h-2 overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
+                          <div className={`h-full rounded-full ${isDayMode ? 'bg-slate-400' : 'bg-slate-500'}`} style={{ width: `${(laborTarget / 40) * 100}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`flex min-h-[320px] flex-col rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>On The Line</h3>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className={isDayMode ? 'bg-white text-slate-600' : 'bg-white/5 text-slate-300'}>
+                          {activeShifts.length}
+                        </Badge>
+                        <div className={`flex h-7 w-7 items-center justify-center rounded-full ${isDayMode ? 'bg-white' : 'bg-white/5'}`}>
+                          <Scissors className={`h-3.5 w-3.5 ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid flex-1 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 auto-rows-max">
+                      {activeShifts.length === 0 ? (
+                        <p className={`col-span-full py-6 text-center text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No one clocked in</p>
+                      ) : (
+                        activeShifts.map((shift) => {
+                          const cut = getCutForEmployee(shift.userId);
+                          const breakState = shift.isOnBreak && shift.breakStartTime ? getBreakReturnTime(shift.breakStartTime, shift.breakType) : null;
+                          return (
+                            <Popover
+                              key={shift.userId}
+                              open={selectedEmployee?.userId === shift.userId && showCutOptions}
+                              onOpenChange={(open) => {
+                                if (open) {
+                                  setSelectedEmployee(shift);
+                                  setShowCutOptions(true);
+                                } else {
+                                  setShowCutOptions(false);
+                                  setSelectedEmployee(null);
+                                  setCustomTime('');
+                                }
+                              }}
+                            >
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className={`flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-all ${
+                                    shift.isOnBreak
+                                      ? 'bg-amber-500/15'
+                                      : cut
+                                        ? 'bg-red-500/15 ring-1 ring-red-500/30'
+                                        : isDayMode
+                                          ? 'bg-white hover:bg-slate-100'
+                                          : 'bg-[#0a0a0f]/50 hover:bg-[#0a0a0f]/80'
+                                  }`}
+                                >
+                                  <Avatar className="h-8 w-8 shrink-0">
+                                    <AvatarImage src={shift.profilePhoto || undefined} />
+                                    <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                                      {shift.fullName.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <p className={`truncate text-sm font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{shift.fullName.split(' ')[0]}</p>
+                                      {cut && (
+                                        <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-semibold text-red-500">
+                                          {cutsSaved
+                                            ? cut.customEndTime
+                                              ? `Out @ ${formatCustomTime(cut.customEndTime)}`
+                                              : shift.scheduledEndTime
+                                                ? `Out @ ${getNewClockOutTime(shift.scheduledEndTime, cut.minutesCut) || `−${cut.minutesCut}m`}`
+                                                : `−${cut.minutesCut}m`
+                                            : `−${cut.minutesCut}m`}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className={`mt-0.5 truncate text-[10px] ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                      {shift.scheduledStartTime && shift.scheduledEndTime
+                                        ? `${formatShiftTime(shift.scheduledStartTime)} - ${formatShiftTime(shift.scheduledEndTime)}`
+                                        : shift.scheduledEndTime
+                                          ? `until ${formatShiftTime(shift.scheduledEndTime)}`
+                                          : shift.position || 'On the floor'}
+                                    </p>
+                                  </div>
+                                  {breakState ? (
+                                    <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-500">
+                                      <Coffee className="h-3.5 w-3.5" />
+                                      <span className={breakState.isOverdue ? 'text-red-500' : 'text-amber-500'}>{breakState.text}</span>
+                                    </div>
+                                  ) : (
+                                    <Scissors className={`h-4 w-4 shrink-0 ${isDayMode ? 'text-slate-300' : 'text-slate-500'}`} />
+                                  )}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className={`w-56 p-3 shadow-neumorphic-lg ${isDayMode ? 'border-slate-200 bg-white' : 'border-neutral-700 bg-neutral-900'}`} side="left">
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className={`text-sm font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>Send Home Early</h4>
+                                    {cut && (
+                                      <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-500 hover:bg-red-500/20 hover:text-red-400" onClick={() => handleRemoveCut(shift.userId)}>
+                                        Clear
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {[15, 30, 45, 60].map((mins) => (
+                                      <Button
+                                        key={mins}
+                                        size="sm"
+                                        variant={cut?.minutesCut === mins ? 'default' : 'outline'}
+                                        className={`h-9 text-sm font-medium ${cut?.minutesCut === mins ? 'border-red-500 bg-red-500 text-white hover:bg-red-600' : isDayMode ? 'border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100' : 'border-neutral-600 bg-neutral-800 text-white hover:bg-neutral-700'}`}
+                                        onClick={() => handleAddCut(shift, mins)}
+                                      >
+                                        -{mins === 60 ? '1hr' : `${mins}m`}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                  <div className={`border-t pt-2 ${isDayMode ? 'border-slate-200' : 'border-neutral-700'}`}>
+                                    <p className={`mb-2 text-xs ${isDayMode ? 'text-slate-400' : 'text-neutral-400'}`}>Custom end time:</p>
+                                    <div className="flex gap-2">
+                                      <Input type="time" value={customTime} onChange={(e) => setCustomTime(e.target.value)} className={`h-9 flex-1 text-sm ${isDayMode ? 'border-slate-200 bg-slate-50' : 'border-neutral-600 bg-neutral-800 text-white'}`} />
+                                      <Button size="sm" variant="outline" className={`h-9 px-3 text-sm ${isDayMode ? 'border-slate-200 bg-slate-50 hover:bg-slate-100' : 'border-neutral-600 bg-neutral-800 text-white hover:bg-neutral-700'}`} onClick={() => handleCustomCut(shift)} disabled={!customTime}>
+                                        Set
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {hasAnyCuts && (
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`mt-3 border-t pt-3 ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
+                        <Button size="sm" className={`h-9 w-full text-xs ${cutsSaved ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30' : 'bg-red-500 text-white hover:bg-red-600'}`} onClick={() => setShowPreviewModal(true)}>
+                          <Calculator className="mr-1.5 h-3.5 w-3.5" />
+                          {cutsSaved ? 'View Cuts' : 'Preview Savings'}
+                        </Button>
+                      </motion.div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Labor Section - Redesigned for clarity */}
-              <Card className={`mt-4 w-full max-w-sm ${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}`}>
-                <CardContent className="p-4 lg:p-5">
-                  {/* Header with status indicator */}
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className={`text-sm lg:text-base font-semibold flex items-center gap-2 ${isDayMode ? 'text-foreground' : 'text-white'}`}>
-                      <Gauge className="h-4 w-4 lg:h-5 lg:w-5" />
-                      Labor
-                    </h3>
-                    {cutsSaved && hasAnyCuts && (
-                      <Badge className="bg-green-500/20 text-green-500 text-xs px-2">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Cuts Active
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  {/* Large percentage display with status */}
-                  <div className="text-center mb-4">
-                    <div className="flex items-center justify-center gap-3">
-                      {cutsSaved && hasAnyCuts ? (
-                        <>
-                          <span className={`line-through text-2xl lg:text-3xl ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
-                            {laborPercentage.toFixed(1)}%
-                          </span>
-                          <span className="text-green-500 font-bold text-4xl lg:text-5xl">
-                            {calculateLaborSavings.newLaborPercent.toFixed(1)}%
-                          </span>
-                        </>
-                      ) : (
-                        <span className={`font-bold text-4xl lg:text-5xl ${
-                          laborStatus === 'good' ? 'text-green-500' : laborStatus === 'warning' ? 'text-yellow-500' : 'text-red-500'
-                        }`}>
-                          {laborPercentage.toFixed(1)}%
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Status message */}
-                    <div className="mt-2">
-                      {(() => {
-                        const currentPercent = cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage;
-                        const diff = currentPercent - laborTarget;
-                        if (diff <= -3) {
-                          return <span className="text-green-500 text-sm font-medium">🎯 {Math.abs(diff).toFixed(1)}% under target</span>;
-                        } else if (diff <= 0) {
-                          return <span className="text-green-500 text-sm font-medium">✓ On target</span>;
-                        } else if (diff <= 3) {
-                          return <span className="text-yellow-500 text-sm font-medium">⚠️ {diff.toFixed(1)}% over target</span>;
-                        } else {
-                          return <span className="text-red-500 text-sm font-medium">🔥 {diff.toFixed(1)}% over – cut labor!</span>;
-                        }
-                      })()}
-                    </div>
-                  </div>
-                  
-                  {/* Cost and Hours - side by side */}
-                  <div className={`grid grid-cols-2 gap-4 pt-3 border-t ${isDayMode ? 'border-border' : 'border-neutral-700'}`}>
-                    <div className="text-center">
-                      <p className={`text-xs mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Cost</p>
-                      <p className={`text-xl lg:text-2xl font-bold ${isDayMode ? 'text-foreground' : 'text-white'}`}>
-                        {formatCurrency(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className={`text-xs mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Hours</p>
-                      <p className={`text-xl lg:text-2xl font-bold ${isDayMode ? 'text-foreground' : 'text-white'}`}>
-                        {(laborData?.laborHours || 0).toFixed(1)}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Two-bar labor comparison */}
-                  <div className={`mt-3 pt-3 border-t space-y-2 ${isDayMode ? 'border-border' : 'border-neutral-700'}`}>
-                    {/* Actual Labor Bar */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-[10px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Actual</span>
-                        <span className={`text-xs font-bold ${
-                          laborStatus === 'good' ? 'text-green-500' : laborStatus === 'warning' ? 'text-yellow-500' : 'text-red-500'
-                        }`}>
-                          {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className={`h-4 rounded overflow-hidden ${isDayMode ? 'bg-secondary' : 'bg-neutral-700'}`}>
-                        <div 
-                          className={`h-full rounded transition-all ${
-                            laborStatus === 'good' ? 'bg-green-500' : laborStatus === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
-                          }`}
-                          style={{ 
-                            width: `${Math.min((cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage) / 40 * 100, 100)}%` 
-                          }}
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Target Bar */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-[10px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Target</span>
-                        <span className={`text-xs font-bold ${isDayMode ? 'text-foreground' : 'text-neutral-300'}`}>{laborTarget}%</span>
-                      </div>
-                      <div className={`h-4 rounded overflow-hidden ${isDayMode ? 'bg-secondary' : 'bg-neutral-700'}`}>
-                        <div 
-                          className={`h-full rounded ${isDayMode ? 'bg-muted-foreground/40' : 'bg-neutral-500'}`}
-                          style={{ width: `${(laborTarget / 40) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Right Column - Employees & Tasks */}
-            <motion.div
-              initial={{ x: 20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.15 }}
-              className="flex-1 flex flex-col gap-2 lg:gap-3"
-            >
-              {/* Active Shifts - 50% height, scrollable */}
-              <Card className={`flex-1 min-h-0 ${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}`}>
-                <CardContent className="p-2 sm:p-3 lg:p-4 h-full flex flex-col">
-                  <h3 className={`text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
-                    <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                    On The Clock
-                    <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary text-[10px] sm:text-xs">
-                      {activeShifts.length}
-                    </Badge>
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 flex-1 overflow-y-auto auto-rows-max pr-1">
-                    {activeShifts.length === 0 ? (
-                      <p className={`text-center py-4 text-xs sm:text-sm col-span-full ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>No one clocked in</p>
-                    ) : (
-                      activeShifts.map((shift) => {
-                        const cut = getCutForEmployee(shift.userId);
-                        return (
-                          <Popover 
-                            key={shift.userId}
-                            open={selectedEmployee?.userId === shift.userId && showCutOptions}
-                            onOpenChange={(open) => {
-                              if (open) {
-                                setSelectedEmployee(shift);
-                                setShowCutOptions(true);
-                              } else {
-                                setShowCutOptions(false);
-                                setSelectedEmployee(null);
-                                setCustomTime('');
-                              }
-                            }}
-                          >
-                            <PopoverTrigger asChild>
-                              <div
-                                className={`flex items-center gap-2 p-1.5 lg:p-2 rounded-lg cursor-pointer transition-all ${
-                                  shift.isOnBreak 
-                                    ? 'bg-amber-500/20' 
-                                    : cut 
-                                      ? 'bg-red-500/20 ring-1 ring-red-500/50' 
-                                      : isDayMode ? 'bg-secondary hover:bg-secondary/80' : 'bg-neutral-700/50 hover:bg-neutral-700'
-                                }`}
-                              >
-                                <Avatar className="h-6 w-6 lg:h-8 lg:w-8">
-                                  <AvatarImage src={shift.profilePhoto || undefined} />
-                                  <AvatarFallback className="bg-primary/20 text-primary text-[10px] lg:text-xs">
-                                    {shift.fullName.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1">
-                                    <p className={`text-xs lg:text-sm font-medium truncate ${isDayMode ? 'text-foreground' : 'text-white'}`}>
-                                      {shift.fullName.split(' ')[0]}
-                                    </p>
-                                    {cut && (
-                                      <Badge 
-                                        variant="secondary" 
-                                        className="bg-red-500/30 text-red-500 text-[9px] lg:text-[10px] px-1 py-0"
-                                      >
-                                        {cutsSaved 
-                                          ? cut.customEndTime 
-                                            ? `Out @ ${formatCustomTime(cut.customEndTime)}`
-                                            : shift.scheduledEndTime
-                                              ? `Out @ ${getNewClockOutTime(shift.scheduledEndTime, cut.minutesCut) || `−${cut.minutesCut}m`}`
-                                              : `−${cut.minutesCut}m`
-                                          : `−${cut.minutesCut}m`
-                                        }
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {/* Show scheduled shift times */}
-                                  {(shift.scheduledStartTime || shift.scheduledEndTime) && !cut && (
-                                    <p className={`text-[9px] lg:text-[10px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
-                                      {shift.scheduledStartTime && shift.scheduledEndTime 
-                                        ? `${formatShiftTime(shift.scheduledStartTime)} - ${formatShiftTime(shift.scheduledEndTime)}`
-                                        : shift.scheduledEndTime 
-                                          ? `until ${formatShiftTime(shift.scheduledEndTime)}`
-                                          : ''
-                                      }
-                                    </p>
-                                  )}
-                                </div>
-                                {shift.isOnBreak && shift.breakStartTime ? (
-                                  <div className="flex items-center gap-1">
-                                    <Coffee className="h-3 w-3 lg:h-4 lg:w-4 text-amber-500" />
-                                    <span className={`text-[9px] lg:text-[10px] font-bold ${
-                                      getBreakReturnTime(shift.breakStartTime, shift.breakType).isOverdue 
-                                        ? 'text-red-500' 
-                                        : 'text-amber-500'
-                                    }`}>
-                                      {getBreakReturnTime(shift.breakStartTime, shift.breakType).text}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <Scissors className={`h-3 w-3 lg:h-4 lg:w-4 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`} />
-                                )}
-                              </div>
-                            </PopoverTrigger>
-                            <PopoverContent 
-                              className={`w-56 p-3 shadow-neumorphic-lg ${isDayMode ? 'bg-card border-border' : 'bg-neutral-900 border-neutral-700'}`}
-                              side="left"
-                            >
-                              <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <h4 className={`font-semibold text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>Send Home Early</h4>
-                                  {cut && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-6 text-xs text-red-500 hover:text-red-400 hover:bg-red-500/20 px-2"
-                                      onClick={() => handleRemoveCut(shift.userId)}
-                                    >
-                                      Clear
-                                    </Button>
-                                  )}
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  {[15, 30, 45, 60].map((mins) => (
-                                    <Button
-                                      key={mins}
-                                      size="sm"
-                                      variant={cut?.minutesCut === mins ? 'default' : 'outline'}
-                                      className={`text-sm h-9 font-medium ${
-                                        cut?.minutesCut === mins 
-                                          ? 'bg-red-500 hover:bg-red-600 text-white border-red-500' 
-                                          : isDayMode 
-                                            ? 'bg-secondary border-border text-foreground hover:bg-secondary/80' 
-                                            : 'bg-neutral-800 border-neutral-600 text-white hover:bg-neutral-700'
-                                      }`}
-                                      onClick={() => handleAddCut(shift, mins)}
-                                    >
-                                      -{mins === 60 ? '1hr' : `${mins}m`}
-                                    </Button>
-                                  ))}
-                                </div>
-                                <div className={`pt-2 border-t ${isDayMode ? 'border-border' : 'border-neutral-700'}`}>
-                                  <p className={`text-xs mb-2 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Custom end time:</p>
-                                  <div className="flex gap-2">
-                                    <Input
-                                      type="time"
-                                      value={customTime}
-                                      onChange={(e) => setCustomTime(e.target.value)}
-                                      className={`text-sm h-9 flex-1 ${isDayMode ? 'bg-secondary border-border' : 'bg-neutral-800 border-neutral-600 text-white'}`}
-                                    />
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className={`h-9 px-3 text-sm ${isDayMode ? 'bg-secondary border-border hover:bg-secondary/80' : 'bg-neutral-800 border-neutral-600 text-white hover:bg-neutral-700'}`}
-                                      onClick={() => handleCustomCut(shift)}
-                                      disabled={!customTime}
-                                    >
-                                      Set
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  
-                  {/* Labor Savings Preview Button */}
-                  {hasAnyCuts && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`mt-2 pt-2 border-t ${isDayMode ? 'border-border' : 'border-neutral-700'}`}
-                    >
-                      <Button
-                        size="sm"
-                        className={`w-full h-7 text-[10px] ${
-                          cutsSaved 
-                            ? 'bg-green-500/20 text-green-500 hover:bg-green-500/30' 
-                            : 'bg-red-500 text-white hover:bg-red-600'
-                        }`}
-                        onClick={() => {
-                          setShowPreviewModal(true);
-                        }}
-                      >
-                        <Calculator className="h-3 w-3 mr-1" />
-                        {cutsSaved ? 'View Cuts' : 'Preview Savings'}
-                      </Button>
-                    </motion.div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Quick Tasks - 50% height */}
-              <Card className={`flex-1 min-h-0 ${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}`}>
-                <CardContent className="p-2 sm:p-3 h-full flex flex-col">
-                  <h3 className={`text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
-                    <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                    Tasks
-                    {(() => {
-                      const incompleteEvents = quickTasks.filter((t: any) => !t.isComplete).length;
-                      const incompleteChecklists = checklistsData.filter((c: any) => !c.isComplete).length;
-                      const totalIncomplete = incompleteEvents + incompleteChecklists;
-                      return totalIncomplete > 0 ? (
-                        <Badge variant="secondary" className={`ml-auto text-[10px] ${isDayMode ? 'bg-secondary text-muted-foreground' : 'bg-neutral-700 text-neutral-400'}`}>
-                          {totalIncomplete}
-                        </Badge>
-                      ) : null;
-                    })()}
-                  </h3>
-                  <div className="space-y-1 flex-1 overflow-y-auto">
-                    {/* Events section */}
-                    {quickTasks.length > 0 && (
-                      <div className="mb-2">
-                        <p className={`text-[9px] uppercase tracking-wide mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Events</p>
-                        {quickTasks.slice(0, 4).map((task: any) => (
-                          <div
-                            key={task.id}
-                            className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded mb-1 ${isDayMode ? 'bg-secondary' : 'bg-neutral-700/50'}`}
-                          >
-                            {task.isComplete ? (
-                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                            ) : (
-                              <div className="w-0.5 h-4 sm:h-5 rounded-full bg-primary" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-[10px] sm:text-xs font-medium truncate ${
-                                task.isComplete 
-                                  ? isDayMode ? 'text-muted-foreground line-through' : 'text-neutral-500 line-through' 
-                                  : isDayMode ? 'text-foreground' : 'text-white'
-                              }`}>
-                                {task.event_name}
-                              </p>
-                            </div>
-                            {task.isComplete ? (
-                              <Badge 
-                                variant="secondary" 
-                                className="text-[8px] px-1.5 py-0 bg-green-500/20 text-green-500"
-                              >
-                                ✓
-                              </Badge>
-                            ) : (
-                              <span className={`text-[9px] sm:text-[10px] font-medium ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
-                                {format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Checklists section */}
-                    {checklistsData.length > 0 && (
-                      <div>
-                        <p className={`text-[9px] uppercase tracking-wide mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Checklists</p>
-                        {checklistsData.slice(0, 4).map((checklist: any) => {
-                          const completed = checklist.completedItems || 0;
-                          const total = checklist.totalItems || 0;
-                          const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
-                          const progressColor = progressPct >= 100 
-                            ? 'hsl(142, 71%, 45%)' 
-                            : progressPct > 0 
-                              ? 'hsl(45, 93%, 47%)' 
-                              : isDayMode ? 'hsl(var(--muted))' : 'hsl(0, 0%, 40%)';
-                          return (
-                            <div
-                              key={checklist.id}
-                              className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded mb-1 ${isDayMode ? 'bg-secondary' : 'bg-neutral-700/50'}`}
-                            >
-                              {checklist.isComplete ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                              ) : (
-                                <Circle className={`h-3.5 w-3.5 flex-shrink-0 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`} />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-[10px] sm:text-xs font-medium truncate ${
-                                  checklist.isComplete 
-                                    ? isDayMode ? 'text-muted-foreground line-through' : 'text-neutral-500 line-through' 
-                                    : isDayMode ? 'text-foreground' : 'text-white'
-                                }`}>
-                                  {checklist.title}
-                                </p>
-                                {total > 0 && (
-                                  <div className={`mt-0.5 h-[2px] rounded-full overflow-hidden ${isDayMode ? 'bg-muted' : 'bg-neutral-600'}`}>
-                                    <div 
-                                      className="h-full rounded-full transition-all duration-300"
-                                      style={{ width: `${progressPct}%`, backgroundColor: progressColor }}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                              <Badge 
-                                variant="secondary" 
-                                className={`text-[8px] px-1.5 py-0 ${
-                                  checklist.isComplete 
-                                    ? 'bg-green-500/20 text-green-500' 
-                                    : isDayMode ? 'bg-secondary text-muted-foreground' : 'bg-neutral-700 text-neutral-400'
-                                }`}
-                              >
-                                {checklist.isComplete ? 'Done' : `${completed}/${total}`}
-                              </Badge>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Team Tasks Button */}
+              <div className={`mt-4 rounded-2xl p-5 lg:p-6 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <h3 className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Checklists</h3>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {checklistsData.filter((c: any) => c.isComplete).length} of {checklistsData.length || quickTasks.length || 0} done
+                    </span>
                     <button
                       onClick={() => setShowTeamTasks(true)}
-                      className={`w-full mt-2 py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all ${
-                        isDayMode 
-                          ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
-                          : 'bg-white text-neutral-900 hover:bg-neutral-200'
-                      }`}
+                      className={`rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-all ${isDayMode ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-white text-neutral-900 hover:bg-neutral-200'}`}
                     >
-                      <div className="flex items-center justify-center gap-2">
-                        <Users className="h-4 w-4" />
-                        TEAM TASKS
-                      </div>
+                      Team Tasks
                     </button>
-                    
-                    {/* Empty state */}
-                    {quickTasks.length === 0 && checklistsData.length === 0 && (
-                      <p className={`text-center py-4 text-[10px] sm:text-xs ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>No tasks today</p>
-                    )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                  {checklistsData.slice(0, 7).map((checklist: any) => {
+                    const completed = checklist.completedItems || 0;
+                    const total = checklist.totalItems || 0;
+                    const progressPct = total > 0 ? Math.round((completed / total) * 100) : checklist.isComplete ? 100 : 0;
+                    const done = checklist.isComplete;
+                    return (
+                      <div key={checklist.id}>
+                        <div className="mb-2 flex items-baseline justify-between gap-2">
+                          <span className={`truncate text-sm font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{checklist.title}</span>
+                          <span className={`shrink-0 text-xs font-semibold ${done ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            {done ? 'done' : `${completed}/${total}`}
+                          </span>
+                        </div>
+                        <div className={`h-1 w-full overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
+                          <div className={`h-full rounded-full ${done ? 'bg-emerald-400' : 'bg-amber-500'}`} style={{ width: `${progressPct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {checklistsData.length === 0 && quickTasks.length > 0 && quickTasks.slice(0, 7).map((task: any) => (
+                    <div key={task.id}>
+                      <div className="mb-2 flex items-baseline justify-between gap-2">
+                        <span className={`truncate text-sm font-medium ${task.isComplete ? (isDayMode ? 'text-slate-400 line-through' : 'text-slate-500 line-through') : isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                          {task.event_name}
+                        </span>
+                        <span className={`shrink-0 text-xs font-semibold ${task.isComplete ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {task.isComplete ? 'done' : format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
+                        </span>
+                      </div>
+                      <div className={`h-1 w-full overflow-hidden rounded-full ${isDayMode ? 'bg-slate-200' : 'bg-white/5'}`}>
+                        <div className={`h-full rounded-full ${task.isComplete ? 'bg-emerald-400' : 'bg-amber-500'}`} style={{ width: `${task.isComplete ? 100 : 35}%` }} />
+                      </div>
+                    </div>
+                  ))}
+
+                  {checklistsData.length === 0 && quickTasks.length === 0 && (
+                    <p className={`col-span-full py-4 text-center text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No tasks today</p>
+                  )}
+                </div>
+              </div>
             </motion.div>
           </div>
         </div>
