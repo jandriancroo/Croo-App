@@ -1056,10 +1056,12 @@ export function ManagerDashboardOverlay({
               }`}
             >
               <div className={`flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-start lg:justify-between ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500">Manager Dashboard</p>
-                  <p className={`mt-2 text-xl font-medium lg:text-2xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
-                    <span className={isDayMode ? 'text-slate-500' : 'text-slate-400'}>{format(currentTime, 'EEEE')} service · projecting </span>
+                  <p className={`mt-2 text-lg font-medium lg:text-xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                    <span className={isDayMode ? 'text-slate-500' : 'text-slate-400'}>{format(currentTime, 'EEEE')} service · </span>
+                    <span className={`font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(totalSales)}</span>
+                    <span className={isDayMode ? 'text-slate-500' : 'text-slate-400'}> sales · projecting </span>
                     <span className={`font-semibold ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
                       {paceDelta >= 0 ? `${formatCurrency(Math.abs(paceDelta))} ahead` : `${formatCurrency(Math.abs(paceDelta))} short`}
                     </span>
@@ -1067,7 +1069,7 @@ export function ManagerDashboardOverlay({
                   </p>
                 </div>
 
-                <div className="flex items-start gap-4 self-end lg:self-auto">
+                <div className="flex items-start gap-4 self-end lg:self-auto shrink-0">
                   <ThemeModePill isDayMode={isDayMode} onChange={handleThemeModeChange} />
                   <div className="text-right">
                     {(() => {
@@ -1091,51 +1093,7 @@ export function ManagerDashboardOverlay({
                 </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                  <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Total Sales</p>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className={`text-2xl font-bold lg:text-3xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(totalSales)}</p>
-                      <p className={`mt-0.5 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Actual sales today</p>
-                    </div>
-                    <DollarSign className="h-7 w-7 text-emerald-500" />
-                  </div>
-                </div>
 
-                <div className={`rounded-2xl p-3 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                  <div className="flex items-center gap-2">
-                    <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>EOD Goal</p>
-                    <ProjectionIcon source={eodGoalSource} />
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className={`text-2xl font-bold lg:text-3xl ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{formatCurrency(eodGoal)}</p>
-                      <p className={`mt-0.5 text-xs ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>Projected close</p>
-                    </div>
-                    <Target className="h-7 w-7 text-sky-500" />
-                  </div>
-                </div>
-
-                <div className={`rounded-2xl p-3 ring-1 ${paceStatus === 'fire' ? 'ring-amber-500/40' : isDayMode ? 'ring-slate-200' : 'ring-white/5'} ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
-                  <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Pace</p>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-2xl font-bold text-amber-500 lg:text-3xl">{formatCurrency(paceAdjusted)}</p>
-                      <p className={`mt-0.5 text-xs ${paceDelta >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {paceDelta >= 0 ? 'Above goal pace' : 'Needs push to goal'}
-                      </p>
-                    </div>
-                    {paceStatus === 'fire' ? (
-                      <Flame className="h-7 w-7 animate-pulse text-amber-500" />
-                    ) : paceStatus === 'cold' ? (
-                      <TrendingDown className="h-7 w-7 text-red-500" />
-                    ) : (
-                      <TrendingUp className="h-7 w-7 text-emerald-500" />
-                    )}
-                  </div>
-                </div>
-              </div>
 
               <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(300px,0.95fr)]">
                 <div className={`rounded-2xl p-3 lg:p-4 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
