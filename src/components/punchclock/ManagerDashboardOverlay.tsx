@@ -1091,7 +1091,7 @@ export function ManagerDashboardOverlay({
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div className={`rounded-2xl p-5 ${isDayMode ? 'bg-slate-50' : 'bg-[#141822]'}`}>
                   <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Total Sales</p>
                   <div className="mt-3 flex items-center justify-between gap-3">
