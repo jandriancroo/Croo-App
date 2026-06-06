@@ -1187,7 +1187,7 @@ export function ManagerDashboardOverlay({
                     )}
                   </AnimatePresence>
 
-                  <div className="h-[260px] lg:h-[320px]">
+                  <div className="h-[160px] lg:h-[200px]">
                     {salesHours.some(h => h.sales > 0) ? (
                       <HourlyChartRecharts hours={salesHours} formatCurrency={formatCurrency} isDayMode={isDayMode} />
                     ) : (
