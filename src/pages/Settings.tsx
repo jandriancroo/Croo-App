@@ -100,6 +100,7 @@ export default function Settings() {
   const { isChecklistOnlyLocation, currentLocation, organizationId } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'default');
+  const [showDockLabels, setShowDockLabels] = useState(localStorage.getItem('app-dock-labels') !== 'false');
   const [locations, setLocations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'location' | 'org' | 'super'>('location');
