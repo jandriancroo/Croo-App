@@ -1291,7 +1291,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {/* Location tab — visually merges with the page background and cuts into the card without a seam */}
             {currentLocation && (
               <div
-                className={`absolute left-1/2 top-4 -translate-x-1/2 z-30 flex items-center gap-3 px-8 py-3.5 rounded-b-[24px] ${
+                className={`absolute left-1/2 top-0 -translate-x-1/2 z-30 flex items-center gap-3 px-8 py-3.5 rounded-b-[24px] ${
                   isDayMode ? 'bg-background' : 'bg-neutral-900'
                 }`}
                 style={{ clipPath: 'inset(0 round 0 0 24px 24px)' }}
