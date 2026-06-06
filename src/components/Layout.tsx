@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, LogOut, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type, GraduationCap } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
