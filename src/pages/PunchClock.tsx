@@ -21,6 +21,7 @@ import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay
 import { ManagerDashboardOverlay } from '@/components/punchclock/ManagerDashboardOverlay';
 import { ShiftSummaryCard } from '@/components/punchclock/ShiftSummaryCard';
 import { SwipePagerHint } from '@/components/punchclock/SwipePagerHint';
+import { ThemeModePill } from '@/components/punchclock/ThemeModePill';
 import { useSwipe } from '@/hooks/useSwipe';
 
 // Function to calculate average brightness of an image
@@ -216,6 +217,11 @@ export default function PunchClock() {
   const [showManagerDashboard, setShowManagerDashboard] = useState(false);
   const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
   const activeCrooLogo = isDayMode ? crooLogo : crooLogoInverted;
+
+  const handleThemeModeChange = useCallback((next: boolean) => {
+    setIsDayMode(next);
+    localStorage.setItem('punch-clock-day-mode', String(next));
+  }, []);
 
   // Swipe pager — swipe LEFT on the punch clock to reveal the manager dashboard
   const keypadSwipeRef = useRef<HTMLDivElement>(null);
