@@ -1635,6 +1635,13 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               isDayMode={isDayMode}
             />
           )}
+          {currentLocation?.id && timezone && !showManagerDashboard && (
+            <SwipePagerHint
+              page="punch"
+              isDayMode={isDayMode}
+              onDotClick={(target) => target === 'dashboard' && setShowManagerDashboard(true)}
+            />
+          )}
         </div>
       )}
 
