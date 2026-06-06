@@ -1364,191 +1364,140 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {/* Master code 0223 on keypad exits to dashboard */}
 
       {!currentUser ? (
-        <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center overflow-hidden p-4 touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
-
-          <Card className={`relative w-full max-w-5xl overflow-hidden border font-vansans ${isDayMode ? 'border-slate-200 bg-white' : 'border-white/5 bg-[#0f1117]'}`}>
-            {/* Floating Location Badge - positioned at top center where sections meet */}
-            {currentLocation && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                <div className={`flex items-center gap-3 px-5 py-2.5 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-primary border-primary/30' : 'bg-primary border-primary/30'}`}>
-                  {brandLogoUrl && (
-                    <>
-                      <img src={brandLogoUrl} alt="Brand" className="h-7 w-7 object-contain rounded" />
-                      <div className="w-px h-5 bg-primary-foreground/30" />
-                    </>
-                  )}
-                  <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-primary-foreground" />
-                  <span className="text-base font-semibold text-primary-foreground">{currentLocation.name}</span>
+        <div
+          ref={keypadSwipeRef}
+          className={`relative min-h-screen flex flex-col items-center justify-center overflow-hidden p-4 touch-none ${isDayMode ? 'bg-[#f4f5f7]' : 'bg-[#0a0a0f]'}`}
+          style={{
+            touchAction: 'none',
+            fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+          }}
+        >
+          <div className="absolute inset-0 overflow-hidden">
+            {birthdayEmployees.length > 0 ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-primary via-accent to-primary">
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white">
+                  <div className="mb-6 text-9xl animate-bounce">🎂</div>
+                  <h2 className="mb-4 text-center text-6xl font-bold">Happy Birthday!</h2>
+                  <div className="mb-6 text-center text-4xl font-semibold">
+                    {birthdayEmployees.map((emp, idx) => (
+                      <div key={emp.id}>
+                        {emp.full_name}
+                        {idx < birthdayEmployees.length - 1 && ' & '}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-5xl font-bold">{format(currentTime, 'h:mm:ss a')}</div>
+                  <p className="mt-6 text-center text-2xl italic">Wishing you a wonderful day full of joy and blessings!</p>
                 </div>
               </div>
-            )}
-            <div className="grid md:grid-cols-2">
-              {/* Left Side - Image and Quote or Birthday Message */}
-              {birthdayEmployees.length > 0 ? (
-                <div className="relative h-full min-h-[600px] bg-gradient-to-br from-primary via-accent to-primary">
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white">
-                    <div className="text-9xl mb-6 animate-bounce">🎂</div>
-                    <h2 className="text-6xl font-bold mb-4 text-center">Happy Birthday!</h2>
-                    <div className="text-4xl font-semibold mb-6 text-center">
-                      {birthdayEmployees.map((emp, idx) => (
-                        <div key={emp.id}>
-                          {emp.full_name}
-                          {idx < birthdayEmployees.length - 1 && ' & '}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-5xl font-bold">
-                      {format(currentTime, 'h:mm:ss a')}
-                    </div>
-                    <p className="text-2xl mt-6 text-center italic">
-                      Wishing you a wonderful day full of joy and blessings!
-                    </p>
+            ) : customBackground === 'historical_quotes' ? (
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? currentHistoricalImage : prevHistoricalImage})` }}
+                />
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? prevHistoricalImage : currentHistoricalImage})` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
+                <div className="absolute inset-x-0 bottom-0 p-8 text-white">
+                  <p className="text-xl font-medium italic drop-shadow-lg">{currentQuote}</p>
+                </div>
+              </div>
+            ) : customBackground === 'nature_facts' || !customBackground ? (
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? currentNatureImage : prevNatureImage})` }}
+                />
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? prevNatureImage : currentNatureImage})` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
+                <div className="absolute inset-x-0 bottom-0 p-8 text-white">
+                  <h2 className="mb-3 text-3xl font-bold drop-shadow-lg">Did You Know?</h2>
+                  <div className="space-y-2">
+                    <p className="text-xl font-medium drop-shadow-lg">{currentFact.fact}</p>
+                    <p className="text-sm opacity-90 drop-shadow">📚 {currentFact.category}</p>
                   </div>
                 </div>
-              ) : customBackground === "historical_quotes" ? (
-                // Historical theme with rotating landmarks and quotes - dual layer crossfade
-                <div className="relative h-full min-h-[600px] overflow-hidden">
-                  {/* Layer A */}
-                  <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
-                    style={{ backgroundImage: `url(${crossfadeActive ? currentHistoricalImage : prevHistoricalImage})` }}
-                  />
-                  {/* Layer B */}
-                  <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
-                    style={{ backgroundImage: `url(${crossfadeActive ? prevHistoricalImage : currentHistoricalImage})` }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-                    <p className="text-xl font-medium italic drop-shadow-lg">{currentQuote}</p>
+              </div>
+            ) : customBackground === 'custom_multi' && customBackgroundUrls.length > 0 ? (
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
+                />
+                <div
+                  className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                  style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/15" />
+                {currentCustomText && textPosition === 'overlay' && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center p-8">
+                    <h2
+                      className={`text-center text-4xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                      style={{
+                        color: customTextColor,
+                        textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                      }}
+                    >
+                      {currentCustomText}
+                    </h2>
                   </div>
-                </div>
-              ) : customBackground === "nature_facts" || !customBackground ? (
-                // Nature theme with rotating landscapes and facts (default) - dual layer crossfade
-                <div className="relative h-full min-h-[600px] overflow-hidden">
-                  {/* Layer A */}
-                  <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
-                    style={{ backgroundImage: `url(${crossfadeActive ? currentNatureImage : prevNatureImage})` }}
-                  />
-                  {/* Layer B */}
-                  <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
-                    style={{ backgroundImage: `url(${crossfadeActive ? prevNatureImage : currentNatureImage})` }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-                    <h2 className="text-3xl font-bold mb-3 drop-shadow-lg">Did You Know?</h2>
-                    <div className="space-y-2">
-                      <p className="text-xl font-medium drop-shadow-lg">{currentFact.fact}</p>
-                      <p className="text-sm opacity-90 drop-shadow">📚 {currentFact.category}</p>
-                    </div>
+                )}
+              </div>
+            ) : customBackground ? (
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${customBackground})` }} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/15" />
+                {customOverlayText && textPosition === 'overlay' && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center p-8">
+                    <h2
+                      className={`text-center text-4xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                      style={{
+                        color: customTextColor,
+                        textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                      }}
+                    >
+                      {customOverlayText}
+                    </h2>
                   </div>
-                </div>
-              ) : customBackground === "custom_multi" && customBackgroundUrls.length > 0 ? (
-                // Multi-slide custom theme - dual layer crossfade
-                <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
-                  {/* Image layers for crossfade */}
-                  {textPosition === 'below' ? (
-                    // For "below" position, image takes flex-1
-                    <div className="relative flex-1 overflow-hidden">
-                      {/* Layer A */}
-                      <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
-                        style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
-                      />
-                      {/* Layer B */}
-                      <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
-                        style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
-                      />
-                    </div>
-                  ) : (
-                    // For "overlay" position, image is absolute
-                    <>
-                      {/* Layer A */}
-                      <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
-                        style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
-                      />
-                      {/* Layer B */}
-                      <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
-                        style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                    </>
-                  )}
-                  {currentCustomText && textPosition === 'overlay' && (
-                    <div className="absolute inset-0 z-10 flex flex-col justify-center items-center p-8">
-                      <h2 
-                        className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                        style={{ 
-                          color: customTextColor,
-                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                        }}
-                      >
-                        {currentCustomText}
-                      </h2>
-                    </div>
-                  )}
-                  {/* Text pinned below image - white box with black text */}
-                  {currentCustomText && textPosition === 'below' && (
-                    <div className={`border-t px-6 py-4 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
-                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap max-w-[calc(100%-6rem)] mx-auto ${isDayMode ? 'text-foreground' : 'text-white'}`}>
-                        {currentCustomText}
-                      </h2>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                // Single image custom background (legacy) - only custom text, no time
-                <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
-                  {/* Image area - takes full height for overlay, partial for below */}
-                  <div 
-                    className={`bg-cover bg-center ${textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
-                    style={{ backgroundImage: `url(${customBackground})` }}
-                  >
-                    {textPosition === 'overlay' && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                    )}
-                  </div>
-                  {customOverlayText && textPosition === 'overlay' && (
-                    <div className="absolute inset-0 z-10 flex flex-col justify-center items-center p-8">
-                      <h2 
-                        className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                        style={{ 
-                          color: customTextColor,
-                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                        }}
-                      >
-                        {customOverlayText}
-                      </h2>
-                    </div>
-                  )}
-                  {/* Text pinned below image - white box with black text */}
-                  {customOverlayText && textPosition === 'below' && (
-                    <div className={`border-t px-6 py-4 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
-                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap max-w-[calc(100%-6rem)] mx-auto ${isDayMode ? 'text-foreground' : 'text-white'}`}>
-                        {customOverlayText}
-                      </h2>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
+            ) : null}
 
-              {/* Right Side - Number Pad */}
-              <CardContent className={`flex flex-col justify-center p-8 ${isDayMode ? 'bg-gradient-to-b from-white to-slate-50' : 'bg-gradient-to-b from-[#141822] to-[#0f1117]'}`}>
+            <div className={`absolute inset-0 ${isDayMode ? 'bg-[#f4f5f7]/76' : 'bg-[#0a0a0f]/48'}`} />
+          </div>
+
+          <div className="relative z-10 flex w-full max-w-xl flex-col items-center gap-4">
+            {currentLocation && (
+              <div className={`flex items-center gap-3 rounded-full border px-5 py-2.5 shadow-lg backdrop-blur-xl ${isDayMode ? 'border-primary/20 bg-white/85' : 'border-white/10 bg-[#0f1117]/72'}`}>
+                {brandLogoUrl && (
+                  <>
+                    <img src={brandLogoUrl} alt="Brand" className="h-7 w-7 rounded object-contain" />
+                    <div className={`h-5 w-px ${isDayMode ? 'bg-slate-300' : 'bg-white/10'}`} />
+                  </>
+                )}
+                <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-primary" />
+                <span className={`text-base font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{currentLocation.name}</span>
+              </div>
+            )}
+
+            <Card className={`w-full overflow-hidden rounded-[28px] border shadow-2xl ${isDayMode ? 'border-slate-200 bg-white' : 'border-white/5 bg-[#0f1117]'}`}>
+              <CardContent className={`flex flex-col p-8 ${isDayMode ? 'bg-gradient-to-b from-white to-[#f4f5f7]' : 'bg-gradient-to-b from-[#141822] to-[#0f1117]'}`}>
                 <div className="space-y-6">
                   <div className={`flex items-start justify-between gap-4 border-b pb-5 ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500">Punch Clock</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-500">Punch Clock</p>
                       <p className={`mt-2 text-lg font-medium ${isDayMode ? 'text-slate-900' : 'text-white'}`}>Tap in to start your shift</p>
                     </div>
                     <div className="flex items-start gap-4">
                       <ThemeModePill isDayMode={isDayMode} onChange={handleThemeModeChange} />
                       <div className="text-right">
-                        <div className={`text-3xl font-medium tracking-tight ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
+                        <div className={`text-3xl font-light tracking-tight tabular-nums ${isDayMode ? 'text-slate-900' : 'text-white'}`}>
                           {format(currentTime, 'h:mm')}
                           <span className={`ml-1 text-base ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>{format(currentTime, 'a')}</span>
                         </div>
@@ -1557,7 +1506,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-center py-2">
+                  <div className="flex flex-col items-center py-6">
                     <button
                       type="button"
                       onClick={() => pin.length === 4 && verifyPin()}
@@ -1565,13 +1514,10 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     >
                       <Fingerprint className="h-16 w-16 text-amber-950" strokeWidth={1.5} />
                     </button>
-                    <p className={`mt-6 text-sm ${pinError ? 'text-destructive font-semibold' : isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <p className={`mt-6 text-sm ${pinError ? 'font-semibold text-destructive' : isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       {pinError ? 'Wrong PIN - Try Again' : 'Enter your 4-digit PIN'}
                     </p>
-                    <div
-                      className={`mt-3 flex h-10 items-center justify-center gap-3 ${pinShake ? 'animate-shake' : ''}`}
-                      style={pinShake ? { animation: 'shake 0.5s ease-in-out' } : undefined}
-                    >
+                    <div className={`mt-3 flex items-center justify-center gap-3 ${pinShake ? 'animate-shake' : ''}`} style={pinShake ? { animation: 'shake 0.5s ease-in-out' } : undefined}>
                       {[0, 1, 2, 3].map((i) => (
                         <div
                           key={i}
@@ -1595,7 +1541,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                         key={num}
                         variant="outline"
                         size="lg"
-                        className={`h-16 rounded-2xl border text-2xl font-bold shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-primary hover:text-primary-foreground hover:border-primary active:scale-95 ${isDayMode ? 'border-slate-200 bg-white text-slate-900' : 'border-white/10 bg-[#0a0a0f]/50 text-white'}`}
+                        className={`h-16 rounded-2xl border text-2xl font-bold shadow-sm transition-all duration-150 hover:scale-[1.02] hover:border-primary hover:bg-primary hover:text-primary-foreground active:scale-95 ${isDayMode ? 'border-slate-200 bg-white text-slate-900' : 'border-white/10 bg-[#0a0a0f]/50 text-white'}`}
                         onClick={() => handleNumberClick(num.toString())}
                       >
                         {num}
@@ -1612,7 +1558,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="outline"
                       size="lg"
-                      className={`h-16 rounded-2xl border text-2xl font-bold shadow-sm transition-all duration-150 hover:scale-[1.02] hover:bg-primary hover:text-primary-foreground hover:border-primary active:scale-95 ${isDayMode ? 'border-slate-200 bg-white text-slate-900' : 'border-white/10 bg-[#0a0a0f]/50 text-white'}`}
+                      className={`h-16 rounded-2xl border text-2xl font-bold shadow-sm transition-all duration-150 hover:scale-[1.02] hover:border-primary hover:bg-primary hover:text-primary-foreground active:scale-95 ${isDayMode ? 'border-slate-200 bg-white text-slate-900' : 'border-white/10 bg-[#0a0a0f]/50 text-white'}`}
                       onClick={() => handleNumberClick('0')}
                     >
                       0
@@ -1627,8 +1573,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     </Button>
                   </div>
 
-                  <div className={`rounded-2xl p-4 ${isDayMode ? 'bg-slate-100/80' : 'bg-[#0a0a0f]/45'}`}>
-                    <div className={`mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                  <div className={`rounded-2xl p-4 ${isDayMode ? 'bg-[#eef0f3]/70' : 'bg-[#0a0a0f]/50'}`}>
+                    <div className={`mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       <Clock className="h-3.5 w-3.5" />
                       On the Clock
                     </div>
@@ -1637,7 +1583,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                         <p className={`text-sm ${isDayMode ? 'text-slate-400' : 'text-slate-500'}`}>No one is clocked in yet.</p>
                       ) : (
                         liveClockedIn.slice(0, 6).map((shift) => (
-                          <div key={shift.userId} className="flex items-center gap-2.5 min-w-0">
+                          <div key={shift.userId} className="flex min-w-0 items-center gap-2.5">
                             <Avatar className="h-8 w-8 shrink-0">
                               <AvatarImage src={shift.profilePhoto || undefined} />
                               <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
@@ -1659,9 +1605,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   </div>
                 </div>
               </CardContent>
-            </div>
-
-          </Card>
+            </Card>
+          </div>
 
           {/* Pager hint — replaces old teal swap button */}
           {currentLocation?.id && timezone && (
