@@ -24,7 +24,6 @@ import {
   Flame,
   Coffee,
   CheckCircle2,
-  ArrowLeftRight: _ALR,
   X,
   Gauge,
   Scissors,
