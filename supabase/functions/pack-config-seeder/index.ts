@@ -256,12 +256,26 @@ Deno.serve(async (req) => {
     // Build structure-only index of proposed + approved rows.
     // Approved wins if both exist for the same structure (defensive — shouldn't happen post-cleanup).
     const existingByKey = new Map<string, any>();
+    // SKU-scoped guard: track which (template, vendor, vendor_item_id) combos already
+    // have a non-archived config. Prevents the seeder from spawning a sibling config
+    // for the SAME vendor SKU just because its pack-string parses to a different
+    // structural shape (e.g. PFG 180950 once as "6 case / 1 ea" and once as
+    // "6 case / 2.5 kg"). Multi-leg configs are a human-only decision.
+    const existingSkuByTemplate = new Map<string, Set<string>>();
     for (const row of (existingProposed || [])) {
       if (row.status !== 'proposed' && row.status !== 'approved') continue;
       const k = `${row.brand_template_id}::${row.outer_qty}::${row.inner_qty ?? 0}::${row.common_unit}`;
       const prior = existingByKey.get(k);
       if (!prior || (prior.status === 'proposed' && row.status === 'approved')) {
         existingByKey.set(k, row);
+      }
+      const evVendor = row.source_evidence?.vendor;
+      const evSku = row.source_evidence?.sku;
+      if (evVendor && evSku) {
+        const skuKey = `${String(evVendor).toLowerCase()}::${String(evSku)}`;
+        let set = existingSkuByTemplate.get(row.brand_template_id);
+        if (!set) { set = new Set(); existingSkuByTemplate.set(row.brand_template_id, set); }
+        set.add(skuKey);
       }
     }
 
