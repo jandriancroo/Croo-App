@@ -20,6 +20,8 @@ import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
 import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay';
 import { ManagerDashboardOverlay } from '@/components/punchclock/ManagerDashboardOverlay';
 import { ShiftSummaryCard } from '@/components/punchclock/ShiftSummaryCard';
+import { SwipePagerHint } from '@/components/punchclock/SwipePagerHint';
+import { useSwipe } from '@/hooks/useSwipe';
 
 // Function to calculate average brightness of an image
 const getImageBrightness = (imageUrl: string): Promise<number> => {
@@ -214,6 +216,12 @@ export default function PunchClock() {
   const [showManagerDashboard, setShowManagerDashboard] = useState(false);
   const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
   const activeCrooLogo = isDayMode ? crooLogo : crooLogoInverted;
+
+  // Swipe pager — swipe LEFT on the punch clock to reveal the manager dashboard
+  const keypadSwipeRef = useRef<HTMLDivElement>(null);
+  const shiftSwipeRef = useRef<HTMLDivElement>(null);
+  useSwipe(keypadSwipeRef, { onSwipeLeft: () => setShowManagerDashboard(true) });
+  useSwipe(shiftSwipeRef, { onSwipeLeft: () => setShowManagerDashboard(true) });
 
   // Listen for localStorage changes from ManagerDashboardOverlay
   useEffect(() => {
@@ -1276,7 +1284,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {/* Master code 0223 on keypad exits to dashboard */}
 
       {!currentUser ? (
-        <div className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
+        <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
+
           <Card className={`w-full max-w-5xl overflow-hidden relative ${isDayMode ? '' : 'bg-neutral-800 border-neutral-700'}`}>
             {/* Floating Location Badge - positioned at top center where sections meet */}
             {currentLocation && (
@@ -1541,18 +1550,17 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
 
           </Card>
 
-          {/* Swap to Dashboard Button - Fixed position matching manager dashboard */}
+          {/* Pager hint — replaces old teal swap button */}
           {currentLocation?.id && timezone && (
-            <button
-              className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[99] flex items-center justify-center w-20 h-20 rounded-full backdrop-blur-xl border-2 border-primary/30 bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all shadow-xl"
-              onClick={() => setShowManagerDashboard(true)}
-            >
-              <ArrowLeftRight className="h-8 w-8 text-primary-foreground" />
-            </button>
+            <SwipePagerHint
+              page="punch"
+              isDayMode={isDayMode}
+              onDotClick={(target) => target === 'dashboard' && setShowManagerDashboard(true)}
+            />
           )}
         </div>
       ) : (
-        <div className={`min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
+        <div ref={shiftSwipeRef} className={`min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
           {/* Logo - larger size */}
           <div className="mb-8">
             <img src={activeCrooLogo} alt="Croo" className="h-24 w-auto" />
