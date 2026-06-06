@@ -1402,7 +1402,7 @@ export function ManagerDashboardOverlay({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {checklistsData.slice(0, 7).map((checklist: any) => {
                     const completed = checklist.completedItems || 0;
                     const total = checklist.totalItems || 0;
