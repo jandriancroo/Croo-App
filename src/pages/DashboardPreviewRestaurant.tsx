@@ -2,13 +2,41 @@
 // Static visual showcase — view at /dashboard-preview-restaurant.
 // Projected sales render as muted shaded bars behind the actual sales bars.
 
-import { Scissors } from "lucide-react";
+import { Scissors, ChevronLeft, ChevronRight, Fingerprint, Clock } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 export default function DashboardPreviewRestaurant() {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const p = Math.round(el.scrollLeft / el.clientWidth);
+      setPage(p);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const goTo = (i: number) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+  };
+
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] text-slate-200 p-4 lg:p-10 font-sans">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-[#0f1117] border border-white/5 rounded-3xl p-6 lg:p-8 shadow-2xl">
+    <div className="min-h-screen w-full bg-[#0a0a0f] text-slate-200 font-sans relative overflow-hidden">
+      <div
+        ref={scrollerRef}
+        className="flex w-full h-screen overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {/* Page 1: Dashboard */}
+        <section className="snap-center shrink-0 w-full h-full overflow-y-auto p-4 lg:p-10 pb-24">
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-[#0f1117] border border-white/5 rounded-3xl p-6 lg:p-8 shadow-2xl">
           {/* Header with clock top-right */}
           <div className="pb-5 border-b border-white/5 flex items-start justify-between gap-6">
             <div>
