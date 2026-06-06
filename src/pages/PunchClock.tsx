@@ -1287,13 +1287,14 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {!currentUser ? (
         <div ref={keypadSwipeRef} className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
 
-          <div className="w-full max-w-5xl relative pt-10">
+          <div className="w-full max-w-5xl relative pt-14">
             {/* Location tab — visually merges with the page background and cuts into the card without a seam */}
             {currentLocation && (
               <div
-                className={`absolute left-1/2 top-0 -translate-x-1/2 z-30 flex items-center gap-3 px-8 py-3 rounded-b-[24px] ${
+                className={`absolute left-1/2 top-0 -translate-x-1/2 z-30 flex items-center gap-3 px-8 py-3.5 rounded-b-[24px] ${
                   isDayMode ? 'bg-background' : 'bg-neutral-900'
                 }`}
+                style={{ clipPath: 'inset(0 round 0 0 24px 24px)' }}
               >
                 {brandLogoUrl && (
                   <img src={brandLogoUrl} alt="Brand" className="h-8 w-8 object-contain rounded-md" />
@@ -1671,6 +1672,11 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             timezone={timezone}
             closeTime={closeTime}
             onClose={() => setShowManagerDashboard(false)}
+            isDayMode={isDayMode}
+            onThemeChange={(next) => {
+              setIsDayMode(next);
+              localStorage.setItem('punch-clock-day-mode', String(next));
+            }}
           />
         )}
       </AnimatePresence>
