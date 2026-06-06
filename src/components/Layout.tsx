@@ -1384,6 +1384,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                           </SelectContent>
                         </Select>
                       </div>
+                      <div className="flex items-center gap-2 pl-4 pr-2 h-8">
+                        <LayoutDashboard className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Dock Labels</span>
+                        <div className="flex-1" />
+                        <Switch checked={showDockLabels} onCheckedChange={handleDockLabelsChange} />
+                      </div>
                     </div>
                   )}
                 </div>
