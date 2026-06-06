@@ -113,12 +113,107 @@ export default function DashboardPreviewRestaurant() {
               <ChecklistRow label="Prep List" right="done" pct={100} tone="emerald" done />
               <ChecklistRow label="Closing" right="5/18" pct={28} tone="amber" />
             </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Page 2: Punch Clock */}
+        <section className="snap-center shrink-0 w-full h-full overflow-y-auto p-4 lg:p-10 pb-24">
+          <div className="max-w-xl mx-auto h-full flex items-center justify-center">
+            <div className="w-full bg-gradient-to-b from-[#141822] to-[#0f1117] border border-white/5 rounded-3xl p-8 shadow-2xl">
+              <div className="flex items-center justify-between pb-5 border-b border-white/5">
+                <div>
+                  <p className="text-amber-500 font-bold text-[11px] tracking-[0.2em] uppercase">Punch Clock</p>
+                  <p className="text-white text-lg font-medium mt-1">Tap in to start your shift</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-white text-3xl font-light tracking-tight tabular-nums">
+                    10:34<span className="text-slate-500 text-base ml-1">PM</span>
+                  </div>
+                  <div className="text-slate-500 text-[11px] uppercase tracking-widest mt-1">Friday, Jun 5</div>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center py-10">
+                <button className="w-40 h-40 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-[0_0_60px_-10px_rgba(245,158,11,0.6)] flex items-center justify-center hover:scale-105 transition-transform">
+                  <Fingerprint className="w-16 h-16 text-amber-950" strokeWidth={1.5} />
+                </button>
+                <p className="mt-6 text-slate-300 text-sm">Enter your 4-digit PIN</p>
+                <div className="flex gap-3 mt-3">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className="w-3 h-3 rounded-full border border-white/20" />
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-[#0a0a0f]/50 rounded-2xl p-4 mt-2">
+                <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400 mb-3">
+                  <Clock className="w-3.5 h-3.5" /> On the Clock
+                </div>
+                <div className="space-y-2.5">
+                  <StaffRow name="Janessa · 4h 12m" tone="bg-sky-300/80 text-sky-900" initial="J" />
+                  <StaffRow name="Joshua · 3h 48m" tone="bg-pink-300/80 text-pink-900" initial="J" />
+                  <StaffRow name="Nicole · 2h 21m" tone="bg-emerald-300/80 text-emerald-900" initial="N" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Pagination + animated swipe hint */}
+      <div className="absolute bottom-0 inset-x-0 pointer-events-none">
+        <div className="bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/80 to-transparent pt-10 pb-5">
+          <div className="flex flex-col items-center gap-3 pointer-events-auto">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => goTo(0)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-all ${page === 0 ? "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40" : "text-slate-500 hover:text-slate-300"}`}
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> Dashboard
+              </button>
+              <div className="flex items-center gap-2">
+                {[0, 1].map((i) => (
+                  <button
+                    key={i}
+                    onClick={() => goTo(i)}
+                    className={`h-1.5 rounded-full transition-all ${page === i ? "w-8 bg-amber-500" : "w-1.5 bg-white/20 hover:bg-white/40"}`}
+                  />
+                ))}
+              </div>
+              <button
+                onClick={() => goTo(1)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold tracking-wider uppercase transition-all ${page === 1 ? "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/40" : "text-slate-500 hover:text-slate-300"}`}
+              >
+                Punch Clock <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500 flex items-center gap-2 animate-pulse">
+              {page === 0 ? (
+                <>
+                  <span>swipe for punch clock</span>
+                  <ChevronRight className="w-3 h-3 animate-[slide-hint_1.4s_ease-in-out_infinite]" />
+                </>
+              ) : (
+                <>
+                  <ChevronLeft className="w-3 h-3 animate-[slide-hint-left_1.4s_ease-in-out_infinite]" />
+                  <span>swipe for dashboard</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        @keyframes slide-hint { 0%,100% { transform: translateX(0); opacity: .5; } 50% { transform: translateX(4px); opacity: 1; } }
+        @keyframes slide-hint-left { 0%,100% { transform: translateX(0); opacity: .5; } 50% { transform: translateX(-4px); opacity: 1; } }
+      `}</style>
     </div>
   );
 }
+
 
 /* ---------- subcomponents ---------- */
 
