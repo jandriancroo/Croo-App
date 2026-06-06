@@ -256,12 +256,26 @@ Deno.serve(async (req) => {
     // Build structure-only index of proposed + approved rows.
     // Approved wins if both exist for the same structure (defensive — shouldn't happen post-cleanup).
     const existingByKey = new Map<string, any>();
+    // SKU-scoped guard: track which (template, vendor, vendor_item_id) combos already
+    // have a non-archived config. Prevents the seeder from spawning a sibling config
+    // for the SAME vendor SKU just because its pack-string parses to a different
+    // structural shape (e.g. PFG 180950 once as "6 case / 1 ea" and once as
+    // "6 case / 2.5 kg"). Multi-leg configs are a human-only decision.
+    const existingSkuByTemplate = new Map<string, Set<string>>();
     for (const row of (existingProposed || [])) {
       if (row.status !== 'proposed' && row.status !== 'approved') continue;
       const k = `${row.brand_template_id}::${row.outer_qty}::${row.inner_qty ?? 0}::${row.common_unit}`;
       const prior = existingByKey.get(k);
       if (!prior || (prior.status === 'proposed' && row.status === 'approved')) {
         existingByKey.set(k, row);
+      }
+      const evVendor = row.source_evidence?.vendor;
+      const evSku = row.source_evidence?.sku;
+      if (evVendor && evSku) {
+        const skuKey = `${String(evVendor).toLowerCase()}::${String(evSku)}`;
+        let set = existingSkuByTemplate.get(row.brand_template_id);
+        if (!set) { set = new Set(); existingSkuByTemplate.set(row.brand_template_id, set); }
+        set.add(skuKey);
       }
     }
 
@@ -365,7 +379,28 @@ Deno.serve(async (req) => {
     // 5b. Walk every candidate — is it new?
     for (const c of uniqueCandidates) {
       const k = candidateKey(c);
-      if (!existingByKey.has(k)) {
+      if (existingByKey.has(k)) continue;
+
+      // SKU-scoped guard — never spawn a second config for a SKU that already has one.
+      // The only way to get a second config per SKU is a human deliberately adding it.
+      const skuKey = `${String(c.vendor).toLowerCase()}::${String(c.vendor_item_id)}`;
+      if (existingSkuByTemplate.get(c.brand_template_id)?.has(skuKey)) {
+        skippedCount++;
+        if (!dryRun) {
+          await supabase.from("pack_config_seed_log").insert({
+            brand_template_id: c.brand_template_id,
+            vendor: c.vendor,
+            vendor_item_id: c.vendor_item_id,
+            pack_string: c.source_evidence?.packString,
+            status: 'skipped',
+            dry_run: false,
+            run_id: runId,
+          });
+        }
+        continue;
+      }
+
+      {
         newCount++;
         if (!dryRun) {
           const { data: inserted, error: insErr } = await supabase
@@ -399,6 +434,10 @@ Deno.serve(async (req) => {
             });
           } else {
             created.push(c);
+            // Track the newly inserted SKU so further candidates in this run won't re-insert.
+            let set = existingSkuByTemplate.get(c.brand_template_id);
+            if (!set) { set = new Set(); existingSkuByTemplate.set(c.brand_template_id, set); }
+            set.add(skuKey);
             await supabase.from("pack_config_seed_log").insert({
               brand_template_id: c.brand_template_id,
               vendor: c.vendor,
