@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, LogOut, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type, GraduationCap } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -397,6 +398,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const ovationHasContent = !!ovationDisplayScore || ovationLoading;
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');
+  const [showDockLabels, setShowDockLabels] = useState(localStorage.getItem('app-dock-labels') !== 'false');
   const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false);
 
   // Show version toast after "Update App" reload
@@ -440,6 +442,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     setTextSize(value);
     localStorage.setItem('app-text-size', value);
     document.documentElement.setAttribute('data-text-size', value);
+  };
+
+  const handleDockLabelsChange = (checked: boolean) => {
+    setShowDockLabels(checked);
+    localStorage.setItem('app-dock-labels', checked ? 'true' : 'false');
+    window.dispatchEvent(new Event('dock-labels-changed'));
   };
 
   // Apply saved text size on mount
@@ -1375,6 +1383,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="flex items-center gap-2 pl-4 pr-2 h-8">
+                        <LayoutDashboard className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Dock Labels</span>
+                        <div className="flex-1" />
+                        <Switch checked={showDockLabels} onCheckedChange={handleDockLabelsChange} />
                       </div>
                     </div>
                   )}
