@@ -458,6 +458,15 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                                   {itemEdits.length}
                                                 </Badge>
                                               )}
+                                              {isSandboxCount && sandboxOwner && (
+                                                <SandboxFlagButton
+                                                  countId={countId}
+                                                  inventoryItemId={item.item_id}
+                                                  itemName={item.item?.name}
+                                                  sandboxOwner={sandboxOwner}
+                                                  compact
+                                                />
+                                              )}
                                             </div>
                                             <p className="text-xs text-muted-foreground truncate">
                                               {item.item?.item_number && `#${item.item.item_number} · `}
