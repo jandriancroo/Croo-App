@@ -256,6 +256,7 @@ export function computeCountLanes({
     costPerPack,
     costPerUnit,
     unitToken: commonUnitToken,
+    innerNounToken: showInnerPacks ? innerNounToken : null,
     caseTierSource: lensApplies ? "lens" : "local",
   };
 }
