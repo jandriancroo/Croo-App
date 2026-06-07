@@ -79,8 +79,12 @@ export function CountLanesPreview({
             <Lane
               label={lanes.casesLabel}
               sub={(() => {
-                const unit = lanes.unitToken
-                  ?? (lanes.innerPackQty ? "units" : "ea");
+                // When an inner-pack tier exists, a "case" holds N inner packs
+                // (e.g. 24 bottles), not N atomic units (24 oz). Prefer the
+                // inner noun in that case; fall back to the atomic unit token.
+                const unit = lanes.innerNounToken
+                  ? lanes.packQty === 1 ? lanes.innerNounToken : `${lanes.innerNounToken}s`
+                  : (lanes.unitToken ?? (lanes.innerPackQty ? "units" : "ea"));
                 return `(${lanes.packQty} ${unit}/${lanes.casesNounToken})`;
               })()}
             />
