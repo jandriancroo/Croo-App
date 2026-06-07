@@ -527,7 +527,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("duration_seconds, is_sandbox")
+        .select("duration_seconds, is_sandbox, sandbox_owner")
         .eq("id", countId)
         .single();
       if (error) throw error;
