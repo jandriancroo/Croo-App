@@ -83,6 +83,8 @@ export interface CountLanes {
   costPerUnit: number | null;
   /** Lowercased atomic unit token (e.g. "lb", "oz") for human-readable sublabels. null when unit is generic (ea/case/etc). */
   unitToken: string | null;
+  /** Singular noun for the inner-pack tier (e.g. "bottle", "sleeve", "pk"). null when no inner tier. */
+  innerNounToken: string | null;
   /** Which signal drove case-lane visibility — useful for debugging/UX. */
   caseTierSource: "lens" | "local" | "recipe";
 }
