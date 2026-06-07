@@ -72,6 +72,21 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
   });
   const { conversionMap } = useBrandConversions(brandId);
 
+  // Sandbox metadata — drives per-item flag buttons + flags panel
+  const { data: countMeta } = useQuery({
+    queryKey: ["inventory-count-sandbox-meta", countId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("inventory_counts")
+        .select("is_sandbox, sandbox_owner")
+        .eq("id", countId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const isSandboxCount = !!countMeta?.is_sandbox;
+  const sandboxOwner = countMeta?.sandbox_owner ?? null;
+
   // Step 3: legs-aware read path. All three queries + the leg→value math
   // live in the shared useLegsValuation hook — see src/hooks/useLegsValuation.ts.
   // When the location's legs_enabled flag is off, the hook returns empty maps
