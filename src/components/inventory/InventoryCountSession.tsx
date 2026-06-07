@@ -40,6 +40,7 @@ import {
   clearCountCache,
 } from "@/utils/inventoryCountCache";
 import { InventorySyncPill } from "@/components/inventory/InventorySyncPill";
+import { SandboxFlagButton } from "@/components/inventory/SandboxFlagButton";
 
 interface InventoryCountSessionProps {
   countId: string;
@@ -526,7 +527,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("duration_seconds, is_sandbox")
+        .select("duration_seconds, is_sandbox, sandbox_owner")
         .eq("id", countId)
         .single();
       if (error) throw error;
@@ -3033,7 +3034,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   </p>
                 </div>
                 <div style={{ paddingRight: 68 }}>
-                  <p className="text-[15px] sm:text-base font-bold text-foreground truncate leading-tight">{item.item_name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[15px] sm:text-base font-bold text-foreground truncate leading-tight">{item.item_name}</p>
+                    {isSandboxCount && (countRecord as any)?.sandbox_owner && (
+                      <SandboxFlagButton
+                        countId={countId}
+                        inventoryItemId={item.item_id}
+                        itemName={item.item_name}
+                        sandboxOwner={(countRecord as any).sandbox_owner}
+                        compact
+                      />
+                    )}
+                  </div>
                   {headerSubtitle && (
                     <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 truncate">{headerSubtitle}</p>
                   )}

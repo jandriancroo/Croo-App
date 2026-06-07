@@ -13,6 +13,8 @@ import { calculateCountItemValue } from "@/utils/countItemValue";
 import { useBrandConversions } from "@/hooks/useBrandConversions";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useLegsValuation, buildLegsForValuation } from "@/hooks/useLegsValuation";
+import { SandboxFlagButton } from "./SandboxFlagButton";
+import { SandboxFlagsPanel } from "./SandboxFlagsPanel";
 
 
 
@@ -69,6 +71,21 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     staleTime: 10 * 60 * 1000,
   });
   const { conversionMap } = useBrandConversions(brandId);
+
+  // Sandbox metadata — drives per-item flag buttons + flags panel
+  const { data: countMeta } = useQuery({
+    queryKey: ["inventory-count-sandbox-meta", countId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("inventory_counts")
+        .select("is_sandbox, sandbox_owner")
+        .eq("id", countId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const isSandboxCount = !!countMeta?.is_sandbox;
+  const sandboxOwner = countMeta?.sandbox_owner ?? null;
 
   // Step 3: legs-aware read path. All three queries + the leg→value math
   // live in the shared useLegsValuation hook — see src/hooks/useLegsValuation.ts.
@@ -324,6 +341,7 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
       </TabsList>
 
       <TabsContent value="items" className="space-y-4">
+        {isSandboxCount && <SandboxFlagsPanel countId={countId} />}
         {/* Edit history now shown inline on highlighted item rows */}
         {/* Summary Card */}
         <Card>
@@ -440,6 +458,15 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
                                                   <History className="h-3 w-3" />
                                                   {itemEdits.length}
                                                 </Badge>
+                                              )}
+                                              {isSandboxCount && sandboxOwner && (
+                                                <SandboxFlagButton
+                                                  countId={countId}
+                                                  inventoryItemId={item.item_id}
+                                                  itemName={item.item?.name}
+                                                  sandboxOwner={sandboxOwner}
+                                                  compact
+                                                />
                                               )}
                                             </div>
                                             <p className="text-xs text-muted-foreground truncate">

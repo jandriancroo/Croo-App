@@ -22,6 +22,7 @@ import {
 import { Beaker, RotateCw, Wrench, Rocket, Copy, Check, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
+import { SandboxFlagsCounter } from "./SandboxFlagsPanel";
 
 interface SandboxBannerProps {
   count: {
@@ -273,8 +274,9 @@ export function SandboxBanner({ count }: SandboxBannerProps) {
         <div className="flex items-start gap-3">
           <Beaker className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm">
-              Sandbox count — isolated testbed
+            <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
+              <span>Sandbox count — isolated testbed</span>
+              <SandboxFlagsCounter countId={count.id} />
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
               {hasSource ? (

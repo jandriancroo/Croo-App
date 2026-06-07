@@ -8629,6 +8629,64 @@ export type Database = {
         }
         Relationships: []
       }
+      sandbox_item_flags: {
+        Row: {
+          count_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          inventory_item_id: string
+          note: string
+          sandbox_owner: string
+          tag: string
+          updated_at: string
+        }
+        Insert: {
+          count_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inventory_item_id: string
+          note?: string
+          sandbox_owner: string
+          tag?: string
+          updated_at?: string
+        }
+        Update: {
+          count_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inventory_item_id?: string
+          note?: string
+          sandbox_owner?: string
+          tag?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sandbox_item_flags_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sandbox_item_flags_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts_live"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sandbox_item_flags_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedule_change_log: {
         Row: {
           change_type: string
