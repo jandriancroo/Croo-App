@@ -171,6 +171,7 @@ export function computeCountLanes({
       costPerPack: null,
       costPerUnit,
       unitToken: null,
+      innerNounToken: null,
       caseTierSource: "recipe",
     };
   }
