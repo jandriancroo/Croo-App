@@ -24,53 +24,11 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// ── Pack-string parser (handles PFG, PA, and compact formats) ──
-interface ParsedPack {
-  outer_qty: number;
-  inner_qty: number;
-  inner_type: string;
-  common_unit: string;
-}
+// ── Pack-string parser ──
+// Shared with pack-selection-backfill. Single source of truth.
+// See supabase/functions/_shared/packParser.ts for the parser definition.
+import { parsePackString, normalizeUnit, type ParsedPack } from "../_shared/packParser.ts";
 
-function parsePackString(packString: string | null | undefined): ParsedPack | null {
-  if (!packString) return null;
-  const trimmed = packString.trim();
-
-  // Format: "4 / 1 GA" or "1/4 LB" or "6/5LB"
-  const slashMatch = trimmed.match(/^\s*(\d+)\s*\/\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$/);
-  if (slashMatch) {
-    const outer_qty = parseInt(slashMatch[1], 10);
-    const inner_qty = parseFloat(slashMatch[2]);
-    const rawUnit = slashMatch[3].toLowerCase();
-    if (!Number.isFinite(outer_qty) || !Number.isFinite(inner_qty) || outer_qty <= 0 || inner_qty <= 0) return null;
-    const { inner_type, common_unit } = normalizeUnit(rawUnit);
-    return { outer_qty, inner_qty, inner_type, common_unit };
-  }
-
-  // Format: "3 CT" or "2.5 KG" (no slash — single pack, outer=1)
-  const noSlashMatch = trimmed.match(/^\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$/);
-  if (noSlashMatch) {
-    const inner_qty = parseFloat(noSlashMatch[1]);
-    const rawUnit = noSlashMatch[2].toLowerCase();
-    if (!Number.isFinite(inner_qty) || inner_qty <= 0) return null;
-    const { inner_type, common_unit } = normalizeUnit(rawUnit);
-    return { outer_qty: 1, inner_qty, inner_type, common_unit };
-  }
-
-  return null;
-}
-
-function normalizeUnit(raw: string): { inner_type: string; common_unit: string } {
-  switch (raw) {
-    case 'lb': case 'lbs': return { inner_type: 'lb', common_unit: 'lb' };
-    case 'oz': case 'ozs': return { inner_type: 'oz', common_unit: 'oz' };
-    case 'ga': case 'gal': case 'gallon': case 'gallons': return { inner_type: 'ga', common_unit: 'ga' };
-    case 'kg': case 'kgs': return { inner_type: 'kg', common_unit: 'kg' };
-    case 'g': case 'gs': return { inner_type: 'g', common_unit: 'g' };
-    case 'ct': case 'ea': case 'each': case 'cn': case 'count': return { inner_type: 'ea', common_unit: 'ea' };
-    default: return { inner_type: raw, common_unit: raw };
-  }
-}
 
 // ── Source record types ──
 interface SourceRecord {
