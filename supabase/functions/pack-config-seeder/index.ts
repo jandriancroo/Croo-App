@@ -115,13 +115,22 @@ Deno.serve(async (req) => {
 
   try {
     // ── Query A: eligible templates ──
+    // EXCLUDES: recipes, and templates literally named "Water" (costless ingredient).
+    // TODO: replace name-based Water exclusion with a proper `costless_ingredient`
+    // boolean on brand_inventory_templates (separate from is_recipe). For now,
+    // name match is the smallest blast-radius fix.
     const { data: templates, error: tErr } = await supabase
       .from("brand_inventory_templates")
       .select("id, product_name, brand_id, status, is_recipe")
       .in("status", ["live", "draft"])
       .or("is_recipe.is.null,is_recipe.eq.false");
     if (tErr) throw tErr;
-    const eligibleTemplateIds = new Set<string>((templates || []).map((t: any) => t.id));
+    const eligibleTemplateIds = new Set<string>(
+      (templates || [])
+        .filter((t: any) => String(t.product_name ?? '').trim().toLowerCase() !== 'water')
+        .map((t: any) => t.id)
+    );
+
 
     // ── Query B: vendor mappings per template ──
     const { data: mappings, error: mErr } = await supabase
@@ -320,9 +329,10 @@ Deno.serve(async (req) => {
     const reports = {
       needs_vendor_mapping: [] as { template_id: string; template_name: string; locations: string[] }[],
       needs_source_evidence: [] as { template_id: string; template_name: string; location_id: string; vendor: string; vendor_item_id: string }[],
-      multiple_mappings_warning: [] as { template_id: string; template_name: string; mappings: { vendor: string; vendor_item_id: string }[] }[],
-      parse_failures: [] as { template_id: string; location_id: string; source: string; pack_string: string }[],
+      needs_deduplication: [] as { template_id: string; template_name: string; mappings: { vendor: string; vendor_item_id: string }[]; locations: string[] }[],
+      parse_failures: [] as { template_id: string; template_name: string; location_id: string; source: string; pack_string: string }[],
     };
+
 
     const templatesById = new Map<string, any>((templates || []).map((t: any) => [t.id, t]));
 
@@ -342,12 +352,19 @@ Deno.serve(async (req) => {
       buckets.templates_with_mapping++;
 
       if (maps.length > 1) {
-        reports.multiple_mappings_warning.push({
+        // HARD SKIP: multi-mapping templates are a data integrity violation
+        // (Jordan's rule: "DIFF vendor = NEW BRAND ITEM"). Do not propose
+        // configs from ambiguous mappings — surface to needs_deduplication
+        // for manual cleanup before next run.
+        reports.needs_deduplication.push({
           template_id: templateId,
           template_name: tpl?.product_name ?? '(unknown)',
           mappings: maps.map(m => ({ vendor: m.vendor, vendor_item_id: m.vendor_item_id })),
+          locations: Array.from(locSet),
         });
+        continue;
       }
+
 
       for (const locationId of locSet) {
         buckets.pairs_evaluated++;
@@ -369,7 +386,7 @@ Deno.serve(async (req) => {
 
                 });
               } else {
-                reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pfg_bid', pack_string: bid.pack_size });
+                reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pfg_bid', pack_string: bid.pack_size });
               }
             }
             const ord = pfgOrderIdx.get(`${locationId}::${m.vendor_item_id}`);
@@ -383,7 +400,7 @@ Deno.serve(async (req) => {
                   observed_at: ord._order_date ?? null, label: ord.name ?? null,
                 });
               } else {
-                reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pfg_order', pack_string: ord.packSize });
+                reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pfg_order', pack_string: ord.packSize });
               }
             }
           } else if (m.vendor === 'pa') {
@@ -398,7 +415,7 @@ Deno.serve(async (req) => {
                   observed_at: cat.last_seen_at ?? null, label: cat.description ?? null,
                 });
               } else {
-                reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pa_catalog', pack_string: cat.pack_size });
+                reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pa_catalog', pack_string: cat.pack_size });
               }
             }
             const ord = paOrderIdx.get(`${locationId}::${m.vendor_item_id}`);
@@ -569,14 +586,15 @@ Deno.serve(async (req) => {
           needs_vendor_mapping_count: enrichedNeedsVendorMapping.length,
           needs_source_evidence_count: enrichedNeedsSourceEvidence.length,
           needs_source_evidence_no_invoice_count: enrichedNeedsSourceEvidence.filter(r => r.no_invoice_history).length,
-          multiple_mappings_warning_count: reports.multiple_mappings_warning.length,
+          needs_deduplication_count: reports.needs_deduplication.length,
           parse_failures_count: reports.parse_failures.length,
-          // Full enriched lists (sorted by template name) — small enough to paste.
+          // Full lists (sorted by template name) — paste-able for triage.
           needs_vendor_mapping: enrichedNeedsVendorMapping,
           needs_source_evidence: enrichedNeedsSourceEvidence,
-          multiple_mappings_warning_sample: reports.multiple_mappings_warning.slice(0, 10),
-          parse_failures_sample: reports.parse_failures.slice(0, 10),
+          needs_deduplication: reports.needs_deduplication.sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? '')),
+          parse_failures: reports.parse_failures.sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? '')),
         },
+
         sample_proposals: Array.from(proposalByKey.values()).slice(0, 10),
         sample_ledger_rows: ledgerRows.slice(0, 10),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
