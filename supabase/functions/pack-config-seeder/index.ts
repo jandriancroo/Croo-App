@@ -624,9 +624,10 @@ Deno.serve(async (req) => {
       inserted++;
     }
 
-    // Ledger upsert — table schema uses single `vendor_source` column
-    // ("vendor:source", e.g. "pfg:pfg_bid"). Unique on
-    // (location_id, brand_template_id, pack_structure_key).
+    // Ledger upsert — table schema uses single `vendor_source` column.
+    // CHECK constraint restricts to: pfg_bid | pfg_order | pa_catalog |
+    // pa_order | invoice (i.e. the source enum, vendor is implied by it).
+    // Unique on (location_id, brand_template_id, pack_structure_key).
     let ledgerUpserted = 0;
     let ledgerErrors = 0;
     if (ledgerRows.length > 0) {
