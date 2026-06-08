@@ -2732,8 +2732,12 @@ serve(async (req) => {
         });
       }
       
+      case 'scrape_bid_all_locations':
+        return await handleScrapeBidAllLocations(supabase, body);
+
       case 'sync_orders':
         return await handleSyncOrders(supabase, body);
+
       
       case 'list_delivery_locations':
         return await handleListDeliveryLocations(supabase, body);
