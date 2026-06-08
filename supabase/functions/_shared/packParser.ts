@@ -15,23 +15,54 @@ export interface ParsedPack {
   common_unit: string;
 }
 
+// Industry-standard #N can sizes in fluid ounces — mirrored from
+// src/utils/unitConversion.ts HASH_CAN_OZ. Keep in sync.
+const HASH_CAN_OZ: Record<string, number> = {
+  "1": 11, "2": 20, "2.5": 29, "3": 33, "5": 56, "10": 104,
+};
+
+// Numeric token: supports "5", "5.5", and leading-decimal forms like ".8" or ".1"
+// (Peroxide ".8 GA", Sugar Packets ".1 OZ" patterns).
+const NUM = String.raw`(?:\d*\.\d+|\d+(?:\.\d+)?)`;
+
 export function parsePackString(packString: string | null | undefined): ParsedPack | null {
   if (!packString) return null;
   const trimmed = packString.trim();
 
-  // Format: "4 / 1 GA" or "1/4 LB" or "6/5LB" or "12/1 RL"
-  const slashMatch = trimmed.match(/^\s*(\d+)\s*\/\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$/);
+  // Format: "6/#10 CN" or "4/#5 CN" — PFG #N-can prefix
+  // Outer count / #N can-size, optionally followed by a unit token (CN, CAN, EA).
+  // The inner_qty is the industry-standard fluid-oz of that can, inner_type=oz.
+  const hashCanMatch = trimmed.match(
+    new RegExp(`^\\s*(\\d+)\\s*/\\s*#(${NUM})(?:\\s*[A-Za-z]+)?\\s*$`)
+  );
+  if (hashCanMatch) {
+    const outer_qty = parseInt(hashCanMatch[1], 10);
+    const sizeKey = hashCanMatch[2];
+    const oz = HASH_CAN_OZ[sizeKey];
+    if (Number.isFinite(outer_qty) && outer_qty > 0 && oz) {
+      return { outer_qty, inner_qty: oz, inner_type: 'oz', common_unit: 'oz' };
+    }
+    return null;
+  }
+
+  // Format: "4 / 1 GA" or "1/4 LB" or "6/5LB" or "12/1 RL" or ".8 / 1 GA"
+  const slashMatch = trimmed.match(
+    new RegExp(`^\\s*(${NUM})\\s*/\\s*(${NUM})\\s*([A-Za-z]+)\\s*$`)
+  );
   if (slashMatch) {
-    const outer_qty = parseInt(slashMatch[1], 10);
+    const outer_qty = parseFloat(slashMatch[1]);
     const inner_qty = parseFloat(slashMatch[2]);
     const rawUnit = slashMatch[3].toLowerCase();
     if (!Number.isFinite(outer_qty) || !Number.isFinite(inner_qty) || outer_qty <= 0 || inner_qty <= 0) return null;
     const { inner_type, common_unit } = normalizeUnit(rawUnit);
+    // outer_qty stays numeric; downstream multiplies it as-is.
     return { outer_qty, inner_qty, inner_type, common_unit };
   }
 
-  // Format: "3 CT" or "2.5 KG" (no slash — single pack, outer=1)
-  const noSlashMatch = trimmed.match(/^\s*(\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$/);
+  // Format: "3 CT", "2.5 KG", ".8 GA", ".1 OZ" (no slash — single pack, outer=1)
+  const noSlashMatch = trimmed.match(
+    new RegExp(`^\\s*(${NUM})\\s*([A-Za-z]+)\\s*$`)
+  );
   if (noSlashMatch) {
     const inner_qty = parseFloat(noSlashMatch[1]);
     const rawUnit = noSlashMatch[2].toLowerCase();

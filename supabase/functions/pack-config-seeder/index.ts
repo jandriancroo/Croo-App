@@ -624,24 +624,52 @@ Deno.serve(async (req) => {
       inserted++;
     }
 
-    // Ledger upsert (unique on location_id, brand_template_id, pack_structure_key)
+    // Ledger upsert — table schema uses single `vendor_source` column.
+    // CHECK constraint restricts to: pfg_bid | pfg_order | pa_catalog |
+    // pa_order | invoice (i.e. the source enum, vendor is implied by it).
+    // Unique on (location_id, brand_template_id, pack_structure_key).
+    let ledgerUpserted = 0;
+    let ledgerErrors = 0;
+    let ledgerLastError: string | null = null;
     if (ledgerRows.length > 0) {
+      // Dedupe in-memory: same (location, template, pack_structure_key) may be
+      // pushed twice (pfg_bid + pfg_order). Postgres rejects upserts whose
+      // INSERT side contains duplicate conflict-target rows.
+      const dedup = new Map<string, typeof ledgerRows[number]>();
+      for (const r of ledgerRows) {
+        const k = `${r.location_id}::${r.brand_template_id}::${r.pack_structure_key}`;
+        if (!dedup.has(k)) dedup.set(k, r); // first-seen wins (pfg_bid before pfg_order)
+      }
+      const deduped = Array.from(dedup.values());
       const chunk = 500;
-      for (let i = 0; i < ledgerRows.length; i += chunk) {
-        const batch = ledgerRows.slice(i, i + chunk).map(r => ({
-          ...r,
-          last_seen_at: new Date().toISOString(),
+      const nowISO = new Date().toISOString();
+      for (let i = 0; i < deduped.length; i += chunk) {
+        const batch = deduped.slice(i, i + chunk).map(r => ({
+          location_id: r.location_id,
+          brand_template_id: r.brand_template_id,
+          pack_structure_key: r.pack_structure_key,
+          vendor_source: r.source,
+          last_seen_at: nowISO,
         }));
-        await supabase.from("location_pack_seen_ledger").upsert(batch, {
-          onConflict: "location_id,brand_template_id,pack_structure_key",
-        });
+        const { error: ledErr } = await supabase
+          .from("location_pack_seen_ledger")
+          .upsert(batch, { onConflict: "location_id,brand_template_id,pack_structure_key" });
+        if (ledErr) {
+          console.error("ledger upsert error", ledErr);
+          ledgerErrors += batch.length;
+          ledgerLastError = ledErr.message;
+        } else {
+          ledgerUpserted += batch.length;
+        }
       }
     }
 
     return new Response(JSON.stringify({
       ok: true, dry_run: false, run_id: runId,
       inserted_proposals: inserted, skipped_proposals: skipped,
-      ledger_rows_upserted: ledgerRows.length,
+      ledger_rows_upserted: ledgerUpserted,
+      ledger_rows_failed: ledgerErrors,
+      ledger_last_error: ledgerLastError,
       buckets,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
