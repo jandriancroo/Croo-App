@@ -86,18 +86,25 @@ Deno.serve(async (req) => {
   // ── Step 1: find missing pairs ────────────────────────────────────────────
   // Fetch sources independently — there are multiple FKs from inventory_items
   // to brand_inventory_templates, so PostgREST embedding is ambiguous.
-  let itemsQuery = supabase
-    .from("inventory_items")
-    .select("brand_item_id, location_id")
-    .eq("is_active", true)
-    .not("brand_item_id", "is", null)
-    .not("location_id", "is", null)
-    .limit(50000);
-  if (onlyLocationId) itemsQuery = itemsQuery.eq("location_id", onlyLocationId);
+  // Paginate around PostgREST's 1000-row server cap.
+  const itemRows: Array<{ brand_item_id: string; location_id: string }> = [];
+  const PAGE = 1000;
+  for (let off = 0; ; off += PAGE) {
+    let q = supabase
+      .from("inventory_items")
+      .select("brand_item_id, location_id")
+      .eq("is_active", true)
+      .not("brand_item_id", "is", null)
+      .not("location_id", "is", null)
+      .range(off, off + PAGE - 1);
+    if (onlyLocationId) q = q.eq("location_id", onlyLocationId);
+    const { data, error } = await q;
+    if (error) return ok({ error: error.message }, 500);
+    if (!data || data.length === 0) break;
+    itemRows.push(...(data as any));
+    if (data.length < PAGE) break;
+  }
 
-
-  const { data: itemRows, error: itemErr } = await itemsQuery;
-  if (itemErr) return ok({ error: itemErr.message }, 500);
 
   const candidateTplIds = [...new Set((itemRows || []).map((r: any) => r.brand_item_id))];
   const candidateLocIds = [...new Set((itemRows || []).map((r: any) => r.location_id))];
