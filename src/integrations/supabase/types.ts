@@ -5626,6 +5626,54 @@ export type Database = {
           },
         ]
       }
+      location_pack_seen_ledger: {
+        Row: {
+          brand_template_id: string
+          created_at: string
+          id: string
+          last_seen_at: string
+          location_id: string
+          pack_structure_key: string
+          updated_at: string
+          vendor_source: string
+        }
+        Insert: {
+          brand_template_id: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          location_id: string
+          pack_structure_key: string
+          updated_at?: string
+          vendor_source: string
+        }
+        Update: {
+          brand_template_id?: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          location_id?: string
+          pack_structure_key?: string
+          updated_at?: string
+          vendor_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_pack_seen_ledger_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_pack_seen_ledger_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_pack_selections: {
         Row: {
           active_pack_config_id: string
