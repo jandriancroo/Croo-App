@@ -91,8 +91,10 @@ Deno.serve(async (req) => {
     .select("brand_item_id, location_id")
     .eq("is_active", true)
     .not("brand_item_id", "is", null)
-    .not("location_id", "is", null);
+    .not("location_id", "is", null)
+    .limit(50000);
   if (onlyLocationId) itemsQuery = itemsQuery.eq("location_id", onlyLocationId);
+
 
   const { data: itemRows, error: itemErr } = await itemsQuery;
   if (itemErr) return ok({ error: itemErr.message }, 500);
