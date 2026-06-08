@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
       if (!maps || maps.length === 0) {
         reports.needs_vendor_mapping.push({
           template_id: templateId,
-          template_name: tpl?.name ?? '(unknown)',
+          template_name: tpl?.product_name ?? '(unknown)',
           locations: Array.from(locSet),
         });
         continue;
@@ -344,7 +344,7 @@ Deno.serve(async (req) => {
       if (maps.length > 1) {
         reports.multiple_mappings_warning.push({
           template_id: templateId,
-          template_name: tpl?.name ?? '(unknown)',
+          template_name: tpl?.product_name ?? '(unknown)',
           mappings: maps.map(m => ({ vendor: m.vendor, vendor_item_id: m.vendor_item_id })),
         });
       }
@@ -426,7 +426,7 @@ Deno.serve(async (req) => {
         if (resolved.length === 0) {
           for (const m of maps) {
             reports.needs_source_evidence.push({
-              template_id: templateId, template_name: tpl?.name ?? '(unknown)',
+              template_id: templateId, template_name: tpl?.product_name ?? '(unknown)',
               location_id: locationId, vendor: m.vendor, vendor_item_id: m.vendor_item_id,
             });
           }
