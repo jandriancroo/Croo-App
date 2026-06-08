@@ -100,6 +100,9 @@ verify_jwt = false
 [functions.kds-stream]
 verify_jwt = false
 
+[functions.kiosk-metrics]
+verify_jwt = false
+
 [functions.pack-selection-backfill]
 verify_jwt = false
 
