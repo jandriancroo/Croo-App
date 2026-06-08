@@ -259,22 +259,44 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Invoices — join items+invoices, filter by matched_template_id
+    // Invoices — for ENRICHMENT only (option a: no source-of-truth use yet).
+    // vendor_invoice_items has no pack_size column; we attach the raw
+    // product_name + unit + qty + price so the deferred reports become
+    // human-triageable. Two indexes:
+    //   invoiceByPair    — keyed location_id::matched_template_id (most recent)
+    //   invoiceByTemplate — keyed matched_template_id (most recent across any
+    //                       location), used when only template_id is known
+    //                       (needs_vendor_mapping rows).
     const { data: invLines } = await supabase
       .from("vendor_invoice_items")
-      .select("matched_template_id, vendor_item_id, pack_size, unit_price, line_total, quantity, description, vendor_invoices!inner(location_id, invoice_date, vendor_name)")
+      .select("matched_template_id, item_number, product_name, unit, quantity, unit_price, total_price, vendor_invoices!inner(location_id, invoice_date, invoice_number, vendor_name)")
       .not("matched_template_id", "is", null)
       .gte("vendor_invoices.invoice_date", cutoffISO(INVOICE_LOOKBACK_DAYS));
-    const invoiceIdx = new Map<string, any>(); // key: location_id::matched_template_id
+    const enrichByPair = new Map<string, any>();      // location_id::template_id
+    const enrichByTemplate = new Map<string, any>();  // template_id
     for (const il of (invLines || [])) {
       const inv = (il as any).vendor_invoices;
       if (!inv?.location_id || !il.matched_template_id) continue;
-      const k = `${inv.location_id}::${il.matched_template_id}`;
-      const prior = invoiceIdx.get(k);
-      if (!prior || (inv.invoice_date && inv.invoice_date > (prior._invoice_date ?? ''))) {
-        invoiceIdx.set(k, { ...il, _invoice_date: inv.invoice_date, _vendor_name: inv.vendor_name });
+      const enrichment = {
+        most_recent_invoice_date: inv.invoice_date,
+        most_recent_invoice_number: inv.invoice_number,
+        most_recent_vendor_name: inv.vendor_name,
+        invoice_product_name: il.product_name,
+        invoice_unit: il.unit,
+        invoice_quantity: il.quantity,
+        invoice_unit_price: il.unit_price,
+      };
+      const pk = `${inv.location_id}::${il.matched_template_id}`;
+      const pPrior = enrichByPair.get(pk);
+      if (!pPrior || (inv.invoice_date && inv.invoice_date > (pPrior.most_recent_invoice_date ?? ''))) {
+        enrichByPair.set(pk, enrichment);
+      }
+      const tPrior = enrichByTemplate.get(il.matched_template_id);
+      if (!tPrior || (inv.invoice_date && inv.invoice_date > (tPrior.most_recent_invoice_date ?? ''))) {
+        enrichByTemplate.set(il.matched_template_id, enrichment);
       }
     }
+
 
     // ── Resolution loop ──
     const candidates: ProposalCandidate[] = [];
