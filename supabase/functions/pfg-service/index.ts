@@ -459,6 +459,62 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
   return { categories };
 }
 
+// Upsert PFG bid/product-list items into pfg_bid_items cache for a location.
+// Piggybacks on any categories fetch — no extra round-trips. Items not seen
+// this run keep their old last_seen_at and naturally age out of Phase 2's
+// 30-day freshness window.
+async function upsertPfgBidItems(
+  supabase: any,
+  locationId: string,
+  categories: any[],
+): Promise<{ upserted: number; skipped: number }> {
+  if (!locationId || !Array.isArray(categories) || categories.length === 0) {
+    return { upserted: 0, skipped: 0 };
+  }
+
+  const seen = new Map<string, any>(); // dedupe by item_number within run
+  for (const cat of categories) {
+    const categoryName = cat?.name || null;
+    for (const p of (cat?.products || [])) {
+      const itemNumber = p?.itemNumber;
+      if (!itemNumber) continue;
+      const key = String(itemNumber);
+      if (seen.has(key)) continue;
+      seen.set(key, {
+        location_id: locationId,
+        item_number: key,
+        description: p?.fullDescription || p?.name || '',
+        pack_size: p?.packSize || null,
+        category: categoryName,
+        brand_name: p?.brand || null,
+        unit_price: typeof p?.price === 'number' && p.price > 0 ? p.price : null,
+        last_seen_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  if (seen.size === 0) return { upserted: 0, skipped: 0 };
+
+  const rows = Array.from(seen.values());
+  // Chunk to keep payloads sane
+  const CHUNK = 500;
+  let upserted = 0;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const { error } = await supabase
+      .from('pfg_bid_items')
+      .upsert(chunk, { onConflict: 'location_id,item_number' });
+    if (error) {
+      console.warn('[PFG bid cache] Upsert chunk failed:', error.message);
+    } else {
+      upserted += chunk.length;
+    }
+  }
+  console.log(`[PFG bid cache] Upserted ${upserted}/${rows.length} items for location ${locationId}`);
+  return { upserted, skipped: rows.length - upserted };
+}
+
+
 // Fetch product detail (with pricing) from PFG
 async function fetchProductDetail(accessToken: string, productKey: string, customerId: string): Promise<any> {
   console.log('[PFG API] Fetching product detail for:', productKey);
