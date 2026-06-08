@@ -938,7 +938,7 @@ export type Database = {
           outer_qty: number
           outer_type: string
           source: string | null
-          source_evidence: Json | null
+          source_evidence: Json
           status: string
           updated_at: string
         }
@@ -957,7 +957,7 @@ export type Database = {
           outer_qty: number
           outer_type: string
           source?: string | null
-          source_evidence?: Json | null
+          source_evidence?: Json
           status?: string
           updated_at?: string
         }
@@ -976,7 +976,7 @@ export type Database = {
           outer_qty?: number
           outer_type?: string
           source?: string | null
-          source_evidence?: Json | null
+          source_evidence?: Json
           status?: string
           updated_at?: string
         }
