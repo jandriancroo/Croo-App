@@ -5,15 +5,22 @@
 // location, applies brand-level pack overrides, and emits proposals to
 // brand_pack_configs + ledger rows to location_pack_seen_ledger.
 //
-// Resolution rules:
-//   - PFG mapping → pfg_bid_items (preferred) then pfg_orders fallback,
-//     PLUS vendor_invoice_items augmentation.
-//   - PA mapping  → pa_catalog_items (preferred) then pa_orders fallback,
-//     PLUS vendor_invoice_items augmentation.
-//   - Heimark / other non-PFG/PA mapping → vendor_invoice_items only.
+// Resolution rules (option (a) — invoice augmentation DROPPED this session;
+// vendor_invoice_items lacks a pack_size column, see follow-up ticket):
+//   - PFG mapping → pfg_bid_items (preferred) then pfg_orders fallback.
+//   - PA mapping  → pa_catalog_items (preferred) then pa_orders fallback.
+//   - Heimark / other non-PFG/PA mapping → no source, will land in
+//     needs_source_evidence.
 //   - No mapping at all → skip, log to needs_vendor_mapping report.
 //   - Mapping exists but zero source evidence → skip (hard-whitelist),
 //     log to needs_source_evidence report.
+//
+// Deferred reports (needs_vendor_mapping, needs_source_evidence) are enriched
+// with most-recent invoice context from vendor_invoice_items joined through
+// vendor_invoices (last 90 days). This turns the deferred list into something
+// manually triageable in minutes — invoice product_name often contains pack
+// structure inline ("MOZZARELLA SHREDDED 6/5LB CASE"). no_invoice_history=true
+// flags templates with zero invoice trace at all.
 //
 // Source-of-truth audit lives in brand_pack_configs.source_evidence JSONB:
 //   { source, vendor, vendor_item_id, parsed_pack, pack_override_applied,
@@ -21,6 +28,7 @@
 //
 // Dry-run = no writes anywhere (no proposals, no ledger). Buckets returned
 // in the response payload for Checkpoint A review.
+
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { parsePackString } from "../_shared/packParser.ts";
@@ -109,7 +117,7 @@ Deno.serve(async (req) => {
     // ── Query A: eligible templates ──
     const { data: templates, error: tErr } = await supabase
       .from("brand_inventory_templates")
-      .select("id, name, brand_id, status, is_recipe")
+      .select("id, product_name, brand_id, status, is_recipe")
       .in("status", ["live", "draft"])
       .or("is_recipe.is.null,is_recipe.eq.false");
     if (tErr) throw tErr;
@@ -176,17 +184,18 @@ Deno.serve(async (req) => {
     // PFG bids — most recent per (location, item)
     const { data: pfgBids } = await supabase
       .from("pfg_bid_items")
-      .select("location_id, item_number, pack_size, price, name, last_synced_at")
-      .gte("last_synced_at", cutoffISO(PFG_BID_LOOKBACK_DAYS));
+      .select("location_id, item_number, pack_size, unit_price, description, last_seen_at")
+      .gte("last_seen_at", cutoffISO(PFG_BID_LOOKBACK_DAYS));
     const pfgBidIdx = new Map<string, any>(); // key: location_id::item_number
     for (const b of (pfgBids || [])) {
       if (!b.location_id || !b.item_number) continue;
       const k = `${b.location_id}::${String(b.item_number)}`;
       const prior = pfgBidIdx.get(k);
-      if (!prior || (b.last_synced_at && b.last_synced_at > (prior.last_synced_at ?? ''))) {
+      if (!prior || (b.last_seen_at && b.last_seen_at > (prior.last_seen_at ?? ''))) {
         pfgBidIdx.set(k, b);
       }
     }
+
 
     // PFG orders — extract items[]; most recent per (location, itemNumber)
     const { data: pfgOrders } = await supabase
@@ -210,17 +219,18 @@ Deno.serve(async (req) => {
     // PA catalog — most recent per (location, pa_item_id)
     const { data: paCatalog } = await supabase
       .from("pa_catalog_items")
-      .select("location_id, pa_item_id, pack_size, unit_price, description, last_synced_at")
-      .gte("last_synced_at", cutoffISO(PA_CATALOG_LOOKBACK_DAYS));
+      .select("location_id, pa_item_id, pack_size, unit_price, description, last_seen_at")
+      .gte("last_seen_at", cutoffISO(PA_CATALOG_LOOKBACK_DAYS));
     const paCatalogIdx = new Map<string, any>(); // key: location_id::pa_item_id
     for (const c of (paCatalog || [])) {
       if (!c.location_id || c.pa_item_id == null) continue;
       const k = `${c.location_id}::${String(c.pa_item_id)}`;
       const prior = paCatalogIdx.get(k);
-      if (!prior || (c.last_synced_at && c.last_synced_at > (prior.last_synced_at ?? ''))) {
+      if (!prior || (c.last_seen_at && c.last_seen_at > (prior.last_seen_at ?? ''))) {
         paCatalogIdx.set(k, c);
       }
     }
+
 
     // PA orders — extract items[]; key by pa_product_id (NOT paItemId)
     const { data: paOrders } = await supabase
@@ -249,22 +259,44 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Invoices — join items+invoices, filter by matched_template_id
+    // Invoices — for ENRICHMENT only (option a: no source-of-truth use yet).
+    // vendor_invoice_items has no pack_size column; we attach the raw
+    // product_name + unit + qty + price so the deferred reports become
+    // human-triageable. Two indexes:
+    //   invoiceByPair    — keyed location_id::matched_template_id (most recent)
+    //   invoiceByTemplate — keyed matched_template_id (most recent across any
+    //                       location), used when only template_id is known
+    //                       (needs_vendor_mapping rows).
     const { data: invLines } = await supabase
       .from("vendor_invoice_items")
-      .select("matched_template_id, vendor_item_id, pack_size, unit_price, line_total, quantity, description, vendor_invoices!inner(location_id, invoice_date, vendor_name)")
+      .select("matched_template_id, item_number, product_name, unit, quantity, unit_price, total_price, vendor_invoices!inner(location_id, invoice_date, invoice_number, vendor_name)")
       .not("matched_template_id", "is", null)
       .gte("vendor_invoices.invoice_date", cutoffISO(INVOICE_LOOKBACK_DAYS));
-    const invoiceIdx = new Map<string, any>(); // key: location_id::matched_template_id
+    const enrichByPair = new Map<string, any>();      // location_id::template_id
+    const enrichByTemplate = new Map<string, any>();  // template_id
     for (const il of (invLines || [])) {
       const inv = (il as any).vendor_invoices;
       if (!inv?.location_id || !il.matched_template_id) continue;
-      const k = `${inv.location_id}::${il.matched_template_id}`;
-      const prior = invoiceIdx.get(k);
-      if (!prior || (inv.invoice_date && inv.invoice_date > (prior._invoice_date ?? ''))) {
-        invoiceIdx.set(k, { ...il, _invoice_date: inv.invoice_date, _vendor_name: inv.vendor_name });
+      const enrichment = {
+        most_recent_invoice_date: inv.invoice_date,
+        most_recent_invoice_number: inv.invoice_number,
+        most_recent_vendor_name: inv.vendor_name,
+        invoice_product_name: il.product_name,
+        invoice_unit: il.unit,
+        invoice_quantity: il.quantity,
+        invoice_unit_price: il.unit_price,
+      };
+      const pk = `${inv.location_id}::${il.matched_template_id}`;
+      const pPrior = enrichByPair.get(pk);
+      if (!pPrior || (inv.invoice_date && inv.invoice_date > (pPrior.most_recent_invoice_date ?? ''))) {
+        enrichByPair.set(pk, enrichment);
+      }
+      const tPrior = enrichByTemplate.get(il.matched_template_id);
+      if (!tPrior || (inv.invoice_date && inv.invoice_date > (tPrior.most_recent_invoice_date ?? ''))) {
+        enrichByTemplate.set(il.matched_template_id, enrichment);
       }
     }
+
 
     // ── Resolution loop ──
     const candidates: ProposalCandidate[] = [];
@@ -302,7 +334,7 @@ Deno.serve(async (req) => {
       if (!maps || maps.length === 0) {
         reports.needs_vendor_mapping.push({
           template_id: templateId,
-          template_name: tpl?.name ?? '(unknown)',
+          template_name: tpl?.product_name ?? '(unknown)',
           locations: Array.from(locSet),
         });
         continue;
@@ -312,7 +344,7 @@ Deno.serve(async (req) => {
       if (maps.length > 1) {
         reports.multiple_mappings_warning.push({
           template_id: templateId,
-          template_name: tpl?.name ?? '(unknown)',
+          template_name: tpl?.product_name ?? '(unknown)',
           mappings: maps.map(m => ({ vendor: m.vendor, vendor_item_id: m.vendor_item_id })),
         });
       }
@@ -332,8 +364,9 @@ Deno.serve(async (req) => {
                 resolved.push({
                   source: 'pfg_bid', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
-                  cost_per_case: bid.price ?? null, raw_pack_string: bid.pack_size,
-                  observed_at: bid.last_synced_at ?? null, label: bid.name ?? null,
+                  cost_per_case: bid.unit_price ?? null, raw_pack_string: bid.pack_size,
+                  observed_at: bid.last_seen_at ?? null, label: bid.description ?? null,
+
                 });
               } else {
                 reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pfg_bid', pack_string: bid.pack_size });
@@ -362,7 +395,7 @@ Deno.serve(async (req) => {
                   source: 'pa_catalog', vendor: 'pa', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: cat.unit_price ?? null, raw_pack_string: cat.pack_size,
-                  observed_at: cat.last_synced_at ?? null, label: cat.description ?? null,
+                  observed_at: cat.last_seen_at ?? null, label: cat.description ?? null,
                 });
               } else {
                 reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pa_catalog', pack_string: cat.pack_size });
@@ -381,32 +414,19 @@ Deno.serve(async (req) => {
               }
             }
           }
-          // Heimark / other → invoice-only handled below per (template, location).
+          // Heimark / other → no vendor source pipeline yet (option a).
         }
 
-        // Invoice augmentation — applies for ALL mapping types.
-        const inv = invoiceIdx.get(`${locationId}::${templateId}`);
-        if (inv?.pack_size) {
-          const parsed = parsePackString(inv.pack_size);
-          if (parsed) {
-            const unitCost = inv.unit_price ?? (inv.line_total && inv.quantity ? Number(inv.line_total) / Number(inv.quantity) : null);
-            resolved.push({
-              source: 'invoice', vendor: String(inv._vendor_name ?? maps[0].vendor).toLowerCase(),
-              vendor_item_id: String(inv.vendor_item_id ?? maps[0].vendor_item_id),
-              parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
-              cost_per_case: unitCost, raw_pack_string: inv.pack_size,
-              observed_at: inv._invoice_date ?? null, label: inv.description ?? null,
-            });
-          } else {
-            reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'invoice', pack_string: inv.pack_size });
-          }
-        }
+        // NOTE: invoice augmentation removed this session — vendor_invoice_items
+        // has no pack_size column. See needs_source_evidence enrichment below.
+
+
 
         // Hard-whitelist: no source evidence → skip, log, do NOT emit a proposal.
         if (resolved.length === 0) {
           for (const m of maps) {
             reports.needs_source_evidence.push({
-              template_id: templateId, template_name: tpl?.name ?? '(unknown)',
+              template_id: templateId, template_name: tpl?.product_name ?? '(unknown)',
               location_id: locationId, vendor: m.vendor, vendor_item_id: m.vendor_item_id,
             });
           }
@@ -512,6 +532,28 @@ Deno.serve(async (req) => {
       else bucketsNew++;
     }
 
+    // ── Enrich deferred reports with most-recent invoice context ──
+    const enrichedNeedsSourceEvidence = reports.needs_source_evidence.map(r => {
+      const pairHit = enrichByPair.get(`${r.location_id}::${r.template_id}`);
+      const tplHit = enrichByTemplate.get(r.template_id);
+      const hit = pairHit ?? tplHit ?? null;
+      return {
+        ...r,
+        ...(hit ?? {}),
+        invoice_match_scope: pairHit ? 'location' : (tplHit ? 'template_any_location' : null),
+        no_invoice_history: !hit,
+      };
+    }).sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? ''));
+
+    const enrichedNeedsVendorMapping = reports.needs_vendor_mapping.map(r => {
+      const hit = enrichByTemplate.get(r.template_id) ?? null;
+      return {
+        ...r,
+        ...(hit ?? {}),
+        no_invoice_history: !hit,
+      };
+    }).sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? ''));
+
     // ── DRY-RUN: return everything, write nothing ──
     if (dryRun) {
       return new Response(JSON.stringify({
@@ -524,12 +566,14 @@ Deno.serve(async (req) => {
           proposals_new_vs_existing: { new: bucketsNew, matched_existing: bucketsMatched },
         },
         reports: {
-          needs_vendor_mapping_count: reports.needs_vendor_mapping.length,
-          needs_source_evidence_count: reports.needs_source_evidence.length,
+          needs_vendor_mapping_count: enrichedNeedsVendorMapping.length,
+          needs_source_evidence_count: enrichedNeedsSourceEvidence.length,
+          needs_source_evidence_no_invoice_count: enrichedNeedsSourceEvidence.filter(r => r.no_invoice_history).length,
           multiple_mappings_warning_count: reports.multiple_mappings_warning.length,
           parse_failures_count: reports.parse_failures.length,
-          needs_vendor_mapping_sample: reports.needs_vendor_mapping.slice(0, 10),
-          needs_source_evidence_sample: reports.needs_source_evidence.slice(0, 10),
+          // Full enriched lists (sorted by template name) — small enough to paste.
+          needs_vendor_mapping: enrichedNeedsVendorMapping,
+          needs_source_evidence: enrichedNeedsSourceEvidence,
           multiple_mappings_warning_sample: reports.multiple_mappings_warning.slice(0, 10),
           parse_failures_sample: reports.parse_failures.slice(0, 10),
         },
@@ -537,6 +581,7 @@ Deno.serve(async (req) => {
         sample_ledger_rows: ledgerRows.slice(0, 10),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
 
     // ── LIVE run: insert proposals (skip duplicates), upsert ledger ──
     let inserted = 0, skipped = 0;
