@@ -219,17 +219,18 @@ Deno.serve(async (req) => {
     // PA catalog — most recent per (location, pa_item_id)
     const { data: paCatalog } = await supabase
       .from("pa_catalog_items")
-      .select("location_id, pa_item_id, pack_size, unit_price, description, last_synced_at")
-      .gte("last_synced_at", cutoffISO(PA_CATALOG_LOOKBACK_DAYS));
+      .select("location_id, pa_item_id, pack_size, unit_price, description, last_seen_at")
+      .gte("last_seen_at", cutoffISO(PA_CATALOG_LOOKBACK_DAYS));
     const paCatalogIdx = new Map<string, any>(); // key: location_id::pa_item_id
     for (const c of (paCatalog || [])) {
       if (!c.location_id || c.pa_item_id == null) continue;
       const k = `${c.location_id}::${String(c.pa_item_id)}`;
       const prior = paCatalogIdx.get(k);
-      if (!prior || (c.last_synced_at && c.last_synced_at > (prior.last_synced_at ?? ''))) {
+      if (!prior || (c.last_seen_at && c.last_seen_at > (prior.last_seen_at ?? ''))) {
         paCatalogIdx.set(k, c);
       }
     }
+
 
     // PA orders — extract items[]; key by pa_product_id (NOT paItemId)
     const { data: paOrders } = await supabase
