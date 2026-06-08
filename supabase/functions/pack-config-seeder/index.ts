@@ -115,13 +115,22 @@ Deno.serve(async (req) => {
 
   try {
     // ── Query A: eligible templates ──
+    // EXCLUDES: recipes, and templates literally named "Water" (costless ingredient).
+    // TODO: replace name-based Water exclusion with a proper `costless_ingredient`
+    // boolean on brand_inventory_templates (separate from is_recipe). For now,
+    // name match is the smallest blast-radius fix.
     const { data: templates, error: tErr } = await supabase
       .from("brand_inventory_templates")
       .select("id, product_name, brand_id, status, is_recipe")
       .in("status", ["live", "draft"])
       .or("is_recipe.is.null,is_recipe.eq.false");
     if (tErr) throw tErr;
-    const eligibleTemplateIds = new Set<string>((templates || []).map((t: any) => t.id));
+    const eligibleTemplateIds = new Set<string>(
+      (templates || [])
+        .filter((t: any) => String(t.product_name ?? '').trim().toLowerCase() !== 'water')
+        .map((t: any) => t.id)
+    );
+
 
     // ── Query B: vendor mappings per template ──
     const { data: mappings, error: mErr } = await supabase
