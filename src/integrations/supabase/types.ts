@@ -7206,6 +7206,53 @@ export type Database = {
           },
         ]
       }
+      pfg_bid_items: {
+        Row: {
+          brand_name: string | null
+          category: string | null
+          created_at: string
+          description: string
+          id: string
+          item_number: string
+          last_seen_at: string
+          location_id: string
+          pack_size: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          brand_name?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          item_number: string
+          last_seen_at?: string
+          location_id: string
+          pack_size?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          brand_name?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          item_number?: string
+          last_seen_at?: string
+          location_id?: string
+          pack_size?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pfg_bid_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pfg_orders: {
         Row: {
           bound_to_count_id: string | null
