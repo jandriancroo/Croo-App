@@ -352,12 +352,19 @@ Deno.serve(async (req) => {
       buckets.templates_with_mapping++;
 
       if (maps.length > 1) {
-        reports.multiple_mappings_warning.push({
+        // HARD SKIP: multi-mapping templates are a data integrity violation
+        // (Jordan's rule: "DIFF vendor = NEW BRAND ITEM"). Do not propose
+        // configs from ambiguous mappings — surface to needs_deduplication
+        // for manual cleanup before next run.
+        reports.needs_deduplication.push({
           template_id: templateId,
           template_name: tpl?.product_name ?? '(unknown)',
           mappings: maps.map(m => ({ vendor: m.vendor, vendor_item_id: m.vendor_item_id })),
+          locations: Array.from(locSet),
         });
+        continue;
       }
+
 
       for (const locationId of locSet) {
         buckets.pairs_evaluated++;
