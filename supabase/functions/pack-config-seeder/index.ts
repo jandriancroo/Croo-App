@@ -184,17 +184,18 @@ Deno.serve(async (req) => {
     // PFG bids — most recent per (location, item)
     const { data: pfgBids } = await supabase
       .from("pfg_bid_items")
-      .select("location_id, item_number, pack_size, price, name, last_synced_at")
-      .gte("last_synced_at", cutoffISO(PFG_BID_LOOKBACK_DAYS));
+      .select("location_id, item_number, pack_size, unit_price, description, last_seen_at")
+      .gte("last_seen_at", cutoffISO(PFG_BID_LOOKBACK_DAYS));
     const pfgBidIdx = new Map<string, any>(); // key: location_id::item_number
     for (const b of (pfgBids || [])) {
       if (!b.location_id || !b.item_number) continue;
       const k = `${b.location_id}::${String(b.item_number)}`;
       const prior = pfgBidIdx.get(k);
-      if (!prior || (b.last_synced_at && b.last_synced_at > (prior.last_synced_at ?? ''))) {
+      if (!prior || (b.last_seen_at && b.last_seen_at > (prior.last_seen_at ?? ''))) {
         pfgBidIdx.set(k, b);
       }
     }
+
 
     // PFG orders — extract items[]; most recent per (location, itemNumber)
     const { data: pfgOrders } = await supabase
