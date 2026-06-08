@@ -9,8 +9,8 @@
 // Resolution hierarchy (first hit wins):
 //   1. pfg_bid_items     last_seen_at >= now() - 30 days
 //   2. pa_catalog_items  last_seen_at >= now() - 30 days
-//   3. pfg_orders.items  ordered_at   >= now() - 90 days (most recent line)
-//   4. pa_orders.items   ordered_at   >= now() - 90 days (most recent line)
+//   3. pfg_orders.items  order_date   >= now() - 90 days (most recent line)
+//   4. pa_orders.items   order_date   >= now() - 90 days (most recent line)
 //   5. Deferred — no vendor presence at this location
 //   6. Deferred — vendor presence found, but no matching approved brand_pack_config
 //
@@ -209,14 +209,14 @@ Deno.serve(async (req) => {
     catIdx.set(`${r.location_id}::${r.pa_item_id}`, { pack_size: r.pack_size, last_seen_at: r.last_seen_at });
   }
 
-  // PFG orders (last 90d). items jsonb → flatten to (location, itemNumber) -> most recent {packSize, ordered_at}
+  // PFG orders (last 90d). items jsonb → flatten to (location, itemNumber) -> most recent {packSize, order_date}
   const cutoff90 = new Date(Date.now() - 90 * 86400 * 1000).toISOString();
   const { data: pfgOrderRows } = await supabase
     .from("pfg_orders")
-    .select("location_id, ordered_at, items")
+    .select("location_id, order_date, items")
     .in("location_id", locationIds)
-    .gte("ordered_at", cutoff90);
-  const pfgOrderIdx = new Map<string, { pack_size: string | null; ordered_at: string }>();
+    .gte("order_date", cutoff90);
+  const pfgOrderIdx = new Map<string, { pack_size: string | null; order_date: string }>();
   for (const o of pfgOrderRows || []) {
     const items = Array.isArray(o.items) ? o.items : [];
     for (const it of items) {
@@ -225,8 +225,8 @@ Deno.serve(async (req) => {
       if (!num) continue;
       const k = `${o.location_id}::${num}`;
       const existing = pfgOrderIdx.get(k);
-      if (!existing || existing.ordered_at < o.ordered_at) {
-        pfgOrderIdx.set(k, { pack_size: pack, ordered_at: o.ordered_at });
+      if (!existing || existing.order_date < o.order_date) {
+        pfgOrderIdx.set(k, { pack_size: pack, order_date: o.order_date });
       }
     }
   }
@@ -234,10 +234,10 @@ Deno.serve(async (req) => {
   // PA orders (last 90d). items jsonb similar shape
   const { data: paOrderRows } = await supabase
     .from("pa_orders")
-    .select("location_id, ordered_at, items")
+    .select("location_id, order_date, items")
     .in("location_id", locationIds)
-    .gte("ordered_at", cutoff90);
-  const paOrderIdx = new Map<string, { pack_size: string | null; ordered_at: string }>();
+    .gte("order_date", cutoff90);
+  const paOrderIdx = new Map<string, { pack_size: string | null; order_date: string }>();
   for (const o of paOrderRows || []) {
     const items = Array.isArray(o.items) ? o.items : [];
     for (const it of items) {
@@ -247,8 +247,8 @@ Deno.serve(async (req) => {
       if (!num) continue;
       const k = `${o.location_id}::${num}`;
       const existing = paOrderIdx.get(k);
-      if (!existing || existing.ordered_at < o.ordered_at) {
-        paOrderIdx.set(k, { pack_size: pack, ordered_at: o.ordered_at });
+      if (!existing || existing.order_date < o.order_date) {
+        paOrderIdx.set(k, { pack_size: pack, order_date: o.order_date });
       }
     }
   }
@@ -295,11 +295,11 @@ Deno.serve(async (req) => {
       }
       if (!chosen) for (const id of tv.pfg) {
         const hit = pfgOrderIdx.get(`${pair.location_id}::${id}`);
-        if (hit) { chosen = { source: "pfg_order", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.ordered_at }; break; }
+        if (hit) { chosen = { source: "pfg_order", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.order_date }; break; }
       }
       if (!chosen) for (const id of tv.pa) {
         const hit = paOrderIdx.get(`${pair.location_id}::${id}`);
-        if (hit) { chosen = { source: "pa_order", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.ordered_at }; break; }
+        if (hit) { chosen = { source: "pa_order", vendor_item_id: id, pack_size: hit.pack_size, sort: hit.order_date }; break; }
       }
     }
 
