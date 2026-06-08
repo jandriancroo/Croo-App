@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     // ── Query A: eligible templates ──
     const { data: templates, error: tErr } = await supabase
       .from("brand_inventory_templates")
-      .select("id, name, brand_id, status, is_recipe")
+      .select("id, product_name, brand_id, status, is_recipe")
       .in("status", ["live", "draft"])
       .or("is_recipe.is.null,is_recipe.eq.false");
     if (tErr) throw tErr;
