@@ -373,7 +373,7 @@ Deno.serve(async (req) => {
                   source: 'pa_catalog', vendor: 'pa', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: cat.unit_price ?? null, raw_pack_string: cat.pack_size,
-                  observed_at: cat.last_synced_at ?? null, label: cat.description ?? null,
+                  observed_at: cat.last_seen_at ?? null, label: cat.description ?? null,
                 });
               } else {
                 reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pa_catalog', pack_string: cat.pack_size });
