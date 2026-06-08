@@ -386,7 +386,7 @@ Deno.serve(async (req) => {
 
                 });
               } else {
-                reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pfg_bid', pack_string: bid.pack_size });
+                reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pfg_bid', pack_string: bid.pack_size });
               }
             }
             const ord = pfgOrderIdx.get(`${locationId}::${m.vendor_item_id}`);
@@ -400,7 +400,7 @@ Deno.serve(async (req) => {
                   observed_at: ord._order_date ?? null, label: ord.name ?? null,
                 });
               } else {
-                reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pfg_order', pack_string: ord.packSize });
+                reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pfg_order', pack_string: ord.packSize });
               }
             }
           } else if (m.vendor === 'pa') {
@@ -415,7 +415,7 @@ Deno.serve(async (req) => {
                   observed_at: cat.last_seen_at ?? null, label: cat.description ?? null,
                 });
               } else {
-                reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pa_catalog', pack_string: cat.pack_size });
+                reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pa_catalog', pack_string: cat.pack_size });
               }
             }
             const ord = paOrderIdx.get(`${locationId}::${m.vendor_item_id}`);
