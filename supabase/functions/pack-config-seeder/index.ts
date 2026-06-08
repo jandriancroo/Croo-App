@@ -329,9 +329,10 @@ Deno.serve(async (req) => {
     const reports = {
       needs_vendor_mapping: [] as { template_id: string; template_name: string; locations: string[] }[],
       needs_source_evidence: [] as { template_id: string; template_name: string; location_id: string; vendor: string; vendor_item_id: string }[],
-      multiple_mappings_warning: [] as { template_id: string; template_name: string; mappings: { vendor: string; vendor_item_id: string }[] }[],
-      parse_failures: [] as { template_id: string; location_id: string; source: string; pack_string: string }[],
+      needs_deduplication: [] as { template_id: string; template_name: string; mappings: { vendor: string; vendor_item_id: string }[]; locations: string[] }[],
+      parse_failures: [] as { template_id: string; template_name: string; location_id: string; source: string; pack_string: string }[],
     };
+
 
     const templatesById = new Map<string, any>((templates || []).map((t: any) => [t.id, t]));
 
