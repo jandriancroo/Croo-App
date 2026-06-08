@@ -669,6 +669,7 @@ Deno.serve(async (req) => {
       inserted_proposals: inserted, skipped_proposals: skipped,
       ledger_rows_upserted: ledgerUpserted,
       ledger_rows_failed: ledgerErrors,
+      ledger_last_error: ledgerLastError,
       buckets,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
