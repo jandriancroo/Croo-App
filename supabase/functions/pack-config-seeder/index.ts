@@ -638,7 +638,7 @@ Deno.serve(async (req) => {
           location_id: r.location_id,
           brand_template_id: r.brand_template_id,
           pack_structure_key: r.pack_structure_key,
-          vendor_source: `${r.vendor}:${r.source}`,
+          vendor_source: r.source,
           last_seen_at: nowISO,
         }));
         const { error: ledErr } = await supabase
