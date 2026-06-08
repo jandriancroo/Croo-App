@@ -414,26 +414,13 @@ Deno.serve(async (req) => {
               }
             }
           }
-          // Heimark / other → invoice-only handled below per (template, location).
+          // Heimark / other → no vendor source pipeline yet (option a).
         }
 
-        // Invoice augmentation — applies for ALL mapping types.
-        const inv = invoiceIdx.get(`${locationId}::${templateId}`);
-        if (inv?.pack_size) {
-          const parsed = parsePackString(inv.pack_size);
-          if (parsed) {
-            const unitCost = inv.unit_price ?? (inv.line_total && inv.quantity ? Number(inv.line_total) / Number(inv.quantity) : null);
-            resolved.push({
-              source: 'invoice', vendor: String(inv._vendor_name ?? maps[0].vendor).toLowerCase(),
-              vendor_item_id: String(inv.vendor_item_id ?? maps[0].vendor_item_id),
-              parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
-              cost_per_case: unitCost, raw_pack_string: inv.pack_size,
-              observed_at: inv._invoice_date ?? null, label: inv.description ?? null,
-            });
-          } else {
-            reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'invoice', pack_string: inv.pack_size });
-          }
-        }
+        // NOTE: invoice augmentation removed this session — vendor_invoice_items
+        // has no pack_size column. See needs_source_evidence enrichment below.
+
+
 
         // Hard-whitelist: no source evidence → skip, log, do NOT emit a proposal.
         if (resolved.length === 0) {
