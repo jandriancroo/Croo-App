@@ -630,11 +630,21 @@ Deno.serve(async (req) => {
     // Unique on (location_id, brand_template_id, pack_structure_key).
     let ledgerUpserted = 0;
     let ledgerErrors = 0;
+    let ledgerLastError: string | null = null;
     if (ledgerRows.length > 0) {
+      // Dedupe in-memory: same (location, template, pack_structure_key) may be
+      // pushed twice (pfg_bid + pfg_order). Postgres rejects upserts whose
+      // INSERT side contains duplicate conflict-target rows.
+      const dedup = new Map<string, typeof ledgerRows[number]>();
+      for (const r of ledgerRows) {
+        const k = `${r.location_id}::${r.brand_template_id}::${r.pack_structure_key}`;
+        if (!dedup.has(k)) dedup.set(k, r); // first-seen wins (pfg_bid before pfg_order)
+      }
+      const deduped = Array.from(dedup.values());
       const chunk = 500;
       const nowISO = new Date().toISOString();
-      for (let i = 0; i < ledgerRows.length; i += chunk) {
-        const batch = ledgerRows.slice(i, i + chunk).map(r => ({
+      for (let i = 0; i < deduped.length; i += chunk) {
+        const batch = deduped.slice(i, i + chunk).map(r => ({
           location_id: r.location_id,
           brand_template_id: r.brand_template_id,
           pack_structure_key: r.pack_structure_key,
@@ -644,8 +654,13 @@ Deno.serve(async (req) => {
         const { error: ledErr } = await supabase
           .from("location_pack_seen_ledger")
           .upsert(batch, { onConflict: "location_id,brand_template_id,pack_structure_key" });
-        if (ledErr) { console.error("ledger upsert error", ledErr); ledgerErrors += batch.length; }
-        else ledgerUpserted += batch.length;
+        if (ledErr) {
+          console.error("ledger upsert error", ledErr);
+          ledgerErrors += batch.length;
+          ledgerLastError = ledErr.message;
+        } else {
+          ledgerUpserted += batch.length;
+        }
       }
     }
 
