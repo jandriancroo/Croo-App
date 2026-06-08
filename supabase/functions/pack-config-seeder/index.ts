@@ -5,15 +5,22 @@
 // location, applies brand-level pack overrides, and emits proposals to
 // brand_pack_configs + ledger rows to location_pack_seen_ledger.
 //
-// Resolution rules:
-//   - PFG mapping → pfg_bid_items (preferred) then pfg_orders fallback,
-//     PLUS vendor_invoice_items augmentation.
-//   - PA mapping  → pa_catalog_items (preferred) then pa_orders fallback,
-//     PLUS vendor_invoice_items augmentation.
-//   - Heimark / other non-PFG/PA mapping → vendor_invoice_items only.
+// Resolution rules (option (a) — invoice augmentation DROPPED this session;
+// vendor_invoice_items lacks a pack_size column, see follow-up ticket):
+//   - PFG mapping → pfg_bid_items (preferred) then pfg_orders fallback.
+//   - PA mapping  → pa_catalog_items (preferred) then pa_orders fallback.
+//   - Heimark / other non-PFG/PA mapping → no source, will land in
+//     needs_source_evidence.
 //   - No mapping at all → skip, log to needs_vendor_mapping report.
 //   - Mapping exists but zero source evidence → skip (hard-whitelist),
 //     log to needs_source_evidence report.
+//
+// Deferred reports (needs_vendor_mapping, needs_source_evidence) are enriched
+// with most-recent invoice context from vendor_invoice_items joined through
+// vendor_invoices (last 90 days). This turns the deferred list into something
+// manually triageable in minutes — invoice product_name often contains pack
+// structure inline ("MOZZARELLA SHREDDED 6/5LB CASE"). no_invoice_history=true
+// flags templates with zero invoice trace at all.
 //
 // Source-of-truth audit lives in brand_pack_configs.source_evidence JSONB:
 //   { source, vendor, vendor_item_id, parsed_pack, pack_override_applied,
@@ -21,6 +28,7 @@
 //
 // Dry-run = no writes anywhere (no proposals, no ledger). Buckets returned
 // in the response payload for Checkpoint A review.
+
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { parsePackString } from "../_shared/packParser.ts";
