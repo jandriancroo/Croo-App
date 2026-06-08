@@ -624,17 +624,27 @@ Deno.serve(async (req) => {
       inserted++;
     }
 
-    // Ledger upsert (unique on location_id, brand_template_id, pack_structure_key)
+    // Ledger upsert — table schema uses single `vendor_source` column
+    // ("vendor:source", e.g. "pfg:pfg_bid"). Unique on
+    // (location_id, brand_template_id, pack_structure_key).
+    let ledgerUpserted = 0;
+    let ledgerErrors = 0;
     if (ledgerRows.length > 0) {
       const chunk = 500;
+      const nowISO = new Date().toISOString();
       for (let i = 0; i < ledgerRows.length; i += chunk) {
         const batch = ledgerRows.slice(i, i + chunk).map(r => ({
-          ...r,
-          last_seen_at: new Date().toISOString(),
+          location_id: r.location_id,
+          brand_template_id: r.brand_template_id,
+          pack_structure_key: r.pack_structure_key,
+          vendor_source: `${r.vendor}:${r.source}`,
+          last_seen_at: nowISO,
         }));
-        await supabase.from("location_pack_seen_ledger").upsert(batch, {
-          onConflict: "location_id,brand_template_id,pack_structure_key",
-        });
+        const { error: ledErr } = await supabase
+          .from("location_pack_seen_ledger")
+          .upsert(batch, { onConflict: "location_id,brand_template_id,pack_structure_key" });
+        if (ledErr) { console.error("ledger upsert error", ledErr); ledgerErrors += batch.length; }
+        else ledgerUpserted += batch.length;
       }
     }
 
