@@ -463,6 +463,16 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
 // Piggybacks on any categories fetch — no extra round-trips. Items not seen
 // this run keep their old last_seen_at and naturally age out of Phase 2's
 // 30-day freshness window.
+//
+// TODO(price-backfill): unit_price is intentionally NOT backfilled here. The
+// list endpoint returns null prices for most items; resolving them requires a
+// per-product fetchProductDetail call (~170 round-trips per location). The
+// `categories` action does this on demand for the user-visible browse flow,
+// which incrementally fills prices into pfg_bid_items via the piggyback.
+// If we ever need fully-priced cache for analytics/reporting, add a
+// dedicated `scrape_bid_prices` action as a separate scheduled job (e.g.
+// weekly) — do not bolt it onto scrape_bid_all_locations.
+
 async function upsertPfgBidItems(
   supabase: any,
   locationId: string,
