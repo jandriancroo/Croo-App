@@ -586,14 +586,15 @@ Deno.serve(async (req) => {
           needs_vendor_mapping_count: enrichedNeedsVendorMapping.length,
           needs_source_evidence_count: enrichedNeedsSourceEvidence.length,
           needs_source_evidence_no_invoice_count: enrichedNeedsSourceEvidence.filter(r => r.no_invoice_history).length,
-          multiple_mappings_warning_count: reports.multiple_mappings_warning.length,
+          needs_deduplication_count: reports.needs_deduplication.length,
           parse_failures_count: reports.parse_failures.length,
-          // Full enriched lists (sorted by template name) — small enough to paste.
+          // Full lists (sorted by template name) — paste-able for triage.
           needs_vendor_mapping: enrichedNeedsVendorMapping,
           needs_source_evidence: enrichedNeedsSourceEvidence,
-          multiple_mappings_warning_sample: reports.multiple_mappings_warning.slice(0, 10),
-          parse_failures_sample: reports.parse_failures.slice(0, 10),
+          needs_deduplication: reports.needs_deduplication.sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? '')),
+          parse_failures: reports.parse_failures.sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? '')),
         },
+
         sample_proposals: Array.from(proposalByKey.values()).slice(0, 10),
         sample_ledger_rows: ledgerRows.slice(0, 10),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
