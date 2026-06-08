@@ -651,7 +651,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true, dry_run: false, run_id: runId,
       inserted_proposals: inserted, skipped_proposals: skipped,
-      ledger_rows_upserted: ledgerRows.length,
+      ledger_rows_upserted: ledgerUpserted,
+      ledger_rows_failed: ledgerErrors,
       buckets,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
