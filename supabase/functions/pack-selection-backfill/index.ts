@@ -139,16 +139,24 @@ Deno.serve(async (req) => {
   }
 
 
-  const { data: existingSelections, error: selErr } = await supabase
-    .from("location_pack_selections")
-    .select("brand_template_id, location_id, is_default");
-  if (selErr) return ok({ error: selErr.message }, 500);
+  const existingSelections: Array<{ brand_template_id: string; location_id: string; is_default: boolean }> = [];
+  for (let off = 0; ; off += PAGE) {
+    const { data, error } = await supabase
+      .from("location_pack_selections")
+      .select("brand_template_id, location_id, is_default")
+      .range(off, off + PAGE - 1);
+    if (error) return ok({ error: error.message }, 500);
+    if (!data || data.length === 0) break;
+    existingSelections.push(...(data as any));
+    if (data.length < PAGE) break;
+  }
 
   // pair-key -> default config_id (if any)
   const pairHasSelection = new Set<string>();
-  for (const s of existingSelections || []) {
+  for (const s of existingSelections) {
     if (s.is_default) pairHasSelection.add(`${s.brand_template_id}::${s.location_id}`);
   }
+
 
   const missing: Pair[] = [];
   for (const [key, p] of pairMap) {
