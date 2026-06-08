@@ -84,29 +84,51 @@ Deno.serve(async (req) => {
   console.log(`[pack-selection-backfill] start dryRun=${dryRun} location=${onlyLocationId || "ALL"}`);
 
   // ── Step 1: find missing pairs ────────────────────────────────────────────
-  let pairsQuery = supabase
+  // Fetch sources independently — there are multiple FKs from inventory_items
+  // to brand_inventory_templates, so PostgREST embedding is ambiguous.
+  let itemsQuery = supabase
     .from("inventory_items")
-    .select("brand_item_id, location_id, brand_inventory_templates!inner(id,status,product_name), locations!inner(id,name)")
+    .select("brand_item_id, location_id")
     .eq("is_active", true)
     .not("brand_item_id", "is", null)
-    .not("location_id", "is", null)
-    .eq("brand_inventory_templates.status", "live");
-  if (onlyLocationId) pairsQuery = pairsQuery.eq("location_id", onlyLocationId);
+    .not("location_id", "is", null);
+  if (onlyLocationId) itemsQuery = itemsQuery.eq("location_id", onlyLocationId);
 
-  const { data: itemRows, error: itemErr } = await pairsQuery;
+  const { data: itemRows, error: itemErr } = await itemsQuery;
   if (itemErr) return ok({ error: itemErr.message }, 500);
+
+  const candidateTplIds = [...new Set((itemRows || []).map((r: any) => r.brand_item_id))];
+  const candidateLocIds = [...new Set((itemRows || []).map((r: any) => r.location_id))];
+
+  const { data: tplRows } = await supabase
+    .from("brand_inventory_templates")
+    .select("id, product_name, status")
+    .in("id", candidateTplIds);
+  const liveTpl = new Map<string, string>(); // id -> name
+  for (const t of tplRows || []) {
+    if (t.status === "live") liveTpl.set(t.id, t.product_name);
+  }
+
+  const { data: locRows } = await supabase
+    .from("locations")
+    .select("id, name")
+    .in("id", candidateLocIds);
+  const locName = new Map<string, string>();
+  for (const l of locRows || []) locName.set(l.id, l.name);
 
   const pairMap = new Map<string, Pair>();
   for (const r of itemRows || []) {
+    if (!liveTpl.has(r.brand_item_id)) continue;
     const key = `${r.brand_item_id}::${r.location_id}`;
     if (pairMap.has(key)) continue;
     pairMap.set(key, {
       brand_template_id: r.brand_item_id,
       location_id: r.location_id,
-      template_name: r.brand_inventory_templates?.product_name || "?",
-      location_name: r.locations?.name || "?",
+      template_name: liveTpl.get(r.brand_item_id) || "?",
+      location_name: locName.get(r.location_id) || "?",
     });
   }
+
 
   const { data: existingSelections, error: selErr } = await supabase
     .from("location_pack_selections")
