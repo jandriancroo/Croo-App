@@ -1622,13 +1622,24 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
       });
     }
     
-    return new Response(JSON.stringify({ 
+    // Piggyback: cache bid items for Phase 2 (pack-selection-backfill).
+    // Safe — failure here never breaks the categories response.
+    if (locationId) {
+      try {
+        await upsertPfgBidItems(supabase, locationId, categories);
+      } catch (e) {
+        console.warn('[PFG bid cache] Piggyback upsert failed:', (e as Error).message);
+      }
+    }
+
+    return new Response(JSON.stringify({
       authenticated: true,
-      data: { categories } 
+      data: { categories }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
 
   if (action === 'search_bid_guide') {
     const bidGuideId = body.bidGuideHeaderId;
