@@ -342,8 +342,9 @@ Deno.serve(async (req) => {
                 resolved.push({
                   source: 'pfg_bid', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
-                  cost_per_case: bid.price ?? null, raw_pack_string: bid.pack_size,
-                  observed_at: bid.last_synced_at ?? null, label: bid.name ?? null,
+                  cost_per_case: bid.unit_price ?? null, raw_pack_string: bid.pack_size,
+                  observed_at: bid.last_seen_at ?? null, label: bid.description ?? null,
+
                 });
               } else {
                 reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pfg_bid', pack_string: bid.pack_size });
