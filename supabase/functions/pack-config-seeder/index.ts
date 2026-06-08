@@ -1,20 +1,29 @@
-// Pack-config seeder — reads traceable vendor sources (PFG orders, PA catalog)
-// and derives brand_pack_configs + location_pack_selections.
+// Pack-config seeder — refactored per item-lifecycle-spec.md piece #6.
 //
-// Dry-run mode compares what the seeder would produce against existing proposed
-// rows in brand_pack_configs, classifying each as:
-//   matched  — existing row is byte-for-byte reproducible from a traceable source
-//   diff     — source exists but values differ from the existing row
-//   orphan   — existing row has no traceable source (invoice-only, hand-written, etc.)
-//   new      — traceable source exists but no matching proposed row
+// Walks every (brand_template, location) pair where an active inventory_items
+// row exists, resolves pack + cost from the mapped vendor's sources at that
+// location, applies brand-level pack overrides, and emits proposals to
+// brand_pack_configs + ledger rows to location_pack_seen_ledger.
 //
-// Actual-run (dry_run=false) inserts reproducible rows as 'proposed' and logs
-// every decision to pack_config_seed_log.
+// Resolution rules:
+//   - PFG mapping → pfg_bid_items (preferred) then pfg_orders fallback,
+//     PLUS vendor_invoice_items augmentation.
+//   - PA mapping  → pa_catalog_items (preferred) then pa_orders fallback,
+//     PLUS vendor_invoice_items augmentation.
+//   - Heimark / other non-PFG/PA mapping → vendor_invoice_items only.
+//   - No mapping at all → skip, log to needs_vendor_mapping report.
+//   - Mapping exists but zero source evidence → skip (hard-whitelist),
+//     log to needs_source_evidence report.
 //
-// Idempotent: will not create duplicate proposed rows for the same
-// (brand_template_id, outer_qty, inner_qty, inner_type) combination.
+// Source-of-truth audit lives in brand_pack_configs.source_evidence JSONB:
+//   { source, vendor, vendor_item_id, parsed_pack, pack_override_applied,
+//     final_pack, cost_basis }
+//
+// Dry-run = no writes anywhere (no proposals, no ledger). Buckets returned
+// in the response payload for Checkpoint A review.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { parsePackString } from "../_shared/packParser.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,24 +33,44 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// ── Pack-string parser ──
-// Shared with pack-selection-backfill. Single source of truth.
-// See supabase/functions/_shared/packParser.ts for the parser definition.
-import { parsePackString } from "../_shared/packParser.ts";
+// ── Window lookbacks ──
+const PFG_BID_LOOKBACK_DAYS = 30;
+const PFG_ORDER_LOOKBACK_DAYS = 90;
+const PA_CATALOG_LOOKBACK_DAYS = 30;
+const PA_ORDER_LOOKBACK_DAYS = 90;
+const INVOICE_LOOKBACK_DAYS = 90;
 
-
-// ── Source record types ──
-interface SourceRecord {
-  vendor: string;               // 'pfg' | 'pa' | etc.
-  vendor_item_id: string;       // SKU / item number
-  pack_string: string;          // raw pack size string
-  cost_per_case: number;        // case price
-  brand_template_id?: string;   // matched via brand_vendor_mappings
-  location_id?: string;         // source location (for provenance)
+// ── Vendor key normalization ──
+// Canonical vendor identifiers used everywhere downstream.
+function normalizeVendor(v: string | null | undefined): 'pfg' | 'pa' | 'heimark' | 'other' | null {
+  if (!v) return null;
+  const lc = String(v).trim().toLowerCase();
+  if (lc === 'pfg') return 'pfg';
+  if (lc === 'pa' || lc === 'produce_alliance') return 'pa';
+  if (lc === 'heimark') return 'heimark';
+  return 'other';
 }
 
-// ── Seeded row candidate ──
-interface SeedCandidate {
+type ParsedPack = {
+  outer_qty: number;
+  outer_type: string;
+  inner_qty: number;
+  inner_type: string;
+  common_unit: string;
+};
+
+type ResolvedSource = {
+  source: 'pfg_bid' | 'pfg_order' | 'pa_catalog' | 'pa_order' | 'invoice';
+  vendor: string;
+  vendor_item_id: string;
+  parsed: ParsedPack;
+  cost_per_case: number | null;
+  raw_pack_string: string;
+  observed_at: string | null;
+  label?: string | null;
+};
+
+type ProposalCandidate = {
   brand_template_id: string;
   outer_qty: number;
   outer_type: string;
@@ -49,28 +78,27 @@ interface SeedCandidate {
   inner_type: string;
   common_unit: string;
   count_units_per_case: number;
-  cost_per_common_unit: number;
+  cost_per_common_unit: number | null;
   label: string | null;
   source: string;
   source_evidence: Record<string, any>;
-  vendor: string;
-  vendor_item_id: string;
-}
+  // Ledger tie-in
+  location_id: string;
+  pack_structure_key: string;
+};
 
-// ── Comparison result ──
-interface RowMatch {
-  existing_id: string;
-  status: 'matched' | 'diff' | 'orphan';
-  candidate?: SeedCandidate;
-  diffs?: string[];
+function structureKey(p: { outer_qty: number; inner_qty: number; common_unit: string }) {
+  return `${p.outer_qty}::${p.inner_qty ?? 0}::${p.common_unit}`;
+}
+function candidateDedupKey(c: { brand_template_id: string; outer_qty: number; inner_qty: number; common_unit: string }) {
+  return `${c.brand_template_id}::${c.outer_qty}::${c.inner_qty ?? 0}::${c.common_unit}`;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const url = new URL(req.url);
-  const dryRun = url.searchParams.get("dry_run") === "true";
-  const sourceFilter = url.searchParams.get("source") || "all"; // 'all', 'pfg', 'pa'
+  const dryRun = url.searchParams.get("dry_run") !== "false"; // DEFAULT TRUE — safety
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -78,377 +106,485 @@ Deno.serve(async (req) => {
   });
 
   try {
-    // ── 0. Load archived brand_inventory_templates so we never seed against them.
-    // Matches vendor-gap-scan's `.neq('status','archived')` filter — keeps the
-    // approval queue clean and prevents zombie proposals after a template is retired.
-    const { data: archivedTemplates, error: archErr } = await supabase
+    // ── Query A: eligible templates ──
+    const { data: templates, error: tErr } = await supabase
       .from("brand_inventory_templates")
-      .select("id")
-      .eq("status", "archived");
-    if (archErr) throw archErr;
-    const archivedTemplateIds = new Set<string>((archivedTemplates || []).map((t: any) => t.id));
+      .select("id, name, brand_id, status, is_recipe")
+      .in("status", ["live", "draft"])
+      .or("is_recipe.is.null,is_recipe.eq.false");
+    if (tErr) throw tErr;
+    const eligibleTemplateIds = new Set<string>((templates || []).map((t: any) => t.id));
 
-    // ── 1. Load all brand_vendor_mappings (skip ones pointing at archived templates) ──
-    const { data: mappings, error: mapErr } = await supabase
+    // ── Query B: vendor mappings per template ──
+    const { data: mappings, error: mErr } = await supabase
       .from("brand_vendor_mappings")
-      .select("id, brand_template_id, vendor, vendor_item_id, territory, source_location_id");
-    if (mapErr) throw mapErr;
+      .select("brand_template_id, vendor, vendor_item_id, pack_override_outer_qty, pack_override_outer_type, pack_override_inner_qty, pack_override_inner_type");
+    if (mErr) throw mErr;
 
-    const mappingByVendorSku = new Map<string, any>();
+    type Mapping = {
+      vendor: 'pfg' | 'pa' | 'heimark' | 'other';
+      vendor_item_id: string;
+      override: {
+        outer_qty: number | null;
+        outer_type: string | null;
+        inner_qty: number | null;
+        inner_type: string | null;
+      };
+    };
+    const mappingsByTemplate = new Map<string, Mapping[]>();
+    const templatesWithMultipleMappings = new Set<string>();
     for (const m of (mappings || [])) {
-      if (!m.brand_template_id || archivedTemplateIds.has(m.brand_template_id)) continue;
-      const key = `${(m.vendor || '').toLowerCase()}::${(m.vendor_item_id || '').toLowerCase()}`;
-      mappingByVendorSku.set(key, m);
+      if (!eligibleTemplateIds.has(m.brand_template_id)) continue;
+      const v = normalizeVendor(m.vendor);
+      if (!v) continue;
+      const arr = mappingsByTemplate.get(m.brand_template_id) ?? [];
+      arr.push({
+        vendor: v,
+        vendor_item_id: String(m.vendor_item_id),
+        override: {
+          outer_qty: m.pack_override_outer_qty ?? null,
+          outer_type: m.pack_override_outer_type ?? null,
+          inner_qty: m.pack_override_inner_qty ?? null,
+          inner_type: m.pack_override_inner_type ?? null,
+        },
+      });
+      mappingsByTemplate.set(m.brand_template_id, arr);
+      if (arr.length > 1) templatesWithMultipleMappings.add(m.brand_template_id);
     }
 
+    // ── Query C: active inventory_items per (template, location) ──
+    const { data: invItems, error: iErr } = await supabase
+      .from("inventory_items")
+      .select("brand_item_id, location_id, is_active")
+      .eq("is_active", true)
+      .not("brand_item_id", "is", null);
+    if (iErr) throw iErr;
 
-    // ── 2. Gather traceable source records ──
-    const candidates: SeedCandidate[] = [];
+    const locationsByTemplate = new Map<string, Set<string>>();
+    for (const r of (invItems || [])) {
+      if (!eligibleTemplateIds.has(r.brand_item_id)) continue;
+      if (!r.location_id) continue;
+      let set = locationsByTemplate.get(r.brand_item_id);
+      if (!set) { set = new Set(); locationsByTemplate.set(r.brand_item_id, set); }
+      set.add(r.location_id);
+    }
 
-    // 2a. PFG orders (items JSONB)
-    if (sourceFilter === "all" || sourceFilter === "pfg") {
-      const { data: pfgOrders } = await supabase
-        .from("pfg_orders")
-        .select("id, location_id, order_number, items");
-      for (const order of (pfgOrders || [])) {
-        const items = (order.items || []) as Array<{
-          itemNumber?: string;
-          packSize?: string;
-          price?: number;
-          name?: string;
-        }>;
-        for (const it of items) {
-          if (!it.itemNumber || !it.packSize) continue;
-          const parsed = parsePackString(it.packSize);
-          if (!parsed) continue;
-          const mapping = mappingByVendorSku.get(`pfg::${it.itemNumber.toLowerCase()}`);
-          if (!mapping?.brand_template_id) continue;
+    // ── Preload source tables (in-memory indexes) ──
+    const nowMs = Date.now();
+    const cutoffISO = (days: number) => new Date(nowMs - days * 86400_000).toISOString();
 
-          const countUnits = Math.round(parsed.outer_qty * parsed.inner_qty * 100) / 100;
-          const costPerCommon = it.price && countUnits > 0 ? it.price / countUnits : null;
+    // PFG bids — most recent per (location, item)
+    const { data: pfgBids } = await supabase
+      .from("pfg_bid_items")
+      .select("location_id, item_number, pack_size, price, name, last_synced_at")
+      .gte("last_synced_at", cutoffISO(PFG_BID_LOOKBACK_DAYS));
+    const pfgBidIdx = new Map<string, any>(); // key: location_id::item_number
+    for (const b of (pfgBids || [])) {
+      if (!b.location_id || !b.item_number) continue;
+      const k = `${b.location_id}::${String(b.item_number)}`;
+      const prior = pfgBidIdx.get(k);
+      if (!prior || (b.last_synced_at && b.last_synced_at > (prior.last_synced_at ?? ''))) {
+        pfgBidIdx.set(k, b);
+      }
+    }
 
-          candidates.push({
-            brand_template_id: mapping.brand_template_id,
-            outer_qty: parsed.outer_qty,
-            outer_type: 'case',
-            inner_qty: parsed.inner_qty,
-            inner_type: parsed.inner_type,
-            common_unit: parsed.common_unit,
-            count_units_per_case: countUnits,
-            cost_per_common_unit: costPerCommon ?? 0,
-            label: it.name || null,
-            source: 'vendor_sync:pfg',
-            source_evidence: {
-              costPerCase: it.price,
-              packString: it.packSize?.replace(/\s+/g, ''),
-              raw: { pack_quantity: parsed.outer_qty, inner_pack_quantity: parsed.inner_qty },
-              sku: it.itemNumber,
-              vendor: 'pfg',
-            },
-            vendor: 'pfg',
-            vendor_item_id: it.itemNumber,
+    // PFG orders — extract items[]; most recent per (location, itemNumber)
+    const { data: pfgOrders } = await supabase
+      .from("pfg_orders")
+      .select("location_id, order_date, items")
+      .gte("order_date", cutoffISO(PFG_ORDER_LOOKBACK_DAYS));
+    const pfgOrderIdx = new Map<string, any>(); // key: location_id::itemNumber
+    for (const o of (pfgOrders || [])) {
+      const items = Array.isArray(o.items) ? o.items : [];
+      for (const it of items) {
+        const sku = it?.itemNumber ?? it?.item_number;
+        if (!o.location_id || !sku) continue;
+        const k = `${o.location_id}::${String(sku)}`;
+        const prior = pfgOrderIdx.get(k);
+        if (!prior || (o.order_date && o.order_date > (prior._order_date ?? ''))) {
+          pfgOrderIdx.set(k, { ...it, _order_date: o.order_date });
+        }
+      }
+    }
+
+    // PA catalog — most recent per (location, pa_item_id)
+    const { data: paCatalog } = await supabase
+      .from("pa_catalog_items")
+      .select("location_id, pa_item_id, pack_size, unit_price, description, last_synced_at")
+      .gte("last_synced_at", cutoffISO(PA_CATALOG_LOOKBACK_DAYS));
+    const paCatalogIdx = new Map<string, any>(); // key: location_id::pa_item_id
+    for (const c of (paCatalog || [])) {
+      if (!c.location_id || c.pa_item_id == null) continue;
+      const k = `${c.location_id}::${String(c.pa_item_id)}`;
+      const prior = paCatalogIdx.get(k);
+      if (!prior || (c.last_synced_at && c.last_synced_at > (prior.last_synced_at ?? ''))) {
+        paCatalogIdx.set(k, c);
+      }
+    }
+
+    // PA orders — extract items[]; key by pa_product_id (NOT paItemId)
+    const { data: paOrders } = await supabase
+      .from("pa_orders")
+      .select("location_id, order_date, items")
+      .gte("order_date", cutoffISO(PA_ORDER_LOOKBACK_DAYS));
+    const paOrderIdx = new Map<string, any>(); // key: location_id::pa_product_id
+    for (const o of (paOrders || [])) {
+      const items = Array.isArray(o.items) ? o.items : [];
+      for (const it of items) {
+        const sku = it?.pa_product_id;
+        if (!o.location_id || sku == null) continue;
+        const k = `${o.location_id}::${String(sku)}`;
+        const prior = paOrderIdx.get(k);
+        if (!prior || (o.order_date && o.order_date > (prior._order_date ?? ''))) {
+          paOrderIdx.set(k, {
+            pack_size: it.unit ? `1 ${it.unit}` : null, // best-effort; PA orders don't carry rich pack info
+            unit_price: it.price ?? null,
+            description: it.name ?? null,
+            pa_product_id: sku,
+            item_code: it.item_code,
+            master_product_code: it.master_product_code,
+            _order_date: o.order_date,
           });
         }
       }
     }
 
-    // 2b. PA catalog items
-    if (sourceFilter === "all" || sourceFilter === "pa") {
-      const { data: paItems } = await supabase
-        .from("pa_catalog_items")
-        .select("id, pa_item_id, pack_size, unit_price, description, location_id");
-      for (const it of (paItems || [])) {
-        if (!it.pa_item_id || !it.pack_size) continue;
-        const parsed = parsePackString(it.pack_size);
-        if (!parsed) continue;
-        const mapping = mappingByVendorSku.get(`pa::${it.pa_item_id.toLowerCase()}`)
-          || mappingByVendorSku.get(`produce_alliance::${it.pa_item_id.toLowerCase()}`);
-        if (!mapping?.brand_template_id) continue;
+    // Invoices — join items+invoices, filter by matched_template_id
+    const { data: invLines } = await supabase
+      .from("vendor_invoice_items")
+      .select("matched_template_id, vendor_item_id, pack_size, unit_price, line_total, quantity, description, vendor_invoices!inner(location_id, invoice_date, vendor_name)")
+      .not("matched_template_id", "is", null)
+      .gte("vendor_invoices.invoice_date", cutoffISO(INVOICE_LOOKBACK_DAYS));
+    const invoiceIdx = new Map<string, any>(); // key: location_id::matched_template_id
+    for (const il of (invLines || [])) {
+      const inv = (il as any).vendor_invoices;
+      if (!inv?.location_id || !il.matched_template_id) continue;
+      const k = `${inv.location_id}::${il.matched_template_id}`;
+      const prior = invoiceIdx.get(k);
+      if (!prior || (inv.invoice_date && inv.invoice_date > (prior._invoice_date ?? ''))) {
+        invoiceIdx.set(k, { ...il, _invoice_date: inv.invoice_date, _vendor_name: inv.vendor_name });
+      }
+    }
 
-        const countUnits = Math.round(parsed.outer_qty * parsed.inner_qty * 100) / 100;
-        const costPerCommon = it.unit_price && countUnits > 0 ? it.unit_price / countUnits : null;
+    // ── Resolution loop ──
+    const candidates: ProposalCandidate[] = [];
+    const ledgerRows: { location_id: string; brand_template_id: string; pack_structure_key: string; vendor: string; vendor_item_id: string; source: string }[] = [];
 
-        candidates.push({
-          brand_template_id: mapping.brand_template_id,
-          outer_qty: parsed.outer_qty,
-          outer_type: 'case',
-          inner_qty: parsed.inner_qty,
-          inner_type: parsed.inner_type,
-          common_unit: parsed.common_unit,
-          count_units_per_case: countUnits,
-          cost_per_common_unit: costPerCommon ?? 0,
-          label: it.description || null,
-          source: 'vendor_sync:pa',
-          source_evidence: {
-            costPerCase: it.unit_price,
-            packString: it.pack_size?.replace(/\s+/g, ''),
-            raw: { pack_quantity: parsed.outer_qty, inner_pack_quantity: parsed.inner_qty },
-            sku: it.pa_item_id,
-            vendor: 'pa',
-          },
-          vendor: 'pa',
-          vendor_item_id: it.pa_item_id,
+    const buckets = {
+      eligible_templates: eligibleTemplateIds.size,
+      templates_with_mapping: 0,
+      templates_with_locations: 0,
+      pairs_evaluated: 0,
+      pairs_with_source_evidence: 0,
+      pairs_resolved_pfg_bid: 0,
+      pairs_resolved_pfg_order: 0,
+      pairs_resolved_pa_catalog: 0,
+      pairs_resolved_pa_order: 0,
+      pairs_resolved_invoice_only: 0,
+      pairs_with_override_applied: 0,
+      proposals_emitted: 0,
+      ledger_rows_emitted: 0,
+    };
+    const reports = {
+      needs_vendor_mapping: [] as { template_id: string; template_name: string; locations: string[] }[],
+      needs_source_evidence: [] as { template_id: string; template_name: string; location_id: string; vendor: string; vendor_item_id: string }[],
+      multiple_mappings_warning: [] as { template_id: string; template_name: string; mappings: { vendor: string; vendor_item_id: string }[] }[],
+      parse_failures: [] as { template_id: string; location_id: string; source: string; pack_string: string }[],
+    };
+
+    const templatesById = new Map<string, any>((templates || []).map((t: any) => [t.id, t]));
+
+    for (const [templateId, locSet] of locationsByTemplate.entries()) {
+      buckets.templates_with_locations++;
+      const tpl = templatesById.get(templateId);
+      const maps = mappingsByTemplate.get(templateId);
+
+      if (!maps || maps.length === 0) {
+        reports.needs_vendor_mapping.push({
+          template_id: templateId,
+          template_name: tpl?.name ?? '(unknown)',
+          locations: Array.from(locSet),
+        });
+        continue;
+      }
+      buckets.templates_with_mapping++;
+
+      if (maps.length > 1) {
+        reports.multiple_mappings_warning.push({
+          template_id: templateId,
+          template_name: tpl?.name ?? '(unknown)',
+          mappings: maps.map(m => ({ vendor: m.vendor, vendor_item_id: m.vendor_item_id })),
+        });
+      }
+
+      for (const locationId of locSet) {
+        buckets.pairs_evaluated++;
+
+        // Collect every source row for this (template, location), across all mappings.
+        const resolved: ResolvedSource[] = [];
+
+        for (const m of maps) {
+          if (m.vendor === 'pfg') {
+            const bid = pfgBidIdx.get(`${locationId}::${m.vendor_item_id}`);
+            if (bid?.pack_size) {
+              const parsed = parsePackString(bid.pack_size);
+              if (parsed) {
+                resolved.push({
+                  source: 'pfg_bid', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  cost_per_case: bid.price ?? null, raw_pack_string: bid.pack_size,
+                  observed_at: bid.last_synced_at ?? null, label: bid.name ?? null,
+                });
+              } else {
+                reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pfg_bid', pack_string: bid.pack_size });
+              }
+            }
+            const ord = pfgOrderIdx.get(`${locationId}::${m.vendor_item_id}`);
+            if (ord?.packSize) {
+              const parsed = parsePackString(ord.packSize);
+              if (parsed) {
+                resolved.push({
+                  source: 'pfg_order', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  cost_per_case: ord.price ?? null, raw_pack_string: ord.packSize,
+                  observed_at: ord._order_date ?? null, label: ord.name ?? null,
+                });
+              } else {
+                reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pfg_order', pack_string: ord.packSize });
+              }
+            }
+          } else if (m.vendor === 'pa') {
+            const cat = paCatalogIdx.get(`${locationId}::${m.vendor_item_id}`);
+            if (cat?.pack_size) {
+              const parsed = parsePackString(cat.pack_size);
+              if (parsed) {
+                resolved.push({
+                  source: 'pa_catalog', vendor: 'pa', vendor_item_id: m.vendor_item_id,
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  cost_per_case: cat.unit_price ?? null, raw_pack_string: cat.pack_size,
+                  observed_at: cat.last_synced_at ?? null, label: cat.description ?? null,
+                });
+              } else {
+                reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'pa_catalog', pack_string: cat.pack_size });
+              }
+            }
+            const ord = paOrderIdx.get(`${locationId}::${m.vendor_item_id}`);
+            if (ord?.pack_size) {
+              const parsed = parsePackString(ord.pack_size);
+              if (parsed) {
+                resolved.push({
+                  source: 'pa_order', vendor: 'pa', vendor_item_id: m.vendor_item_id,
+                  parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+                  cost_per_case: ord.unit_price ?? null, raw_pack_string: ord.pack_size,
+                  observed_at: ord._order_date ?? null, label: ord.description ?? null,
+                });
+              }
+            }
+          }
+          // Heimark / other → invoice-only handled below per (template, location).
+        }
+
+        // Invoice augmentation — applies for ALL mapping types.
+        const inv = invoiceIdx.get(`${locationId}::${templateId}`);
+        if (inv?.pack_size) {
+          const parsed = parsePackString(inv.pack_size);
+          if (parsed) {
+            const unitCost = inv.unit_price ?? (inv.line_total && inv.quantity ? Number(inv.line_total) / Number(inv.quantity) : null);
+            resolved.push({
+              source: 'invoice', vendor: String(inv._vendor_name ?? maps[0].vendor).toLowerCase(),
+              vendor_item_id: String(inv.vendor_item_id ?? maps[0].vendor_item_id),
+              parsed: { outer_qty: parsed.outer_qty, outer_type: 'CASE', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
+              cost_per_case: unitCost, raw_pack_string: inv.pack_size,
+              observed_at: inv._invoice_date ?? null, label: inv.description ?? null,
+            });
+          } else {
+            reports.parse_failures.push({ template_id: templateId, location_id: locationId, source: 'invoice', pack_string: inv.pack_size });
+          }
+        }
+
+        // Hard-whitelist: no source evidence → skip, log, do NOT emit a proposal.
+        if (resolved.length === 0) {
+          for (const m of maps) {
+            reports.needs_source_evidence.push({
+              template_id: templateId, template_name: tpl?.name ?? '(unknown)',
+              location_id: locationId, vendor: m.vendor, vendor_item_id: m.vendor_item_id,
+            });
+          }
+          continue;
+        }
+        buckets.pairs_with_source_evidence++;
+
+        // Bucket counts (first-class source wins)
+        const primary = resolved[0];
+        switch (primary.source) {
+          case 'pfg_bid': buckets.pairs_resolved_pfg_bid++; break;
+          case 'pfg_order': buckets.pairs_resolved_pfg_order++; break;
+          case 'pa_catalog': buckets.pairs_resolved_pa_catalog++; break;
+          case 'pa_order': buckets.pairs_resolved_pa_order++; break;
+          case 'invoice': buckets.pairs_resolved_invoice_only++; break;
+        }
+
+        // Emit one candidate per distinct resolved source row.
+        // Apply override (field-wise) on top of parsed pack.
+        for (const r of resolved) {
+          const mapping = maps.find(mm => mm.vendor_item_id === r.vendor_item_id && (mm.vendor === r.vendor || (mm.vendor === 'pa' && r.vendor === 'pa'))) ?? maps[0];
+          const ov = mapping.override;
+          const overrideApplied = ov.outer_qty != null || ov.outer_type != null || ov.inner_qty != null || ov.inner_type != null;
+          if (overrideApplied) buckets.pairs_with_override_applied++;
+
+          const final: ParsedPack = {
+            outer_qty: ov.outer_qty ?? r.parsed.outer_qty,
+            outer_type: ov.outer_type ?? r.parsed.outer_type,
+            inner_qty: ov.inner_qty ?? r.parsed.inner_qty,
+            inner_type: ov.inner_type ?? r.parsed.inner_type,
+            common_unit: r.parsed.common_unit, // common_unit not overridable; tracks inner_type semantics
+          };
+          // count_units_per_case MUST match CHECK constraint: outer_qty * COALESCE(inner_qty, 1)
+          const cupc = final.outer_qty * (final.inner_qty || 1);
+          const costPerCommon = r.cost_per_case != null && cupc > 0 ? Number(r.cost_per_case) / cupc : null;
+
+          const sk = structureKey({ outer_qty: final.outer_qty, inner_qty: final.inner_qty, common_unit: final.common_unit });
+
+          candidates.push({
+            brand_template_id: templateId,
+            outer_qty: final.outer_qty,
+            outer_type: final.outer_type,
+            inner_qty: final.inner_qty,
+            inner_type: final.inner_type,
+            common_unit: final.common_unit,
+            count_units_per_case: cupc,
+            cost_per_common_unit: costPerCommon,
+            label: r.label ?? null,
+            source: `vendor_sync:${r.vendor}:${r.source}`,
+            source_evidence: {
+              source: r.source,
+              vendor: r.vendor,
+              vendor_item_id: r.vendor_item_id,
+              parsed_pack: r.parsed,
+              pack_override_applied: overrideApplied,
+              override_values: overrideApplied ? ov : null,
+              final_pack: final,
+              cost_basis: { cost_per_case: r.cost_per_case, raw_pack_string: r.raw_pack_string, observed_at: r.observed_at },
+            },
+            location_id: locationId,
+            pack_structure_key: sk,
+          });
+
+          ledgerRows.push({
+            location_id: locationId,
+            brand_template_id: templateId,
+            pack_structure_key: sk,
+            vendor: r.vendor,
+            vendor_item_id: r.vendor_item_id,
+            source: r.source,
+          });
+        }
+      }
+    }
+
+    // ── Dedup proposal candidates by structural key ──
+    const proposalByKey = new Map<string, ProposalCandidate>();
+    for (const c of candidates) {
+      const k = candidateDedupKey(c);
+      if (!proposalByKey.has(k)) proposalByKey.set(k, c);
+    }
+    buckets.proposals_emitted = proposalByKey.size;
+    buckets.ledger_rows_emitted = ledgerRows.length;
+
+    // ── Classify against existing brand_pack_configs (proposed + approved) ──
+    const { data: existing } = await supabase
+      .from("brand_pack_configs")
+      .select("id, brand_template_id, outer_qty, inner_qty, common_unit, status")
+      .in("status", ["proposed", "approved"]);
+    const existingByKey = new Map<string, any>();
+    for (const r of (existing || [])) {
+      const k = candidateDedupKey({
+        brand_template_id: r.brand_template_id,
+        outer_qty: r.outer_qty,
+        inner_qty: Number(r.inner_qty ?? 0),
+        common_unit: r.common_unit,
+      });
+      existingByKey.set(k, r);
+    }
+    let bucketsNew = 0, bucketsMatched = 0;
+    for (const k of proposalByKey.keys()) {
+      if (existingByKey.has(k)) bucketsMatched++;
+      else bucketsNew++;
+    }
+
+    // ── DRY-RUN: return everything, write nothing ──
+    if (dryRun) {
+      return new Response(JSON.stringify({
+        ok: true,
+        dry_run: true,
+        run_id: runId,
+        checkpoint: "A",
+        buckets: {
+          ...buckets,
+          proposals_new_vs_existing: { new: bucketsNew, matched_existing: bucketsMatched },
+        },
+        reports: {
+          needs_vendor_mapping_count: reports.needs_vendor_mapping.length,
+          needs_source_evidence_count: reports.needs_source_evidence.length,
+          multiple_mappings_warning_count: reports.multiple_mappings_warning.length,
+          parse_failures_count: reports.parse_failures.length,
+          needs_vendor_mapping_sample: reports.needs_vendor_mapping.slice(0, 10),
+          needs_source_evidence_sample: reports.needs_source_evidence.slice(0, 10),
+          multiple_mappings_warning_sample: reports.multiple_mappings_warning.slice(0, 10),
+          parse_failures_sample: reports.parse_failures.slice(0, 10),
+        },
+        sample_proposals: Array.from(proposalByKey.values()).slice(0, 10),
+        sample_ledger_rows: ledgerRows.slice(0, 10),
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── LIVE run: insert proposals (skip duplicates), upsert ledger ──
+    let inserted = 0, skipped = 0;
+    for (const c of proposalByKey.values()) {
+      const k = candidateDedupKey(c);
+      if (existingByKey.has(k)) { skipped++; continue; }
+      const { error: insErr } = await supabase.from("brand_pack_configs").insert({
+        brand_template_id: c.brand_template_id,
+        outer_qty: c.outer_qty,
+        outer_type: c.outer_type,
+        inner_qty: c.inner_qty,
+        inner_type: c.inner_type,
+        common_unit: c.common_unit,
+        count_units_per_case: c.count_units_per_case,
+        cost_per_common_unit: c.cost_per_common_unit,
+        label: c.label,
+        source: c.source,
+        source_evidence: c.source_evidence,
+        status: 'proposed',
+      });
+      if (insErr) { skipped++; continue; }
+      inserted++;
+    }
+
+    // Ledger upsert (unique on location_id, brand_template_id, pack_structure_key)
+    if (ledgerRows.length > 0) {
+      const chunk = 500;
+      for (let i = 0; i < ledgerRows.length; i += chunk) {
+        const batch = ledgerRows.slice(i, i + chunk).map(r => ({
+          ...r,
+          last_seen_at: new Date().toISOString(),
+        }));
+        await supabase.from("location_pack_seen_ledger").upsert(batch, {
+          onConflict: "location_id,brand_template_id,pack_structure_key",
         });
       }
     }
 
-    // ── 3. Deduplicate candidates by STRUCTURE ONLY ──
-    // Key matches the DB unique guard exactly:
-    //   (brand_template_id, outer_qty, COALESCE(inner_qty,0), common_unit)
-    // inner_type and source are label/provenance only — never part of structural identity.
-    const candidateKey = (c: Pick<SeedCandidate, 'brand_template_id' | 'outer_qty' | 'inner_qty' | 'common_unit'>) =>
-      `${c.brand_template_id}::${c.outer_qty}::${c.inner_qty ?? 0}::${c.common_unit}`;
-    const deduped = new Map<string, SeedCandidate>();
-    for (const c of candidates) {
-      const k = candidateKey(c);
-      if (!deduped.has(k)) deduped.set(k, c);
-    }
-    const uniqueCandidates = Array.from(deduped.values());
-
-    // ── 4. Load existing rows (proposed AND approved) for structural comparison ──
-    const { data: existingProposed, error: existErr } = await supabase
-      .from("brand_pack_configs")
-      .select("id, brand_template_id, outer_qty, outer_type, inner_qty, inner_type, common_unit, count_units_per_case, cost_per_common_unit, source, source_evidence, status");
-    if (existErr) throw existErr;
-
-    // Build structure-only index of proposed + approved rows.
-    // Approved wins if both exist for the same structure (defensive — shouldn't happen post-cleanup).
-    const existingByKey = new Map<string, any>();
-    // SKU-scoped guard: track which (template, vendor, vendor_item_id) combos already
-    // have a non-archived config. Prevents the seeder from spawning a sibling config
-    // for the SAME vendor SKU just because its pack-string parses to a different
-    // structural shape (e.g. PFG 180950 once as "6 case / 1 ea" and once as
-    // "6 case / 2.5 kg"). Multi-leg configs are a human-only decision.
-    const existingSkuByTemplate = new Map<string, Set<string>>();
-    for (const row of (existingProposed || [])) {
-      if (row.status !== 'proposed' && row.status !== 'approved') continue;
-      const k = `${row.brand_template_id}::${row.outer_qty}::${row.inner_qty ?? 0}::${row.common_unit}`;
-      const prior = existingByKey.get(k);
-      if (!prior || (prior.status === 'proposed' && row.status === 'approved')) {
-        existingByKey.set(k, row);
-      }
-      const evVendor = row.source_evidence?.vendor;
-      const evSku = row.source_evidence?.sku;
-      if (evVendor && evSku) {
-        const skuKey = `${String(evVendor).toLowerCase()}::${String(evSku)}`;
-        let set = existingSkuByTemplate.get(row.brand_template_id);
-        if (!set) { set = new Set(); existingSkuByTemplate.set(row.brand_template_id, set); }
-        set.add(skuKey);
-      }
-    }
-
-    // ── 5. Compare and classify ──
-    const results: RowMatch[] = [];
-    const created: SeedCandidate[] = [];
-    let diffCount = 0;
-    let orphanCount = 0;
-    let newCount = 0;
-    let skippedCount = 0;
-
-    // 5a. Walk every existing proposed/approved row — is it reproducible?
-    for (const existing of (existingProposed || [])) {
-      if (existing.status !== 'proposed' && existing.status !== 'approved') continue;
-      const k = `${existing.brand_template_id}::${existing.outer_qty}::${existing.inner_qty ?? 0}::${existing.common_unit}`;
-      const candidate = deduped.get(k);
-      if (!candidate) {
-        // Orphan tracking only applies to proposed rows — approved rows aren't expected to round-trip.
-        if (existing.status === 'proposed') {
-          orphanCount++;
-          results.push({ existing_id: existing.id, status: 'orphan' });
-          if (!dryRun) {
-            await supabase.from("pack_config_seed_log").insert({
-              brand_template_id: existing.brand_template_id,
-              existing_config_id: existing.id,
-              status: 'orphan',
-              dry_run: false,
-              run_id: runId,
-            });
-          }
-        }
-        continue;
-      }
-
-      const diffs: string[] = [];
-      if (existing.outer_type !== candidate.outer_type) diffs.push(`outer_type: ${existing.outer_type} vs ${candidate.outer_type}`);
-      if (existing.count_units_per_case !== candidate.count_units_per_case) diffs.push(`count_units_per_case: ${existing.count_units_per_case} vs ${candidate.count_units_per_case}`);
-      if (Math.abs((existing.cost_per_common_unit || 0) - (candidate.cost_per_common_unit || 0)) > 0.0001) {
-        diffs.push(`cost_per_common_unit: ${existing.cost_per_common_unit} vs ${candidate.cost_per_common_unit}`);
-      }
-
-      // Refresh price + evidence ONLY on proposed rows.
-      // Approved rows are the brand-wide live reference — a single location's invoice
-      // price must never overwrite them. Treat structural match against an approved
-      // row as a match (don't spawn a duplicate proposal), but leave the row untouched.
-      if (!dryRun && diffs.length > 0 && existing.status === 'proposed') {
-        await supabase
-          .from("brand_pack_configs")
-          .update({
-            cost_per_common_unit: candidate.cost_per_common_unit ?? existing.cost_per_common_unit,
-            source_evidence: candidate.source_evidence,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existing.id);
-      }
-
-      if (diffs.length === 0) {
-        results.push({ existing_id: existing.id, status: 'matched', candidate });
-        if (!dryRun) {
-          await supabase.from("pack_config_seed_log").insert({
-            brand_template_id: existing.brand_template_id,
-            vendor: candidate.vendor,
-            vendor_item_id: candidate.vendor_item_id,
-            pack_string: candidate.source_evidence.packString,
-            outer_qty: candidate.outer_qty,
-            inner_qty: candidate.inner_qty,
-            inner_type: candidate.inner_type,
-            common_unit: candidate.common_unit,
-            count_units_per_case: candidate.count_units_per_case,
-            cost_per_common_unit: candidate.cost_per_common_unit,
-            existing_config_id: existing.id,
-            status: 'matched',
-            dry_run: false,
-            run_id: runId,
-          });
-        }
-      } else {
-        diffCount++;
-        results.push({ existing_id: existing.id, status: 'diff', candidate, diffs });
-        if (!dryRun) {
-          await supabase.from("pack_config_seed_log").insert({
-            brand_template_id: existing.brand_template_id,
-            vendor: candidate.vendor,
-            vendor_item_id: candidate.vendor_item_id,
-            pack_string: candidate.source_evidence.packString,
-            outer_qty: candidate.outer_qty,
-            inner_qty: candidate.inner_qty,
-            inner_type: candidate.inner_type,
-            common_unit: candidate.common_unit,
-            count_units_per_case: candidate.count_units_per_case,
-            cost_per_common_unit: candidate.cost_per_common_unit,
-            existing_config_id: existing.id,
-            status: 'diff',
-            dry_run: false,
-            run_id: runId,
-          });
-        }
-      }
-    }
-
-    // 5b. Walk every candidate — is it new?
-    for (const c of uniqueCandidates) {
-      const k = candidateKey(c);
-      if (existingByKey.has(k)) continue;
-
-      // SKU-scoped guard — never spawn a second config for a SKU that already has one.
-      // The only way to get a second config per SKU is a human deliberately adding it.
-      const skuKey = `${String(c.vendor).toLowerCase()}::${String(c.vendor_item_id)}`;
-      if (existingSkuByTemplate.get(c.brand_template_id)?.has(skuKey)) {
-        skippedCount++;
-        if (!dryRun) {
-          await supabase.from("pack_config_seed_log").insert({
-            brand_template_id: c.brand_template_id,
-            vendor: c.vendor,
-            vendor_item_id: c.vendor_item_id,
-            pack_string: c.source_evidence?.packString,
-            status: 'skipped',
-            dry_run: false,
-            run_id: runId,
-          });
-        }
-        continue;
-      }
-
-      {
-        newCount++;
-        if (!dryRun) {
-          const { data: inserted, error: insErr } = await supabase
-            .from("brand_pack_configs")
-            .insert({
-              brand_template_id: c.brand_template_id,
-              outer_qty: c.outer_qty,
-              outer_type: c.outer_type,
-              inner_qty: c.inner_qty,
-              inner_type: c.inner_type,
-              common_unit: c.common_unit,
-              count_units_per_case: c.count_units_per_case,
-              cost_per_common_unit: c.cost_per_common_unit || null,
-              label: c.label,
-              source: c.source,
-              source_evidence: c.source_evidence,
-              status: 'proposed',
-            })
-            .select("id")
-            .single();
-          if (insErr) {
-            console.error("insert failed", insErr);
-            skippedCount++;
-            await supabase.from("pack_config_seed_log").insert({
-              brand_template_id: c.brand_template_id,
-              vendor: c.vendor,
-              vendor_item_id: c.vendor_item_id,
-              status: 'skipped',
-              dry_run: false,
-              run_id: runId,
-            });
-          } else {
-            created.push(c);
-            // Track the newly inserted SKU so further candidates in this run won't re-insert.
-            let set = existingSkuByTemplate.get(c.brand_template_id);
-            if (!set) { set = new Set(); existingSkuByTemplate.set(c.brand_template_id, set); }
-            set.add(skuKey);
-            await supabase.from("pack_config_seed_log").insert({
-              brand_template_id: c.brand_template_id,
-              vendor: c.vendor,
-              vendor_item_id: c.vendor_item_id,
-              pack_string: c.source_evidence.packString,
-              outer_qty: c.outer_qty,
-              inner_qty: c.inner_qty,
-              inner_type: c.inner_type,
-              common_unit: c.common_unit,
-              count_units_per_case: c.count_units_per_case,
-              cost_per_common_unit: c.cost_per_common_unit,
-              existing_config_id: inserted?.id,
-              status: 'created',
-              dry_run: false,
-              run_id: runId,
-            });
-          }
-        }
-      }
-    }
-
-    const matchedCount = results.filter(r => r.status === 'matched').length;
-
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        dry_run: dryRun,
-        run_id: runId,
-        source_filter: sourceFilter,
-        summary: {
-          candidates_found: uniqueCandidates.length,
-          existing_proposed: (existingProposed || []).filter(r => r.status === 'proposed').length,
-          existing_approved: (existingProposed || []).filter(r => r.status === 'approved').length,
-          existing_archived: (existingProposed || []).filter(r => r.status === 'archived').length,
-          matched: matchedCount,
-          diff: diffCount,
-          orphan: orphanCount,
-          new: newCount,
-          created: dryRun ? 0 : created.length,
-          skipped: dryRun ? 0 : skippedCount,
-        },
-        results: dryRun ? results : undefined,
-        sample_new: dryRun
-          ? uniqueCandidates.filter(c => !existingByKey.has(candidateKey(c))).slice(0, 5)
-          : undefined,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({
+      ok: true, dry_run: false, run_id: runId,
+      inserted_proposals: inserted, skipped_proposals: skipped,
+      ledger_rows_upserted: ledgerRows.length,
+      buckets,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("pack-config-seeder error", err);
-    return new Response(
-      JSON.stringify({ ok: false, error: (err as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ ok: false, error: (err as Error).message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
