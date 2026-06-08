@@ -27,7 +27,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // ── Pack-string parser ──
 // Shared with pack-selection-backfill. Single source of truth.
 // See supabase/functions/_shared/packParser.ts for the parser definition.
-import { parsePackString, normalizeUnit, type ParsedPack } from "../_shared/packParser.ts";
+import { parsePackString, type ParsedPack } from "../_shared/packParser.ts";
 
 
 // ── Source record types ──
