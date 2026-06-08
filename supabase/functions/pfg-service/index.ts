@@ -459,6 +459,62 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
   return { categories };
 }
 
+// Upsert PFG bid/product-list items into pfg_bid_items cache for a location.
+// Piggybacks on any categories fetch — no extra round-trips. Items not seen
+// this run keep their old last_seen_at and naturally age out of Phase 2's
+// 30-day freshness window.
+async function upsertPfgBidItems(
+  supabase: any,
+  locationId: string,
+  categories: any[],
+): Promise<{ upserted: number; skipped: number }> {
+  if (!locationId || !Array.isArray(categories) || categories.length === 0) {
+    return { upserted: 0, skipped: 0 };
+  }
+
+  const seen = new Map<string, any>(); // dedupe by item_number within run
+  for (const cat of categories) {
+    const categoryName = cat?.name || null;
+    for (const p of (cat?.products || [])) {
+      const itemNumber = p?.itemNumber;
+      if (!itemNumber) continue;
+      const key = String(itemNumber);
+      if (seen.has(key)) continue;
+      seen.set(key, {
+        location_id: locationId,
+        item_number: key,
+        description: p?.fullDescription || p?.name || '',
+        pack_size: p?.packSize || null,
+        category: categoryName,
+        brand_name: p?.brand || null,
+        unit_price: typeof p?.price === 'number' && p.price > 0 ? p.price : null,
+        last_seen_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  if (seen.size === 0) return { upserted: 0, skipped: 0 };
+
+  const rows = Array.from(seen.values());
+  // Chunk to keep payloads sane
+  const CHUNK = 500;
+  let upserted = 0;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const { error } = await supabase
+      .from('pfg_bid_items')
+      .upsert(chunk, { onConflict: 'location_id,item_number' });
+    if (error) {
+      console.warn('[PFG bid cache] Upsert chunk failed:', error.message);
+    } else {
+      upserted += chunk.length;
+    }
+  }
+  console.log(`[PFG bid cache] Upserted ${upserted}/${rows.length} items for location ${locationId}`);
+  return { upserted, skipped: rows.length - upserted };
+}
+
+
 // Fetch product detail (with pricing) from PFG
 async function fetchProductDetail(accessToken: string, productKey: string, customerId: string): Promise<any> {
   console.log('[PFG API] Fetching product detail for:', productKey);
@@ -1566,13 +1622,24 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
       });
     }
     
-    return new Response(JSON.stringify({ 
+    // Piggyback: cache bid items for Phase 2 (pack-selection-backfill).
+    // Safe — failure here never breaks the categories response.
+    if (locationId) {
+      try {
+        await upsertPfgBidItems(supabase, locationId, categories);
+      } catch (e) {
+        console.warn('[PFG bid cache] Piggyback upsert failed:', (e as Error).message);
+      }
+    }
+
+    return new Response(JSON.stringify({
       authenticated: true,
-      data: { categories } 
+      data: { categories }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
 
   if (action === 'search_bid_guide') {
     const bidGuideId = body.bidGuideHeaderId;
@@ -1669,7 +1736,130 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
   });
 }
 
+// Scrape the bid/order guide(s) for every active PFG-connected location and
+// upsert results into pfg_bid_items. Run once to seed Phase 2; thereafter
+// the piggyback in the categories action keeps the cache fresh.
+async function handleScrapeBidAllLocations(supabase: any, body: any): Promise<Response> {
+  const onlyLocationId: string | null = body?.locationId || null;
+
+  let query = supabase
+    .from('location_integrations')
+    .select('id, location_id, credentials')
+    .eq('integration_type', 'pfg')
+    .eq('is_active', true);
+
+  if (onlyLocationId) {
+    query = query.eq('location_id', onlyLocationId);
+  }
+
+  const { data: integrations, error: intError } = await query;
+
+  if (intError) {
+    return new Response(JSON.stringify({ success: false, error: intError.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!integrations || integrations.length === 0) {
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'No active PFG integrations',
+      results: [],
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  console.log(`[PFG scrape_bid_all] Found ${integrations.length} active integration(s)`);
+
+  const results: Array<{
+    locationId: string;
+    success: boolean;
+    guidesScraped: number;
+    itemsUpserted: number;
+    error?: string;
+  }> = [];
+
+  for (const integration of integrations) {
+    const credentials = integration.credentials as unknown as PFGCredentials;
+    const locId = integration.location_id;
+
+    if (!credentials?.refresh_token) {
+      results.push({ locationId: locId, success: false, guidesScraped: 0, itemsUpserted: 0, error: 'No refresh token' });
+      continue;
+    }
+
+    try {
+      const tokenResult = await getValidAccessToken(supabase, credentials, integration.id, locId, 'scrape_bid_all');
+      if (!tokenResult) {
+        results.push({ locationId: locId, success: false, guidesScraped: 0, itemsUpserted: 0, error: 'Token refresh failed' });
+        continue;
+      }
+      const accessToken = tokenResult.accessToken;
+      const customerId = credentials.customer_id;
+      if (!customerId) {
+        results.push({ locationId: locId, success: false, guidesScraped: 0, itemsUpserted: 0, error: 'No customer_id' });
+        continue;
+      }
+
+      const { guides } = await fetchProductListHeaders(accessToken, customerId);
+      if (!guides || guides.length === 0) {
+        results.push({ locationId: locId, success: false, guidesScraped: 0, itemsUpserted: 0, error: 'No product list headers returned' });
+        continue;
+      }
+
+      // Prefer guides whose name/description mentions "bid"; fall back to ALL guides.
+      const nameOf = (g: any): string =>
+        String(g?.Description || g?.ProductListHeaderDescription || g?.Name || g?.Title || '');
+      const bidGuides = guides.filter((g: any) => /bid/i.test(nameOf(g)));
+      const targetGuides = bidGuides.length > 0 ? bidGuides : guides;
+
+      console.log(`[PFG scrape_bid_all] ${locId}: ${guides.length} total guides, scraping ${targetGuides.length} (bid-match=${bidGuides.length})`);
+
+      let totalUpserted = 0;
+      let guidesScraped = 0;
+
+      for (const guide of targetGuides) {
+        const headerId = guide?.ProductListHeaderId || guide?.Id || guide?.ProductListHeaderID;
+        if (!headerId) continue;
+        try {
+          const { categories } = await fetchProductListItems(accessToken, String(headerId), customerId);
+          const { upserted } = await upsertPfgBidItems(supabase, locId, categories || []);
+          totalUpserted += upserted;
+          guidesScraped++;
+        } catch (e) {
+          console.warn(`[PFG scrape_bid_all] guide ${headerId} failed for ${locId}: ${(e as Error).message}`);
+        }
+      }
+
+      results.push({ locationId: locId, success: true, guidesScraped, itemsUpserted: totalUpserted });
+    } catch (e) {
+      results.push({
+        locationId: locId,
+        success: false,
+        guidesScraped: 0,
+        itemsUpserted: 0,
+        error: (e as Error).message,
+      });
+    }
+  }
+
+  const totals = results.reduce(
+    (acc, r) => ({
+      locations: acc.locations + 1,
+      ok: acc.ok + (r.success ? 1 : 0),
+      guides: acc.guides + r.guidesScraped,
+      items: acc.items + r.itemsUpserted,
+    }),
+    { locations: 0, ok: 0, guides: 0, items: 0 },
+  );
+
+  return new Response(JSON.stringify({ success: true, totals, results }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
+
   let locationIds: string[] = [];
   
   if (body?.locationId) {
@@ -2542,8 +2732,12 @@ serve(async (req) => {
         });
       }
       
+      case 'scrape_bid_all_locations':
+        return await handleScrapeBidAllLocations(supabase, body);
+
       case 'sync_orders':
         return await handleSyncOrders(supabase, body);
+
       
       case 'list_delivery_locations':
         return await handleListDeliveryLocations(supabase, body);
