@@ -532,6 +532,28 @@ Deno.serve(async (req) => {
       else bucketsNew++;
     }
 
+    // ── Enrich deferred reports with most-recent invoice context ──
+    const enrichedNeedsSourceEvidence = reports.needs_source_evidence.map(r => {
+      const pairHit = enrichByPair.get(`${r.location_id}::${r.template_id}`);
+      const tplHit = enrichByTemplate.get(r.template_id);
+      const hit = pairHit ?? tplHit ?? null;
+      return {
+        ...r,
+        ...(hit ?? {}),
+        invoice_match_scope: pairHit ? 'location' : (tplHit ? 'template_any_location' : null),
+        no_invoice_history: !hit,
+      };
+    }).sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? ''));
+
+    const enrichedNeedsVendorMapping = reports.needs_vendor_mapping.map(r => {
+      const hit = enrichByTemplate.get(r.template_id) ?? null;
+      return {
+        ...r,
+        ...(hit ?? {}),
+        no_invoice_history: !hit,
+      };
+    }).sort((a, b) => (a.template_name ?? '').localeCompare(b.template_name ?? ''));
+
     // ── DRY-RUN: return everything, write nothing ──
     if (dryRun) {
       return new Response(JSON.stringify({
@@ -544,12 +566,14 @@ Deno.serve(async (req) => {
           proposals_new_vs_existing: { new: bucketsNew, matched_existing: bucketsMatched },
         },
         reports: {
-          needs_vendor_mapping_count: reports.needs_vendor_mapping.length,
-          needs_source_evidence_count: reports.needs_source_evidence.length,
+          needs_vendor_mapping_count: enrichedNeedsVendorMapping.length,
+          needs_source_evidence_count: enrichedNeedsSourceEvidence.length,
+          needs_source_evidence_no_invoice_count: enrichedNeedsSourceEvidence.filter(r => r.no_invoice_history).length,
           multiple_mappings_warning_count: reports.multiple_mappings_warning.length,
           parse_failures_count: reports.parse_failures.length,
-          needs_vendor_mapping_sample: reports.needs_vendor_mapping.slice(0, 10),
-          needs_source_evidence_sample: reports.needs_source_evidence.slice(0, 10),
+          // Full enriched lists (sorted by template name) — small enough to paste.
+          needs_vendor_mapping: enrichedNeedsVendorMapping,
+          needs_source_evidence: enrichedNeedsSourceEvidence,
           multiple_mappings_warning_sample: reports.multiple_mappings_warning.slice(0, 10),
           parse_failures_sample: reports.parse_failures.slice(0, 10),
         },
@@ -557,6 +581,7 @@ Deno.serve(async (req) => {
         sample_ledger_rows: ledgerRows.slice(0, 10),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
 
     // ── LIVE run: insert proposals (skip duplicates), upsert ledger ──
     let inserted = 0, skipped = 0;
