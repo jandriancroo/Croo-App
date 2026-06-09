@@ -435,7 +435,7 @@ Deno.serve(async (req) => {
                   source: 'pfg_order', vendor: 'pfg', vendor_item_id: m.vendor_item_id,
                   parsed: { outer_qty: parsed.outer_qty, outer_type: 'case', inner_qty: parsed.inner_qty, inner_type: parsed.inner_type, common_unit: parsed.common_unit },
                   cost_per_case: ord.price ?? null, raw_pack_string: ord.packSize,
-                  observed_at: ord._order_date ?? null, label: ord.name ?? null,
+                  observed_at: ord._order_date ?? null, label: formatPackLabel(parsed),
                 });
               } else {
                 reports.parse_failures.push({ template_id: templateId, template_name: tpl?.product_name ?? '(unknown)', location_id: locationId, source: 'pfg_order', pack_string: ord.packSize });
