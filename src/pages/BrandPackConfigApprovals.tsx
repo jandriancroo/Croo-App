@@ -645,6 +645,120 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
   const setRowBusy = (id: string, label: string | null) =>
     setBusy((b) => ({ ...b, [id]: label }));
 
+  // Sync the row's case price from the freshest vendor source for the same SKU,
+  // and recompute cost_per_common_unit using current outer/inner. No structure
+  // changes, no status change. Use when invoices/bid updates have arrived but
+  // the seeder hasn't re-run yet.
+  const syncRecentCost = async (r: ProposalRow) => {
+    const ev = (r.source_evidence || {}) as any;
+    const vendor = String(ev.vendor || "").toLowerCase();
+    const sku = ev.sku != null ? String(ev.sku) : null;
+    if (!vendor || !sku) {
+      toast({ title: "No vendor + SKU on this row", variant: "destructive" });
+      return;
+    }
+    setRowBusy(r.id, "sync-cost");
+    try {
+      let newCost: number | null = null;
+      let sourceLabel = "";
+      let sourceDate: string | null = null;
+
+      if (vendor === "pfg") {
+        const { data: orders } = await supabase
+          .from("pfg_orders")
+          .select("items, delivery_date")
+          .order("delivery_date", { ascending: false })
+          .limit(100);
+        for (const o of orders ?? []) {
+          const items = Array.isArray((o as any).items) ? ((o as any).items as any[]) : [];
+          const hit = items.find((x: any) => String(x?.itemNumber) === sku);
+          if (hit?.price != null) {
+            newCost = Number(hit.price);
+            sourceLabel = "pfg_order";
+            sourceDate = (o as any).delivery_date ?? null;
+            break;
+          }
+        }
+        if (newCost == null) {
+          const { data: bid } = await supabase
+            .from("pfg_bid_items")
+            .select("unit_price, last_seen_at")
+            .eq("item_number", sku)
+            .order("last_seen_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (bid?.unit_price != null) {
+            newCost = Number(bid.unit_price);
+            sourceLabel = "pfg_bid";
+            sourceDate = (bid as any).last_seen_at ?? null;
+          }
+        }
+      } else if (vendor === "pa") {
+        const { data: pa } = await supabase
+          .from("pa_catalog_items")
+          .select("unit_price, last_seen_at")
+          .eq("pa_item_id", sku)
+          .order("last_seen_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (pa?.unit_price != null) {
+          newCost = Number(pa.unit_price);
+          sourceLabel = "pa_catalog";
+          sourceDate = (pa as any).last_seen_at ?? null;
+        }
+      } else {
+        toast({ title: `Vendor "${vendor}" not supported for cost sync`, variant: "destructive" });
+        return;
+      }
+
+      if (newCost == null) {
+        toast({
+          title: `No recent ${vendor.toUpperCase()} price found for SKU ${sku}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const d = drafts[r.id];
+      const outerN = Number(d?.outer_qty ?? r.outer_qty) || 0;
+      const innerRaw = d?.inner_qty ?? r.inner_qty;
+      const innerN = innerRaw == null || innerRaw === ("" as any) ? null : Number(innerRaw);
+      const cupc = outerN * (innerN ?? 1);
+      const newPerUnit = cupc > 0 ? newCost / cupc : null;
+
+      const oldCost = ev.costPerCase != null ? Number(ev.costPerCase) : null;
+      const newEv = {
+        ...ev,
+        costPerCase: newCost,
+        last_cost_refresh: {
+          source: sourceLabel,
+          source_date: sourceDate,
+          old_cost_per_case: oldCost,
+          new_cost_per_case: newCost,
+          old_cost_per_common_unit: r.cost_per_common_unit,
+          new_cost_per_common_unit: newPerUnit,
+          at: new Date().toISOString(),
+        },
+      };
+
+      const { error } = await supabase
+        .from("brand_pack_configs")
+        .update({ source_evidence: newEv, cost_per_common_unit: newPerUnit })
+        .eq("id", r.id);
+      if (error) throw error;
+
+      toast({
+        title: `Cost synced from ${sourceLabel}`,
+        description: `$${newCost.toFixed(2)}/cs${oldCost != null ? ` (was $${oldCost.toFixed(2)})` : ""}`,
+      });
+      await qc.invalidateQueries({ queryKey: ["pack-config-proposals"] });
+    } catch (e: any) {
+      toast({ title: "Sync failed", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setRowBusy(r.id, null);
+    }
+  };
+
   // ---- Save Draft ----
   const saveDraft = useMutation({
     mutationFn: async (r: ProposalRow) => {
@@ -1489,21 +1603,34 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
                                   ? <>${casePriceFromSrc.toFixed(2)} ÷ {cupc} {commonUnitLabel}</>
                                   : "no source case price"}
                               </span>
-                              {!formLocked && (
-                                <button
-                                  type="button"
-                                  className="underline hover:text-foreground"
-                                  onClick={() => {
-                                    const next = !usingOverride;
-                                    setCostOverride((m) => ({ ...m, [r.id]: next }));
-                                    if (!next && derivedCost != null) {
-                                      patchDraft(r.id, { cost_per_common_unit: derivedCost });
-                                    }
-                                  }}
-                                >
-                                  {usingOverride ? "use calculated" : "override"}
-                                </button>
-                              )}
+                              <div className="flex items-center gap-3">
+                                {(ev.vendor && ev.sku) && (
+                                  <button
+                                    type="button"
+                                    className="underline hover:text-foreground disabled:opacity-50"
+                                    disabled={busy[r.id] === "sync-cost"}
+                                    onClick={() => syncRecentCost(r)}
+                                    title={`Pull latest ${String(ev.vendor).toUpperCase()} price for SKU ${ev.sku}`}
+                                  >
+                                    {busy[r.id] === "sync-cost" ? "syncing…" : "sync recent cost"}
+                                  </button>
+                                )}
+                                {!formLocked && (
+                                  <button
+                                    type="button"
+                                    className="underline hover:text-foreground"
+                                    onClick={() => {
+                                      const next = !usingOverride;
+                                      setCostOverride((m) => ({ ...m, [r.id]: next }));
+                                      if (!next && derivedCost != null) {
+                                        patchDraft(r.id, { cost_per_common_unit: derivedCost });
+                                      }
+                                    }}
+                                  >
+                                    {usingOverride ? "use calculated" : "override"}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <div className="text-[11px] text-muted-foreground italic pt-0.5">
                               Informational only. The count screen uses each location's vendor sync price, not this value.
