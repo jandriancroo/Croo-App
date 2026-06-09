@@ -509,6 +509,12 @@ Deno.serve(async (req) => {
               override_values: overrideApplied ? ov : null,
               final_pack: final,
               cost_basis: { cost_per_case: r.cost_per_case, raw_pack_string: r.raw_pack_string, observed_at: r.observed_at },
+              // Flat aliases — BrandPackConfigApprovals.tsx reads these legacy field names.
+              // Keep alongside the nested shape so both old UI and new audit consumers work.
+              sku: r.vendor_item_id,
+              packString: r.raw_pack_string,
+              costPerCase: r.cost_per_case,
+              territory: null,
             },
             location_id: locationId,
             pack_structure_key: sk,
