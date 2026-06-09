@@ -1603,21 +1603,34 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
                                   ? <>${casePriceFromSrc.toFixed(2)} ÷ {cupc} {commonUnitLabel}</>
                                   : "no source case price"}
                               </span>
-                              {!formLocked && (
-                                <button
-                                  type="button"
-                                  className="underline hover:text-foreground"
-                                  onClick={() => {
-                                    const next = !usingOverride;
-                                    setCostOverride((m) => ({ ...m, [r.id]: next }));
-                                    if (!next && derivedCost != null) {
-                                      patchDraft(r.id, { cost_per_common_unit: derivedCost });
-                                    }
-                                  }}
-                                >
-                                  {usingOverride ? "use calculated" : "override"}
-                                </button>
-                              )}
+                              <div className="flex items-center gap-3">
+                                {(ev.vendor && ev.sku) && (
+                                  <button
+                                    type="button"
+                                    className="underline hover:text-foreground disabled:opacity-50"
+                                    disabled={busy[r.id] === "sync-cost"}
+                                    onClick={() => syncRecentCost(r)}
+                                    title={`Pull latest ${String(ev.vendor).toUpperCase()} price for SKU ${ev.sku}`}
+                                  >
+                                    {busy[r.id] === "sync-cost" ? "syncing…" : "sync recent cost"}
+                                  </button>
+                                )}
+                                {!formLocked && (
+                                  <button
+                                    type="button"
+                                    className="underline hover:text-foreground"
+                                    onClick={() => {
+                                      const next = !usingOverride;
+                                      setCostOverride((m) => ({ ...m, [r.id]: next }));
+                                      if (!next && derivedCost != null) {
+                                        patchDraft(r.id, { cost_per_common_unit: derivedCost });
+                                      }
+                                    }}
+                                  >
+                                    {usingOverride ? "use calculated" : "override"}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <div className="text-[11px] text-muted-foreground italic pt-0.5">
                               Informational only. The count screen uses each location's vendor sync price, not this value.
