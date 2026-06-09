@@ -624,8 +624,9 @@ Deno.serve(async (req) => {
         checkpoint: "A",
         buckets: {
           ...buckets,
-          proposals_new_vs_existing: { new: bucketsNew, matched_existing: bucketsMatched },
+          proposals_new_vs_existing: { new: bucketsNew, matched_existing: bucketsMatched, legacy_sku_stamp: bucketsLegacyStamp },
         },
+        legacy_sku_stamp_plan: legacyStampPlan,
         reports: {
           needs_vendor_mapping_count: enrichedNeedsVendorMapping.length,
           needs_source_evidence_count: enrichedNeedsSourceEvidence.length,
