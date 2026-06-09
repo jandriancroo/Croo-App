@@ -100,6 +100,19 @@ const InventoryCountView = ({ countId, locationId, periodEndDate }: InventoryCou
     getItemValueWithLegs,
   } = useLegsValuation(countId, locationId);
 
+  // Recipe batch cost fallback — review/COGS need this when cost_at_count
+  // snapshot is null AND item.cost_per_unit is null (which is the case for
+  // most recipe items since recipe cost is computed live, not persisted).
+  // Without this, recipe rows render $0 in review even though the count
+  // screen shows the right value (because count screen does this lookup live).
+  const { data: recipeCosts } = useQuery({
+    queryKey: ["recipe-costs-for-count-view", locationId],
+    queryFn: () => fetchRecipeCosts(locationId),
+    enabled: !!locationId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+
 
   // Fetch storage locations in order
   const { data: storageLocations } = useQuery({
